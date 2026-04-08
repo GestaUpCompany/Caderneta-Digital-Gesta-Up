@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-gray-100 text-gray-900 font-sans;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  button {
+    @apply min-h-[60px] min-w-[60px] text-lg font-bold;
+  }
+
+  input, select, textarea {
+    @apply min-h-[60px] text-lg;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-black text-white font-bold py-4 px-6 rounded-xl min-h-[64px] text-xl active:scale-95 transition-transform w-full;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-black border-2 border-black font-bold py-4 px-6 rounded-xl min-h-[64px] text-xl active:scale-95 transition-transform w-full;
+  }
+
+  .btn-danger {
+    @apply bg-red-700 text-white font-bold py-4 px-6 rounded-xl min-h-[64px] text-xl active:scale-95 transition-transform w-full;
+  }
+
+  .btn-success {
+    @apply bg-green-800 text-white font-bold py-4 px-6 rounded-xl min-h-[64px] text-xl active:scale-95 transition-transform w-full;
+  }
+
+  .input-field {
+    @apply w-full border-2 border-gray-400 rounded-xl px-4 py-3 text-xl min-h-[60px] focus:border-black focus:outline-none bg-white;
+  }
+
+  .caderneta-card {
+    @apply bg-white rounded-2xl p-5 shadow-md border-2 border-gray-200 active:scale-95 transition-transform;
+  }
+
+  .section-title {
+    @apply text-xl font-bold text-gray-900 mb-3 border-b-2 border-gray-300 pb-2;
+  }
+}
