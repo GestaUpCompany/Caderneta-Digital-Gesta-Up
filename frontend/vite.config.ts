@@ -10,39 +10,39 @@ export default defineConfig({
     splitVendorChunkPlugin(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: ['favicon.svg', 'logo-gestaup-app-cadernetadigital.png'],
       manifest: {
         name: 'Cadernetas Digitais - Gestão Rural',
         short_name: 'Cadernetas',
         description: 'Cadernetas de campo para peões de fazenda. Registre dados de maternidade, pastagens, rodeio, suplementação, bebedouros e movimentação offline e sincronize com Google Sheets.',
-        theme_color: '#000000',
-        background_color: '#000000',
+        theme_color: '#1a3a2a',
+        background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        start_url: '/Caderneta-Digital-Gesta-Up/',
+        scope: '/Caderneta-Digital-Gesta-Up/',
         lang: 'pt-BR',
         dir: 'ltr',
         categories: ['business', 'productivity', 'utilities'],
         icons: [
           {
-            src: 'favicon.svg',
-            sizes: '64x64 128x128 192x192 512x512',
-            type: 'image/svg+xml',
+            src: 'logo-gestaup-app-cadernetadigital.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'icons.svg',
-            sizes: '64x64 128x128 192x192 512x512',
-            type: 'image/svg+xml',
-            purpose: 'any'
+            src: 'logo-gestaup-app-cadernetadigital.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         globIgnores: ['**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
-        navigateFallback: '/index.html',
+        navigateFallback: '/Caderneta-Digital-Gesta-Up/index.html',
         skipWaiting: true,
         clientsClaim: true,
         runtimeCaching: [

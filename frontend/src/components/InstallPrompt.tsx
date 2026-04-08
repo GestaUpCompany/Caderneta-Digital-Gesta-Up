@@ -78,7 +78,7 @@ export default function InstallPrompt() {
         <Button onClick={handleInstall} variant="primary" fullWidth icon="⬇️">
           INSTALAR APP
         </Button>
-        <Button onClick={handleDismiss} variant="ghost" size="sm">
+        <Button onClick={handleDismiss} variant="ghost" size="sm" className="!text-white !border-gray-600">
           AGORA NÃO
         </Button>
       </div>
