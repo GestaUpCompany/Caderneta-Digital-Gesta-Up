@@ -36,8 +36,8 @@ function isSnBoolean(value: unknown): boolean {
   return value === 'S' || value === 'N'
 }
 
-function isScaleValue(value: unknown, min: number, max: number): boolean {
-  if (value === null || value === undefined) return true
+function isScaleValue(value: unknown, min: number, max: number, required = false): boolean {
+  if (value === null || value === undefined || value === '') return !required
   const num = Number(value)
   return !isNaN(num) && num >= min && num <= max
 }
@@ -163,7 +163,7 @@ export function validateBebedouros(data: Record<string, unknown>): ValidationRes
     errors.push({ field: 'gado', message: 'Tipo de gado é obrigatório' })
   if (!isNonEmptyString(data.categoria))
     errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
-  if (!isScaleValue(data.leituraBebedouro, 1, 3))
+  if (!isScaleValue(data.leituraBebedouro, 1, 3, true))
     errors.push({ field: 'leituraBebedouro', message: 'Leitura do bebedouro deve ser entre 1 e 3' })
 
   return { isValid: errors.length === 0, errors }

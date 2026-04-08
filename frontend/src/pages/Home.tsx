@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 
-export default function Home() {
+interface Props {
+  onSyncRequest?: () => void
+}
+
+export default function Home({ onSyncRequest }: Props) {
   const navigate = useNavigate()
 
   return (
@@ -41,7 +45,15 @@ export default function Home() {
         </button>
       </main>
 
-      <footer className="p-4 bg-gray-900">
+      <footer className="p-4 bg-gray-900 flex flex-col gap-3">
+        {onSyncRequest && (
+          <button
+            onClick={onSyncRequest}
+            className="w-full bg-blue-700 text-white font-bold py-4 rounded-xl text-lg"
+          >
+            🔄 SINCRONIZAR AGORA
+          </button>
+        )}
         <button
           onClick={() => navigate('/configuracoes')}
           className="w-full bg-gray-700 text-white font-bold py-4 rounded-xl text-lg"

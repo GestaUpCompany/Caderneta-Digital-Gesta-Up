@@ -12,8 +12,15 @@ const PORT = process.env.PORT || 3001
 
 app.use(express.json())
 
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173,http://localhost:5174').split(',')
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.some((o) => origin.startsWith(o.trim()))) {
+      callback(null, true)
+    } else {
+      callback(new Error(`Origem não permitida: ${origin}`))
+    }
+  },
   methods: ['GET', 'POST', 'PUT'],
   allowedHeaders: ['Content-Type'],
 }))
