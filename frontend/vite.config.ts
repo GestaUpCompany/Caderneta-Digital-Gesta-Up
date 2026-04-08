@@ -45,6 +45,7 @@ export default defineConfig({
         navigateFallback: '/Caderneta-Digital-Gesta-Up/index.html',
         skipWaiting: true,
         clientsClaim: true,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

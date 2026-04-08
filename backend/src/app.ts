@@ -4,6 +4,7 @@ import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import { sheetsRouter } from './controllers/sheetsController'
 import { syncRouter } from './controllers/syncController'
+import versionRouter from './controllers/versionController'
 import { securityHeaders, requestLogger, errorHandler } from './middleware/security'
 import { logger } from './utils/logger'
 
@@ -45,6 +46,7 @@ const strictLimiter = rateLimit({
 app.use('/api', standardLimiter)
 app.use('/api/sheets', sheetsRouter)
 app.use('/api/sync', strictLimiter, syncRouter)
+app.use('/api', versionRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json({

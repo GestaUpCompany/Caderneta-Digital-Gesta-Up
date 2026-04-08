@@ -5,12 +5,14 @@ import Configuracoes from './pages/Configuracoes'
 import SyncStatusBar from './components/SyncStatusBar'
 import ConflictModal from './components/ConflictModal'
 import InstallPrompt from './components/InstallPrompt'
+import { UpdateDialog } from './components/UpdateDialog'
 import PageLoader from './components/PageLoader'
 import { useSync } from './hooks/useSync'
 import { useConflicts } from './hooks/useConflicts'
 import { verificarBackupAutomatico } from './services/backupService'
 import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
+import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 
 // Lazy loading das cadernetas (code splitting)
 const MaternidadePage = lazy(() => import('./pages/cadernetas/MaternidadePage'))
@@ -40,6 +42,15 @@ function AppInner() {
   // Backup automático a cada 24 horas
   useEffect(() => {
     verificarBackupAutomatico()
+    
+    // Debug PWA - remover em produção
+    if (process.env.NODE_ENV === 'development') {
+      setTimeout(() => {
+        console.log('Iniciando debug PWA...')
+        checkPWARequirements()
+        debugPWA()
+      }, 2000)
+    }
   }, [])
 
   return (
@@ -88,6 +99,7 @@ function AppInner() {
         />
       )}
       <InstallPrompt />
+      <UpdateDialog />
     </div>
   )
 }
