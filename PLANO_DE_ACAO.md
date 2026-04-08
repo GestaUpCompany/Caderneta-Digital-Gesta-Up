@@ -432,10 +432,11 @@ backend/src/
   - Base path: `/Caderneta-Digital-Gesta-Up/`
   - Deploy automático no push para master
   - URL: https://gestaupcompany.github.io/Caderneta-Digital-Gesta-Up/
-- [x] **Configurar Railway** (Backend)
+- [x] **Configurar Vercel** (Backend)
   - Workflow: `.github/workflows/backend-deploy.yml`
   - Deploy automático quando `backend/` muda
-  - URL: https://cadernetas-backend-production.up.railway.app
+  - URL: https://cadernetas-backend.vercel.app
+  - Custo: 100% gratuito (100k invocações/mês)
 - [x] **README.md** com instruções completas
 - [ ] **Implementar monitoramento**
   - Sentry para erros

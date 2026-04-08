@@ -10,9 +10,10 @@ Aplicativo PWA para peões de fazenda registrar dados de produção offline e si
 - **PWA**: Instalável via banner no navegador
 
 ### **Backend**
-- **Railway**: Node.js + Express + Redis
-- **URL**: https://cadernetas-backend-production.up.railway.app
+- **Vercel Serverless**: Node.js + Express
+- **URL**: https://cadernetas-backend.vercel.app
 - **Deploy**: Automático quando há mudanças em `backend/`
+- **Custo**: 100% gratuito (100k invocações/mês)
 
 ## **Setup Local**
 
