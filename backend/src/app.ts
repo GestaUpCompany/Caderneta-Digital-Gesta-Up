@@ -17,7 +17,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(securityHeaders)
 app.use(requestLogger)
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173,http://localhost:5174').split(',')
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173,http://localhost:5174,https://gestaupcompany.github.io').split(',')
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.some((o) => origin.startsWith(o.trim()))) {
