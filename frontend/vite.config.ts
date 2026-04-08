@@ -42,6 +42,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         globIgnores: ['**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
+        navigateFallback: '/index.html',
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -83,8 +86,6 @@ export default defineConfig({
             }
           }
         ],
-        skipWaiting: true,
-        clientsClaim: true,
         cleanupOutdatedCaches: true
       },
       devOptions: {
