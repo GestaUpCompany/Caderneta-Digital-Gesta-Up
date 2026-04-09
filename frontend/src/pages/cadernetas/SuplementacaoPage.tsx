@@ -12,7 +12,7 @@ const PRODUTOS = [
 
 const TIPOS_GADO = [
   { value: 'Cria', label: 'CRIA', icon: '🍼' },
-  { value: 'Recria', label: 'RECREIA', icon: '🌱' },
+  { value: 'Recria', label: 'RECRIA', icon: '🌱' },
   { value: 'Engorda', label: 'ENGORDA', icon: '🥩' },
 ]
 
@@ -38,7 +38,7 @@ interface FormState {
   leitura: string
   sacos: string
   kg: string
-  creep: string
+  recria: string
   categorias: string[]
 }
 
@@ -52,7 +52,7 @@ const makeInitial = (): FormState => ({
   leitura: '',
   sacos: '',
   kg: '',
-  creep: '',
+  recria: '',
   categorias: [],
 })
 
@@ -95,7 +95,7 @@ export default function SuplementacaoPage() {
       leitura: form.leitura ? Number(form.leitura) : null,
       sacos: form.sacos ? Number(form.sacos) : 0,
       kg: form.kg ? Number(form.kg) : 0,
-      creep: form.creep ? Number(form.creep) : 0,
+      recria: form.recria ? Number(form.recria) : 0,
       categorias: form.categorias,
     })
 
@@ -236,8 +236,8 @@ export default function SuplementacaoPage() {
             <Input
               label="CREEP"
               placeholder="0"
-              value={form.creep}
-              onChange={setInput('creep')}
+              value={form.recria}
+              onChange={setInput('recria')}
               inputMode="decimal"
               type="number"
               min="0"
