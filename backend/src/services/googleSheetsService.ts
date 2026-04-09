@@ -4,7 +4,6 @@ import path from 'path'
 import fs from 'fs'
 
 const CREDENTIALS_PATH = process.env.GOOGLE_CREDENTIALS_PATH || './config/google-credentials.json'
-const SPREADSHEET_ID = '1eHtT2ujhuGiwXcmYoxk4g4gsvVr4uBcTKZfo_BFICZQ'
 
 function getAuth() {
   const credentialsPath = path.resolve(CREDENTIALS_PATH)

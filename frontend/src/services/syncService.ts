@@ -50,7 +50,7 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
     r.numeroCabecas as number, r.pesoMedio as number, r.vaca as string,
     r.touro as string, r.boiGordo as string, r.boiMagro as string,
     r.garrote as string, r.bezerro as string, r.novilha as string,
-    r.tropa as string, r.outros as string, r.motivoMovimentacao as string,
+    r.tropa as string, r.outraCategoria as string, r.motivoMovimentacao as string,
     r.brincoChip as string, r.causaObservacao as string,
   ],
 }

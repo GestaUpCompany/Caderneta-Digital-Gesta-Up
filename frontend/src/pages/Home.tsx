@@ -76,7 +76,7 @@ export default function Home() {
 
       {/* Footer com ações */}
       <footer className="p-4 bg-gray-900 flex flex-col gap-3">
-        <Button onClick={() => navigate('/configuracoes')} variant="ghost" icon="⚙️">
+        <Button onClick={() => navigate('/configuracoes')} variant="ghost" icon="⚙️" className="text-white hover:text-gray-200">
           CONFIGURAÇÕES
         </Button>
       </footer>
