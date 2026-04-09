@@ -28,8 +28,24 @@ export function useSync() {
   }, [dispatch])
 
   const runSync = useCallback(async () => {
-    if (!configurado || !planilhaUrl || isRunning.current) return
+    console.log('useSync: runSync chamado', { configurado, planilhaUrl, isRunning: isRunning.current })
+    console.log('useSync: Valores exatos:', {
+      configurado: configurado,
+      planilhaUrl: planilhaUrl,
+      planilhaUrlLength: planilhaUrl?.length,
+      isRunning: isRunning.current
+    })
+    if (!configurado || !planilhaUrl || isRunning.current) {
+      console.log('useSync: Sincronização não executada - condições não atendidas')
+      console.log('useSync: Razões:', {
+        semConfiguracao: !configurado,
+        semPlanilhaUrl: !planilhaUrl,
+        isRunning: isRunning.current
+      })
+      return
+    }
 
+    console.log('useSync: Iniciando sincronização...')
     isRunning.current = true
     dispatch(setStatus('syncing'))
     dispatch(setSyncProgress(0))
@@ -38,40 +54,19 @@ export function useSync() {
     try {
       const queue = await getSyncQueue()
       const total = queue.length
+      console.log('useSync: Queue encontrada', { total, queue })
 
       if (total === 0) {
+        console.log('useSync: Nenhum item para sincronizar')
         dispatch(setStatus('online'))
         dispatch(setLastSync(new Date().toISOString()))
         isRunning.current = false
         return
       }
 
-      for (let i = 0; i < queue.length; i++) {
-        const item = queue[i]
-        const { hasConflict, conflict } = await detectConflict(
-          item.store,
-          item.registroId,
-          planilhaUrl
-        )
-
-        if (hasConflict && conflict) {
-          saveConflictLocally(conflict)
-          dispatch(setStatus('conflict'))
-          dispatch(setSyncProgress(Math.round(((i + 1) / total) * 100)))
-          continue
-        }
-
-        dispatch(setSyncProgress(Math.round(((i + 1) / total) * 100)))
-      }
-
-      const pendingConflicts = loadLocalConflicts()
-      if (pendingConflicts.length > 0) {
-        dispatch(setStatus('conflict'))
-        isRunning.current = false
-        return
-      }
-
+      console.log('useSync: Processando queue com planilhaUrl:', planilhaUrl)
       const { synced, failed } = await processQueue(planilhaUrl)
+      console.log('useSync: Resultado da sincronização', { synced, failed })
 
       if (failed > 0) {
         dispatch(setError(`${failed} registro(s) não sincronizados. Tentando novamente...`))

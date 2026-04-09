@@ -14,7 +14,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 
-// Lazy loading das cadernetas (code splitting)
+// Lazy loading das cadernetas
 const MaternidadePage = lazy(() => import('./pages/cadernetas/MaternidadePage'))
 const MaternidadeListaPage = lazy(() => import('./pages/cadernetas/MaternidadeListaPage'))
 const PastagensPage = lazy(() => import('./pages/cadernetas/PastagensPage'))
@@ -29,6 +29,8 @@ const MovimentacaoPage = lazy(() => import('./pages/cadernetas/MovimentacaoPage'
 const MovimentacaoListaPage = lazy(() => import('./pages/cadernetas/MovimentacaoListaPage'))
 
 function AppInner() {
+  console.log('AppInner: Testando hooks...')
+  
   const { runSync } = useSync()
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
@@ -56,10 +58,15 @@ function AppInner() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <SyncStatusBar />
+      {/* Header simples */}
+      <div className="bg-green-700 text-white px-4 py-2">
+        <span className="text-base">CADERNETAS DIGITAIS</span>
+      </div>
+      
       <div className="flex-1">
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<Home onSyncRequest={runSync} />} />
+            <Route path="/" element={<Home />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
 
             {/* Maternidade */}
@@ -89,6 +96,7 @@ function AppInner() {
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />
             <Route path="/caderneta/:id/lista" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </div>

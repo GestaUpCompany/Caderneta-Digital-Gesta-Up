@@ -4,11 +4,7 @@ import { CADERNETAS } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 
-interface Props {
-  onSyncRequest?: () => void
-}
-
-export default function Home({ onSyncRequest }: Props) {
+export default function Home() {
   const navigate = useNavigate()
   const { configurado, fazenda } = useSelector((state: RootState) => state.config)
 
@@ -27,13 +23,13 @@ export default function Home({ onSyncRequest }: Props) {
         {!configurado ? (
           <div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 text-center">
             <p className="text-xl font-bold text-yellow-800 mb-4">
-              ⚠️ CONFIGURAÇÃO NECESSÁRIA
+              ? CONFIGURAÇÃO NECESSÁRIA
             </p>
             <p className="text-lg text-gray-700 mb-6">
               Configure a fazenda antes de usar as cadernetas
             </p>
             <Button onClick={() => navigate('/configuracoes')} variant="primary">
-              ⚙️ IR PARA CONFIGURAÇÕES
+              ? IR PARA CONFIGURAÇÕES
             </Button>
           </div>
         ) : (
@@ -66,11 +62,6 @@ export default function Home({ onSyncRequest }: Props) {
 
       {/* Footer com ações */}
       <footer className="p-4 bg-gray-900 flex flex-col gap-3">
-        {configurado && onSyncRequest && (
-          <Button onClick={onSyncRequest} variant="secondary" icon="🔄">
-            SINCRONIZAR AGORA
-          </Button>
-        )}
         <Button onClick={() => navigate('/configuracoes')} variant="ghost" icon="⚙️">
           CONFIGURAÇÕES
         </Button>

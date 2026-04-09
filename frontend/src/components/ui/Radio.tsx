@@ -26,7 +26,7 @@ export default function Radio({
   direction = 'horizontal',
 }: RadioProps) {
   const containerStyles = direction === 'horizontal' 
-    ? 'grid grid-cols-2 sm:grid-cols-3 gap-3' 
+    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' 
     : 'flex flex-col gap-3'
 
   return (
@@ -43,10 +43,10 @@ export default function Radio({
             <label
               key={option.value}
               className={`
-                cursor-pointer rounded-xl border-2 p-4 
+                cursor-pointer rounded-xl border-2 p-3 sm:p-4 
                 transition-all active:scale-95
                 flex flex-col items-center justify-center gap-2
-                min-h-[80px]
+                min-h-[70px] sm:min-h-[80px]
                 ${isSelected 
                   ? 'bg-black text-white border-black' 
                   : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'
@@ -62,8 +62,8 @@ export default function Radio({
                 onChange={() => onChange(option.value)}
                 className="sr-only"
               />
-              {option.icon && <span className="text-3xl">{option.icon}</span>}
-              <span className="text-base font-bold text-center leading-tight">
+              {option.icon && <span className="text-2xl sm:text-3xl">{option.icon}</span>}
+              <span className="text-sm sm:text-base font-bold text-center leading-tight">
                 {option.label}
               </span>
             </label>

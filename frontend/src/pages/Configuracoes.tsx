@@ -35,6 +35,16 @@ export default function Configuracoes() {
     return newErrors.length === 0
   }
 
+  // Converter URL de compartilhamento para URL de API
+  const converterUrlParaAPI = (url: string): string => {
+    // Remove parâmetros como /edit?usp=sharing e adiciona /edit
+    const baseUrl = url.split('?')[0]
+    if (baseUrl.endsWith('/edit')) {
+      return baseUrl
+    }
+    return baseUrl.replace(/\/$/, '') + '/edit'
+  }
+
   const handleDesbloquearUrl = () => {
     if (codigoAlterar.toUpperCase() === 'ALTERAR') {
       setUrlBloqueada(false)
@@ -49,10 +59,16 @@ export default function Configuracoes() {
     setSuccessMsg('')
     if (!validate()) return
 
-    dispatch(setConfig({ fazenda: fazenda.trim(), usuario: usuario.trim(), planilhaUrl: planilhaUrl.trim() }))
+    // Converter URL para formato API automaticamente
+    const urlConvertida = converterUrlParaAPI(planilhaUrl.trim())
+    const configData = { fazenda: fazenda.trim(), usuario: usuario.trim(), planilhaUrl: urlConvertida }
+    console.log('Configuracoes: Salvando configurações', configData)
+    console.log('Configuracoes: URL convertida de', planilhaUrl.trim(), 'para', urlConvertida)
+    
+    dispatch(setConfig(configData))
     dispatch(setConfigurado(true))
     setUrlBloqueada(true)
-    setSuccessMsg('✅ Configurações salvas! Redirecionando...')
+    setSuccessMsg('Configurações salvas! Redirecionando...')
     setTimeout(() => navigate('/'), 1500)
   }
 

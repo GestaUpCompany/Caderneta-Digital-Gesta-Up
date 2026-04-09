@@ -19,7 +19,8 @@ app.use(requestLogger)
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  /^http:\/\/127\.0\.0\.1:\d+$/, // Permite qualquer porta 127.0.0.1
   'https://gestaupcompany.github.io',
   'https://gestaupcompany.github.io/Caderneta-Digital-Gesta-Up'
 ]
@@ -29,7 +30,12 @@ app.use(cors({
     // Permitir requests sem origin (como mobile apps ou curl)
     if (!origin) return callback(null, true)
     
-    if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+    if (allowedOrigins.some(allowed => {
+      if (allowed instanceof RegExp) {
+        return allowed.test(origin)
+      }
+      return origin.startsWith(allowed)
+    })) {
       callback(null, true)
     } else {
       console.log('CORS bloqueado para origin:', origin)

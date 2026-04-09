@@ -237,11 +237,11 @@ export default function MaternidadePage() {
         </div>
 
         {/* Ações */}
-        <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth>
             SALVAR
           </Button>
-          <Button onClick={handleLimpar} variant="secondary" icon="🧹">
+          <Button onClick={handleLimpar} variant="secondary" icon="🧹" fullWidth>
             LIMPAR
           </Button>
         </div>

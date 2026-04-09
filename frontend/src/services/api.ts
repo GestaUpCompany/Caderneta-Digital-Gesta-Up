@@ -14,8 +14,11 @@ export async function salvarRegistro(
   caderneta: CadernetaStore,
   data: Record<string, unknown>
 ): Promise<SaveResult> {
+  console.log('api: salvarRegistro chamado', { caderneta, data })
+  
   const validation = validate(caderneta as CadernetaType, data)
   if (!validation.isValid) {
+    console.log('api: Validação falhou', validation.errors)
     return { success: false, errors: validation.errors }
   }
 
@@ -27,8 +30,12 @@ export async function salvarRegistro(
     syncStatus: 'pending' as const,
   } as Registro
 
+  console.log('api: Registro criado', registro)
   await saveRegistro(caderneta, registro)
+  console.log('api: Registro salvo no IndexedDB')
+  
   await enqueueRegistro(caderneta, registro.id, 'create')
+  console.log('api: Registro enfileirado para sincronização')
 
   return { success: true, id: registro.id }
 }

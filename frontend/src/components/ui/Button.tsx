@@ -21,10 +21,10 @@ const variantStyles: Record<ButtonVariant, string> = {
 }
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'min-h-[48px] text-base px-4 py-2',
-  md: 'min-h-[60px] text-lg px-5 py-3',
-  lg: 'min-h-[72px] text-xl px-6 py-4',
-  touch: 'min-h-[80px] text-xl px-6 py-4',
+  sm: 'min-h-[44px] sm:min-h-[48px] text-sm sm:text-base px-3 sm:px-4 py-2',
+  md: 'min-h-[56px] sm:min-h-[60px] text-base sm:text-lg px-4 sm:px-5 py-2 sm:py-3',
+  lg: 'min-h-[64px] sm:min-h-[72px] text-lg sm:text-xl px-5 sm:px-6 py-3 sm:py-4',
+  touch: 'min-h-[72px] sm:min-h-[80px] text-lg sm:text-xl px-5 sm:px-6 py-3 sm:py-4',
 }
 
 export default function Button({
@@ -48,9 +48,9 @@ export default function Button({
       {...props}
     >
       {loading ? (
-        <span className="animate-spin text-2xl">⏳</span>
+        <span className="animate-spin text-xl sm:text-2xl">â</span>
       ) : icon ? (
-        <span className="text-2xl">{icon}</span>
+        <span className="text-xl sm:text-2xl">{icon}</span>
       ) : null}
       <span>{children}</span>
     </button>
