@@ -44,9 +44,11 @@ interface FormState {
   pesoCria: string
   numeroCria: string
   tratamento: string
+  tratamentoOutros: string
   tipoParto: string
   sexo: string
   raca: string
+  racaOutros: string
   numeroMae: string
   categoriaMae: string
 }
@@ -57,9 +59,11 @@ const makeInitial = (): FormState => ({
   pesoCria: '',
   numeroCria: '',
   tratamento: '',
+  tratamentoOutros: '',
   tipoParto: '',
   sexo: '',
   raca: '',
+  racaOutros: '',
   numeroMae: '',
   categoriaMae: '',
 })
@@ -84,15 +88,17 @@ export default function MaternidadePage() {
     setErrors([])
     setSucesso(false)
 
+    const tratamentoFinal = form.tratamento === 'Outros' ? form.tratamentoOutros : form.tratamento
+    const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
     const result = await salvarRegistro('maternidade', {
       data: form.data,
       pasto: form.pasto,
       pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
       numeroCria: form.numeroCria,
-      tratamento: form.tratamento,
+      tratamento: tratamentoFinal,
       tipoParto: form.tipoParto,
       sexo: form.sexo,
-      raca: form.raca,
+      raca: racaFinal,
       numeroMae: form.numeroMae,
       categoriaMae: form.categoriaMae,
     })
@@ -180,6 +186,15 @@ export default function MaternidadePage() {
             onChange={set('tratamento')}
             error={getError('tratamento')}
           />
+          {form.tratamento === 'Outros' && (
+            <Input
+              label="DESCREVA O TRATAMENTO"
+              placeholder="Ex: Vermífugo, Anti-inflamatório..."
+              value={form.tratamentoOutros}
+              onChange={setInputEvent('tratamentoOutros')}
+              error={getError('tratamentoOutros')}
+            />
+          )}
         </div>
 
         {/* Seção 3: Parto */}
@@ -213,6 +228,15 @@ export default function MaternidadePage() {
             onChange={set('raca')}
             error={getError('raca')}
           />
+          {form.raca === 'Outros' && (
+            <Input
+              label="QUAL RAÇA?"
+              placeholder="Ex: Brahman, Hereford, Simmental..."
+              value={form.racaOutros}
+              onChange={setInputEvent('racaOutros')}
+              error={getError('racaOutros')}
+            />
+          )}
         </div>
 
         {/* Seção 5: Dados da Mãe */}
