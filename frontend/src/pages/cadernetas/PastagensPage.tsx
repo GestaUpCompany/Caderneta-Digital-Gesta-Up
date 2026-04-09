@@ -194,12 +194,12 @@ export default function PastagensPage() {
         </div>
 
         {/* Seção 4: Categorias */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow border-2 border-gray-200 flex flex-col gap-4">
           <h2 className="section-title">4. QUANTIDADE DE ANIMAIS</h2>
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 overflow-hidden">
             {CATEGORIAS.map(({ campo, label }) => (
               <Input
                 key={campo}

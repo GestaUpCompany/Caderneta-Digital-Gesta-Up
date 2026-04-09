@@ -25,14 +25,14 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
     r.novilha as number, r.totalAnimais as number,
   ],
   rodeio: (r) => [
-    r.data as string, r.pasto as string, r.numeroLote as string,
+    r.pasto as string, r.numeroLote as string,
     r.vaca as number, r.touro as number, r.bezerro as number,
     r.boi as number, r.garrote as number, r.novilha as number,
     r.totalCabecas as number, r.escoreGadoIdeal as string, r.aguaBoaBebedouro as string,
     r.pastagemAdequada as string, r.animaisDoentes as string, r.cercasCochos as string,
     r.carrapatosMoscas as string, r.animaisEntrevados as string, r.animalMorto as string,
     r.animaisTratados as number, r.escoreFezes as number, r.equipe as number,
-    Array.isArray(r.procedimentos) ? (r.procedimentos as string[]).join(', ') : '',
+    r.procedimentos as string || '',
   ],
   suplementacao: (r) => [
     r.data as string, r.tratador as string, r.pasto as string, r.numeroLote as string,

@@ -75,15 +75,16 @@ export default function ListaRegistros({ caderneta, titulo, colunas, rotaForm }:
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-black text-white flex items-center px-4 py-5">
+      <header className="bg-black text-white flex items-center justify-between px-4 py-4">
         <button
           onClick={() => navigate(-1)}
-          className="text-yellow-400 font-bold text-xl mr-4 min-h-[48px] px-2"
+          className="text-yellow-400 font-bold text-sm flex items-center gap-2 min-h-[48px] px-3 rounded-2xl hover:bg-white/10 transition-colors"
         >
-          ← VOLTAR
+          <span className="text-xl">←</span>
+          VOLTAR
         </button>
-        <h1 className="text-xl font-bold flex-1">{titulo}</h1>
-        <span className="text-yellow-400 font-bold">
+        <h1 className="text-base font-bold flex-1 text-center">{titulo}</h1>
+        <span className="text-yellow-400 font-bold text-sm">
           {totalFiltrado}/{totalOriginal} reg.
         </span>
       </header>

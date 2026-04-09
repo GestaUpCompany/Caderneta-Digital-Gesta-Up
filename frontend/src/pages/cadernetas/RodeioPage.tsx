@@ -62,6 +62,7 @@ interface FormState extends SnFields {
   escoreFezes: string
   equipe: string
   procedimentos: string[]
+  procedimentosOutros: string
 }
 
 const makeInitial = (): FormState => ({
@@ -76,6 +77,7 @@ const makeInitial = (): FormState => ({
   escoreFezes: '',
   equipe: '',
   procedimentos: [],
+  procedimentosOutros: '',
 })
 
 const SN_OPTIONS = [
@@ -116,6 +118,12 @@ export default function RodeioPage() {
     setErrors([])
     setSucesso(false)
 
+    const procedimentosTexto = form.procedimentos.length > 0
+      ? form.procedimentos.includes('Outros')
+        ? [...form.procedimentos.filter(p => p !== 'Outros'), form.procedimentosOutros].filter(Boolean).join(', ')
+        : form.procedimentos.join(', ')
+      : ''
+    
     const result = await salvarRegistro('rodeio', {
       data: form.data,
       pasto: form.pasto,
@@ -138,7 +146,7 @@ export default function RodeioPage() {
       animaisTratados: form.animaisTratados ? Number(form.animaisTratados) : 0,
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       equipe: form.equipe ? Number(form.equipe) : null,
-      procedimentos: form.procedimentos,
+      procedimentos: procedimentosTexto,
     })
 
     setSalvando(false)
@@ -285,6 +293,15 @@ export default function RodeioPage() {
               />
             ))}
           </div>
+          {form.procedimentos.includes('Outros') && (
+            <Input
+              label="DESCREVA OUTROS PROCEDIMENTOS"
+              placeholder="Ex: Aplicação de vitaminas, limpeza de feridas..."
+              value={form.procedimentosOutros}
+              onChange={setInput('procedimentosOutros')}
+              error={getError('procedimentosOutros')}
+            />
+          )}
         </div>
 
         <div className="flex flex-col gap-3">

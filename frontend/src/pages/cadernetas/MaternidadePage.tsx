@@ -121,17 +121,21 @@ export default function MaternidadePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-black text-white flex items-center px-4 py-5">
+      <header className="bg-black text-white flex items-center justify-between px-4 py-4">
         <button
           onClick={() => navigate(-1)}
-          className="text-yellow-400 font-bold text-xl mr-4 min-h-[48px] px-2"
+          className="text-yellow-400 font-bold text-sm flex items-center gap-2 min-h-[48px] px-3 rounded-2xl hover:bg-white/10 transition-colors"
         >
-          ← VOLTAR
+          <span className="text-xl">←</span>
+          VOLTAR
         </button>
-        <h1 className="text-xl font-bold flex-1">🐄 MATERNIDADE CRIA</h1>
+        <h1 className="text-base font-bold flex items-center gap-2">
+          <span className="text-lg">🐄</span>
+          MATERNIDADE CRIA
+        </h1>
         <button
           onClick={() => navigate('/caderneta/maternidade/lista')}
-          className="text-yellow-400 font-bold text-base min-h-[48px] px-2"
+          className="text-yellow-400 font-bold text-sm min-h-[48px] px-3 rounded-2xl hover:bg-white/10 transition-colors"
         >
           LISTA
         </button>
@@ -147,8 +151,8 @@ export default function MaternidadePage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           <Input
             label="PASTO"
@@ -169,8 +173,8 @@ export default function MaternidadePage() {
         </div>
 
         {/* Seção 2: Identificação */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">2. IDENTIFICAÇÃO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
           <Input
             label="NÚMERO DA CRIA"
             placeholder="Ex: 2023-145"
@@ -198,8 +202,8 @@ export default function MaternidadePage() {
         </div>
 
         {/* Seção 3: Parto */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">3. TIPO DE PARTO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TIPO DE PARTO</h2>
           <Radio
             name="tipoParto"
             options={TIPOS_PARTO}
@@ -210,8 +214,8 @@ export default function MaternidadePage() {
         </div>
 
         {/* Seção 4: Sexo e Raça */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">4. SEXO E RAÇA</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. SEXO E RAÇA</h2>
           <Radio
             name="sexo"
             label="SEXO"
@@ -240,8 +244,8 @@ export default function MaternidadePage() {
         </div>
 
         {/* Seção 5: Dados da Mãe */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">5. DADOS DA MÃE</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. DADOS DA MÃE</h2>
           <Input
             label="NÚMERO DA MÃE"
             placeholder="Ex: 2021-089"
