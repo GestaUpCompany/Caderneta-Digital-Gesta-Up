@@ -9,11 +9,6 @@ import {
   setError,
 } from '../store/slices/syncSlice'
 import { processQueue } from '../services/syncService'
-import {
-  detectConflict,
-  saveConflictLocally,
-  loadLocalConflicts,
-} from '../services/conflictService'
 import { getSyncQueue } from '../services/indexedDB'
 import { SYNC_INTERVAL_MS } from '../utils/constants'
 

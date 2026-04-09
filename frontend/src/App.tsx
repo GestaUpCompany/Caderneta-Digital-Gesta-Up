@@ -31,7 +31,7 @@ const MovimentacaoListaPage = lazy(() => import('./pages/cadernetas/Movimentacao
 function AppInner() {
   console.log('AppInner: Testando hooks...')
   
-  const { runSync } = useSync()
+  useSync()
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
 
