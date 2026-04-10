@@ -34,7 +34,9 @@ function getAuth() {
 }
 
 export function extractSpreadsheetId(url: string): string {
-  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
+  // Remove parâmetros de query e fragmentos antes de extrair o ID
+  const cleanUrl = url.split('?')[0].split('#')[0]
+  const match = cleanUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
   if (!match) throw new Error('Link da planilha inválido')
   return match[1]
 }
