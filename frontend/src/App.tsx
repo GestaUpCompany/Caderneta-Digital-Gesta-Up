@@ -2,6 +2,7 @@ import { useEffect, Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home'
 import Configuracoes from './pages/Configuracoes'
+import WelcomePage from './pages/WelcomePage'
 import SyncStatusBar from './components/SyncStatusBar'
 import ConflictModal from './components/ConflictModal'
 import InstallPrompt from './components/InstallPrompt'
@@ -10,6 +11,7 @@ import { PWAUpdateBanner } from './components/PWAUpdateBanner'
 import PageLoader from './components/PageLoader'
 import { useSync } from './hooks/useSync'
 import { useConflicts } from './hooks/useConflicts'
+import { useFirstOpen } from './hooks/useFirstOpen'
 import { verificarBackupAutomatico } from './services/backupService'
 import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
@@ -35,6 +37,7 @@ function AppInner() {
   
   useSync()
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
+  const { shouldShowWelcome, isLoading } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
 
   useEffect(() => {
@@ -79,7 +82,11 @@ function AppInner() {
       <div className="flex-1">
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={
+              isLoading ? <PageLoader /> : 
+              shouldShowWelcome ? <WelcomePage /> : <Home />
+            } />
+            <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
 
             {/* Maternidade */}

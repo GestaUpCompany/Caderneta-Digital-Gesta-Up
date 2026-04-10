@@ -58,11 +58,6 @@ export default function InstallPrompt() {
     setShowPrompt(false)
   }
 
-  const handleDismiss = () => {
-    setShowPrompt(false)
-    localStorage.setItem('install-prompt-dismissed', Date.now().toString())
-  }
-
   if (showDownloadBanner) {
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -97,14 +92,14 @@ export default function InstallPrompt() {
           </p>
         </div>
       </div>
-      <div className="flex gap-3">
-        <Button onClick={handleInstall} variant="primary" fullWidth icon="⬇️">
-          INSTALAR APP
-        </Button>
-        <Button onClick={handleDismiss} variant="ghost" size="sm" className="!text-white !border-gray-600">
-          AGORA NÃO
-        </Button>
+      <div className="mt-4 p-3 bg-yellow-400/20 rounded-xl border border-yellow-400/30">
+        <p className="text-yellow-300 text-xs font-medium text-center">
+          IMPORTANTE: Após clicar em INSTALAR, permaneça nesta página até o ícone de download aparecer na tela de notificações. O app será instalado quando o ícone desaparecer.
+        </p>
       </div>
+      <Button onClick={handleInstall} variant="primary" fullWidth icon="" className="mt-3">
+        INSTALAR APP
+      </Button>
     </div>
   )
 }
