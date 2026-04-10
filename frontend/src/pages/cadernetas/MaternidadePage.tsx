@@ -9,8 +9,9 @@ import { todayBR } from '../../utils/formatDate'
 const TRATAMENTOS = [
   { value: 'Colostro', label: 'COLOSTRO', icon: '🍼' },
   { value: 'Antibiótico', label: 'ANTIBIÓTICO', icon: '💊' },
-  { value: 'Vitaminas', label: 'VITAMINAS', icon: '💉' },
+  { value: 'Probiótico', label: 'PROBIÓTICO', icon: '💉' },
   { value: 'Soro', label: 'SORO', icon: '🧪' },
+  { value: 'Vermífugo', label: 'VERMÍFUGO', icon: '🪱' },
   { value: 'Outros', label: 'OUTROS', icon: '➕' },
 ]
 
