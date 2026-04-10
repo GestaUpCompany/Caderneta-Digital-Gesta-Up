@@ -114,7 +114,7 @@ export default function DatePickerIcon({ value, onChange, label }: DatePickerIco
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="h-10 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-center transition-colors hover:border-gray-400 active:scale-95"
+        className="h-14 w-full rounded-xl border-2 border-gray-300 bg-white px-3 py-2 text-center transition-colors hover:border-gray-400 active:scale-95"
       >
         <svg
           className="h-5 w-5 mx-auto text-gray-700"
@@ -128,6 +128,11 @@ export default function DatePickerIcon({ value, onChange, label }: DatePickerIco
           <rect x="3" y="4" width="18" height="18" rx="4" />
           <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
+        {value && (
+          <span className="mt-1 block text-xs font-semibold text-gray-900">
+            {value}
+          </span>
+        )}
       </button>
 
       {isOpen && (
