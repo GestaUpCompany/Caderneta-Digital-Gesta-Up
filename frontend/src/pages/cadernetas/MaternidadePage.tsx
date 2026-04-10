@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import CheckboxGroup from '../../components/ui/CheckboxGroup'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 
@@ -43,7 +44,7 @@ interface FormState {
   pasto: string
   pesoCria: string
   numeroCria: string
-  tratamento: string
+  tratamentos: string[]
   tratamentoOutros: string
   tipoParto: string
   sexo: string
@@ -58,7 +59,7 @@ const makeInitial = (): FormState => ({
   pasto: '',
   pesoCria: '',
   numeroCria: '',
-  tratamento: '',
+  tratamentos: [],
   tratamentoOutros: '',
   tipoParto: '',
   sexo: '',
@@ -81,6 +82,22 @@ export default function MaternidadePage() {
   const setInputEvent = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
+  const handleTratamentosChange = (newTratamentos: string[]) => {
+    // Se "Outros" foi deselecionado, limpa o campo de texto
+    if (!newTratamentos.includes('Outros')) {
+      setForm(prev => ({
+        ...prev,
+        tratamentos: newTratamentos,
+        tratamentoOutros: ''
+      }))
+    } else {
+      setForm(prev => ({
+        ...prev,
+        tratamentos: newTratamentos
+      }))
+    }
+  }
+
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const handleSalvar = async () => {
@@ -88,7 +105,12 @@ export default function MaternidadePage() {
     setErrors([])
     setSucesso(false)
 
-    const tratamentoFinal = form.tratamento === 'Outros' ? form.tratamentoOutros : form.tratamento
+    // Construir string final de tratamentos
+    const tratamentosFinais = form.tratamentos.map(t => 
+      t === 'Outros' ? form.tratamentoOutros : t
+    ).filter(Boolean) // remove strings vazias
+
+    const tratamentoFinal = tratamentosFinais.join(', ')
     const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
     const result = await salvarRegistro('maternidade', {
       data: form.data,
@@ -182,15 +204,14 @@ export default function MaternidadePage() {
             onChange={setInputEvent('numeroCria')}
             error={getError('numeroCria')}
           />
-          <Radio
-            name="tratamento"
+          <CheckboxGroup
             label="TRATAMENTO"
             options={TRATAMENTOS}
-            value={form.tratamento}
-            onChange={set('tratamento')}
-            error={getError('tratamento')}
+            selectedValues={form.tratamentos}
+            onChange={handleTratamentosChange}
+            error={getError('tratamentos')}
           />
-          {form.tratamento === 'Outros' && (
+          {form.tratamentos.includes('Outros') && (
             <Input
               label="DESCREVA O TRATAMENTO"
               placeholder="Ex: Vermífugo, Anti-inflamatório..."

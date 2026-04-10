@@ -13,6 +13,7 @@ export default function MaternidadeListaPage() {
         { campo: 'sexo', label: 'Sexo' },
         { campo: 'tipoParto', label: 'Parto' },
         { campo: 'raca', label: 'Raça' },
+        { campo: 'tratamento', label: 'Tratamento' },
       ]}
     />
   )
