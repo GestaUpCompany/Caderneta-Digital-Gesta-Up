@@ -152,21 +152,19 @@ export default function MaternidadePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-black text-white flex items-center justify-between px-4 py-4">
+      <header className="bg-black text-white flex items-center px-4 py-4">
         <button
           onClick={() => navigate(-1)}
-          className="text-yellow-400 font-bold text-sm flex items-center gap-2 min-h-[48px] px-3 rounded-2xl hover:bg-white/10 transition-colors"
+          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
         >
-          <span className="text-xl">←</span>
-          VOLTAR
+          ← VOLTAR
         </button>
-        <h1 className="text-base font-bold flex items-center gap-2">
-          <span className="text-lg">🐄</span>
+        <h1 className="text-base font-bold flex-1 text-center">
           MATERNIDADE CRIA
         </h1>
         <button
           onClick={() => navigate('/caderneta/maternidade/lista')}
-          className="text-yellow-400 font-bold text-sm min-h-[48px] px-3 rounded-2xl hover:bg-white/10 transition-colors"
+          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
         >
           LISTA
         </button>

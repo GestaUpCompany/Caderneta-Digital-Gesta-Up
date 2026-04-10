@@ -134,17 +134,19 @@ export default function MovimentacaoPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-black text-white flex items-center px-4 py-5">
+      <header className="bg-black text-white flex items-center px-4 py-4">
         <button
           onClick={() => navigate(-1)}
-          className="text-yellow-400 font-bold text-xl mr-4 min-h-[48px] px-2"
+          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
         >
           ← VOLTAR
         </button>
-        <h1 className="text-xl font-bold flex-1">🚚 MOVIMENTAÇÃO</h1>
+        <h1 className="text-base font-bold flex-1 text-center">
+          MOVIMENTAÇÃO
+        </h1>
         <button
           onClick={() => navigate('/caderneta/movimentacao/lista')}
-          className="text-yellow-400 font-bold text-base min-h-[48px] px-2"
+          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
         >
           LISTA
         </button>

@@ -67,7 +67,7 @@ export default function Radio({
                   {option.icon}
                 </span>
               )}
-              {!option.icon || !/^-?\d+$/.test(option.icon) && (
+              {(!option.icon || !/^-?\d+$/.test(option.icon)) && (
                 <span className="text-sm sm:text-base font-bold text-center leading-tight">
                   {option.label}
                 </span>
