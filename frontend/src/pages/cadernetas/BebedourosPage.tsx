@@ -21,9 +21,9 @@ const CATEGORIAS = [
 ]
 
 const LEITURAS_BEBEDOURO = [
-  { value: '1', label: '1', icon: '1️⃣' },
-  { value: '2', label: '2', icon: '2️⃣' },
-  { value: '3', label: '3', icon: '3️⃣' },
+  { value: '1', label: '1', icon: '1' },
+  { value: '2', label: '2', icon: '2' },
+  { value: '3', label: '3', icon: '3' },
 ]
 
 interface FormState {
