@@ -62,7 +62,11 @@ export default function Radio({
                 onChange={() => onChange(option.value)}
                 className="sr-only"
               />
-              {option.icon && <span className="text-2xl sm:text-3xl">{option.icon}</span>}
+              {option.icon && (
+                <span className={`text-2xl sm:text-3xl ${/^-?\d+$/.test(option.icon) ? 'bg-yellow-400 text-black rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center font-bold border-2 border-black' : ''}`}>
+                  {option.icon}
+                </span>
+              )}
               <span className="text-sm sm:text-base font-bold text-center leading-tight">
                 {option.label}
               </span>

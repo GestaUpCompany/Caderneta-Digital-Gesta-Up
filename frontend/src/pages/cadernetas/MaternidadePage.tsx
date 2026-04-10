@@ -217,7 +217,7 @@ export default function MaternidadePage() {
           {form.tratamentos.includes('Outros') && (
             <Input
               label="DESCREVA O TRATAMENTO"
-              placeholder="Ex: Vermífugo, Anti-inflamatório..."
+              placeholder="Ex: Anti-inflamatório..."
               value={form.tratamentoOutros}
               onChange={setInputEvent('tratamentoOutros')}
               error={getError('tratamentoOutros')}

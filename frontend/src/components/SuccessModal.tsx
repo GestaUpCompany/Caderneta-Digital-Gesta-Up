@@ -75,7 +75,7 @@ export default function SuccessModal({
             icon=""
             className="flex-1 bg-yellow-400 text-black hover:bg-yellow-300 font-bold"
           >
-            NOVO REGISTRO
+            Novo Registro
           </Button>
           <Button
             onClick={onExit}
@@ -84,7 +84,7 @@ export default function SuccessModal({
             icon=""
             className="flex-1 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-bold"
           >
-            SAIR
+            Voltar para o início
           </Button>
         </div>
 

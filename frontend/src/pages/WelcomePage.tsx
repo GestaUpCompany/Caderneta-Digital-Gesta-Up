@@ -1,7 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Check } from 'lucide-react'
 
 export default function WelcomePage() {
+  const navigate = useNavigate()
+  const [isStandalone, setIsStandalone] = useState(false)
+
+  // Detectar se é PWA standalone
+  useEffect(() => {
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
+                              (window.navigator as any).standalone === true
+    setIsStandalone(isStandaloneMode)
+  }, [])
+
   // Marcar que o usuário já viu a tela de boas-vindas
   useEffect(() => {
     localStorage.setItem('welcome-seen', 'true')
@@ -58,6 +69,16 @@ export default function WelcomePage() {
             </p>
           </div>
         </div>
+
+        {/* Botão Começar a Usar - apenas no PWA standalone */}
+        {isStandalone && (
+          <button
+            onClick={() => navigate('/')}
+            className="mt-8 bg-yellow-400 text-black font-bold text-lg px-8 py-4 rounded-2xl border-2 border-black hover:bg-yellow-300 transition-colors active:scale-95"
+          >
+            Começar a Usar
+          </button>
+        )}
       </div>
 
       {/* Footer */}

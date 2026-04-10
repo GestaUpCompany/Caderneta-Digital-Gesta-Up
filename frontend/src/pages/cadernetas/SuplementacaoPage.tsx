@@ -18,11 +18,11 @@ const TIPOS_GADO = [
 ]
 
 const LEITURAS = [
-  { value: '-1', label: '-1', icon: '⬇️' },
-  { value: '0', label: '0', icon: '⏺️' },
-  { value: '1', label: '1', icon: '1️⃣' },
-  { value: '2', label: '2', icon: '2️⃣' },
-  { value: '3', label: '3', icon: '3️⃣' },
+  { value: '-1', label: '-1', icon: '-1' },
+  { value: '0', label: '0', icon: '0' },
+  { value: '1', label: '1', icon: '1' },
+  { value: '2', label: '2', icon: '2' },
+  { value: '3', label: '3', icon: '3' },
 ]
 
 const CATEGORIAS = [
