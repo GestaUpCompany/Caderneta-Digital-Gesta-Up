@@ -74,15 +74,9 @@ function AppInner() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Só mostrar header e sync se não for WelcomePage */}
+      {/* Só mostrar sync se não for WelcomePage */}
       {(location.pathname !== '/' || !shouldShowWelcome) && location.pathname !== '/welcome' && (
-        <>
-          <SyncStatusBar />
-          {/* Header simples */}
-          <div className="bg-green-700 text-white px-4 py-2">
-            <span className="text-base">CADERNETAS DIGITAIS</span>
-          </div>
-        </>
+        <SyncStatusBar />
       )}
       
       <div className="flex-1">
