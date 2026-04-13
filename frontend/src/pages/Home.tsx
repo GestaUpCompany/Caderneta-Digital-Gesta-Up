@@ -4,21 +4,6 @@ import { Button } from '../components/ui'
 import { CADERNETAS } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
-import imgMaternidade from '../../public/cadernetas/maternidade.png'
-import imgPastagens from '../../public/cadernetas/pastagens.png'
-import imgRodeio from '../../public/cadernetas/rodeio.png'
-import imgSuplemantacao from '../../public/cadernetas/suplementacao.png'
-import imgBebedouros from '../../public/cadernetas/bebedouros.png'
-import imgMovimentacao from '../../public/cadernetas/movimentacao.png'
-
-const CADERNETA_IMAGES: Record<string, string> = {
-  maternidade: imgMaternidade,
-  pastagens: imgPastagens,
-  rodeio: imgRodeio,
-  suplementacao: imgSuplemantacao,
-  bebedouros: imgBebedouros,
-  movimentacao: imgMovimentacao,
-}
 
 export default function Home() {
   const navigate = useNavigate()
@@ -80,7 +65,7 @@ export default function Home() {
                   </span>
                 )}
                 <img
-                  src={CADERNETA_IMAGES[caderneta.id]}
+                  src={caderneta.icon}
                   alt={caderneta.label}
                   className="w-40 h-auto object-contain rounded-[32px]"
                   onError={(e) => {
