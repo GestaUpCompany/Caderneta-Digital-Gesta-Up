@@ -1,12 +1,12 @@
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
 export const CADERNETAS = [
-  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: '/cadernetas/maternidade.png', sheetName: 'Maternidade Cria', disponivel: true },
-  { id: 'pastagens', label: 'TROCA DE PASTOS', emoji: '🌾', icon: '/cadernetas/pastagens.png', sheetName: 'Troca de Pastos', disponivel: true },
-  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: '/cadernetas/rodeio.png', sheetName: 'Rodeio Gado', disponivel: true },
-  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: '/cadernetas/suplementacao.png', sheetName: 'Suplementação', disponivel: true },
-  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: '/cadernetas/bebedouros.png', sheetName: 'Bebedouros', disponivel: true },
-  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: '/cadernetas/movimentacao.png', sheetName: 'Movimentacao', disponivel: true },
+  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/maternidade.png', sheetName: 'Maternidade Cria', disponivel: true },
+  { id: 'pastagens', label: 'TROCA DE PASTOS', emoji: '🌾', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/pastagens.png', sheetName: 'Troca de Pastos', disponivel: true },
+  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/rodeio.png', sheetName: 'Rodeio Gado', disponivel: true },
+  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/suplementacao.png', sheetName: 'Suplementação', disponivel: true },
+  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/bebedouros.png', sheetName: 'Bebedouros', disponivel: true },
+  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/movimentacao.png', sheetName: 'Movimentacao', disponivel: true },
 ]
 
 export const CATEGORIAS_ANIMAL = ['Vaca', 'Touro', 'Boi', 'Bezerro', 'Garrote', 'Novilha'] as const
