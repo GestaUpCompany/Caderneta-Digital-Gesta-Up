@@ -36,7 +36,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-black text-white text-center py-6 border-b-4 border-yellow-400">
-        <h1 className="text-2xl font-bold">TESTE</h1>
+        <h1 className="text-2xl font-bold">CADERNETAS DIGITAIS</h1>
         {configurado && fazenda && (
           <p className="text-yellow-400 text-base mt-1 font-semibold">{fazenda.toUpperCase()}</p>
         )}
