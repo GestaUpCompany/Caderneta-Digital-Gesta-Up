@@ -1,12 +1,14 @@
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
 
+const BASE = import.meta.env.BASE_URL
+
 export const CADERNETAS = [
-  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/maternidade.png', sheetName: 'Maternidade Cria', disponivel: true },
-  { id: 'pastagens', label: 'TROCA DE PASTOS', emoji: '🌾', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/pastagens.png', sheetName: 'Troca de Pastos', disponivel: true },
-  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/rodeio.png', sheetName: 'Rodeio Gado', disponivel: true },
-  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/suplementacao.png', sheetName: 'Suplementação', disponivel: true },
-  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/bebedouros.png', sheetName: 'Bebedouros', disponivel: true },
-  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: '/Caderneta-Digital-Gesta-Up/cadernetas/movimentacao.png', sheetName: 'Movimentacao', disponivel: true },
+  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, sheetName: 'Maternidade Cria', disponivel: true },
+  { id: 'pastagens', label: 'TROCA DE PASTOS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, sheetName: 'Troca de Pastos', disponivel: true },
+  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: `${BASE}cadernetas/rodeio.png`, sheetName: 'Rodeio Gado', disponivel: true },
+  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, sheetName: 'Suplementação', disponivel: true },
+  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, sheetName: 'Bebedouros', disponivel: true },
+  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, sheetName: 'Movimentacao', disponivel: true },
 ]
 
 export const CATEGORIAS_ANIMAL = ['Vaca', 'Touro', 'Boi', 'Bezerro', 'Garrote', 'Novilha'] as const
