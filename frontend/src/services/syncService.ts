@@ -98,7 +98,7 @@ export async function processQueue(planilhaUrl: string): Promise<{ synced: numbe
         const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ planilhaUrl, values }),
+          body: JSON.stringify({ planilhaUrl, values, id: registro.id }),
         })
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`)

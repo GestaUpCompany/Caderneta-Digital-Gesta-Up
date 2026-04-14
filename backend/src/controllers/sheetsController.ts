@@ -27,7 +27,7 @@ sheetsRouter.post('/validate', async (req: Request, res: Response) => {
 
 sheetsRouter.post('/:caderneta', async (req: Request, res: Response) => {
   const { caderneta } = req.params
-  const { planilhaUrl, values } = req.body
+  const { planilhaUrl, values, id } = req.body
 
   const sheetName = SHEET_NAMES[caderneta]
   if (!sheetName) {
@@ -39,7 +39,8 @@ sheetsRouter.post('/:caderneta', async (req: Request, res: Response) => {
   }
 
   try {
-    const rowNumber = await appendRow(planilhaUrl, sheetName, values)
+    const valuesWithId = id ? [id, ...values] : values
+    const rowNumber = await appendRow(planilhaUrl, sheetName, valuesWithId)
     logger.info(`Registro adicionado em ${caderneta}, linha ${rowNumber}`)
     return res.json({ success: true, rowNumber })
   } catch (error) {
