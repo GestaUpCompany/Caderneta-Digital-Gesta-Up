@@ -35,7 +35,7 @@ async function processBatch(
         continue
       }
 
-      const values = Object.values(registro.dados) as (string | number | null)[]
+      const values = [registro.id, ...Object.values(registro.dados)] as (string | number | null)[]
 
       if (registro.operacao === 'create') {
         const rowNumber = await appendRow(planilhaUrl, sheetName, values)
