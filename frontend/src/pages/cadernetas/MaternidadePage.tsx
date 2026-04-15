@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
 import CheckboxGroup from '../../components/ui/CheckboxGroup'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { LOGO_URL, getFarmLogo } from '../../utils/constants'
+import { RootState } from '../../store/store'
 
 const TRATAMENTOS = [
   { value: 'Colostro', label: 'COLOSTRO', icon: '🍼' },
-  { value: 'Antibiótico', label: 'ANTIBIÓTICO', icon: '💊' },
-  { value: 'Probiótico', label: 'PROBIÓTICO', icon: '💉' },
+  { value: 'Antibiótico', label: 'ANTIBIÓTICO', icon: '💉' },
+  { value: 'Probiótico', label: 'PROBIÓTICO', icon: '💊' },
   { value: 'Soro', label: 'SORO', icon: '🧪' },
   { value: 'Vermífugo', label: 'VERMÍFUGO', icon: '🪱' },
   { value: 'Outros', label: 'OUTROS', icon: '➕' },
@@ -73,10 +76,13 @@ const makeInitial = (): FormState => ({
 
 export default function MaternidadePage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState<FormState>(makeInitial)
+  const { usuario, fazenda } = useSelector((state: RootState) => state.config)
+  const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+
+  const farmLogoUrl = fazenda ? getFarmLogo(fazenda) : LOGO_URL
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -152,23 +158,36 @@ export default function MaternidadePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-[#1a3a2a] text-white flex items-center px-4 py-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-        >
-          ← VOLTAR
-        </button>
-        <h1 className="text-base font-bold flex-1 text-center">
-          MATERNIDADE CRIA
-        </h1>
-        <button
-          onClick={() => navigate('/caderneta/maternidade/lista')}
-          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-        >
-          LISTA
-        </button>
+      <header className="bg-[#1a3a2a] text-white px-4 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+          >
+            ← VOLTAR
+          </button>
+          <div className="flex-1 text-center">
+            <h1 className="text-base font-bold">MATERNIDADE CRIA</h1>
+          </div>
+          <button
+            onClick={() => navigate('/caderneta/maternidade/lista')}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+          >
+            LISTA
+          </button>
+        </div>
+        <div className="flex items-center justify-center gap-8 mt-3">
+          <img src={LOGO_URL} alt="Gesta'Up" className="w-16 h-auto object-contain rounded-[22px]" />
+          <img src={farmLogoUrl} alt="Fazenda" className="w-16 h-auto object-contain" />
+        </div>
       </header>
+
+      {/* Nome do usuário abaixo do header, sobre background branco */}
+      {usuario && (
+        <div className="bg-white px-4 py-3 text-center border-b border-gray-200">
+          <p className="text-gray-900 text-lg font-semibold">{usuario}</p>
+        </div>
+      )}
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
@@ -232,6 +251,7 @@ export default function MaternidadePage() {
             value={form.tipoParto}
             onChange={set('tipoParto')}
             error={getError('tipoParto')}
+            gridCols={2}
           />
         </div>
 
@@ -245,6 +265,7 @@ export default function MaternidadePage() {
             value={form.sexo}
             onChange={set('sexo')}
             error={getError('sexo')}
+            gridCols={2}
           />
           <Radio
             name="raca"
@@ -253,6 +274,7 @@ export default function MaternidadePage() {
             value={form.raca}
             onChange={set('raca')}
             error={getError('raca')}
+            gridCols={2}
           />
           {form.raca === 'Outros' && (
             <Input
@@ -282,7 +304,7 @@ export default function MaternidadePage() {
             value={form.categoriaMae}
             onChange={set('categoriaMae')}
             error={getError('categoriaMae')}
-            direction="vertical"
+            gridCols={2}
           />
         </div>
 

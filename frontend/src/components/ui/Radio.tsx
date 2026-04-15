@@ -14,6 +14,7 @@ interface RadioProps {
   label?: string
   error?: string
   direction?: 'horizontal' | 'vertical'
+  gridCols?: number
 }
 
 export default function Radio({
@@ -24,9 +25,12 @@ export default function Radio({
   label,
   error,
   direction = 'horizontal',
+  gridCols,
 }: RadioProps) {
-  const containerStyles = direction === 'horizontal' 
-    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' 
+  const containerStyles = direction === 'horizontal'
+    ? gridCols
+      ? `grid grid-cols-${gridCols} gap-3`
+      : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
     : 'flex flex-col gap-3'
 
   return (

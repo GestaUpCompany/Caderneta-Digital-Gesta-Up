@@ -11,6 +11,9 @@ export function getFarmLogo(farmName: string): string {
   // Pode ser expandida conforme necessário
   const lowerName = farmName.toLowerCase()
 
+  if (lowerName.includes('aruã') || lowerName.includes('arua')) {
+    return `${BASE}logo-arua.png`
+  }
   if (lowerName.includes('sol nascente')) {
     return `${BASE}logo-sol-nascente.png`
   }
