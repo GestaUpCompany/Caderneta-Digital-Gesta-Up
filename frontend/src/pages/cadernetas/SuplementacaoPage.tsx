@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { RootState } from '../../store/store'
 
 const PRODUTOS = [
   { value: 'Mineral', label: 'MINERAL', icon: '🥄' },
@@ -43,9 +45,9 @@ interface FormState {
   categorias: string[]
 }
 
-const makeInitial = (): FormState => ({
+const makeInitial = (usuario?: string): FormState => ({
   data: todayBR(),
-  tratador: '',
+  tratador: usuario || '',
   pasto: '',
   numeroLote: '',
   produto: '',
@@ -59,10 +61,12 @@ const makeInitial = (): FormState => ({
 
 export default function SuplementacaoPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState<FormState>(makeInitial)
+  const { usuario } = useSelector((state: RootState) => state.config)
+  const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [editandoTratador, setEditandoTratador] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -104,7 +108,8 @@ export default function SuplementacaoPage() {
       setErrors(result.errors)
     } else {
       setShowSuccessModal(true)
-      setForm(makeInitial())
+      setForm(makeInitial(usuario))
+      setEditandoTratador(false)
     }
   }
 
@@ -145,13 +150,42 @@ export default function SuplementacaoPage() {
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
-          <Input
-            label="TRATADOR"
-            placeholder="Nome do responsável"
-            value={form.tratador}
-            onChange={setInput('tratador')}
-            error={getError('tratador')}
-          />
+          <div>
+            <label className="block text-base font-bold text-gray-700 mb-2">TRATADOR</label>
+            {editandoTratador ? (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome do responsável"
+                  value={form.tratador}
+                  onChange={setInput('tratador')}
+                  error={getError('tratador')}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => setEditandoTratador(false)}
+                  variant="success"
+                  icon="✓"
+                  fullWidth={false}
+                  className="min-h-[38px] px-2"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-gray-50 border-2 border-gray-300 rounded-lg px-4 py-3 min-h-[44px] flex items-center">
+                  <span className="text-base font-semibold text-black">
+                    {form.tratador || 'Não definido'}
+                  </span>
+                </div>
+                <Button
+                  onClick={() => setEditandoTratador(true)}
+                  variant="secondary"
+                  icon="✏️"
+                  fullWidth={false}
+                  className="min-h-[38px] px-2"
+                />
+              </div>
+            )}
+          </div>
           <Input
             label="PASTO"
             placeholder="Ex: Pasto 12"

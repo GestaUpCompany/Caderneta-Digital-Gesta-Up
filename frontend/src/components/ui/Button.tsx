@@ -4,7 +4,7 @@ type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'ghost'
 type ButtonSize = 'sm' | 'md' | 'lg' | 'touch'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  children: ReactNode
+  children?: ReactNode
   variant?: ButtonVariant
   size?: ButtonSize
   fullWidth?: boolean
@@ -52,7 +52,7 @@ export default function Button({
       ) : icon ? (
         <span className="text-xl sm:text-2xl">{icon}</span>
       ) : null}
-      <span>{children}</span>
+      {children && <span>{children}</span>}
     </button>
   )
 }

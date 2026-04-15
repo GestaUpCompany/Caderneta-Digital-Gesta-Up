@@ -1,6 +1,5 @@
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
-import { isoToBR } from '../utils/formatDate'
 
 const STATUS_CONFIG = {
   online: { bg: 'bg-green-700', icon: '✅', label: 'SINCRONIZADO' },
@@ -11,11 +10,16 @@ const STATUS_CONFIG = {
 } as const
 
 export default function SyncStatusBar() {
-  const { status, pendingCount, lastSync, syncProgress, errorMessage } = useSelector(
+  const { status, pendingCount, errorMessage } = useSelector(
     (state: RootState) => state.sync
   )
 
   const config = STATUS_CONFIG[status]
+
+  // Só mostrar quando houver erro ou offline
+  if (status !== 'error' && status !== 'offline') {
+    return null
+  }
 
   return (
     <div className={`${config.bg} text-white px-4 py-2`}>
@@ -29,21 +33,7 @@ export default function SyncStatusBar() {
             </span>
           )}
         </div>
-        {lastSync && status === 'online' && (
-          <span className="text-xs opacity-80">
-            {isoToBR(lastSync)}
-          </span>
-        )}
       </div>
-
-      {status === 'syncing' && syncProgress > 0 && (
-        <div className="mt-1 bg-blue-900 rounded-full h-1.5 overflow-hidden">
-          <div
-            className="bg-white h-full rounded-full transition-all duration-300"
-            style={{ width: `${syncProgress}%` }}
-          />
-        </div>
-      )}
 
       {status === 'error' && errorMessage && (
         <p className="text-xs mt-1 opacity-90">{errorMessage}</p>

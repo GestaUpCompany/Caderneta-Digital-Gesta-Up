@@ -160,14 +160,6 @@ export default function DatePicker({
         </div>
       </button>
 
-      <button
-        type="button"
-        onClick={handleToday}
-        className="mt-3 w-full rounded-2xl border border-dashed border-yellow-400 bg-yellow-50 py-3 text-sm font-bold uppercase tracking-[0.2em] text-yellow-900"
-      >
-        Usar hoje
-      </button>
-
       {error && (
         <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>
       )}
