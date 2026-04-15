@@ -148,12 +148,12 @@ export default function BebedourosPage() {
                   variant="success"
                   icon="✓"
                   fullWidth={false}
-                  className="min-h-[38px] px-2"
+                  className="min-h-[32px] w-10 px-2"
                 />
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-gray-50 border-2 border-gray-300 rounded-lg px-4 py-3 min-h-[44px] flex items-center">
+                <div className="flex-1 bg-gray-50 border-2 border-gray-300 rounded-lg px-3 sm:px-4 py-3 min-h-[60px] flex items-center">
                   <span className="text-base font-semibold text-black">
                     {form.responsavel || 'Não definido'}
                   </span>
@@ -163,7 +163,7 @@ export default function BebedourosPage() {
                   variant="secondary"
                   icon="✏️"
                   fullWidth={false}
-                  className="min-h-[38px] px-2"
+                  className="min-h-[32px] w-10 px-2"
                 />
               </div>
             )}

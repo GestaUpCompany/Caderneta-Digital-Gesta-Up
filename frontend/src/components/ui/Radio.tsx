@@ -73,7 +73,7 @@ export default function Radio({
                 </span>
               )}
               {(!option.icon || !/^-?\d+$/.test(option.icon)) && (
-                <span className="text-lg sm:text-xl font-bold text-center leading-tight">
+                <span className={`${gridCols && gridCols >= 2 ? 'text-sm sm:text-base' : 'text-lg sm:text-xl'} font-bold text-center leading-tight`}>
                   {option.label}
                 </span>
               )}
