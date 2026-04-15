@@ -96,7 +96,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     loteDestino: Joi.string().required(),
     numeroCabecas: Joi.number().integer().min(1).required(),
     pesoMedio: Joi.number().min(0).allow(null),
-    motivoMovimentacao: Joi.string().valid('Morte', 'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entrevero').required(),
+    motivoMovimentacao: Joi.string().valid('Morte', 'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entreverado').required(),
     brincoChip: Joi.string().allow(''),
     causaObservacao: Joi.string().allow(''),
     vaca: Joi.string().valid('S', 'N').default('N'),

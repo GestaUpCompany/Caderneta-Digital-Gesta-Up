@@ -47,7 +47,7 @@ export const TIPOS_GADO = ['Cria', 'Recria', 'Engorda'] as const
 export const PRODUTOS_SUPLEMENTACAO = ['Mineral', 'Proteinado', 'Ração'] as const
 
 export const MOTIVOS_MOVIMENTACAO = [
-  'Morte', 'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entrevero',
+  'Morte', 'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entreverado',
 ] as const
 
 export const TIPOS_PARTO = ['Normal', 'Distócico', 'Cesárea'] as const

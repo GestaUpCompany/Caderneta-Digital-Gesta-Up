@@ -11,7 +11,7 @@ const MOTIVOS = [
   { value: 'Transferência', label: 'TRANSFERÊNCIA', icon: '🚚' },
   { value: 'Abate', label: 'ABATE', icon: '🏭' },
   { value: 'Entrada', label: 'ENTRADA', icon: '📥' },
-  { value: 'Entrevero', label: 'ENTREVERO', icon: '🔀' },
+  { value: 'Entreverado', label: 'ENTREVERADO', icon: '🔀' },
 ]
 
 const CATEGORIAS = [
@@ -242,7 +242,7 @@ export default function MovimentacaoPage() {
             value={form.motivoMovimentacao}
             onChange={(val) => setForm((p) => ({ ...p, motivoMovimentacao: val }))}
             error={getError('motivoMovimentacao')}
-            direction="vertical"
+            gridCols={2}
           />
         </div>
 

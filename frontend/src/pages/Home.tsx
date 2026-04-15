@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Button } from '../components/ui'
-import { CADERNETAS, LOGO_URL } from '../utils/constants'
+import { CADERNETAS, LOGO_URL, getFarmLogo } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 
@@ -35,14 +35,19 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
-      <header className="bg-[#1a3a2a] text-white text-center py-6 border-b-4 border-yellow-400">
-        <div className="flex flex-col items-center gap-3">
-          <img src={logoUrl} alt="Logo Fazenda" className="w-16 h-auto object-contain rounded-[22px]" />
+      <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400">
+        <div className="flex flex-col items-center gap-3 px-4">
+          <div className="flex items-center gap-4">
+            <img src={logoUrl} alt="Logo GestaUp" className="w-16 h-auto object-contain rounded-[22px]" />
+            {configurado && fazenda && (
+              <img src={getFarmLogo(fazenda)} alt="Logo Fazenda" className="h-[58px] w-auto object-contain rounded-[22px]" />
+            )}
+          </div>
           <h1 className="text-2xl font-bold">CADERNETAS DIGITAIS</h1>
+          {configurado && fazenda && (
+            <p className="text-yellow-400 text-base font-semibold">{fazenda.toUpperCase()}</p>
+          )}
         </div>
-        {configurado && fazenda && (
-          <p className="text-yellow-400 text-base mt-1 font-semibold">{fazenda.toUpperCase()}</p>
-        )}
       </header>
 
       {/* Grid de Cadernetas - 6 botões grandes */}

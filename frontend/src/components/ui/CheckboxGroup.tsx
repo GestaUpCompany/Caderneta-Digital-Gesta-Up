@@ -93,7 +93,7 @@ export default function CheckboxGroup({
                 {option.icon && (
                   <span className="text-xl">{option.icon}</span>
                 )}
-                <span className="font-semibold text-sm leading-tight">
+                <span className="font-semibold text-base leading-tight">
                   {option.label}
                 </span>
               </div>

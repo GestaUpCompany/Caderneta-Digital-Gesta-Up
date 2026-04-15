@@ -6,23 +6,23 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 
 const PRODUTOS = [
-  { value: 'Mineral', label: 'MINERAL', icon: '⛏️' },
+  { value: 'Mineral', label: 'MINERAL', icon: '🥄' },
   { value: 'Proteinado', label: 'PROTEINADO', icon: '🥩' },
   { value: 'Ração', label: 'RAÇÃO', icon: '🌽' },
 ]
 
 const TIPOS_GADO = [
   { value: 'Cria', label: 'CRIA', icon: '🍼' },
-  { value: 'Recria', label: 'RECRIA', icon: '🌱' },
+  { value: 'Recria', label: 'RECRIA', icon: '🌿' },
   { value: 'Engorda', label: 'ENGORDA', icon: '🥩' },
 ]
 
 const LEITURAS = [
-  { value: '-1', label: '-1', icon: '-1' },
-  { value: '0', label: '0', icon: '0' },
-  { value: '1', label: '1', icon: '1' },
-  { value: '2', label: '2', icon: '2' },
-  { value: '3', label: '3', icon: '3' },
+  { value: '-1', label: '-1' },
+  { value: '0', label: '0' },
+  { value: '1', label: '1' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3' },
 ]
 
 const CATEGORIAS = [
@@ -219,6 +219,7 @@ export default function SuplementacaoPage() {
             value={form.leitura}
             onChange={set('leitura')}
             error={getError('leitura')}
+            gridCols={5}
           />
           <div className="grid grid-cols-3 gap-3">
             <Input
