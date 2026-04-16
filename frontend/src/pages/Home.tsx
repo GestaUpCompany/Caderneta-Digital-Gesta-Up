@@ -39,21 +39,21 @@ export default function Home() {
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
         <button
           onClick={() => navigate('/configuracoes')}
-          className="absolute top-4 right-4 text-white hover:text-yellow-400 transition-colors z-10"
+          className="absolute top-0 right-[-8px] flex items-center justify-center text-white hover:text-yellow-400 transition-colors z-10"
         >
           <Settings size={24} />
         </button>
         <div className="flex flex-col items-center gap-3 px-4">
-          <div className="flex items-center gap-4">
-            <img src={logoUrl} alt="Logo GestaUp" className="w-16 h-auto object-contain rounded-[22px]" />
+          <div className="flex items-center justify-between w-full">
+            <img src={logoUrl} alt="Logo GestaUp" className="w-16 h-auto object-contain rounded-[22px] ml-7" />
             {configurado && fazenda && (
-              <img src={getFarmLogo(fazenda)} alt="Logo Fazenda" className="h-[58px] w-auto object-contain rounded-[22px]" />
+              <img src={getFarmLogo(fazenda)} alt="Logo Fazenda" className="h-[58px] w-auto object-contain rounded-[22px] mr-7" />
             )}
           </div>
-          <h1 className="text-2xl font-bold">CADERNETAS DIGITAIS</h1>
           {configurado && fazenda && (
-            <p className="text-yellow-400 text-base font-semibold">{fazenda.toUpperCase()}</p>
+            <h1 className="text-2xl font-bold text-[#ecc417]">{fazenda.toUpperCase()}</h1>
           )}
+          <p className="text-[#3b82f6] text-base font-semibold">CADERNETAS DIGITAIS</p>
         </div>
       </header>
 

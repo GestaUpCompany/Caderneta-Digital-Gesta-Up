@@ -7,7 +7,8 @@ import SyncStatusBar from './components/SyncStatusBar'
 import ConflictModal from './components/ConflictModal'
 import InstallPrompt from './components/InstallPrompt'
 import { UpdateDialog } from './components/UpdateDialog'
-import { PWAUpdateBanner } from './components/PWAUpdateBanner'
+import { PWAUpdateModal } from './components/PWAUpdateModal'
+import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate'
 import PageLoader from './components/PageLoader'
 import { useSync } from './hooks/useSync'
 import { useConflicts } from './hooks/useConflicts'
@@ -17,6 +18,19 @@ import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
+
+// Componente wrapper para PWAUpdateModal com hook
+function PWAUpdateModalWrapper() {
+  const { showUpdateModal, applyUpdate, dismissUpdateModal } = useServiceWorkerUpdate()
+  
+  return (
+    <PWAUpdateModal
+      isOpen={showUpdateModal}
+      onRestartNow={applyUpdate}
+      onLater={dismissUpdateModal}
+    />
+  )
+}
 
 // Lazy loading das cadernetas
 const MaternidadePage = lazy(() => import('./pages/cadernetas/MaternidadePage'))
@@ -120,7 +134,7 @@ function AppInner() {
           </Routes>
         </Suspense>
       </div>
-      <PWAUpdateBanner />
+      <PWAUpdateModalWrapper />
       {currentConflict && (
         <ConflictModal
           conflict={currentConflict}

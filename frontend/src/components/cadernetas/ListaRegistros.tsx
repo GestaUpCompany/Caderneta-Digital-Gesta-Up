@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { Registro } from '../../types/cadernetas'
 import { CadernetaStore } from '../../services/indexedDB'
 import { listarRegistros, excluirRegistro } from '../../services/api'
@@ -7,6 +8,7 @@ import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { exportToCSV, exportToJSON, copyToClipboard } from '../../utils/exportToCSV'
 import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
+import { RootState } from '../../store/store'
 
 interface ColunaDef {
   campo: string
@@ -28,8 +30,31 @@ const statusLabel: Record<string, string> = {
   error: '❌',
 }
 
+const fieldLabels: Record<string, Record<string, string>> = {
+  maternidade: {
+    pasto: 'PASTO',
+    pesoCria: 'PESO DA CRIA',
+    numeroCria: 'NÚMERO DA CRIA',
+    tratamento: 'TRATAMENTO',
+    tipoParto: 'TIPO DE PARTO',
+    sexo: 'SEXO',
+    raca: 'RAÇA',
+    numeroMae: 'NÚMERO DA MÃE',
+    categoriaMae: 'CATEGORIA DA MÃE',
+  },
+}
+
+const formatFieldValue = (key: string, value: unknown): string => {
+  if (value === null || value === undefined || value === '') return '—'
+  if (key === 'pesoCria' && value !== null && value !== undefined && value !== '') {
+    return `${String(value)} kg`
+  }
+  return String(value)
+}
+
 export default function ListaRegistros({ caderneta, titulo, colunas, rotaForm }: Props) {
   const navigate = useNavigate()
+  const { usuario } = useSelector((state: RootState) => state.config)
   const [registros, setRegistros] = useState<Registro[]>([])
   const [carregando, setCarregando] = useState(true)
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
@@ -81,7 +106,7 @@ export default function ListaRegistros({ caderneta, titulo, colunas, rotaForm }:
           onClick={() => navigate(-1)}
           className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
         >
-          ← VOLTAR
+          VOLTAR
         </button>
         <h1 className="text-base font-bold flex-1 text-center">{titulo}</h1>
         <span className="text-yellow-400 font-bold text-sm">
@@ -212,47 +237,34 @@ export default function ListaRegistros({ caderneta, titulo, colunas, rotaForm }:
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
-                  {colunas.map((col) => (
-                    <div key={col.campo}>
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{col.label}</p>
-                      <p className="text-base font-semibold text-gray-900 truncate">
-                        {col.formatador
-                          ? col.formatador(registro[col.campo])
-                          : String(registro[col.campo] ?? '—')}
-                      </p>
+                  {usuario && (
+                    <div className="col-span-2">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">USUÁRIO</p>
+                      <p className="text-base font-semibold text-gray-900">{usuario}</p>
                     </div>
-                  ))}
+                  )}
+                  {Object.entries(registro)
+                    .filter(([key]) => !['id', 'googleRowId', 'version', 'lastModified', 'syncStatus'].includes(key))
+                    .map(([key, value]) => (
+                      <div key={key}>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                          {fieldLabels[caderneta]?.[key] || key.toUpperCase()}
+                        </p>
+                        <p className="text-base font-semibold text-gray-900 truncate">
+                          {formatFieldValue(key, value)}
+                        </p>
+                      </div>
+                    ))}
                 </div>
 
                 <div className="flex gap-2 border-t border-gray-100 pt-3">
-                  {confirmandoId === registro.id ? (
-                    <>
-                      <Button
-                        onClick={() => handleExcluir(registro.id)}
-                        variant="danger"
-                        size="sm"
-                        icon="🗑️"
-                      >
-                        CONFIRMAR EXCLUSÃO
-                      </Button>
-                      <Button
-                        onClick={() => setConfirmandoId(null)}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        CANCELAR
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      onClick={() => handleExcluir(registro.id)}
-                      variant="ghost"
-                      size="sm"
-                      icon="🗑️"
-                    >
-                      EXCLUIR
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon="🔗"
+                  >
+                    COMPARTILHAR
+                  </Button>
                 </div>
               </div>
             ))}

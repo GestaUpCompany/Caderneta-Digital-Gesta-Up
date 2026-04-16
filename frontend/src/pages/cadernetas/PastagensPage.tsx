@@ -5,6 +5,7 @@ import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../compo
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { LOGO_URL, getFarmLogo } from '../../utils/constants'
 import { RootState } from '../../store/store'
 
 const AVALIACOES = [
@@ -58,7 +59,7 @@ const CATEGORIAS: { campo: keyof FormState; label: string }[] = [
 
 export default function PastagensPage() {
   const navigate = useNavigate()
-  const { usuario } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -113,68 +114,57 @@ export default function PastagensPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center justify-between gap-4">
+      {/* Header sticky com botões e título */}
+      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
+        <div className="flex items-center justify-between">
           <button
             onClick={() => navigate(-1)}
             className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
           >
-            ← VOLTAR
+            VOLTAR
           </button>
-          <div className="flex-1 text-center">
-            <h1 className="text-base font-bold">TROCA DE PASTOS</h1>
-          </div>
+          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">TROCA DE PASTOS</h1>
           <button
             onClick={() => navigate('/caderneta/pastagens/lista')}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
           >
-            LISTA
+            REGISTROS
           </button>
         </div>
-      </header>
+      </div>
+
+      {/* Logos não sticky */}
+      <div className="bg-[#1a3a2a] text-white px-4 py-5">
+        <div className="flex items-center justify-center gap-8">
+          <img src={LOGO_URL} alt="Gesta'Up" className="w-16 h-auto object-contain rounded-[22px]" />
+          {fazenda && (
+            <img src={getFarmLogo(fazenda)} alt="Fazenda" className="h-[58px] w-auto object-contain rounded-[22px]" />
+          )}
+        </div>
+      </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+          {usuario && (
+            <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
+              <span className="text-xl">👤</span>
+              <p className="text-gray-700 font-semibold">{usuario}</p>
+            </div>
+          )}
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">MANEJADOR</label>
-            {editandoManejador ? (
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nome do responsável"
-                  value={form.manejador}
-                  onChange={setInput('manejador')}
-                  error={getError('manejador')}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={() => setEditandoManejador(false)}
-                  variant="success"
-                  icon="✓"
-                  fullWidth={false}
-                  className="min-h-[32px] w-10 px-2"
-                />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-gray-50 border-2 border-gray-300 rounded-lg px-3 sm:px-4 py-3 min-h-[60px] flex items-center">
-                  <span className="text-base font-semibold text-black">
-                    {form.manejador || 'Não definido'}
-                  </span>
-                </div>
-                <Button
-                  onClick={() => setEditandoManejador(true)}
-                  variant="secondary"
-                  icon="✏️"
-                  fullWidth={false}
-                  className="min-h-[32px] w-10 px-2"
-                />
-              </div>
-            )}
+            <Input
+              placeholder="Nome do responsável"
+              value={form.manejador}
+              onChange={setInput('manejador')}
+              error={getError('manejador')}
+              readOnly={!editandoManejador}
+            />
           </div>
           <Input
             label="NÚMERO DO LOTE"

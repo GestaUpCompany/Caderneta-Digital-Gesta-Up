@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { LOGO_URL, getFarmLogo } from '../../utils/constants'
+import { RootState } from '../../store/store'
 
 const MOTIVOS = [
   { value: 'Morte', label: 'MORTE', icon: '⚰️' },
@@ -70,6 +73,7 @@ const makeInitial = (): FormState => ({
 
 export default function MovimentacaoPage() {
   const navigate = useNavigate()
+  const { usuario, fazenda } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -134,31 +138,46 @@ export default function MovimentacaoPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center justify-between gap-4">
+      {/* Header sticky com botões e título */}
+      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
+        <div className="flex items-center justify-between">
           <button
             onClick={() => navigate(-1)}
             className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
           >
-            ← VOLTAR
+            VOLTAR
           </button>
-          <div className="flex-1 text-center">
-            <h1 className="text-base font-bold">MOVIMENTAÇÃO</h1>
-          </div>
+          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">MOVIMENTAÇÃO</h1>
           <button
             onClick={() => navigate('/caderneta/movimentacao/lista')}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
           >
-            LISTA
+            REGISTROS
           </button>
         </div>
-      </header>
+      </div>
+
+      {/* Logos não sticky */}
+      <div className="bg-[#1a3a2a] text-white px-4 py-5">
+        <div className="flex items-center justify-center gap-8">
+          <img src={LOGO_URL} alt="Gesta'Up" className="w-16 h-auto object-contain rounded-[22px]" />
+          {fazenda && (
+            <img src={getFarmLogo(fazenda)} alt="Fazenda" className="h-[58px] w-auto object-contain rounded-[22px]" />
+          )}
+        </div>
+      </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+          {usuario && (
+            <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
+              <span className="text-xl">👤</span>
+              <p className="text-gray-700 font-semibold">{usuario}</p>
+            </div>
+          )}
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
           <div className="grid grid-cols-2 gap-3">

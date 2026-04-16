@@ -36,7 +36,7 @@ export default function Radio({
   return (
     <div>
       {label && (
-        <label className="block text-lg font-bold text-gray-900 mb-3">
+        <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">
           {label}
         </label>
       )}
