@@ -6,7 +6,6 @@ import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import { Settings } from 'lucide-react'
 
 const TIPOS_GADO = [
   { value: 'Cria', label: 'CRIA', icon: '🍼' },
@@ -108,13 +107,7 @@ export default function BebedourosPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-[#1a3a2a] text-white px-4 py-4 relative">
-        <button
-          onClick={() => navigate('/configuracoes')}
-          className="absolute top-4 right-4 text-white hover:text-yellow-400 transition-colors z-10"
-        >
-          <Settings size={24} />
-        </button>
+      <header className="bg-[#1a3a2a] text-white px-4 py-4">
         <div className="flex items-center justify-between gap-4">
           <button
             onClick={() => navigate(-1)}
