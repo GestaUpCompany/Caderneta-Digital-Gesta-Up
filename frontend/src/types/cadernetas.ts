@@ -12,6 +12,7 @@ export interface Registro {
 
 export interface RegistroMaternidade extends Registro {
   pasto: string
+  lote: string
   pesoCria: number | null
   numeroCria: string
   tratamento: string

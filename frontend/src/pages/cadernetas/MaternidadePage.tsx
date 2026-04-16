@@ -47,6 +47,7 @@ const CATEGORIAS_MAE = [
 interface FormState {
   data: string
   pasto: string
+  lote: string
   pesoCria: string
   numeroCria: string
   tratamentos: string[]
@@ -62,6 +63,7 @@ interface FormState {
 const makeInitial = (): FormState => ({
   data: todayBR(),
   pasto: '',
+  lote: '',
   pesoCria: '',
   numeroCria: '',
   tratamentos: [],
@@ -122,6 +124,7 @@ export default function MaternidadePage() {
     const result = await salvarRegistro('maternidade', {
       data: form.data,
       pasto: form.pasto,
+      lote: form.lote,
       pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
       numeroCria: form.numeroCria,
       tratamento: tratamentoFinal,
@@ -204,6 +207,14 @@ export default function MaternidadePage() {
             value={form.pasto}
             onChange={setInputEvent('pasto')}
             error={getError('pasto')}
+            inputMode="text"
+          />
+          <Input
+            label="LOTE"
+            placeholder="Ex: 10"
+            value={form.lote}
+            onChange={setInputEvent('lote')}
+            error={getError('lote')}
             inputMode="text"
           />
           <Input

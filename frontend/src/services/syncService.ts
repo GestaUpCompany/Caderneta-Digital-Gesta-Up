@@ -13,7 +13,7 @@ import { Registro } from '../types/cadernetas'
 
 const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | number | null)[]> = {
   maternidade: (r) => [
-    r.data as string, r.pasto as string, r.pesoCria as number, r.numeroCria as string,
+    r.data as string, r.pasto as string, r.lote as string, r.pesoCria as number, r.numeroCria as string,
     r.tratamento as string, r.tipoParto as string, r.sexo as string,
     r.raca as string, r.numeroMae as string, r.categoriaMae as string,
   ],
