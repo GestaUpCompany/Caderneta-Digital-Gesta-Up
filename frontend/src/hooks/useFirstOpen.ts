@@ -5,13 +5,14 @@ export function useFirstOpen() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Verificar se é a primeira abertura (browser ou PWA)
+    // Verificar se PWA está instalado
     const checkFirstOpen = () => {
-      const welcomeSeen = localStorage.getItem('welcome-seen')
+      const isInstalled = window.matchMedia('(display-mode: standalone)').matches ||
+                          (window.navigator as any).standalone === true
       
-      // Mostrar welcome se nunca viu a tela de boas-vindas
-      // (funciona tanto no browser quanto no PWA instalado)
-      const shouldShow = !welcomeSeen
+      // Se PWA está instalado, não mostrar WelcomePage
+      // Se PWA não está instalado, sempre mostrar WelcomePage
+      const shouldShow = !isInstalled
       
       setShouldShowWelcome(shouldShow)
       setIsLoading(false)

@@ -23,7 +23,7 @@ export default function Page() {
       {/* Header */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         {/* Logo */}
-        <div className="w-32 h-32 bg-yellow-400 rounded-[1.5rem] flex items-center justify-center mb-8 shadow-2xl">
+        <div className="w-32 h-32 bg-white rounded-[1.5rem] flex items-center justify-center mb-8 shadow-2xl">
           <img 
             src="/Caderneta-Digital-Gesta-Up/logo-gestaup-app-cadernetadigital.png" 
             alt="Logo Gesta'Up" 
