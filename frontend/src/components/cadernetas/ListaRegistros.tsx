@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Registro } from '../../types/cadernetas'
 import { CadernetaStore } from '../../services/indexedDB'
-import { listarRegistros, excluirRegistro } from '../../services/api'
+import { listarRegistros /*, excluirRegistro */ } from '../../services/api'
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { exportToCSV, exportToJSON, copyToClipboard } from '../../utils/exportToCSV'
 import { Input, Button } from '../ui'
@@ -57,7 +57,7 @@ export default function ListaRegistros({ caderneta, titulo, colunas, rotaForm }:
   const { usuario } = useSelector((state: RootState) => state.config)
   const [registros, setRegistros] = useState<Registro[]>([])
   const [carregando, setCarregando] = useState(true)
-  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
+  // const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [mostrarExportar, setMostrarExportar] = useState(false)
 
@@ -85,15 +85,15 @@ export default function ListaRegistros({ caderneta, titulo, colunas, rotaForm }:
     totalFiltrado,
   } = useSearchFiltros(registros)
 
-  const handleExcluir = async (id: string) => {
-    if (confirmandoId !== id) {
-      setConfirmandoId(id)
-      return
-    }
-    await excluirRegistro(caderneta, id)
-    setConfirmandoId(null)
-    carregar()
-  }
+  // const handleExcluir = async (id: string) => {
+  //   if (confirmandoId !== id) {
+  //     setConfirmandoId(id)
+  //     return
+  //   }
+  //   await excluirRegistro(caderneta, id)
+  //   setConfirmandoId(null)
+  //   carregar()
+  // }
 
   const handleExportCSV = () => exportToCSV(registrosFiltrados, `${caderneta}_export`, colunas)
   const handleExportJSON = () => exportToJSON(registrosFiltrados, `${caderneta}_export`)
