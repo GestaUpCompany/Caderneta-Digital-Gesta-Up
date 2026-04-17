@@ -93,29 +93,37 @@ N1: Total Animais
 ```
 A1: Data
 B1: Pasto
-C1: Número Lote
-D1: Vaca
-E1: Touro
-F1: Bezerro
-G1: Boi
-H1: Garrote
-I1: Novilha
-J1: Total Cabeças
-K1: Escore Gado Ideal
-L1: Água Boa Bebedouro
-M1: Pastagem Adequada
-N1: Animais Doentes
-O1: Cercas Cochos
-P1: Carrapatos Moscas
-Q1: Animais Entreverados
-R1: Animal Morto
-S1: Animais Tratados
-T1: Escore Fezes
-U1: Equipe
-V1: Animal 1 ID
-W1: Animal 1 Tratamentos
-X1: Animal 2 ID
-Y1: Animal 2 Tratamentos
+C1: NÚMERO LOTE
+D1: VACAS
+E1: TOUROS
+F1: BEZERROS(AS)
+G1: BOIS
+H1: GARROTES
+I1: NOVILHAS
+J1: TOTAL CABEÇAS
+K1: ESCORE GADO IDEAL?
+L1: Observação
+M1: ÁGUA BOA BEBEDOURO?
+N1: Observação
+O1: PASTAGEM ADEQUADA?
+P1: Observação
+Q1: ANIMAIS DOENTES?
+R1: Observação
+S1: CERCAS COCHOS OK?
+T1: Observação
+U1: CARRAPATOS MOSCAS?
+V1: Observação
+W1: ANIMAIS ENTREVERADOS?
+X1: Observação
+Y1: ANIMAL MORTO?
+Z1: Observação
+AA1: Animais Tratados
+AB1: Escore Fezes
+AC1: Equipe
+AD1: Animal 1 ID
+AE1: Animal 1 Tratamentos
+AF1: Animal 2 ID
+AG1: Animal 2 Tratamentos
 ... (continua até Animal 20 ID e Animal 20 Tratamentos)
 ```
 

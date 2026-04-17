@@ -4,7 +4,7 @@ export default function RodeioListaPage() {
   return (
     <ListaRegistros
       caderneta="rodeio"
-      titulo="RODEIO GADO — LISTA"
+      titulo="RODEIO GADO"
       rotaForm="/caderneta/rodeio"
     />
   )

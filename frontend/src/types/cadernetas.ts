@@ -27,16 +27,15 @@ export interface RegistroPastagens extends Registro {
   manejador: string
   numeroLote: string
   pastoSaida: string
-  avaliacaoSaida: number | null
+  avaliacaoSaida: string
   pastoEntrada: string
-  avaliacaoEntrada: number | null
+  avaliacaoEntrada: string
   vaca: number
   touro: number
   bezerro: number
   boiMagro: number
   garrote: number
   novilha: number
-  totalAnimais: number
 }
 
 export interface RegistroRodeio extends Registro {
@@ -50,13 +49,21 @@ export interface RegistroRodeio extends Registro {
   novilha: number
   totalCabecas: number
   escoreGadoIdeal: 'S' | 'N'
+  escoreGadoIdealObs: string
   aguaBoaBebedouro: 'S' | 'N'
+  aguaBoaBebedouroObs: string
   pastagemAdequada: 'S' | 'N'
+  pastagemAdequadaObs: string
   animaisDoentes: 'S' | 'N'
+  animaisDoentesObs: string
   cercasCochos: 'S' | 'N'
+  cercasCochosObs: string
   carrapatosMoscas: 'S' | 'N'
+  carrapatosMoscasObs: string
   animaisEntreverados: 'S' | 'N'
+  animaisEntreveradosObs: string
   animalMorto: 'S' | 'N'
+  animalMortoObs: string
   animaisTratados: number
   escoreFezes: number | null
   equipe: number | null

@@ -4,7 +4,7 @@ export default function PastagensListaPage() {
   return (
     <ListaRegistros
       caderneta="pastagens"
-      titulo="TROCA DE PASTOS — LISTA"
+      titulo="TROCA DE PASTOS"
       rotaForm="/caderneta/pastagens"
     />
   )

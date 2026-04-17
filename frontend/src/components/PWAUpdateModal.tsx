@@ -58,7 +58,7 @@ export function PWAUpdateModal({ isOpen, onRestartNow, onLater }: PWAUpdateModal
             Nova versão disponível!
           </h2>
           <p className="text-gray-600">
-            Uma atualização foi detectada. Reinicie o aplicativo para obter as melhorias mais recentes.
+            Reinicie o aplicativo para obter as melhorias mais recentes.
           </p>
         </div>
 

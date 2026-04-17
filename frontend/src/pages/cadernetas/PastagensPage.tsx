@@ -84,12 +84,12 @@ export default function PastagensPage() {
 
     const result = await salvarRegistro('pastagens', {
       ...form,
-      vaca: form.vaca ? Number(form.vaca) : null,
-      touro: form.touro ? Number(form.touro) : null,
-      bezerro: form.bezerro ? Number(form.bezerro) : null,
-      boiMagro: form.boiMagro ? Number(form.boiMagro) : null,
-      garrote: form.garrote ? Number(form.garrote) : null,
-      novilha: form.novilha ? Number(form.novilha) : null,
+      vaca: form.vaca ? Number(form.vaca) : 0,
+      touro: form.touro ? Number(form.touro) : 0,
+      bezerro: form.bezerro ? Number(form.bezerro) : 0,
+      boiMagro: form.boiMagro ? Number(form.boiMagro) : 0,
+      garrote: form.garrote ? Number(form.garrote) : 0,
+      novilha: form.novilha ? Number(form.novilha) : 0,
     })
 
     setSalvando(false)

@@ -8,6 +8,7 @@ import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
 import { RootState } from '../../store/store'
+import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 
 interface Props {
   caderneta: CadernetaStore
@@ -22,26 +23,15 @@ const statusLabel: Record<string, string> = {
   error: '❌',
 }
 
-const fieldLabels: Record<string, Record<string, string>> = {
-  maternidade: {
-    pasto: 'PASTO',
-    pesoCria: 'PESO DA CRIA',
-    numeroCria: 'NÚMERO DA CRIA',
-    tratamento: 'TRATAMENTO',
-    tipoParto: 'TIPO DE PARTO',
-    sexo: 'SEXO',
-    raca: 'RAÇA',
-    numeroMae: 'NÚMERO DA MÃE',
-    categoriaMae: 'CATEGORIA DA MÃE',
-  },
-}
-
 const formatFieldValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined || value === '') return '—'
   if (key === 'pesoCria' && value !== null && value !== undefined && value !== '') {
     return `${String(value)} kg`
   }
-  return String(value)
+  const valueStr = String(value)
+  if (valueStr === 'S') return 'Sim'
+  if (valueStr === 'N') return 'Não'
+  return valueStr
 }
 
 export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
@@ -67,15 +57,6 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
 
   useEffect(() => {
     carregar()
-
-    // Polling para atualizar syncStatus em tempo real (a cada 5 segundos)
-    const interval = setInterval(() => {
-      if (!document.hidden) {
-        carregar()
-      }
-    }, 5000)
-
-    return () => clearInterval(interval)
   }, [carregar])
 
   const {
@@ -142,42 +123,9 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
     texto += `👤 Usuário: ${nomeUsuario}\n`
     texto += `📅 Data: ${String(registro.data)}\n\n`
 
-    // Mapeamento de campos para labels amigáveis
-    const campoLabel: Record<string, string> = {
-      pasto: 'PASTO',
-      numeroCria: 'NÚMERO CRIA',
-      numeroMae: 'NÚMERO MÃE',
-      sexo: 'SEXO',
-      tipoParto: 'TIPO DE PARTO',
-      raca: 'RAÇA',
-      tratamento: 'TRATAMENTO',
-      pesoCria: 'PESO CRIA',
-      manejador: 'MANEJADOR',
-      lote: 'LOTE',
-      numeroLote: 'LOTE',
-      pastoSaida: 'PASTO SAÍDA',
-      pastoEntrada: 'PASTO ENTRADA',
-      totalAnimais: 'TOTAL ANIMAIS',
-      tratador: 'TRATADOR',
-      produto: 'PRODUTO',
-      gado: 'GADO',
-      leitura: 'LEITURA',
-      kg: 'KG',
-      totalCabecas: 'TOTAL CABEÇAS',
-      animaisTratados: 'ANIMAIS TRATADOS',
-      animaisDoentes: 'ANIMAIS DOENTES',
-      animalMorto: 'ANIMAL MORTO',
-      loteOrigem: 'LOTE ORIGEM',
-      loteDestino: 'LOTE DESTINO',
-      numeroCabecas: 'NÚMERO CABEÇAS',
-      pesoMedio: 'PESO MÉDIO',
-      motivoMovimentacao: 'MOTIVO',
-      brincoChip: 'BRINCO/CHIP',
-      responsavel: 'RESPONSÁVEL',
-      categoria: 'CATEGORIA',
-      categoriaMae: 'CATEGORIA MÃE',
-      leituraBebedouro: 'LEITURA BEBEDOURO',
-    }
+    // Separar campos normais e animais tratados
+    const camposNormais: [string, unknown][] = []
+    const animaisTratados: Map<number, { id: string; tratamentos: string }> = new Map()
 
     Object.entries(registro).forEach(([key, value]) => {
       if (
@@ -186,15 +134,45 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
         key !== 'syncStatus' &&
         key !== 'version' &&
         key !== 'lastModified' &&
+        key !== 'googleRowId' &&
         value !== null &&
         value !== undefined &&
         value !== ''
       ) {
-        const label = campoLabel[key] || key.toUpperCase()
-        const valorFormatado = formatFieldValue(key, value)
-        texto += `${label}: ${valorFormatado}\n`
+        const match = key.match(/^animal(\d+)(Id|Tratamentos)$/)
+        if (match) {
+          const num = parseInt(match[1])
+          const tipo = match[2]
+          if (!animaisTratados.has(num)) {
+            animaisTratados.set(num, { id: '', tratamentos: '' })
+          }
+          const animal = animaisTratados.get(num)!
+          if (tipo === 'Id') {
+            animal.id = String(value)
+          } else {
+            animal.tratamentos = String(value)
+          }
+        } else {
+          camposNormais.push([key, value])
+        }
       }
     })
+
+    // Adicionar campos normais com labels em negrito
+    camposNormais.forEach(([key, value]) => {
+      let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+      const valorFormatado = formatFieldValue(key, value)
+      texto += `**${label}:** ${valorFormatado}\n`
+    })
+
+    // Adicionar animais tratados com estrutura especial
+    if (animaisTratados.size > 0) {
+      texto += '\n'
+      animaisTratados.forEach(({ id, tratamentos }) => {
+        texto += `**Animal ${id}**\n`
+        texto += `**Tratamentos:** ${tratamentos}\n\n`
+      })
+    }
 
     return texto
   }
@@ -268,7 +246,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
             onClick={() => handleSetPeriodoRapido('todos')}
             variant={periodoAtivo === 'todos' ? 'secondary' : 'ghost'}
             size="sm"
-            icon="📅"
+            icon="📆"
             className="!gap-1"
           >
             TODOS
@@ -286,7 +264,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
             onClick={() => handleSetPeriodoRapido('7dias')}
             variant={periodoAtivo === '7dias' ? 'secondary' : 'ghost'}
             size="sm"
-            icon="📅"
+            icon="📆"
             className="!gap-1"
           >
             7 DIAS
@@ -295,7 +273,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
             onClick={() => handleSetPeriodoRapido('30dias')}
             variant={periodoAtivo === '30dias' ? 'secondary' : 'ghost'}
             size="sm"
-            icon="📅"
+            icon="📆"
             className="!gap-1"
           >
             30 DIAS
@@ -432,17 +410,32 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                     </div>
                   )}
                   {Object.entries(registro)
-                    .filter(([key]) => !['id', 'googleRowId', 'version', 'lastModified', 'syncStatus'].includes(key))
-                    .map(([key, value]) => (
-                      <div key={key}>
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                          {fieldLabels[caderneta]?.[key] || key.toUpperCase()}
-                        </p>
-                        <p className="text-base font-semibold text-gray-900 truncate">
-                          {formatFieldValue(key, value)}
-                        </p>
-                      </div>
-                    ))}
+                    .filter(([key, value]) =>
+                      !['id', 'googleRowId', 'version', 'lastModified', 'syncStatus'].includes(key) &&
+                      value !== null &&
+                      value !== undefined &&
+                      value !== ''
+                    )
+                    .map(([key, value]) => {
+                      // Formatar label especial para animais tratados
+                      let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+                      if (key.match(/^animal\d+Id$/)) {
+                        label = `animal ${String(value)}`
+                      } else if (key.match(/^animal\d+Tratamentos$/)) {
+                        label = 'Tratamentos'
+                      }
+
+                      return (
+                        <div key={key}>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                            {label}
+                          </p>
+                          <p className="text-base font-semibold text-gray-900 break-words whitespace-normal">
+                            {formatFieldValue(key, value)}
+                          </p>
+                        </div>
+                      )
+                    })}
                 </div>
 
                 <div className="flex gap-2 border-t border-gray-100 pt-3">

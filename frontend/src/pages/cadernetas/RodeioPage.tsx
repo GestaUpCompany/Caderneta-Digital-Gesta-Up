@@ -43,7 +43,7 @@ const PROCEDIMENTOS_OPCOES = [
 const CATEGORIAS_ANIMAIS: { campo: string; label: string }[] = [
   { campo: 'vaca', label: 'VACAS' },
   { campo: 'touro', label: 'TOUROS' },
-  { campo: 'bezerro', label: 'BEZERROS (AS)' },
+  { campo: 'bezerro', label: 'BEZERROS(AS)' },
   { campo: 'boi', label: 'BOIS' },
   { campo: 'garrote', label: 'GARROTES' },
   { campo: 'novilha', label: 'NOVILHAS' },
@@ -51,13 +51,21 @@ const CATEGORIAS_ANIMAIS: { campo: string; label: string }[] = [
 
 type SnFields = {
   escoreGadoIdeal: string
+  escoreGadoIdealObs: string
   aguaBoaBebedouro: string
+  aguaBoaBebedouroObs: string
   pastagemAdequada: string
+  pastagemAdequadaObs: string
   animaisDoentes: string
+  animaisDoentesObs: string
   cercasCochos: string
+  cercasCochosObs: string
   carrapatosMoscas: string
+  carrapatosMoscasObs: string
   animaisEntreverados: string
+  animaisEntreveradosObs: string
   animalMorto: string
+  animalMortoObs: string
 }
 
 interface AnimalTratado {
@@ -86,9 +94,14 @@ const makeInitial = (): FormState => ({
   pasto: '',
   numeroLote: '',
   vaca: '', touro: '', bezerro: '', boi: '', garrote: '', novilha: '',
-  escoreGadoIdeal: '', aguaBoaBebedouro: '', pastagemAdequada: '',
-  animaisDoentes: '', cercasCochos: '', carrapatosMoscas: '',
-  animaisEntreverados: '', animalMorto: '',
+  escoreGadoIdeal: '', escoreGadoIdealObs: '',
+  aguaBoaBebedouro: '', aguaBoaBebedouroObs: '',
+  pastagemAdequada: '', pastagemAdequadaObs: '',
+  animaisDoentes: '', animaisDoentesObs: '',
+  cercasCochos: '', cercasCochosObs: '',
+  carrapatosMoscas: '', carrapatosMoscasObs: '',
+  animaisEntreverados: '', animaisEntreveradosObs: '',
+  animalMorto: '', animalMortoObs: '',
   animaisTratados: '',
   animaisTratadosDetalhes: [],
   escoreFezes: '',
@@ -196,13 +209,21 @@ export default function RodeioPage() {
       novilha: form.novilha ? Number(form.novilha) : 0,
       totalCabecas: total,
       escoreGadoIdeal: form.escoreGadoIdeal,
+      escoreGadoIdealObs: form.escoreGadoIdealObs || '',
       aguaBoaBebedouro: form.aguaBoaBebedouro,
+      aguaBoaBebedouroObs: form.aguaBoaBebedouroObs || '',
       pastagemAdequada: form.pastagemAdequada,
+      pastagemAdequadaObs: form.pastagemAdequadaObs || '',
       animaisDoentes: form.animaisDoentes,
+      animaisDoentesObs: form.animaisDoentesObs || '',
       cercasCochos: form.cercasCochos,
+      cercasCochosObs: form.cercasCochosObs || '',
       carrapatosMoscas: form.carrapatosMoscas,
+      carrapatosMoscasObs: form.carrapatosMoscasObs || '',
       animaisEntreverados: form.animaisEntreverados,
+      animaisEntreveradosObs: form.animaisEntreveradosObs || '',
       animalMorto: form.animalMorto,
+      animalMortoObs: form.animalMortoObs || '',
       animaisTratados: form.animaisTratados ? Number(form.animaisTratados) : 0,
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       equipe: form.equipe ? Number(form.equipe) : null,
@@ -321,16 +342,23 @@ export default function RodeioPage() {
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-5">
           <h2 className="section-title">3. AVALIAÇÃO GERAL</h2>
           {AVALIACOES_SN.map(({ campo, label }) => (
-            <Radio
-              key={campo}
-              name={campo}
-              label={label}
-              options={SN_OPTIONS}
-              value={form[campo as keyof SnFields]}
-              onChange={set(campo as keyof FormState)}
-              error={getError(campo)}
-              gridCols={2}
-            />
+            <div key={campo}>
+              <Radio
+                name={campo}
+                label={label}
+                options={SN_OPTIONS}
+                value={form[campo as keyof SnFields]}
+                onChange={set(campo as keyof FormState)}
+                error={getError(campo)}
+                gridCols={2}
+              />
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={(form as any)[`${campo}Obs`]}
+                onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                className="mt-2"
+              />
+            </div>
           ))}
         </div>
 
