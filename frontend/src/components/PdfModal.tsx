@@ -42,12 +42,12 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
     >
       {/* Header com botão de fechar */}
       <div 
-        className="sticky top-0 bg-black/80 p-4 flex justify-end z-10"
+        className="absolute top-0 right-0 p-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="text-white hover:bg-gray-700 rounded-full p-2 transition-colors"
+          className="text-white hover:bg-gray-700 rounded-full p-2 transition-colors bg-black/50"
           aria-label="Fechar"
         >
           <X className="w-8 h-8" />
@@ -56,8 +56,9 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
 
       {/* Imagens em scroll vertical */}
       <div 
-        className="w-full h-full overflow-y-auto"
+        className="w-full h-full overflow-y-auto scroll-smooth"
         onClick={(e) => e.stopPropagation()}
+        style={{ touchAction: 'pan-y' }}
       >
         <div className="flex flex-col gap-4 items-center p-4">
           {images.map((image, index) => (
