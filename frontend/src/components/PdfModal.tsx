@@ -37,7 +37,7 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black z-50"
+      className="fixed inset-0 bg-black z-50 animate-in fade-in duration-300"
       onClick={onClose}
     >
       {/* Header com botão de fechar */}
@@ -47,7 +47,7 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
       >
         <button
           onClick={onClose}
-          className="text-white hover:bg-gray-700 rounded-full p-2 transition-colors bg-black/50"
+          className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
           aria-label="Fechar"
         >
           <X className="w-8 h-8" />
@@ -66,7 +66,8 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
               key={index}
               src={image}
               alt={`POP Maternidade - Página ${index + 1}`}
-              className="max-w-full h-auto"
+              className="max-w-full h-auto animate-in zoom-in duration-300"
+              style={{ animationDelay: `${index * 100}ms` }}
             />
           ))}
         </div>
