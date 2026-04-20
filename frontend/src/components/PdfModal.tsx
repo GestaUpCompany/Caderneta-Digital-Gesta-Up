@@ -4,10 +4,10 @@ import { X } from 'lucide-react'
 interface PdfModalProps {
   isOpen: boolean
   onClose: () => void
-  pdfUrl: string
+  images: string[]
 }
 
-export default function PdfModal({ isOpen, onClose, pdfUrl }: PdfModalProps) {
+export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   // Prevenir scroll quando modal está aberto
   useEffect(() => {
     if (isOpen) {
@@ -56,13 +56,18 @@ export default function PdfModal({ isOpen, onClose, pdfUrl }: PdfModalProps) {
           </button>
         </div>
 
-        {/* PDF Viewer com iframe */}
-        <div className="flex-1 w-full h-full">
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full border-0"
-            title="POP Maternidade"
-          />
+        {/* PDF Viewer com imagens */}
+        <div className="flex-1 w-full h-full overflow-y-auto p-4 bg-gray-100">
+          <div className="flex flex-col gap-4 items-center">
+            {images.map((image, index) => (
+              <img
+                key={index}
+                src={image}
+                alt={`POP Maternidade - Página ${index + 1}`}
+                className="max-w-full h-auto shadow-lg"
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
