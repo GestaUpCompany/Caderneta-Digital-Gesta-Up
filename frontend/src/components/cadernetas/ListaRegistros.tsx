@@ -121,10 +121,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
   }
 
   const formatarRegistroComoTexto = (registro: Registro): string => {
-    const nomeUsuario = usuario || 'Usuário'
-    let texto = `📋 REGISTRO - ${titulo.toUpperCase()}\n`
-    texto += `👤 Usuário: ${nomeUsuario}\n`
-    texto += `📅 Data: ${String(registro.data)}\n\n`
+    let texto = `📅 Data: ${String(registro.data)}\n\n`
 
     // Separar campos normais, animais tratados e categorias
     const camposNormais: [string, unknown][] = []
@@ -145,6 +142,13 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
         value !== undefined &&
         value !== ''
       ) {
+        // Filtrar categorias de gado com valor zero no rodeio
+        if (caderneta === 'rodeio' && ['vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha'].includes(key)) {
+          const numValue = Number(value)
+          if (numValue === 0) {
+            return // Não incluir campos com valor zero
+          }
+        }
         if (caderneta === 'movimentacao') {
           // Campos de categoria individual
           if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa'].includes(key)) {

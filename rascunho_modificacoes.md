@@ -65,3 +65,5 @@ BEBEDOUROS, MOVIMENTAÇÃO E TROCA DE PASTO
 22) Em troca de pastos, adicionar horário de entrada e saída.
 
 23) Em rodeio, pra cada pergunta de avaliação adicionar campo de observação (aperta botão e aparece campo para escrever) - FEITO
+
+24) Texto compartilhado: Nome do registro e usuário remover. Gado que estiver zerado remover
