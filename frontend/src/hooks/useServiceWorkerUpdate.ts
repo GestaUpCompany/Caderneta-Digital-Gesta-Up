@@ -31,8 +31,7 @@ export function useServiceWorkerUpdate() {
   const applyUpdate = useCallback(() => {
     if (updateInfo.waiting) {
       updateInfo.waiting.postMessage({ type: 'SKIP_WAITING' })
-      // Navegar para a raiz do app para garantir que o GitHub Pages sirva o index.html correto
-      window.location.href = window.location.origin + '/Caderneta-Digital-Gesta-Up/'
+      // Não navegar imediatamente - esperar SW_ACTIVATED para garantir recursos prontos
     } else if (import.meta.env.DEV) {
       // Em desenvolvimento, fazer reload mesmo sem service worker para teste
       window.location.reload()
