@@ -21,14 +21,24 @@ import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullTo
 
 // Componente wrapper para PWAUpdateModal com hook
 function PWAUpdateModalWrapper() {
-  const { showUpdateModal, applyUpdate, dismissUpdateModal } = useServiceWorkerUpdate()
+  const { showUpdateModal, applyUpdate, dismissUpdateModal, isReloading } = useServiceWorkerUpdate()
   
   return (
-    <PWAUpdateModal
-      isOpen={showUpdateModal}
-      onRestartNow={applyUpdate}
-      onLater={dismissUpdateModal}
-    />
+    <>
+      {isReloading && (
+        <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <span className="text-4xl animate-spin">⏳</span>
+            <p className="text-lg font-semibold text-gray-700">Atualizando app...</p>
+          </div>
+        </div>
+      )}
+      <PWAUpdateModal
+        isOpen={showUpdateModal}
+        onRestartNow={applyUpdate}
+        onLater={dismissUpdateModal}
+      />
+    </>
   )
 }
 

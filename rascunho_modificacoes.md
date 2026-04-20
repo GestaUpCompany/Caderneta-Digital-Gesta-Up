@@ -1,6 +1,6 @@
 HOME
 
-1) Na tela inicial, incluir logomarca da fazenda também.
+1) Na tela inicial, incluir logomarca da fazenda também - FEITO
 
 2) Não colocar boi preto nas imagens. Colocar apenas bois nelore.
 
@@ -64,4 +64,4 @@ BEBEDOUROS, MOVIMENTAÇÃO E TROCA DE PASTO
 
 22) Em troca de pastos, adicionar horário de entrada e saída.
 
-23) Em rodeio, pra cada pergunta de avaliação adicionar campo de observação (aperta botão e aparece campo para escrever)
+23) Em rodeio, pra cada pergunta de avaliação adicionar campo de observação (aperta botão e aparece campo para escrever) - FEITO

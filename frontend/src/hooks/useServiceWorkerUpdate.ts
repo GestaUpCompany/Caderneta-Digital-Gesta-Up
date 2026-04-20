@@ -13,6 +13,7 @@ export function useServiceWorkerUpdate() {
   const [dismissedAt, setDismissedAt] = useState<number | null>(null)
   const [showUpdateBanner, setShowUpdateBanner] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [isReloading, setIsReloading] = useState(false)
 
   // Verificar se há dismiss temporário
   const shouldShowUpdate = useCallback(() => {
@@ -98,6 +99,18 @@ export function useServiceWorkerUpdate() {
       // Limpar dismiss ao atualizar
       localStorage.removeItem('sw-update-dismissed')
       setDismissedAt(null)
+      // Recarregar página suavemente após breve delay para garantir novos recursos
+      setIsReloading(true)
+      setTimeout(() => {
+        window.location.href = window.location.origin + '/Caderneta-Digital-Gesta-Up/'
+      }, 500)
+    }
+
+    // Listener para mensagem do service worker (SW_ACTIVATED)
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'SW_ACTIVATED') {
+        handleSWActivated()
+      }
     }
 
     // Listener para forçar exibição do modal (apenas para desenvolvimento)
@@ -110,6 +123,7 @@ export function useServiceWorkerUpdate() {
     window.addEventListener('sw-update-available', handleSWUpdate)
     window.addEventListener('sw-activated', handleSWActivated)
     window.addEventListener('sw-force-show-modal', handleForceShowModal)
+    navigator.serviceWorker.addEventListener('message', handleSWMessage)
 
     // Verificar se já há um SW esperando
     navigator.serviceWorker.getRegistration().then(registration => {
@@ -134,6 +148,7 @@ export function useServiceWorkerUpdate() {
       window.removeEventListener('sw-update-available', handleSWUpdate)
       window.removeEventListener('sw-activated', handleSWActivated)
       window.removeEventListener('sw-force-show-modal', handleForceShowModal)
+      navigator.serviceWorker.removeEventListener('message', handleSWMessage)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [forceCheck])
@@ -165,6 +180,7 @@ export function useServiceWorkerUpdate() {
     waitingSW: updateInfo.waiting,
     showUpdateBanner,
     showUpdateModal,
+    isReloading,
     applyUpdate,
     dismissUpdateModal,
     dismissUpdateBanner,

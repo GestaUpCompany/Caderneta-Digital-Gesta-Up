@@ -8,6 +8,20 @@ self.addEventListener('message', (event) => {
   }
 })
 
+// Ativar automaticamente o novo service worker quando houver atualização
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    self.clients.claim().then(() => {
+      // Notificar todos os clientes que o novo service worker está ativo
+      return self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'SW_ACTIVATED' })
+        })
+      })
+    })
+  )
+})
+
 // Handler de erro para recarregar automaticamente em caso de 404
 self.addEventListener('fetch', (event) => {
   event.respondWith(
