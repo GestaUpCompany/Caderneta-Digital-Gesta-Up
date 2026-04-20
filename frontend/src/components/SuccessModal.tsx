@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check } from 'lucide-react'
 import Button from './ui/Button'
 import { formatarRegistroComoTexto, compartilharWhatsApp, Registro } from '../utils/shareUtils'
 
@@ -62,7 +62,7 @@ export default function SuccessModal({
       onClick={onClose}
     >
       <div 
-        className="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200"
+        className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header com ícone de sucesso */}
@@ -112,14 +112,6 @@ export default function SuccessModal({
             </Button>
           )}
         </div>
-
-        {/* Botão de fechar */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
       </div>
     </div>
   )
