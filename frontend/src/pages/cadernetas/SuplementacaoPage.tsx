@@ -1,17 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
-import { LOGO_URL, getFarmLogo } from '../../utils/constants'
+import { LOGO_URL, getFarmLogo, BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
 
 const PRODUTOS = [
   { value: 'Mineral', label: 'MINERAL', icon: '🥄' },
   { value: 'Proteinado', label: 'PROTEINADO', icon: '🥩' },
   { value: 'Ração', label: 'RAÇÃO', icon: '🌽' },
+  { value: 'Creep', label: 'CREEP', icon: '🍼' },
 ]
 
 const TIPOS_GADO = [
@@ -40,9 +41,7 @@ interface FormState {
   produto: string
   gado: string
   leitura: string
-  sacos: string
   kg: string
-  recria: string
   categorias: string[]
 }
 
@@ -54,9 +53,7 @@ const makeInitial = (usuario?: string): FormState => ({
   produto: '',
   gado: '',
   leitura: '',
-  sacos: '',
   kg: '',
-  recria: '',
   categorias: [],
 })
 
@@ -68,6 +65,42 @@ export default function SuplementacaoPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [subtipos, setSubtipos] = useState<string[]>([])
+  const [subtipo, setSubtipo] = useState('')
+  const [quantidadeCreep, setQuantidadeCreep] = useState('')
+  const [carregandoSubtipos, setCarregandoSubtipos] = useState(false)
+
+  // Carregar subtipos quando tipo principal muda (exceto Creep)
+  useEffect(() => {
+    const carregarSubtipos = async () => {
+      if (!form.produto || form.produto === 'Creep') {
+        setSubtipos([])
+        setSubtipo('')
+        return
+      }
+
+      if (!fazenda) {
+        return
+      }
+
+      setCarregandoSubtipos(true)
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/suplementacao/subtipos?fazenda=${fazenda}&tipo=${form.produto}`)
+        const data = await response.json()
+        if (data.success) {
+          setSubtipos(data.subtipos)
+          setSubtipo('')
+        }
+      } catch (error) {
+        console.error('Erro ao carregar subtipos:', error)
+        setSubtipos([])
+      } finally {
+        setCarregandoSubtipos(false)
+      }
+    }
+
+    carregarSubtipos()
+  }, [form.produto, fazenda])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -90,17 +123,19 @@ export default function SuplementacaoPage() {
     setSalvando(true)
     setErrors([])
 
+    // Se tipo é Creep: salvar quantidade, senão salvar subtipo
+    const subtipoQtd = form.produto === 'Creep' ? quantidadeCreep : subtipo
+
     const result = await salvarRegistro('suplementacao', {
       data: form.data,
       tratador: form.tratador,
       pasto: form.pasto,
       numeroLote: form.numeroLote,
       produto: form.produto,
+      subtipoQtd,
       gado: form.gado,
       leitura: form.leitura ? Number(form.leitura) : null,
-      sacos: form.sacos ? Number(form.sacos) : 0,
       kg: form.kg ? Number(form.kg) : 0,
-      recria: form.recria ? Number(form.recria) : 0,
       categorias: form.categorias,
     })
 
@@ -115,16 +150,17 @@ export default function SuplementacaoPage() {
         pasto: form.pasto,
         numeroLote: form.numeroLote,
         produto: form.produto,
+        subtipoQtd,
         gado: form.gado,
         leitura: form.leitura ? Number(form.leitura) : null,
-        sacos: form.sacos ? Number(form.sacos) : 0,
         kg: form.kg ? Number(form.kg) : 0,
-        recria: form.recria ? Number(form.recria) : 0,
         categorias: form.categorias,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
+      setSubtipo('')
+      setQuantidadeCreep('')
     }
   }
 
@@ -217,8 +253,50 @@ export default function SuplementacaoPage() {
             value={form.produto}
             onChange={set('produto')}
             error={getError('produto')}
-            gridCols={3}
+            gridCols={4}
           />
+
+          {/* Lista suspensa para subtipo (Mineral/Proteinado/Ração) */}
+          {form.produto && form.produto !== 'Creep' && (
+            <div className="mt-2">
+              {carregandoSubtipos ? (
+                <p className="text-gray-500">Carregando subtipos...</p>
+              ) : subtipos.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-bold text-gray-700">SUBTIPO:</label>
+                  <select
+                    value={subtipo}
+                    onChange={(e) => setSubtipo(e.target.value)}
+                    className="w-full p-3 border-2 border-gray-300 rounded-xl text-lg focus:border-[#3b82f6] focus:outline-none"
+                  >
+                    <option value="">Selecione o tipo...</option>
+                    {subtipos.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-gray-500">Nenhum subtipo disponível</p>
+              )}
+            </div>
+          )}
+
+          {/* Campo numérico para Creep */}
+          {form.produto === 'Creep' && (
+            <div className="mt-2">
+              <Input
+                label="QUANTIDADE"
+                placeholder="0"
+                value={quantidadeCreep}
+                onChange={(e) => setQuantidadeCreep(e.target.value)}
+                inputMode="decimal"
+                type="number"
+                min="0"
+              />
+            </div>
+          )}
         </div>
 
         {/* Seção 3: Leitura e Quantidade */}
@@ -233,35 +311,15 @@ export default function SuplementacaoPage() {
             error={getError('leitura')}
             gridCols={5}
           />
-          <div className="grid grid-cols-3 gap-3">
-            <Input
-              label="SACOS"
-              placeholder="0"
-              value={form.sacos}
-              onChange={setInput('sacos')}
-              inputMode="numeric"
-              type="number"
-              min="0"
-            />
-            <Input
-              label="KG"
-              placeholder="0"
-              value={form.kg}
-              onChange={setInput('kg')}
-              inputMode="decimal"
-              type="number"
-              min="0"
-            />
-            <Input
-              label="CREEP"
-              placeholder="0"
-              value={form.recria}
-              onChange={setInput('recria')}
-              inputMode="decimal"
-              type="number"
-              min="0"
-            />
-          </div>
+          <Input
+            label="KG"
+            placeholder="0"
+            value={form.kg}
+            onChange={setInput('kg')}
+            inputMode="decimal"
+            type="number"
+            min="0"
+          />
         </div>
 
         {/* Seção 4: Gado e Categorias */}

@@ -152,8 +152,6 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
     errors.push({ field: 'leitura', message: 'Leitura deve ser entre -1 e 3' })
   if (!isPositiveNumber(data.kg))
     errors.push({ field: 'kg', message: 'KG deve ser um número positivo' })
-  if (!isPositiveNumber(data.recria))
-    errors.push({ field: 'recria', message: 'Recria deve ser um número positivo' })
 
   return { isValid: errors.length === 0, errors }
 }

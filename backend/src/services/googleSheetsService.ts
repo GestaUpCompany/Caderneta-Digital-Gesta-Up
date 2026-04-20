@@ -165,3 +165,71 @@ export async function validateFarm(spreadsheetUrl: string, farmId: string): Prom
   logger.warn(`ID ${farmId} não encontrado em nenhuma aba`)
   return { success: false }
 }
+
+export async function getSubtiposDaFazenda(
+  spreadsheetUrl: string,
+  farmId: string,
+  tipo: string
+): Promise<string[]> {
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const spreadsheetId = extractSpreadsheetId(spreadsheetUrl)
+
+  // Listar todas as abas
+  const response = await sheets.spreadsheets.get({ spreadsheetId })
+  const sheetNames = response.data.sheets?.map((sheet) => sheet.properties?.title).filter((title): title is string => title !== undefined) || []
+
+  // Mapear tipo para coluna (0-indexed)
+  const colunasPorTipo: Record<string, number> = {
+    'Mineral': 3,      // Coluna D (índice 3)
+    'Proteinado': 4,  // Coluna E (índice 4)
+    'Ração': 5,       // Coluna F (índice 5)
+  }
+
+  const colunaIndex = colunasPorTipo[tipo]
+  if (colunaIndex === undefined) {
+    logger.warn(`Tipo '${tipo}' não mapeado para coluna`)
+    return []
+  }
+
+  // Converter índice de coluna para letra (0=A, 1=B, 3=D, etc.)
+  const colunaLetra = String.fromCharCode(65 + colunaIndex)
+
+  // Buscar a coluna específica (D, E ou F) a partir da linha 2
+  for (const sheetName of sheetNames) {
+    try {
+      // Buscar a coluna específica a partir da linha 2 (pular cabeçalho na linha 1)
+      const range = `${sheetName}!${colunaLetra}2:${colunaLetra}1000`
+      const cellResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range,
+      })
+
+      const values = cellResponse.data.values
+      if (!values || values.length === 0) {
+        continue
+      }
+
+      // Ler todos os valores não vazios da coluna
+      const subtipos: string[] = []
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i]
+        const valor = row.length > 0 ? String(row[0]).trim() : ''
+        if (valor && valor !== '') {
+          subtipos.push(valor)
+        }
+      }
+
+      if (subtipos.length > 0) {
+        logger.info(`Subtipos encontrados para ${tipo} na aba ${sheetName}: ${subtipos.join(', ')}`)
+        return subtipos
+      }
+    } catch (error) {
+      logger.error(`Erro ao buscar subtipos na aba ${sheetName}: ${error}`)
+      // Continua para a próxima aba
+    }
+  }
+
+  logger.warn(`Nenhum subtipo encontrado para tipo ${tipo}`)
+  return []
+}

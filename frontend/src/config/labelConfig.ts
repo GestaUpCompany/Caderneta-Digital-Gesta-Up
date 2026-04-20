@@ -70,6 +70,7 @@ const SUPLEMENTACAO_LABELS = {
   leitura: 'LEITURA DO COCHO',
   kg: 'KG',
   sacos: 'SACOS',
+  subtipoQtd: 'SUBTIPO/QTD',
 }
 
 const BEBEDOUROS_LABELS = {

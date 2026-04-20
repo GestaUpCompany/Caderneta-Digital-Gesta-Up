@@ -45,9 +45,9 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
   ],
   suplementacao: (r) => [
     r.data as string, r.tratador as string, r.pasto as string, r.numeroLote as string,
-    r.produto as string, r.gado as string,
+    r.produto as string, r.subtipoQtd as string, r.gado as string,
     Array.isArray(r.categorias) ? (r.categorias as string[]).join(', ') : '',
-    r.leitura as number, r.sacos as number, r.kg as number, r.recria as number,
+    r.leitura as number, r.kg as number,
   ],
   bebedouros: (r) => [
     r.data as string, r.responsavel as string, r.pasto as string, r.numeroLote as string,
