@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
+import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { LOGO_URL, getFarmLogo } from '../../utils/constants'
@@ -82,6 +83,7 @@ export default function MaternidadePage() {
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showPdfModal, setShowPdfModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
 
   const farmLogoUrl = fazenda ? getFarmLogo(fazenda) : LOGO_URL
@@ -205,15 +207,13 @@ export default function MaternidadePage() {
 
       {/* Botão de PDF POP */}
       <div className="bg-[#1a3a2a] text-white px-4 py-3">
-        <a
-          href="/Caderneta-Digital-Gesta-Up/docs/POP_Maternidade.pdf"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors no-underline"
+        <button
+          onClick={() => setShowPdfModal(true)}
+          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
         >
           <span className="text-xl">📄</span>
           <span>VER POP MATERNIDADE</span>
-        </a>
+        </button>
       </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
@@ -370,6 +370,12 @@ export default function MaternidadePage() {
         cadernetaName="Maternidade"
         registro={registroSalvo}
         caderneta="maternidade"
+      />
+
+      <PdfModal
+        isOpen={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
+        pdfUrl="/Caderneta-Digital-Gesta-Up/docs/POP_Maternidade.pdf"
       />
     </div>
   )
