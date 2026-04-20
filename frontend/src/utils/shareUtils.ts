@@ -61,6 +61,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           return // Não incluir campos com valor zero
         }
       }
+      // Filtrar kg com valor zero na suplementação
+      if (caderneta === 'suplementacao' && key === 'kg') {
+        const numValue = Number(value)
+        if (numValue === 0) {
+          return // Não incluir kg com valor zero
+        }
+      }
       if (caderneta === 'movimentacao') {
         // Campos de categoria individual
         if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa'].includes(key)) {
