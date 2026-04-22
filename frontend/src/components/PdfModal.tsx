@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { X, ZoomIn, ZoomOut } from 'lucide-react'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 
 interface PdfModalProps {
@@ -9,6 +9,8 @@ interface PdfModalProps {
 }
 
 export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
+  const [zoomEnabled, setZoomEnabled] = useState(false)
+
   // Prevenir scroll quando modal está aberto
   useEffect(() => {
     if (isOpen) {
@@ -41,11 +43,18 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
       className="fixed inset-0 bg-black z-50 animate-in fade-in duration-300"
       onClick={onClose}
     >
-      {/* Header com botão de fechar */}
+      {/* Header com botões */}
       <div
-        className="absolute top-0 right-0 p-4 z-20"
+        className="absolute top-0 right-0 p-4 z-20 flex gap-2"
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          onClick={() => setZoomEnabled(!zoomEnabled)}
+          className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
+          aria-label={zoomEnabled ? 'Desativar zoom' : 'Ativar zoom'}
+        >
+          {zoomEnabled ? <ZoomOut className="w-8 h-8" /> : <ZoomIn className="w-8 h-8" />}
+        </button>
         <button
           onClick={onClose}
           className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
@@ -54,6 +63,13 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
           <X className="w-8 h-8" />
         </button>
       </div>
+
+      {/* Indicador de modo */}
+      {zoomEnabled && (
+        <div className="absolute top-4 left-4 z-20 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+          Modo zoom ativo
+        </div>
+      )}
 
       {/* Imagens com zoom e pan */}
       <div
@@ -69,6 +85,8 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
                 maxScale={4}
                 wheel={{ step: 0.1 }}
                 doubleClick={{ step: 0.8 }}
+                panning={{ disabled: !zoomEnabled }}
+                disabled={!zoomEnabled}
               >
                 <TransformComponent>
                   <img
