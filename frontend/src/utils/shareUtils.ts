@@ -61,11 +61,18 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           return // Não incluir campos com valor zero
         }
       }
-      // Filtrar kg com valor zero na suplementação
-      if (caderneta === 'suplementacao' && key === 'kg') {
+      // Filtrar kgCocho com valor zero na suplementação
+      if (caderneta === 'suplementacao' && key === 'kgCocho') {
         const numValue = Number(value)
         if (numValue === 0) {
-          return // Não incluir kg com valor zero
+          return // Não incluir kgCocho com valor zero
+        }
+      }
+      // Filtrar kgDeposito com valor zero na suplementação
+      if (caderneta === 'suplementacao' && key === 'kgDeposito') {
+        const numValue = Number(value)
+        if (numValue === 0) {
+          return // Não incluir kgDeposito com valor zero
         }
       }
       if (caderneta === 'movimentacao') {

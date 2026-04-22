@@ -68,7 +68,8 @@ const SUPLEMENTACAO_LABELS = {
   gado: 'TIPO DE GADO',
   recria: 'CREEP',
   leitura: 'LEITURA DO COCHO',
-  kg: 'KG',
+  kgCocho: 'KG no cocho',
+  kgDeposito: 'KG no depósito',
   sacos: 'SACOS',
   subtipoQtd: 'SUBTIPO/QTD',
 }

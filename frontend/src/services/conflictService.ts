@@ -47,7 +47,7 @@ function buildRegistroFromRow(
         `animal${i + 1}Tratamentos`,
       ]).flat(),
     ],
-    suplementacao: ['data', 'tratador', 'pasto', 'numeroLote', 'produto', 'gado', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha', 'leitura', 'sacos', 'kg', 'creep'],
+    suplementacao: ['data', 'tratador', 'pasto', 'numeroLote', 'produto', 'gado', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha', 'leitura', 'sacos', 'kgCocho', 'kgDeposito', 'creep'],
     bebedouros: ['data', 'responsavel', 'pasto', 'numeroLote', 'gado', 'categoria', 'leituraBebedouro', 'numeroBebedouro', 'observacao'],
     movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'pesoMedio', 'vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
   }

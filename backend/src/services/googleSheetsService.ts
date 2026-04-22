@@ -233,3 +233,59 @@ export async function getSubtiposDaFazenda(
   logger.warn(`Nenhum subtipo encontrado para tipo ${tipo}`)
   return []
 }
+
+export async function getPastosELotesDaFazenda(
+  spreadsheetUrl: string,
+  farmId: string
+): Promise<{ pastos: string[], lotes: string[] }> {
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const spreadsheetId = extractSpreadsheetId(spreadsheetUrl)
+
+  const response = await sheets.spreadsheets.get({ spreadsheetId })
+  const sheetNames = response.data.sheets?.map((sheet) => sheet.properties?.title).filter((title): title is string => title !== undefined) || []
+
+  for (const sheetName of sheetNames) {
+    try {
+      // Buscar colunas G (PASTO) e H (LOTE) a partir da linha 2
+      const range = `${sheetName}!G2:H1000`
+      const cellResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range,
+      })
+
+      const values = cellResponse.data.values
+      if (!values || values.length === 0) {
+        continue
+      }
+
+      const pastos: string[] = []
+      const lotes: string[] = []
+
+      for (const row of values) {
+        const pasto = row.length > 0 ? String(row[0]).trim() : ''
+        const lote = row.length > 1 ? String(row[1]).trim() : ''
+
+        if (pasto && pasto !== '') {
+          pastos.push(pasto)
+        }
+        if (lote && lote !== '') {
+          lotes.push(lote)
+        }
+      }
+
+      if (pastos.length > 0 || lotes.length > 0) {
+        logger.info(`Pastos e lotes encontrados na aba ${sheetName}`)
+        return {
+          pastos: [...new Set(pastos)].sort(),
+          lotes: [...new Set(lotes)].sort()
+        }
+      }
+    } catch (error) {
+      logger.error(`Erro ao buscar pastos e lotes na aba ${sheetName}: ${error}`)
+    }
+  }
+
+  logger.warn(`Nenhum pasto ou lote encontrado para fazenda ${farmId}`)
+  return { pastos: [], lotes: [] }
+}

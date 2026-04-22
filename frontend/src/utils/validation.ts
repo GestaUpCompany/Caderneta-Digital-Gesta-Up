@@ -150,8 +150,10 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
     errors.push({ field: 'gado', message: 'Tipo de gado é obrigatório' })
   if (!isScaleValue(data.leitura, -1, 3))
     errors.push({ field: 'leitura', message: 'Leitura deve ser entre -1 e 3' })
-  if (!isPositiveNumber(data.kg))
-    errors.push({ field: 'kg', message: 'KG deve ser um número positivo' })
+  if (!isPositiveNumber(data.kgCocho))
+    errors.push({ field: 'kgCocho', message: 'KG no cocho deve ser um número positivo' })
+  if (!isPositiveNumber(data.kgDeposito))
+    errors.push({ field: 'kgDeposito', message: 'KG no depósito deve ser um número positivo' })
 
   return { isValid: errors.length === 0, errors }
 }

@@ -12,7 +12,7 @@ const FIELD_LABELS: Record<string, string> = {
   pastoSaida: 'Pasto Saída', pastoEntrada: 'Pasto Entrada', vaca: 'Vaca',
   touro: 'Touro', bezerro: 'Bezerro', boiMagro: 'Boi Magro', garrote: 'Garrote',
   novilha: 'Novilha', totalAnimais: 'Total', responsavel: 'Responsável',
-  tratador: 'Tratador', produto: 'Produto', gado: 'Tipo Gado', kg: 'KG',
+  tratador: 'Tratador', produto: 'Produto', gado: 'Tipo Gado', kgCocho: 'KG no cocho', kgDeposito: 'KG no depósito',
   loteOrigem: 'Lote Origem', loteDestino: 'Lote Destino', numeroCabecas: 'Nº Cabeças',
   motivoMovimentacao: 'Motivo', numeroCria: 'Nº Cria', tipoParto: 'Tipo Parto',
   sexo: 'Sexo', raca: 'Raça', numeroMae: 'Nº Mãe', categoriaMae: 'Categoria Mãe',

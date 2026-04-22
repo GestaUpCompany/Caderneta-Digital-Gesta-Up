@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage } from '../../components/ui'
+import { Button, Input, Select, DatePicker, Radio, Checkbox, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -22,11 +22,11 @@ const TIPOS_GADO = [
 ]
 
 const LEITURAS = [
-  { value: '-1', label: '-1' },
-  { value: '0', label: '0' },
-  { value: '1', label: '1' },
-  { value: '2', label: '2' },
-  { value: '3', label: '3' },
+  { value: '-1', label: '-1', icon: '🔴' },
+  { value: '0', label: '0', icon: '🟡' },
+  { value: '1', label: '1', icon: '🟢' },
+  { value: '2', label: '2', icon: '🟡' },
+  { value: '3', label: '3', icon: '🔴' },
 ]
 
 const CATEGORIAS = [
@@ -41,7 +41,8 @@ interface FormState {
   produto: string
   gado: string
   leitura: string
-  kg: string
+  kgCocho: string
+  kgDeposito: string
   categorias: string[]
 }
 
@@ -53,7 +54,8 @@ const makeInitial = (usuario?: string): FormState => ({
   produto: '',
   gado: '',
   leitura: '',
-  kg: '',
+  kgCocho: '',
+  kgDeposito: '',
   categorias: [],
 })
 
@@ -68,7 +70,11 @@ export default function SuplementacaoPage() {
   const [subtipos, setSubtipos] = useState<string[]>([])
   const [subtipo, setSubtipo] = useState('')
   const [quantidadeCreep, setQuantidadeCreep] = useState('')
+  const [kgDeposito, setKgDeposito] = useState('')
   const [carregandoSubtipos, setCarregandoSubtipos] = useState(false)
+  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
+  const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
 
   // Carregar subtipos quando tipo principal muda (exceto Creep)
   useEffect(() => {
@@ -101,6 +107,30 @@ export default function SuplementacaoPage() {
 
     carregarSubtipos()
   }, [form.produto, fazenda])
+
+  // Carregar pastos e lotes quando fazenda mudar
+  useEffect(() => {
+    async function carregarPastosELotes() {
+      if (!fazenda) return
+
+      setCarregandoPastosLotes(true)
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/suplementacao/pastos-lotes?fazenda=${encodeURIComponent(fazenda)}`)
+        const data = await response.json()
+
+        if (data.success) {
+          setPastosDisponiveis(data.pastos || [])
+          setLotesDisponiveis(data.lotes || [])
+        }
+      } catch (error) {
+        console.error('Erro ao carregar pastos e lotes:', error)
+      } finally {
+        setCarregandoPastosLotes(false)
+      }
+    }
+
+    carregarPastosELotes()
+  }, [fazenda])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -135,7 +165,8 @@ export default function SuplementacaoPage() {
       subtipoQtd,
       gado: form.gado,
       leitura: form.leitura ? Number(form.leitura) : null,
-      kg: form.kg ? Number(form.kg) : 0,
+      kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
+      kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
       categorias: form.categorias,
     })
 
@@ -153,7 +184,8 @@ export default function SuplementacaoPage() {
         subtipoQtd,
         gado: form.gado,
         leitura: form.leitura ? Number(form.leitura) : null,
-        kg: form.kg ? Number(form.kg) : 0,
+        kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
+        kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
         categorias: form.categorias,
       }
       setRegistroSalvo(dadosRegistro)
@@ -161,6 +193,7 @@ export default function SuplementacaoPage() {
       setForm(makeInitial(usuario))
       setSubtipo('')
       setQuantidadeCreep('')
+      setKgDeposito('')
     }
   }
 
@@ -226,21 +259,46 @@ export default function SuplementacaoPage() {
             error={getError('tratador')}
             readOnly
           />
-          <Input
-            label="PASTO"
-            placeholder="Ex: Pasto 12"
-            value={form.pasto}
-            onChange={setInput('pasto')}
-            error={getError('pasto')}
-          />
-          <Input
-            label="NÚMERO DO LOTE"
-            placeholder="Ex: 03"
-            value={form.numeroLote}
-            onChange={setInput('numeroLote')}
-            error={getError('numeroLote')}
-            inputMode="numeric"
-          />
+          {pastosDisponiveis.length > 0 ? (
+            <Select
+              label="PASTO"
+              value={form.pasto}
+              onChange={(e) => set('pasto')(e.target.value)}
+              error={getError('pasto')}
+              options={pastosDisponiveis.map(p => ({ value: p, label: p }))}
+              placeholder="Selecione o pasto..."
+            />
+          ) : (
+            <Input
+              label="PASTO"
+              placeholder="Ex: Pasto 12"
+              value={form.pasto}
+              onChange={setInput('pasto')}
+              error={getError('pasto')}
+            />
+          )}
+          {carregandoPastosLotes && (
+            <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
+          )}
+          {lotesDisponiveis.length > 0 ? (
+            <Select
+              label="NÚMERO DO LOTE"
+              value={form.numeroLote}
+              onChange={(e) => set('numeroLote')(e.target.value)}
+              error={getError('numeroLote')}
+              options={lotesDisponiveis.map(l => ({ value: l, label: l }))}
+              placeholder="Selecione o lote..."
+            />
+          ) : (
+            <Input
+              label="NÚMERO DO LOTE"
+              placeholder="Ex: 03"
+              value={form.numeroLote}
+              onChange={setInput('numeroLote')}
+              error={getError('numeroLote')}
+              inputMode="numeric"
+            />
+          )}
         </div>
 
         {/* Seção 2: Tipo de Suplementação */}
@@ -260,16 +318,16 @@ export default function SuplementacaoPage() {
           {form.produto && form.produto !== 'Creep' && (
             <div className="mt-2">
               {carregandoSubtipos ? (
-                <p className="text-gray-500">Carregando subtipos...</p>
+                <p className="text-gray-500">Carregando suplementos...</p>
               ) : subtipos.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-bold text-gray-700">SUBTIPO:</label>
+                  <label className="text-sm font-bold text-gray-700">Suplemento:</label>
                   <select
                     value={subtipo}
                     onChange={(e) => setSubtipo(e.target.value)}
                     className="w-full p-3 border-2 border-gray-300 rounded-xl text-lg focus:border-[#3b82f6] focus:outline-none"
                   >
-                    <option value="">Selecione o tipo...</option>
+                    <option value="">Selecione o suplemento...</option>
                     {subtipos.map((sub) => (
                       <option key={sub} value={sub}>
                         {sub}
@@ -311,15 +369,26 @@ export default function SuplementacaoPage() {
             error={getError('leitura')}
             gridCols={5}
           />
-          <Input
-            label="KG"
-            placeholder="0"
-            value={form.kg}
-            onChange={setInput('kg')}
-            inputMode="decimal"
-            type="number"
-            min="0"
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Kg no cocho"
+              placeholder="0"
+              value={form.kgCocho}
+              onChange={setInput('kgCocho')}
+              inputMode="decimal"
+              type="number"
+              min="0"
+            />
+            <Input
+              label="Kg no depósito"
+              placeholder="0"
+              value={kgDeposito}
+              onChange={(e) => setKgDeposito(e.target.value)}
+              inputMode="decimal"
+              type="number"
+              min="0"
+            />
+          </div>
         </div>
 
         {/* Seção 4: Gado e Categorias */}
