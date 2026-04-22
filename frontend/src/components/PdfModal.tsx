@@ -1,8 +1,5 @@
-import { useEffect } from 'react'
-import { X, ChevronLeft, ChevronRight } from 'lucide-react'
-import Lightbox from 'yet-another-react-lightbox'
-import 'yet-another-react-lightbox/styles.css'
-import Zoom from 'yet-another-react-lightbox/plugins/zoom'
+import { useEffect, useState } from 'react'
+import { X, ZoomIn, ZoomOut } from 'lucide-react'
 
 interface PdfModalProps {
   isOpen: boolean
@@ -11,6 +8,9 @@ interface PdfModalProps {
 }
 
 export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
+  const [zoom, setZoom] = useState(1)
+  const [zoomEnabled, setZoomEnabled] = useState(false)
+
   // Prevenir scroll quando modal está aberto
   useEffect(() => {
     if (isOpen) {
@@ -36,47 +36,108 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
+  // Reset zoom quando modal fecha
+  useEffect(() => {
+    if (!isOpen) {
+      setZoom(1)
+      setZoomEnabled(false)
+    }
+  }, [isOpen])
+
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 0.5, 4))
+  }
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 0.5, 0.5))
+  }
+
+  const handleDoubleClick = () => {
+    setZoomEnabled(true)
+    setZoom(2)
+  }
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black z-50">
-      <Lightbox
-        open={isOpen}
-        close={onClose}
-        slides={images.map((src) => ({ src }))}
-        plugins={[Zoom]}
-        zoom={{
-          maxZoomPixelRatio: 3,
-          zoomInMultiplier: 2,
-          scrollToZoom: true,
-        }}
-        carousel={{
-          finite: true,
-          preload: 2,
-          spacing: 0,
-          padding: 0,
-        }}
-        render={{
-          buttonPrev: () => null,
-          buttonNext: () => null,
-        }}
-      />
-
-      {/* Aviso de navegação discreto */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-black/50 text-white/70 px-3 py-1 rounded-full text-xs flex items-center gap-2">
-        <ChevronLeft className="w-3 h-3" />
-        <span>Arraste para navegar</span>
-        <ChevronRight className="w-3 h-3" />
+    <div
+      className="fixed inset-0 bg-black z-50 animate-in fade-in duration-300"
+      onClick={onClose}
+    >
+      {/* Header com botões */}
+      <div
+        className="absolute top-0 right-0 p-4 z-20 flex gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={() => setZoomEnabled(!zoomEnabled)}
+          className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
+          aria-label={zoomEnabled ? 'Desativar zoom' : 'Ativar zoom'}
+        >
+          {zoomEnabled ? <ZoomOut className="w-8 h-8" /> : <ZoomIn className="w-8 h-8" />}
+        </button>
+        {zoomEnabled && (
+          <>
+            <button
+              onClick={handleZoomOut}
+              className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
+              aria-label="Diminuir zoom"
+            >
+              <ZoomOut className="w-8 h-8" />
+            </button>
+            <button
+              onClick={handleZoomIn}
+              className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
+              aria-label="Aumentar zoom"
+            >
+              <ZoomIn className="w-8 h-8" />
+            </button>
+          </>
+        )}
+        <button
+          onClick={onClose}
+          className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
+          aria-label="Fechar"
+        >
+          <X className="w-8 h-8" />
+        </button>
       </div>
 
-      {/* Botão de fechar */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-50 text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
-        aria-label="Fechar"
+      {/* Indicador de zoom */}
+      {zoomEnabled && (
+        <div className="absolute top-4 left-4 z-20 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+          Zoom: {zoom}x
+        </div>
+      )}
+
+      {/* Imagens em scroll vertical */}
+      <div
+        className="w-full h-full overflow-y-auto scroll-smooth"
+        onClick={(e) => e.stopPropagation()}
+        style={{ overscrollBehavior: 'contain' }}
       >
-        <X className="w-8 h-8" />
-      </button>
+        <div className="flex flex-col gap-4 items-center p-4">
+          {images.map((image, index) => (
+            <div
+              key={index}
+              className="w-full flex justify-center animate-in zoom-in duration-300"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <img
+                src={image}
+                alt={`POP Maternidade - Página ${index + 1}`}
+                className="max-w-full h-auto cursor-pointer"
+                style={{
+                  transform: zoomEnabled ? `scale(${zoom})` : 'scale(1)',
+                  transition: 'transform 0.2s ease',
+                  transformOrigin: 'top center',
+                }}
+                onDoubleClick={handleDoubleClick}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
