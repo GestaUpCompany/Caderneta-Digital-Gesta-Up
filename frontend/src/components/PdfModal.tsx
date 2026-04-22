@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { X, ZoomIn, ZoomOut } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { X } from 'lucide-react'
 
 interface PdfModalProps {
   isOpen: boolean
@@ -9,7 +9,7 @@ interface PdfModalProps {
 
 export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   const [zoom, setZoom] = useState(1)
-  const [zoomEnabled, setZoomEnabled] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Prevenir scroll quando modal está aberto
   useEffect(() => {
@@ -40,21 +40,59 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   useEffect(() => {
     if (!isOpen) {
       setZoom(1)
-      setZoomEnabled(false)
     }
   }, [isOpen])
 
-  const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.5, 4))
+  // Gesto de pinça para zoom global
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      ;(e.currentTarget as HTMLElement).dataset.initialDistance = distance.toString()
+      ;(e.currentTarget as HTMLElement).dataset.initialZoom = zoom.toString()
+    }
   }
 
-  const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.5, 0.5))
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault()
+      const touch1 = e.touches[0]
+      const touch2 = e.touches[1]
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      )
+      const initialDistance = parseFloat((e.currentTarget as HTMLElement).dataset.initialDistance || '0')
+      const initialZoom = parseFloat((e.currentTarget as HTMLElement).dataset.initialZoom || '1')
+
+      if (initialDistance > 0) {
+        const scale = Math.min(Math.max(distance / initialDistance * initialZoom, 0.5), 4)
+        setZoom(scale)
+      }
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.currentTarget) {
+      delete (e.currentTarget as HTMLElement).dataset.initialDistance
+      delete (e.currentTarget as HTMLElement).dataset.initialZoom
+    }
+  }
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? -0.1 : 0.1
+      setZoom(prev => Math.min(Math.max(prev + delta, 0.5), 4))
+    }
   }
 
   const handleDoubleClick = () => {
-    setZoomEnabled(true)
-    setZoom(2)
+    setZoom(prev => prev === 1 ? 2 : 1)
   }
 
   if (!isOpen) return null
@@ -64,36 +102,11 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
       className="fixed inset-0 bg-black z-50 animate-in fade-in duration-300"
       onClick={onClose}
     >
-      {/* Header com botões */}
+      {/* Header com botão de fechar */}
       <div
-        className="absolute top-0 right-0 p-4 z-20 flex gap-2"
+        className="absolute top-0 right-0 p-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={() => setZoomEnabled(!zoomEnabled)}
-          className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
-          aria-label={zoomEnabled ? 'Desativar zoom' : 'Ativar zoom'}
-        >
-          {zoomEnabled ? <ZoomOut className="w-8 h-8" /> : <ZoomIn className="w-8 h-8" />}
-        </button>
-        {zoomEnabled && (
-          <>
-            <button
-              onClick={handleZoomOut}
-              className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
-              aria-label="Diminuir zoom"
-            >
-              <ZoomOut className="w-8 h-8" />
-            </button>
-            <button
-              onClick={handleZoomIn}
-              className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
-              aria-label="Aumentar zoom"
-            >
-              <ZoomIn className="w-8 h-8" />
-            </button>
-          </>
-        )}
         <button
           onClick={onClose}
           className="text-white hover:bg-gray-700 rounded-full p-3 transition-all duration-200 bg-black/50 hover:scale-110"
@@ -104,19 +117,35 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
       </div>
 
       {/* Indicador de zoom */}
-      {zoomEnabled && (
+      {zoom > 1 && (
         <div className="absolute top-4 left-4 z-20 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-          Zoom: {zoom}x
+          Zoom: {zoom.toFixed(1)}x
         </div>
       )}
 
-      {/* Imagens em scroll vertical */}
+      {/* Aviso de gesto */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/50 text-white/70 px-3 py-1 rounded-full text-xs">
+        Faça o gesto de pinça com os dedos para dar zoom
+      </div>
+
+      {/* Container com zoom global */}
       <div
-        className="w-full h-full overflow-y-auto scroll-smooth"
+        ref={containerRef}
+        className="w-full h-full overflow-auto"
         onClick={(e) => e.stopPropagation()}
-        style={{ overscrollBehavior: 'contain' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+        style={{
+          overscrollBehavior: 'contain',
+          transform: `scale(${zoom})`,
+          transformOrigin: 'top center',
+          transition: 'transform 0.1s ease',
+        }}
       >
-        <div className="flex flex-col gap-4 items-center p-4">
+        <div className="flex flex-col gap-4 items-center p-4 pb-32">
           {images.map((image, index) => (
             <div
               key={index}
@@ -126,13 +155,7 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
               <img
                 src={image}
                 alt={`POP Maternidade - Página ${index + 1}`}
-                className="max-w-full h-auto cursor-pointer"
-                style={{
-                  transform: zoomEnabled ? `scale(${zoom})` : 'scale(1)',
-                  transition: 'transform 0.2s ease',
-                  transformOrigin: 'top center',
-                }}
-                onDoubleClick={handleDoubleClick}
+                className="max-w-full h-auto"
               />
             </div>
           ))}
