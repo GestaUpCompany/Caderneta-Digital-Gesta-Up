@@ -11,7 +11,7 @@ export default function Configuracoes() {
   const dispatch = useDispatch()
   const config = useSelector((state: RootState) => state.config)
 
-  const [fazenda, setFazenda] = useState(config.fazenda)
+  const [fazenda, setFazenda] = useState(config.fazendaId || config.fazenda)
   const [usuario, setUsuario] = useState(config.usuario)
   const [fazendaNome, setFazendaNome] = useState('')
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
@@ -70,7 +70,7 @@ export default function Configuracoes() {
     }
 
     setFazendaNome(nomeFazenda)
-    const configData = { fazenda: nomeFazenda, usuario: usuario.trim(), planilhaUrl: linkPlanilha }
+    const configData = { fazenda: nomeFazenda, fazendaId: fazenda.trim(), usuario: usuario.trim(), planilhaUrl: linkPlanilha }
     console.log('Configuracoes: Salvando configurações', configData)
 
     dispatch(setConfig(configData))

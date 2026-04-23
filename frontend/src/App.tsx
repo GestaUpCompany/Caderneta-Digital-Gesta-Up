@@ -56,6 +56,15 @@ const BebedourosListaPage = lazy(() => import('./pages/cadernetas/BebedourosList
 const MovimentacaoPage = lazy(() => import('./pages/cadernetas/MovimentacaoPage'))
 const MovimentacaoListaPage = lazy(() => import('./pages/cadernetas/MovimentacaoListaPage'))
 
+// Lazy loading dos menus de módulos
+const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
+const InsumosMenuPage = lazy(() => import('./pages/InsumosMenuPage'))
+
+// Lazy loading do estoque de insumos
+const CadastroPage = lazy(() => import('./pages/estoque-insumos/CadastroPage'))
+const EntradaPage = lazy(() => import('./pages/estoque-insumos/EntradaPage'))
+const ProducaoPage = lazy(() => import('./pages/estoque-insumos/ProducaoPage'))
+
 function AppInner() {
   console.log('AppInner: Testando hooks...')
   
@@ -112,6 +121,15 @@ function AppInner() {
             } />
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
+
+            {/* Menus de Módulos */}
+            <Route path="/modulos/cadernetas" element={<ModulosMenuPage />} />
+            <Route path="/modulos/insumos" element={<InsumosMenuPage />} />
+
+            {/* Estoque de Insumos */}
+            <Route path="/estoque-insumos/cadastro" element={<CadastroPage />} />
+            <Route path="/estoque-insumos/entrada" element={<EntradaPage />} />
+            <Route path="/estoque-insumos/producao" element={<ProducaoPage />} />
 
             {/* Maternidade */}
             <Route path="/caderneta/maternidade" element={<MaternidadePage />} />

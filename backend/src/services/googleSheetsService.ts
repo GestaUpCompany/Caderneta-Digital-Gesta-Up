@@ -41,6 +41,32 @@ export function extractSpreadsheetId(url: string): string {
   return match[1]
 }
 
+/**
+ * Extrai link por prefixo de uma célula que pode conter múltiplos links
+ * Exemplo: "Caderneta: https://... Insumo: https://..."
+ * @param cellValue Valor da célula
+ * @param prefix Prefixo a buscar (ex: "Caderneta", "Insumo")
+ * @returns Link extraído ou null se não encontrado
+ */
+export function extractLinkByPrefix(cellValue: string, prefix: string): string | null {
+  if (!cellValue) return null
+
+  // Retrocompatibilidade: se não tiver prefixo, retorna o valor inteiro
+  if (!cellValue.includes(':')) {
+    return cellValue.trim()
+  }
+
+  // Buscar por prefixo específico
+  const regex = new RegExp(`${prefix}:\\s*([^\\s]+)`, 'i')
+  const match = cellValue.match(regex)
+
+  if (match) {
+    return match[1].trim()
+  }
+
+  return null
+}
+
 export async function appendRow(
   spreadsheetUrl: string,
   sheetName: string,
@@ -101,6 +127,31 @@ export async function getRows(
   return (response.data.values || []) as (string | number | null)[][]
 }
 
+export async function getNextId(spreadsheetUrl: string, sheetName: string): Promise<number> {
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const spreadsheetId = extractSpreadsheetId(spreadsheetUrl)
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A2:A`,
+  })
+
+  const values = response.data.values || []
+  let maxId = 0
+
+  for (const row of values) {
+    if (row[0]) {
+      const id = parseInt(String(row[0]))
+      if (!isNaN(id) && id > maxId) {
+        maxId = id
+      }
+    }
+  }
+
+  return maxId + 1
+}
+
 export async function validateConnection(spreadsheetUrl: string): Promise<boolean> {
   try {
     const auth = getAuth()
@@ -127,7 +178,7 @@ export async function listSheets(spreadsheetUrl: string): Promise<string[]> {
   return sheetNames
 }
 
-export async function validateFarm(spreadsheetUrl: string, farmId: string): Promise<{ success: boolean; farmName?: string; farmSheetUrl?: string }> {
+export async function validateFarm(spreadsheetUrl: string, farmId: string, prefix: string = 'Caderneta'): Promise<{ success: boolean; farmName?: string; farmSheetUrl?: string }> {
   const auth = getAuth()
   const sheets = google.sheets({ version: 'v4', auth })
   const spreadsheetId = extractSpreadsheetId(spreadsheetUrl)
@@ -152,8 +203,34 @@ export async function validateFarm(spreadsheetUrl: string, farmId: string): Prom
 
         // Match exato (case-insensitive)
         if (idInCell.toLowerCase() === farmId.toLowerCase()) {
-          logger.info(`Fazenda encontrada: ${sheetName}, ID: ${idInCell}, Nome: ${nomeInCell}, Link: ${sheetUrlInCell}`)
-          return { success: true, farmName: nomeInCell || sheetName, farmSheetUrl: sheetUrlInCell || undefined }
+          // Extrair link por prefixo da célula atual
+          let extractedUrl = extractLinkByPrefix(sheetUrlInCell, prefix)
+
+          // Se não encontrou o prefixo na célula atual, procurar nas linhas abaixo na coluna C
+          if (!extractedUrl && prefix === 'Insumo') {
+            logger.info(`Prefixo '${prefix}' não encontrado na linha 2, procurando nas linhas abaixo...`)
+            const columnCResponse = await sheets.spreadsheets.values.get({
+              spreadsheetId,
+              range: `${sheetName}!C3:C100`,
+            })
+
+            const columnCValues = columnCResponse.data.values
+            if (columnCValues) {
+              for (const row of columnCValues) {
+                if (row.length > 0 && row[0]) {
+                  const cellValue = String(row[0]).trim()
+                  extractedUrl = extractLinkByPrefix(cellValue, prefix)
+                  if (extractedUrl) {
+                    logger.info(`Prefixo '${prefix}' encontrado na linha abaixo: ${extractedUrl}`)
+                    break
+                  }
+                }
+              }
+            }
+          }
+
+          logger.info(`Fazenda encontrada: ${sheetName}, ID: ${idInCell}, Nome: ${nomeInCell}, Link: ${extractedUrl}`)
+          return { success: true, farmName: nomeInCell || sheetName, farmSheetUrl: extractedUrl || undefined }
         }
       }
     } catch (error) {

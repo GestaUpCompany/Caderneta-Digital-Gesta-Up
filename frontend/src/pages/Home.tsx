@@ -1,22 +1,20 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Button } from '../components/ui'
-import { CADERNETAS, LOGO_URL, getFarmLogo } from '../utils/constants'
+import { LOGO_URL, getFarmLogo } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { Settings } from 'lucide-react'
 
-// Função helper para converter HEX para RGBA com opacidade
-const hexToRgba = (hex: string, alpha: number = 0.25): string => {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
 export default function Home() {
   const navigate = useNavigate()
-  const { configurado, fazenda } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, fazendaId } = useSelector((state: RootState) => state.config)
+
+  // Verificar se é fazenda Marcon ou GestaUp (usando o ID)
+  const farmId = fazendaId || fazenda
+  const isMarcon = farmId?.toLowerCase().includes('marcon')
+  const isGestaUp = farmId?.toLowerCase().includes('gestaup')
+  const showInsumos = isMarcon || isGestaUp
 
   // Verificar primeiro acesso e redirecionar automaticamente
   useEffect(() => {
@@ -57,7 +55,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Grid de Cadernetas - 6 botões grandes */}
+      {/* Menu de Módulos - 2 botões grandes */}
       <main className="flex-1 p-4">
         {!configurado ? (
           <div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 text-center">
@@ -72,41 +70,44 @@ export default function Home() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-6">
-            {CADERNETAS.map((caderneta) => (
-              <button
-                key={caderneta.id}
-                onClick={() => caderneta.disponivel && navigate(`/caderneta/${caderneta.id}`)}
-                disabled={!caderneta.disponivel}
-                style={{ backgroundColor: hexToRgba(caderneta.color || '#E5E7EB') }}
-                className={`caderneta-card relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl
-                  ${caderneta.disponivel
-                    ? 'hover:scale-105'
-                    : 'opacity-50 cursor-not-allowed'
-                  }`}
-              >
-                {!caderneta.disponivel && (
-                  <span className="absolute top-2 right-2 bg-gray-400 text-white text-xs font-bold px-2 py-1 rounded-lg">
-                    EM BREVE
-                  </span>
-                )}
-                <img
-                  src={caderneta.icon}
-                  alt={caderneta.label}
-                  className="w-40 h-auto object-contain rounded-[32px]"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.style.display = 'none'
-                    const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
-                    if (emoji) emoji.style.display = 'block'
-                  }}
-                />
-                <span className="text-5xl fallback-emoji hidden">{caderneta.emoji}</span>
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  {caderneta.label}
+          <div className="flex flex-col gap-6">
+            {/* Botão Cadernetas */}
+            <button
+              onClick={() => navigate('/modulos/cadernetas')}
+              className="relative flex items-center gap-4 p-6 transition-all rounded-2xl hover:scale-105"
+              style={{ backgroundColor: 'rgba(109, 158, 59, 0.25)' }}
+            >
+              <span className="text-6xl">📋</span>
+              <div className="flex-1 text-left">
+                <span className="text-2xl font-bold text-gray-900 block">
+                  CADERNETAS
                 </span>
+                <span className="text-sm text-gray-700 block">
+                  Maternidade, Troca de Pastos, Rodeio, Suplementação, Bebedouros, Movimentação
+                </span>
+              </div>
+              <span className="text-3xl text-gray-400">→</span>
+            </button>
+
+            {/* Botão Estoque de Insumos (só Marcon e GestaUp) */}
+            {showInsumos && (
+              <button
+                onClick={() => navigate('/modulos/insumos')}
+                className="relative flex items-center gap-4 p-6 transition-all rounded-2xl hover:scale-105"
+                style={{ backgroundColor: 'rgba(59, 130, 246, 0.25)' }}
+              >
+                <span className="text-6xl">📦</span>
+                <div className="flex-1 text-left">
+                  <span className="text-2xl font-bold text-gray-900 block">
+                    ESTOQUE DE INSUMOS
+                  </span>
+                  <span className="text-sm text-gray-700 block">
+                    Cadastro, Entrada de Insumos, Produção Fábrica
+                  </span>
+                </div>
+                <span className="text-3xl text-gray-400">→</span>
               </button>
-            ))}
+            )}
           </div>
         )}
       </main>

@@ -40,12 +40,12 @@ sheetsRouter.post('/list-sheets', async (req: Request, res: Response) => {
 })
 
 sheetsRouter.post('/validate-farm', async (req: Request, res: Response) => {
-  const { planilhaUrl, farmId } = req.body
+  const { planilhaUrl, farmId, prefix } = req.body
   if (!planilhaUrl || !farmId) {
     return res.status(400).json({ error: 'planilhaUrl e farmId são obrigatórios' })
   }
   try {
-    const result = await validateFarm(planilhaUrl, farmId)
+    const result = await validateFarm(planilhaUrl, farmId, prefix)
     return res.json({ success: result.success, farmName: result.farmName, farmSheetUrl: result.farmSheetUrl })
   } catch (error) {
     logger.error(`Erro ao validar fazenda: ${error}`)

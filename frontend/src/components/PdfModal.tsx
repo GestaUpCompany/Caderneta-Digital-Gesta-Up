@@ -166,7 +166,7 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
 
       {/* Aviso de gesto */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/50 text-white/70 px-3 py-1 rounded-full text-xs">
-        Pinça para zoom • Arraste para mover • Double-click para reset
+        Pinça para zoom • Arraste para mover • Duplo clique para remover o zoom
       </div>
 
       {/* Container com zoom global e pan */}
