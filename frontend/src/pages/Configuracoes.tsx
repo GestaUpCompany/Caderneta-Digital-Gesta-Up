@@ -4,7 +4,8 @@ import { useDispatch, useSelector } from 'react-redux'
 import { setConfig, setConfigurado } from '../store/slices/configSlice'
 import { RootState } from '../store/store'
 import { Button, Input } from '../components/ui'
-import { BACKEND_URL, DATABASE_URL } from '../utils/constants'
+import { BACKEND_URL, DATABASE_URL, DEVICE_SHEET_URL } from '../utils/constants'
+import { getDeviceId } from '../utils/deviceId'
 
 export default function Configuracoes() {
   const navigate = useNavigate()
@@ -75,6 +76,24 @@ export default function Configuracoes() {
 
     dispatch(setConfig(configData))
     dispatch(setConfigurado(true))
+    
+    // Salvar data de configuração da fazenda no analytics
+    const farmConfigDate = new Date().toLocaleDateString('pt-BR')
+    try {
+      const deviceId = getDeviceId()
+      await fetch(`${BACKEND_URL}/api/devices/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceSheetUrl: DEVICE_SHEET_URL,
+          uuid: deviceId,
+          farmConfigDate,
+        }),
+      })
+    } catch (error) {
+      console.error('Erro ao salvar data de configuração:', error)
+    }
+    
     setSuccessMsg('Configurações salvas! Redirecionando...')
     setTimeout(() => navigate('/'), 1500)
   }

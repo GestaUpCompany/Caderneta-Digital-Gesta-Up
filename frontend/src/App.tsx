@@ -18,6 +18,12 @@ import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
+import { getDeviceId } from './utils/deviceId'
+import { getDeviceStaticData, getSessionData } from './utils/deviceData'
+import { BACKEND_URL, DEVICE_SHEET_URL } from './utils/constants'
+import { useSessionTimer } from './hooks/useSessionTimer'
+import { useScreenTracking } from './hooks/useScreenTracking'
+import { useNetworkTracking } from './hooks/useNetworkTracking'
 
 // Componente wrapper para PWAUpdateModal com hook
 function PWAUpdateModalWrapper() {
@@ -73,6 +79,11 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome, isLoading } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
+  
+  // Hooks de analytics
+  const sessionTime = useSessionTimer()
+  const { getScreens } = useScreenTracking()
+  const { offlineTime, onlineTime } = useNetworkTracking()
 
   useEffect(() => {
     if (syncStatus === 'conflict') {
@@ -103,6 +114,81 @@ function AppInner() {
         debugPWA()
       }, 2000)
     }
+  }, [])
+
+  // Enviar dados de analytics periodicamente (a cada 5 minutos)
+  useEffect(() => {
+    const sendAnalytics = async () => {
+      try {
+        const deviceId = getDeviceId()
+        const screens = getScreens()
+        await fetch(`${BACKEND_URL}/api/devices/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceSheetUrl: DEVICE_SHEET_URL,
+            uuid: deviceId,
+            sessionTime,
+            screens,
+            offlineTime,
+            onlineTime,
+          }),
+        })
+      } catch (error) {
+        console.error('Erro ao enviar analytics:', error)
+      }
+    }
+
+    sendAnalytics()
+    const interval = setInterval(sendAnalytics, 5 * 60 * 1000) // 5 minutos
+
+    return () => clearInterval(interval)
+  }, [sessionTime])
+
+  // Registrar dispositivo ao abrir app
+  useEffect(() => {
+    const registerDevice = async () => {
+      try {
+        const deviceId = getDeviceId()
+        const deviceData = getDeviceStaticData()
+        const res = await fetch(`${BACKEND_URL}/api/devices/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceSheetUrl: DEVICE_SHEET_URL,
+            uuid: deviceId,
+            ...deviceData,
+          }),
+        })
+        const data = await res.json()
+        console.log('Registro de dispositivo:', data)
+      } catch (error) {
+        console.error('Erro ao registrar dispositivo:', error)
+      }
+    }
+
+    const updateSession = async () => {
+      try {
+        const deviceId = getDeviceId()
+        const sessionData = getSessionData()
+        const res = await fetch(`${BACKEND_URL}/api/devices/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceSheetUrl: DEVICE_SHEET_URL,
+            uuid: deviceId,
+            ...sessionData,
+          }),
+        })
+        const data = await res.json()
+        console.log('Atualização de sessão:', data)
+      } catch (error) {
+        console.error('Erro ao atualizar sessão:', error)
+      }
+    }
+
+    registerDevice()
+    updateSession()
   }, [])
 
   return (
