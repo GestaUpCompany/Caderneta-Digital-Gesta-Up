@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../components/ui'
 import { CADERNETAS, LOGO_URL } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
