@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../components/ui'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
-import { Settings, ClipboardList, ClipboardCheck, Sun, Cloud, Moon } from 'lucide-react'
+import { Settings, ClipboardList, ClipboardCheck, Sun, Moon } from 'lucide-react'
 import FarmLogo from '../components/FarmLogo'
 
 export default function Home() {
