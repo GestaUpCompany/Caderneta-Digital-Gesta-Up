@@ -1,10 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Button } from '../components/ui'
-import { LOGO_URL, getFarmLogo } from '../utils/constants'
+import { LOGO_URL, DATABASE_URL, getFarmLogo } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { Settings } from 'lucide-react'
+import FarmLogo from '../components/FarmLogo'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -14,7 +15,8 @@ export default function Home() {
   const farmId = fazendaId || fazenda
   const isMarcon = farmId?.toLowerCase().includes('marcon')
   const isGestaUp = farmId?.toLowerCase().includes('gestaup')
-  const showInsumos = isMarcon || isGestaUp
+  const isSirio = farmId?.toLowerCase().includes('sirio') || farmId?.toLowerCase().includes('sírio')
+  const showInsumos = isMarcon || isGestaUp || isSirio
 
   // Verificar primeiro acesso e redirecionar automaticamente
   useEffect(() => {
@@ -43,10 +45,12 @@ export default function Home() {
         </button>
         <div className="flex flex-col items-center gap-3 px-4">
           <div className="flex items-center justify-between w-full">
-            <img src={logoUrl} alt="Logo GestaUp" className="w-16 h-auto object-contain rounded-[22px] ml-7" />
-            {configurado && fazenda && (
-              <img src={getFarmLogo(fazenda)} alt="Logo Fazenda" className="h-[58px] w-auto object-contain rounded-[22px] mr-7" />
-            )}
+            <FarmLogo
+              farmName={configurado ? fazenda : undefined}
+              type="both"
+              size="medium"
+              className="justify-between w-full"
+            />
           </div>
           {configurado && fazenda && (
             <h1 className="text-2xl font-bold text-white">{fazenda.toUpperCase()}</h1>

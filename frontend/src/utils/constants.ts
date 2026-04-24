@@ -34,6 +34,9 @@ export function getFarmLogo(farmName: string): string {
   if (lowerName.includes('marcon')) {
     return `${BASE}logo-marcon.png`
   }
+  if (lowerName.includes('sirio') || lowerName.includes('sírio')) {
+    return `${BASE}logo-sirio.png`
+  }
 
   // Logo padrão se não encontrar match
   return LOGO_URL

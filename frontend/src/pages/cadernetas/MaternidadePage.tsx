@@ -8,6 +8,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { LOGO_URL, getFarmLogo, BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
+import FarmLogo from '../../components/FarmLogo'
 
 const TRATAMENTOS = [
   { value: 'Colostro', label: 'COLOSTRO'},
@@ -237,8 +238,11 @@ export default function MaternidadePage() {
       {/* Logos não sticky */}
       <div className="bg-[#1a3a2a] text-white px-4 py-5">
         <div className="flex items-center justify-center gap-8">
-          <img src={LOGO_URL} alt="Gesta'Up" className="w-16 h-auto object-contain rounded-[22px]" />
-          <img src={farmLogoUrl} alt="Fazenda" className="h-[58px] w-auto object-contain rounded-[22px]" />
+          <FarmLogo
+            farmName={fazenda}
+            type="both"
+            size="medium"
+          />
         </div>
       </div>
 

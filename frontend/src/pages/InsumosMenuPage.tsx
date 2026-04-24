@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { LOGO_URL, getFarmLogo } from '../utils/constants'
+import { LOGO_URL } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
+import FarmLogo from '../components/FarmLogo'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -62,10 +63,12 @@ export default function InsumosMenuPage() {
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
         <div className="flex flex-col items-center gap-3 px-4">
           <div className="flex items-center justify-between w-full">
-            <img src={LOGO_URL} alt="Logo GestaUp" className="w-16 h-auto object-contain rounded-[22px] ml-7" />
-            {fazenda && (
-              <img src={getFarmLogo(fazenda)} alt="Logo Fazenda" className="h-[58px] w-auto object-contain rounded-[22px] mr-7" />
-            )}
+            <FarmLogo
+              farmName={fazenda}
+              type="both"
+              size="medium"
+              className="justify-between w-full"
+            />
           </div>
           {fazenda && (
             <h1 className="text-2xl font-bold text-white">{fazenda.toUpperCase()}</h1>

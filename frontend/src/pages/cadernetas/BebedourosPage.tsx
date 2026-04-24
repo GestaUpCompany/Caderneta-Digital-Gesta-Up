@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage, Select, Checkbox } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage, Select, CheckboxGroup } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
+import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { LOGO_URL, getFarmLogo, BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
+import FarmLogo from '../../components/FarmLogo'
 
 const TIPOS_GADO = [
   { value: 'Cria', label: 'CRIA', icon: '🍼' },
@@ -183,10 +185,11 @@ export default function BebedourosPage() {
       {/* Logos não sticky */}
       <div className="bg-[#1a3a2a] text-white px-4 py-5">
         <div className="flex items-center justify-center gap-8">
-          <img src={LOGO_URL} alt="Gesta'Up" className="w-16 h-auto object-contain rounded-[22px]" />
-          {fazenda && (
-            <img src={getFarmLogo(fazenda)} alt="Fazenda" className="h-[58px] w-auto object-contain rounded-[22px]" />
-          )}
+          <FarmLogo
+            farmName={fazenda}
+            type="both"
+            size="medium"
+          />
         </div>
       </div>
 
