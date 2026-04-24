@@ -274,7 +274,8 @@ export default function MaternidadePage() {
                 value={form.pasto}
                 onChange={(e) => set('pasto')(e.target.value)}
                 error={getError('pasto')}
-                options={pastosDisponiveis.map(p => ({ value: p, label: p }))}
+                options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
+
               />
             ) : (
               <Input
@@ -292,7 +293,8 @@ export default function MaternidadePage() {
                 value={form.lote}
                 onChange={(e) => set('lote')(e.target.value)}
                 error={getError('lote')}
-                options={lotesDisponiveis.map(l => ({ value: l, label: l }))}
+                options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+
               />
             ) : (
               <Input

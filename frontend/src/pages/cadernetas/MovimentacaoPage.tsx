@@ -241,7 +241,8 @@ export default function MovimentacaoPage() {
                 value={form.loteOrigem}
                 onChange={(e) => setForm((p) => ({ ...p, loteOrigem: e.target.value }))}
                 error={getError('loteOrigem')}
-                options={lotesDisponiveis.map(l => ({ value: l, label: l }))}
+                options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+
               />
             ) : (
               <Input
@@ -259,7 +260,8 @@ export default function MovimentacaoPage() {
                 value={form.loteDestino}
                 onChange={(e) => setForm((p) => ({ ...p, loteDestino: e.target.value }))}
                 error={getError('loteDestino')}
-                options={lotesDisponiveis.map(l => ({ value: l, label: l }))}
+                options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+
               />
             ) : (
               <Input

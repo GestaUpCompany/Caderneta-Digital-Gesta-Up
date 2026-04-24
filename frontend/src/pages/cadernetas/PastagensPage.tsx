@@ -217,7 +217,7 @@ export default function PastagensPage() {
               value={form.numeroLote}
               onChange={(e) => set('numeroLote')(e.target.value)}
               error={getError('numeroLote')}
-              options={lotesDisponiveis.map(l => ({ value: l, label: l }))}
+              options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
             />
           ) : (
             <Input
@@ -243,7 +243,7 @@ export default function PastagensPage() {
               value={form.pastoSaida}
               onChange={(e) => set('pastoSaida')(e.target.value)}
               error={getError('pastoSaida')}
-              options={pastosDisponiveis.map(p => ({ value: p, label: p }))}
+              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
             />
           ) : (
             <Input
@@ -274,7 +274,7 @@ export default function PastagensPage() {
               value={form.pastoEntrada}
               onChange={(e) => set('pastoEntrada')(e.target.value)}
               error={getError('pastoEntrada')}
-              options={pastosDisponiveis.map(p => ({ value: p, label: p }))}
+              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
             />
           ) : (
             <Input

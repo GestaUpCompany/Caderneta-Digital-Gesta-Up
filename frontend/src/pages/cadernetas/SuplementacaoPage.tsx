@@ -279,7 +279,7 @@ export default function SuplementacaoPage() {
                 value={form.pasto}
                 onChange={(e) => set('pasto')(e.target.value)}
                 error={getError('pasto')}
-                options={pastosDisponiveis.map(p => ({ value: p, label: p }))}
+                options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
               />
             ) : (
               <Input
@@ -296,7 +296,7 @@ export default function SuplementacaoPage() {
                 value={form.numeroLote}
                 onChange={(e) => set('numeroLote')(e.target.value)}
                 error={getError('numeroLote')}
-                options={lotesDisponiveis.map(l => ({ value: l, label: l }))}
+                options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
               />
             ) : (
               <Input
