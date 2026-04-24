@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage, Select } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
-import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
-import { LOGO_URL, getFarmLogo, BACKEND_URL } from '../../utils/constants'
+import { BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 
@@ -94,8 +93,6 @@ export default function MaternidadePage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
-
-  const farmLogoUrl = fazenda ? getFarmLogo(fazenda) : LOGO_URL
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))

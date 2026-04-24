@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { CADERNETAS, LOGO_URL } from '../utils/constants'
+import { CADERNETAS } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import FarmLogo from '../components/FarmLogo'

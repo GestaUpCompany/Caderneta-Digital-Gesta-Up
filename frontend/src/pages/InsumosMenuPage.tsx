@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom'
-import { LOGO_URL } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import FarmLogo from '../components/FarmLogo'

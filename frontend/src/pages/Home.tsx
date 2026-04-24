@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Button } from '../components/ui'
-import { LOGO_URL, DATABASE_URL, getFarmLogo } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { Settings } from 'lucide-react'
@@ -30,8 +29,6 @@ export default function Home() {
       navigate('/configuracoes')
     }
   }, [navigate])
-
-  const logoUrl = LOGO_URL
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">

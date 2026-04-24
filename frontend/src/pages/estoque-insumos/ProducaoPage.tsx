@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LOGO_URL, DATABASE_URL } from '../../utils/constants'
+import { DATABASE_URL } from '../../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { BACKEND_URL } from '../../utils/constants'
 import FarmLogo from '../../components/FarmLogo'
+import { Input, Select, DatePicker, Button } from '../../components/ui'
 
 interface CadastroData {
   insumos: string[]
@@ -252,114 +253,68 @@ export default function ProducaoPage() {
             <p className="text-sm text-gray-600 mt-2">Redirecionando...</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Data de Produção */}
-            <div className="bg-white rounded-2xl p-4 shadow-md">
-              <label className="block text-sm font-bold text-gray-900 mb-2">
-                Data de Produção *
-              </label>
-              <input
-                type="date"
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5 pb-8">
+            {/* Seção 1: Dados da Produção */}
+            <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+              <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA PRODUÇÃO</h2>
+              <DatePicker
+                label="DATA DE PRODUÇÃO"
                 value={form.dataProducao}
-                onChange={(e) => setForm({ ...form, dataProducao: e.target.value })}
-                required
-                className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                onChange={(val) => setForm({ ...form, dataProducao: val })}
               />
-            </div>
-
-            {/* Dieta Produzida */}
-            <div className="bg-white rounded-2xl p-4 shadow-md">
-              <label className="block text-sm font-bold text-gray-900 mb-2">
-                Dieta Produzida *
-              </label>
-              <select
+              <Select
+                label="DIETA PRODUZIDA *"
                 value={form.dietaProduzida}
                 onChange={(e) => setForm({ ...form, dietaProduzida: e.target.value })}
-                required
-                className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">Selecione uma dieta</option>
-                {cadastroData?.dietas.map((dieta, index) => (
-                  <option key={index} value={dieta}>{dieta}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Destino da Produção */}
-            <div className="bg-white rounded-2xl p-4 shadow-md">
-              <label className="block text-sm font-bold text-gray-900 mb-2">
-                Destino da Produção *
-              </label>
-              <select
+                options={[{ value: '', label: 'Selecione uma dieta' }, ...(cadastroData?.dietas.map(d => ({ value: d, label: d })) || [])]}
+              />
+              <Select
+                label="DESTINO DA PRODUÇÃO *"
                 value={form.destinoProducao}
                 onChange={(e) => setForm({ ...form, destinoProducao: e.target.value })}
-                required
-                className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">Selecione um destino</option>
-                {DESTINOS.map((destino, index) => (
-                  <option key={index} value={destino}>{destino}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Total Produzido */}
-            <div className="bg-white rounded-2xl p-4 shadow-md">
-              <label className="block text-sm font-bold text-gray-900 mb-2">
-                Total Produzido (kg)
-              </label>
-              <input
-                type="text"
+                options={[{ value: '', label: 'Selecione um destino' }, ...DESTINOS.map(d => ({ value: d, label: d }))]}
+              />
+              <Input
+                label="TOTAL PRODUZIDO (kg)"
                 value={form.totalProduzido}
                 readOnly
-                className="w-full p-3 border-2 border-gray-300 rounded-lg bg-gray-50 text-gray-900"
               />
             </div>
 
-            {/* Lista de Insumos */}
-            <div className="bg-white rounded-2xl p-4 shadow-md">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Quantidade por Insumo (kg)</h3>
-              <div className="space-y-3">
+            {/* Seção 2: Insumos Utilizados */}
+            <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+              <h2 className="text-lg font-black text-gray-900 tracking-tight">2. INSUMOS UTILIZADOS (kg)</h2>
+              <div className="grid grid-cols-1 gap-4">
                 {insumosRelevantes.map((insumo, index) => (
-                  <div key={index}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {insumo}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.insumosQuantidades[insumo] || ''}
-                      onChange={(e) => setForm({
-                        ...form,
-                        insumosQuantidades: {
-                          ...form.insumosQuantidades,
-                          [insumo]: e.target.value,
-                        },
-                      })}
-                      className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
+                  <Input
+                    key={index}
+                    label={insumo}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.insumosQuantidades[insumo] || ''}
+                    onChange={(e) => setForm({
+                      ...form,
+                      insumosQuantidades: {
+                        ...form.insumosQuantidades,
+                        [insumo]: e.target.value,
+                      },
+                    })}
+                    inputMode="decimal"
+                    placeholder="0.00"
+                  />
                 ))}
               </div>
             </div>
 
             {/* Botões */}
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => navigate('/modulos/insumos')}
-                className="flex-1 bg-gray-500 text-white py-3 rounded-xl font-bold hover:bg-gray-600 transition-colors"
-              >
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+              <Button onClick={() => navigate('/modulos/insumos')} variant="secondary" icon="🚫">
                 CANCELAR
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 bg-[#f59e0b] text-white py-3 rounded-xl font-bold hover:bg-[#d97706] transition-colors disabled:opacity-50"
-              >
-                {saving ? 'SALVANDO...' : 'SALVAR'}
-              </button>
+              </Button>
+              <Button type="submit" variant="success" loading={saving} icon="💾">
+                SALVAR
+              </Button>
             </div>
           </form>
         )}

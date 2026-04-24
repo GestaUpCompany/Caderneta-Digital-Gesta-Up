@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LOGO_URL, DATABASE_URL } from '../../utils/constants'
+import { DATABASE_URL } from '../../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { BACKEND_URL } from '../../utils/constants'
