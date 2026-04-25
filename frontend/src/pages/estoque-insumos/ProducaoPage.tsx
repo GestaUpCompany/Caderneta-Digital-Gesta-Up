@@ -123,12 +123,18 @@ export default function ProducaoPage() {
         form.totalProduzido,
       ]
 
+      // Identificar insumos usados
+      const insumosUsados = cadastroData!.insumos.filter(
+        insumo => form.insumosQuantidades[insumo] && parseFloat(form.insumosQuantidades[insumo]) > 0
+      )
+
       const saveRes = await fetch(`${BACKEND_URL}/api/insumos/producao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           insumosSheetUrl: validateData.farmSheetUrl,
           values: mainValues,
+          insumosUsados,
         }),
       })
 

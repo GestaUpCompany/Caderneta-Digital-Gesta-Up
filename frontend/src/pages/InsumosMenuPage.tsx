@@ -45,7 +45,6 @@ export default function InsumosMenuPage() {
       description: 'Visualizar estoque atual',
       path: '/estoque-insumos/estoque',
       color: '#8b5cf6',
-      disponivel: false,
     },
   ]
 
@@ -90,20 +89,10 @@ export default function InsumosMenuPage() {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => item.disponivel !== false && navigate(item.path)}
-              disabled={item.disponivel === false}
+              onClick={() => navigate(item.path)}
               style={{ backgroundColor: hexToRgba(item.color) }}
-              className={`relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl
-                ${item.disponivel === false
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:scale-105'
-                }`}
+              className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl hover:scale-105"
             >
-              {item.disponivel === false && (
-                <span className="absolute top-2 right-2 bg-gray-400 text-white text-xs font-bold px-2 py-1 rounded-lg">
-                  EM BREVE
-                </span>
-              )}
               {item.icon ? (
                 <>
                   <img

@@ -70,6 +70,7 @@ const InsumosMenuPage = lazy(() => import('./pages/InsumosMenuPage'))
 const CadastroPage = lazy(() => import('./pages/estoque-insumos/CadastroPage'))
 const EntradaPage = lazy(() => import('./pages/estoque-insumos/EntradaPage'))
 const ProducaoPage = lazy(() => import('./pages/estoque-insumos/ProducaoPage'))
+const EstoquePage = lazy(() => import('./pages/estoque-insumos/EstoquePage'))
 
 function AppInner() {
   console.log('AppInner: Testando hooks...')
@@ -216,6 +217,7 @@ function AppInner() {
             <Route path="/estoque-insumos/cadastro" element={<CadastroPage />} />
             <Route path="/estoque-insumos/entrada" element={<EntradaPage />} />
             <Route path="/estoque-insumos/producao" element={<ProducaoPage />} />
+            <Route path="/estoque-insumos/estoque" element={<EstoquePage />} />
 
             {/* Maternidade */}
             <Route path="/caderneta/maternidade" element={<MaternidadePage />} />

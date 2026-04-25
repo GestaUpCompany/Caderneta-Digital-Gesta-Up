@@ -28,6 +28,32 @@ insumosRouter.post('/entrada', async (req: Request, res: Response) => {
     const valuesWithId = [nextId, ...values]
     const rowNumber = await appendRow(insumosSheetUrl, 'Entrada', valuesWithId)
     logger.info(`Entrada de insumos salva na linha ${rowNumber} com ID ${nextId}`)
+
+    // Atualizar estoque do insumo após salvar entrada
+    // O produto está na posição 2 do array values (índice 2)
+    const produto = values[2] as string
+    if (produto) {
+      try {
+        const rowNumber = await findRowByInsumo(insumosSheetUrl, 'Estoque', produto)
+        if (rowNumber) {
+          const estoqueCalculado = await calcularEstoque(insumosSheetUrl, produto)
+          await updateRow(insumosSheetUrl, 'Estoque', rowNumber, [
+            estoqueCalculado.dataInicial,
+            new Date().toLocaleDateString('pt-BR'),
+            produto,
+            estoqueCalculado.qtdEntrada,
+            estoqueCalculado.qtdSaida,
+            estoqueCalculado.estoque,
+            estoqueCalculado.previsao,
+          ])
+          logger.info(`Estoque atualizado automaticamente para insumo "${produto}" após entrada`)
+        }
+      } catch (error) {
+        logger.warn(`Não foi possível atualizar estoque para "${produto}" após entrada: ${error}`)
+        // Não falhar a entrada se o estoque não puder ser atualizado
+      }
+    }
+
     return res.json({ success: true, rowNumber, id: nextId })
   } catch (error) {
     logger.error(`Erro ao salvar entrada de insumos: ${error}`)
@@ -36,7 +62,7 @@ insumosRouter.post('/entrada', async (req: Request, res: Response) => {
 })
 
 insumosRouter.post('/producao', async (req: Request, res: Response) => {
-  const { insumosSheetUrl, values } = req.body
+  const { insumosSheetUrl, values, insumosUsados } = req.body
   if (!insumosSheetUrl || !values) {
     return res.status(400).json({ error: 'insumosSheetUrl e values são obrigatórios' })
   }
@@ -45,6 +71,32 @@ insumosRouter.post('/producao', async (req: Request, res: Response) => {
     const valuesWithId = [nextId, ...values]
     const rowNumber = await appendRow(insumosSheetUrl, 'Saída', valuesWithId)
     logger.info(`Produção de insumos salva na linha ${rowNumber} com ID ${nextId}`)
+
+    // Atualizar estoque de todos os insumos usados na produção
+    // Os insumos usados são passados no corpo da requisição
+    if (insumosUsados && Array.isArray(insumosUsados)) {
+      for (const insumo of insumosUsados) {
+        try {
+          const rowNumber = await findRowByInsumo(insumosSheetUrl, 'Estoque', insumo)
+          if (rowNumber) {
+            const estoqueCalculado = await calcularEstoque(insumosSheetUrl, insumo)
+            await updateRow(insumosSheetUrl, 'Estoque', rowNumber, [
+              estoqueCalculado.dataInicial,
+              new Date().toLocaleDateString('pt-BR'),
+              insumo,
+              estoqueCalculado.qtdEntrada,
+              estoqueCalculado.qtdSaida,
+              estoqueCalculado.estoque,
+              estoqueCalculado.previsao,
+            ])
+            logger.info(`Estoque atualizado automaticamente para insumo "${insumo}" após produção`)
+          }
+        } catch (error) {
+          logger.warn(`Não foi possível atualizar estoque para "${insumo}" após produção: ${error}`)
+        }
+      }
+    }
+
     return res.json({ success: true, rowNumber, id: nextId })
   } catch (error) {
     logger.error(`Erro ao salvar produção de insumos: ${error}`)
@@ -82,13 +134,13 @@ insumosRouter.get('/estoque', async (req: Request, res: Response) => {
 })
 
 insumosRouter.post('/estoque/inicializar', async (req: Request, res: Response) => {
-  const { insumosSheetUrl, estoquesIniciais } = req.body
-  if (!insumosSheetUrl) {
-    return res.status(400).json({ error: 'insumosSheetUrl é obrigatório' })
+  const { insumosSheetUrl, cadastroSheetUrl, estoquesIniciais } = req.body
+  if (!insumosSheetUrl || !cadastroSheetUrl) {
+    return res.status(400).json({ error: 'insumosSheetUrl e cadastroSheetUrl são obrigatórios' })
   }
   try {
-    // Ler insumos cadastrados (coluna 5 = INSUMOS)
-    const cadastroRows = await getRows(insumosSheetUrl, 'Cadastro')
+    // Ler insumos cadastrados (coluna 5 = INSUMOS) da planilha de cadastro
+    const cadastroRows = await getRows(cadastroSheetUrl, 'Cadastro')
     const insumosCadastrados = cadastroRows.map((row) => row[5]).filter((val) => val) as string[]
 
     // Ler linhas existentes na aba Estoque
