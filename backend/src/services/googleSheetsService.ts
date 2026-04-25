@@ -265,33 +265,19 @@ export async function getSubtiposDaFazenda(
   farmId: string,
   tipo: string
 ): Promise<string[]> {
-  // Primeiro, encontrar a fazenda e extrair o link da planilha de cadastro (posição 3)
-  const farmResult = await validateFarm(spreadsheetUrl, farmId, 3)
-  
-  if (!farmResult.success || !farmResult.farmSheetUrl) {
-    logger.warn(`Não foi possível encontrar a planilha de cadastro para a fazenda ${farmId}`)
-    return []
-  }
-
-  const cadastroSheetUrl = farmResult.farmSheetUrl
-  logger.info(`Planilha de cadastro encontrada: ${cadastroSheetUrl}`)
+  // Usar diretamente a URL da planilha de cadastro (spreadsheetUrl)
+  const cadastroSheetUrl = spreadsheetUrl
 
   const auth = getAuth()
   const sheets = google.sheets({ version: 'v4', auth })
   const cadastroSheetId = extractSpreadsheetId(cadastroSheetUrl)
 
   // Mapear tipo para coluna (0-indexed) na planilha de cadastro
-  // Estrutura: PASTO(0), LOTE(1), MINERAL(2), PROTEINADO(3), RACAO(4), INSUMOS(5), DIETAS(6), FORNECEDORES(7), FUNCIONÁRIOS(8)
+  // C2 (Mineral) = coluna 2, D2 (Proteinado) = coluna 3, E2 (Ração) = coluna 4
   const colunasPorTipo: Record<string, number> = {
-    'Pasto': 0,
-    'Lote': 1,
     'Mineral': 2,
     'Proteinado': 3,
     'Ração': 4,
-    'Insumos': 5,
-    'Dietas': 6,
-    'Fornecedores': 7,
-    'Funcionários': 8,
   }
 
   const colunaIndex = colunasPorTipo[tipo]
@@ -300,12 +286,12 @@ export async function getSubtiposDaFazenda(
     return []
   }
 
-  // Converter índice de coluna para letra (0=A, 1=B, 2=C, etc.)
-  const colunaLetra = String.fromCharCode(65 + colunaIndex)
-
   try {
+    // Converter índice de coluna para letra (0=A, 1=B, 2=C, etc.)
+    const colunaLetra = String.fromCharCode(65 + colunaIndex)
+    
     // Buscar a coluna específica a partir da linha 2 (pular cabeçalho na linha 1)
-    const range = `A2:Z1000`
+    const range = `Cadastro!${colunaLetra}2:${colunaLetra}1000`
     const cellResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: cadastroSheetId,
       range,
@@ -313,16 +299,15 @@ export async function getSubtiposDaFazenda(
 
     const values = cellResponse.data.values
     if (!values || values.length === 0) {
-      logger.warn(`Nenhum dado encontrado na planilha de cadastro`)
+      logger.warn(`Nenhum dado encontrado na coluna ${colunaLetra} da planilha de cadastro`)
       return []
     }
 
-    // Ler todos os valores não vazios da coluna específica
+    // Ler todos os valores não vazios da coluna
     const subtipos: string[] = []
-    for (let i = 0; i < values.length; i++) {
-      const row = values[i]
-      if (colunaIndex < row.length) {
-        const valor = String(row[colunaIndex]).trim()
+    for (const row of values) {
+      if (row.length > 0) {
+        const valor = String(row[0]).trim()
         if (valor && valor !== '') {
           subtipos.push(valor)
         }
@@ -330,12 +315,12 @@ export async function getSubtiposDaFazenda(
     }
 
     if (subtipos.length > 0) {
-      logger.info(`Subtipos encontrados para ${tipo} na planilha de cadastro: ${subtipos.join(', ')}`)
+      logger.info(`Subtipos encontrados para ${tipo} na coluna ${colunaLetra}: ${subtipos.join(', ')}`)
       return subtipos
+    } else {
+      logger.warn(`Nenhum subtipo encontrado para ${tipo} na coluna ${colunaLetra}`)
+      return []
     }
-
-    logger.warn(`Nenhum subtipo encontrado para tipo ${tipo} na planilha de cadastro`)
-    return []
   } catch (error) {
     logger.error(`Erro ao buscar subtipos na planilha de cadastro: ${error}`)
     return []

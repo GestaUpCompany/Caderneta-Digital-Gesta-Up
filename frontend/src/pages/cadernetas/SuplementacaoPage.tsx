@@ -15,7 +15,6 @@ const PRODUTOS = [
   { value: 'Proteinado', label: 'PROTEINADO', icon: '' },
   { value: 'Ração', label: 'RAÇÃO', icon: '' },
   { value: 'Creep', label: 'CREEP', icon: '' },
-  { value: 'Creep', label: 'CREEP', icon: '🥣' },
 ]
 
 const TIPOS_GADO = [
@@ -94,7 +93,11 @@ export default function SuplementacaoPage() {
 
       setCarregandoSuplementos(true)
       try {
-        const response = await fetch(`${BACKEND_URL}/api/suplementacao/subtipos?fazenda=${fazenda}&tipo=${form.produto}`)
+        if (!cadastroSheetUrl) {
+          setSuplementos([])
+          return
+        }
+        const response = await fetch(`${BACKEND_URL}/api/suplementacao/subtipos?tipo=${form.produto}&cadastroSheetUrl=${cadastroSheetUrl}`)
         const data = await response.json()
         if (data.success) {
           setSuplementos(data.subtipos || [])

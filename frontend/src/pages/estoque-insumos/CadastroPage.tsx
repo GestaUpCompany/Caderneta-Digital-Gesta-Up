@@ -65,7 +65,7 @@ export default function CadastroPage() {
       <main className="flex-1 p-4">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-4xl animate-spin">Carregando...</div>
+            <div className="text-4xl animate-spin">⏳</div>
           </div>
         ) : error ? (
           <div className="bg-red-50 border-2 border-red-400 rounded-2xl p-6 text-center">

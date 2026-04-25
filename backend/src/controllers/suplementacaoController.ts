@@ -4,17 +4,15 @@ import { logger } from '../utils/logger'
 
 export const suplementacaoRouter = Router()
 
-const DATABASE_URL = 'https://docs.google.com/spreadsheets/d/1HSq-3ihaSnVGIEPBCMdhYjCmFfwyWAQM7zFrkCuGxts/edit'
-
 suplementacaoRouter.get('/subtipos', async (req: Request, res: Response) => {
-  const { fazenda, tipo } = req.query as { fazenda?: string; tipo?: string }
+  const { fazenda, tipo, cadastroSheetUrl } = req.query as { fazenda?: string; tipo?: string; cadastroSheetUrl?: string }
 
-  if (!fazenda || !tipo) {
-    return res.status(400).json({ success: false, error: 'fazenda e tipo são obrigatórios' })
+  if (!tipo || !cadastroSheetUrl) {
+    return res.status(400).json({ success: false, error: 'tipo e cadastroSheetUrl são obrigatórios' })
   }
 
   try {
-    const subtipos = await getSubtiposDaFazenda(DATABASE_URL, fazenda, tipo)
+    const subtipos = await getSubtiposDaFazenda(cadastroSheetUrl, fazenda || '', tipo)
     return res.json({ success: true, subtipos })
   } catch (error) {
     logger.error(`Erro ao buscar subtipos: ${error}`)
