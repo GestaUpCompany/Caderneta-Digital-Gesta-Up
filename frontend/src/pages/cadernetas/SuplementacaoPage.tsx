@@ -18,10 +18,16 @@ const PRODUTOS = [
   { value: 'Creep', label: 'CREEP', icon: '' },
 ]
 
-const TIPOS_GADO = [
-  { value: 'Cria', label: 'CRIA', icon: '🍼' },
-  { value: 'Recria', label: 'RECRIA', icon: '🌿' },
-  { value: 'Engorda', label: 'ENGORDA', icon: '🥩' },
+const CATEGORIAS = [
+  { value: 'Vaca', label: 'VACA' },
+  { value: 'Touro', label: 'TOURO' },
+  { value: 'Boi Gordo', label: 'BOI GORDO' },
+  { value: 'Boi Magro', label: 'BOI MAGRO' },
+  { value: 'Garrote', label: 'GARROTE' },
+  { value: 'Bezerro', label: 'BEZERRO' },
+  { value: 'Novilha', label: 'NOVILHA' },
+  { value: 'Tropa', label: 'TROPA' },
+  { value: 'Outros', label: 'OUTROS' },
 ]
 
 const LEITURAS = [
@@ -32,26 +38,17 @@ const LEITURAS = [
   { value: '3', label: '3', icon: '🔴' },
 ]
 
-const CATEGORIAS = [
-  { value: 'Vaca', label: 'VACA' },
-  { value: 'Touro', label: 'TOURO' },
-  { value: 'Bezerro', label: 'BEZERRO' },
-  { value: 'Boi', label: 'BOI' },
-  { value: 'Garrote', label: 'GARROTE' },
-  { value: 'Novilha', label: 'NOVILHA' },
-]
-
 interface FormState {
   data: string
   tratador: string
   pasto: string
   numeroLote: string
   produto: string
-  gado: string
   leitura: string
   kgCocho: string
   kgDeposito: string
   categorias: string[]
+  outrosTexto: string
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -60,11 +57,11 @@ const makeInitial = (usuario?: string): FormState => ({
   pasto: '',
   numeroLote: '',
   produto: '',
-  gado: '',
   leitura: '',
   kgCocho: '',
   kgDeposito: '',
   categorias: [],
+  outrosTexto: '',
 })
 
 export default function SuplementacaoPage() {
@@ -175,7 +172,12 @@ export default function SuplementacaoPage() {
     const creepKgFinal = form.produto === 'Creep' ? quantidadeCreep : ''
     
     // Montar categorias como string separada por vírgula
-    const categoriasString = form.categorias.join(', ')
+    let categoriasString = form.categorias.join(', ')
+    
+    // Se "Outros" estiver selecionado e houver texto, adicionar o texto
+    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
+      categoriasString = categoriasString.replace('Outros', `Outros: ${form.outrosTexto.trim()}`)
+    }
 
     const result = await salvarRegistro('suplementacao', {
       data: form.data,
@@ -187,7 +189,6 @@ export default function SuplementacaoPage() {
       leituraCocho: form.leitura ? Number(form.leitura) : null,
       kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
-      gado: form.gado,
       categorias: form.categorias,
       categoriasString: categoriasString,
     })
@@ -207,7 +208,6 @@ export default function SuplementacaoPage() {
         leituraCocho: form.leitura ? Number(form.leitura) : null,
         kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
         kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
-        gado: form.gado,
         categorias: categoriasString,
       }
       setRegistroSalvo(dadosRegistro)
@@ -424,18 +424,6 @@ export default function SuplementacaoPage() {
         {/* Seção 4: Gado e Categorias */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CLASSIFICAÇÃO DO GADO</h2>
-          <Radio
-            name="gado"
-            label="TIPO DE GADO"
-            options={TIPOS_GADO}
-            value={form.gado}
-            onChange={set('gado')}
-            error={getError('gado')}
-            gridCols={3}
-          />
-          {getError('categorias') && (
-            <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
-          )}
           <CheckboxGroup
             label="CATEGORIAS:"
             options={CATEGORIAS}
@@ -445,6 +433,15 @@ export default function SuplementacaoPage() {
             gridCols={2}
             hideCheckbox={true}
           />
+          {form.categorias.includes('Outros') && (
+            <Input
+              label="ESPECIFICAR OUTROS:"
+              placeholder="Descreva a categoria"
+              value={form.outrosTexto}
+              onChange={setInput('outrosTexto')}
+              error={getError('outrosTexto')}
+            />
+          )}
         </div>
 
         <div className="flex flex-col gap-3">

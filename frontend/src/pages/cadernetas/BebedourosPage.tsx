@@ -9,19 +9,16 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
 
-const TIPOS_GADO = [
-  { value: 'Cria', label: 'CRIA', icon: '🍼' },
-  { value: 'Recria', label: 'RECRIA', icon: '🌱' },
-  { value: 'Engorda', label: 'ENGORDA', icon: '🥩' },
-]
-
 const CATEGORIAS = [
   { value: 'Vaca', label: 'VACA' },
   { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi', label: 'BOI' },
-  { value: 'Bezerro', label: 'BEZERRO' },
+  { value: 'Boi Gordo', label: 'BOI GORDO' },
+  { value: 'Boi Magro', label: 'BOI MAGRO' },
   { value: 'Garrote', label: 'GARROTE' },
+  { value: 'Bezerro', label: 'BEZERRO' },
   { value: 'Novilha', label: 'NOVILHA' },
+  { value: 'Tropa', label: 'TROPA' },
+  { value: 'Outros', label: 'OUTROS' },
 ]
 
 const LEITURAS_BEBEDOURO = [
@@ -35,11 +32,11 @@ interface FormState {
   responsavel: string
   pasto: string
   numeroLote: string
-  gado: string
   categorias: string[]
   leituraBebedouro: string
   numeroBebedouro: string
   observacao: string
+  outrosTexto: string
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -47,11 +44,11 @@ const makeInitial = (usuario?: string): FormState => ({
   responsavel: usuario || '',
   pasto: '',
   numeroLote: '',
-  gado: '',
   categorias: [],
   leituraBebedouro: '',
   numeroBebedouro: '',
   observacao: '',
+  outrosTexto: '',
 })
 
 export default function BebedourosPage() {
@@ -110,13 +107,20 @@ export default function BebedourosPage() {
     setSalvando(true)
     setErrors([])
 
+    // Montar categoria como string separada por vírgula
+    let categoriaString = form.categorias.join(', ')
+    
+    // Se "Outros" estiver selecionado e houver texto, adicionar o texto
+    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
+      categoriaString = categoriaString.replace('Outros', `Outros: ${form.outrosTexto.trim()}`)
+    }
+
     const result = await salvarRegistro('bebedouros', {
       data: form.data,
       responsavel: form.responsavel,
       pasto: form.pasto,
       numeroLote: form.numeroLote,
-      gado: form.gado,
-      categoria: form.categorias.join(', '),
+      categoria: categoriaString,
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
       observacao: form.observacao,
@@ -132,8 +136,7 @@ export default function BebedourosPage() {
         responsavel: form.responsavel,
         pasto: form.pasto,
         numeroLote: form.numeroLote,
-        gado: form.gado,
-        categoria: form.categorias.join(', '),
+        categoria: categoriaString,
         leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
         numeroBebedouro: form.numeroBebedouro,
         observacao: form.observacao,
@@ -254,18 +257,6 @@ export default function BebedourosPage() {
         {/* Seção 2: Classificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CLASSIFICAÇÃO DO GADO</h2>
-          <Radio
-            name="gado"
-            label="TIPO DE GADO"
-            options={TIPOS_GADO}
-            value={form.gado}
-            onChange={set('gado')}
-            error={getError('gado')}
-            gridCols={3}
-          />
-          {getError('categorias') && (
-            <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
-          )}
           <CheckboxGroup
             label="CATEGORIAS:"
             options={CATEGORIAS}
@@ -275,6 +266,15 @@ export default function BebedourosPage() {
             gridCols={2}
             hideCheckbox={true}
           />
+          {form.categorias.includes('Outros') && (
+            <Input
+              label="ESPECIFICAR OUTROS:"
+              placeholder="Descreva a categoria"
+              value={form.outrosTexto}
+              onChange={setInput('outrosTexto')}
+              error={getError('outrosTexto')}
+            />
+          )}
         </div>
 
         {/* Seção 3: Bebedouro */}
