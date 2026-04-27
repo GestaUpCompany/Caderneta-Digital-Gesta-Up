@@ -68,11 +68,6 @@ type SnFields = {
   animalMortoObs: string
 }
 
-interface AnimalTratado {
-  id: string
-  tratamentos: string[]
-}
-
 interface FormState extends SnFields {
   data: string
   pasto: string
