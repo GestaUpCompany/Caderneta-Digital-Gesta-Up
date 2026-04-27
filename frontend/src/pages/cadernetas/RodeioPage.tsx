@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage, Select } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
@@ -35,11 +35,6 @@ const ESCALA_EQUIPE = [
   { value: '3', label: '3' },
   { value: '4', label: '4' },
   { value: '5', label: '5' },
-]
-
-const PROCEDIMENTOS_OPCOES = [
-  'Mata Bicheira', 'Antibiótico', 'Tiguvon', 'Vermífugo',
-  'Anti-tóxico', 'Anti-inflamatório', 'Soro Antiofídico', 'Outros',
 ]
 
 const CATEGORIAS_ANIMAIS: { campo: string; label: string }[] = [
@@ -186,30 +181,6 @@ export default function RodeioPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const updateAnimalId = (index: number, value: string) => {
-    setForm((prev) => {
-      const detalhes = [...prev.animaisTratadosDetalhes]
-      detalhes[index] = { ...detalhes[index], id: value }
-      return { ...prev, animaisTratadosDetalhes: detalhes }
-    })
-  }
-
-  const toggleAnimalTratamento = (animalIndex: number, tratamento: string) => {
-    setForm((prev) => {
-      const detalhes = [...prev.animaisTratadosDetalhes]
-      const tratamentos = detalhes[animalIndex].tratamentos.includes(tratamento)
-        ? detalhes[animalIndex].tratamentos.filter((t) => t !== tratamento)
-        : [...detalhes[animalIndex].tratamentos, tratamento]
-      detalhes[animalIndex] = { ...detalhes[animalIndex], tratamentos }
-      return { ...prev, animaisTratadosDetalhes: detalhes }
-    })
-  }
-
-  const isAnimalCompleto = (index: number) => {
-    const animal = form.animaisTratadosDetalhes[index]
-    return animal.id.trim() !== '' && animal.tratamentos.length > 0
-  }
-
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const total = ['vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha'].reduce(
@@ -354,14 +325,14 @@ export default function RodeioPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           {usuario && (
             <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
               <span className="text-xl">👤</span>
               <p className="text-gray-700 font-semibold">{usuario}</p>
             </div>
           )}
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
@@ -406,8 +377,8 @@ export default function RodeioPage() {
         </div>
 
         {/* Seção 2: Quantidade por Categoria */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">2. QUANTIDADE DE ANIMAIS</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIDADE DE ANIMAIS</h2>
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}
@@ -434,8 +405,8 @@ export default function RodeioPage() {
         </div>
 
         {/* Seção 3: Avaliação Geral S/N */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-5">
-          <h2 className="section-title">3. AVALIAÇÃO GERAL</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. AVALIAÇÃO GERAL</h2>
           {AVALIACOES_SN.map(({ campo, label }) => (
             <div key={campo}>
               <Radio
@@ -458,8 +429,8 @@ export default function RodeioPage() {
         </div>
 
         {/* Seção 4: Tratamento e Avaliação */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">4. TRATAMENTO E AVALIAÇÃO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTO E AVALIAÇÃO</h2>
           <button
             onClick={() => setShowPdfModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -487,8 +458,8 @@ export default function RodeioPage() {
           />
         </div>
 
-        {/* Seção 5: Procedimentos */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        {/* Seção 5: Procedimentos - OCULTO (PODERÁ SER REUTILIZADO NA ENFERMARIA) */}
+        {/*<div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
           <h2 className="section-title">5. PROCEDIMENTOS REALIZADOS</h2>
           <Input
             label="ANIMAIS TRATADOS"
@@ -506,7 +477,7 @@ export default function RodeioPage() {
             </p>
           )}
           
-          {/* Cards de animais tratados */}
+          {/* Cards de animais tratados *\/}
           {form.animaisTratadosDetalhes.map((animal, index) => (
             <div
               key={index}
@@ -563,7 +534,7 @@ export default function RodeioPage() {
               )}
             </div>
           ))}
-        </div>
+        </div>*/}
 
         <div className="flex flex-col gap-3">
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">

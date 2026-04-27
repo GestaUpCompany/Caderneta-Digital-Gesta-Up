@@ -95,6 +95,32 @@ const MOVIMENTACAO_LABELS = {
   causaObservacao: 'CAUSA/OBSERVAÇÃO',
 }
 
+const ENFERMARIA_LABELS = {
+  ...COMMON_LABELS,
+  pasto: 'PASTO',
+  lote: 'LOTE',
+  brincoChip: 'BRINCO/CHIP',
+  categoria: 'CATEGORIA',
+  tratamento: 'TRATAMENTO',
+  tratamentoOutros: 'Outros',
+  problemaCasco: 'PROBLEMA DE CASCO',
+  problemaCascoObs: 'OBSERVAÇÃO',
+  sintomasPneumonia: 'SINTOMAS PNEUMONIA',
+  sintomasPneumoniaObs: 'OBSERVAÇÃO',
+  picadoCobra: 'PICADO POR COBRA',
+  picadoCobraObs: 'OBSERVAÇÃO',
+  incoordenacaoTremores: 'INCOORDENAÇÃO E TREMORES',
+  incoordenacaoTremoresObs: 'OBSERVAÇÃO',
+  febreAlta: 'FEBRE ALTA',
+  febreAltaObs: 'OBSERVAÇÃO',
+  presencaSangue: 'PRESENÇA DE SANGUE',
+  presencaSangueObs: 'OBSERVAÇÃO',
+  fraturas: 'FRATURAS',
+  fraturasObs: 'OBSERVAÇÃO',
+  desordensDigestivas: 'DESORDENS DIGESTIVAS',
+  desordensDigestivasObs: 'OBSERVAÇÃO',
+}
+
 // Exportar objeto principal
 export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   maternidade: MATERNIDADE_LABELS,
@@ -103,4 +129,5 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   suplementacao: SUPLEMENTACAO_LABELS,
   bebedouros: BEBEDOUROS_LABELS,
   movimentacao: MOVIMENTACAO_LABELS,
+  enfermaria: ENFERMARIA_LABELS,
 }

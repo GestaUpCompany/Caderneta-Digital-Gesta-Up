@@ -1,0 +1,403 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
+import { Button, Input, DatePicker, ValidationMessage, Select, Radio, CheckboxGroup } from '../../components/ui'
+import SuccessModal from '../../components/SuccessModal'
+import { salvarRegistro } from '../../services/api'
+import { todayBR } from '../../utils/formatDate'
+import { RootState } from '../../store/store'
+import FarmLogo from '../../components/FarmLogo'
+import { loadCadastroData } from '../../services/cadastroData'
+
+const TRATAMENTOS = [
+  { value: 'Mata Bicheira', label: 'MATA BICHEIRA' },
+  { value: 'Antibiótico', label: 'ANTIBIÓTICO' },
+  { value: 'Tiguvon', label: 'TIGUVON' },
+  { value: 'Vermífugo', label: 'VERMÍFUGO' },
+  { value: 'Anti-Tóxico', label: 'ANTI-TÓXICO' },
+  { value: 'Anti-Inflamatório', label: 'ANTI-INFLAMATÓRIO' },
+  { value: 'Soro Antiofídico', label: 'SORO ANTIOFÍDICO' },
+  { value: 'Soro Vitamínico', label: 'SORO VITAMÍNICO' },
+  { value: 'Vacina', label: 'VACINA' },
+  { value: 'Inseticida', label: 'INSETICIDA' },
+  { value: 'Complexo Vitamínico', label: 'COMPLEXO VITAMÍNICO' },
+  { value: 'Outros', label: 'OUTROS' },
+]
+
+const DIAGNOSTICOS = [
+  { campo: 'problemaCasco', label: 'Problema de casco?' },
+  { campo: 'sintomasPneumonia', label: 'Sintomas pneumonia?' },
+  { campo: 'picadoCobra', label: 'Picado por cobra?' },
+  { campo: 'incoordenacaoTremores', label: 'Incoordenação e tremores musculares?' },
+  { campo: 'febreAlta', label: 'Febre alta?' },
+  { campo: 'presencaSangue', label: 'Presença de sangue?' },
+  { campo: 'fraturas', label: 'Fraturas?' },
+  { campo: 'desordensDigestivas', label: 'Desordens digestivas?' },
+]
+
+const SN_OPTIONS = [
+  { value: 'S', label: 'SIM', icon: '✅' },
+  { value: 'N', label: 'NÃO', icon: '❌' },
+]
+
+const CATEGORIAS = [
+  { value: 'Vaca', label: 'VACA' },
+  { value: 'Touro', label: 'TOURO' },
+  { value: 'Boi', label: 'BOI' },
+  { value: 'Bezerro', label: 'BEZERRO' },
+  { value: 'Garrote', label: 'GARROTE' },
+  { value: 'Novilha', label: 'NOVILHA' },
+]
+
+interface FormState {
+  data: string
+  pasto: string
+  lote: string
+  brincoChip: string
+  categoria: string
+  tratamentos: string[]
+  tratamentoOutros: string
+  problemaCasco: string
+  problemaCascoObs: string
+  sintomasPneumonia: string
+  sintomasPneumoniaObs: string
+  picadoCobra: string
+  picadoCobraObs: string
+  incoordenacaoTremores: string
+  incoordenacaoTremoresObs: string
+  febreAlta: string
+  febreAltaObs: string
+  presencaSangue: string
+  presencaSangueObs: string
+  fraturas: string
+  fraturasObs: string
+  desordensDigestivas: string
+  desordensDigestivasObs: string
+}
+
+const makeInitial = (): FormState => ({
+  data: todayBR(),
+  pasto: '',
+  lote: '',
+  brincoChip: '',
+  categoria: '',
+  tratamentos: [],
+  tratamentoOutros: '',
+  problemaCasco: '',
+  problemaCascoObs: '',
+  sintomasPneumonia: '',
+  sintomasPneumoniaObs: '',
+  picadoCobra: '',
+  picadoCobraObs: '',
+  incoordenacaoTremores: '',
+  incoordenacaoTremoresObs: '',
+  febreAlta: '',
+  febreAltaObs: '',
+  presencaSangue: '',
+  presencaSangueObs: '',
+  fraturas: '',
+  fraturasObs: '',
+  desordensDigestivas: '',
+  desordensDigestivasObs: '',
+})
+
+export default function EnfermariaPage() {
+  const navigate = useNavigate()
+  const { usuario, fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const [form, setForm] = useState<FormState>(makeInitial)
+  const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
+  const [salvando, setSalvando] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
+  const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+
+  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm((prev) => ({ ...prev, [field]: e.target.value }))
+  }
+
+  const handleTratamentosChange = (newTratamentos: string[]) => {
+    if (!newTratamentos.includes('Outros')) {
+      setForm(prev => ({
+        ...prev,
+        tratamentos: newTratamentos,
+        tratamentoOutros: ''
+      }))
+    } else {
+      setForm(prev => ({
+        ...prev,
+        tratamentos: newTratamentos
+      }))
+    }
+  }
+
+  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Carregar pastos e lotes quando fazenda mudar
+  useEffect(() => {
+    async function carregarDados() {
+      if (!cadastroSheetUrl) {
+        return
+      }
+
+      try {
+        const data = await loadCadastroData(cadastroSheetUrl)
+        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error)
+      }
+    }
+
+    carregarDados()
+
+    // Polling a cada 3 minutos
+    const interval = setInterval(carregarDados, 180000) // 3 minutos
+
+    return () => clearInterval(interval)
+  }, [cadastroSheetUrl])
+
+  const handleSalvar = async () => {
+    setSalvando(true)
+    setErrors([])
+
+    // Construir string final de tratamentos
+    const tratamentosFinais = form.tratamentos.map(t =>
+      t === 'Outros' ? form.tratamentoOutros : t
+    ).filter(Boolean)
+
+    const tratamentoFinal = tratamentosFinais.join(', ')
+
+    const result = await salvarRegistro('enfermaria', {
+      data: form.data,
+      pasto: form.pasto,
+      lote: form.lote,
+      brincoChip: form.brincoChip,
+      categoria: form.categoria,
+      tratamento: tratamentoFinal,
+      problemaCasco: form.problemaCasco,
+      problemaCascoObs: form.problemaCascoObs,
+      sintomasPneumonia: form.sintomasPneumonia,
+      sintomasPneumoniaObs: form.sintomasPneumoniaObs,
+      picadoCobra: form.picadoCobra,
+      picadoCobraObs: form.picadoCobraObs,
+      incoordenacaoTremores: form.incoordenacaoTremores,
+      incoordenacaoTremoresObs: form.incoordenacaoTremoresObs,
+      febreAlta: form.febreAlta,
+      febreAltaObs: form.febreAltaObs,
+      presencaSangue: form.presencaSangue,
+      presencaSangueObs: form.presencaSangueObs,
+      fraturas: form.fraturas,
+      fraturasObs: form.fraturasObs,
+      desordensDigestivas: form.desordensDigestivas,
+      desordensDigestivasObs: form.desordensDigestivasObs,
+    })
+
+    setSalvando(false)
+    if (!result.success && result.errors) {
+      setErrors(result.errors)
+    } else {
+      const dadosRegistro = {
+        data: form.data,
+        pasto: form.pasto,
+        lote: form.lote,
+        brincoChip: form.brincoChip,
+        categoria: form.categoria,
+        tratamento: tratamentoFinal,
+        problemaCasco: form.problemaCasco,
+        problemaCascoObs: form.problemaCascoObs,
+        sintomasPneumonia: form.sintomasPneumonia,
+        sintomasPneumoniaObs: form.sintomasPneumoniaObs,
+        picadoCobra: form.picadoCobra,
+        picadoCobraObs: form.picadoCobraObs,
+        incoordenacaoTremores: form.incoordenacaoTremores,
+        incoordenacaoTremoresObs: form.incoordenacaoTremoresObs,
+        febreAlta: form.febreAlta,
+        febreAltaObs: form.febreAltaObs,
+        presencaSangue: form.presencaSangue,
+        presencaSangueObs: form.presencaSangueObs,
+        fraturas: form.fraturas,
+        fraturasObs: form.fraturasObs,
+        desordensDigestivas: form.desordensDigestivas,
+        desordensDigestivasObs: form.desordensDigestivasObs,
+      }
+      setRegistroSalvo(dadosRegistro)
+      setShowSuccessModal(true)
+      setForm(makeInitial())
+    }
+  }
+
+  const handleNewRecord = () => {
+    setShowSuccessModal(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleExit = () => {
+    setShowSuccessModal(false)
+    navigate('/')
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Header sticky com botões e título */}
+      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+          >
+            VOLTAR
+          </button>
+          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">ENFERMARIA</h1>
+          <button
+            onClick={() => navigate('/caderneta/enfermaria/lista')}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
+          >
+            REGISTROS
+          </button>
+        </div>
+      </div>
+
+      {/* Logos não sticky */}
+      <div className="bg-[#1a3a2a] text-white px-4 py-5">
+        <div className="flex items-center justify-center gap-8">
+          <FarmLogo
+            farmName={fazenda}
+            type="both"
+            size="medium"
+          />
+        </div>
+      </div>
+
+      <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
+        {errors.length > 0 && <ValidationMessage errors={errors} />}
+
+        {/* Seção 1: Dados Principais */}
+        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+          {usuario && (
+            <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
+              <span className="text-xl">👤</span>
+              <p className="text-gray-700 font-semibold">{usuario}</p>
+            </div>
+          )}
+          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
+          <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
+          {pastosDisponiveis.length > 0 ? (
+            <Select
+              label="PASTO"
+              value={form.pasto}
+              onChange={(e) => setForm((p) => ({ ...p, pasto: e.target.value }))}
+              error={getError('pasto')}
+              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
+            />
+          ) : (
+            <Input
+              label="PASTO"
+              placeholder="Carregando..."
+              value={form.pasto}
+              onChange={setInput('pasto')}
+              error={getError('pasto')}
+            />
+          )}
+          {lotesDisponiveis.length > 0 ? (
+            <Select
+              label="LOTE"
+              value={form.lote}
+              onChange={(e) => setForm((p) => ({ ...p, lote: e.target.value }))}
+              error={getError('lote')}
+              options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+            />
+          ) : (
+            <Input
+              label="LOTE"
+              placeholder="Carregando..."
+              value={form.lote}
+              onChange={setInput('lote')}
+              error={getError('lote')}
+            />
+          )}
+        </div>
+
+        {/* Seção 2: Identificação */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
+          <Radio
+            name="categoria"
+            label="CATEGORIA DO ANIMAL"
+            options={CATEGORIAS}
+            value={form.categoria}
+            onChange={(val) => setForm((p) => ({ ...p, categoria: val }))}
+            error={getError('categoria')}
+            gridCols={2}
+          />
+        </div>
+
+        {/* Seção 3: Diagnóstico */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DIAGNÓSTICO</h2>
+          {DIAGNOSTICOS.map(({ campo, label }) => (
+            <div key={campo}>
+              <Radio
+                name={campo}
+                label={label}
+                options={SN_OPTIONS}
+                value={form[campo as keyof FormState] as string}
+                onChange={(val) => setForm((p) => ({ ...p, [campo]: val }))}
+                error={getError(campo)}
+                gridCols={2}
+              />
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={(form as any)[`${campo}Obs`]}
+                onChange={(e) => setForm((p) => ({ ...p, [`${campo}Obs`]: e.target.value }))}
+                className="mt-2"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Seção 4: Tratamento */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTO</h2>
+          <CheckboxGroup
+            label="TRATAMENTO"
+            options={TRATAMENTOS}
+            selectedValues={form.tratamentos}
+            onChange={handleTratamentosChange}
+            error={getError('tratamentos')}
+            gridCols={2}
+            hideCheckbox={true}
+          />
+          {form.tratamentos.includes('Outros') && (
+            <Input
+              label="DESCREVA O TRATAMENTO"
+              placeholder="Ex: Outro tratamento..."
+              value={form.tratamentoOutros}
+              onChange={setInput('tratamentoOutros')}
+              error={getError('tratamentoOutros')}
+            />
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+            SALVAR
+          </Button>
+          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+            LIMPAR
+          </Button>
+        </div>
+      </main>
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onNewRecord={handleNewRecord}
+        onExit={handleExit}
+        cadernetaName="Enfermaria"
+        registro={registroSalvo}
+        caderneta="enfermaria"
+      />
+    </div>
+  )
+}

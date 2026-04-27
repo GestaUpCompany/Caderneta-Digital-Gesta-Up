@@ -45,9 +45,8 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
   ],
   suplementacao: (r) => [
     r.data as string, r.tratador as string, r.pasto as string, r.numeroLote as string,
-    r.produto as string, r.suplementoQtd as string, r.gado as string,
-    Array.isArray(r.categorias) ? (r.categorias as string[]).join(', ') : '',
-    r.leitura as number, r.kgCocho as number, r.kgDeposito as number,
+    r.produto as string, r.creepKg as string, r.leituraCocho as number,
+    r.kgCocho as number, r.kgDeposito as number, r.gado as string, r.categoriasString as string,
   ],
   bebedouros: (r) => [
     r.data as string, r.responsavel as string, r.pasto as string, r.numeroLote as string,
@@ -56,11 +55,19 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
   ],
   movimentacao: (r) => [
     r.data as string, r.loteOrigem as string, r.loteDestino as string,
-    r.numeroCabecas as number, r.pesoMedio as number, r.vaca as string,
-    r.touro as string, r.boiGordo as string, r.boiMagro as string,
-    r.garrote as string, r.bezerro as string, r.novilha as string,
-    r.tropa as string, r.outraCategoria as string, r.motivoMovimentacao as string,
-    r.brincoChip as string, r.causaObservacao as string,
+    r.numeroCabecas as number, r.pesoMedio as number, r.categoria as string,
+    r.motivoMovimentacao as string, r.brincoChip as string, r.causaObservacao as string,
+  ],
+  enfermaria: (r) => [
+    r.data as string, r.pasto as string, r.lote as string, r.brincoChip as string, r.categoria as string,
+    r.problemaCasco as string, r.problemaCascoObs as string,
+    r.sintomasPneumonia as string, r.sintomasPneumoniaObs as string,
+    r.picadoCobra as string, r.picadoCobraObs as string,
+    r.incoordenacaoTremores as string, r.incoordenacaoTremoresObs as string,
+    r.febreAlta as string, r.febreAltaObs as string,
+    r.presencaSangue as string, r.presencaSangueObs as string,
+    r.fraturas as string, r.fraturasObs as string,
+    r.desordensDigestivas as string, r.desordensDigestivasObs as string,
   ],
 }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
@@ -33,7 +33,12 @@ const LEITURAS = [
 ]
 
 const CATEGORIAS = [
-  'Vaca', 'Touro', 'Bezerro', 'Boi', 'Garrote', 'Novilha',
+  { value: 'Vaca', label: 'VACA' },
+  { value: 'Touro', label: 'TOURO' },
+  { value: 'Bezerro', label: 'BEZERRO' },
+  { value: 'Boi', label: 'BOI' },
+  { value: 'Garrote', label: 'GARROTE' },
+  { value: 'Novilha', label: 'NOVILHA' },
 ]
 
 interface FormState {
@@ -166,25 +171,34 @@ export default function SuplementacaoPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
+  const handleCategoriasChange = (newCategorias: string[]) => {
+    setForm((prev) => ({ ...prev, categorias: newCategorias }))
+  }
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
 
-    // Se tipo é Creep: salvar quantidade, senão salvar suplemento
-    const suplementoQtd = form.produto === 'Creep' ? quantidadeCreep : suplemento
+    // Lógica do Creep
+    const produtoFinal = form.produto === 'Creep' ? 'Creep' : suplemento
+    const creepKgFinal = form.produto === 'Creep' ? quantidadeCreep : ''
+    
+    // Montar categorias como string separada por vírgula
+    const categoriasString = form.categorias.join(', ')
 
     const result = await salvarRegistro('suplementacao', {
       data: form.data,
       tratador: form.tratador,
       pasto: form.pasto,
       numeroLote: form.numeroLote,
-      produto: form.produto,
-      suplementoQtd,
-      gado: form.gado,
-      leitura: form.leitura ? Number(form.leitura) : null,
+      produto: produtoFinal,
+      creepKg: creepKgFinal,
+      leituraCocho: form.leitura ? Number(form.leitura) : null,
       kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
+      gado: form.gado,
       categorias: form.categorias,
+      categoriasString: categoriasString,
     })
 
     setSalvando(false)
@@ -197,13 +211,13 @@ export default function SuplementacaoPage() {
         tratador: form.tratador,
         pasto: form.pasto,
         numeroLote: form.numeroLote,
-        produto: form.produto,
-        suplementoQtd,
-        gado: form.gado,
-        leitura: form.leitura ? Number(form.leitura) : null,
+        produto: produtoFinal,
+        creepKg: creepKgFinal,
+        leituraCocho: form.leitura ? Number(form.leitura) : null,
         kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
         kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
-        categorias: form.categorias,
+        gado: form.gado,
+        categorias: categoriasString,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -260,14 +274,14 @@ export default function SuplementacaoPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           {usuario && (
             <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
               <span className="text-xl">👤</span>
               <p className="text-gray-700 font-semibold">{usuario}</p>
             </div>
           )}
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           <Input
             label="TRATADOR"
@@ -320,8 +334,8 @@ export default function SuplementacaoPage() {
         </div>
 
         {/* Seção 2: Tipo de Suplementação */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">2. TIPO DE SUPLEMENTAÇÃO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. TIPO DE SUPLEMENTAÇÃO</h2>
           <Radio
             name="produto"
             label="PRODUTO"
@@ -376,8 +390,8 @@ export default function SuplementacaoPage() {
         </div>
 
         {/* Seção 3: Leitura e Quantidade */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">3. LEITURA E QUANTIDADE</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. LEITURA E QUANTIDADE</h2>
           <button
             onClick={() => setShowPdfModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -417,8 +431,8 @@ export default function SuplementacaoPage() {
         </div>
 
         {/* Seção 4: Gado e Categorias */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">4. CLASSIFICAÇÃO DO GADO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CLASSIFICAÇÃO DO GADO</h2>
           <Radio
             name="gado"
             label="TIPO DE GADO"
@@ -431,17 +445,15 @@ export default function SuplementacaoPage() {
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}
-          <p className="text-lg font-bold text-gray-800">CATEGORIAS:</p>
-          <div className="grid grid-cols-2 gap-3">
-            {CATEGORIAS.map((cat) => (
-              <Checkbox
-                key={cat}
-                label={cat}
-                checked={form.categorias.includes(cat)}
-                onChange={() => toggleCategoria(cat)}
-              />
-            ))}
-          </div>
+          <CheckboxGroup
+            label="CATEGORIAS:"
+            options={CATEGORIAS}
+            selectedValues={form.categorias}
+            onChange={handleCategoriasChange}
+            error={getError('categorias')}
+            gridCols={2}
+            hideCheckbox={true}
+          />
         </div>
 
         <div className="flex flex-col gap-3">

@@ -61,6 +61,8 @@ const BebedourosPage = lazy(() => import('./pages/cadernetas/BebedourosPage'))
 const BebedourosListaPage = lazy(() => import('./pages/cadernetas/BebedourosListaPage'))
 const MovimentacaoPage = lazy(() => import('./pages/cadernetas/MovimentacaoPage'))
 const MovimentacaoListaPage = lazy(() => import('./pages/cadernetas/MovimentacaoListaPage'))
+const EnfermariaPage = lazy(() => import('./pages/cadernetas/EnfermariaPage'))
+const EnfermariaListaPage = lazy(() => import('./pages/cadernetas/EnfermariaListaPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
@@ -242,6 +244,10 @@ function AppInner() {
             {/* Movimentação */}
             <Route path="/caderneta/movimentacao" element={<MovimentacaoPage />} />
             <Route path="/caderneta/movimentacao/lista" element={<MovimentacaoListaPage />} />
+
+            {/* Enfermaria */}
+            <Route path="/caderneta/enfermaria" element={<EnfermariaPage />} />
+            <Route path="/caderneta/enfermaria/lista" element={<EnfermariaListaPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

@@ -192,14 +192,14 @@ export default function PastagensPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           {usuario && (
             <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
               <span className="text-xl">👤</span>
               <p className="text-gray-700 font-semibold">{usuario}</p>
             </div>
           )}
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           <div>
             <label className="block text-base font-bold text-gray-700 mb-2">MANEJADOR</label>
@@ -235,8 +235,8 @@ export default function PastagensPage() {
         </div>
 
         {/* Seção 2: Pasto de Saída */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">2. PASTO DE SAÍDA</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PASTO DE SAÍDA</h2>
           {pastosDisponiveis.length > 0 ? (
             <Select
               label="PASTO DE SAÍDA"
@@ -266,8 +266,8 @@ export default function PastagensPage() {
         </div>
 
         {/* Seção 3: Pasto de Entrada */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">3. PASTO DE ENTRADA</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. PASTO DE ENTRADA</h2>
           {pastosDisponiveis.length > 0 ? (
             <Select
               label="PASTO DE ENTRADA"
@@ -296,9 +296,9 @@ export default function PastagensPage() {
           />
         </div>
 
-        {/* Seção 4: Categorias */}
-        <div className="bg-white rounded-2xl p-4 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">4. QUANTIDADE DE ANIMAIS</h2>
+        {/* Seção 4: Quantidade de Animais */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. QUANTIDADE DE ANIMAIS</h2>
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}

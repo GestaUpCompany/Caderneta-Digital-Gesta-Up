@@ -144,16 +144,22 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
     errors.push({ field: 'tratador', message: 'Tratador é obrigatório' })
   if (!isNonEmptyString(data.pasto))
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
+  if (!isNonEmptyString(data.numeroLote))
+    errors.push({ field: 'numeroLote', message: 'Lote é obrigatório' })
   if (!isNonEmptyString(data.produto))
     errors.push({ field: 'produto', message: 'Produto é obrigatório' })
   if (!isNonEmptyString(data.gado))
     errors.push({ field: 'gado', message: 'Tipo de gado é obrigatório' })
-  if (!isScaleValue(data.leitura, -1, 3))
-    errors.push({ field: 'leitura', message: 'Leitura deve ser entre -1 e 3' })
+  if (!isScaleValue(data.leituraCocho, -1, 3))
+    errors.push({ field: 'leituraCocho', message: 'Leitura deve ser entre -1 e 3' })
   if (!isPositiveNumber(data.kgCocho))
     errors.push({ field: 'kgCocho', message: 'KG no cocho deve ser um número positivo' })
   if (!isPositiveNumber(data.kgDeposito))
     errors.push({ field: 'kgDeposito', message: 'KG no depósito deve ser um número positivo' })
+
+  const categorias = data.categorias as string[]
+  if (!categorias || !Array.isArray(categorias) || categorias.length === 0)
+    errors.push({ field: 'categorias', message: 'Selecione ao menos uma categoria de animal' })
 
   return { isValid: errors.length === 0, errors }
 }
@@ -191,15 +197,27 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
   if (!isNonEmptyString(data.motivoMovimentacao))
     errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
 
-  const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
-  const algumPreenchido = categorias.some((c) => data[c] === 'S')
-  if (!algumPreenchido)
+  const categorias = data.categorias as string[]
+  if (!categorias || !Array.isArray(categorias) || categorias.length === 0)
     errors.push({ field: 'categorias', message: 'Selecione ao menos uma categoria de animal' })
 
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao'
+export function validateEnfermaria(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.pasto))
+    errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
+  if (!isNonEmptyString(data.lote))
+    errors.push({ field: 'lote', message: 'Lote é obrigatório' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -208,6 +226,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   suplementacao: validateSuplementacao,
   bebedouros: validateBebedouros,
   movimentacao: validateMovimentacao,
+  enfermaria: validateEnfermaria,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -82,6 +82,10 @@ export default function BebedourosPage() {
   }
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  const handleCategoriasChange = (newCategorias: string[]) => {
+    setForm((prev) => ({ ...prev, categorias: newCategorias }))
+  }
 
   // Carregar pastos e lotes quando fazenda mudar
   useEffect(() => {
@@ -195,14 +199,14 @@ export default function BebedourosPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           {usuario && (
             <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
               <span className="text-xl">👤</span>
               <p className="text-gray-700 font-semibold">{usuario}</p>
             </div>
           )}
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           <Input
             label="RESPONSÁVEL"
@@ -257,8 +261,8 @@ export default function BebedourosPage() {
         </div>
 
         {/* Seção 2: Classificação */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">2. CLASSIFICAÇÃO DO GADO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CLASSIFICAÇÃO DO GADO</h2>
           <Radio
             name="gado"
             label="TIPO DE GADO"
@@ -271,22 +275,20 @@ export default function BebedourosPage() {
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}
-          <p className="text-lg font-bold text-gray-800">CATEGORIAS:</p>
-          <div className="grid grid-cols-2 gap-3">
-            {CATEGORIAS.map((cat) => (
-              <Checkbox
-                key={cat.value}
-                label={cat.label}
-                checked={form.categorias.includes(cat.value)}
-                onChange={() => toggleCategoria(cat.value)}
-              />
-            ))}
-          </div>
+          <CheckboxGroup
+            label="CATEGORIAS:"
+            options={CATEGORIAS}
+            selectedValues={form.categorias}
+            onChange={handleCategoriasChange}
+            error={getError('categorias')}
+            gridCols={2}
+            hideCheckbox={true}
+          />
         </div>
 
         {/* Seção 3: Bebedouro */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">3. BEBEDOURO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. BEBEDOURO</h2>
           <Input
             label="NÚMERO DO BEBEDOURO"
             placeholder="Ex: 5"
@@ -309,8 +311,8 @@ export default function BebedourosPage() {
         </div>
 
         {/* Seção 4: Observação */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">4. OBSERVAÇÃO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÃO</h2>
           <Input
             label="OBSERVAÇÃO"
             placeholder="Detalhes adicionais (opcional)"

@@ -75,6 +75,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           return // Não incluir kgDeposito com valor zero
         }
       }
+      // Filtrar campos de observação na enfermaria (serão agrupados com o campo principal)
+      if (caderneta === 'enfermaria' && key.endsWith('Obs')) {
+        return // Não incluir campos de observação separadamente
+      }
       if (caderneta === 'movimentacao') {
         // Campos de categoria individual
         if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa'].includes(key)) {
@@ -140,7 +144,22 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
   camposNormais.forEach(([key, value]) => {
     let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
     const valorFormatado = formatFieldValue(key, value)
+    
+    // Para enfermaria, verificar se há observação associada
+    if (caderneta === 'enfermaria' && key.endsWith('Obs')) {
+      return // Já tratado abaixo
+    }
+    
     texto += `*${label}:* ${valorFormatado}\n`
+    
+    // Para enfermaria, adicionar observação abaixo do campo principal
+    if (caderneta === 'enfermaria' && !key.endsWith('Obs') && !key.startsWith('tratamento')) {
+      const obsKey = `${key}Obs`
+      const obsValue = registro[obsKey]
+      if (obsValue && obsValue !== '' && obsValue !== null && obsValue !== undefined) {
+        texto += `*OBSERVAÇÃO:* ${String(obsValue)}\n`
+      }
+    }
   })
 
   // Adicionar categorias dos animais (movimentação)

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, Checkbox, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -19,15 +19,15 @@ const MOTIVOS = [
 ]
 
 const CATEGORIAS = [
-  { campo: 'vaca', label: 'VACA' },
-  { campo: 'touro', label: 'TOURO' },
-  { campo: 'boiGordo', label: 'BOI GORDO' },
-  { campo: 'boiMagro', label: 'BOI MAGRO' },
-  { campo: 'garrote', label: 'GARROTE' },
-  { campo: 'bezerro', label: 'BEZERRO' },
-  { campo: 'novilha', label: 'NOVILHA' },
-  { campo: 'tropa', label: 'TROPA' },
-  { campo: 'outros', label: 'OUTROS' },
+  { value: 'Vaca', label: 'VACA' },
+  { value: 'Touro', label: 'TOURO' },
+  { value: 'Boi Gordo', label: 'BOI GORDO' },
+  { value: 'Boi Magro', label: 'BOI MAGRO' },
+  { value: 'Garrote', label: 'GARROTE' },
+  { value: 'Bezerro', label: 'BEZERRO' },
+  { value: 'Novilha', label: 'NOVILHA' },
+  { value: 'Tropa', label: 'TROPA' },
+  { value: 'Outros', label: 'OUTROS' },
 ]
 
 interface FormState {
@@ -40,15 +40,7 @@ interface FormState {
   motivoMovimentacao: string
   brincoChip: string
   causaObservacao: string
-  vaca: boolean
-  touro: boolean
-  boiGordo: boolean
-  boiMagro: boolean
-  garrote: boolean
-  bezerro: boolean
-  novilha: boolean
-  tropa: boolean
-  outros: boolean
+  categorias: string[]
   outrosTexto: string
 }
 
@@ -62,15 +54,7 @@ const makeInitial = (): FormState => ({
   motivoMovimentacao: '',
   brincoChip: '',
   causaObservacao: '',
-  vaca: false,
-  touro: false,
-  boiGordo: false,
-  boiMagro: false,
-  garrote: false,
-  bezerro: false,
-  novilha: false,
-  tropa: false,
-  outros: false,
+  categorias: [],
   outrosTexto: '',
 })
 
@@ -92,6 +76,10 @@ export default function MovimentacaoPage() {
   }
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  const handleCategoriasChange = (newCategorias: string[]) => {
+    setForm((p) => ({ ...p, categorias: newCategorias }))
+  }
 
   // Carregar lotes quando fazenda mudar
   useEffect(() => {
@@ -125,9 +113,16 @@ export default function MovimentacaoPage() {
     setSalvando(true)
     setErrors([])
 
-    // Montar dados corretamente
-    const tropaValor = form.tropa ? 'S' : 'N'
-    const outraCategoria = form.outros && form.outrosTexto.trim() ? form.outrosTexto.trim() : ''
+    // Montar categorias selecionadas em string separada por vírgula
+    const categoriasSelecionadas = [...form.categorias]
+
+    // Adicionar categoria "Outros" se selecionada
+    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
+      const outrosIndex = categoriasSelecionadas.indexOf('Outros')
+      categoriasSelecionadas[outrosIndex] = form.outrosTexto.trim()
+    }
+
+    const categoriasString = categoriasSelecionadas.join(', ')
 
     // Se destino customizado for preenchido, usar em vez de loteDestino
     const destinoFinal = form.destinoCustomizado.trim() ? form.destinoCustomizado.trim() : form.loteDestino
@@ -138,19 +133,11 @@ export default function MovimentacaoPage() {
       loteDestino: destinoFinal,
       numeroCabecas: form.numeroCabecas ? Number(form.numeroCabecas) : 0,
       pesoMedio: form.pesoMedio ? Number(form.pesoMedio) : null,
+      categorias: form.categorias,
+      categoria: categoriasString,
       motivoMovimentacao: form.motivoMovimentacao,
       brincoChip: form.brincoChip,
       causaObservacao: form.causaObservacao,
-      vaca: form.vaca ? 'S' : 'N',
-      touro: form.touro ? 'S' : 'N',
-      boiGordo: form.boiGordo ? 'S' : 'N',
-      boiMagro: form.boiMagro ? 'S' : 'N',
-      garrote: form.garrote ? 'S' : 'N',
-      bezerro: form.bezerro ? 'S' : 'N',
-      novilha: form.novilha ? 'S' : 'N',
-      tropa: tropaValor, // S ou N
-      outraCategoria, // Texto digitado ou vazio
-      categoriasMarcadas: [],
     })
 
     setSalvando(false)
@@ -164,19 +151,10 @@ export default function MovimentacaoPage() {
         loteDestino: destinoFinal,
         numeroCabecas: form.numeroCabecas ? Number(form.numeroCabecas) : 0,
         pesoMedio: form.pesoMedio ? Number(form.pesoMedio) : null,
+        categoria: categoriasString,
         motivoMovimentacao: form.motivoMovimentacao,
         brincoChip: form.brincoChip,
         causaObservacao: form.causaObservacao,
-        vaca: form.vaca ? 'S' : 'N',
-        touro: form.touro ? 'S' : 'N',
-        boiGordo: form.boiGordo ? 'S' : 'N',
-        boiMagro: form.boiMagro ? 'S' : 'N',
-        garrote: form.garrote ? 'S' : 'N',
-        bezerro: form.bezerro ? 'S' : 'N',
-        novilha: form.novilha ? 'S' : 'N',
-        tropa: tropaValor,
-        outraCategoria,
-        categoriasMarcadas: [],
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -230,14 +208,14 @@ export default function MovimentacaoPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           {usuario && (
             <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
               <span className="text-xl">👤</span>
               <p className="text-gray-700 font-semibold">{usuario}</p>
             </div>
           )}
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
           {lotesDisponiveis.length > 0 ? (
             <Select
@@ -263,8 +241,8 @@ export default function MovimentacaoPage() {
         </div>
 
         {/* Seção 2: Quantificação */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">2. QUANTIFICAÇÃO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="N° CABEÇAS"
@@ -289,24 +267,23 @@ export default function MovimentacaoPage() {
         </div>
 
         {/* Seção 3: Categorias */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">3. CATEGORIA DOS ANIMAIS</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CATEGORIA DOS ANIMAIS</h2>
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            {CATEGORIAS.map(({ campo, label }) => (
-              <Checkbox
-                key={campo}
-                label={label}
-                checked={form[campo as keyof FormState] as boolean}
-                onChange={() => setForm((p) => ({ ...p, [campo]: !p[campo as keyof FormState] }))}
-              />
-            ))}
-          </div>
-          {form.outros && (
+          <CheckboxGroup
+            label=""
+            options={CATEGORIAS}
+            selectedValues={form.categorias}
+            onChange={handleCategoriasChange}
+            error={getError('categorias')}
+            gridCols={2}
+            hideCheckbox={true}
+          />
+          {form.categorias.includes('Outros') && (
             <Input
-              label="OUTROS (descreva a categoria)"
+              label="DIGITE A CATEGORIA:"
               placeholder="Ex: Reprodutor, Matriz, etc."
               value={form.outrosTexto}
               onChange={(e) => setForm((p) => ({ ...p, outrosTexto: e.target.value }))}
@@ -316,8 +293,8 @@ export default function MovimentacaoPage() {
         </div>
 
         {/* Seção 4: Motivo */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">4. MOTIVO DA MOVIMENTAÇÃO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. MOTIVO DA MOVIMENTAÇÃO</h2>
           <Radio
             name="motivoMovimentacao"
             options={MOTIVOS}
@@ -388,8 +365,8 @@ export default function MovimentacaoPage() {
         </div>
 
         {/* Seção 5: Identificação e Observação */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">5. IDENTIFICAÇÃO E OBSERVAÇÃO</h2>
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. IDENTIFICAÇÃO E OBSERVAÇÃO</h2>
           <Input
             label="BRINCO / CHIP"
             placeholder="Ex: 2023-145"

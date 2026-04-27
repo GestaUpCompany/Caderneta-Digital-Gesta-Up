@@ -315,24 +315,6 @@ export default function MaternidadePage() {
         {/* Seção 2: Identificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
-          <CheckboxGroup
-            label="TRATAMENTO"
-            options={TRATAMENTOS}
-            selectedValues={form.tratamentos}
-            onChange={handleTratamentosChange}
-            error={getError('tratamentos')}
-            gridCols={2}
-            hideCheckbox={true}
-          />
-          {form.tratamentos.includes('Outros') && (
-            <Input
-              label="DESCREVA O TRATAMENTO"
-              placeholder="Ex: Anti-inflamatório..."
-              value={form.tratamentoOutros}
-              onChange={setInputEvent('tratamentoOutros')}
-              error={getError('tratamentoOutros')}
-            />
-          )}
           <Input
             label="NÚMERO DA CRIA"
             placeholder="Ex: 2023-145"
@@ -350,9 +332,32 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 3: Parto */}
+        {/* Seção 3: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TIPO DE PARTO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TRATAMENTOS</h2>
+          <CheckboxGroup
+            label=""
+            options={TRATAMENTOS}
+            selectedValues={form.tratamentos}
+            onChange={handleTratamentosChange}
+            error={getError('tratamentos')}
+            gridCols={2}
+            hideCheckbox={true}
+          />
+          {form.tratamentos.includes('Outros') && (
+            <Input
+              label="DESCREVA O TRATAMENTO"
+              placeholder="Ex: Anti-inflamatório..."
+              value={form.tratamentoOutros}
+              onChange={setInputEvent('tratamentoOutros')}
+              error={getError('tratamentoOutros')}
+            />
+          )}
+        </div>
+
+        {/* Seção 4: Parto */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TIPO DE PARTO</h2>
           <Radio
             name="tipoParto"
             options={TIPOS_PARTO}
@@ -363,9 +368,9 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 4: Sexo e Raça */}
+        {/* Seção 5: Sexo e Raça */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. SEXO E RAÇA</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. SEXO E RAÇA</h2>
           <Radio
             name="sexo"
             label="SEXO"
@@ -395,9 +400,9 @@ export default function MaternidadePage() {
           )}
         </div>
 
-        {/* Seção 5: Dados da Mãe */}
+        {/* Seção 6: Dados da Mãe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. DADOS DA MÃE</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. DADOS DA MÃE</h2>
           <Input
             label="NÚMERO DA MÃE"
             placeholder="Ex: 2021-089"
