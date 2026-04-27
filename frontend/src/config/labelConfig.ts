@@ -131,6 +131,35 @@ const ENFERMARIA_LABELS = {
   desordensDigestivasObs: 'OBSERVAÇÃO',
 }
 
+const ENTRADA_INSUMOS_LABELS = {
+  dataEntrada: 'DATA DE ENTRADA',
+  horario: 'HORÁRIO',
+  produto: 'PRODUTO',
+  quantidade: 'QUANTIDADE (kg)',
+  valorUnitario: 'VALOR UNITÁRIO (R$/kg)',
+  valorTotal: 'VALOR TOTAL (R$)',
+  notaFiscal: 'N° NOTA FISCAL',
+  fornecedor: 'FORNECEDOR',
+  placa: 'PLACA',
+  motorista: 'MOTORISTA',
+  responsavelRecebimento: 'RESPONSÁVEL RECEBIMENTO',
+}
+
+const SAIDA_INSUMOS_LABELS = {
+  dataProducao: 'DATA DE PRODUÇÃO',
+  dietaProduzida: 'DIETA PRODUZIDA',
+  destinoProducao: 'DESTINO DA PRODUÇÃO',
+  totalProduzido: 'TOTAL PRODUZIDO (kg)',
+}
+
+const INSUMOS_POR_SAIDA_LABELS = {
+  idSaida: 'ID DA SAÍDA',
+  dataProducao: 'DATA DE PRODUÇÃO',
+  dietaProduzida: 'DIETA PRODUZIDA',
+  insumo: 'INSUMO',
+  quantidade: 'QUANTIDADE (kg)',
+}
+
 // Exportar objeto principal
 export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   maternidade: MATERNIDADE_LABELS,
@@ -140,4 +169,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   bebedouros: BEBEDOUROS_LABELS,
   movimentacao: MOVIMENTACAO_LABELS,
   enfermaria: ENFERMARIA_LABELS,
+  'entrada-insumos': ENTRADA_INSUMOS_LABELS,
+  'saida-insumos': SAIDA_INSUMOS_LABELS,
+  'insumos-por-saida': INSUMOS_POR_SAIDA_LABELS,
 }

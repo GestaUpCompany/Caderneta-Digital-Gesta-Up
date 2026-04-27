@@ -65,6 +65,20 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
     r.fraturas as string, r.fraturasObs as string,
     r.desordensDigestivas as string, r.desordensDigestivasObs as string,
   ],
+  'entrada-insumos': (r) => [
+    r.dataEntrada as string, r.horario as string, r.produto as string,
+    r.quantidade as number, r.valorUnitario as number, r.valorTotal as number,
+    r.notaFiscal as string, r.fornecedor as string, r.placa as string,
+    r.motorista as string, r.responsavelRecebimento as string,
+  ],
+  'saida-insumos': (r) => [
+    r.dataProducao as string, r.dietaProduzida as string,
+    r.destinoProducao as string, r.totalProduzido as number,
+  ],
+  'insumos-por-saida': (r) => [
+    r.idSaida as string, r.dataProducao as string, r.dietaProduzida as string,
+    r.insumo as string, r.quantidade as number,
+  ],
 }
 
 export async function enqueueRegistro(

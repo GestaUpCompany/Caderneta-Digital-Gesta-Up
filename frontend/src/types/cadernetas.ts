@@ -118,3 +118,58 @@ export interface RegistroMovimentacao extends Registro {
   brincoChip: string
   causaObservacao: string
 }
+
+export interface RegistroEnfermaria extends Registro {
+  pasto: string
+  lote: string
+  brincoChip: string
+  categoria: string
+  tratamento: string
+  tratamentoOutros: string
+  problemaCasco: 'S' | 'N'
+  problemaCascoObs: string
+  sintomasPneumonia: 'S' | 'N'
+  sintomasPneumoniaObs: string
+  picadoCobra: 'S' | 'N'
+  picadoCobraObs: string
+  incoordenacaoTremores: 'S' | 'N'
+  incoordenacaoTremoresObs: string
+  febreAlta: 'S' | 'N'
+  febreAltaObs: string
+  presencaSangue: 'S' | 'N'
+  presencaSangueObs: string
+  fraturas: 'S' | 'N'
+  fraturasObs: string
+  desordensDigestivas: 'S' | 'N'
+  desordensDigestivasObs: string
+}
+
+export interface RegistroEntradaInsumos extends Registro {
+  dataEntrada: string
+  horario: string
+  produto: string
+  quantidade: number
+  valorUnitario: number
+  valorTotal: number
+  notaFiscal: string
+  fornecedor: string
+  placa: string
+  motorista: string
+  responsavelRecebimento: string
+}
+
+export interface RegistroSaidaInsumos extends Registro {
+  dataProducao: string
+  dietaProduzida: string
+  destinoProducao: string
+  totalProduzido: number
+  insumosQuantidades: Record<string, string>
+}
+
+export interface RegistroInsumosPorSaida extends Registro {
+  idSaida: string
+  dataProducao: string
+  dietaProduzida: string
+  insumo: string
+  quantidade: number
+}

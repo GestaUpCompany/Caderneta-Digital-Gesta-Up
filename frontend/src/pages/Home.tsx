@@ -114,12 +114,6 @@ export default function Home() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
-        <button
-          onClick={() => navigate('/configuracoes')}
-          className="absolute top-0 right-[-8px] flex items-center justify-center text-white hover:text-yellow-400 transition-colors z-10"
-        >
-          <Settings size={24} />
-        </button>
         <div className="flex flex-col items-center gap-3 px-4">
           <div className="flex items-center justify-between w-full">
             <FarmLogo
@@ -181,32 +175,67 @@ export default function Home() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-6">
-            {/* Botão Cadernetas */}
-            <button
-              onClick={() => navigate('/modulos/cadernetas')}
-              className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-green-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-0"
-              style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))' }}
-            >
-              <img src={`${BASE}cadernetas/cadernetas.png`} alt="Cadernetas" className="w-40 h-auto object-contain rounded-[32px]" />
-              <span className="text-base font-bold text-center leading-tight text-gray-900">
-                CADERNETAS
-              </span>
-            </button>
-
-            {/* Botão Estoque de Insumos (só Marcon e GestaUp) */}
-            {showInsumos && (
+          <div className="flex flex-col gap-6">
+            {/* Botões de cima: Configurações e Relatórios */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Botão Configurações */}
               <button
-                onClick={() => navigate('/modulos/insumos')}
-                className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-100"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))' }}
+                onClick={() => navigate('/configuracoes')}
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-0"
+                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 179, 8, 0.1))' }}
               >
-                <img src={`${BASE}cadernetas/checklists.png`} alt="Checklists" className="w-40 h-auto object-contain rounded-[32px]" />
+                <Settings size={60} className="text-orange-600" />
                 <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  CHECKLISTS
+                  CONFIGURAÇÕES
                 </span>
               </button>
-            )}
+
+              {/* Botão Relatórios */}
+              <div className="relative w-full">
+                <button
+                  disabled
+                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-100 opacity-60 cursor-not-allowed"
+                  style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.1))' }}
+                >
+                  <ClipboardList size={60} className="text-purple-600" />
+                  <span className="text-base font-bold text-center leading-tight text-gray-900">
+                    RELATÓRIOS
+                  </span>
+                </button>
+                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                  EM BREVE
+                </div>
+              </div>
+            </div>
+
+            {/* Botões de baixo: Cadernetas e Checklists */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Botão Cadernetas */}
+              <button
+                onClick={() => navigate('/modulos/cadernetas')}
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-green-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-200"
+                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))' }}
+              >
+                <img src={`${BASE}cadernetas/cadernetas.png`} alt="Cadernetas" className="w-40 h-auto object-contain rounded-[32px]" />
+                <span className="text-base font-bold text-center leading-tight text-gray-900">
+                  CADERNETAS
+                </span>
+              </button>
+
+              {/* Botão Checklists */}
+              {showInsumos && (
+                <button
+                  onClick={() => navigate('/modulos/insumos')}
+                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-300"
+                  style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))' }}
+                >
+                  <img src={`${BASE}cadernetas/checklists.png`} alt="Checklists" className="w-40 h-auto object-contain rounded-[32px]" />
+                  <span className="text-base font-bold text-center leading-tight text-gray-900">
+                    CHECKLISTS
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </main>

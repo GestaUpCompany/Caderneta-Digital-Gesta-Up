@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { CADERNETAS } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import FarmLogo from '../components/FarmLogo'
+import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernetas'
 
 // Função helper para converter HEX para RGBA com opacidade
 const hexToRgba = (hex: string, alpha: number = 0.25): string => {
@@ -15,6 +17,29 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
   const { fazenda } = useSelector((state: RootState) => state.config)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
+
+  useEffect(() => {
+    setRecentCadernetas(getRecentCadernetas())
+  }, [])
+
+  const filteredCaderas = CADERNETAS.filter(caderneta =>
+    caderneta.label.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const recentCadernetasData = recentCadernetas
+    .map(id => CADERNETAS.find(c => c.id === id))
+    .filter((c): c is typeof CADERNETAS[0] => c !== undefined && c.disponivel)
+
+  const handleCadernetaClick = (cadernetaId: string) => {
+    const caderneta = CADERNETAS.find(c => c.id === cadernetaId)
+    if (caderneta?.disponivel) {
+      addRecentCaderneta(cadernetaId)
+      setRecentCadernetas(getRecentCadernetas())
+      navigate(`/caderneta/${cadernetaId}`)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -45,12 +70,70 @@ export default function ModulosMenuPage() {
       </header>
 
       {/* Grid de Cadernetas - 6 botões grandes */}
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 flex flex-col gap-4">
+        {/* Últimas Cadernetas Acessadas */}
+        {recentCadernetasData.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100">
+            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">ÚLTIMAS ACESSADAS</h2>
+            <div className="grid grid-cols-3 gap-3">
+              {recentCadernetasData.map((caderneta) => (
+                <button
+                  key={caderneta.id}
+                  onClick={() => handleCadernetaClick(caderneta.id)}
+                  style={{ backgroundColor: hexToRgba(caderneta.color || '#E5E7EB') }}
+                  className="relative flex flex-col items-center justify-center gap-1 p-3 transition-all rounded-xl hover:scale-105 hover:shadow-md"
+                >
+                  <img
+                    src={caderneta.icon}
+                    alt={caderneta.label}
+                    className="w-12 h-auto object-contain rounded-[16px]"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
+                      if (emoji) emoji.style.display = 'block'
+                    }}
+                  />
+                  <span className="text-2xl fallback-emoji hidden">{caderneta.emoji}</span>
+                  <span className="text-xs font-bold text-center leading-tight text-gray-900">
+                    {caderneta.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Campo de Busca */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar caderneta..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-3 pl-10 rounded-xl border border-gray-300 focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-50 outline-none transition-all"
+          />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+
+        {/* Grid de Cadernetas */}
         <div className="grid grid-cols-2 gap-6">
-          {CADERNETAS.map((caderneta) => (
+          {filteredCaderas.map((caderneta) => (
             <button
               key={caderneta.id}
-              onClick={() => caderneta.disponivel && navigate(`/caderneta/${caderneta.id}`)}
+              onClick={() => handleCadernetaClick(caderneta.id)}
               disabled={!caderneta.disponivel}
               style={{ backgroundColor: hexToRgba(caderneta.color || '#E5E7EB') }}
               className={`caderneta-card relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl
@@ -60,7 +143,7 @@ export default function ModulosMenuPage() {
                 }`}
             >
               {!caderneta.disponivel && (
-                <span className="absolute top-2 right-2 bg-gray-400 text-white text-xs font-bold px-2 py-1 rounded-lg">
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                   EM BREVE
                 </span>
               )}

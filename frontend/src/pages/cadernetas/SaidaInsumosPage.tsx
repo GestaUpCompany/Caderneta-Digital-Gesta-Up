@@ -1,0 +1,270 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
+import { RootState } from '../../store/store'
+import FarmLogo from '../../components/FarmLogo'
+import { Input, Select, DatePicker, Button, ValidationMessage } from '../../components/ui'
+import SuccessModal from '../../components/SuccessModal'
+import { salvarRegistro } from '../../services/api'
+import { todayBR } from '../../utils/formatDate'
+import { loadCadastroData, CadastroData } from '../../services/cadastroData'
+import { BACKEND_URL } from '../../utils/constants'
+import { DATABASE_URL } from '../../utils/constants'
+
+interface FormState {
+  dataProducao: string
+  dietaProduzida: string
+  destinoProducao: string
+  totalProduzido: string
+  insumosQuantidades: Record<string, string>
+}
+
+const makeInitial = (): FormState => ({
+  dataProducao: todayBR(),
+  dietaProduzida: '',
+  destinoProducao: '',
+  totalProduzido: '',
+  insumosQuantidades: {},
+})
+
+export default function SaidaInsumosPage() {
+  const navigate = useNavigate()
+  const { usuario, fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const [form, setForm] = useState<FormState>(makeInitial())
+  const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
+  const [salvando, setSalvando] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const set = (field: keyof FormState) => (val: string) =>
+    setForm((prev) => ({ ...prev, [field]: val }))
+
+  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  const DESTINOS = ['Cria', 'Recria', 'Engorda', 'Tropa', 'Outros Animais']
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!cadastroSheetUrl) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const data = await loadCadastroData(cadastroSheetUrl)
+        
+        // Inicializar quantidades de insumos como vazio
+        const insumosQuantidades: Record<string, string> = {}
+        data.insumos.forEach(insumo => {
+          insumosQuantidades[insumo] = ''
+        })
+
+        setCadastroData(data)
+        setForm(prev => ({ ...prev, insumosQuantidades }))
+        setLoading(false)
+      } catch (err) {
+        console.error('Erro ao carregar dados de cadastro:', err)
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [cadastroSheetUrl])
+
+  useEffect(() => {
+    // Calcular total produzido (soma das quantidades de insumos)
+    const total = Object.values(form.insumosQuantidades).reduce((sum, qty) => {
+      return sum + (parseFloat(qty) || 0)
+    }, 0)
+    setForm(prev => ({ ...prev, totalProduzido: total.toFixed(2) }))
+  }, [form.insumosQuantidades])
+
+  const insumosRelevantes = cadastroData?.insumos || []
+
+  const handleSalvar = async () => {
+    setSalvando(true)
+    setErrors([])
+
+    try {
+      // Primeiro, salvar registro principal na aba Saída Insumos
+      const result = await salvarRegistro('saida-insumos', {
+        dataProducao: form.dataProducao,
+        dietaProduzida: form.dietaProduzida,
+        destinoProducao: form.destinoProducao,
+        totalProduzido: form.totalProduzido ? Number(form.totalProduzido) : 0,
+      })
+
+      if (!result.success && result.errors) {
+        setErrors(result.errors)
+        setSalvando(false)
+        return
+      }
+
+      // Obter o ID da saída gerada
+      const saidaId = result.id
+
+      // Salvar cada insumo na aba Insumos por Saída
+      for (const insumo of cadastroData!.insumos) {
+        const quantidade = form.insumosQuantidades[insumo]
+        if (quantidade && parseFloat(quantidade) > 0) {
+          await salvarRegistro('insumos-por-saida', {
+            idSaida: saidaId,
+            dataProducao: form.dataProducao,
+            dietaProduzida: form.dietaProduzida,
+            insumo: insumo,
+            quantidade: Number(quantidade),
+          })
+        }
+      }
+
+      const dadosRegistro = {
+        dataProducao: form.dataProducao,
+        dietaProduzida: form.dietaProduzida,
+        destinoProducao: form.destinoProducao,
+        totalProduzido: form.totalProduzido ? Number(form.totalProduzido) : 0,
+        insumosQuantidades: form.insumosQuantidades,
+      }
+      setRegistroSalvo(dadosRegistro)
+      setShowSuccessModal(true)
+      setForm(makeInitial())
+    } catch (err) {
+      console.error('Erro ao salvar saída de insumos:', err)
+      setErrors([{ field: 'geral', message: 'Erro ao salvar saída de insumos' }])
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const handleNewRecord = () => {
+    setShowSuccessModal(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleExit = () => {
+    setShowSuccessModal(false)
+    navigate('/modulos/cadernetas')
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Header sticky com botões e título */}
+      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+          >
+            VOLTAR
+          </button>
+          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">SAÍDA DE INSUMOS</h1>
+          <button
+            onClick={() => navigate('/caderneta/saida-insumos/lista')}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
+          >
+            REGISTROS
+          </button>
+        </div>
+      </div>
+
+      {/* Logos não sticky */}
+      <div className="bg-[#1a3a2a] text-white px-4 py-5">
+        <div className="flex items-center justify-center gap-8">
+          <FarmLogo
+            farmName={fazenda}
+            type="both"
+            size="medium"
+          />
+        </div>
+      </div>
+
+      <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
+        {errors.length > 0 && <ValidationMessage errors={errors} />}
+
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-4xl animate-spin">⏳</div>
+          </div>
+        ) : (
+          <>
+            {/* Seção 1: Dados da Produção */}
+            <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+              <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA PRODUÇÃO</h2>
+              <DatePicker
+                label="DATA DE PRODUÇÃO"
+                value={form.dataProducao}
+                onChange={set('dataProducao')}
+                error={getError('dataProducao')}
+              />
+              <Select
+                label="DIETA PRODUZIDA *"
+                value={form.dietaProduzida}
+                onChange={(e) => set('dietaProduzida')(e.target.value)}
+                error={getError('dietaProduzida')}
+                options={[{ value: '', label: 'Selecione uma dieta' }, ...(cadastroData?.dietas.map(d => ({ value: d, label: d })) || [])]}
+              />
+              <Select
+                label="DESTINO DA PRODUÇÃO *"
+                value={form.destinoProducao}
+                onChange={(e) => set('destinoProducao')(e.target.value)}
+                error={getError('destinoProducao')}
+                options={[{ value: '', label: 'Selecione um destino' }, ...DESTINOS.map(d => ({ value: d, label: d }))]}
+              />
+              <Input
+                label="TOTAL PRODUZIDO (kg)"
+                value={form.totalProduzido}
+                readOnly
+              />
+            </div>
+
+            {/* Seção 2: Insumos Utilizados */}
+            <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+              <h2 className="text-lg font-black text-gray-900 tracking-tight">2. INSUMOS UTILIZADOS (kg)</h2>
+              <div className="grid grid-cols-1 gap-4">
+                {insumosRelevantes.map((insumo, index) => (
+                  <Input
+                    key={index}
+                    label={insumo}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.insumosQuantidades[insumo] || ''}
+                    onChange={(e) => setForm({
+                      ...form,
+                      insumosQuantidades: {
+                        ...form.insumosQuantidades,
+                        [insumo]: e.target.value,
+                      },
+                    })}
+                    inputMode="decimal"
+                    placeholder="0.00"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+                SALVAR
+              </Button>
+              <Button onClick={() => { setForm(makeInitial()); setErrors([]) }} variant="secondary" icon="🧹">
+                LIMPAR
+              </Button>
+            </div>
+          </>
+        )}
+      </main>
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onNewRecord={handleNewRecord}
+        onExit={handleExit}
+        cadernetaName="Saída de Insumos"
+        registro={registroSalvo}
+        caderneta="saida-insumos"
+      />
+    </div>
+  )
+}

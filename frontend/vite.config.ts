@@ -85,9 +85,23 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 * 30
               }
             }
+          },
+          {
+            // Estratégia mais agressiva para arquivos JS/CSS para garantir atualizações
+            urlPattern: /\.(?:js|css)$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'static-resources-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 dias
+              }
+            }
           }
         ],
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
+        // Limpar caches antigos imediatamente ao atualizar
+        deleteStrategy: 'immediate'
       },
       devOptions: {
         enabled: false

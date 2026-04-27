@@ -124,6 +124,13 @@ export default function PastagensPage() {
     setSalvando(true)
     setErrors([])
 
+    // Validar que pasto de saída e entrada não são iguais
+    if (form.pastoSaida && form.pastoEntrada && form.pastoSaida === form.pastoEntrada) {
+      setErrors([{ field: 'pastoEntrada', message: 'O pasto de entrada não pode ser igual ao pasto de saída' }])
+      setSalvando(false)
+      return
+    }
+
     const result = await salvarRegistro('pastagens', {
       data: form.data,
       manejador: form.manejador,
@@ -301,7 +308,9 @@ export default function PastagensPage() {
               value={form.pastoEntrada}
               onChange={(e) => set('pastoEntrada')(e.target.value)}
               error={getError('pastoEntrada')}
-              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
+              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis
+                .filter(p => p !== form.pastoSaida)
+                .map(p => ({ value: p, label: p }))]}
             />
           ) : (
             <Input

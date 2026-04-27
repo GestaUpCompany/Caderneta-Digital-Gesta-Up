@@ -534,6 +534,52 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                           camposNormais.push([key, value])
                         }
                       })
+                    } else if (caderneta === 'entrada-insumos') {
+                      // Para entrada de insumos, usar ordem específica dos formulários
+                      const ordemEntradaInsumos = [
+                        'dataEntrada',
+                        'horario',
+                        'produto',
+                        'quantidade',
+                        'valorUnitario',
+                        'valorTotal',
+                        'notaFiscal',
+                        'fornecedor',
+                        'placa',
+                        'motorista',
+                        'responsavelRecebimento'
+                      ]
+                      
+                      ordemEntradaInsumos.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
+                    } else if (caderneta === 'saida-insumos') {
+                      // Para saída de insumos, usar ordem específica dos formulários
+                      const ordemSaidaInsumos = [
+                        'dataProducao',
+                        'dietaProduzida',
+                        'destinoProducao',
+                        'totalProduzido'
+                      ]
+                      
+                      ordemSaidaInsumos.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
+                      
+                      // Adicionar insumos utilizados
+                      if (registro.insumosQuantidades) {
+                        Object.entries(registro.insumosQuantidades).forEach(([insumo, quantidade]) => {
+                          if (quantidade && parseFloat(String(quantidade)) > 0) {
+                            camposNormais.push([insumo, quantidade])
+                          }
+                        })
+                      }
                     } else if (caderneta === 'rodeio') {
                       // Para rodeio, usar ordem específica dos formulários
                       const ordemRodeio = [

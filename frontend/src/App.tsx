@@ -63,15 +63,17 @@ const MovimentacaoPage = lazy(() => import('./pages/cadernetas/MovimentacaoPage'
 const MovimentacaoListaPage = lazy(() => import('./pages/cadernetas/MovimentacaoListaPage'))
 const EnfermariaPage = lazy(() => import('./pages/cadernetas/EnfermariaPage'))
 const EnfermariaListaPage = lazy(() => import('./pages/cadernetas/EnfermariaListaPage'))
+const EntradaInsumosPage = lazy(() => import('./pages/cadernetas/EntradaInsumosPage'))
+const EntradaInsumosListaPage = lazy(() => import('./pages/cadernetas/EntradaInsumosListaPage'))
+const SaidaInsumosPage = lazy(() => import('./pages/cadernetas/SaidaInsumosPage'))
+const SaidaInsumosListaPage = lazy(() => import('./pages/cadernetas/SaidaInsumosListaPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
 const InsumosMenuPage = lazy(() => import('./pages/InsumosMenuPage'))
+const RelatoriosPage = lazy(() => import('./pages/RelatoriosPage'))
 
 // Lazy loading do estoque de insumos
-const CadastroPage = lazy(() => import('./pages/estoque-insumos/CadastroPage'))
-const EntradaPage = lazy(() => import('./pages/estoque-insumos/EntradaPage'))
-const ProducaoPage = lazy(() => import('./pages/estoque-insumos/ProducaoPage'))
 const EstoquePage = lazy(() => import('./pages/estoque-insumos/EstoquePage'))
 
 function AppInner() {
@@ -214,11 +216,9 @@ function AppInner() {
             {/* Menus de Módulos */}
             <Route path="/modulos/cadernetas" element={<ModulosMenuPage />} />
             <Route path="/modulos/insumos" element={<InsumosMenuPage />} />
+            <Route path="/modulos/relatorios" element={<RelatoriosPage />} />
 
             {/* Estoque de Insumos */}
-            <Route path="/estoque-insumos/cadastro" element={<CadastroPage />} />
-            <Route path="/estoque-insumos/entrada" element={<EntradaPage />} />
-            <Route path="/estoque-insumos/producao" element={<ProducaoPage />} />
             <Route path="/estoque-insumos/estoque" element={<EstoquePage />} />
 
             {/* Maternidade */}
@@ -248,6 +248,14 @@ function AppInner() {
             {/* Enfermaria */}
             <Route path="/caderneta/enfermaria" element={<EnfermariaPage />} />
             <Route path="/caderneta/enfermaria/lista" element={<EnfermariaListaPage />} />
+
+            {/* Entrada de Insumos */}
+            <Route path="/caderneta/entrada-insumos" element={<EntradaInsumosPage />} />
+            <Route path="/caderneta/entrada-insumos/lista" element={<EntradaInsumosListaPage />} />
+
+            {/* Saída de Insumos */}
+            <Route path="/caderneta/saida-insumos" element={<SaidaInsumosPage />} />
+            <Route path="/caderneta/saida-insumos/lista" element={<SaidaInsumosListaPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

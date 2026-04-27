@@ -300,6 +300,57 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         texto += `*${label} - OBSERVAÇÃO:* ${registro[obsField]}\n`
       }
     })
+  } else if (caderneta === 'entrada-insumos') {
+    // Para entrada de insumos, usar ordem específica dos formulários
+    const ordemEntradaInsumos = [
+      'dataEntrada',
+      'horario',
+      'produto',
+      'quantidade',
+      'valorUnitario',
+      'valorTotal',
+      'notaFiscal',
+      'fornecedor',
+      'placa',
+      'motorista',
+      'responsavelRecebimento'
+    ]
+    
+    ordemEntradaInsumos.forEach(key => {
+      const value = registro[key]
+      if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `*${label}:* ${valorFormatado}\n`
+      }
+    })
+  } else if (caderneta === 'saida-insumos') {
+    // Para saída de insumos, usar ordem específica dos formulários
+    const ordemSaidaInsumos = [
+      'dataProducao',
+      'dietaProduzida',
+      'destinoProducao',
+      'totalProduzido'
+    ]
+    
+    ordemSaidaInsumos.forEach(key => {
+      const value = registro[key]
+      if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `*${label}:* ${valorFormatado}\n`
+      }
+    })
+    
+    // Adicionar insumos utilizados
+    if (registro.insumosQuantidades) {
+      texto += '\n*INSUMOS UTILIZADOS (kg):*\n'
+      Object.entries(registro.insumosQuantidades).forEach(([insumo, quantidade]) => {
+        if (quantidade && parseFloat(String(quantidade)) > 0) {
+          texto += `*${insumo}:* ${quantidade}\n`
+        }
+      })
+    }
   } else {
     camposNormais.forEach(([key, value]) => {
       let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()

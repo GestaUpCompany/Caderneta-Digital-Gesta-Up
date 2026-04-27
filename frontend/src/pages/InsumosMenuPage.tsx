@@ -11,33 +11,6 @@ export default function InsumosMenuPage() {
 
   const menuItems = [
     {
-      id: 'cadastro',
-      label: 'VISUALIZAR CADASTROS',
-      emoji: '📋',
-      icon: `${BASE}checklists/cadastro.png`,
-      description: 'Visualizar insumos, dietas, fornecedores e funcionários',
-      path: '/estoque-insumos/cadastro',
-      color: '#3b82f6',
-    },
-    {
-      id: 'entrada',
-      label: 'ENTRADA DE INSUMOS',
-      emoji: '📥',
-      icon: `${BASE}checklists/entrada.png`,
-      description: 'Registrar entrada de insumos no estoque',
-      path: '/estoque-insumos/entrada',
-      color: '#10b981',
-    },
-    {
-      id: 'producao',
-      label: 'PRODUÇÃO FÁBRICA',
-      emoji: '🏭',
-      icon: `${BASE}checklists/producao.png`,
-      description: 'Registrar saída de insumos para produção',
-      path: '/estoque-insumos/producao',
-      color: '#f59e0b',
-    },
-    {
       id: 'estoque',
       label: 'ESTOQUE',
       emoji: '📦',

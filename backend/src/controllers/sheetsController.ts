@@ -12,6 +12,9 @@ const SHEET_NAMES: Record<string, string> = {
   bebedouros: 'Bebedouros',
   movimentacao: 'Movimentação',
   enfermaria: 'Enfermaria',
+  'entrada-insumos': 'Entrada Insumos',
+  'saida-insumos': 'Saída Insumos',
+  'insumos-por-saida': 'Insumos por Saída',
 }
 
 sheetsRouter.post('/validate', async (req: Request, res: Response) => {

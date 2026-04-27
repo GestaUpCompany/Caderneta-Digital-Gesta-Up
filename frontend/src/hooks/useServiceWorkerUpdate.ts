@@ -21,10 +21,10 @@ export function useServiceWorkerUpdate() {
     
     if (!dismissedAt) return true
     
-    const thirtyMinutes = 30 * 60 * 1000
+    const fiveMinutes = 5 * 60 * 1000
     const timeSinceDismiss = Date.now() - dismissedAt
     
-    return timeSinceDismiss >= thirtyMinutes
+    return timeSinceDismiss >= fiveMinutes
   }, [updateInfo.isUpdateAvailable, dismissedAt])
 
   // Aplicar atualização
@@ -129,6 +129,9 @@ export function useServiceWorkerUpdate() {
         })
       }
     })
+
+    // Verificar atualização imediatamente ao carregar
+    forceCheck()
 
     // Verificar ao ganhar foco
     const handleVisibilityChange = () => {
