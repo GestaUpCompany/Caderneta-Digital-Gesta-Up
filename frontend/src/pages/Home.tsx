@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../components/ui'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
-import { Settings, ClipboardList, ClipboardCheck, Sun, Moon } from 'lucide-react'
+import { Settings, ClipboardList, Sun, Moon } from 'lucide-react'
 import FarmLogo from '../components/FarmLogo'
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 
@@ -70,29 +70,43 @@ export default function Home() {
     setUltimaCaderneta(ultima)
 
     // Lógica de versículos
-    const STORAGE_KEY = 'versiculos-exibidos'
-    const versiculosExibidos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    const STORAGE_KEY = 'versiculo-do-dia'
+    const DATA_KEY = 'versiculo-data'
     
-    // Se todos os versículos foram exibidos, reiniciar o ciclo
-    if (versiculosExibidos.length >= VERSICULOS.length) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([]))
-    }
+    const hoje = now.toDateString() // Ex: "Mon Apr 27 2026"
+    const dataSalva = localStorage.getItem(DATA_KEY)
+    const versiculoSalvo = localStorage.getItem(STORAGE_KEY)
     
-    // Carregar versículos já exibidos atualizados
-    const versiculosExibidosAtualizados = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    
-    // Encontrar o próximo versículo não exibido
-    const versiculosDisponiveis = VERSICULOS.filter((_, index) => !versiculosExibidosAtualizados.includes(index))
-    
-    if (versiculosDisponiveis.length > 0) {
-      const proximoVersiculo = versiculosDisponiveis[0]
-      const proximoIndex = VERSICULOS.indexOf(proximoVersiculo)
+    // Se a data mudou ou não há versículo salvo, escolher novo
+    if (dataSalva !== hoje || !versiculoSalvo) {
+      const versiculosExibidos = JSON.parse(localStorage.getItem('versiculos-exibidos') || '[]')
       
-      setVersiculoDoDia(proximoVersiculo)
+      // Se todos os versículos foram exibidos, reiniciar o ciclo
+      if (versiculosExibidos.length >= VERSICULOS.length) {
+        localStorage.setItem('versiculos-exibidos', JSON.stringify([]))
+      }
       
-      // Marcar como exibido
-      versiculosExibidosAtualizados.push(proximoIndex)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(versiculosExibidosAtualizados))
+      // Carregar versículos já exibidos atualizados
+      const versiculosExibidosAtualizados = JSON.parse(localStorage.getItem('versiculos-exibidos') || '[]')
+      
+      // Encontrar o próximo versículo não exibido
+      const versiculosDisponiveis = VERSICULOS.filter((_, index) => !versiculosExibidosAtualizados.includes(index))
+      
+      if (versiculosDisponiveis.length > 0) {
+        const proximoVersiculo = versiculosDisponiveis[0]
+        const proximoIndex = VERSICULOS.indexOf(proximoVersiculo)
+        
+        setVersiculoDoDia(proximoVersiculo)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(proximoVersiculo))
+        localStorage.setItem(DATA_KEY, hoje)
+        
+        // Marcar como exibido
+        versiculosExibidosAtualizados.push(proximoIndex)
+        localStorage.setItem('versiculos-exibidos', JSON.stringify(versiculosExibidosAtualizados))
+      }
+    } else {
+      // Usar versículo salvo do mesmo dia
+      setVersiculoDoDia(JSON.parse(versiculoSalvo))
     }
   }, [])
 
