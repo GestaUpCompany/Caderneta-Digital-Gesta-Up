@@ -172,12 +172,16 @@ export default function SuplementacaoPage() {
     const creepKgFinal = form.produto === 'Creep' ? quantidadeCreep : ''
     
     // Montar categorias como string separada por vírgula
-    let categoriasString = form.categorias.join(', ')
+    let categoriasArray = form.categorias.filter(c => c !== 'Outros')
     
-    // Se "Outros" estiver selecionado e houver texto, adicionar o texto
+    // Se "Outros" estiver selecionado e houver texto, adicionar no final
     if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
-      categoriasString = categoriasString.replace('Outros', `Outros: ${form.outrosTexto.trim()}`)
+      categoriasArray.push(`Outros: ${form.outrosTexto.trim()}`)
+    } else if (form.categorias.includes('Outros')) {
+      categoriasArray.push('Outros')
     }
+    
+    const categoriasString = categoriasArray.join(', ')
 
     const result = await salvarRegistro('suplementacao', {
       data: form.data,

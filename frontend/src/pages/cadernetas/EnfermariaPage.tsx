@@ -43,10 +43,13 @@ const SN_OPTIONS = [
 const CATEGORIAS = [
   { value: 'Vaca', label: 'VACA' },
   { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi', label: 'BOI' },
-  { value: 'Bezerro', label: 'BEZERRO' },
+  { value: 'Boi Gordo', label: 'BOI GORDO' },
+  { value: 'Boi Magro', label: 'BOI MAGRO' },
   { value: 'Garrote', label: 'GARROTE' },
+  { value: 'Bezerro', label: 'BEZERRO' },
   { value: 'Novilha', label: 'NOVILHA' },
+  { value: 'Tropa', label: 'TROPA' },
+  { value: 'Outros', label: 'OUTROS' },
 ]
 
 interface FormState {
@@ -54,7 +57,8 @@ interface FormState {
   pasto: string
   lote: string
   brincoChip: string
-  categoria: string
+  categorias: string[]
+  outrosTexto: string
   tratamentos: string[]
   tratamentoOutros: string
   problemaCasco: string
@@ -80,7 +84,8 @@ const makeInitial = (): FormState => ({
   pasto: '',
   lote: '',
   brincoChip: '',
-  categoria: '',
+  categorias: [],
+  outrosTexto: '',
   tratamentos: [],
   tratamentoOutros: '',
   problemaCasco: '',
@@ -112,8 +117,13 @@ export default function EnfermariaPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
 
-  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  const handleCategoriasChange = (newCategorias: string[]) => {
+    setForm((prev) => ({ ...prev, categorias: newCategorias }))
   }
 
   const handleTratamentosChange = (newTratamentos: string[]) => {
@@ -130,8 +140,6 @@ export default function EnfermariaPage() {
       }))
     }
   }
-
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   // Carregar pastos e lotes quando fazenda mudar
   useEffect(() => {
@@ -168,12 +176,24 @@ export default function EnfermariaPage() {
 
     const tratamentoFinal = tratamentosFinais.join(', ')
 
+    // Montar categorias como string separada por vírgula
+    let categoriasArray = form.categorias.filter(c => c !== 'Outros')
+    
+    // Se "Outros" estiver selecionado e houver texto, adicionar no final
+    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
+      categoriasArray.push(`Outros: ${form.outrosTexto.trim()}`)
+    } else if (form.categorias.includes('Outros')) {
+      categoriasArray.push('Outros')
+    }
+    
+    const categoriasString = categoriasArray.join(', ')
+
     const result = await salvarRegistro('enfermaria', {
       data: form.data,
       pasto: form.pasto,
       lote: form.lote,
       brincoChip: form.brincoChip,
-      categoria: form.categoria,
+      categoria: categoriasString,
       tratamento: tratamentoFinal,
       problemaCasco: form.problemaCasco,
       problemaCascoObs: form.problemaCascoObs,
@@ -202,7 +222,7 @@ export default function EnfermariaPage() {
         pasto: form.pasto,
         lote: form.lote,
         brincoChip: form.brincoChip,
-        categoria: form.categoria,
+        categoria: categoriasString,
         tratamento: tratamentoFinal,
         problemaCasco: form.problemaCasco,
         problemaCascoObs: form.problemaCascoObs,
@@ -321,15 +341,24 @@ export default function EnfermariaPage() {
         {/* Seção 2: Identificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
-          <Radio
-            name="categoria"
-            label="CATEGORIA DO ANIMAL"
+          <CheckboxGroup
+            label="CATEGORIAS:"
             options={CATEGORIAS}
-            value={form.categoria}
-            onChange={(val) => setForm((p) => ({ ...p, categoria: val }))}
-            error={getError('categoria')}
+            selectedValues={form.categorias}
+            onChange={handleCategoriasChange}
+            error={getError('categorias')}
             gridCols={2}
+            hideCheckbox={true}
           />
+          {form.categorias.includes('Outros') && (
+            <Input
+              label="ESPECIFICAR OUTROS:"
+              placeholder="Descreva a categoria"
+              value={form.outrosTexto}
+              onChange={setInput('outrosTexto')}
+              error={getError('outrosTexto')}
+            />
+          )}
         </div>
 
         {/* Seção 3: Diagnóstico */}
