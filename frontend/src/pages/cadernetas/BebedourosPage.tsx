@@ -72,15 +72,6 @@ export default function BebedourosPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const toggleCategoria = (cat: string) => {
-    setForm((prev) => ({
-      ...prev,
-      categorias: prev.categorias.includes(cat)
-        ? prev.categorias.filter((c) => c !== cat)
-        : [...prev.categorias, cat],
-    }))
-  }
-
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const handleCategoriasChange = (newCategorias: string[]) => {
