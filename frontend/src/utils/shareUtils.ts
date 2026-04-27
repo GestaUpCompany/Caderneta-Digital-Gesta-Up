@@ -38,6 +38,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
   // Separar campos normais, animais tratados e categorias
   const camposNormais: [string, unknown][] = []
   const camposAposPesoMedio: [string, unknown][] = []
+  const camposMovimentacaoEspeciais: [string, unknown][] = []
   const animaisTratados: Map<number, { id: string; tratamentos: string }> = new Map()
   const categoriasAnimais: string[] = []
 
@@ -106,8 +107,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           if (value) {
             categoriasAnimais.push(String(value))
           }
-        } else if (['motivoMovimentacao', 'brincoChip', 'causaObservacao'].includes(key)) {
-          camposAposPesoMedio.push([key, value])
+        } else if (key === 'brincoChip') {
+          camposNormais.push([key, value])
         } else {
           const match = key.match(/^animal(\d+)(Id|Tratamentos)$/)
           if (match) {
@@ -123,6 +124,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
               animal.tratamentos = String(value)
             }
           } else {
+            // Todos os outros campos vão para camposNormais
             camposNormais.push([key, value])
           }
         }
@@ -148,30 +150,94 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
   })
 
   // Adicionar campos normais com labels em itálico
-  camposNormais.forEach(([key, value]) => {
-    let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-    const valorFormatado = formatFieldValue(key, value)
+  if (caderneta === 'movimentacao') {
+    // Para movimentação, usar ordem específica dos formulários
+    const ordemMovimentacao = [
+      'data',
+      'loteOrigem',
+      'brincoChip',
+      'numeroCabecas',
+      'pesoMedio',
+      'motivoMovimentacao',
+      'loteDestino',
+      'causaObservacao'
+    ]
     
-    // Para enfermaria, verificar se há observação associada
-    if (caderneta === 'enfermaria' && key.endsWith('Obs')) {
-      return // Já tratado abaixo
-    }
-    
-    texto += `*${label}:* ${valorFormatado}\n`
-    
-    // Para enfermaria, adicionar observação abaixo do campo principal
-    if (caderneta === 'enfermaria' && !key.endsWith('Obs') && !key.startsWith('tratamento')) {
-      const obsKey = `${key}Obs`
-      const obsValue = registro[obsKey]
-      if (obsValue && obsValue !== '' && obsValue !== null && obsValue !== undefined) {
-        texto += `*OBSERVAÇÃO:* ${String(obsValue)}\n`
+    ordemMovimentacao.forEach(key => {
+      const value = registro[key]
+      if (value !== null && value !== undefined && value !== '') {
+        // Pular categoria e causaObservacao pois serão tratados separadamente
+        if (key === 'categoria' || key === 'causaObservacao') return
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `*${label}:* ${valorFormatado}\n`
       }
+    })
+    
+    // Adicionar categorias dos animais após pesoMedio e antes de motivoMovimentacao
+    if (registro.categoria && typeof registro.categoria === 'string') {
+      texto += `*CATEGORIA:* ${registro.categoria}\n`
+    } else if (categoriasAnimais.length > 0) {
+      texto += `*CATEGORIA:* ${categoriasAnimais.join(', ')}\n`
     }
-  })
-
-  // Adicionar categorias dos animais (movimentação)
-  if (caderneta === 'movimentacao' && categoriasAnimais.length > 0) {
-    texto += `*Categorias dos Animais:* ${categoriasAnimais.join(', ')}\n`
+    
+    // Adicionar causaObservacao por último
+    if (registro.causaObservacao && registro.causaObservacao !== '') {
+      let label = LABELS_BY_CADERNETA[caderneta]?.['causaObservacao'] || 'CAUSA/OBSERVAÇÃO'
+      const valorFormatado = formatFieldValue('causaObservacao', registro.causaObservacao)
+      texto += `*${label}:* ${valorFormatado}\n`
+    }
+  } else if (caderneta === 'bebedouros') {
+    // Para bebedouros, usar ordem específica dos formulários
+    const ordemBebedouros = [
+      'data',
+      'responsavel',
+      'pasto',
+      'numeroLote',
+      'categoria',
+      'numeroBebedouro',
+      'leituraBebedouro',
+      'observacao'
+    ]
+    
+    ordemBebedouros.forEach(key => {
+      const value = registro[key]
+      if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `*${label}:* ${valorFormatado}\n`
+      }
+    })
+  } else {
+    camposNormais.forEach(([key, value]) => {
+      let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+      const valorFormatado = formatFieldValue(key, value)
+      
+      // Para enfermaria, verificar se há observação associada
+      if (caderneta === 'enfermaria' && key.endsWith('Obs')) {
+        return // Já tratado abaixo
+      }
+      
+      texto += `*${label}:* ${valorFormatado}\n`
+      
+      // Para movimentação, adicionar campos especiais após loteOrigem
+      if (caderneta === 'movimentacao' && key === 'loteOrigem' && camposMovimentacaoEspeciais.length > 0) {
+        camposMovimentacaoEspeciais.forEach(([campoKey, campoValue]) => {
+          let campoLabel = LABELS_BY_CADERNETA[caderneta]?.[campoKey] || campoKey.toUpperCase()
+          const campoValorFormatado = formatFieldValue(campoKey, campoValue)
+          texto += `*${campoLabel}:* ${campoValorFormatado}\n`
+        })
+      }
+      
+      // Para enfermaria, adicionar observação abaixo do campo principal
+      if (caderneta === 'enfermaria' && !key.endsWith('Obs') && !key.startsWith('tratamento')) {
+        const obsKey = `${key}Obs`
+        const obsValue = registro[obsKey]
+        if (obsValue && obsValue !== '' && obsValue !== null && obsValue !== undefined) {
+          texto += `*OBSERVAÇÃO:* ${String(obsValue)}\n`
+        }
+      }
+    })
   }
 
   // Adicionar campos após peso médio (movimentação)

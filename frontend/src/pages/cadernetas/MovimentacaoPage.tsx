@@ -67,6 +67,7 @@ export default function MovimentacaoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
   const [destinosDisponiveis, setDestinosDisponiveis] = useState<string[]>([])
   const [carregandoLotes, setCarregandoLotes] = useState(false)
 
@@ -81,6 +82,32 @@ export default function MovimentacaoPage() {
     setForm((p) => ({ ...p, categorias: newCategorias }))
   }
 
+  // Lógica para definir destino automaticamente baseado no motivo
+  useEffect(() => {
+    if (!form.motivoMovimentacao) {
+      setForm((p) => ({ ...p, loteDestino: '' }))
+      return
+    }
+
+    switch (form.motivoMovimentacao) {
+      case 'Morte':
+        setForm((p) => ({ ...p, loteDestino: 'Cemitério' }))
+        break
+      case 'Consumo':
+        setForm((p) => ({ ...p, loteDestino: 'Cantina' }))
+        break
+      case 'Transferência':
+      case 'Abate':
+      case 'Entrada':
+      case 'Entreverado':
+        // Para esses casos, o usuário precisa selecionar o destino
+        // Não setar valor automático
+        break
+      default:
+        break
+    }
+  }, [form.motivoMovimentacao])
+
   // Carregar lotes quando fazenda mudar
   useEffect(() => {
     async function carregarLotes() {
@@ -93,6 +120,7 @@ export default function MovimentacaoPage() {
       try {
         const data = await loadCadastroData(cadastroSheetUrl)
         setLotesDisponiveis(data.lotes || [])
+        setFrigorificosDisponiveis(data.frigorificos || [])
         setDestinosDisponiveis(data.destinos || [])
       } catch (error) {
         console.error('Erro ao carregar lotes:', error)
@@ -116,10 +144,11 @@ export default function MovimentacaoPage() {
     // Montar categorias selecionadas em string separada por vírgula
     const categoriasSelecionadas = [...form.categorias]
 
-    // Adicionar categoria "Outros" se selecionada
+    // Adicionar categoria "Outros" se selecionada, no final da string
     if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
       const outrosIndex = categoriasSelecionadas.indexOf('Outros')
-      categoriasSelecionadas[outrosIndex] = form.outrosTexto.trim()
+      categoriasSelecionadas.splice(outrosIndex, 1) // Remove "Outros" da posição original
+      categoriasSelecionadas.push(`Outros: ${form.outrosTexto.trim()}`) // Adiciona no final
     }
 
     const categoriasString = categoriasSelecionadas.join(', ')
@@ -240,9 +269,20 @@ export default function MovimentacaoPage() {
           )}
         </div>
 
-        {/* Seção 2: Quantificação */}
+        {/* Seção 2: Identificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
+          <Input
+            label="BRINCO / CHIP"
+            placeholder="Ex: 2023-145"
+            value={form.brincoChip}
+            onChange={setInput('brincoChip')}
+          />
+        </div>
+
+        {/* Seção 3: Quantificação */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO</h2>
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="N° CABEÇAS"
@@ -266,9 +306,9 @@ export default function MovimentacaoPage() {
           </div>
         </div>
 
-        {/* Seção 3: Categorias */}
+        {/* Seção 4: Categorias */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CATEGORIA DOS ANIMAIS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CATEGORIA DOS ANIMAIS</h2>
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}
@@ -292,9 +332,9 @@ export default function MovimentacaoPage() {
           )}
         </div>
 
-        {/* Seção 4: Motivo */}
+        {/* Seção 5: Motivo */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. MOTIVO DA MOVIMENTAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. MOTIVO DA MOVIMENTAÇÃO</h2>
           <Radio
             name="motivoMovimentacao"
             options={MOTIVOS}
@@ -305,7 +345,88 @@ export default function MovimentacaoPage() {
           />
           {form.motivoMovimentacao ? (
             <>
-              {form.motivoMovimentacao === 'Entreverado' ? (
+              {form.motivoMovimentacao === 'Morte' ? (
+                <>
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <p className="text-lg font-bold text-gray-900">DESTINO: CEMITÉRIO</p>
+                  </div>
+                  <Input
+                    label="CAUSA / OBSERVAÇÃO:"
+                    placeholder="Descreva detalhes da movimentação"
+                    value={form.causaObservacao}
+                    onChange={setInput('causaObservacao')}
+                  />
+                </>
+              ) : form.motivoMovimentacao === 'Consumo' ? (
+                <>
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <p className="text-lg font-bold text-gray-900">DESTINO: CANTINA</p>
+                  </div>
+                  <Input
+                    label="CAUSA / OBSERVAÇÃO:"
+                    placeholder="Descreva detalhes da movimentação"
+                    value={form.causaObservacao}
+                    onChange={setInput('causaObservacao')}
+                  />
+                </>
+              ) : form.motivoMovimentacao === 'Abate' ? (
+                <>
+                  {frigorificosDisponiveis.length > 0 ? (
+                    <Select
+                      label="SELECIONE O FRIGORÍFICO:"
+                      value={form.loteDestino}
+                      onChange={(e) => setForm((p) => ({ ...p, loteDestino: e.target.value }))}
+                      error={getError('loteDestino')}
+                      options={[{ value: '', label: 'Selecione...' }, ...frigorificosDisponiveis.map(f => ({ value: f, label: f }))]}
+                    />
+                  ) : (
+                    <Input
+                      label="SELECIONE O FRIGORÍFICO:"
+                      placeholder="Carregando..."
+                      value={form.loteDestino}
+                      onChange={setInput('loteDestino')}
+                      error={getError('loteDestino')}
+                    />
+                  )}
+                  <Input
+                    label="CAUSA / OBSERVAÇÃO:"
+                    placeholder="Descreva detalhes da movimentação"
+                    value={form.causaObservacao}
+                    onChange={setInput('causaObservacao')}
+                  />
+                </>
+              ) : form.motivoMovimentacao === 'Transferência' || form.motivoMovimentacao === 'Entrada' ? (
+                <>
+                  {lotesDisponiveis.length > 0 ? (
+                    <Select
+                      label="SELECIONE O LOTE:"
+                      value={form.loteDestino}
+                      onChange={(e) => setForm((p) => ({ ...p, loteDestino: e.target.value }))}
+                      error={getError('loteDestino')}
+                      options={[
+                        { value: '', label: 'Selecione...' },
+                        ...lotesDisponiveis
+                          .filter(l => l !== form.loteOrigem) // Filtrar lote de origem
+                          .map(l => ({ value: l, label: l }))
+                      ]}
+                    />
+                  ) : (
+                    <Input
+                      label="SELECIONE O LOTE:"
+                      placeholder="Carregando..."
+                      value={form.loteDestino}
+                      onChange={setInput('loteDestino')}
+                      error={getError('loteDestino')}
+                    />
+                  )}
+                  <Input
+                    label="CAUSA / OBSERVAÇÃO:"
+                    placeholder="Descreva detalhes da movimentação"
+                    value={form.causaObservacao}
+                    onChange={setInput('causaObservacao')}
+                  />
+                </>
+              ) : form.motivoMovimentacao === 'Entreverado' ? (
                 <>
                   {lotesDisponiveis.length > 0 ? (
                     <Select
@@ -322,39 +443,22 @@ export default function MovimentacaoPage() {
                       value={form.loteDestino}
                       onChange={setInput('loteDestino')}
                       error={getError('loteDestino')}
-                      inputMode="numeric"
                     />
                   )}
-                  <p className="text-lg font-bold text-gray-900">NÃO É UM LOTE?</p>
                   <Input
-                    label=""
+                    label="NÃO É UM LOTE?"
                     placeholder="Descreva o destino"
                     value={form.destinoCustomizado}
                     onChange={(e) => setForm((p) => ({ ...p, destinoCustomizado: e.target.value }))}
                   />
+                  <Input
+                    label="CAUSA / OBSERVAÇÃO:"
+                    placeholder="Descreva detalhes da movimentação"
+                    value={form.causaObservacao}
+                    onChange={setInput('causaObservacao')}
+                  />
                 </>
-              ) : (
-                <>
-                  {destinosDisponiveis.length > 0 ? (
-                    <Select
-                      label="SELECIONE UM DESTINO:"
-                      value={form.loteDestino}
-                      onChange={(e) => setForm((p) => ({ ...p, loteDestino: e.target.value }))}
-                      error={getError('loteDestino')}
-                      options={[{ value: '', label: 'Selecione...' }, ...destinosDisponiveis.map(l => ({ value: l, label: l }))]}
-                    />
-                  ) : (
-                    <Input
-                      label="SELECIONE UM DESTINO:"
-                      placeholder="Carregando..."
-                      value={form.loteDestino}
-                      onChange={setInput('loteDestino')}
-                      error={getError('loteDestino')}
-                      inputMode="numeric"
-                    />
-                  )}
-                </>
-              )}
+              ) : null}
             </>
           ) : (
             <div>
@@ -362,23 +466,6 @@ export default function MovimentacaoPage() {
               <p className="text-sm text-gray-500 italic">Escolha uma das opções acima primeiro...</p>
             </div>
           )}
-        </div>
-
-        {/* Seção 5: Identificação e Observação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. IDENTIFICAÇÃO E OBSERVAÇÃO</h2>
-          <Input
-            label="BRINCO / CHIP"
-            placeholder="Ex: 2023-145"
-            value={form.brincoChip}
-            onChange={setInput('brincoChip')}
-          />
-          <Input
-            label="CAUSA / OBSERVAÇÃO"
-            placeholder="Descreva detalhes da movimentação"
-            value={form.causaObservacao}
-            onChange={setInput('causaObservacao')}
-          />
         </div>
 
         <div className="flex flex-col gap-3">

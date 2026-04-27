@@ -477,47 +477,63 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                     const camposNormais: [string, unknown][] = []
                     const categoriasAnimais: string[] = []
 
-                    Object.entries(registro).forEach(([key, value]) => {
-                      if (
-                        !['id', 'googleRowId', 'version', 'lastModified', 'syncStatus', 'categoriasMarcadas'].includes(key) &&
-                        value !== null &&
-                        value !== undefined &&
-                        value !== ''
-                      ) {
-                        if (caderneta === 'movimentacao') {
-                          // Campos de categoria individual
-                          if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa'].includes(key)) {
-                            if (value === 'S') {
-                              const labelMap: Record<string, string> = {
-                                vaca: 'VACA',
-                                touro: 'TOURO',
-                                boiGordo: 'BOI GORDO',
-                                boiMagro: 'BOI MAGRO',
-                                garrote: 'GARROTE',
-                                bezerro: 'BEZERRO',
-                                novilha: 'NOVILHA',
-                                tropa: 'TROPA',
-                              }
-                              categoriasAnimais.push(labelMap[key])
-                            }
-                          } else if (key === 'outraCategoria') {
-                            if (value) {
-                              categoriasAnimais.push(String(value))
-                            }
-                          } else if (key === 'causaObservacao') {
-                            // Será adicionado por último
-                          } else {
-                            camposNormais.push([key, value])
-                          }
-                        } else {
+                    if (caderneta === 'movimentacao') {
+                      // Para movimentação, usar ordem específica dos formulários
+                      const ordemMovimentacao = [
+                        'loteOrigem',
+                        'brincoChip',
+                        'numeroCabecas',
+                        'pesoMedio',
+                        'motivoMovimentacao',
+                        'loteDestino',
+                        'causaObservacao'
+                      ]
+                      
+                      ordemMovimentacao.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
+                      
+                      // Adicionar categoria se existir
+                      if (registro.categoria && typeof registro.categoria === 'string') {
+                        camposNormais.push(['categoria', registro.categoria])
+                      }
+                    } else if (caderneta === 'bebedouros') {
+                      // Para bebedouros, usar ordem específica dos formulários
+                      const ordemBebedouros = [
+                        'responsavel',
+                        'pasto',
+                        'numeroLote',
+                        'categoria',
+                        'numeroBebedouro',
+                        'leituraBebedouro',
+                        'observacao'
+                      ]
+                      
+                      ordemBebedouros.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
+                    } else {
+                      Object.entries(registro).forEach(([key, value]) => {
+                        if (
+                          !['id', 'googleRowId', 'version', 'lastModified', 'syncStatus', 'categoriasMarcadas'].includes(key) &&
+                          value !== null &&
+                          value !== undefined &&
+                          value !== ''
+                        ) {
                           if (key === 'causaObservacao') {
                             // Será adicionado por último
                           } else {
                             camposNormais.push([key, value])
                           }
                         }
-                      }
-                    })
+                      })
+                    }
 
                     return (
                       <>
