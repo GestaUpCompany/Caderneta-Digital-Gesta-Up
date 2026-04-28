@@ -30,26 +30,7 @@ export default function ChecklistsMenuPage() {
     setRecentChecklists(getRecentChecklists())
   }, [])
 
-  const menuItems = [
-    {
-      id: 'entrada',
-      label: 'ENTRADA DE INSUMOS',
-      emoji: '📥',
-      icon: `${BASE}cadernetas/entrada.png`,
-      description: 'Registrar entrada de insumos',
-      path: '/caderneta/entrada-insumos',
-      color: '#B08D5E',
-    },
-    {
-      id: 'saida',
-      label: 'PRODUÇÃO FÁBRICA',
-      emoji: '📤',
-      icon: `${BASE}cadernetas/producao.png`,
-      description: 'Registrar saída de insumos',
-      path: '/caderneta/saida-insumos',
-      color: '#78AB46',
-    },
-  ]
+  const menuItems: any[] = []
 
   const filteredItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchTerm.toLowerCase())
