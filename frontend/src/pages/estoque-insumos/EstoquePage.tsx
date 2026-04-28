@@ -183,7 +183,7 @@ export default function EstoquePage() {
           )}
           <div className="flex items-center gap-3 w-full relative">
             <button
-              onClick={() => navigate('/modulos/insumos')}
+              onClick={() => navigate('/modulos/relatorios')}
               className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 absolute left-0"
             >
               VOLTAR

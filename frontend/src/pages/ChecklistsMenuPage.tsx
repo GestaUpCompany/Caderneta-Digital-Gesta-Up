@@ -6,47 +6,48 @@ import FarmLogo from '../components/FarmLogo'
 
 const BASE = import.meta.env.BASE_URL
 
-// Função helper para converter HEX para RGBA com opacidade
-const hexToRgba = (hex: string, alpha: number = 0.25): string => {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
-// Funções para gerenciar últimos relatórios acessados
-const getRecentRelatorios = (): string[] => {
-  const stored = localStorage.getItem('recentRelatorios')
+// Funções para gerenciar últimos checklists acessados
+const getRecentChecklists = (): string[] => {
+  const stored = localStorage.getItem('recentChecklists')
   return stored ? JSON.parse(stored) : []
 }
 
-const addRecentRelatorio = (relatorioId: string) => {
-  const recent = getRecentRelatorios()
-  const filtered = recent.filter((id: string) => id !== relatorioId)
-  const updated = [relatorioId, ...filtered].slice(0, 3)
-  localStorage.setItem('recentRelatorios', JSON.stringify(updated))
+const addRecentChecklist = (checklistId: string) => {
+  const recent = getRecentChecklists()
+  const filtered = recent.filter((id: string) => id !== checklistId)
+  const updated = [checklistId, ...filtered].slice(0, 3)
+  localStorage.setItem('recentChecklists', JSON.stringify(updated))
 }
 
-export default function RelatoriosPage() {
+export default function ChecklistsMenuPage() {
   const navigate = useNavigate()
   const { fazenda } = useSelector((state: RootState) => state.config)
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [recentRelatorios, setRecentRelatorios] = useState<string[]>([])
+  const [recentChecklists, setRecentChecklists] = useState<string[]>([])
 
   useEffect(() => {
-    setRecentRelatorios(getRecentRelatorios())
+    setRecentChecklists(getRecentChecklists())
   }, [])
 
   const menuItems = [
     {
-      id: 'estoque',
-      label: 'ESTOQUE',
-      emoji: '📦',
-      icon: `${BASE}checklists/estoque.png`,
-      description: 'Visualizar estoque atual',
-      path: '/estoque-insumos/estoque',
-      color: '#8b5cf6',
+      id: 'entrada',
+      label: 'ENTRADA DE INSUMOS',
+      emoji: '📥',
+      icon: `${BASE}cadernetas/entrada.png`,
+      description: 'Registrar entrada de insumos',
+      path: '/caderneta/entrada-insumos',
+      color: '#B08D5E',
+    },
+    {
+      id: 'saida',
+      label: 'PRODUÇÃO FÁBRICA',
+      emoji: '📤',
+      icon: `${BASE}cadernetas/producao.png`,
+      description: 'Registrar saída de insumos',
+      path: '/caderneta/saida-insumos',
+      color: '#78AB46',
     },
   ]
 
@@ -54,14 +55,21 @@ export default function RelatoriosPage() {
     item.label.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const recentRelatoriosData = recentRelatorios
+  const recentChecklistsData = recentChecklists
     .map(id => menuItems.find(i => i.id === id))
     .filter((item): item is typeof menuItems[0] => item !== undefined)
 
-  const handleRelatorioClick = (relatorioId: string, path: string) => {
-    addRecentRelatorio(relatorioId)
-    setRecentRelatorios(getRecentRelatorios())
+  const handleChecklistClick = (checklistId: string, path: string) => {
+    addRecentChecklist(checklistId)
+    setRecentChecklists(getRecentChecklists())
     navigate(path)
+  }
+
+  const hexToRgba = (hex: string, alpha: number = 0.25): string => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
   }
 
   return (
@@ -87,22 +95,22 @@ export default function RelatoriosPage() {
             >
               VOLTAR
             </button>
-            <p className="text-white text-base font-semibold flex-1 text-center">RELATÓRIOS</p>
+            <p className="text-white text-base font-semibold flex-1 text-center">CHECKLISTS DIGITAIS</p>
           </div>
         </div>
       </header>
 
-      {/* Grid de Relatórios */}
+      {/* Menu de Insumos */}
       <main className="flex-1 p-4 flex flex-col gap-4">
-        {/* Últimos Relatórios Acessados */}
-        {recentRelatoriosData.length > 0 && (
+        {/* Últimos Checklists Acessados */}
+        {recentChecklistsData.length > 0 && (
           <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100">
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">ÚLTIMOS ACESSADOS</h2>
             <div className="grid grid-cols-3 gap-3">
-              {recentRelatoriosData.map((item) => (
+              {recentChecklistsData.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => handleRelatorioClick(item.id, item.path)}
+                  onClick={() => handleChecklistClick(item.id, item.path)}
                   style={{ backgroundColor: hexToRgba(item.color) }}
                   className="relative flex flex-col items-center justify-center gap-1 p-3 transition-all rounded-xl hover:scale-105 hover:shadow-md"
                 >
@@ -131,7 +139,7 @@ export default function RelatoriosPage() {
         <div className="relative">
           <input
             type="text"
-            placeholder="Buscar relatório..."
+            placeholder="Buscar checklist..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full px-4 py-3 pl-10 rounded-xl border border-gray-300 focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-50 outline-none transition-all"
@@ -151,12 +159,12 @@ export default function RelatoriosPage() {
           </svg>
         </div>
 
-        {/* Grid de Relatórios */}
+        {/* Grid de Checklists */}
         <div className="grid grid-cols-2 gap-6">
           {filteredItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => handleRelatorioClick(item.id, item.path)}
+              onClick={() => handleChecklistClick(item.id, item.path)}
               style={{ backgroundColor: hexToRgba(item.color) }}
               className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl hover:scale-105"
             >

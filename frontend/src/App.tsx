@@ -70,7 +70,7 @@ const SaidaInsumosListaPage = lazy(() => import('./pages/cadernetas/SaidaInsumos
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
-const InsumosMenuPage = lazy(() => import('./pages/InsumosMenuPage'))
+const ChecklistsMenuPage = lazy(() => import('./pages/ChecklistsMenuPage'))
 const RelatoriosPage = lazy(() => import('./pages/RelatoriosPage'))
 
 // Lazy loading do estoque de insumos
@@ -215,7 +215,7 @@ function AppInner() {
 
             {/* Menus de Módulos */}
             <Route path="/modulos/cadernetas" element={<ModulosMenuPage />} />
-            <Route path="/modulos/insumos" element={<InsumosMenuPage />} />
+            <Route path="/modulos/checklists" element={<ChecklistsMenuPage />} />
             <Route path="/modulos/relatorios" element={<RelatoriosPage />} />
 
             {/* Estoque de Insumos */}

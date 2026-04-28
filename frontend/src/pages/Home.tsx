@@ -193,7 +193,7 @@ export default function Home() {
               {/* Botão Checklists */}
               {showInsumos && (
                 <button
-                  onClick={() => navigate('/modulos/insumos')}
+                  onClick={() => navigate('/modulos/checklists')}
                   className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-100"
                   style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))' }}
                 >
@@ -221,7 +221,7 @@ export default function Home() {
 
               {/* Botão Relatórios */}
               <button
-                onClick={() => navigate('/relatorios')}
+                onClick={() => navigate('/modulos/relatorios')}
                 className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-100"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.1))' }}
               >
