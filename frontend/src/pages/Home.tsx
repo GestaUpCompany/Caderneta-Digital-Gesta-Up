@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../components/ui'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
-import { Settings, ClipboardList, Sun, Moon } from 'lucide-react'
+import { ClipboardList, Sun, Moon } from 'lucide-react'
 import FarmLogo from '../components/FarmLogo'
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 
