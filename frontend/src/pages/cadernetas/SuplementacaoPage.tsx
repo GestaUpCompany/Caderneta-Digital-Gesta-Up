@@ -11,6 +11,8 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
 
+const BASE = import.meta.env.BASE_URL
+
 const PRODUTOS = [
   { value: 'Mineral', label: 'MINERAL', icon: '' },
   { value: 'Proteinado', label: 'PROTEINADO', icon: '' },
@@ -73,6 +75,7 @@ export default function SuplementacaoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [showFezesModal, setShowFezesModal] = useState(false)
   const [suplementos, setSuplementos] = useState<string[]>([])
   const [suplemento, setSuplemento] = useState('')
   const [quantidadeCreep, setQuantidadeCreep] = useState('')
@@ -394,6 +397,13 @@ export default function SuplementacaoPage() {
             <span className="text-xl">📄</span>
             <span>VER POP LEITURA DE COCHO</span>
           </button>
+          <button
+            onClick={() => setShowFezesModal(true)}
+            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          >
+            <span className="text-xl">📄</span>
+            <span>VER POP FEZES</span>
+          </button>
           <Radio
             name="leitura"
             label="LEITURA DO COCHO (-1 a 3)"
@@ -472,7 +482,16 @@ export default function SuplementacaoPage() {
         isOpen={showPdfModal}
         onClose={() => setShowPdfModal(false)}
         images={[
-          '/Caderneta-Digital-Gesta-Up/docs/POP_Cocho.jpg'
+          `${BASE}docs/cocho/POP_Cocho_01.jpg`,
+          `${BASE}docs/cocho/POP_Cocho_02.jpg`
+        ]}
+      />
+
+      <PdfModal
+        isOpen={showFezesModal}
+        onClose={() => setShowFezesModal(false)}
+        images={[
+          `${BASE}docs/fezes/POP_Fezes_01.jpg`
         ]}
       />
     </div>

@@ -10,6 +10,8 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
 
+const BASE = import.meta.env.BASE_URL
+
 const AVALIACOES_SN = [
   { campo: 'escoreGadoIdeal', label: 'ESCORE DO GADO IDEAL?' },
   { campo: 'aguaBoaBebedouro', label: 'ÁGUA BOA / BEBEDOURO?' },
@@ -116,7 +118,6 @@ export default function RodeioPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
-  const [showCochoModal, setShowCochoModal] = useState(false)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
@@ -402,13 +403,6 @@ export default function RodeioPage() {
             <span className="text-xl">📄</span>
             <span>VER POP ESCORE DE FEZES</span>
           </button>
-          <button
-            onClick={() => setShowCochoModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>VER POP COCHO</span>
-          </button>
           <Radio
             name="escoreFezes"
             label="ESCORE DE FEZES (1 a 5)"
@@ -531,14 +525,7 @@ export default function RodeioPage() {
         isOpen={showPdfModal}
         onClose={() => setShowPdfModal(false)}
         images={[
-          '/Caderneta-Digital-Gesta-Up/docs/POP_Fezes.jpg'
-        ]}
-      />
-      <PdfModal
-        isOpen={showCochoModal}
-        onClose={() => setShowCochoModal(false)}
-        images={[
-          '/Caderneta-Digital-Gesta-Up/docs/POP_Cocho.jpg'
+          `${BASE}docs/fezes/POP_Fezes_01.jpg`
         ]}
       />
     </div>

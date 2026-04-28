@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
+import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
+
+const BASE = import.meta.env.BASE_URL
 
 const CATEGORIAS = [
   { value: 'Vaca', label: 'VACA' },
@@ -59,6 +62,7 @@ export default function BebedourosPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [showPdfModal, setShowPdfModal] = useState(false)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
@@ -191,6 +195,17 @@ export default function BebedourosPage() {
             size="medium"
           />
         </div>
+      </div>
+
+      {/* Botão de PDF POP */}
+      <div className="bg-[#1a3a2a] text-white px-4 py-3">
+        <button
+          onClick={() => setShowPdfModal(true)}
+          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+        >
+          <span className="text-xl">📄</span>
+          <span>VER POP BEBEDOUROS</span>
+        </button>
       </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
@@ -334,6 +349,14 @@ export default function BebedourosPage() {
         cadernetaName="Bebedouros"
         registro={registroSalvo}
         caderneta="bebedouros"
+      />
+
+      <PdfModal
+        isOpen={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
+        images={[
+          `${BASE}docs/bebedouros/POP_Bebedouros_01.jpg`
+        ]}
       />
     </div>
   )
