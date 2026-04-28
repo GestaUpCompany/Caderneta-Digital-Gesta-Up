@@ -225,7 +225,7 @@ export default function Home() {
                 className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30 backdrop-blur-sm"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.1))' }}
               >
-                <img src={`${BASE}home/relatórios.png`} alt="Relatórios" className="w-40 h-auto object-contain rounded-[32px]" />
+                <img src={`${BASE}home/relatorios.png`} alt="Relatórios" className="w-40 h-auto object-contain rounded-[32px]" />
                 <span className="text-base font-bold text-center leading-tight text-gray-900">
                   RELATÓRIOS
                 </span>
