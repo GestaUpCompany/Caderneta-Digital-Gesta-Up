@@ -43,7 +43,7 @@ export default function RelatoriosPage() {
       id: 'estoque',
       label: 'ESTOQUE',
       emoji: '📦',
-      icon: `${BASE}checklists/estoque.png`,
+      icon: `${BASE}relatorios/estoque.png`,
       description: 'Visualizar estoque atual',
       path: '/estoque-insumos/estoque',
       color: '#8b5cf6',

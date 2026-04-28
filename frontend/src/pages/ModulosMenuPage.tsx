@@ -19,10 +19,31 @@ export default function ModulosMenuPage() {
   const { fazenda } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
+  const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())
   }, [])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true)
+      } else {
+        setShowScrollTop(false)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
 
   const filteredCaderas = CADERNETAS.filter(caderneta =>
     caderneta.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -166,6 +187,29 @@ export default function ModulosMenuPage() {
           ))}
         </div>
       </main>
+
+      {/* Botão voltar ao topo */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 w-12 h-12 bg-[#3b82f6] text-white rounded-full shadow-lg hover:bg-[#2563eb] transition-all duration-300 flex items-center justify-center z-50 hover:scale-110"
+          aria-label="Voltar ao topo"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 10l7-7m0 0l7 7m-7-7v18"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
