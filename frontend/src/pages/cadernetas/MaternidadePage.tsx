@@ -10,6 +10,8 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
 
+const BASE = import.meta.env.BASE_URL
+
 const TRATAMENTOS = [
   { value: 'Colostro', label: 'COLOSTRO'},
   { value: 'Cura Umbigo', label: 'CURA UMBIGO'},
@@ -446,8 +448,13 @@ export default function MaternidadePage() {
         isOpen={showPdfModal}
         onClose={() => setShowPdfModal(false)}
         images={[
-          '/Caderneta-Digital-Gesta-Up/docs/POP_Maternidade-1.jpg',
-          '/Caderneta-Digital-Gesta-Up/docs/POP_Maternidade-2.jpg'
+          `${BASE}docs/maternidade/POP_Maternidade_1.jpg`,
+          `${BASE}docs/maternidade/POP_Maternidade_2.jpg`,
+          `${BASE}docs/maternidade/POP_Maternidade_3.jpg`,
+          `${BASE}docs/maternidade/POP_Maternidade_4.jpg`,
+          `${BASE}docs/maternidade/POP_Maternidade_5.jpg`,
+          `${BASE}docs/maternidade/POP_Maternidade_6.jpg`,
+          `${BASE}docs/maternidade/POP_Maternidade_7.jpg`
         ]}
       />
     </div>

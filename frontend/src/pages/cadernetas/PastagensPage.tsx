@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage, Select } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
+import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
+
+const BASE = import.meta.env.BASE_URL
 
 const AVALIACOES = [
   { value: '1', label: '1', icon: '🔴' },
@@ -79,6 +82,7 @@ export default function PastagensPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
+  const [showPdfModal, setShowPdfModal] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -204,7 +208,7 @@ export default function PastagensPage() {
           <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">TROCA DE PASTOS</h1>
           <button
             onClick={() => navigate('/caderneta/pastagens/lista')}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
           >
             REGISTROS
           </button>
@@ -220,6 +224,17 @@ export default function PastagensPage() {
             size="medium"
           />
         </div>
+      </div>
+
+      {/* Botão de PDF POP */}
+      <div className="bg-[#1a3a2a] text-white px-4 py-3">
+        <button
+          onClick={() => setShowPdfModal(true)}
+          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+        >
+          <span className="text-xl">📄</span>
+          <span>VER POP MANEJO DE PASTAGENS</span>
+        </button>
       </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
@@ -378,6 +393,16 @@ export default function PastagensPage() {
         cadernetaName="Troca de Pastos"
         registro={registroSalvo}
         caderneta="pastagens"
+      />
+
+      <PdfModal
+        isOpen={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
+        images={[
+          `${BASE}docs/pastagens/POP_Pastagens_01.jpg`,
+          `${BASE}docs/pastagens/POP_Pastagens_02.jpg`,
+          `${BASE}docs/pastagens/POP_Pastagens_03.jpg`
+        ]}
       />
     </div>
   )
