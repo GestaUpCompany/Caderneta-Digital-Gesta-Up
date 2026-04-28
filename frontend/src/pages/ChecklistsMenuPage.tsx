@@ -4,8 +4,6 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import FarmLogo from '../components/FarmLogo'
 
-const BASE = import.meta.env.BASE_URL
-
 // Funções para gerenciar últimos checklists acessados
 const getRecentChecklists = (): string[] => {
   const stored = localStorage.getItem('recentChecklists')
