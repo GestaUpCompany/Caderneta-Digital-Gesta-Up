@@ -39,7 +39,7 @@ function buildRegistroFromRow(
     rodeio: [
       'data', 'pasto', 'numeroLote', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha',
       'totalCabecas', 'escoreGadoIdeal', 'aguaBoaBebedouro', 'pastagemAdequada', 'animaisDoentes',
-      'cercasCochos', 'carrapatosMoscas', 'animaisEntreverados', 'animalMorto', 'animaisTratados',
+      'cercasCochos', 'carrapatosMoscas', 'animaisEntrevero', 'animalMorto', 'animaisTratados',
       'escoreFezes', 'equipe',
       // 20 pares de colunas para animais tratados
       ...Array.from({ length: 20 }, (_, i) => [

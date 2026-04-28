@@ -35,7 +35,7 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
     r.animaisDoentes as string, r.animaisDoentesObs as string || '',
     r.cercasCochos as string, r.cercasCochosObs as string || '',
     r.carrapatosMoscas as string, r.carrapatosMoscasObs as string || '',
-    r.animaisEntreverados as string, r.animaisEntreveradosObs as string || '',
+    r.animaisEntrevero as string, r.animaisEntreveroObs as string || '',
     r.animalMorto as string, r.animalMortoObs as string || '',
     r.escoreFezes as number, r.equipe as number,
   ],

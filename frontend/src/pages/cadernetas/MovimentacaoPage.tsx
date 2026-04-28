@@ -15,7 +15,7 @@ const MOTIVOS = [
   { value: 'Transferência', label: 'TRANSFERÊNCIA', icon: '🚚' },
   { value: 'Abate', label: 'ABATE', icon: '🏭' },
   { value: 'Entrada', label: 'ENTRADA', icon: '📥' },
-  { value: 'Entreverado', label: 'ENTREVERADO', icon: '🔀' },
+  { value: 'Entrevero', label: 'ENTREVERO', icon: '🔀' },
 ]
 
 const CATEGORIAS = [
@@ -98,7 +98,7 @@ export default function MovimentacaoPage() {
       case 'Transferência':
       case 'Abate':
       case 'Entrada':
-      case 'Entreverado':
+      case 'Entrevero':
         // Para esses casos, o usuário precisa selecionar o destino
         // Não setar valor automático
         break
@@ -267,20 +267,9 @@ export default function MovimentacaoPage() {
           )}
         </div>
 
-        {/* Seção 2: Identificação */}
+        {/* Seção 2: Quantificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
-          <Input
-            label="BRINCO / CHIP"
-            placeholder="Ex: 2023-145"
-            value={form.brincoChip}
-            onChange={setInput('brincoChip')}
-          />
-        </div>
-
-        {/* Seção 3: Quantificação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="N° CABEÇAS"
@@ -304,35 +293,9 @@ export default function MovimentacaoPage() {
           </div>
         </div>
 
-        {/* Seção 4: Categorias */}
+        {/* Seção 3: Motivo da Movimentação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CATEGORIA DOS ANIMAIS</h2>
-          {getError('categorias') && (
-            <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
-          )}
-          <CheckboxGroup
-            label=""
-            options={CATEGORIAS}
-            selectedValues={form.categorias}
-            onChange={handleCategoriasChange}
-            error={getError('categorias')}
-            gridCols={2}
-            hideCheckbox={true}
-          />
-          {form.categorias.includes('Outros') && (
-            <Input
-              label="DIGITE A CATEGORIA:"
-              placeholder="Ex: Reprodutor, Matriz, etc."
-              value={form.outrosTexto}
-              onChange={(e) => setForm((p) => ({ ...p, outrosTexto: e.target.value }))}
-              error={getError('outrosTexto')}
-            />
-          )}
-        </div>
-
-        {/* Seção 5: Motivo */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. MOTIVO DA MOVIMENTAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. MOTIVO DA MOVIMENTAÇÃO</h2>
           <Radio
             name="motivoMovimentacao"
             options={MOTIVOS}
@@ -424,7 +387,7 @@ export default function MovimentacaoPage() {
                     onChange={setInput('causaObservacao')}
                   />
                 </>
-              ) : form.motivoMovimentacao === 'Entreverado' ? (
+              ) : form.motivoMovimentacao === 'Entrevero' ? (
                 <>
                   {lotesDisponiveis.length > 0 ? (
                     <Select
@@ -464,6 +427,43 @@ export default function MovimentacaoPage() {
               <p className="text-sm text-gray-500 italic">Escolha uma das opções acima primeiro...</p>
             </div>
           )}
+        </div>
+
+        {/* Seção 4: Categorias */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CATEGORIA DOS ANIMAIS</h2>
+          {getError('categorias') && (
+            <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
+          )}
+          <CheckboxGroup
+            label=""
+            options={CATEGORIAS}
+            selectedValues={form.categorias}
+            onChange={handleCategoriasChange}
+            error={getError('categorias')}
+            gridCols={2}
+            hideCheckbox={true}
+          />
+          {form.categorias.includes('Outros') && (
+            <Input
+              label="DIGITE A CATEGORIA:"
+              placeholder="Ex: Reprodutor, Matriz, etc."
+              value={form.outrosTexto}
+              onChange={(e) => setForm((p) => ({ ...p, outrosTexto: e.target.value }))}
+              error={getError('outrosTexto')}
+            />
+          )}
+        </div>
+
+        {/* Seção 5: Identificação */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. IDENTIFICAÇÃO</h2>
+          <Input
+            label="BRINCO / CHIP"
+            placeholder="Ex: 2023-145"
+            value={form.brincoChip}
+            onChange={setInput('brincoChip')}
+          />
         </div>
 
         <div className="flex flex-col gap-3">

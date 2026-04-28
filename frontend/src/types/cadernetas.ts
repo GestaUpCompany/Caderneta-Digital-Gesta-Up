@@ -60,8 +60,8 @@ export interface RegistroRodeio extends Registro {
   cercasCochosObs: string
   carrapatosMoscas: 'S' | 'N'
   carrapatosMoscasObs: string
-  animaisEntreverados: 'S' | 'N'
-  animaisEntreveradosObs: string
+  animaisEntrevero: 'S' | 'N'
+  animaisEntreveroObs: string
   animalMorto: 'S' | 'N'
   animalMortoObs: string
   animaisTratados: number
