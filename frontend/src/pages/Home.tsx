@@ -210,7 +210,7 @@ export default function Home() {
               {/* Botão Cadastros */}
               <button
                 onClick={() => navigate('/configuracoes')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-200"
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-0"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 179, 8, 0.1))' }}
               >
                 <img src={`${BASE}home/cadastro.png`} alt="Cadastros" className="w-40 h-auto object-contain rounded-[32px]" />
@@ -222,7 +222,7 @@ export default function Home() {
               {/* Botão Relatórios */}
               <button
                 onClick={() => navigate('/relatorios')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-300"
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30 backdrop-blur-sm animate-fade-in-delay-100"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.1))' }}
               >
                 <img src={`${BASE}home/relatórios.png`} alt="Relatórios" className="w-40 h-auto object-contain rounded-[32px]" />
