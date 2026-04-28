@@ -194,8 +194,8 @@ export default function Home() {
               {showInsumos && (
                 <button
                   onClick={() => navigate('/modulos/checklists')}
-                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30 backdrop-blur-sm"
-                  style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))' }}
+                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm"
+                  style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.1))' }}
                 >
                   <img src={`${BASE}home/checklists.png`} alt="Checklists" className="w-40 h-auto object-contain rounded-[32px]" />
                   <span className="text-base font-bold text-center leading-tight text-gray-900">
@@ -210,8 +210,8 @@ export default function Home() {
               {/* Botão Cadastros */}
               <button
                 onClick={() => navigate('/configuracoes')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 179, 8, 0.1))' }}
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30 backdrop-blur-sm"
+                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))' }}
               >
                 <img src={`${BASE}home/cadastro.png`} alt="Cadastros" className="w-40 h-auto object-contain rounded-[32px]" />
                 <span className="text-base font-bold text-center leading-tight text-gray-900">
