@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { Input, Select, DatePicker, Button } from '../../components/ui'
-import { loadCadastroData, CadastroData } from '../../services/cadastroData'
+import { loadCadastroData } from '../../services/cadastroData'
 import { BACKEND_URL } from '../../utils/constants'
 import { DATABASE_URL } from '../../utils/constants'
 
@@ -52,8 +52,7 @@ export default function ProducaoPage() {
       }
 
       try {
-        const data = await loadCadastroData(cadastroSheetUrl)
-        setCadastroData(data)
+        await loadCadastroData(cadastroSheetUrl)
         setLoading(false)
       } catch (err) {
         setError('Erro ao carregar dados de cadastro')

@@ -27,7 +27,7 @@ export default function EstoquePage() {
   const [estoqueData, setEstoqueData] = useState<EstoqueRow[]>([])
   const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
   const [showInicializar, setShowInicializar] = useState(false)
-  const [estoquesIniciais, setEstoquesIniciais] = useState<Record<string, string>>({})
+  // const [estoquesIniciais, setEstoquesIniciais] = useState<Record<string, string>>({})
   const [atualizando, setAtualizando] = useState(false)
 
   useEffect(() => {
@@ -191,7 +191,7 @@ export default function EstoquePage() {
                   <Button
                     onClick={() => {
                       setShowInicializar(false)
-                      setEstoquesIniciais({})
+                      // setEstoquesIniciais({})
                     }}
                     className="flex-1 bg-gray-600 hover:bg-gray-700"
                   >

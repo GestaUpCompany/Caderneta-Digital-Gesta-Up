@@ -7,7 +7,7 @@ import { Input, Select, DatePicker, Button, ValidationMessage } from '../../comp
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
-import { loadCadastroData, CadastroData } from '../../services/cadastroData'
+import { loadCadastroData } from '../../services/cadastroData'
 import { BACKEND_URL } from '../../utils/constants'
 
 interface FormState {
@@ -53,7 +53,7 @@ export default function SaidaInsumosPage() {
       }
 
       try {
-        const data = await loadCadastroData(cadastroSheetUrl)
+        await loadCadastroData(cadastroSheetUrl)
         // setCadastroData(data)
         setLoading(false)
       } catch (err) {
