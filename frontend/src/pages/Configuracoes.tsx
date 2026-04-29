@@ -105,6 +105,7 @@ export default function Configuracoes() {
         body: JSON.stringify({
           deviceSheetUrl: DEVICE_SHEET_URL,
           uuid: deviceId,
+          fazenda: fazenda || '',
           farmConfigDate,
         }),
       })

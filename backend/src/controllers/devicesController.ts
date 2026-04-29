@@ -5,7 +5,7 @@ import { logger } from '../utils/logger'
 export const devicesRouter = Router()
 
 devicesRouter.post('/register', async (req: Request, res: Response) => {
-  const { deviceSheetUrl, uuid, os, osVersion, deviceModel, screenResolution, timezone } = req.body
+  const { deviceSheetUrl, uuid, fazenda, os, osVersion, deviceModel, screenResolution, timezone } = req.body
   if (!deviceSheetUrl || !uuid) {
     return res.status(400).json({ error: 'deviceSheetUrl e uuid são obrigatórios' })
   }
@@ -22,7 +22,7 @@ devicesRouter.post('/register', async (req: Request, res: Response) => {
     // Registrar novo dispositivo com dados estáticos
     const date = new Date().toLocaleDateString('pt-BR')
     const time = new Date().toLocaleTimeString('pt-BR')
-    const values = [uuid, date, time, os, osVersion, deviceModel, screenResolution, timezone]
+    const values = [uuid, date, time, fazenda || '', os, osVersion, deviceModel, screenResolution, timezone]
     await appendRow(deviceSheetUrl, 'Registros', values)
     logger.info(`Dispositivo ${uuid} registrado em ${date} às ${time}`)
     return res.json({ success: true, registered: true, message: 'Dispositivo registrado com sucesso' })
@@ -33,7 +33,7 @@ devicesRouter.post('/register', async (req: Request, res: Response) => {
 })
 
 devicesRouter.post('/update', async (req: Request, res: Response) => {
-  const { deviceSheetUrl, uuid, lastOpen, sessionCount, farmConfigDate, sessionTime, screens, offlineTime, onlineTime } = req.body
+  const { deviceSheetUrl, uuid, fazenda, lastOpen, sessionCount, farmConfigDate, sessionTime, screens, offlineTime, onlineTime, peakHour, mostActiveDay, avgSessionInterval } = req.body
   if (!deviceSheetUrl || !uuid) {
     return res.status(400).json({ error: 'deviceSheetUrl e uuid são obrigatórios' })
   }
@@ -53,11 +53,23 @@ devicesRouter.post('/update', async (req: Request, res: Response) => {
     const sheets = (await import('googleapis')).google.sheets({ version: 'v4', auth })
     const spreadsheetId = (await import('../services/googleSheetsService')).extractSpreadsheetId(deviceSheetUrl)
 
-    // Atualizar Última abertura (I) e Número de sessões (J)
+    // Atualizar Fazenda (D)
+    if (fazenda !== undefined) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `Registros!D${sheetRowIndex}:D${sheetRowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[fazenda]],
+        },
+      })
+    }
+
+    // Atualizar Última abertura (J) e Número de sessões (K)
     if (lastOpen !== undefined || sessionCount !== undefined) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Registros!I${sheetRowIndex}:J${sheetRowIndex}`,
+        range: `Registros!J${sheetRowIndex}:K${sheetRowIndex}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[lastOpen || '', sessionCount || '']],
@@ -65,11 +77,11 @@ devicesRouter.post('/update', async (req: Request, res: Response) => {
       })
     }
 
-    // Atualizar Tempo de uso por sessão (K)
+    // Atualizar Tempo de uso por sessão (L)
     if (sessionTime !== undefined) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Registros!K${sheetRowIndex}:K${sheetRowIndex}`,
+        range: `Registros!L${sheetRowIndex}:L${sheetRowIndex}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[sessionTime]],
@@ -77,11 +89,11 @@ devicesRouter.post('/update', async (req: Request, res: Response) => {
       })
     }
 
-    // Atualizar Telas mais acessadas (L)
+    // Atualizar Telas mais acessadas (M)
     if (screens !== undefined) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Registros!L${sheetRowIndex}:L${sheetRowIndex}`,
+        range: `Registros!M${sheetRowIndex}:M${sheetRowIndex}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[screens]],
@@ -89,12 +101,12 @@ devicesRouter.post('/update', async (req: Request, res: Response) => {
       })
     }
 
-    // Atualizar Uso offline vs Online (M) - formato "Xh offline, Yh online"
+    // Atualizar Uso offline vs Online (N) - formato "Xh offline, Yh online"
     if (offlineTime !== undefined || onlineTime !== undefined) {
       const usageString = `${offlineTime || 0}h offline, ${onlineTime || 0}h online`
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Registros!M${sheetRowIndex}:M${sheetRowIndex}`,
+        range: `Registros!N${sheetRowIndex}:N${sheetRowIndex}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[usageString]],
@@ -102,11 +114,11 @@ devicesRouter.post('/update', async (req: Request, res: Response) => {
       })
     }
 
-    // Atualizar Data de Configuração da Fazenda (N)
+    // Atualizar Data de Configuração da Fazenda (O)
     if (farmConfigDate !== undefined) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Registros!N${sheetRowIndex}:N${sheetRowIndex}`,
+        range: `Registros!O${sheetRowIndex}:O${sheetRowIndex}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[farmConfigDate]],
@@ -114,7 +126,19 @@ devicesRouter.post('/update', async (req: Request, res: Response) => {
       })
     }
 
-    logger.info(`Dispositivo ${uuid} atualizado: sessão ${sessionCount}, tempo ${sessionTime}, telas ${screens}, offline ${offlineTime}, online ${onlineTime}`)
+    // Atualizar Horário de pico de uso (P), Dia da semana mais ativo (Q), Intervalo médio entre sessões (R)
+    if (peakHour !== undefined || mostActiveDay !== undefined || avgSessionInterval !== undefined) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `Registros!P${sheetRowIndex}:R${sheetRowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[peakHour || '', mostActiveDay || '', avgSessionInterval !== undefined ? `${avgSessionInterval}h` : '']],
+        },
+      })
+    }
+
+    logger.info(`Dispositivo ${uuid} atualizado: fazenda ${fazenda}, sessão ${sessionCount}, tempo ${sessionTime}, telas ${screens}, offline ${offlineTime}, online ${onlineTime}`)
     return res.json({ success: true, message: 'Dispositivo atualizado com sucesso' })
   } catch (error) {
     logger.error(`Erro ao atualizar dispositivo: ${error}`)
@@ -175,9 +199,9 @@ devicesRouter.get('/analytics', async (req: Request, res: Response) => {
     
     const mostActiveDay = Object.entries(dayCounts).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0]
 
-    // Calcular intervalo médio entre sessões (coluna 8 = Última abertura)
+    // Calcular intervalo médio entre sessões (coluna 9 = Última abertura)
     const sessionDates = data
-      .map(row => row[8]) // Última abertura
+      .map(row => row[9]) // Última abertura
       .filter(d => d)
       .map(d => new Date(String(d).split('/').reverse().join('-')).getTime())
       .sort((a, b) => a - b)

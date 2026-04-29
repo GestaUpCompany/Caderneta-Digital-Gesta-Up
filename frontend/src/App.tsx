@@ -84,6 +84,7 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome, isLoading } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
+  const { fazenda } = useSelector((state: RootState) => state.config)
   
   // Hooks de analytics
   const sessionTime = useSessionTimer()
@@ -127,16 +128,25 @@ function AppInner() {
       try {
         const deviceId = getDeviceId()
         const screens = getScreens()
+
+        // Obter dados de analytics calculados
+        const analyticsRes = await fetch(`${BACKEND_URL}/api/devices/analytics?deviceSheetUrl=${DEVICE_SHEET_URL}`)
+        const analyticsData = await analyticsRes.json()
+
         await fetch(`${BACKEND_URL}/api/devices/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             deviceSheetUrl: DEVICE_SHEET_URL,
             uuid: deviceId,
+            fazenda: fazenda || '',
             sessionTime,
             screens,
             offlineTime,
             onlineTime,
+            peakHour: analyticsData.peakHour,
+            mostActiveDay: analyticsData.mostActiveDay,
+            avgSessionInterval: analyticsData.avgSessionInterval,
           }),
         })
       } catch (error) {
@@ -148,7 +158,7 @@ function AppInner() {
     const interval = setInterval(sendAnalytics, 5 * 60 * 1000) // 5 minutos
 
     return () => clearInterval(interval)
-  }, [sessionTime])
+  }, [sessionTime, fazenda])
 
   // Registrar dispositivo ao abrir app
   useEffect(() => {
@@ -162,6 +172,7 @@ function AppInner() {
           body: JSON.stringify({
             deviceSheetUrl: DEVICE_SHEET_URL,
             uuid: deviceId,
+            fazenda: fazenda || '',
             ...deviceData,
           }),
         })
@@ -182,6 +193,7 @@ function AppInner() {
           body: JSON.stringify({
             deviceSheetUrl: DEVICE_SHEET_URL,
             uuid: deviceId,
+            fazenda: fazenda || '',
             ...sessionData,
           }),
         })
@@ -194,7 +206,7 @@ function AppInner() {
 
     registerDevice()
     updateSession()
-  }, [])
+  }, [fazenda])
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
