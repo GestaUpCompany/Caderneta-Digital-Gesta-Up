@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { Input, Select, DatePicker, Button, ValidationMessage } from '../../components/ui'
+import { Input, Select, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -37,6 +37,7 @@ export default function SaidaInsumosPage() {
   // const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingSuplementacao, setLoadingSuplementacao] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -70,9 +71,11 @@ export default function SaidaInsumosPage() {
     async function carregarSuplementacaoData() {
       if (!cadastroSheetUrl) {
         setSuplementacaoData(null)
+        setLoadingSuplementacao(false)
         return
       }
 
+      setLoadingSuplementacao(true)
       try {
         const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
           method: 'POST',
@@ -92,6 +95,8 @@ export default function SaidaInsumosPage() {
         }
       } catch (error) {
         console.error('Erro ao carregar dados de suplementação:', error)
+      } finally {
+        setLoadingSuplementacao(false)
       }
     }
 
@@ -222,19 +227,33 @@ export default function SaidaInsumosPage() {
                 onChange={set('dataProducao')}
                 error={getError('dataProducao')}
               />
-              <Select
-                label="DIETA PRODUZIDA *"
-                value={form.dietaProduzida}
-                onChange={(e) => set('dietaProduzida')(e.target.value)}
-                error={getError('dietaProduzida')}
-                options={[{ value: '', label: 'Selecione uma dieta' }, ...(suplementacaoData?.dietas.map((d: string) => ({ value: d, label: d })) || [])]}
-              />
-              <Select
+              {suplementacaoData?.dietas && suplementacaoData.dietas.length > 0 ? (
+                <SearchableModal
+                  label="DIETA PRODUZIDA *"
+                  value={form.dietaProduzida}
+                  onChange={set('dietaProduzida')}
+                  error={getError('dietaProduzida')}
+                  options={suplementacaoData.dietas}
+                  placeholder="Buscar dieta..."
+                  disabled={loadingSuplementacao}
+                />
+              ) : (
+                <Input
+                  label="DIETA PRODUZIDA *"
+                  placeholder={loadingSuplementacao ? 'Carregando...' : 'Digite a dieta'}
+                  value={form.dietaProduzida}
+                  onChange={(e) => set('dietaProduzida')(e.target.value)}
+                  error={getError('dietaProduzida')}
+                  disabled={loadingSuplementacao}
+                />
+              )}
+              <SearchableModal
                 label="DESTINO DA PRODUÇÃO *"
                 value={form.destinoProducao}
-                onChange={(e) => set('destinoProducao')(e.target.value)}
+                onChange={set('destinoProducao')}
                 error={getError('destinoProducao')}
-                options={[{ value: '', label: 'Selecione um destino' }, ...DESTINOS.map(d => ({ value: d, label: d }))]}
+                options={DESTINOS}
+                placeholder="Buscar destino..."
               />
               <Input
                 label="TOTAL PRODUZIDO (kg)"

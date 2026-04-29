@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, Select, Radio, CheckboxGroup } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio, CheckboxGroup } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
+import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const TRATAMENTOS = [
   { value: 'Mata Bicheira', label: 'MATA BICHEIRA' },
@@ -127,6 +128,7 @@ export default function EnfermariaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -157,15 +159,19 @@ export default function EnfermariaPage() {
   useEffect(() => {
     async function carregarDados() {
       if (!cadastroSheetUrl) {
+        setCarregandoPastosLotes(false)
         return
       }
 
+      setCarregandoPastosLotes(true)
       try {
         const data = await loadCadastroData(cadastroSheetUrl)
         setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
       } catch (error) {
         console.error('Erro ao carregar dados:', error)
+      } finally {
+        setCarregandoPastosLotes(false)
       }
     }
 
@@ -341,12 +347,14 @@ export default function EnfermariaPage() {
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
           {pastosDisponiveis.length > 0 ? (
-            <Select
+            <SearchableModal
               label="PASTO"
               value={form.pasto}
-              onChange={(e) => setForm((p) => ({ ...p, pasto: e.target.value }))}
+              onChange={(val) => setForm((p) => ({ ...p, pasto: val }))}
               error={getError('pasto')}
-              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
+              options={pastosDisponiveis}
+              placeholder="Buscar pasto..."
+              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -355,15 +363,18 @@ export default function EnfermariaPage() {
               value={form.pasto}
               onChange={setInput('pasto')}
               error={getError('pasto')}
+              disabled={carregandoPastosLotes}
             />
           )}
           {lotesDisponiveis.length > 0 ? (
-            <Select
+            <SearchableModal
               label="LOTE"
               value={form.lote}
-              onChange={(e) => setForm((p) => ({ ...p, lote: e.target.value }))}
+              onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
               error={getError('lote')}
-              options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+              options={lotesDisponiveis}
+              placeholder="Buscar lote..."
+              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -372,29 +383,11 @@ export default function EnfermariaPage() {
               value={form.lote}
               onChange={setInput('lote')}
               error={getError('lote')}
+              disabled={carregandoPastosLotes}
             />
           )}
           {detalhesLote && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="col-span-2">
-                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
-                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLote.categorias).join(', ')}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.nCabecas}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.pesoVivo} kg</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.qtdBezerros}</p>
-                </div>
-              </div>
-            </div>
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
         </div>
 

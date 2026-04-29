@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { Input, Select, DatePicker, Button, ValidationMessage } from '../../components/ui'
+import { Input, Select, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -49,6 +49,7 @@ export default function EntradaInsumosPage() {
   const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingInsumos, setLoadingInsumos] = useState(false)
   const [isHorarioManual, setIsHorarioManual] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
@@ -84,9 +85,11 @@ export default function EntradaInsumosPage() {
     async function carregarSuplementacaoData() {
       if (!cadastroSheetUrl) {
         setSuplementacaoData(null)
+        setLoadingInsumos(false)
         return
       }
 
+      setLoadingInsumos(true)
       try {
         const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
           method: 'POST',
@@ -99,6 +102,8 @@ export default function EntradaInsumosPage() {
         }
       } catch (error) {
         console.error('Erro ao carregar dados de suplementação:', error)
+      } finally {
+        setLoadingInsumos(false)
       }
     }
 
@@ -256,13 +261,26 @@ export default function EntradaInsumosPage() {
             {/* Seção 2: Produto e Quantidade */}
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
               <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PRODUTO E QUANTIDADE</h2>
-              <Select
-                label="PRODUTO *"
-                value={form.produto}
-                onChange={(e) => set('produto')(e.target.value)}
-                error={getError('produto')}
-                options={[{ value: '', label: 'Selecione um insumo' }, ...(suplementacaoData?.insumos.map((i: string) => ({ value: i, label: i })) || [])]}
-              />
+              {suplementacaoData?.insumos && suplementacaoData.insumos.length > 0 ? (
+                <SearchableModal
+                  label="PRODUTO *"
+                  value={form.produto}
+                  onChange={set('produto')}
+                  error={getError('produto')}
+                  options={suplementacaoData.insumos}
+                  placeholder="Buscar insumo..."
+                  disabled={loadingInsumos}
+                />
+              ) : (
+                <Input
+                  label="PRODUTO *"
+                  placeholder={loadingInsumos ? 'Carregando...' : 'Digite o produto'}
+                  value={form.produto}
+                  onChange={setInput('produto')}
+                  error={getError('produto')}
+                  disabled={loadingInsumos}
+                />
+              )}
               <Input
                 label="QUANTIDADE (kg) *"
                 type="number"
@@ -299,13 +317,26 @@ export default function EntradaInsumosPage() {
                 onChange={setInput('notaFiscal')}
                 error={getError('notaFiscal')}
               />
-              <Select
-                label="FORNECEDOR *"
-                value={form.fornecedor}
-                onChange={(e) => set('fornecedor')(e.target.value)}
-                error={getError('fornecedor')}
-                options={[{ value: '', label: 'Selecione um fornecedor' }, ...(cadastroData?.fornecedores.map(f => ({ value: f, label: f })) || [])]}
-              />
+              {cadastroData?.fornecedores && cadastroData.fornecedores.length > 0 ? (
+                <SearchableModal
+                  label="FORNECEDOR *"
+                  value={form.fornecedor}
+                  onChange={set('fornecedor')}
+                  error={getError('fornecedor')}
+                  options={cadastroData.fornecedores}
+                  placeholder="Buscar fornecedor..."
+                  disabled={loading}
+                />
+              ) : (
+                <Input
+                  label="FORNECEDOR *"
+                  placeholder={loading ? 'Carregando...' : 'Digite o fornecedor'}
+                  value={form.fornecedor}
+                  onChange={setInput('fornecedor')}
+                  error={getError('fornecedor')}
+                  disabled={loading}
+                />
+              )}
             </div>
 
             {/* Seção 4: Transporte */}
@@ -323,13 +354,26 @@ export default function EntradaInsumosPage() {
                 onChange={setInput('motorista')}
                 error={getError('motorista')}
               />
-              <Select
-                label="RESPONSÁVEL RECEBIMENTO *"
-                value={form.responsavelRecebimento}
-                onChange={(e) => set('responsavelRecebimento')(e.target.value)}
-                error={getError('responsavelRecebimento')}
-                options={[{ value: '', label: 'Selecione um funcionário' }, ...(cadastroData?.funcionarios.map(f => ({ value: f, label: f })) || [])]}
-              />
+              {cadastroData?.funcionarios && cadastroData.funcionarios.length > 0 ? (
+                <SearchableModal
+                  label="RESPONSÁVEL RECEBIMENTO *"
+                  value={form.responsavelRecebimento}
+                  onChange={set('responsavelRecebimento')}
+                  error={getError('responsavelRecebimento')}
+                  options={cadastroData.funcionarios}
+                  placeholder="Buscar funcionário..."
+                  disabled={loading}
+                />
+              ) : (
+                <Input
+                  label="RESPONSÁVEL RECEBIMENTO *"
+                  placeholder={loading ? 'Carregando...' : 'Digite o funcionário'}
+                  value={form.responsavelRecebimento}
+                  onChange={setInput('responsavelRecebimento')}
+                  error={getError('responsavelRecebimento')}
+                  disabled={loading}
+                />
+              )}
             </div>
 
             <div className="flex flex-col gap-3">

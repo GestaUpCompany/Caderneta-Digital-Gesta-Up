@@ -72,4 +72,4 @@ export const DB_NAME = 'cadernetas-digitais'
 export const DB_VERSION = 2
 
 export const MAX_RETRY_COUNT = 3
-export const SYNC_INTERVAL_MS = 5_000
+export const SYNC_INTERVAL_MS = 30_000

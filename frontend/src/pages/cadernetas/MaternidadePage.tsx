@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
+import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
@@ -9,6 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
+import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -309,13 +311,14 @@ export default function MaternidadePage() {
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
-              <Select
+              <SearchableModal
                 label="PASTO"
                 value={form.pasto}
-                onChange={(e) => set('pasto')(e.target.value)}
+                onChange={set('pasto')}
                 error={getError('pasto')}
-                options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
-
+                options={pastosDisponiveis}
+                placeholder="Buscar pasto..."
+                disabled={carregandoPastosLotes}
               />
             ) : (
               <Input
@@ -325,15 +328,18 @@ export default function MaternidadePage() {
                 onChange={setInputEvent('pasto')}
                 error={getError('pasto')}
                 inputMode="text"
+                disabled={carregandoPastosLotes}
               />
             )}
             {lotesDisponiveis.length > 0 ? (
-              <Select
+              <SearchableModal
                 label="LOTE"
                 value={form.lote}
-                onChange={(e) => set('lote')(e.target.value)}
+                onChange={set('lote')}
                 error={getError('lote')}
-                options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+                options={lotesDisponiveis}
+                placeholder="Buscar lote..."
+                disabled={carregandoPastosLotes}
               />
             ) : (
               <Input
@@ -343,30 +349,12 @@ export default function MaternidadePage() {
                 onChange={setInputEvent('lote')}
                 error={getError('lote')}
                 inputMode="text"
+                disabled={carregandoPastosLotes}
               />
             )}
           </div>
           {detalhesLote && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="col-span-2">
-                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
-                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLote.categorias).join(', ')}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.nCabecas}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.pesoVivo} kg</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.qtdBezerros}</p>
-                </div>
-              </div>
-            </div>
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
           {carregandoPastosLotes && (
             <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>

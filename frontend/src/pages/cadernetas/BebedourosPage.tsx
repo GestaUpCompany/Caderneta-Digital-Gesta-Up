@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
@@ -197,17 +197,6 @@ export default function BebedourosPage() {
         </div>
       </div>
 
-      {/* Botão de PDF POP */}
-      <div className="bg-[#1a3a2a] text-white px-4 py-3">
-        <button
-          onClick={() => setShowPdfModal(true)}
-          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-        >
-          <span className="text-xl">📄</span>
-          <span>VER POP BEBEDOUROS</span>
-        </button>
-      </div>
-
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
@@ -231,13 +220,14 @@ export default function BebedourosPage() {
           />
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
-              <Select
+              <SearchableModal
                 label="PASTO"
                 value={form.pasto}
-                onChange={(e) => set('pasto')(e.target.value)}
+                onChange={set('pasto')}
                 error={getError('pasto')}
-                options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
-
+                options={pastosDisponiveis}
+                placeholder="Buscar pasto..."
+                disabled={carregandoPastosLotes}
               />
             ) : (
               <Input
@@ -246,16 +236,18 @@ export default function BebedourosPage() {
                 value={form.pasto}
                 onChange={setInput('pasto')}
                 error={getError('pasto')}
+                disabled={carregandoPastosLotes}
               />
             )}
             {lotesDisponiveis.length > 0 ? (
-              <Select
+              <SearchableModal
                 label="NÚMERO LOTE"
                 value={form.numeroLote}
-                onChange={(e) => set('numeroLote')(e.target.value)}
+                onChange={set('numeroLote')}
                 error={getError('numeroLote')}
-                options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
-
+                options={lotesDisponiveis}
+                placeholder="Buscar lote..."
+                disabled={carregandoPastosLotes}
               />
             ) : (
               <Input
@@ -265,6 +257,7 @@ export default function BebedourosPage() {
                 onChange={setInput('numeroLote')}
                 error={getError('numeroLote')}
                 inputMode="numeric"
+                disabled={carregandoPastosLotes}
               />
             )}
           </div>
@@ -318,6 +311,13 @@ export default function BebedourosPage() {
             error={getError('leituraBebedouro')}
             gridCols={3}
           />
+          <button
+            onClick={() => setShowPdfModal(true)}
+            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          >
+            <span className="text-xl">📄</span>
+            <span>VER POP BEBEDOUROS</span>
+          </button>
         </div>
 
         {/* Seção 4: Observação */}

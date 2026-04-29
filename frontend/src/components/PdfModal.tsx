@@ -12,6 +12,7 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [pinchCenter, setPinchCenter] = useState({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Prevenir scroll quando modal está aberto
@@ -56,8 +57,16 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
       )
+      const centerX = (touch1.clientX + touch2.clientX) / 2
+      const centerY = (touch1.clientY + touch2.clientY) / 2
+      
       ;(e.currentTarget as HTMLElement).dataset.initialDistance = distance.toString()
       ;(e.currentTarget as HTMLElement).dataset.initialZoom = zoom.toString()
+      ;(e.currentTarget as HTMLElement).dataset.initialPositionX = position.x.toString()
+      ;(e.currentTarget as HTMLElement).dataset.initialPositionY = position.y.toString()
+      ;(e.currentTarget as HTMLElement).dataset.pinchCenterX = centerX.toString()
+      ;(e.currentTarget as HTMLElement).dataset.pinchCenterY = centerY.toString()
+      setPinchCenter({ x: centerX, y: centerY })
     } else if (e.touches.length === 1 && zoom > 1) {
       // Iniciar arraste (pan) quando há zoom
       setIsDragging(true)
@@ -79,10 +88,21 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
       )
       const initialDistance = parseFloat((e.currentTarget as HTMLElement).dataset.initialDistance || '0')
       const initialZoom = parseFloat((e.currentTarget as HTMLElement).dataset.initialZoom || '1')
+      const initialPositionX = parseFloat((e.currentTarget as HTMLElement).dataset.initialPositionX || '0')
+      const initialPositionY = parseFloat((e.currentTarget as HTMLElement).dataset.initialPositionY || '0')
+      const pinchCenterX = parseFloat((e.currentTarget as HTMLElement).dataset.pinchCenterX || '0')
+      const pinchCenterY = parseFloat((e.currentTarget as HTMLElement).dataset.pinchCenterY || '0')
 
       if (initialDistance > 0) {
         const scale = Math.min(Math.max(distance / initialDistance * initialZoom, 0.5), 4)
+        
+        // Calcular nova posição para zoom no ponto da pinça
+        const scaleChange = scale / initialZoom
+        const newPositionX = pinchCenterX - (pinchCenterX - initialPositionX) * scaleChange
+        const newPositionY = pinchCenterY - (pinchCenterY - initialPositionY) * scaleChange
+        
         setZoom(scale)
+        setPosition({ x: newPositionX, y: newPositionY })
       }
     } else if (e.touches.length === 1 && isDragging && zoom > 1) {
       e.preventDefault()
@@ -96,6 +116,10 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
     if (e.currentTarget) {
       delete (e.currentTarget as HTMLElement).dataset.initialDistance
       delete (e.currentTarget as HTMLElement).dataset.initialZoom
+      delete (e.currentTarget as HTMLElement).dataset.initialPositionX
+      delete (e.currentTarget as HTMLElement).dataset.initialPositionY
+      delete (e.currentTarget as HTMLElement).dataset.pinchCenterX
+      delete (e.currentTarget as HTMLElement).dataset.pinchCenterY
     }
     setIsDragging(false)
   }
@@ -191,7 +215,7 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
         <div
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
-            transformOrigin: 'center center',
+            transformOrigin: '0 0',
             transition: isDragging ? 'none' : 'transform 0.1s ease',
           }}
         >

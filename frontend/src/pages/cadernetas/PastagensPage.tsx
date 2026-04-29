@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
+import PastoDetalhesCard from '../../components/PastoDetalhesCard'
+import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -342,12 +345,14 @@ export default function PastagensPage() {
             />
           </div>
           {lotesDisponiveis.length > 0 ? (
-            <Select
+            <SearchableModal
               label="NÚMERO DO LOTE"
               value={form.numeroLote}
-              onChange={(e) => set('numeroLote')(e.target.value)}
+              onChange={set('numeroLote')}
               error={getError('numeroLote')}
-              options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+              options={lotesDisponiveis}
+              placeholder="Buscar lote..."
+              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -357,29 +362,11 @@ export default function PastagensPage() {
               onChange={setInput('numeroLote')}
               error={getError('numeroLote')}
               inputMode="numeric"
+              disabled={carregandoPastosLotes}
             />
           )}
           {detalhesLote && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="col-span-2">
-                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
-                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLote.categorias).join(', ')}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.nCabecas}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.pesoVivo} kg</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLote.qtdBezerros}</p>
-                </div>
-              </div>
-            </div>
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
           {carregandoPastosLotes && (
             <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
@@ -390,12 +377,14 @@ export default function PastagensPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PASTO DE SAÍDA</h2>
           {pastosDisponiveis.length > 0 ? (
-            <Select
+            <SearchableModal
               label="PASTO DE SAÍDA"
               value={form.pastoSaida}
-              onChange={(e) => set('pastoSaida')(e.target.value)}
+              onChange={set('pastoSaida')}
               error={getError('pastoSaida')}
-              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis.map(p => ({ value: p, label: p }))]}
+              options={pastosDisponiveis}
+              placeholder="Buscar pasto de saída..."
+              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -404,25 +393,11 @@ export default function PastagensPage() {
               value={form.pastoSaida}
               onChange={setInput('pastoSaida')}
               error={getError('pastoSaida')}
+              disabled={carregandoPastosLotes}
             />
           )}
           {detalhesPastoSaida && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div>
-                  <p className="text-gray-500 font-semibold">ÁREA ÚTIL</p>
-                  <p className="text-gray-900 font-bold">{detalhesPastoSaida.areaUtil} ha</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">ESPÉCIE</p>
-                  <p className="text-gray-900 font-bold">{detalhesPastoSaida.especie}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">ALTURA</p>
-                  <p className="text-gray-900 font-bold">{detalhesPastoSaida.alturaSaida} cm</p>
-                </div>
-              </div>
-            </div>
+            <PastoDetalhesCard detalhes={detalhesPastoSaida} tipo="saida" />
           )}
           <Radio
             name="avaliacaoSaida"
@@ -448,14 +423,14 @@ export default function PastagensPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. PASTO DE ENTRADA</h2>
           {pastosDisponiveis.length > 0 ? (
-            <Select
+            <SearchableModal
               label="PASTO DE ENTRADA"
               value={form.pastoEntrada}
-              onChange={(e) => set('pastoEntrada')(e.target.value)}
+              onChange={set('pastoEntrada')}
               error={getError('pastoEntrada')}
-              options={[{ value: '', label: 'Selecione...' }, ...pastosDisponiveis
-                .filter(p => p !== form.pastoSaida)
-                .map(p => ({ value: p, label: p }))]}
+              options={pastosDisponiveis.filter(p => p !== form.pastoSaida)}
+              placeholder="Buscar pasto de entrada..."
+              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -464,25 +439,11 @@ export default function PastagensPage() {
               value={form.pastoEntrada}
               onChange={setInput('pastoEntrada')}
               error={getError('pastoEntrada')}
+              disabled={carregandoPastosLotes}
             />
           )}
           {detalhesPastoEntrada && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div>
-                  <p className="text-gray-500 font-semibold">ÁREA ÚTIL</p>
-                  <p className="text-gray-900 font-bold">{detalhesPastoEntrada.areaUtil} ha</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">ESPÉCIE</p>
-                  <p className="text-gray-900 font-bold">{detalhesPastoEntrada.especie}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">ALTURA</p>
-                  <p className="text-gray-900 font-bold">{detalhesPastoEntrada.alturaEntrada} cm</p>
-                </div>
-              </div>
-            </div>
+            <PastoDetalhesCard detalhes={detalhesPastoEntrada} tipo="entrada" />
           )}
           <Radio
             name="avaliacaoEntrada"

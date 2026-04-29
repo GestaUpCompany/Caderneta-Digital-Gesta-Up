@@ -5,6 +5,9 @@ import { splitVendorChunkPlugin } from 'vite'
 
 export default defineConfig({
   base: '/Caderneta-Digital-Gesta-Up/',
+  server: {
+    allowedHosts: true,
+  },
   plugins: [
     react(),
     splitVendorChunkPlugin(),

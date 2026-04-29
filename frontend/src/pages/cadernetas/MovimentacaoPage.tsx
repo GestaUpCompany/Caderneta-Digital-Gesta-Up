@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, Select } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData } from '../../services/cadastroData'
+import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const MOTIVOS = [
   { value: 'Morte', label: 'MORTE', icon: '⚰️' },
@@ -283,12 +284,14 @@ export default function MovimentacaoPage() {
           )}
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
           {lotesDisponiveis.length > 0 ? (
-            <Select
+            <SearchableModal
               label="LOTE ORIGEM"
               value={form.loteOrigem}
-              onChange={(e) => setForm((p) => ({ ...p, loteOrigem: e.target.value }))}
+              onChange={(val) => setForm((p) => ({ ...p, loteOrigem: val }))}
               error={getError('loteOrigem')}
-              options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+              options={lotesDisponiveis}
+              placeholder="Buscar lote..."
+              disabled={carregandoLotes}
             />
           ) : (
             <Input
@@ -301,26 +304,7 @@ export default function MovimentacaoPage() {
             />
           )}
           {detalhesLoteOrigem && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="col-span-2">
-                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
-                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLoteOrigem.categorias).join(', ')}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLoteOrigem.nCabecas}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
-                  <p className="text-gray-900 font-bold">{detalhesLoteOrigem.pesoVivo} kg</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
-                  <p className="text-gray-900 font-bold">{detalhesLoteOrigem.qtdBezerros}</p>
-                </div>
-              </div>
-            </div>
+            <LoteDetalhesCard detalhes={detalhesLoteOrigem} processarCategorias={processarCategorias} />
           )}
           {carregandoLotes && (
             <div className="text-sm text-gray-500">Carregando lotes...</div>
@@ -393,12 +377,14 @@ export default function MovimentacaoPage() {
               ) : form.motivoMovimentacao === 'Abate' ? (
                 <>
                   {frigorificosDisponiveis.length > 0 ? (
-                    <Select
+                    <SearchableModal
                       label="SELECIONE O FRIGORÍFICO:"
                       value={form.loteDestino}
-                      onChange={(e) => setForm((p) => ({ ...p, loteDestino: e.target.value }))}
+                      onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                       error={getError('loteDestino')}
-                      options={[{ value: '', label: 'Selecione...' }, ...frigorificosDisponiveis.map(f => ({ value: f, label: f }))]}
+                      options={frigorificosDisponiveis}
+                      placeholder="Buscar frigorífico..."
+                      disabled={carregandoLotes}
                     />
                   ) : (
                     <Input
@@ -419,17 +405,14 @@ export default function MovimentacaoPage() {
               ) : form.motivoMovimentacao === 'Transferência' || form.motivoMovimentacao === 'Entrada' ? (
                 <>
                   {lotesDisponiveis.length > 0 ? (
-                    <Select
+                    <SearchableModal
                       label="SELECIONE O LOTE:"
                       value={form.loteDestino}
-                      onChange={(e) => setForm((p) => ({ ...p, loteDestino: e.target.value }))}
+                      onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                       error={getError('loteDestino')}
-                      options={[
-                        { value: '', label: 'Selecione...' },
-                        ...lotesDisponiveis
-                          .filter(l => l !== form.loteOrigem) // Filtrar lote de origem
-                          .map(l => ({ value: l, label: l }))
-                      ]}
+                      options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
+                      placeholder="Buscar lote..."
+                      disabled={carregandoLotes}
                     />
                   ) : (
                     <Input
@@ -450,12 +433,14 @@ export default function MovimentacaoPage() {
               ) : form.motivoMovimentacao === 'Entrevero' ? (
                 <>
                   {lotesDisponiveis.length > 0 ? (
-                    <Select
+                    <SearchableModal
                       label="SELECIONE UM DESTINO:"
                       value={form.loteDestino}
-                      onChange={(e) => setForm((p) => ({ ...p, loteDestino: e.target.value }))}
+                      onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                       error={getError('loteDestino')}
-                      options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
+                      options={lotesDisponiveis}
+                      placeholder="Buscar destino..."
+                      disabled={carregandoLotes}
                     />
                   ) : (
                     <Input
