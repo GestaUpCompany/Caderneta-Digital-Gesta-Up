@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { loadCadastroData } from '../../services/cadastroData'
+import { getCachedCadastroData } from '../../services/cadastroCache'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const BASE = import.meta.env.BASE_URL
@@ -95,43 +95,24 @@ export default function SuplementacaoPage() {
   const [suplemento, setSuplemento] = useState('')
   const [quantidadeCreep, setQuantidadeCreep] = useState('')
   const [kgDeposito, setKgDeposito] = useState('')
-  const [carregandoSuplementos] = useState(false)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
-  const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
 
   // Carregar dados de suplementação quando cadastroSheetUrl mudar
   useEffect(() => {
-    async function carregarSuplementacaoData() {
-      if (!cadastroSheetUrl) {
-        setSuplementacaoData(null)
-        return
-      }
-
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setSuplementacaoData(data)
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados de suplementação:', error)
-      }
+    const cache = getCachedCadastroData()
+    if (cache) {
+      setSuplementacaoData({
+        mineral: cache.mineral || [],
+        proteinado: cache.proteinado || [],
+        racao: cache.racao || [],
+        insumos: cache.insumos || [],
+        dietas: cache.dietas || [],
+      })
     }
-
-    carregarSuplementacaoData()
-
-    // Polling a cada 3 minutos
-    const interval = setInterval(carregarSuplementacaoData, 180000) // 3 minutos
-
-    return () => clearInterval(interval)
-  }, [cadastroSheetUrl])
+  }, [])
 
   // Carregar suplementos quando tipo principal muda (exceto Creep)
   useEffect(() => {
@@ -176,33 +157,14 @@ export default function SuplementacaoPage() {
     carregarSuplementos()
   }, [form.produto, suplementacaoData])
 
-  // Carregar pastos e lotes quando fazenda mudar
+  // Carregar pastos e lotes do cache global
   useEffect(() => {
-    async function carregarPastosELotes() {
-      if (!cadastroSheetUrl) {
-        setCarregandoPastosLotes(false)
-        return
-      }
-
-      setCarregandoPastosLotes(true)
-      try {
-        const data = await loadCadastroData(cadastroSheetUrl)
-        setPastosDisponiveis(data.pastos || [])
-        setLotesDisponiveis(data.lotes || [])
-      } catch (error) {
-        console.error('Erro ao carregar pastos e lotes:', error)
-      } finally {
-        setCarregandoPastosLotes(false)
-      }
+    const cache = getCachedCadastroData()
+    if (cache) {
+      setPastosDisponiveis(cache.pastos || [])
+      setLotesDisponiveis(cache.lotes || [])
     }
-
-    carregarPastosELotes()
-
-    // Polling a cada 3 minutos
-    const interval = setInterval(carregarPastosELotes, 180000) // 3 minutos
-
-    return () => clearInterval(interval)
-  }, [cadastroSheetUrl])
+  }, [])
 
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
@@ -374,7 +336,6 @@ export default function SuplementacaoPage() {
                 error={getError('pasto')}
                 options={pastosDisponiveis}
                 placeholder="Buscar pasto..."
-                disabled={carregandoSuplementos}
               />
             ) : (
               <Input
@@ -383,7 +344,7 @@ export default function SuplementacaoPage() {
                 value={form.pasto}
                 onChange={setInput('pasto')}
                 error={getError('pasto')}
-                disabled={carregandoSuplementos}
+                disabled
               />
             )}
             {lotesDisponiveis.length > 0 ? (
@@ -394,7 +355,6 @@ export default function SuplementacaoPage() {
                 error={getError('numeroLote')}
                 options={lotesDisponiveis}
                 placeholder="Buscar lote..."
-                disabled={carregandoSuplementos}
               />
             ) : (
               <Input
@@ -404,15 +364,12 @@ export default function SuplementacaoPage() {
                 onChange={setInput('numeroLote')}
                 error={getError('numeroLote')}
                 inputMode="numeric"
-                disabled={carregandoSuplementos}
+                disabled
               />
             )}
           </div>
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
-          )}
-          {carregandoPastosLotes && (
-            <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
           )}
         </div>
 
@@ -432,9 +389,7 @@ export default function SuplementacaoPage() {
           {/* Lista suspensa para suplemento (Mineral/Proteinado/Ração) */}
           {form.produto && form.produto !== 'Creep' && (
             <div className="mt-2">
-              {carregandoSuplementos ? (
-                <p className="text-gray-500">Carregando suplementos...</p>
-              ) : suplementos.length > 0 ? (
+              {suplementos.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-bold text-gray-700">Suplemento:</label>
                   <select

@@ -35,6 +35,10 @@ async function getDB(): Promise<IDBPDatabase> {
         queue.createIndex('timestamp', 'timestamp')
         queue.createIndex('priority', 'priority')
       }
+      if (!db.objectStoreNames.contains('cadastroData')) {
+        const cache = db.createObjectStore('cadastroData', { keyPath: 'key' })
+        cache.createIndex('timestamp', 'timestamp')
+      }
     },
   })
 }
@@ -126,4 +130,41 @@ export async function countPending(): Promise<number> {
     total += count
   }
   return total
+}
+
+export interface CadastroDataCache {
+  key: string
+  data: any
+  timestamp: number
+}
+
+export async function saveCadastroData(key: string, data: any): Promise<void> {
+  const db = await getDB()
+  const cacheItem: CadastroDataCache = {
+    key,
+    data,
+    timestamp: Date.now(),
+  }
+  await db.put('cadastroData', cacheItem)
+}
+
+export async function getCadastroData(key: string): Promise<any | undefined> {
+  const db = await getDB()
+  const item = await db.get('cadastroData', key)
+  return item?.data
+}
+
+export async function getAllCadastroData(): Promise<Record<string, any>> {
+  const db = await getDB()
+  const items = await db.getAll('cadastroData')
+  const result: Record<string, any> = {}
+  for (const item of items as CadastroDataCache[]) {
+    result[item.key] = item.data
+  }
+  return result
+}
+
+export async function clearCadastroData(): Promise<void> {
+  const db = await getDB()
+  await db.clear('cadastroData')
 }
