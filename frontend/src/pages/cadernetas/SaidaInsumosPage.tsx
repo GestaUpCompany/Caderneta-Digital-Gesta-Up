@@ -34,7 +34,7 @@ export default function SaidaInsumosPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  // const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -54,7 +54,7 @@ export default function SaidaInsumosPage() {
 
       try {
         const data = await loadCadastroData(cadastroSheetUrl)
-        setCadastroData(data)
+        // setCadastroData(data)
         setLoading(false)
       } catch (err) {
         console.error('Erro ao carregar dados de cadastro:', err)
@@ -227,7 +227,7 @@ export default function SaidaInsumosPage() {
                 value={form.dietaProduzida}
                 onChange={(e) => set('dietaProduzida')(e.target.value)}
                 error={getError('dietaProduzida')}
-                options={[{ value: '', label: 'Selecione uma dieta' }, ...(suplementacaoData?.dietas.map(d => ({ value: d, label: d })) || [])]}
+                options={[{ value: '', label: 'Selecione uma dieta' }, ...(suplementacaoData?.dietas.map((d: string) => ({ value: d, label: d })) || [])]}
               />
               <Select
                 label="DESTINO DA PRODUÇÃO *"
@@ -247,7 +247,7 @@ export default function SaidaInsumosPage() {
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
               <h2 className="text-lg font-black text-gray-900 tracking-tight">2. INSUMOS UTILIZADOS (kg)</h2>
               <div className="grid grid-cols-1 gap-4">
-                {insumosRelevantes.map((insumo, index) => (
+                {insumosRelevantes.map((insumo: string, index: number) => (
                   <Input
                     key={index}
                     label={insumo}

@@ -261,7 +261,7 @@ export default function EntradaInsumosPage() {
                 value={form.produto}
                 onChange={(e) => set('produto')(e.target.value)}
                 error={getError('produto')}
-                options={[{ value: '', label: 'Selecione um insumo' }, ...(suplementacaoData?.insumos.map(i => ({ value: i, label: i })) || [])]}
+                options={[{ value: '', label: 'Selecione um insumo' }, ...(suplementacaoData?.insumos.map((i: string) => ({ value: i, label: i })) || [])]}
               />
               <Input
                 label="QUANTIDADE (kg) *"

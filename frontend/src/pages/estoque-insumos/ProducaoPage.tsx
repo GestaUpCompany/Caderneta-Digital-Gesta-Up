@@ -26,7 +26,7 @@ interface FormData {
 export default function ProducaoPage() {
   const navigate = useNavigate()
   const { fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
-  const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  // const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -151,7 +151,7 @@ export default function ProducaoPage() {
 
       // Identificar insumos usados
       const insumosUsados = suplementacaoData!.insumos.filter(
-        insumo => form.insumosQuantidades[insumo] && parseFloat(form.insumosQuantidades[insumo]) > 0
+        (insumo: string) => form.insumosQuantidades[insumo] && parseFloat(form.insumosQuantidades[insumo]) > 0
       )
 
       const saveRes = await fetch(`${BACKEND_URL}/api/insumos/producao`, {
@@ -259,7 +259,7 @@ export default function ProducaoPage() {
                 label="DIETA PRODUZIDA *"
                 value={form.dietaProduzida}
                 onChange={(e) => setForm({ ...form, dietaProduzida: e.target.value })}
-                options={[{ value: '', label: 'Selecione uma dieta' }, ...(suplementacaoData?.dietas.map(d => ({ value: d, label: d })) || [])]}
+                options={[{ value: '', label: 'Selecione uma dieta' }, ...(suplementacaoData?.dietas.map((d: string) => ({ value: d, label: d })) || [])]}
               />
               <Select
                 label="DESTINO DA PRODUÇÃO *"

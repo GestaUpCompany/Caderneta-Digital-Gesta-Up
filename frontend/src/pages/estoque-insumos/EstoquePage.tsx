@@ -81,49 +81,6 @@ export default function EstoquePage() {
     }
   }
 
-  const handleInicializar = async () => {
-    try {
-      const validateRes = await fetch(`${BACKEND_URL}/api/sheets/validate-farm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planilhaUrl: DATABASE_URL, farmId: fazendaId || fazenda, linkPosition: 2 }),
-      })
-
-      const validateData = await validateRes.json()
-      if (!validateData.success || !validateData.farmSheetUrl) {
-        setError('Não foi possível obter a URL da planilha de insumos')
-        return
-      }
-
-      // Converter estoquesIniciais para números
-      const estoquesNumericos: Record<string, number> = {}
-      for (const [key, value] of Object.entries(estoquesIniciais)) {
-        estoquesNumericos[key] = parseFloat(value) || 0
-      }
-
-      const res = await fetch(`${BACKEND_URL}/api/insumos/estoque/inicializar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          insumosSheetUrl: validateData.farmSheetUrl,
-          cadastroSheetUrl: cadastroSheetUrl,
-          estoquesIniciais: estoquesNumericos,
-        }),
-      })
-
-      const data = await res.json()
-      if (data.success) {
-        setShowInicializar(false)
-        setEstoquesIniciais({})
-        await loadData()
-      } else {
-        setError('Erro ao inicializar estoque')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao inicializar estoque')
-    }
-  }
-
   const handleAtualizarTodos = async () => {
     try {
       setAtualizando(true)

@@ -93,7 +93,7 @@ export default function SuplementacaoPage() {
   const [suplemento, setSuplemento] = useState('')
   const [quantidadeCreep, setQuantidadeCreep] = useState('')
   const [kgDeposito, setKgDeposito] = useState('')
-  const [carregandoSuplementos, setCarregandoSuplementos] = useState(false)
+  const [carregandoSuplementos] = useState(false)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
