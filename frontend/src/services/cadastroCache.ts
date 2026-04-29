@@ -1,4 +1,3 @@
-import { loadCadastroData } from './cadastroData'
 import { BACKEND_URL } from '../utils/constants'
 import { saveCadastroData, getAllCadastroData } from './indexedDB'
 
@@ -32,6 +31,16 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
   try {
     const cached = await getAllCadastroData()
     if (cached[CACHE_KEYS.PASTOS_LOTES] || cached[CACHE_KEYS.SUPLEMENTACAO]) {
+      console.log('[CadastroCache] Dados carregados do cache:', {
+        pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos?.length || 0,
+        lotes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotes?.length || 0,
+        frigorificos: cached[CACHE_KEYS.PASTOS_LOTES]?.frigorificos?.length || 0,
+        mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral?.length || 0,
+        proteinado: cached[CACHE_KEYS.SUPLEMENTACAO]?.proteinado?.length || 0,
+        racao: cached[CACHE_KEYS.SUPLEMENTACAO]?.racao?.length || 0,
+        insumos: cached[CACHE_KEYS.SUPLEMENTACAO]?.insumos?.length || 0,
+        dietas: cached[CACHE_KEYS.SUPLEMENTACAO]?.dietas?.length || 0,
+      })
       return {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos || [],
         lotes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotes || [],
@@ -43,6 +52,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         dietas: cached[CACHE_KEYS.SUPLEMENTACAO]?.dietas || [],
       }
     }
+    console.log('[CadastroCache] Nenhum dado encontrado no cache')
     return null
   } catch (error) {
     console.error('Erro ao carregar do cache:', error)
@@ -76,24 +86,55 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
  * Busca dados de cadastro da API (apenas quando online e após sync)
  */
 async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCacheData> {
-  const [pastosLotes, suplementacao] = await Promise.all([
-    loadCadastroData(cadastroSheetUrl),
-    fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+  try {
+    // Buscar pastos e lotes dos endpoints específicos
+    const pastosRes = await fetch(`${BACKEND_URL}/api/insumos/pastos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
-    }).then(res => res.json()),
-  ])
+    })
+    const pastosData = await pastosRes.json()
+    const pastos = pastosData.success ? pastosData.pastos || [] : []
 
-  return {
-    pastos: pastosLotes.pastos || [],
-    lotes: pastosLotes.lotes || [],
-    frigorificos: pastosLotes.frigorificos || [],
-    mineral: suplementacao.mineral || [],
-    proteinado: suplementacao.proteinado || [],
-    racao: suplementacao.racao || [],
-    insumos: suplementacao.insumos || [],
-    dietas: suplementacao.dietas || [],
+    const lotesRes = await fetch(`${BACKEND_URL}/api/insumos/lotes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+    })
+    const lotesData = await lotesRes.json()
+    const lotes = lotesData.success ? lotesData.lotes || [] : []
+
+    // Buscar dados de suplementação
+    const suplementacaoRes = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+    })
+    const suplementacaoData = await suplementacaoRes.json()
+
+    return {
+      pastos: pastos,
+      lotes: lotes,
+      frigorificos: [],
+      mineral: suplementacaoData.mineral || [],
+      proteinado: suplementacaoData.proteinado || [],
+      racao: suplementacaoData.racao || [],
+      insumos: suplementacaoData.insumos || [],
+      dietas: suplementacaoData.dietas || [],
+    }
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao buscar dados da API:', error)
+    // Retornar dados vazios em caso de erro para não quebrar o app
+    return {
+      pastos: [],
+      lotes: [],
+      frigorificos: [],
+      mineral: [],
+      proteinado: [],
+      racao: [],
+      insumos: [],
+      dietas: [],
+    }
   }
 }
 
@@ -105,10 +146,11 @@ export async function updateCadastroCache(cadastroSheetUrl: string): Promise<voi
   if (!cadastroSheetUrl) return
 
   try {
+    console.log('[CadastroCache] Iniciando atualização do cache da API...')
     // Verificar se há sync pendente antes de atualizar
     const pendingCount = await (await import('./indexedDB')).countPending()
     if (pendingCount > 0) {
-      console.log(`Há ${pendingCount} registros pendentes de sync. Aguardando sync antes de atualizar cache.`)
+      console.log(`[CadastroCache] Há ${pendingCount} registros pendentes de sync. Aguardando sync antes de atualizar cache.`)
       return
     }
 
@@ -116,6 +158,16 @@ export async function updateCadastroCache(cadastroSheetUrl: string): Promise<voi
     await saveToCache(data)
     cacheData = data
     lastCacheUpdate = Date.now()
+    console.log('[CadastroCache] Cache atualizado com sucesso da API:', {
+      pastos: data.pastos.length,
+      lotes: data.lotes.length,
+      frigorificos: data.frigorificos?.length || 0,
+      mineral: data.mineral?.length || 0,
+      proteinado: data.proteinado?.length || 0,
+      racao: data.racao?.length || 0,
+      insumos: data.insumos?.length || 0,
+      dietas: data.dietas?.length || 0,
+    })
   } catch (error) {
     console.error('Erro ao atualizar cache de cadastro:', error)
   }
@@ -126,18 +178,29 @@ export async function updateCadastroCache(cadastroSheetUrl: string): Promise<voi
  * Primeiro tenta carregar do IndexedDB, depois atualiza se online
  */
 export async function initializeCadastroCache(cadastroSheetUrl: string): Promise<void> {
-  if (!cadastroSheetUrl) return
+  if (!cadastroSheetUrl) {
+    console.log('[CadastroCache] cadastroSheetUrl não disponível, pulando inicialização')
+    return
+  }
 
+  console.log('[CadastroCache] Iniciando inicialização do cache de cadastro...')
+  
   // Primeiro carregar do cache (rápido, funciona offline)
   const cached = await loadFromCache()
   if (cached) {
     cacheData = cached
     lastCacheUpdate = Date.now()
+    console.log('[CadastroCache] Dados carregados do cache com sucesso')
+  } else {
+    console.log('[CadastroCache] Nenhum dado no cache, será necessário carregar da API')
   }
 
   // Depois atualizar se online
   if (navigator.onLine) {
+    console.log('[CadastroCache] App está online, atualizando cache da API...')
     await updateCadastroCache(cadastroSheetUrl)
+  } else {
+    console.log('[CadastroCache] App está offline, usando dados do cache')
   }
 }
 
@@ -149,8 +212,10 @@ export function startCadastroCachePolling(cadastroSheetUrl: string): void {
     clearInterval(pollingInterval)
   }
 
+  console.log('[CadastroCache] Iniciando polling de 5 minutos para atualização do cache')
   pollingInterval = window.setInterval(async () => {
     if (navigator.onLine && cadastroSheetUrl) {
+      console.log('[CadastroCache] Polling: atualizando cache...')
       await updateCadastroCache(cadastroSheetUrl)
     }
   }, CACHE_EXPIRY_MS)

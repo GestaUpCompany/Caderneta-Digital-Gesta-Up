@@ -9,7 +9,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { loadCadastroData } from '../../services/cadastroData'
+import { getCachedCadastroData } from '../../services/cadastroCache'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const BASE = import.meta.env.BASE_URL
@@ -108,7 +108,6 @@ export default function MaternidadePage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
-  const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
   const set = (field: keyof FormState) => (val: string) =>
@@ -135,33 +134,14 @@ export default function MaternidadePage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Carregar pastos e lotes quando fazenda mudar
+  // Carregar pastos e lotes do cache global
   useEffect(() => {
-    async function carregarPastosELotes() {
-      if (!cadastroSheetUrl) {
-        setCarregandoPastosLotes(false)
-        return
-      }
-
-      setCarregandoPastosLotes(true)
-      try {
-        const data = await loadCadastroData(cadastroSheetUrl)
-        setPastosDisponiveis(data.pastos || [])
-        setLotesDisponiveis(data.lotes || [])
-      } catch (error) {
-        console.error('Erro ao carregar pastos e lotes:', error)
-      } finally {
-        setCarregandoPastosLotes(false)
-      }
+    const cache = getCachedCadastroData()
+    if (cache) {
+      setPastosDisponiveis(cache.pastos || [])
+      setLotesDisponiveis(cache.lotes || [])
     }
-
-    carregarPastosELotes()
-
-    // Polling a cada 3 minutos
-    const interval = setInterval(carregarPastosELotes, 180000) // 3 minutos
-
-    return () => clearInterval(interval)
-  }, [cadastroSheetUrl])
+  }, [])
 
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
@@ -318,7 +298,6 @@ export default function MaternidadePage() {
                 error={getError('pasto')}
                 options={pastosDisponiveis}
                 placeholder="Buscar pasto..."
-                disabled={carregandoPastosLotes}
               />
             ) : (
               <Input
@@ -328,7 +307,7 @@ export default function MaternidadePage() {
                 onChange={setInputEvent('pasto')}
                 error={getError('pasto')}
                 inputMode="text"
-                disabled={carregandoPastosLotes}
+                disabled
               />
             )}
             {lotesDisponiveis.length > 0 ? (
@@ -339,7 +318,6 @@ export default function MaternidadePage() {
                 error={getError('lote')}
                 options={lotesDisponiveis}
                 placeholder="Buscar lote..."
-                disabled={carregandoPastosLotes}
               />
             ) : (
               <Input
@@ -349,15 +327,12 @@ export default function MaternidadePage() {
                 onChange={setInputEvent('lote')}
                 error={getError('lote')}
                 inputMode="text"
-                disabled={carregandoPastosLotes}
+                disabled
               />
             )}
           </div>
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
-          )}
-          {carregandoPastosLotes && (
-            <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
           )}
         </div>
 
