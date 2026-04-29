@@ -174,7 +174,7 @@ function AppInner() {
             ...deviceData,
           }),
         })
-        const data = await res.json()
+        await res.json()
       } catch (error) {
         console.error('Erro ao registrar dispositivo:', error)
       }
@@ -194,7 +194,7 @@ function AppInner() {
             ...sessionData,
           }),
         })
-        const data = await res.json()
+        await res.json()
       } catch (error) {
         console.error('Erro ao atualizar sessão:', error)
       }

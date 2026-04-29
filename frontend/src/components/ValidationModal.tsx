@@ -1,10 +1,9 @@
 interface ValidationModalProps {
   isOpen: boolean
   status: 'validating' | 'success'
-  onClose?: () => void
 }
 
-export default function ValidationModal({ isOpen, status, onClose }: ValidationModalProps) {
+export default function ValidationModal({ isOpen, status }: ValidationModalProps) {
   if (!isOpen) return null
 
   return (

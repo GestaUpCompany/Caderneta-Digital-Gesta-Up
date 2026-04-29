@@ -139,38 +139,54 @@ export default function ChecklistsMenuPage() {
         </div>
 
         {/* Grid de Checklists */}
-        <div className="grid grid-cols-2 gap-6">
-          {filteredItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleChecklistClick(item.id, item.path)}
-              style={{ backgroundColor: hexToRgba(item.color) }}
-              className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl hover:scale-105"
-            >
-              {item.icon ? (
-                <>
-                  <img
-                    src={item.icon}
-                    alt={item.label}
-                    className="w-40 h-auto object-contain rounded-[32px]"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = 'none'
-                      const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
-                      if (emoji) emoji.style.display = 'block'
-                    }}
-                  />
-                  <span className="text-5xl fallback-emoji hidden">{item.emoji}</span>
-                </>
-              ) : (
-                <span className="text-5xl">{item.emoji}</span>
-              )}
-              <span className="text-base font-bold text-center leading-tight text-gray-900">
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </div>
+        {filteredItems.length === 0 ? (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-300 rounded-3xl p-8 text-center shadow-lg animate-fade-in">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-blue-900 mb-3">
+              Checklists em desenvolvimento!
+            </p>
+            <p className="text-base text-gray-700 leading-relaxed">
+              Estamos trabalhando para disponibilizar essa funcionalidade em breve.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-6">
+            {filteredItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleChecklistClick(item.id, item.path)}
+                style={{ backgroundColor: hexToRgba(item.color) }}
+                className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl hover:scale-105"
+              >
+                {item.icon ? (
+                  <>
+                    <img
+                      src={item.icon}
+                      alt={item.label}
+                      className="w-40 h-auto object-contain rounded-[32px]"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
+                        if (emoji) emoji.style.display = 'block'
+                      }}
+                    />
+                    <span className="text-5xl fallback-emoji hidden">{item.emoji}</span>
+                  </>
+                ) : (
+                  <span className="text-5xl">{item.emoji}</span>
+                )}
+                <span className="text-base font-bold text-center leading-tight text-gray-900">
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )
