@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { setConfig, setConfigurado } from '../store/slices/configSlice'
 import { RootState } from '../store/store'
 import { Button, Input } from '../components/ui'
+import ValidationModal from '../components/ValidationModal'
 import { BACKEND_URL, DATABASE_URL, DEVICE_SHEET_URL } from '../utils/constants'
 import { getDeviceId } from '../utils/deviceId'
 
@@ -14,10 +15,12 @@ export default function Configuracoes() {
 
   const [fazenda, setFazenda] = useState(config.fazendaId || config.fazenda)
   const [usuario, setUsuario] = useState(config.usuario)
-  const [fazendaNome, setFazendaNome] = useState('')
+  const [fazendaNome, setFazendaNome] = useState(config.fazenda || '')
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [successMsg, setSuccessMsg] = useState('')
   const [validandoFazenda, setValidandoFazenda] = useState(false)
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [validationStatus, setValidationStatus] = useState<'validating' | 'success'>('validating')
 
   const validate = (): boolean => {
     const newErrors: { field: string; message: string }[] = []
@@ -53,6 +56,8 @@ export default function Configuracoes() {
     if (!validate()) return
 
     setValidandoFazenda(true)
+    setShowValidationModal(true)
+    setValidationStatus('validating')
 
     // Validar com posição 1 para obter URL da planilha da caderneta
     const validacaoCaderneta = await validarFazendaNaBase(fazenda.trim(), 1)
@@ -63,9 +68,12 @@ export default function Configuracoes() {
     setValidandoFazenda(false)
 
     if (!validacaoCaderneta.sucesso) {
+      setShowValidationModal(false)
       setErrors([{ field: 'fazenda', message: 'Verifique o ID digitado ou contate o administrador' }])
       return
     }
+
+    setValidationStatus('success')
 
     // Se validou com sucesso, usa o nome e link retornados da base de dados
     const nomeFazenda = validacaoCaderneta.nome || fazenda.trim()
@@ -73,6 +81,7 @@ export default function Configuracoes() {
     const linkCadastro = validacaoCadastro.link
 
     if (!linkPlanilha) {
+      setShowValidationModal(false)
       setErrors([{ field: 'fazenda', message: 'Link da planilha não encontrado na base de dados. Contate o administrador.' }])
       return
     }
@@ -90,7 +99,6 @@ export default function Configuracoes() {
       planilhaUrl: linkPlanilha,
       cadastroSheetUrl: linkCadastro || ''
     }
-    console.log('Configuracoes: Salvando configurações', configData)
 
     dispatch(setConfig(configData))
     dispatch(setConfigurado(true))
@@ -113,8 +121,11 @@ export default function Configuracoes() {
       console.error('Erro ao salvar data de configuração:', error)
     }
     
-    setSuccessMsg('Configurações salvas! Redirecionando...')
-    setTimeout(() => navigate('/'), 1500)
+    setTimeout(() => {
+      setShowValidationModal(false)
+      setSuccessMsg('Configurações salvas! Redirecionando...')
+      setTimeout(() => navigate('/'), 500)
+    }, 1500)
   }
 
   const getFieldError = (field: string) => errors.find(e => e.field === field)?.message
@@ -135,7 +146,7 @@ export default function Configuracoes() {
         <div className="w-[60px]"></div>
       </header>
 
-      <main className="flex-1 p-4 flex flex-col gap-5">
+      <main className="flex-1 p-4 flex flex-col gap-4">
         {/* Alerta de sucesso */}
         {successMsg && (
           <div className="bg-green-100 border-2 border-green-500 rounded-xl p-4 text-center">
@@ -143,8 +154,33 @@ export default function Configuracoes() {
           </div>
         )}
 
-        {/* Seu Nome */}
+        {/* Card de instruções - só mostra se não configurado */}
+        {!config.configurado && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+            <p className="text-sm text-blue-800 leading-relaxed">
+              Configure sua fazenda para começar a usar o sistema. Você precisará do código da fazenda fornecido pelo administrador.
+            </p>
+          </div>
+        )}
+
+        {/* Status da configuração */}
+        <div className="bg-white rounded-2xl p-4 shadow border-2 border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-600">STATUS DA CONFIGURAÇÃO</p>
+              <p className={`text-lg font-bold ${config.configurado ? 'text-green-600' : 'text-gray-400'}`}>
+                {config.configurado ? 'Configurado' : 'Não configurado'}
+              </p>
+            </div>
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${config.configurado ? 'bg-green-100' : 'bg-gray-100'}`}>
+              <div className={`w-4 h-4 rounded-full ${config.configurado ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card de dados do usuário */}
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-600 mb-4">DADOS DO USUÁRIO</h3>
           <Input
             label="SEU NOME"
             placeholder="Ex: João Silva"
@@ -155,14 +191,22 @@ export default function Configuracoes() {
           />
         </div>
 
-        {/* ID da Fazenda */}
+        {/* Card de dados da fazenda */}
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200">
+
+          {/* Nome da Fazenda (autopreenchido) */}
+          {fazendaNome && (
+            <div className="mb-4 p-3 bg-green-50 border-2 border-green-200 rounded-xl">
+              <p className="text-base font-bold text-green-800">{fazendaNome}</p>
+            </div>
+          )}
+
+          {/* ID da Fazenda */}
           <Input
             label="ID DA FAZENDA"
             value={fazenda}
             onChange={(e) => setFazenda(e.target.value)}
             error={getFieldError('fazenda')}
-            helper="Digite o código da fazenda fornecido pelo administrador"
             fullWidth
             disabled={validandoFazenda}
           />
@@ -171,25 +215,32 @@ export default function Configuracoes() {
           )}
         </div>
 
-        {/* Nome da Fazenda (autopreenchido) */}
-        {fazendaNome && (
-          <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200">
-            <Input
-              label="NOME DA FAZENDA"
-              value={fazendaNome}
-              error={getFieldError('fazenda')}
-              fullWidth
-              disabled
-              helper="Nome da fazenda recuperado da base de dados"
-            />
+        {/* Card de instruções para encontrar ID - só mostra se não configurado */}
+        {!config.configurado && (
+          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+            <p className="text-sm font-semibold text-gray-700 mb-2">ONDE ENCONTRAR O ID DA FAZENDA?</p>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              O ID da fazenda é fornecido pelo administrador do sistema. Entre em contato com o suporte caso não tenha essa informação.
+            </p>
           </div>
         )}
 
         {/* Botão Salvar */}
-        <Button onClick={handleSalvar} variant="success" icon="💾">
-          SALVAR CONFIGURAÇÕES
+        <Button 
+          onClick={handleSalvar} 
+          variant="success" 
+          icon="💾"
+          disabled={validandoFazenda || !fazenda.trim() || !usuario.trim()}
+          className={validandoFazenda || !fazenda.trim() || !usuario.trim() ? 'opacity-50 cursor-not-allowed' : ''}
+        >
+          {validandoFazenda ? 'VALIDANDO...' : 'SALVAR CONFIGURAÇÕES'}
         </Button>
       </main>
+
+      <ValidationModal
+        isOpen={showValidationModal}
+        status={validationStatus}
+      />
     </div>
   )
 }

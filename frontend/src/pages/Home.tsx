@@ -11,7 +11,7 @@ const BASE = import.meta.env.BASE_URL
 
 export default function Home() {
   const navigate = useNavigate()
-  const { configurado, fazenda, fazendaId } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, fazendaId, usuario } = useSelector((state: RootState) => state.config)
 
   // Verificar se é fazenda Marcon ou GestaUp (usando o ID)
   const farmId = fazendaId || fazenda
@@ -124,7 +124,7 @@ export default function Home() {
             />
           </div>
           {/* Banner de boas-vindas como overlay */}
-          {configurado && fazenda && (
+          {configurado && usuario && (
             <div className="mt-4 p-4 rounded-xl shadow-lg animate-fade-in w-full" style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.05))', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0">
@@ -132,11 +132,18 @@ export default function Home() {
                 </div>
                 <div className="flex-1">
                   <p className="text-base font-bold text-white">
-                    {greeting}, {fazenda.toUpperCase()}!
+                    {greeting}, {usuario}!
                   </p>
-                  <p className="text-xs text-gray-200 mt-1">
-                    {currentDate}
-                  </p>
+                  {fazenda && (
+                    <p className="text-xs text-gray-200 mt-1">
+                      {fazenda.toUpperCase()} • {currentDate}
+                    </p>
+                  )}
+                  {!fazenda && (
+                    <p className="text-xs text-gray-200 mt-1">
+                      {currentDate}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -163,14 +170,24 @@ export default function Home() {
           </button>
         )}
         {!configurado ? (
-          <div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 text-center">
-            <p className="text-xl font-bold text-yellow-800 mb-4">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-300 rounded-3xl p-8 text-center shadow-lg animate-fade-in">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-blue-900 mb-3">
               CONFIGURAÇÃO NECESSÁRIA
             </p>
-            <p className="text-lg text-gray-700 mb-6">
-              Configure a fazenda antes de usar as cadernetas
+            <p className="text-base text-gray-700 mb-8 leading-relaxed">
+              Configure sua fazenda para começar a usar o sistema e acessar todas as funcionalidades das cadernetas.
             </p>
-            <Button onClick={() => navigate('/configuracoes')} variant="primary">
+            <Button 
+              onClick={() => navigate('/configuracoes')} 
+              variant="primary"
+              className="w-full py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+            >
               IR PARA CONFIGURAÇÕES
             </Button>
           </div>
@@ -236,7 +253,7 @@ export default function Home() {
       </main>
 
       {/* Versículo do Dia */}
-      {versiculoDoDia && (
+      {versiculoDoDia && configurado && (
         <div className="px-4 py-6 bg-gradient-to-r from-green-50 to-blue-50 border-t-2 border-green-200">
           <div className="max-w-md mx-auto text-center">
             <div className="text-2xl mb-2">📖</div>

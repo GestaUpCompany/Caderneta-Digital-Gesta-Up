@@ -25,12 +25,6 @@ export default function SearchableModal({
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus()
-    }
-  }, [isOpen])
-
-  useEffect(() => {
     if (isOpen) {
       const filtered = options.filter(option =>
         option.toLowerCase().includes(searchTerm.toLowerCase())

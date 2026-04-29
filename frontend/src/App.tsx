@@ -77,8 +77,6 @@ const RelatoriosPage = lazy(() => import('./pages/RelatoriosPage'))
 const EstoquePage = lazy(() => import('./pages/estoque-insumos/EstoquePage'))
 
 function AppInner() {
-  console.log('AppInner: Testando hooks...')
-  
   useSync()
   const location = useLocation()
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
@@ -177,7 +175,6 @@ function AppInner() {
           }),
         })
         const data = await res.json()
-        console.log('Registro de dispositivo:', data)
       } catch (error) {
         console.error('Erro ao registrar dispositivo:', error)
       }
@@ -198,7 +195,6 @@ function AppInner() {
           }),
         })
         const data = await res.json()
-        console.log('Atualização de sessão:', data)
       } catch (error) {
         console.error('Erro ao atualizar sessão:', error)
       }
