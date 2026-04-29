@@ -209,6 +209,8 @@ export function validateEnfermaria(data: Record<string, unknown>): ValidationRes
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
   if (!isNonEmptyString(data.lote))
     errors.push({ field: 'lote', message: 'Lote é obrigatório' })
+  if (!isNonEmptyString(data.brincoChip))
+    errors.push({ field: 'brincoChip', message: 'Brinco/Chip é obrigatório' })
 
   return { isValid: errors.length === 0, errors }
 }

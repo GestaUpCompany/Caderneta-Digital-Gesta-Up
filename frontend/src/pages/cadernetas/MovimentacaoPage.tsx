@@ -30,6 +30,17 @@ const CATEGORIAS = [
   { value: 'Outros', label: 'OUTROS' },
 ]
 
+// Função para processar categorias com diferentes delimitadores
+function processarCategorias(categorias: string): string[] {
+  if (!categorias) return []
+  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
+  const regex = /[,.;]+\s*/
+  return categorias
+    .split(regex)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+}
+
 interface FormState {
   data: string
   loteOrigem: string
@@ -69,6 +80,7 @@ export default function MovimentacaoPage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
   const [carregandoLotes, setCarregandoLotes] = useState(false)
+  const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -134,6 +146,32 @@ export default function MovimentacaoPage() {
 
     return () => clearInterval(interval)
   }, [cadastroSheetUrl])
+
+  // Buscar detalhes do lote origem quando selecionado
+  useEffect(() => {
+    async function carregarDetalhesLoteOrigem() {
+      if (!form.loteOrigem || !cadastroSheetUrl) {
+        setDetalhesLoteOrigem(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.loteOrigem }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setDetalhesLoteOrigem(data.detalhes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do lote origem:', error)
+      }
+    }
+
+    carregarDetalhesLoteOrigem()
+  }, [form.loteOrigem, cadastroSheetUrl])
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -261,6 +299,28 @@ export default function MovimentacaoPage() {
               error={getError('loteOrigem')}
               inputMode="numeric"
             />
+          )}
+          {detalhesLoteOrigem && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="col-span-2">
+                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
+                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLoteOrigem.categorias).join(', ')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLoteOrigem.nCabecas}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
+                  <p className="text-gray-900 font-bold">{detalhesLoteOrigem.pesoVivo} kg</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLoteOrigem.qtdBezerros}</p>
+                </div>
+              </div>
+            </div>
           )}
           {carregandoLotes && (
             <div className="text-sm text-gray-500">Carregando lotes...</div>

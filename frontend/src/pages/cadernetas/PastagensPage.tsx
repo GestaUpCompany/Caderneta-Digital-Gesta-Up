@@ -70,6 +70,17 @@ const CATEGORIAS: { campo: keyof FormState; label: string }[] = [
   { campo: 'outros', label: 'OUTROS' },
 ]
 
+// Função para processar categorias com diferentes delimitadores
+function processarCategorias(categorias: string): string[] {
+  if (!categorias) return []
+  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
+  const regex = /[,.;]+\s*/
+  return categorias
+    .split(regex)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+}
+
 export default function PastagensPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
@@ -83,6 +94,9 @@ export default function PastagensPage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [detalhesPastoSaida, setDetalhesPastoSaida] = useState<any>(null)
+  const [detalhesPastoEntrada, setDetalhesPastoEntrada] = useState<any>(null)
+  const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -119,6 +133,84 @@ export default function PastagensPage() {
 
     return () => clearInterval(interval)
   }, [cadastroSheetUrl])
+
+  // Buscar detalhes do pasto de saída quando selecionado
+  useEffect(() => {
+    async function carregarDetalhesPastoSaida() {
+      if (!form.pastoSaida || !cadastroSheetUrl) {
+        setDetalhesPastoSaida(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/pasto-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, pasto: form.pastoSaida }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setDetalhesPastoSaida(data.detalhes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do pasto de saída:', error)
+      }
+    }
+
+    carregarDetalhesPastoSaida()
+  }, [form.pastoSaida, cadastroSheetUrl])
+
+  // Buscar detalhes do pasto de entrada quando selecionado
+  useEffect(() => {
+    async function carregarDetalhesPastoEntrada() {
+      if (!form.pastoEntrada || !cadastroSheetUrl) {
+        setDetalhesPastoEntrada(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/pasto-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, pasto: form.pastoEntrada }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setDetalhesPastoEntrada(data.detalhes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do pasto de entrada:', error)
+      }
+    }
+
+    carregarDetalhesPastoEntrada()
+  }, [form.pastoEntrada, cadastroSheetUrl])
+
+  // Buscar detalhes do lote quando selecionado
+  useEffect(() => {
+    async function carregarDetalhesLote() {
+      if (!form.numeroLote || !cadastroSheetUrl) {
+        setDetalhesLote(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.numeroLote }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setDetalhesLote(data.detalhes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do lote:', error)
+      }
+    }
+
+    carregarDetalhesLote()
+  }, [form.numeroLote, cadastroSheetUrl])
 
   const total = ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'].reduce(
     (acc, c) => acc + (Number(form[c as keyof FormState]) || 0), 0
@@ -226,17 +318,6 @@ export default function PastagensPage() {
         </div>
       </div>
 
-      {/* Botão de PDF POP */}
-      <div className="bg-[#1a3a2a] text-white px-4 py-3">
-        <button
-          onClick={() => setShowPdfModal(true)}
-          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-        >
-          <span className="text-xl">📄</span>
-          <span>VER POP MANEJO DE PASTAGENS</span>
-        </button>
-      </div>
-
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
@@ -278,6 +359,28 @@ export default function PastagensPage() {
               inputMode="numeric"
             />
           )}
+          {detalhesLote && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="col-span-2">
+                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
+                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLote.categorias).join(', ')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.nCabecas}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.pesoVivo} kg</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.qtdBezerros}</p>
+                </div>
+              </div>
+            </div>
+          )}
           {carregandoPastosLotes && (
             <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
           )}
@@ -303,6 +406,24 @@ export default function PastagensPage() {
               error={getError('pastoSaida')}
             />
           )}
+          {detalhesPastoSaida && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <p className="text-gray-500 font-semibold">ÁREA ÚTIL</p>
+                  <p className="text-gray-900 font-bold">{detalhesPastoSaida.areaUtil} ha</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">ESPÉCIE</p>
+                  <p className="text-gray-900 font-bold">{detalhesPastoSaida.especie}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">ALTURA</p>
+                  <p className="text-gray-900 font-bold">{detalhesPastoSaida.alturaSaida} cm</p>
+                </div>
+              </div>
+            </div>
+          )}
           <Radio
             name="avaliacaoSaida"
             label="AVALIAÇÃO DO PASTO DE SAÍDA"
@@ -313,6 +434,15 @@ export default function PastagensPage() {
             error={getError('avaliacaoSaida')}
           />
         </div>
+
+        {/* Botão de PDF POP */}
+        <button
+          onClick={() => setShowPdfModal(true)}
+          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+        >
+          <span className="text-xl">📄</span>
+          <span>VER POP MANEJO DE PASTAGENS</span>
+        </button>
 
         {/* Seção 3: Pasto de Entrada */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
@@ -335,6 +465,24 @@ export default function PastagensPage() {
               onChange={setInput('pastoEntrada')}
               error={getError('pastoEntrada')}
             />
+          )}
+          {detalhesPastoEntrada && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <p className="text-gray-500 font-semibold">ÁREA ÚTIL</p>
+                  <p className="text-gray-900 font-bold">{detalhesPastoEntrada.areaUtil} ha</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">ESPÉCIE</p>
+                  <p className="text-gray-900 font-bold">{detalhesPastoEntrada.especie}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">ALTURA</p>
+                  <p className="text-gray-900 font-bold">{detalhesPastoEntrada.alturaEntrada} cm</p>
+                </div>
+              </div>
+            </div>
           )}
           <Radio
             name="avaliacaoEntrada"

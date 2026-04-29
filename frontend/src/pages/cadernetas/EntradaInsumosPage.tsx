@@ -8,6 +8,7 @@ import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { loadCadastroData, CadastroData } from '../../services/cadastroData'
+import { BACKEND_URL } from '../../utils/constants'
 
 interface FormState {
   dataEntrada: string
@@ -46,6 +47,7 @@ export default function EntradaInsumosPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isHorarioManual, setIsHorarioManual] = useState(false)
 
@@ -75,6 +77,32 @@ export default function EntradaInsumosPage() {
     }
 
     loadData()
+  }, [cadastroSheetUrl])
+
+  // Carregar dados de suplementação (insumos)
+  useEffect(() => {
+    async function carregarSuplementacaoData() {
+      if (!cadastroSheetUrl) {
+        setSuplementacaoData(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setSuplementacaoData(data)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados de suplementação:', error)
+      }
+    }
+
+    carregarSuplementacaoData()
   }, [cadastroSheetUrl])
 
   useEffect(() => {
@@ -233,7 +261,7 @@ export default function EntradaInsumosPage() {
                 value={form.produto}
                 onChange={(e) => set('produto')(e.target.value)}
                 error={getError('produto')}
-                options={[{ value: '', label: 'Selecione um insumo' }, ...(cadastroData?.insumos.map(i => ({ value: i, label: i })) || [])]}
+                options={[{ value: '', label: 'Selecione um insumo' }, ...(suplementacaoData?.insumos.map(i => ({ value: i, label: i })) || [])]}
               />
               <Input
                 label="QUANTIDADE (kg) *"

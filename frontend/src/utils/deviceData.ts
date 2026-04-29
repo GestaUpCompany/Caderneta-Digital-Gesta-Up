@@ -49,8 +49,8 @@ export function getDeviceStaticData() {
   // Resolução da tela
   const screenResolution = `${window.screen.width}x${window.screen.height}`
 
-  // Fuso horário
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown'
+  // Fuso horário (fixado para Cuiabá)
+  const timezone = 'America/Cuiaba'
 
   return {
     os,

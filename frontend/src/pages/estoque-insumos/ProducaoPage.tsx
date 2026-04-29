@@ -27,6 +27,7 @@ export default function ProducaoPage() {
   const navigate = useNavigate()
   const { fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,15 +53,7 @@ export default function ProducaoPage() {
 
       try {
         const data = await loadCadastroData(cadastroSheetUrl)
-        
-        // Inicializar quantidades de insumos como vazio
-        const insumosQuantidades: Record<string, string> = {}
-        data.insumos.forEach(insumo => {
-          insumosQuantidades[insumo] = ''
-        })
-
         setCadastroData(data)
-        setForm(prev => ({ ...prev, insumosQuantidades }))
         setLoading(false)
       } catch (err) {
         setError('Erro ao carregar dados de cadastro')
@@ -69,6 +62,39 @@ export default function ProducaoPage() {
     }
 
     loadData()
+  }, [cadastroSheetUrl])
+
+  // Carregar dados de suplementação (insumos e dietas)
+  useEffect(() => {
+    async function carregarSuplementacaoData() {
+      if (!cadastroSheetUrl) {
+        setSuplementacaoData(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setSuplementacaoData(data)
+
+          // Inicializar quantidades de insumos como vazio
+          const insumosQuantidades: Record<string, string> = {}
+          data.insumos.forEach((insumo: string) => {
+            insumosQuantidades[insumo] = ''
+          })
+          setForm(prev => ({ ...prev, insumosQuantidades }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados de suplementação:', error)
+      }
+    }
+
+    carregarSuplementacaoData()
   }, [cadastroSheetUrl])
 
   useEffect(() => {
@@ -81,8 +107,8 @@ export default function ProducaoPage() {
 
   // Obter insumos relevantes para a dieta selecionada
   const getInsumosPorDieta = (): string[] => {
-    if (!cadastroData) return []
-    if (!form.dietaProduzida) return cadastroData.insumos
+    if (!suplementacaoData) return []
+    if (!form.dietaProduzida) return suplementacaoData.insumos
 
     // Se tiver mapeamento específico, usar. Senão, mostrar todos os insumos
     const insumosMapeados = DIETA_INSUMOS_MAP[form.dietaProduzida]
@@ -91,7 +117,7 @@ export default function ProducaoPage() {
     }
 
     // Por padrão, mostrar todos os insumos
-    return cadastroData.insumos
+    return suplementacaoData.insumos
   }
 
   const insumosRelevantes = getInsumosPorDieta()
@@ -124,7 +150,7 @@ export default function ProducaoPage() {
       ]
 
       // Identificar insumos usados
-      const insumosUsados = cadastroData!.insumos.filter(
+      const insumosUsados = suplementacaoData!.insumos.filter(
         insumo => form.insumosQuantidades[insumo] && parseFloat(form.insumosQuantidades[insumo]) > 0
       )
 
@@ -148,7 +174,7 @@ export default function ProducaoPage() {
       const saidaId = saveData.id
 
       // Salvar cada insumo na página Dieta Insumos
-      for (const insumo of cadastroData!.insumos) {
+      for (const insumo of suplementacaoData!.insumos) {
         const quantidade = form.insumosQuantidades[insumo]
         if (quantidade && parseFloat(quantidade) > 0) {
           const dietaInsumoValues = [saidaId, form.dataProducao, form.dietaProduzida, insumo, quantidade]
@@ -233,7 +259,7 @@ export default function ProducaoPage() {
                 label="DIETA PRODUZIDA *"
                 value={form.dietaProduzida}
                 onChange={(e) => setForm({ ...form, dietaProduzida: e.target.value })}
-                options={[{ value: '', label: 'Selecione uma dieta' }, ...(cadastroData?.dietas.map(d => ({ value: d, label: d })) || [])]}
+                options={[{ value: '', label: 'Selecione uma dieta' }, ...(suplementacaoData?.dietas.map(d => ({ value: d, label: d })) || [])]}
               />
               <Select
                 label="DESTINO DA PRODUÇÃO *"

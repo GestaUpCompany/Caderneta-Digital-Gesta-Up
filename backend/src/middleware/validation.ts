@@ -79,7 +79,6 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     leituraCocho: Joi.number().integer().min(-1).max(3).required(),
     kgCocho: Joi.number().min(0).default(0),
     kgDeposito: Joi.number().min(0).default(0),
-    gado: Joi.string().valid('Cria', 'Recria', 'Engorda').required(),
     categorias: Joi.array().items(Joi.string()).min(1).required(),
   }),
 

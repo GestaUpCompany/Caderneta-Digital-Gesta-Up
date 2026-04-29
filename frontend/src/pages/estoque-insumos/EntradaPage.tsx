@@ -26,6 +26,7 @@ export default function EntradaPage() {
   const navigate = useNavigate()
   const { fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +66,32 @@ export default function EntradaPage() {
     }
 
     loadData()
+  }, [cadastroSheetUrl])
+
+  // Carregar dados de suplementação (insumos)
+  useEffect(() => {
+    async function carregarSuplementacaoData() {
+      if (!cadastroSheetUrl) {
+        setSuplementacaoData(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setSuplementacaoData(data)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados de suplementação:', error)
+      }
+    }
+
+    carregarSuplementacaoData()
   }, [cadastroSheetUrl])
 
   useEffect(() => {
@@ -240,7 +267,7 @@ export default function EntradaPage() {
                 label="PRODUTO *"
                 value={form.produto}
                 onChange={(e) => setForm({ ...form, produto: e.target.value })}
-                options={[{ value: '', label: 'Selecione um insumo' }, ...(cadastroData?.insumos.map(i => ({ value: i, label: i })) || [])]}
+                options={[{ value: '', label: 'Selecione um insumo' }, ...(suplementacaoData?.insumos.map((i: string) => ({ value: i, label: i })) || [])]}
               />
               <Input
                 label="QUANTIDADE (kg) *"

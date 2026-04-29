@@ -52,6 +52,17 @@ const CATEGORIAS = [
   { value: 'Outros', label: 'OUTROS' },
 ]
 
+// Função para processar categorias com diferentes delimitadores
+function processarCategorias(categorias: string): string[] {
+  if (!categorias) return []
+  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
+  const regex = /[,.;]+\s*/
+  return categorias
+    .split(regex)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+}
+
 interface FormState {
   data: string
   pasto: string
@@ -116,6 +127,7 @@ export default function EnfermariaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -165,6 +177,32 @@ export default function EnfermariaPage() {
     return () => clearInterval(interval)
   }, [cadastroSheetUrl])
 
+  // Buscar detalhes do lote quando selecionado
+  useEffect(() => {
+    async function carregarDetalhesLote() {
+      if (!form.lote || !cadastroSheetUrl) {
+        setDetalhesLote(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.lote }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setDetalhesLote(data.detalhes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do lote:', error)
+      }
+    }
+
+    carregarDetalhesLote()
+  }, [form.lote, cadastroSheetUrl])
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
@@ -194,7 +232,6 @@ export default function EnfermariaPage() {
       lote: form.lote,
       brincoChip: form.brincoChip,
       categoria: categoriasString,
-      tratamento: tratamentoFinal,
       problemaCasco: form.problemaCasco,
       problemaCascoObs: form.problemaCascoObs,
       sintomasPneumonia: form.sintomasPneumonia,
@@ -211,6 +248,7 @@ export default function EnfermariaPage() {
       fraturasObs: form.fraturasObs,
       desordensDigestivas: form.desordensDigestivas,
       desordensDigestivasObs: form.desordensDigestivasObs,
+      tratamento: tratamentoFinal,
     })
 
     setSalvando(false)
@@ -223,7 +261,6 @@ export default function EnfermariaPage() {
         lote: form.lote,
         brincoChip: form.brincoChip,
         categoria: categoriasString,
-        tratamento: tratamentoFinal,
         problemaCasco: form.problemaCasco,
         problemaCascoObs: form.problemaCascoObs,
         sintomasPneumonia: form.sintomasPneumonia,
@@ -240,6 +277,7 @@ export default function EnfermariaPage() {
         fraturasObs: form.fraturasObs,
         desordensDigestivas: form.desordensDigestivas,
         desordensDigestivasObs: form.desordensDigestivasObs,
+        tratamento: tratamentoFinal,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -336,11 +374,40 @@ export default function EnfermariaPage() {
               error={getError('lote')}
             />
           )}
+          {detalhesLote && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="col-span-2">
+                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
+                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLote.categorias).join(', ')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.nCabecas}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.pesoVivo} kg</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.qtdBezerros}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Seção 2: Identificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
+          <Input
+            label="BRINCO / CHIP"
+            placeholder="Número do brinco ou chip"
+            value={form.brincoChip}
+            onChange={setInput('brincoChip')}
+            error={getError('brincoChip')}
+          />
           <CheckboxGroup
             label="CATEGORIAS:"
             options={CATEGORIAS}

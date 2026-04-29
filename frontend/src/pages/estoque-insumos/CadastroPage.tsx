@@ -4,11 +4,13 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { loadCadastroData, CadastroData } from '../../services/cadastroData'
+import { BACKEND_URL } from '../../utils/constants'
 
 export default function CadastroPage() {
   const navigate = useNavigate()
   const { fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [data, setData] = useState<CadastroData | null>(null)
+  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,6 +33,32 @@ export default function CadastroPage() {
     }
 
     loadData()
+  }, [cadastroSheetUrl])
+
+  // Carregar dados de suplementação (insumos e dietas)
+  useEffect(() => {
+    async function carregarSuplementacaoData() {
+      if (!cadastroSheetUrl) {
+        setSuplementacaoData(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setSuplementacaoData(data)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados de suplementação:', error)
+      }
+    }
+
+    carregarSuplementacaoData()
   }, [cadastroSheetUrl])
 
   return (
@@ -112,68 +140,14 @@ export default function CadastroPage() {
               )}
             </div>
 
-            {/* Minerais */}
-            <div className="bg-white rounded-2xl p-6 shadow-md">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                MINERAIS
-              </h2>
-              {data.minerais.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2">
-                  {data.minerais.map((mineral, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-3 text-gray-900">
-                      {mineral}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 italic">Nenhum mineral cadastrado</p>
-              )}
-            </div>
-
-            {/* Proteinados */}
-            <div className="bg-white rounded-2xl p-6 shadow-md">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                PROTEINADOS
-              </h2>
-              {data.proteinados.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2">
-                  {data.proteinados.map((proteinado, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-3 text-gray-900">
-                      {proteinado}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 italic">Nenhum proteinado cadastrado</p>
-              )}
-            </div>
-
-            {/* Rações */}
-            <div className="bg-white rounded-2xl p-6 shadow-md">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                RAÇÕES
-              </h2>
-              {data.racoes.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2">
-                  {data.racoes.map((racao, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-3 text-gray-900">
-                      {racao}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 italic">Nenhuma ração cadastrada</p>
-              )}
-            </div>
-
-            {/* Insumos */}
+            {/* Insumos - da aba Suplementação */}
             <div className="bg-white rounded-2xl p-6 shadow-md">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
                 INSUMOS
               </h2>
-              {data.insumos.length > 0 ? (
+              {suplementacaoData?.insumos && suplementacaoData.insumos.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
-                  {data.insumos.map((insumo, index) => (
+                  {suplementacaoData.insumos.map((insumo: string, index: number) => (
                     <div key={index} className="bg-gray-50 rounded-lg p-3 text-gray-900">
                       {insumo}
                     </div>
@@ -184,14 +158,14 @@ export default function CadastroPage() {
               )}
             </div>
 
-            {/* Dietas */}
+            {/* Dietas - da aba Suplementação */}
             <div className="bg-white rounded-2xl p-6 shadow-md">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
                 DIETAS
               </h2>
-              {data.dietas.length > 0 ? (
+              {suplementacaoData?.dietas && suplementacaoData.dietas.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
-                  {data.dietas.map((dieta, index) => (
+                  {suplementacaoData.dietas.map((dieta: string, index: number) => (
                     <div key={index} className="bg-gray-50 rounded-lg p-3 text-gray-900">
                       {dieta}
                     </div>

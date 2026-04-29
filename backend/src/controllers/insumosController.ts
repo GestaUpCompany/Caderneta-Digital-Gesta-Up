@@ -10,11 +10,117 @@ insumosRouter.post('/cadastro', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'insumosSheetUrl é obrigatório' })
   }
   try {
-    const rows = await getRows(insumosSheetUrl, 'Cadastro')
+    const rows = await getRows(insumosSheetUrl, 'Administrativo')
     return res.json({ success: true, rows })
   } catch (error) {
     logger.error(`Erro ao ler cadastro de insumos: ${error}`)
     return res.status(500).json({ error: 'Erro ao ler cadastro de insumos' })
+  }
+})
+
+insumosRouter.post('/pastos', async (req: Request, res: Response) => {
+  const { insumosSheetUrl } = req.body
+  if (!insumosSheetUrl) {
+    return res.status(400).json({ error: 'insumosSheetUrl é obrigatório' })
+  }
+  try {
+    const rows = await getRows(insumosSheetUrl, 'Pasto')
+    // Extrair apenas a primeira coluna (PASTO)
+    const pastos = rows.map(row => row[0]).filter((val): val is string => val !== null && val !== undefined && val !== '')
+    return res.json({ success: true, pastos })
+  } catch (error) {
+    logger.error(`Erro ao ler pastos: ${error}`)
+    return res.status(500).json({ error: 'Erro ao ler pastos' })
+  }
+})
+
+insumosRouter.post('/pasto-detalhes', async (req: Request, res: Response) => {
+  const { insumosSheetUrl, pasto } = req.body
+  if (!insumosSheetUrl || !pasto) {
+    return res.status(400).json({ error: 'insumosSheetUrl e pasto são obrigatórios' })
+  }
+  try {
+    const rows = await getRows(insumosSheetUrl, 'Pasto')
+    // Encontrar a linha do pasto especificado
+    const pastoRow = rows.find(row => row[0] === pasto)
+    if (!pastoRow) {
+      return res.status(404).json({ error: 'Pasto não encontrado' })
+    }
+    // Retornar todas as colunas: PASTO, ÁREA ÚTIL (ha), ESPÉCIE, ALTURA ENTRADA (cm), ALTURA SAÍDA (cm)
+    const detalhes = {
+      pasto: pastoRow[0] || '',
+      areaUtil: pastoRow[1] || '',
+      especie: pastoRow[2] || '',
+      alturaEntrada: pastoRow[3] || '',
+      alturaSaida: pastoRow[4] || '',
+    }
+    return res.json({ success: true, detalhes })
+  } catch (error) {
+    logger.error(`Erro ao ler detalhes do pasto: ${error}`)
+    return res.status(500).json({ error: 'Erro ao ler detalhes do pasto' })
+  }
+})
+
+insumosRouter.post('/lotes', async (req: Request, res: Response) => {
+  const { insumosSheetUrl } = req.body
+  if (!insumosSheetUrl) {
+    return res.status(400).json({ error: 'insumosSheetUrl é obrigatório' })
+  }
+  try {
+    const rows = await getRows(insumosSheetUrl, 'Lote')
+    // Extrair apenas a primeira coluna (LOTE)
+    const lotes = rows.map(row => row[0]).filter((val): val is string => val !== null && val !== undefined && val !== '')
+    return res.json({ success: true, lotes })
+  } catch (error) {
+    logger.error(`Erro ao ler lotes: ${error}`)
+    return res.status(500).json({ error: 'Erro ao ler lotes' })
+  }
+})
+
+insumosRouter.post('/lote-detalhes', async (req: Request, res: Response) => {
+  const { insumosSheetUrl, lote } = req.body
+  if (!insumosSheetUrl || !lote) {
+    return res.status(400).json({ error: 'insumosSheetUrl e lote são obrigatórios' })
+  }
+  try {
+    const rows = await getRows(insumosSheetUrl, 'Lote')
+    // Encontrar a linha do lote especificado
+    const loteRow = rows.find(row => row[0] === lote)
+    if (!loteRow) {
+      return res.status(404).json({ error: 'Lote não encontrado' })
+    }
+    // Retornar todas as colunas: LOTE, N° CABEÇAS, CATEGORIAS, PESO VIVO (kg), QTD. BEZERROS
+    const detalhes = {
+      lote: loteRow[0] || '',
+      nCabecas: loteRow[1] || '',
+      categorias: loteRow[2] || '',
+      pesoVivo: loteRow[3] || '',
+      qtdBezerros: loteRow[4] || '',
+    }
+    return res.json({ success: true, detalhes })
+  } catch (error) {
+    logger.error(`Erro ao ler detalhes do lote: ${error}`)
+    return res.status(500).json({ error: 'Erro ao ler detalhes do lote' })
+  }
+})
+
+insumosRouter.post('/suplementacao', async (req: Request, res: Response) => {
+  const { insumosSheetUrl } = req.body
+  if (!insumosSheetUrl) {
+    return res.status(400).json({ error: 'insumosSheetUrl é obrigatório' })
+  }
+  try {
+    const rows = await getRows(insumosSheetUrl, 'Suplementação')
+    // Extrair as 5 colunas: MINERAL, PROTEINADO, RACAO, INSUMOS, DIETAS
+    const mineral = rows.map(row => row[0]).filter((val): val is string => val !== null && val !== undefined && val !== '')
+    const proteinado = rows.map(row => row[1]).filter((val): val is string => val !== null && val !== undefined && val !== '')
+    const racao = rows.map(row => row[2]).filter((val): val is string => val !== null && val !== undefined && val !== '')
+    const insumos = rows.map(row => row[3]).filter((val): val is string => val !== null && val !== undefined && val !== '')
+    const dietas = rows.map(row => row[4]).filter((val): val is string => val !== null && val !== undefined && val !== '')
+    return res.json({ success: true, mineral, proteinado, racao, insumos, dietas })
+  } catch (error) {
+    logger.error(`Erro ao ler suplementação: ${error}`)
+    return res.status(500).json({ error: 'Erro ao ler suplementação' })
   }
 })
 
@@ -140,7 +246,7 @@ insumosRouter.post('/estoque/inicializar', async (req: Request, res: Response) =
   }
   try {
     // Ler insumos cadastrados (coluna 5 = INSUMOS) da planilha de cadastro
-    const cadastroRows = await getRows(cadastroSheetUrl, 'Cadastro')
+    const cadastroRows = await getRows(cadastroSheetUrl, 'Administrativo')
     const insumosCadastrados = cadastroRows.map((row) => row[5]).filter((val) => val) as string[]
 
     // Ler linhas existentes na aba Estoque

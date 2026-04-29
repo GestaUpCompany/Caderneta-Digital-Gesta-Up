@@ -17,6 +17,8 @@ const PRODUTOS = [
   { value: 'Mineral', label: 'MINERAL', icon: '' },
   { value: 'Proteinado', label: 'PROTEINADO', icon: '' },
   { value: 'Ração', label: 'RAÇÃO', icon: '' },
+  { value: 'Insumos', label: 'INSUMOS', icon: '' },
+  { value: 'Dietas', label: 'DIETAS', icon: '' },
   { value: 'Creep', label: 'CREEP', icon: '' },
 ]
 
@@ -31,6 +33,17 @@ const CATEGORIAS = [
   { value: 'Tropa', label: 'TROPA' },
   { value: 'Outros', label: 'OUTROS' },
 ]
+
+// Função para processar categorias com diferentes delimitadores
+function processarCategorias(categorias: string): string[] {
+  if (!categorias) return []
+  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
+  const regex = /[,.;]+\s*/
+  return categorias
+    .split(regex)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+}
 
 const LEITURAS = [
   { value: '-1', label: '-1', icon: '🔴' },
@@ -84,6 +97,39 @@ export default function SuplementacaoPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
+  const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
+
+  // Carregar dados de suplementação quando cadastroSheetUrl mudar
+  useEffect(() => {
+    async function carregarSuplementacaoData() {
+      if (!cadastroSheetUrl) {
+        setSuplementacaoData(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setSuplementacaoData(data)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados de suplementação:', error)
+      }
+    }
+
+    carregarSuplementacaoData()
+
+    // Polling a cada 3 minutos
+    const interval = setInterval(carregarSuplementacaoData, 180000) // 3 minutos
+
+    return () => clearInterval(interval)
+  }, [cadastroSheetUrl])
 
   // Carregar suplementos quando tipo principal muda (exceto Creep)
   useEffect(() => {
@@ -94,37 +140,39 @@ export default function SuplementacaoPage() {
         return
       }
 
-      if (!fazenda) {
+      if (!suplementacaoData) {
+        setSuplementos([])
         return
       }
 
-      setCarregandoSuplementos(true)
-      try {
-        if (!cadastroSheetUrl) {
-          setSuplementos([])
-          return
-        }
-        const response = await fetch(`${BACKEND_URL}/api/suplementacao/subtipos?tipo=${form.produto}&cadastroSheetUrl=${cadastroSheetUrl}`)
-        const data = await response.json()
-        if (data.success) {
-          setSuplementos(data.subtipos || [])
-          setSuplemento('')
-        }
-      } catch (error) {
-        console.error('Erro ao carregar suplementos:', error)
-        setSuplementos([])
-      } finally {
-        setCarregandoSuplementos(false)
+      // Mapear tipo de produto para a coluna correspondente
+      let suplementosArray: string[] = []
+      switch (form.produto) {
+        case 'Mineral':
+          suplementosArray = suplementacaoData.mineral || []
+          break
+        case 'Proteinado':
+          suplementosArray = suplementacaoData.proteinado || []
+          break
+        case 'Ração':
+          suplementosArray = suplementacaoData.racao || []
+          break
+        case 'Insumos':
+          suplementosArray = suplementacaoData.insumos || []
+          break
+        case 'Dietas':
+          suplementosArray = suplementacaoData.dietas || []
+          break
+        default:
+          suplementosArray = []
       }
+
+      setSuplementos(suplementosArray)
+      setSuplemento('')
     }
 
     carregarSuplementos()
-
-    // Polling a cada 3 minutos
-    const interval = setInterval(carregarSuplementos, 180000) // 3 minutos
-
-    return () => clearInterval(interval)
-  }, [form.produto, fazenda])
+  }, [form.produto, suplementacaoData])
 
   // Carregar pastos e lotes quando fazenda mudar
   useEffect(() => {
@@ -153,6 +201,32 @@ export default function SuplementacaoPage() {
 
     return () => clearInterval(interval)
   }, [cadastroSheetUrl])
+
+  // Buscar detalhes do lote quando selecionado
+  useEffect(() => {
+    async function carregarDetalhesLote() {
+      if (!form.numeroLote || !cadastroSheetUrl) {
+        setDetalhesLote(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/insumos/lote-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.numeroLote }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setDetalhesLote(data.detalhes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do lote:', error)
+      }
+    }
+
+    carregarDetalhesLote()
+  }, [form.numeroLote, cadastroSheetUrl])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -326,6 +400,28 @@ export default function SuplementacaoPage() {
               />
             )}
           </div>
+          {detalhesLote && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="col-span-2">
+                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
+                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLote.categorias).join(', ')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.nCabecas}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.pesoVivo} kg</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.qtdBezerros}</p>
+                </div>
+              </div>
+            </div>
+          )}
           {carregandoPastosLotes && (
             <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
           )}

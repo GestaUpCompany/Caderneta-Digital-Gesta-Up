@@ -8,6 +8,7 @@ import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { loadCadastroData, CadastroData } from '../../services/cadastroData'
+import { BACKEND_URL } from '../../utils/constants'
 
 interface FormState {
   dataProducao: string
@@ -34,6 +35,7 @@ export default function SaidaInsumosPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   const set = (field: keyof FormState) => (val: string) =>
@@ -52,15 +54,7 @@ export default function SaidaInsumosPage() {
 
       try {
         const data = await loadCadastroData(cadastroSheetUrl)
-        
-        // Inicializar quantidades de insumos como vazio
-        const insumosQuantidades: Record<string, string> = {}
-        data.insumos.forEach(insumo => {
-          insumosQuantidades[insumo] = ''
-        })
-
         setCadastroData(data)
-        setForm(prev => ({ ...prev, insumosQuantidades }))
         setLoading(false)
       } catch (err) {
         console.error('Erro ao carregar dados de cadastro:', err)
@@ -71,6 +65,39 @@ export default function SaidaInsumosPage() {
     loadData()
   }, [cadastroSheetUrl])
 
+  // Carregar dados de suplementação (insumos e dietas)
+  useEffect(() => {
+    async function carregarSuplementacaoData() {
+      if (!cadastroSheetUrl) {
+        setSuplementacaoData(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setSuplementacaoData(data)
+
+          // Inicializar quantidades de insumos como vazio
+          const insumosQuantidades: Record<string, string> = {}
+          data.insumos.forEach((insumo: string) => {
+            insumosQuantidades[insumo] = ''
+          })
+          setForm(prev => ({ ...prev, insumosQuantidades }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados de suplementação:', error)
+      }
+    }
+
+    carregarSuplementacaoData()
+  }, [cadastroSheetUrl])
+
   useEffect(() => {
     // Calcular total produzido (soma das quantidades de insumos)
     const total = Object.values(form.insumosQuantidades).reduce((sum, qty) => {
@@ -79,7 +106,7 @@ export default function SaidaInsumosPage() {
     setForm(prev => ({ ...prev, totalProduzido: total.toFixed(2) }))
   }, [form.insumosQuantidades])
 
-  const insumosRelevantes = cadastroData?.insumos || []
+  const insumosRelevantes = suplementacaoData?.insumos || []
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -104,7 +131,7 @@ export default function SaidaInsumosPage() {
       const saidaId = result.id
 
       // Salvar cada insumo na aba Insumos por Saída
-      for (const insumo of cadastroData!.insumos) {
+      for (const insumo of suplementacaoData!.insumos) {
         const quantidade = form.insumosQuantidades[insumo]
         if (quantidade && parseFloat(quantidade) > 0) {
           await salvarRegistro('insumos-por-saida', {
@@ -200,7 +227,7 @@ export default function SaidaInsumosPage() {
                 value={form.dietaProduzida}
                 onChange={(e) => set('dietaProduzida')(e.target.value)}
                 error={getError('dietaProduzida')}
-                options={[{ value: '', label: 'Selecione uma dieta' }, ...(cadastroData?.dietas.map(d => ({ value: d, label: d })) || [])]}
+                options={[{ value: '', label: 'Selecione uma dieta' }, ...(suplementacaoData?.dietas.map(d => ({ value: d, label: d })) || [])]}
               />
               <Select
                 label="DESTINO DA PRODUÇÃO *"

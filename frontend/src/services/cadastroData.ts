@@ -3,15 +3,9 @@ import { BACKEND_URL } from '../utils/constants'
 export interface CadastroData {
   pastos: string[]
   lotes: string[]
-  minerais: string[]
-  proteinados: string[]
-  racoes: string[]
-  insumos: string[]
-  dietas: string[]
   fornecedores: string[]
   funcionarios: string[]
   frigorificos: string[]
-  destinos: string[]
 }
 
 // Cache simples em memória
@@ -40,7 +34,25 @@ export async function loadCadastroData(
   }
 
   try {
-    // Usar endpoint existente /api/insumos/cadastro
+    // Carregar pastos da nova aba Pasto
+    const pastosRes = await fetch(`${BACKEND_URL}/api/insumos/pastos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+    })
+    const pastosData = await pastosRes.json()
+    const pastos = pastosData.success ? pastosData.pastos : []
+
+    // Carregar lotes da nova aba Lote
+    const lotesRes = await fetch(`${BACKEND_URL}/api/insumos/lotes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
+    })
+    const lotesData = await lotesRes.json()
+    const lotes = lotesData.success ? lotesData.lotes : []
+
+    // Usar endpoint existente /api/insumos/cadastro para os outros dados
     const readRes = await fetch(`${BACKEND_URL}/api/insumos/cadastro`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -55,32 +67,18 @@ export async function loadCadastroData(
     // Processar dados
     const rows = readData.rows as (string | number | null)[][]
     const cadastroData: CadastroData = {
-      pastos: [],
-      lotes: [],
-      minerais: [],
-      proteinados: [],
-      racoes: [],
-      insumos: [],
-      dietas: [],
+      pastos: pastos,
+      lotes: lotes,
       fornecedores: [],
       funcionarios: [],
       frigorificos: [],
-      destinos: [],
     }
 
-    // Estrutura esperada: coluna 0 = PASTO, coluna 1 = LOTE, coluna 2 = MINERAL, coluna 3 = PROTEINADO,
-    // coluna 4 = RACAO, coluna 5 = INSUMOS, coluna 6 = DIETAS, coluna 7 = FORNECEDORES, coluna 8 = FUNCIONÁRIOS, coluna 9 = FRIGORÍFICOS
+    // Estrutura esperada da aba Administrativo: coluna 0 = FORNECEDORES, coluna 1 = FUNCIONÁRIOS, coluna 2 = FRIGORÍFICOS
     for (const row of rows) {
-      if (row[0]) cadastroData.pastos.push(String(row[0]))
-      if (row[1]) cadastroData.lotes.push(String(row[1]))
-      if (row[2]) cadastroData.minerais.push(String(row[2]))
-      if (row[3]) cadastroData.proteinados.push(String(row[3]))
-      if (row[4]) cadastroData.racoes.push(String(row[4]))
-      if (row[5]) cadastroData.insumos.push(String(row[5]))
-      if (row[6]) cadastroData.dietas.push(String(row[6]))
-      if (row[7]) cadastroData.fornecedores.push(String(row[7]))
-      if (row[8]) cadastroData.funcionarios.push(String(row[8]))
-      if (row[9]) cadastroData.frigorificos.push(String(row[9]))
+      if (row[0]) cadastroData.fornecedores.push(String(row[0]))
+      if (row[1]) cadastroData.funcionarios.push(String(row[1]))
+      if (row[2]) cadastroData.frigorificos.push(String(row[2]))
     }
 
     // Atualizar cache

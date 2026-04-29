@@ -229,31 +229,8 @@ export default function EstoquePage() {
             {showInicializar && cadastroData && (
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">DEFINIR ESTOQUE INICIAL</h2>
-                <div className="space-y-4">
-                  {cadastroData.insumos.map((insumo) => (
-                    <div key={insumo}>
-                      <label className="block text-sm font-bold text-gray-900 mb-2">
-                        {insumo}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0"
-                        value={estoquesIniciais[insumo] || ''}
-                        onChange={(e) => setEstoquesIniciais({ ...estoquesIniciais, [insumo]: e.target.value })}
-                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-yellow-500 focus:outline-none"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <p className="text-gray-500 italic">Insumos agora devem ser gerenciados na aba Suplementação da planilha</p>
                 <div className="flex gap-4 mt-6">
-                  <Button
-                    onClick={handleInicializar}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                  >
-                    SALVAR
-                  </Button>
                   <Button
                     onClick={() => {
                       setShowInicializar(false)
@@ -261,7 +238,7 @@ export default function EstoquePage() {
                     }}
                     className="flex-1 bg-gray-600 hover:bg-gray-700"
                   >
-                    CANCELAR
+                    FECHAR
                   </Button>
                 </div>
               </div>

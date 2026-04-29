@@ -42,11 +42,11 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
   suplementacao: (r) => [
     r.data as string, r.tratador as string, r.pasto as string, r.numeroLote as string,
     r.produto as string, r.creepKg as string, r.leituraCocho as number,
-    r.kgCocho as number, r.kgDeposito as number, r.gado as string, r.categoriasString as string,
+    r.kgCocho as number, r.kgDeposito as number, r.categoriasString as string,
   ],
   bebedouros: (r) => [
     r.data as string, r.responsavel as string, r.pasto as string, r.numeroLote as string,
-    r.gado as string, r.categoria as string, r.leituraBebedouro as number,
+    r.categoria as string, r.leituraBebedouro as number,
     r.numeroBebedouro as string, r.observacao as string,
   ],
   movimentacao: (r) => [
@@ -64,6 +64,7 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
     r.presencaSangue as string, r.presencaSangueObs as string,
     r.fraturas as string, r.fraturasObs as string,
     r.desordensDigestivas as string, r.desordensDigestivasObs as string,
+    r.tratamento as string,
   ],
   'entrada-insumos': (r) => [
     r.dataEntrada as string, r.horario as string, r.produto as string,

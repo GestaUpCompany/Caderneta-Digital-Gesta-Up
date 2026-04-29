@@ -291,7 +291,7 @@ export async function getSubtiposDaFazenda(
     const colunaLetra = String.fromCharCode(65 + colunaIndex)
     
     // Buscar a coluna específica a partir da linha 2 (pular cabeçalho na linha 1)
-    const range = `Cadastro!${colunaLetra}2:${colunaLetra}1000`
+    const range = `Administrativo!${colunaLetra}2:${colunaLetra}1000`
     const cellResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: cadastroSheetId,
       range,

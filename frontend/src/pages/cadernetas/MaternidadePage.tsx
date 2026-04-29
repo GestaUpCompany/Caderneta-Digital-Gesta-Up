@@ -52,6 +52,17 @@ const CATEGORIAS_MAE = [
   { value: 'Leiteira', label: 'LEITEIRA' },
 ]
 
+// Função para processar categorias com diferentes delimitadores
+function processarCategorias(categorias: string): string[] {
+  if (!categorias) return []
+  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
+  const regex = /[,.;]+\s*/
+  return categorias
+    .split(regex)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+}
+
 interface FormState {
   data: string
   pasto: string
@@ -96,6 +107,7 @@ export default function MaternidadePage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
+  const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -148,6 +160,32 @@ export default function MaternidadePage() {
 
     return () => clearInterval(interval)
   }, [cadastroSheetUrl])
+
+  // Buscar detalhes do lote quando selecionado
+  useEffect(() => {
+    async function carregarDetalhesLote() {
+      if (!form.lote || !cadastroSheetUrl) {
+        setDetalhesLote(null)
+        return
+      }
+
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.lote }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setDetalhesLote(data.detalhes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do lote:', error)
+      }
+    }
+
+    carregarDetalhesLote()
+  }, [form.lote, cadastroSheetUrl])
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -296,7 +334,6 @@ export default function MaternidadePage() {
                 onChange={(e) => set('lote')(e.target.value)}
                 error={getError('lote')}
                 options={[{ value: '', label: 'Selecione...' }, ...lotesDisponiveis.map(l => ({ value: l, label: l }))]}
-
               />
             ) : (
               <Input
@@ -309,6 +346,28 @@ export default function MaternidadePage() {
               />
             )}
           </div>
+          {detalhesLote && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="col-span-2">
+                  <p className="text-gray-500 font-semibold">CATEGORIAS</p>
+                  <p className="text-gray-900 font-bold break-words">{processarCategorias(detalhesLote.categorias).join(', ')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.nCabecas}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">PESO VIVO</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.pesoVivo} kg</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
+                  <p className="text-gray-900 font-bold">{detalhesLote.qtdBezerros}</p>
+                </div>
+              </div>
+            </div>
+          )}
           {carregandoPastosLotes && (
             <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
           )}
