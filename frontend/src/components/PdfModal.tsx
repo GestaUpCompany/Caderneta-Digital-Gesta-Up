@@ -12,7 +12,6 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const [pinchCenter, setPinchCenter] = useState({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Prevenir scroll quando modal está aberto
@@ -66,7 +65,6 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
       ;(e.currentTarget as HTMLElement).dataset.initialPositionY = position.y.toString()
       ;(e.currentTarget as HTMLElement).dataset.pinchCenterX = centerX.toString()
       ;(e.currentTarget as HTMLElement).dataset.pinchCenterY = centerY.toString()
-      setPinchCenter({ x: centerX, y: centerY })
     } else if (e.touches.length === 1 && zoom > 1) {
       // Iniciar arraste (pan) quando há zoom
       setIsDragging(true)
