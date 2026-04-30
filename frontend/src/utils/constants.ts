@@ -69,7 +69,7 @@ export const TIPOS_PARTO = ['Normal', 'Distócico', 'Cesárea'] as const
 export const SEXO_ANIMAL = ['Macho', 'Fêmea'] as const
 
 export const DB_NAME = 'cadernetas-digitais'
-export const DB_VERSION = 2
+export const DB_VERSION = 3
 
 export const MAX_RETRY_COUNT = 3
 export const SYNC_INTERVAL_MS = 30_000

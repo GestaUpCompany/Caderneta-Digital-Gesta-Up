@@ -7,7 +7,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { loadCadastroData } from '../../services/cadastroData'
+import { getCachedCadastroData } from '../../services/cadastroCache'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const MOTIVOS = [
@@ -80,7 +80,6 @@ export default function MovimentacaoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
-  const [carregandoLotes, setCarregandoLotes] = useState(false)
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,33 +119,14 @@ export default function MovimentacaoPage() {
     }
   }, [form.motivoMovimentacao])
 
-  // Carregar lotes quando fazenda mudar
+  // Carregar lotes e frigoríficos do cache global
   useEffect(() => {
-    async function carregarLotes() {
-      if (!cadastroSheetUrl) {
-        setCarregandoLotes(false)
-        return
-      }
-
-      setCarregandoLotes(true)
-      try {
-        const data = await loadCadastroData(cadastroSheetUrl)
-        setLotesDisponiveis(data.lotes || [])
-        setFrigorificosDisponiveis(data.frigorificos || [])
-      } catch (error) {
-        console.error('Erro ao carregar lotes:', error)
-      } finally {
-        setCarregandoLotes(false)
-      }
+    const cache = getCachedCadastroData()
+    if (cache) {
+      setLotesDisponiveis(cache.lotes || [])
+      setFrigorificosDisponiveis(cache.frigorificos || [])
     }
-
-    carregarLotes()
-
-    // Polling a cada 3 minutos
-    const interval = setInterval(carregarLotes, 180000) // 3 minutos
-
-    return () => clearInterval(interval)
-  }, [cadastroSheetUrl])
+  }, [])
 
   // Buscar detalhes do lote origem quando selecionado
   useEffect(() => {
@@ -291,7 +271,6 @@ export default function MovimentacaoPage() {
               error={getError('loteOrigem')}
               options={lotesDisponiveis}
               placeholder="Buscar lote..."
-              disabled={carregandoLotes}
             />
           ) : (
             <Input
@@ -301,13 +280,11 @@ export default function MovimentacaoPage() {
               onChange={setInput('loteOrigem')}
               error={getError('loteOrigem')}
               inputMode="numeric"
+              disabled
             />
           )}
           {detalhesLoteOrigem && (
             <LoteDetalhesCard detalhes={detalhesLoteOrigem} processarCategorias={processarCategorias} />
-          )}
-          {carregandoLotes && (
-            <div className="text-sm text-gray-500">Carregando lotes...</div>
           )}
         </div>
 
@@ -384,7 +361,6 @@ export default function MovimentacaoPage() {
                       error={getError('loteDestino')}
                       options={frigorificosDisponiveis}
                       placeholder="Buscar frigorífico..."
-                      disabled={carregandoLotes}
                     />
                   ) : (
                     <Input
@@ -393,6 +369,7 @@ export default function MovimentacaoPage() {
                       value={form.loteDestino}
                       onChange={setInput('loteDestino')}
                       error={getError('loteDestino')}
+                      disabled
                     />
                   )}
                   <Input
@@ -412,7 +389,6 @@ export default function MovimentacaoPage() {
                       error={getError('loteDestino')}
                       options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
                       placeholder="Buscar lote..."
-                      disabled={carregandoLotes}
                     />
                   ) : (
                     <Input
@@ -421,6 +397,7 @@ export default function MovimentacaoPage() {
                       value={form.loteDestino}
                       onChange={setInput('loteDestino')}
                       error={getError('loteDestino')}
+                      disabled
                     />
                   )}
                   <Input
@@ -440,7 +417,6 @@ export default function MovimentacaoPage() {
                       error={getError('loteDestino')}
                       options={lotesDisponiveis}
                       placeholder="Buscar destino..."
-                      disabled={carregandoLotes}
                     />
                   ) : (
                     <Input
@@ -449,6 +425,7 @@ export default function MovimentacaoPage() {
                       value={form.loteDestino}
                       onChange={setInput('loteDestino')}
                       error={getError('loteDestino')}
+                      disabled
                     />
                   )}
                   <Input

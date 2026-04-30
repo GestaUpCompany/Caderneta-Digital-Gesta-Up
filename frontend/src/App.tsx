@@ -24,6 +24,7 @@ import { BACKEND_URL, DEVICE_SHEET_URL } from './utils/constants'
 import { useSessionTimer } from './hooks/useSessionTimer'
 import { useScreenTracking } from './hooks/useScreenTracking'
 import { useNetworkTracking } from './hooks/useNetworkTracking'
+import { initializeCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
 
 // Componente wrapper para PWAUpdateModal com hook
 function PWAUpdateModalWrapper() {
@@ -82,12 +83,23 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome, isLoading } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   
   // Hooks de analytics
   const sessionTime = useSessionTimer()
   const { getScreens } = useScreenTracking()
   const { offlineTime, onlineTime } = useNetworkTracking()
+
+  // Inicializar cache de dados de cadastro
+  useEffect(() => {
+    if (cadastroSheetUrl) {
+      initializeCadastroCache(cadastroSheetUrl)
+      startCadastroCachePolling(cadastroSheetUrl)
+    }
+    return () => {
+      stopCadastroCachePolling()
+    }
+  }, [cadastroSheetUrl])
 
   useEffect(() => {
     if (syncStatus === 'conflict') {

@@ -11,7 +11,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { loadCadastroData } from '../../services/cadastroData'
+import { getCachedCadastroData } from '../../services/cadastroCache'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -113,7 +113,6 @@ export default function PastagensPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
-  const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [detalhesPastoSaida, setDetalhesPastoSaida] = useState<any>(null)
   const [detalhesPastoEntrada, setDetalhesPastoEntrada] = useState<any>(null)
@@ -127,33 +126,14 @@ export default function PastagensPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Carregar pastos e lotes quando fazenda mudar
+  // Carregar pastos e lotes do cache global
   useEffect(() => {
-    async function carregarPastosELotes() {
-      if (!cadastroSheetUrl) {
-        setCarregandoPastosLotes(false)
-        return
-      }
-
-      setCarregandoPastosLotes(true)
-      try {
-        const data = await loadCadastroData(cadastroSheetUrl)
-        setPastosDisponiveis(data.pastos || [])
-        setLotesDisponiveis(data.lotes || [])
-      } catch (error) {
-        console.error('Erro ao carregar pastos e lotes:', error)
-      } finally {
-        setCarregandoPastosLotes(false)
-      }
+    const cache = getCachedCadastroData()
+    if (cache) {
+      setPastosDisponiveis(cache.pastos || [])
+      setLotesDisponiveis(cache.lotes || [])
     }
-
-    carregarPastosELotes()
-
-    // Polling a cada 3 minutos
-    const interval = setInterval(carregarPastosELotes, 180000) // 3 minutos
-
-    return () => clearInterval(interval)
-  }, [cadastroSheetUrl])
+  }, [])
 
   // Buscar detalhes do pasto de saída quando selecionado
   useEffect(() => {
@@ -446,7 +426,6 @@ export default function PastagensPage() {
               error={getError('numeroLote')}
               options={lotesDisponiveis}
               placeholder="Buscar lote..."
-              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -456,14 +435,11 @@ export default function PastagensPage() {
               onChange={setInput('numeroLote')}
               error={getError('numeroLote')}
               inputMode="numeric"
-              disabled={carregandoPastosLotes}
+              disabled
             />
           )}
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
-          )}
-          {carregandoPastosLotes && (
-            <div className="text-sm text-gray-500">Carregando pastos e lotes...</div>
           )}
         </div>
 
@@ -478,7 +454,6 @@ export default function PastagensPage() {
               error={getError('pastoSaida')}
               options={pastosDisponiveis}
               placeholder="Buscar pasto de saída..."
-              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -487,7 +462,7 @@ export default function PastagensPage() {
               value={form.pastoSaida}
               onChange={setInput('pastoSaida')}
               error={getError('pastoSaida')}
-              disabled={carregandoPastosLotes}
+              disabled
             />
           )}
           {detalhesPastoSaida && (
@@ -524,7 +499,6 @@ export default function PastagensPage() {
               error={getError('pastoEntrada')}
               options={pastosDisponiveis.filter(p => p !== form.pastoSaida)}
               placeholder="Buscar pasto de entrada..."
-              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -533,7 +507,7 @@ export default function PastagensPage() {
               value={form.pastoEntrada}
               onChange={setInput('pastoEntrada')}
               error={getError('pastoEntrada')}
-              disabled={carregandoPastosLotes}
+              disabled
             />
           )}
           {detalhesPastoEntrada && (

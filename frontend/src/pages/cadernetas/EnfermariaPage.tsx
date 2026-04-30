@@ -7,7 +7,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { loadCadastroData } from '../../services/cadastroData'
+import { getCachedCadastroData } from '../../services/cadastroCache'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const TRATAMENTOS = [
@@ -128,7 +128,6 @@ export default function EnfermariaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
-  const [carregandoPastosLotes, setCarregandoPastosLotes] = useState(false)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -155,33 +154,14 @@ export default function EnfermariaPage() {
     }
   }
 
-  // Carregar pastos e lotes quando fazenda mudar
+  // Carregar pastos e lotes do cache global
   useEffect(() => {
-    async function carregarDados() {
-      if (!cadastroSheetUrl) {
-        setCarregandoPastosLotes(false)
-        return
-      }
-
-      setCarregandoPastosLotes(true)
-      try {
-        const data = await loadCadastroData(cadastroSheetUrl)
-        setPastosDisponiveis(data.pastos || [])
-        setLotesDisponiveis(data.lotes || [])
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error)
-      } finally {
-        setCarregandoPastosLotes(false)
-      }
+    const cache = getCachedCadastroData()
+    if (cache) {
+      setPastosDisponiveis(cache.pastos || [])
+      setLotesDisponiveis(cache.lotes || [])
     }
-
-    carregarDados()
-
-    // Polling a cada 3 minutos
-    const interval = setInterval(carregarDados, 180000) // 3 minutos
-
-    return () => clearInterval(interval)
-  }, [cadastroSheetUrl])
+  }, [])
 
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
@@ -354,7 +334,6 @@ export default function EnfermariaPage() {
               error={getError('pasto')}
               options={pastosDisponiveis}
               placeholder="Buscar pasto..."
-              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -363,7 +342,7 @@ export default function EnfermariaPage() {
               value={form.pasto}
               onChange={setInput('pasto')}
               error={getError('pasto')}
-              disabled={carregandoPastosLotes}
+              disabled
             />
           )}
           {lotesDisponiveis.length > 0 ? (
@@ -374,7 +353,6 @@ export default function EnfermariaPage() {
               error={getError('lote')}
               options={lotesDisponiveis}
               placeholder="Buscar lote..."
-              disabled={carregandoPastosLotes}
             />
           ) : (
             <Input
@@ -383,7 +361,7 @@ export default function EnfermariaPage() {
               value={form.lote}
               onChange={setInput('lote')}
               error={getError('lote')}
-              disabled={carregandoPastosLotes}
+              disabled
             />
           )}
           {detalhesLote && (
