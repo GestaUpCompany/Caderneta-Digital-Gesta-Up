@@ -26,14 +26,20 @@ const PASTAGENS_LABELS = {
   numeroLote: 'NÚMERO LOTE',
   pastoSaida: 'PASTO SAÍDA',
   avaliacaoSaida: 'AVALIAÇÃO SAÍDA',
+  tempoOcupacao: 'TEMPO OCUPAÇÃO',
   pastoEntrada: 'PASTO ENTRADA',
   avaliacaoEntrada: 'AVALIAÇÃO ENTRADA',
+  tempoVedacao: 'TEMPO VEDAÇÃO',
   vaca: 'VACA',
   touro: 'TOURO',
-  bezerro: 'BEZERRO',
+  boiGordo: 'BOI GORDO',
   boiMagro: 'BOI MAGRO',
   garrote: 'GARROTE',
+  bezerro: 'BEZERRO',
   novilha: 'NOVILHA',
+  tropa: 'TROPA',
+  outros: 'OUTROS',
+  escoreGado: 'ESCORE DO GADO',
 }
 
 const RODEIO_LABELS = {

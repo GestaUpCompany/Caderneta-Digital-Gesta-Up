@@ -22,8 +22,10 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     numeroLote: Joi.string().required(),
     pastoSaida: Joi.string().required(),
     avaliacaoSaida: Joi.number().integer().min(1).max(5).required(),
+    tempoOcupacao: Joi.string().allow(''),
     pastoEntrada: Joi.string().required(),
     avaliacaoEntrada: Joi.number().integer().min(1).max(5).required(),
+    tempoVedacao: Joi.string().allow(''),
     vaca: Joi.number().min(0).default(0),
     touro: Joi.number().min(0).default(0),
     boiGordo: Joi.number().min(0).default(0),
@@ -33,6 +35,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     novilha: Joi.number().min(0).default(0),
     tropa: Joi.number().min(0).default(0),
     outros: Joi.number().min(0).default(0),
+    escoreGado: Joi.number().integer().min(1).max(5).allow(null),
   }),
 
   rodeio: Joi.object({

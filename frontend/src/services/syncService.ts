@@ -19,10 +19,11 @@ const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | numbe
   ],
   pastagens: (r) => [
     r.data as string, r.manejador as string, r.numeroLote as string,
-    r.pastoSaida as string, r.avaliacaoSaida as string, r.pastoEntrada as string,
-    r.avaliacaoEntrada as string, r.vaca as number, r.touro as number,
-    r.bezerro as number, r.boiMagro as number, r.garrote as number,
-    r.novilha as number,
+    r.pastoSaida as string, r.avaliacaoSaida as string, r.tempoOcupacao as string || '',
+    r.pastoEntrada as string, r.avaliacaoEntrada as string, r.tempoVedacao as string || '',
+    r.vaca as number, r.touro as number, r.boiGordo as number, r.boiMagro as number,
+    r.garrote as number, r.bezerro as number, r.novilha as number, r.tropa as number, r.outros as number,
+    r.escoreGado as number || 0,
   ],
   rodeio: (r) => [
     r.data as string, r.pasto as string, r.numeroLote as string,

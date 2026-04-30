@@ -23,14 +23,28 @@ const AVALIACOES = [
   { value: '5', label: '5', icon: '🔴' },
 ]
 
+const ESCORES = [
+  { value: '1', label: '1', color: 'bg-red-500' },
+  { value: '1.5', label: '1.5', color: 'bg-red-500' },
+  { value: '2', label: '2', color: 'bg-red-500' },
+  { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
+  { value: '3', label: '3', color: 'bg-yellow-400' },
+  { value: '3.5', label: '3.5', color: 'bg-green-500' },
+  { value: '4', label: '4', color: 'bg-green-500' },
+  { value: '4.5', label: '4.5', color: 'bg-yellow-300' },
+  { value: '5', label: '5', color: 'bg-yellow-300' },
+]
+
 interface FormState {
   data: string
   manejador: string
   numeroLote: string
   pastoSaida: string
   avaliacaoSaida: string
+  tempoOcupacao: string
   pastoEntrada: string
   avaliacaoEntrada: string
+  tempoVedacao: string
   vaca: string
   touro: string
   bezerro: string
@@ -40,6 +54,7 @@ interface FormState {
   novilha: string
   tropa: string
   outros: string
+  escoreGado: string
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -48,8 +63,10 @@ const makeInitial = (usuario?: string): FormState => ({
   numeroLote: '',
   pastoSaida: '',
   avaliacaoSaida: '',
+  tempoOcupacao: '',
   pastoEntrada: '',
   avaliacaoEntrada: '',
+  tempoVedacao: '',
   vaca: '',
   touro: '',
   bezerro: '',
@@ -59,6 +76,7 @@ const makeInitial = (usuario?: string): FormState => ({
   novilha: '',
   tropa: '',
   outros: '',
+  escoreGado: '',
 })
 
 const CATEGORIAS: { campo: keyof FormState; label: string }[] = [
@@ -86,7 +104,7 @@ function processarCategorias(categorias: string): string[] {
 
 export default function PastagensPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, planilhaUrl, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -163,6 +181,41 @@ export default function PastagensPage() {
     carregarDetalhesPastoSaida()
   }, [form.pastoSaida, cadastroSheetUrl])
 
+  // Calcular tempo de ocupação quando pastoSaida mudar
+  useEffect(() => {
+    async function calcularTempoOcupacao() {
+      if (!form.pastoSaida || !planilhaUrl) {
+        set('tempoOcupacao')('')
+        return
+      }
+
+      try {
+        // Usar data/hora atual para cálculo, não a data do formulário
+        const agora = new Date()
+        const dataAtualFormatada = `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`
+
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/pastagens/calcular-tempo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planilhaUrl: planilhaUrl,
+            pasto: form.pastoSaida,
+            tipo: 'saida',
+            dataAtual: dataAtualFormatada,
+          }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          set('tempoOcupacao')(data.tempo)
+        }
+      } catch (error) {
+        console.error('Erro ao calcular tempo de ocupação:', error)
+      }
+    }
+
+    calcularTempoOcupacao()
+  }, [form.pastoSaida, planilhaUrl])
+
   // Buscar detalhes do pasto de entrada quando selecionado
   useEffect(() => {
     async function carregarDetalhesPastoEntrada() {
@@ -188,6 +241,41 @@ export default function PastagensPage() {
 
     carregarDetalhesPastoEntrada()
   }, [form.pastoEntrada, cadastroSheetUrl])
+
+  // Calcular tempo de vedação quando pastoEntrada mudar
+  useEffect(() => {
+    async function calcularTempoVedacao() {
+      if (!form.pastoEntrada || !planilhaUrl) {
+        set('tempoVedacao')('')
+        return
+      }
+
+      try {
+        // Usar data/hora atual para cálculo, não a data do formulário
+        const agora = new Date()
+        const dataAtualFormatada = `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`
+
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/pastagens/calcular-tempo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planilhaUrl: planilhaUrl,
+            pasto: form.pastoEntrada,
+            tipo: 'entrada',
+            dataAtual: dataAtualFormatada,
+          }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          set('tempoVedacao')(data.tempo)
+        }
+      } catch (error) {
+        console.error('Erro ao calcular tempo de vedação:', error)
+      }
+    }
+
+    calcularTempoVedacao()
+  }, [form.pastoEntrada, planilhaUrl])
 
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
@@ -236,8 +324,10 @@ export default function PastagensPage() {
       numeroLote: form.numeroLote,
       pastoSaida: form.pastoSaida,
       avaliacaoSaida: form.avaliacaoSaida ? Number(form.avaliacaoSaida) : 0,
+      tempoOcupacao: form.tempoOcupacao,
       pastoEntrada: form.pastoEntrada,
       avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
+      tempoVedacao: form.tempoVedacao,
       vaca: form.vaca ? Number(form.vaca) : 0,
       touro: form.touro ? Number(form.touro) : 0,
       boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
@@ -247,6 +337,7 @@ export default function PastagensPage() {
       novilha: form.novilha ? Number(form.novilha) : 0,
       tropa: form.tropa ? Number(form.tropa) : 0,
       outros: form.outros ? Number(form.outros) : 0,
+      escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
     })
 
     setSalvando(false)
@@ -260,8 +351,10 @@ export default function PastagensPage() {
         numeroLote: form.numeroLote,
         pastoSaida: form.pastoSaida,
         avaliacaoSaida: form.avaliacaoSaida ? Number(form.avaliacaoSaida) : 0,
+        tempoOcupacao: form.tempoOcupacao,
         pastoEntrada: form.pastoEntrada,
         avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
+        tempoVedacao: form.tempoVedacao,
         vaca: form.vaca ? Number(form.vaca) : 0,
         touro: form.touro ? Number(form.touro) : 0,
         boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
@@ -271,6 +364,7 @@ export default function PastagensPage() {
         novilha: form.novilha ? Number(form.novilha) : 0,
         tropa: form.tropa ? Number(form.tropa) : 0,
         outros: form.outros ? Number(form.outros) : 0,
+        escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -397,7 +491,7 @@ export default function PastagensPage() {
             />
           )}
           {detalhesPastoSaida && (
-            <PastoDetalhesCard detalhes={detalhesPastoSaida} tipo="saida" />
+            <PastoDetalhesCard detalhes={detalhesPastoSaida} tipo="saida" tempo={form.tempoOcupacao} />
           )}
           <Radio
             name="avaliacaoSaida"
@@ -443,7 +537,7 @@ export default function PastagensPage() {
             />
           )}
           {detalhesPastoEntrada && (
-            <PastoDetalhesCard detalhes={detalhesPastoEntrada} tipo="entrada" />
+            <PastoDetalhesCard detalhes={detalhesPastoEntrada} tipo="entrada" tempo={form.tempoVedacao} />
           )}
           <Radio
             name="avaliacaoEntrada"
@@ -482,6 +576,28 @@ export default function PastagensPage() {
               <span className="text-2xl font-bold text-black">{total} animais</span>
             </div>
           )}
+        </div>
+
+        {/* Seção 5: Escore do Gado */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. ESCORE DO GADO</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {ESCORES.map((escore) => (
+              <button
+                key={escore.value}
+                type="button"
+                onClick={() => set('escoreGado')(escore.value)}
+                className={`
+                  py-3 px-2 rounded-xl font-bold text-black text-base
+                  transition-all duration-200
+                  ${form.escoreGado === escore.value ? escore.color : 'bg-gray-200 text-gray-700'}
+                  hover:opacity-80
+                `}
+              >
+                {escore.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">

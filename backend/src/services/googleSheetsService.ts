@@ -150,12 +150,18 @@ export async function getRows(
   const sheets = google.sheets({ version: 'v4', auth })
   const spreadsheetId = extractSpreadsheetId(spreadsheetUrl)
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A2:Z`,
-  })
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A2:Z`,
+    })
 
-  return (response.data.values || []) as (string | number | null)[][]
+    return (response.data.values || []) as (string | number | null)[][]
+  } catch (error) {
+    logger.error(`Erro ao ler aba ${sheetName}: ${error}`)
+    // Retornar array vazio se a aba não existir ou o range for inválido
+    return []
+  }
 }
 
 export async function getNextId(spreadsheetUrl: string, sheetName: string): Promise<number> {
