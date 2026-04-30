@@ -36,7 +36,10 @@ export async function salvarRegistro(
   } as Registro
 
   await saveRegistro(caderneta, registro)
-  
+
+  // Pequeno delay para garantir persistência no IndexedDB (especialmente Android 13)
+  await new Promise(resolve => setTimeout(resolve, 100))
+
   await enqueueRegistro(caderneta, registro.id, 'create')
 
   return { success: true, id: registro.id }
