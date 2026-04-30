@@ -24,6 +24,7 @@ interface DatePickerProps {
   onChange: (value: string) => void
   error?: string
   fullWidth?: boolean
+  id?: string
 }
 
 const formatToBR = (date: Date) =>
@@ -44,6 +45,7 @@ export default function DatePicker({
   onChange,
   error,
   fullWidth = true,
+  id,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -128,6 +130,7 @@ export default function DatePicker({
 
       <button
         type="button"
+        id={id}
         onClick={() => setIsOpen(true)}
         className="w-full rounded-3xl border-2 border-gray-900 bg-white px-5 py-4 text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99]"
       >

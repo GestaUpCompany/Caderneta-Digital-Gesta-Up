@@ -12,6 +12,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData, getPastoDetalhes, getLoteDetalhes } from '../../services/cadastroCache'
+import { scrollToFirstError } from '../../utils/scrollToError'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -347,6 +348,7 @@ export default function PastagensPage() {
     setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
+      scrollToFirstError(result.errors)
     } else {
       // Armazenar o registro salvo para compartilhamento
       const dadosRegistro = {
@@ -458,6 +460,8 @@ export default function PastagensPage() {
               error={getError('numeroLote')}
               options={lotesDisponiveis}
               placeholder="Buscar lote..."
+              id="numeroLote"
+              name="numeroLote"
             />
           ) : (
             <Input
@@ -468,6 +472,7 @@ export default function PastagensPage() {
               error={getError('numeroLote')}
               inputMode="numeric"
               disabled
+              id="numeroLote"
             />
           )}
           {detalhesLote && (
@@ -485,7 +490,9 @@ export default function PastagensPage() {
               onChange={set('pastoSaida')}
               error={getError('pastoSaida')}
               options={pastosDisponiveis}
-              placeholder="Buscar pasto de saída..."
+              placeholder="Buscar pasto..."
+              id="pastoSaida"
+              name="pastoSaida"
             />
           ) : (
             <Input
@@ -531,6 +538,8 @@ export default function PastagensPage() {
               error={getError('pastoEntrada')}
               options={pastosDisponiveis.filter(p => p !== form.pastoSaida)}
               placeholder="Buscar pasto de entrada..."
+              id="pastoEntrada"
+              name="pastoEntrada"
             />
           ) : (
             <Input
@@ -540,6 +549,7 @@ export default function PastagensPage() {
               onChange={setInput('pastoEntrada')}
               error={getError('pastoEntrada')}
               disabled
+              id="pastoEntrada"
             />
           )}
           {detalhesPastoEntrada && (

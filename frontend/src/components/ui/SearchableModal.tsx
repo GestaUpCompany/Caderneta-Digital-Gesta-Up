@@ -8,6 +8,9 @@ interface SearchableModalProps {
   placeholder?: string
   error?: string
   disabled?: boolean
+  id?: string
+  name?: string
+  dataField?: string
 }
 
 export default function SearchableModal({
@@ -18,6 +21,9 @@ export default function SearchableModal({
   placeholder = 'Buscar...',
   error,
   disabled = false,
+  id,
+  name,
+  dataField,
 }: SearchableModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -62,6 +68,9 @@ export default function SearchableModal({
       </label>
       <button
         type="button"
+        id={id}
+        name={name}
+        data-field={dataField}
         onClick={handleOpen}
         disabled={disabled}
         className={`w-full px-4 py-3 rounded-xl border-2 text-left bg-white transition-colors ${

@@ -17,6 +17,7 @@ export default function Input({
   fullWidth = true,
   textSize,
   className = '',
+  id,
   ...props
 }: InputProps) {
   const textSizeStyles = textSize === 'sm' ? 'text-sm' : textSize === 'base' ? 'text-base' : textSize === 'lg' ? 'text-lg' : 'text-lg sm:text-xl'
@@ -40,6 +41,7 @@ export default function Input({
           </span>
         )}
         <input
+          id={id}
           className={`${baseStyles} ${stateStyles} ${icon ? 'pl-12 sm:pl-14' : ''}`}
           {...props}
         />

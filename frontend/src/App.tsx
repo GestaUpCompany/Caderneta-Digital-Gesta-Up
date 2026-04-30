@@ -18,12 +18,6 @@ import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
-import { getDeviceId } from './utils/deviceId'
-import { getDeviceStaticData, getSessionData } from './utils/deviceData'
-import { BACKEND_URL, DEVICE_SHEET_URL } from './utils/constants'
-import { useSessionTimer } from './hooks/useSessionTimer'
-import { useScreenTracking } from './hooks/useScreenTracking'
-import { useNetworkTracking } from './hooks/useNetworkTracking'
 import { initializeCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
 
 // Componente wrapper para PWAUpdateModal com hook
@@ -83,12 +77,12 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome, isLoading } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
-  const { fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   
-  // Hooks de analytics
-  const sessionTime = useSessionTimer()
-  const { getScreens } = useScreenTracking()
-  const { offlineTime, onlineTime } = useNetworkTracking()
+  // Hooks de analytics (desativados temporariamente)
+  // const sessionTime = useSessionTimer()
+  // const { getScreens } = useScreenTracking()
+  // const { offlineTime, onlineTime } = useNetworkTracking()
 
   // Inicializar cache de dados de cadastro
   useEffect(() => {
@@ -133,6 +127,8 @@ function AppInner() {
   }, [])
 
   // Enviar dados de analytics periodicamente (a cada 5 minutos)
+  // DESATIVADO para evitar rate limiting ao abrir o app
+  /*
   useEffect(() => {
     const sendAnalytics = async () => {
       try {
@@ -169,8 +165,11 @@ function AppInner() {
 
     return () => clearInterval(interval)
   }, [sessionTime, fazenda])
+  */
 
   // Registrar dispositivo ao abrir app
+  // DESATIVADO para evitar rate limiting ao abrir o app
+  /*
   useEffect(() => {
     const registerDevice = async () => {
       try {
@@ -215,6 +214,7 @@ function AppInner() {
     registerDevice()
     updateSession()
   }, [fazenda])
+  */
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">

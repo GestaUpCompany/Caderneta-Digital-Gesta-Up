@@ -111,7 +111,7 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
  */
 async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCacheData> {
   try {
-    // Buscar pastos e lotes dos endpoints específicos
+    // Buscar pastos dos endpoints específicos
     const pastosRes = await fetch(`${BACKEND_URL}/api/insumos/pastos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -120,6 +120,9 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
     const pastosData = await pastosRes.json()
     const pastos = pastosData.success ? pastosData.pastos || [] : []
 
+    // Delay de 500ms entre requisições para evitar rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500))
+
     const lotesRes = await fetch(`${BACKEND_URL}/api/insumos/lotes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -127,6 +130,9 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
     })
     const lotesData = await lotesRes.json()
     const lotes = lotesData.success ? lotesData.lotes || [] : []
+
+    // Delay de 500ms entre requisições para evitar rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500))
 
     // Buscar detalhes de todos os pastos
     const pastosDetalhes: Record<string, PastoDetalhes> = {}
@@ -141,6 +147,8 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
         if (detData.success) {
           pastosDetalhes[pasto] = detData.detalhes
         }
+        // Delay de 200ms entre requisições de detalhes para evitar rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200))
       } catch (error) {
         console.error(`[CadastroCache] Erro ao buscar detalhes do pasto ${pasto}:`, error)
       }
@@ -159,10 +167,15 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
         if (detData.success) {
           lotesDetalhes[lote] = detData.detalhes
         }
+        // Delay de 200ms entre requisições de detalhes para evitar rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200))
       } catch (error) {
         console.error(`[CadastroCache] Erro ao buscar detalhes do lote ${lote}:`, error)
       }
     }
+
+    // Delay de 500ms antes de buscar suplementação para evitar rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500))
 
     // Buscar dados de suplementação
     const suplementacaoRes = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {

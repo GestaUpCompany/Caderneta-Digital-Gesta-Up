@@ -14,6 +14,8 @@ interface CheckboxGroupProps {
   className?: string
   gridCols?: number
   hideCheckbox?: boolean
+  id?: string
+  dataField?: string
 }
 
 export default function CheckboxGroup({
@@ -24,7 +26,9 @@ export default function CheckboxGroup({
   error,
   className = '',
   gridCols,
-  hideCheckbox = false
+  hideCheckbox = false,
+  id,
+  dataField,
 }: CheckboxGroupProps) {
 
   const handleChange = (optionValue: string) => {
@@ -50,7 +54,7 @@ export default function CheckboxGroup({
   const isCompact = gridCols && gridCols >= 2
 
   return (
-    <div className={`flex flex-col gap-4 ${className}`}>
+    <div id={id} data-field={dataField} className={`flex flex-col gap-4 ${className}`}>
       {label && (
         <div className="text-lg font-black text-gray-900 tracking-tight">
           {label}

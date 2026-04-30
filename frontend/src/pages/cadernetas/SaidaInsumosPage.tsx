@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
-import { RootState } from '../../store/store'
-import FarmLogo from '../../components/FarmLogo'
-import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
-import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { RootState } from '../../store/store'
+import FarmLogo from '../../components/FarmLogo'
+import { scrollToFirstError } from '../../utils/scrollToError'
+import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
+import SuccessModal from '../../components/SuccessModal'
 import { loadCadastroData } from '../../services/cadastroData'
 import { BACKEND_URL } from '../../utils/constants'
+import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 
 interface FormState {
   dataProducao: string
@@ -128,6 +129,7 @@ export default function SaidaInsumosPage() {
 
       if (!result.success && result.errors) {
         setErrors(result.errors)
+        scrollToFirstError(result.errors)
         setSalvando(false)
         return
       }
@@ -236,6 +238,8 @@ export default function SaidaInsumosPage() {
                   options={suplementacaoData.dietas}
                   placeholder="Buscar dieta..."
                   disabled={loadingSuplementacao}
+                  id="dietaProduzida"
+                  name="dietaProduzida"
                 />
               ) : (
                 <Input
@@ -245,6 +249,7 @@ export default function SaidaInsumosPage() {
                   onChange={(e) => set('dietaProduzida')(e.target.value)}
                   error={getError('dietaProduzida')}
                   disabled={loadingSuplementacao}
+                  id="dietaProduzida"
                 />
               )}
               <SearchableModal
@@ -254,6 +259,8 @@ export default function SaidaInsumosPage() {
                 error={getError('destinoProducao')}
                 options={DESTINOS}
                 placeholder="Buscar destino..."
+                id="destinoProducao"
+                name="destinoProducao"
               />
               <Input
                 label="TOTAL PRODUZIDO (kg)"

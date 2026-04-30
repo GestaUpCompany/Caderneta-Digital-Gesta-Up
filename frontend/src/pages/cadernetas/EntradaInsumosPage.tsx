@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
-import { RootState } from '../../store/store'
-import FarmLogo from '../../components/FarmLogo'
-import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
-import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { RootState } from '../../store/store'
+import FarmLogo from '../../components/FarmLogo'
+import { scrollToFirstError } from '../../utils/scrollToError'
+import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
+import SuccessModal from '../../components/SuccessModal'
 import { loadCadastroData, CadastroData } from '../../services/cadastroData'
+import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { BACKEND_URL } from '../../utils/constants'
 
 interface FormState {
@@ -163,6 +164,7 @@ export default function EntradaInsumosPage() {
     setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
+      scrollToFirstError(result.errors)
     } else {
       const dadosRegistro = {
         dataEntrada: form.dataEntrada,
@@ -270,6 +272,8 @@ export default function EntradaInsumosPage() {
                   options={suplementacaoData.insumos}
                   placeholder="Buscar insumo..."
                   disabled={loadingInsumos}
+                  id="produto"
+                  name="produto"
                 />
               ) : (
                 <Input
@@ -279,6 +283,7 @@ export default function EntradaInsumosPage() {
                   onChange={setInput('produto')}
                   error={getError('produto')}
                   disabled={loadingInsumos}
+                  id="produto"
                 />
               )}
               <Input
@@ -326,6 +331,8 @@ export default function EntradaInsumosPage() {
                   options={cadastroData.fornecedores}
                   placeholder="Buscar fornecedor..."
                   disabled={loading}
+                  id="fornecedor"
+                  name="fornecedor"
                 />
               ) : (
                 <Input
@@ -335,6 +342,7 @@ export default function EntradaInsumosPage() {
                   onChange={setInput('fornecedor')}
                   error={getError('fornecedor')}
                   disabled={loading}
+                  id="fornecedor"
                 />
               )}
             </div>

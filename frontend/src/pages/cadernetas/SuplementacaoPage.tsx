@@ -12,6 +12,7 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import { scrollToFirstError } from '../../utils/scrollToError'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -241,6 +242,7 @@ export default function SuplementacaoPage() {
     setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
+      scrollToFirstError(result.errors)
     } else {
       // Armazenar o registro salvo para compartilhamento
       const dadosRegistro = {
@@ -325,7 +327,6 @@ export default function SuplementacaoPage() {
             value={form.tratador}
             onChange={setInput('tratador')}
             error={getError('tratador')}
-            readOnly
           />
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
@@ -336,6 +337,8 @@ export default function SuplementacaoPage() {
                 error={getError('pasto')}
                 options={pastosDisponiveis}
                 placeholder="Buscar pasto..."
+                id="pasto"
+                name="pasto"
               />
             ) : (
               <Input
@@ -345,6 +348,7 @@ export default function SuplementacaoPage() {
                 onChange={setInput('pasto')}
                 error={getError('pasto')}
                 disabled
+                id="pasto"
               />
             )}
             {lotesDisponiveis.length > 0 ? (
@@ -355,6 +359,8 @@ export default function SuplementacaoPage() {
                 error={getError('numeroLote')}
                 options={lotesDisponiveis}
                 placeholder="Buscar lote..."
+                id="numeroLote"
+                name="numeroLote"
               />
             ) : (
               <Input
@@ -486,6 +492,8 @@ export default function SuplementacaoPage() {
             error={getError('categorias')}
             gridCols={2}
             hideCheckbox={true}
+            id="categorias"
+            dataField="categorias"
           />
           {form.categorias.includes('Outros') && (
             <Input

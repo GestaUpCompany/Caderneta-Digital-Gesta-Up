@@ -8,6 +8,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const MOTIVOS = [
@@ -189,6 +190,7 @@ export default function MovimentacaoPage() {
     setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
+      scrollToFirstError(result.errors)
     } else {
       // Armazenar o registro salvo para compartilhamento
       const dadosRegistro = {
@@ -271,6 +273,8 @@ export default function MovimentacaoPage() {
               error={getError('loteOrigem')}
               options={lotesDisponiveis}
               placeholder="Buscar lote..."
+              id="loteOrigem"
+              name="loteOrigem"
             />
           ) : (
             <Input
@@ -281,6 +285,7 @@ export default function MovimentacaoPage() {
               error={getError('loteOrigem')}
               inputMode="numeric"
               disabled
+              id="loteOrigem"
             />
           )}
           {detalhesLoteOrigem && (
@@ -361,6 +366,8 @@ export default function MovimentacaoPage() {
                       error={getError('loteDestino')}
                       options={frigorificosDisponiveis}
                       placeholder="Buscar frigorífico..."
+                      id="loteDestino"
+                      name="loteDestino"
                     />
                   ) : (
                     <Input
@@ -370,6 +377,7 @@ export default function MovimentacaoPage() {
                       onChange={setInput('loteDestino')}
                       error={getError('loteDestino')}
                       disabled
+                      id="loteDestino"
                     />
                   )}
                   <Input
@@ -389,6 +397,8 @@ export default function MovimentacaoPage() {
                       error={getError('loteDestino')}
                       options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
                       placeholder="Buscar lote..."
+                      id="loteDestino"
+                      name="loteDestino"
                     />
                   ) : (
                     <Input
@@ -398,6 +408,7 @@ export default function MovimentacaoPage() {
                       onChange={setInput('loteDestino')}
                       error={getError('loteDestino')}
                       disabled
+                      id="loteDestino"
                     />
                   )}
                   <Input
@@ -465,6 +476,8 @@ export default function MovimentacaoPage() {
             error={getError('categorias')}
             gridCols={2}
             hideCheckbox={true}
+            id="categorias"
+            dataField="categorias"
           />
           {form.categorias.includes('Outros') && (
             <Input

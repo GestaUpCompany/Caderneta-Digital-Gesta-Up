@@ -70,14 +70,18 @@ export function useVersionCheck() {
     }
   }, [updateInfo])
 
-  // Verificar ao montar o componente
+  // Verificar ao montar o componente (com delay para evitar rate limiting)
   useEffect(() => {
-    checkForUpdates()
+    const timer = setTimeout(() => {
+      checkForUpdates()
+      
+      // Configurar verificação periódica
+      const interval = setInterval(checkForUpdates, VERSION_CHECK_INTERVAL)
+      
+      return () => clearInterval(interval)
+    }, 3000) // 3 segundos de delay para evitar rate limiting ao abrir o app
     
-    // Configurar verificação periódica
-    const interval = setInterval(checkForUpdates, VERSION_CHECK_INTERVAL)
-    
-    return () => clearInterval(interval)
+    return () => clearTimeout(timer)
   }, [checkForUpdates])
 
   // Verificar quando o app ganha foco (foreground)

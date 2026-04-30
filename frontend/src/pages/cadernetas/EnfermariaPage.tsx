@@ -8,6 +8,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const TRATAMENTOS = [
@@ -240,6 +241,7 @@ export default function EnfermariaPage() {
     setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
+      scrollToFirstError(result.errors)
     } else {
       const dadosRegistro = {
         data: form.data,
@@ -334,6 +336,8 @@ export default function EnfermariaPage() {
               error={getError('pasto')}
               options={pastosDisponiveis}
               placeholder="Buscar pasto..."
+              id="pasto"
+              name="pasto"
             />
           ) : (
             <Input
@@ -343,6 +347,7 @@ export default function EnfermariaPage() {
               onChange={setInput('pasto')}
               error={getError('pasto')}
               disabled
+              id="pasto"
             />
           )}
           {lotesDisponiveis.length > 0 ? (
@@ -353,6 +358,8 @@ export default function EnfermariaPage() {
               error={getError('lote')}
               options={lotesDisponiveis}
               placeholder="Buscar lote..."
+              id="lote"
+              name="lote"
             />
           ) : (
             <Input
@@ -387,6 +394,8 @@ export default function EnfermariaPage() {
             error={getError('categorias')}
             gridCols={2}
             hideCheckbox={true}
+            id="categorias"
+            dataField="categorias"
           />
           {form.categorias.includes('Outros') && (
             <Input
@@ -434,6 +443,8 @@ export default function EnfermariaPage() {
             error={getError('tratamentos')}
             gridCols={2}
             hideCheckbox={true}
+            id="tratamentos"
+            dataField="tratamentos"
           />
           {form.tratamentos.includes('Outros') && (
             <Input

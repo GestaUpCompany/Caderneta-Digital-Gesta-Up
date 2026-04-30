@@ -10,6 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
 const BASE = import.meta.env.BASE_URL
@@ -223,6 +224,7 @@ export default function RodeioPage() {
     setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
+      scrollToFirstError(result.errors)
     } else {
       // Armazenar o registro salvo para compartilhamento
       const dadosRegistro = {
@@ -328,6 +330,8 @@ export default function RodeioPage() {
                 error={getError('pasto')}
                 options={pastosDisponiveis}
                 placeholder="Buscar pasto..."
+                id="pasto"
+                name="pasto"
               />
             ) : (
               <Input
@@ -337,6 +341,7 @@ export default function RodeioPage() {
                 onChange={setInput('pasto')}
                 error={getError('pasto')}
                 disabled
+                id="pasto"
               />
             )}
             {lotesDisponiveis.length > 0 ? (
@@ -347,6 +352,8 @@ export default function RodeioPage() {
                 error={getError('numeroLote')}
                 options={lotesDisponiveis}
                 placeholder="Buscar lote..."
+                id="numeroLote"
+                name="numeroLote"
               />
             ) : (
               <Input
