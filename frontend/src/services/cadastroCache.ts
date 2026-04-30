@@ -9,6 +9,22 @@ const CACHE_KEYS = {
 
 const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutos
 
+export interface PastoDetalhes {
+  pasto: string
+  areaUtil: string
+  especie: string
+  alturaEntrada: string
+  alturaSaida: string
+}
+
+export interface LoteDetalhes {
+  lote: string
+  nCabecas: string
+  categorias: string
+  pesoVivo: string
+  qtdBezerros: string
+}
+
 export interface CadastroCacheData {
   pastos: string[]
   lotes: string[]
@@ -18,6 +34,8 @@ export interface CadastroCacheData {
   racao?: string[]
   insumos?: string[]
   dietas?: string[]
+  pastosDetalhes?: Record<string, PastoDetalhes>
+  lotesDetalhes?: Record<string, LoteDetalhes>
 }
 
 let cacheData: CadastroCacheData | null = null
@@ -35,6 +53,8 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos?.length || 0,
         lotes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotes?.length || 0,
         frigorificos: cached[CACHE_KEYS.PASTOS_LOTES]?.frigorificos?.length || 0,
+        pastosDetalhes: Object.keys(cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {}).length,
+        lotesDetalhes: Object.keys(cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {}).length,
         mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral?.length || 0,
         proteinado: cached[CACHE_KEYS.SUPLEMENTACAO]?.proteinado?.length || 0,
         racao: cached[CACHE_KEYS.SUPLEMENTACAO]?.racao?.length || 0,
@@ -45,6 +65,8 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos || [],
         lotes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotes || [],
         frigorificos: cached[CACHE_KEYS.PASTOS_LOTES]?.frigorificos || [],
+        pastosDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {},
+        lotesDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {},
         mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral || [],
         proteinado: cached[CACHE_KEYS.SUPLEMENTACAO]?.proteinado || [],
         racao: cached[CACHE_KEYS.SUPLEMENTACAO]?.racao || [],
@@ -69,6 +91,8 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       pastos: data.pastos,
       lotes: data.lotes,
       frigorificos: data.frigorificos || [],
+      pastosDetalhes: data.pastosDetalhes || {},
+      lotesDetalhes: data.lotesDetalhes || {},
     })
     await saveCadastroData(CACHE_KEYS.SUPLEMENTACAO, {
       mineral: data.mineral,
@@ -104,6 +128,42 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
     const lotesData = await lotesRes.json()
     const lotes = lotesData.success ? lotesData.lotes || [] : []
 
+    // Buscar detalhes de todos os pastos
+    const pastosDetalhes: Record<string, PastoDetalhes> = {}
+    for (const pasto of pastos) {
+      try {
+        const detRes = await fetch(`${BACKEND_URL}/api/insumos/pasto-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, pasto }),
+        })
+        const detData = await detRes.json()
+        if (detData.success) {
+          pastosDetalhes[pasto] = detData.detalhes
+        }
+      } catch (error) {
+        console.error(`[CadastroCache] Erro ao buscar detalhes do pasto ${pasto}:`, error)
+      }
+    }
+
+    // Buscar detalhes de todos os lotes
+    const lotesDetalhes: Record<string, LoteDetalhes> = {}
+    for (const lote of lotes) {
+      try {
+        const detRes = await fetch(`${BACKEND_URL}/api/insumos/lote-detalhes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote }),
+        })
+        const detData = await detRes.json()
+        if (detData.success) {
+          lotesDetalhes[lote] = detData.detalhes
+        }
+      } catch (error) {
+        console.error(`[CadastroCache] Erro ao buscar detalhes do lote ${lote}:`, error)
+      }
+    }
+
     // Buscar dados de suplementação
     const suplementacaoRes = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
       method: 'POST',
@@ -116,6 +176,8 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
       pastos: pastos,
       lotes: lotes,
       frigorificos: [],
+      pastosDetalhes,
+      lotesDetalhes,
       mineral: suplementacaoData.mineral || [],
       proteinado: suplementacaoData.proteinado || [],
       racao: suplementacaoData.racao || [],
@@ -129,6 +191,8 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
       pastos: [],
       lotes: [],
       frigorificos: [],
+      pastosDetalhes: {},
+      lotesDetalhes: {},
       mineral: [],
       proteinado: [],
       racao: [],
@@ -162,6 +226,8 @@ export async function updateCadastroCache(cadastroSheetUrl: string): Promise<voi
       pastos: data.pastos.length,
       lotes: data.lotes.length,
       frigorificos: data.frigorificos?.length || 0,
+      pastosDetalhes: Object.keys(data.pastosDetalhes || {}).length,
+      lotesDetalhes: Object.keys(data.lotesDetalhes || {}).length,
       mineral: data.mineral?.length || 0,
       proteinado: data.proteinado?.length || 0,
       racao: data.racao?.length || 0,
@@ -243,4 +309,20 @@ export function getCachedCadastroData(): CadastroCacheData | null {
  */
 export function needsCacheUpdate(): boolean {
   return !cacheData || Date.now() - lastCacheUpdate > CACHE_EXPIRY_MS
+}
+
+/**
+ * Busca detalhes de um pasto específico do cache
+ */
+export function getPastoDetalhes(pasto: string): PastoDetalhes | null {
+  if (!cacheData?.pastosDetalhes) return null
+  return cacheData.pastosDetalhes[pasto] || null
+}
+
+/**
+ * Busca detalhes de um lote específico do cache
+ */
+export function getLoteDetalhes(lote: string): LoteDetalhes | null {
+  if (!cacheData?.lotesDetalhes) return null
+  return cacheData.lotesDetalhes[lote] || null
 }

@@ -11,7 +11,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData } from '../../services/cadastroCache'
+import { getCachedCadastroData, getPastoDetalhes, getLoteDetalhes } from '../../services/cadastroCache'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -143,6 +143,14 @@ export default function PastagensPage() {
         return
       }
 
+      // Primeiro verificar no cache
+      const cacheDetalhes = getPastoDetalhes(form.pastoSaida)
+      if (cacheDetalhes) {
+        setDetalhesPastoSaida(cacheDetalhes)
+        return
+      }
+
+      // Se não estiver no cache, buscar da API
       try {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/pasto-detalhes`, {
           method: 'POST',
@@ -204,6 +212,14 @@ export default function PastagensPage() {
         return
       }
 
+      // Primeiro verificar no cache
+      const cacheDetalhes = getPastoDetalhes(form.pastoEntrada)
+      if (cacheDetalhes) {
+        setDetalhesPastoEntrada(cacheDetalhes)
+        return
+      }
+
+      // Se não estiver no cache, buscar da API
       try {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/pasto-detalhes`, {
           method: 'POST',
@@ -265,6 +281,14 @@ export default function PastagensPage() {
         return
       }
 
+      // Primeiro verificar no cache
+      const cacheDetalhes = getLoteDetalhes(form.numeroLote)
+      if (cacheDetalhes) {
+        setDetalhesLote(cacheDetalhes)
+        return
+      }
+
+      // Se não estiver no cache, buscar da API
       try {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
           method: 'POST',
