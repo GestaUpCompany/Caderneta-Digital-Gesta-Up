@@ -13,12 +13,17 @@ export default function Home() {
   const navigate = useNavigate()
   const { configurado, fazenda, fazendaId, usuario } = useSelector((state: RootState) => state.config)
 
-  // Verificar se é fazenda Marcon ou GestaUp (usando o ID)
+  // Verificar se é fazenda Marcon, GestaUp, Sirio, Guanabara, Alegria, Dias Cardoso, Estrela da Jacamim ou Paribó (usando o ID)
   const farmId = fazendaId || fazenda
   const isMarcon = farmId?.toLowerCase().includes('marcon')
   const isGestaUp = farmId?.toLowerCase().includes('gestaup')
   const isSirio = farmId?.toLowerCase().includes('sirio') || farmId?.toLowerCase().includes('sírio')
-  const showInsumos = isMarcon || isGestaUp || isSirio
+  const isGuanabara = farmId?.toLowerCase().includes('guanabara')
+  const isAlegria = farmId?.toLowerCase().includes('alegria')
+  const isDiasCardoso = farmId?.toLowerCase().includes('dias cardoso') || farmId?.toLowerCase().includes('diascardoso')
+  const isJacamim = farmId?.toLowerCase().includes('jacamim') || farmId?.toLowerCase().includes('estrela da jacamim')
+  const isParibo = farmId?.toLowerCase().includes('paribo')
+  const showInsumos = isMarcon || isGestaUp || isSirio || isGuanabara || isAlegria || isDiasCardoso || isJacamim || isParibo
 
   // Verificar primeiro acesso e redirecionar automaticamente
   useEffect(() => {

@@ -37,6 +37,21 @@ export function getFarmLogo(farmName: string): string {
   if (lowerName.includes('sirio') || lowerName.includes('sírio')) {
     return `${BASE}logo-sirio.png`
   }
+  if (lowerName.includes('guanabara')) {
+    return `${BASE}logo-guanabara.jpg`
+  }
+  if (lowerName.includes('alegria')) {
+    return `${BASE}logo-alegria.jpg`
+  }
+  if (lowerName.includes('dias cardoso') || lowerName.includes('diascardoso')) {
+    return `${BASE}logo-diascardoso.jpeg`
+  }
+  if (lowerName.includes('jacamim') || lowerName.includes('estrela da jacamim')) {
+    return `${BASE}logo-jacamim.jpeg`
+  }
+  if (lowerName.includes('paribo')) {
+    return `${BASE}logo-paribo.jpeg`
+  }
 
   // Logo padrão se não encontrar match
   return LOGO_URL
