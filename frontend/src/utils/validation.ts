@@ -42,6 +42,53 @@ function isScaleValue(value: unknown, min: number, max: number, required = false
   return !isNaN(num) && num >= min && num <= max
 }
 
+/**
+ * Helper para validar se ao menos uma categoria de animal numérica foi preenchida
+ * @param data Objeto de dados contendo campos de categorias
+ * @param categorias Array de nomes dos campos de categoria (ex: ['vaca', 'touro', 'bezerro'])
+ * @param fieldName Nome do campo para erro (ex: 'categorias')
+ * @param errorMessage Mensagem de erro personalizada
+ * @returns ValidationError se nenhuma categoria preenchida, null se OK
+ */
+function validateCategoriasNumericas(
+  data: Record<string, unknown>,
+  categorias: string[],
+  fieldName: string,
+  errorMessage?: string
+): ValidationError | null {
+  const algumPreenchido = categorias.some(
+    (c) => data[c] !== null && data[c] !== undefined && data[c] !== '' && Number(data[c]) > 0
+  )
+  if (!algumPreenchido) {
+    return {
+      field: fieldName,
+      message: errorMessage || 'Preencha ao menos uma categoria de animal'
+    }
+  }
+  return null
+}
+
+/**
+ * Helper para validar se array de categorias tem pelo menos um item
+ * @param categorias Array de strings de categorias
+ * @param fieldName Nome do campo para erro (ex: 'categorias')
+ * @param errorMessage Mensagem de erro personalizada
+ * @returns ValidationError se array vazio, null se OK
+ */
+function validateCategoriasArray(
+  categorias: unknown,
+  fieldName: string,
+  errorMessage?: string
+): ValidationError | null {
+  if (!categorias || !Array.isArray(categorias) || categorias.length === 0) {
+    return {
+      field: fieldName,
+      message: errorMessage || 'Selecione ao menos uma categoria de animal'
+    }
+  }
+  return null
+}
+
 export function validateMaternidade(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -85,12 +132,13 @@ export function validatePastagens(data: Record<string, unknown>): ValidationResu
   if (!isScaleValue(data.avaliacaoEntrada, 1, 5, true))
     errors.push({ field: 'avaliacaoEntrada', message: 'Avaliação de entrada é obrigatória (1 a 5)' })
 
-  const categorias = ['vaca', 'touro', 'bezerro', 'boiMagro', 'garrote', 'novilha']
-  const algumPreenchido = categorias.some(
-    (c) => data[c] !== null && data[c] !== undefined && data[c] !== '' && Number(data[c]) > 0
+  const categoriasError = validateCategoriasNumericas(
+    data,
+    ['vaca', 'touro', 'bezerro', 'boiMagro', 'garrote', 'novilha'],
+    'categorias',
+    'Preencha ao menos uma categoria de animal'
   )
-  if (!algumPreenchido)
-    errors.push({ field: 'categorias', message: 'Preencha ao menos uma categoria de animal' })
+  if (categoriasError) errors.push(categoriasError)
 
   return { isValid: errors.length === 0, errors }
 }
@@ -105,12 +153,13 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
   if (!isNonEmptyString(data.numeroLote))
     errors.push({ field: 'numeroLote', message: 'Número do lote é obrigatório' })
 
-  const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
-  const algumPreenchido = categorias.some(
-    (c) => data[c] !== null && data[c] !== undefined && data[c] !== '' && Number(data[c]) > 0
+  const categoriasError = validateCategoriasNumericas(
+    data,
+    ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'],
+    'categorias',
+    'Preencha ao menos uma categoria de animal'
   )
-  if (!algumPreenchido)
-    errors.push({ field: 'categorias', message: 'Preencha ao menos uma categoria de animal' })
+  if (categoriasError) errors.push(categoriasError)
 
   const avaliacoesSN: Record<string, string> = {
     escoreGadoIdeal: 'Escore do gado ideal',
@@ -155,9 +204,12 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
   if (!isPositiveNumber(data.kgDeposito))
     errors.push({ field: 'kgDeposito', message: 'KG no depósito deve ser um número positivo' })
 
-  const categorias = data.categorias as string[]
-  if (!categorias || !Array.isArray(categorias) || categorias.length === 0)
-    errors.push({ field: 'categorias', message: 'Selecione ao menos uma categoria de animal' })
+  const categoriasError = validateCategoriasArray(
+    data.categorias,
+    'categorias',
+    'Selecione ao menos uma categoria de animal'
+  )
+  if (categoriasError) errors.push(categoriasError)
 
   return { isValid: errors.length === 0, errors }
 }
@@ -193,9 +245,12 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
   if (!isNonEmptyString(data.motivoMovimentacao))
     errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
 
-  const categorias = data.categorias as string[]
-  if (!categorias || !Array.isArray(categorias) || categorias.length === 0)
-    errors.push({ field: 'categorias', message: 'Selecione ao menos uma categoria de animal' })
+  const categoriasError = validateCategoriasArray(
+    data.categorias,
+    'categorias',
+    'Selecione ao menos uma categoria de animal'
+  )
+  if (categoriasError) errors.push(categoriasError)
 
   return { isValid: errors.length === 0, errors }
 }

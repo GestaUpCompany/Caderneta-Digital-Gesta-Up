@@ -34,6 +34,37 @@ insumosRouter.post('/pastos', async (req: Request, res: Response) => {
   }
 })
 
+insumosRouter.post('/pastos-completos', async (req: Request, res: Response) => {
+  const { insumosSheetUrl } = req.body
+  if (!insumosSheetUrl) {
+    return res.status(400).json({ error: 'insumosSheetUrl é obrigatório' })
+  }
+  try {
+    const rows = await getRows(insumosSheetUrl, 'Pasto')
+    // Retornar pastos com detalhes em uma única requisição
+    const pastosComDetalhes: Record<string, { pasto: string; areaUtil: string; especie: string; alturaEntrada: string; alturaSaida: string }> = {}
+    
+    for (const row of rows) {
+      const pasto = String(row[0] || '')
+      if (!pasto || pasto === '' || pasto === null || pasto === undefined) continue
+      
+      pastosComDetalhes[pasto] = {
+        pasto: String(row[0] || ''),
+        areaUtil: String(row[1] || ''),
+        especie: String(row[2] || ''),
+        alturaEntrada: String(row[3] || ''),
+        alturaSaida: String(row[4] || ''),
+      }
+    }
+    
+    const pastos = Object.keys(pastosComDetalhes)
+    return res.json({ success: true, pastos, pastosDetalhes: pastosComDetalhes })
+  } catch (error) {
+    logger.error(`Erro ao ler pastos completos: ${error}`)
+    return res.status(500).json({ error: 'Erro ao ler pastos completos' })
+  }
+})
+
 insumosRouter.post('/pasto-detalhes', async (req: Request, res: Response) => {
   const { insumosSheetUrl, pasto } = req.body
   if (!insumosSheetUrl || !pasto) {
@@ -74,6 +105,37 @@ insumosRouter.post('/lotes', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error(`Erro ao ler lotes: ${error}`)
     return res.status(500).json({ error: 'Erro ao ler lotes' })
+  }
+})
+
+insumosRouter.post('/lotes-completos', async (req: Request, res: Response) => {
+  const { insumosSheetUrl } = req.body
+  if (!insumosSheetUrl) {
+    return res.status(400).json({ error: 'insumosSheetUrl é obrigatório' })
+  }
+  try {
+    const rows = await getRows(insumosSheetUrl, 'Lote')
+    // Retornar lotes com detalhes em uma única requisição
+    const lotesComDetalhes: Record<string, { lote: string; nCabecas: string; categorias: string; pesoVivo: string; qtdBezerros: string }> = {}
+    
+    for (const row of rows) {
+      const lote = String(row[0] || '')
+      if (!lote || lote === '' || lote === null || lote === undefined) continue
+      
+      lotesComDetalhes[lote] = {
+        lote: String(row[0] || ''),
+        nCabecas: String(row[1] || ''),
+        categorias: String(row[2] || ''),
+        pesoVivo: String(row[3] || ''),
+        qtdBezerros: String(row[4] || ''),
+      }
+    }
+    
+    const lotes = Object.keys(lotesComDetalhes)
+    return res.json({ success: true, lotes, lotesDetalhes: lotesComDetalhes })
+  } catch (error) {
+    logger.error(`Erro ao ler lotes completos: ${error}`)
+    return res.status(500).json({ error: 'Erro ao ler lotes completos' })
   }
 })
 

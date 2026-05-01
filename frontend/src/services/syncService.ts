@@ -11,76 +11,201 @@ import { generateId } from '../utils/generateId'
 import { BACKEND_URL, MAX_RETRY_COUNT } from '../utils/constants'
 import { Registro } from '../types/cadernetas'
 
-const CADERNETA_COLUMNS: Record<CadernetaStore, (r: Registro) => (string | number | null)[]> = {
-  maternidade: (r) => [
-    r.data as string, r.pasto as string, r.lote as string, r.pesoCria as number, r.numeroCria as string,
-    r.tratamento as string, r.tipoParto as string, r.sexo as string,
-    r.raca as string, r.numeroMae as string, r.categoriaMae as string,
-  ],
-  pastagens: (r) => [
-    r.data as string, r.manejador as string, r.numeroLote as string,
-    r.pastoSaida as string, r.avaliacaoSaida as string, r.tempoOcupacao as string || '',
-    r.pastoEntrada as string, r.avaliacaoEntrada as string, r.tempoVedacao as string || '',
-    r.vaca as number, r.touro as number, r.boiGordo as number, r.boiMagro as number,
-    r.garrote as number, r.bezerro as number, r.novilha as number, r.tropa as number, r.outros as number,
-    r.escoreGado as number || 0,
-  ],
-  rodeio: (r) => [
-    r.data as string, r.pasto as string, r.numeroLote as string,
-    r.vaca as number || '', r.touro as number || '', r.boiGordo as number || '',
-    r.boiMagro as number || '', r.garrote as number || '', r.bezerro as number || '',
-    r.novilha as number || '', r.tropa as number || '', r.outros as number || '',
-    r.totalCabecas as number, r.escoreGadoIdeal as string, r.escoreGadoIdealObs as string || '',
-    r.aguaBoaBebedouro as string, r.aguaBoaBebedouroObs as string || '',
-    r.pastagemAdequada as string, r.pastagemAdequadaObs as string || '',
-    r.animaisDoentes as string, r.animaisDoentesObs as string || '',
-    r.cercasCochos as string, r.cercasCochosObs as string || '',
-    r.carrapatosMoscas as string, r.carrapatosMoscasObs as string || '',
-    r.animaisEntrevero as string, r.animaisEntreveroObs as string || '',
-    r.animalMorto as string, r.animalMortoObs as string || '',
-    r.escoreFezes as number, r.equipe as number,
-  ],
-  suplementacao: (r) => [
-    r.data as string, r.tratador as string, r.pasto as string, r.numeroLote as string,
-    r.produto as string, r.creepKg as string, r.leituraCocho as number,
-    r.kgCocho as number, r.kgDeposito as number, r.categoriasString as string,
-  ],
-  bebedouros: (r) => [
-    r.data as string, r.responsavel as string, r.pasto as string, r.numeroLote as string,
-    r.categoria as string, r.leituraBebedouro as number,
-    r.numeroBebedouro as string, r.observacao as string,
-  ],
-  movimentacao: (r) => [
-    r.data as string, r.loteOrigem as string, r.loteDestino as string,
-    r.numeroCabecas as number, r.pesoMedio as number, r.categoria as string,
-    r.motivoMovimentacao as string, r.brincoChip as string, r.causaObservacao as string,
-  ],
-  enfermaria: (r) => [
-    r.data as string, r.pasto as string, r.lote as string, r.brincoChip as string, r.categoria as string,
-    r.problemaCasco as string, r.problemaCascoObs as string,
-    r.sintomasPneumonia as string, r.sintomasPneumoniaObs as string,
-    r.picadoCobra as string, r.picadoCobraObs as string,
-    r.incoordenacaoTremores as string, r.incoordenacaoTremoresObs as string,
-    r.febreAlta as string, r.febreAltaObs as string,
-    r.presencaSangue as string, r.presencaSangueObs as string,
-    r.fraturas as string, r.fraturasObs as string,
-    r.desordensDigestivas as string, r.desordensDigestivasObs as string,
-    r.tratamento as string,
-  ],
-  'entrada-insumos': (r) => [
-    r.dataEntrada as string, r.horario as string, r.produto as string,
-    r.quantidade as number, r.valorUnitario as number, r.valorTotal as number,
-    r.notaFiscal as string, r.fornecedor as string, r.placa as string,
-    r.motorista as string, r.responsavelRecebimento as string,
-  ],
-  'saida-insumos': (r) => [
-    r.dataProducao as string, r.dietaProduzida as string,
-    r.destinoProducao as string, r.totalProduzido as number,
-  ],
-  'insumos-por-saida': (r) => [
-    r.idSaida as string, r.dataProducao as string, r.dietaProduzida as string,
-    r.insumo as string, r.quantidade as number,
-  ],
+interface ColumnMapping {
+  field: keyof Registro
+  defaultValue?: string | number
+  transform?: (value: any) => string | number | null
+}
+
+interface CadernetaColumnConfig {
+  columns: ColumnMapping[]
+}
+
+const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = {
+  maternidade: {
+    columns: [
+      { field: 'data' },
+      { field: 'pasto' },
+      { field: 'lote' },
+      { field: 'pesoCria' },
+      { field: 'numeroCria' },
+      { field: 'tratamento' },
+      { field: 'tipoParto' },
+      { field: 'sexo' },
+      { field: 'raca' },
+      { field: 'numeroMae' },
+      { field: 'categoriaMae' },
+    ],
+  },
+  pastagens: {
+    columns: [
+      { field: 'data' },
+      { field: 'manejador' },
+      { field: 'numeroLote' },
+      { field: 'pastoSaida' },
+      { field: 'avaliacaoSaida' },
+      { field: 'tempoOcupacao', defaultValue: '' },
+      { field: 'pastoEntrada' },
+      { field: 'avaliacaoEntrada' },
+      { field: 'tempoVedacao', defaultValue: '' },
+      { field: 'vaca' },
+      { field: 'touro' },
+      { field: 'boiGordo' },
+      { field: 'boiMagro' },
+      { field: 'garrote' },
+      { field: 'bezerro' },
+      { field: 'novilha' },
+      { field: 'tropa' },
+      { field: 'outros' },
+      { field: 'escoreGado', defaultValue: 0 },
+    ],
+  },
+  rodeio: {
+    columns: [
+      { field: 'data' },
+      { field: 'pasto' },
+      { field: 'numeroLote' },
+      { field: 'vaca', transform: (v) => v || '' },
+      { field: 'touro', transform: (v) => v || '' },
+      { field: 'boiGordo', transform: (v) => v || '' },
+      { field: 'boiMagro', transform: (v) => v || '' },
+      { field: 'garrote', transform: (v) => v || '' },
+      { field: 'bezerro', transform: (v) => v || '' },
+      { field: 'novilha', transform: (v) => v || '' },
+      { field: 'tropa', transform: (v) => v || '' },
+      { field: 'outros', transform: (v) => v || '' },
+      { field: 'totalCabecas' },
+      { field: 'escoreGadoIdeal' },
+      { field: 'escoreGadoIdealObs', defaultValue: '' },
+      { field: 'aguaBoaBebedouro' },
+      { field: 'aguaBoaBebedouroObs', defaultValue: '' },
+      { field: 'pastagemAdequada' },
+      { field: 'pastagemAdequadaObs', defaultValue: '' },
+      { field: 'animaisDoentes' },
+      { field: 'animaisDoentesObs', defaultValue: '' },
+      { field: 'cercasCochos' },
+      { field: 'cercasCochosObs', defaultValue: '' },
+      { field: 'carrapatosMoscas' },
+      { field: 'carrapatosMoscasObs', defaultValue: '' },
+      { field: 'animaisEntrevero' },
+      { field: 'animaisEntreveroObs', defaultValue: '' },
+      { field: 'animalMorto' },
+      { field: 'animalMortoObs', defaultValue: '' },
+      { field: 'escoreFezes' },
+      { field: 'equipe' },
+    ],
+  },
+  suplementacao: {
+    columns: [
+      { field: 'data' },
+      { field: 'tratador' },
+      { field: 'pasto' },
+      { field: 'numeroLote' },
+      { field: 'produto' },
+      { field: 'creepKg' },
+      { field: 'leituraCocho' },
+      { field: 'kgCocho' },
+      { field: 'kgDeposito' },
+      { field: 'categoriasString' },
+    ],
+  },
+  bebedouros: {
+    columns: [
+      { field: 'data' },
+      { field: 'responsavel' },
+      { field: 'pasto' },
+      { field: 'numeroLote' },
+      { field: 'categoria' },
+      { field: 'leituraBebedouro' },
+      { field: 'numeroBebedouro' },
+      { field: 'observacao' },
+    ],
+  },
+  movimentacao: {
+    columns: [
+      { field: 'data' },
+      { field: 'loteOrigem' },
+      { field: 'loteDestino' },
+      { field: 'numeroCabecas' },
+      { field: 'pesoMedio' },
+      { field: 'categoria' },
+      { field: 'motivoMovimentacao' },
+      { field: 'brincoChip' },
+      { field: 'causaObservacao' },
+    ],
+  },
+  enfermaria: {
+    columns: [
+      { field: 'data' },
+      { field: 'pasto' },
+      { field: 'lote' },
+      { field: 'brincoChip' },
+      { field: 'categoria' },
+      { field: 'problemaCasco' },
+      { field: 'problemaCascoObs' },
+      { field: 'sintomasPneumonia' },
+      { field: 'sintomasPneumoniaObs' },
+      { field: 'picadoCobra' },
+      { field: 'picadoCobraObs' },
+      { field: 'incoordenacaoTremores' },
+      { field: 'incoordenacaoTremoresObs' },
+      { field: 'febreAlta' },
+      { field: 'febreAltaObs' },
+      { field: 'presencaSangue' },
+      { field: 'presencaSangueObs' },
+      { field: 'fraturas' },
+      { field: 'fraturasObs' },
+      { field: 'desordensDigestivas' },
+      { field: 'desordensDigestivasObs' },
+      { field: 'tratamento' },
+    ],
+  },
+  'entrada-insumos': {
+    columns: [
+      { field: 'dataEntrada' },
+      { field: 'horario' },
+      { field: 'produto' },
+      { field: 'quantidade' },
+      { field: 'valorUnitario' },
+      { field: 'valorTotal' },
+      { field: 'notaFiscal' },
+      { field: 'fornecedor' },
+      { field: 'placa' },
+      { field: 'motorista' },
+      { field: 'responsavelRecebimento' },
+    ],
+  },
+  'saida-insumos': {
+    columns: [
+      { field: 'dataProducao' },
+      { field: 'dietaProduzida' },
+      { field: 'destinoProducao' },
+      { field: 'totalProduzido' },
+    ],
+  },
+  'insumos-por-saida': {
+    columns: [
+      { field: 'idSaida' },
+      { field: 'dataProducao' },
+      { field: 'dietaProduzida' },
+      { field: 'insumo' },
+      { field: 'quantidade' },
+    ],
+  },
+}
+
+function getColumnValues(store: CadernetaStore, registro: Registro): (string | number | null)[] {
+  const config = CADERNETA_COLUMNS_CONFIG[store]
+  return config.columns.map((mapping) => {
+    const value = registro[mapping.field]
+    if (mapping.transform) {
+      return mapping.transform(value)
+    }
+    if (value === undefined || value === null || value === '') {
+      return mapping.defaultValue ?? ''
+    }
+    return value as string | number
+  })
 }
 
 export async function enqueueRegistro(
@@ -120,7 +245,7 @@ export async function processQueue(planilhaUrl: string): Promise<{ synced: numbe
     }
 
     try {
-      const values = CADERNETA_COLUMNS[item.store](registro)
+      const values = getColumnValues(item.store, registro)
 
       if (item.operation === 'create') {
         const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}`, {

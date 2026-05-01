@@ -4,10 +4,10 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
+import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
@@ -57,7 +57,7 @@ const makeInitial = (usuario?: string): FormState => ({
 
 export default function BebedourosPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda } = useSelector((state: RootState) => state.config)
+  const { usuario } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -148,38 +148,8 @@ export default function BebedourosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header sticky com botões e título */}
-      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-          >
-            VOLTAR
-          </button>
-          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">BEBEDOUROS</h1>
-          <button
-            onClick={() => navigate('/caderneta/bebedouros/lista')}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
-          >
-            REGISTROS
-          </button>
-        </div>
-      </div>
-
-      {/* Logos não sticky */}
-      <div className="bg-[#1a3a2a] text-white px-4 py-5">
-        <div className="flex items-center justify-center gap-8">
-          <FarmLogo
-            farmName={fazenda}
-            type="both"
-            size="medium"
-          />
-        </div>
-      </div>
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
+    <>
+      <CadernetaLayout title="BEBEDOUROS" cadernetaId="bebedouros">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
@@ -323,7 +293,7 @@ export default function BebedourosPage() {
             LIMPAR
           </Button>
         </div>
-      </main>
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -342,6 +312,6 @@ export default function BebedourosPage() {
           `${BASE}docs/bebedouros/POP_Bebedouros_01.jpg`
         ]}
       />
-    </div>
+    </>
   )
 }

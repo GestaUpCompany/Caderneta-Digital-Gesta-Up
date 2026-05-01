@@ -1,12 +1,20 @@
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+const isDev = import.meta.env.MODE === 'development'
+
+export const BACKEND_URL = isDev 
+  ? (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001')
+  : import.meta.env.VITE_BACKEND_URL
 
 const BASE = import.meta.env.BASE_URL
 
 export const LOGO_URL = `${BASE}logo-gestaup-app-cadernetadigital.png`
 
-export const DATABASE_URL = 'https://docs.google.com/spreadsheets/d/1HSq-3ihaSnVGIEPBCMdhYjCmFfwyWAQM7zFrkCuGxts/edit'
+export const DATABASE_URL = isDev
+  ? (import.meta.env.VITE_DATABASE_URL || 'https://docs.google.com/spreadsheets/d/1HSq-3ihaSnVGIEPBCMdhYjCmFfwyWAQM7zFrkCuGxts/edit')
+  : import.meta.env.VITE_DATABASE_URL
 
-export const DEVICE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1i5zNHrN56caDV7vqmk9i8p1hm94_X8nOk5DpgTmqzIQ/edit'
+export const DEVICE_SHEET_URL = isDev
+  ? (import.meta.env.VITE_DEVICE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/1i5zNHrN56caDV7vqmk9i8p1hm94_X8nOk5DpgTmqzIQ/edit')
+  : import.meta.env.VITE_DEVICE_SHEET_URL
 
 export function getFarmLogo(farmName: string): string {
   // Lógica condicional simples para logo baseada no nome da fazenda

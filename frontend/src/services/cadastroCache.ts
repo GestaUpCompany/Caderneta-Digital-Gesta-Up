@@ -7,7 +7,7 @@ const CACHE_KEYS = {
   FRIGORIFICOS: 'frigorificos',
 }
 
-const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutos
+const CACHE_EXPIRY_MS = 10 * 60 * 1000 // 10 minutos
 
 export interface PastoDetalhes {
   pasto: string
@@ -108,71 +108,32 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
 
 /**
  * Busca dados de cadastro da API (apenas quando online e após sync)
+ * Usa endpoints batch para reduzir número de requisições
  */
 async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCacheData> {
   try {
-    // Buscar pastos dos endpoints específicos
-    const pastosRes = await fetch(`${BACKEND_URL}/api/insumos/pastos`, {
+    // Buscar pastos com detalhes em uma única requisição (endpoint batch)
+    const pastosRes = await fetch(`${BACKEND_URL}/api/insumos/pastos-completos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
     })
     const pastosData = await pastosRes.json()
     const pastos = pastosData.success ? pastosData.pastos || [] : []
+    const pastosDetalhes = pastosData.success ? pastosData.pastosDetalhes || {} : {}
 
     // Delay de 500ms entre requisições para evitar rate limiting
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    const lotesRes = await fetch(`${BACKEND_URL}/api/insumos/lotes`, {
+    // Buscar lotes com detalhes em uma única requisição (endpoint batch)
+    const lotesRes = await fetch(`${BACKEND_URL}/api/insumos/lotes-completos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
     })
     const lotesData = await lotesRes.json()
     const lotes = lotesData.success ? lotesData.lotes || [] : []
-
-    // Delay de 500ms entre requisições para evitar rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Buscar detalhes de todos os pastos
-    const pastosDetalhes: Record<string, PastoDetalhes> = {}
-    for (const pasto of pastos) {
-      try {
-        const detRes = await fetch(`${BACKEND_URL}/api/insumos/pasto-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, pasto }),
-        })
-        const detData = await detRes.json()
-        if (detData.success) {
-          pastosDetalhes[pasto] = detData.detalhes
-        }
-        // Delay de 200ms entre requisições de detalhes para evitar rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200))
-      } catch (error) {
-        console.error(`[CadastroCache] Erro ao buscar detalhes do pasto ${pasto}:`, error)
-      }
-    }
-
-    // Buscar detalhes de todos os lotes
-    const lotesDetalhes: Record<string, LoteDetalhes> = {}
-    for (const lote of lotes) {
-      try {
-        const detRes = await fetch(`${BACKEND_URL}/api/insumos/lote-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote }),
-        })
-        const detData = await detRes.json()
-        if (detData.success) {
-          lotesDetalhes[lote] = detData.detalhes
-        }
-        // Delay de 200ms entre requisições de detalhes para evitar rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200))
-      } catch (error) {
-        console.error(`[CadastroCache] Erro ao buscar detalhes do lote ${lote}:`, error)
-      }
-    }
+    const lotesDetalhes = lotesData.success ? lotesData.lotesDetalhes || {} : {}
 
     // Delay de 500ms antes de buscar suplementação para evitar rate limiting
     await new Promise(resolve => setTimeout(resolve, 500))

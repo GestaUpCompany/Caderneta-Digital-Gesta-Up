@@ -39,6 +39,30 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
+  // Prevenir navegação para trás quando modal está aberto (botão voltar do celular)
+  useEffect(() => {
+    if (isOpen) {
+      // Adicionar entrada no histórico para poder voltar para fechar o modal
+      window.history.pushState({ modalOpen: true }, '', window.location.href)
+
+      const handlePopState = (e: PopStateEvent) => {
+        if (e.state?.modalOpen) {
+          e.preventDefault()
+          onClose()
+        }
+      }
+
+      window.addEventListener('popstate', handlePopState)
+      return () => {
+        window.removeEventListener('popstate', handlePopState)
+        // Remover a entrada do histórico se o modal for fechado sem usar o botão voltar
+        if (window.history.state?.modalOpen) {
+          window.history.back()
+        }
+      }
+    }
+  }, [isOpen, onClose])
+
   // Reset zoom e posição quando modal fecha
   useEffect(() => {
     if (!isOpen) {
