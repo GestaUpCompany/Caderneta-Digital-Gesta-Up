@@ -65,7 +65,7 @@ Migrar o sistema Caderneta Digital Gesta-Up de Google Sheets para Supabase, mant
 
 ### 2.4 Tabelas de Sistema
 19. **sync_queue** - Fila de sincronização
-20. **conflictos** - Registro de conflitos
+20. **conflitos** - Registro de conflitos
 21. **audit_log** - Log de auditoria
 
 ### 2.5 Tabelas Futuras

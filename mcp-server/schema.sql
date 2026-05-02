@@ -527,7 +527,7 @@ CREATE INDEX idx_sync_queue_prioridade ON sync_queue(prioridade);
 CREATE INDEX idx_sync_queue_created ON sync_queue(created_at);
 
 -- Tabela de conflitos
-CREATE TABLE conflictos (
+CREATE TABLE conflitos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   fazenda_id UUID NOT NULL REFERENCES fazendas(id) ON DELETE CASCADE,
   tabela TEXT NOT NULL,
@@ -541,10 +541,10 @@ CREATE TABLE conflictos (
   criado_em TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Índices para conflictos
-CREATE INDEX idx_conflictos_fazenda ON conflictos(fazenda_id);
-CREATE INDEX idx_conflictos_tabela ON conflictos(tabela);
-CREATE INDEX idx_conflictos_resolvido ON conflictos(resolvido_por) WHERE resolvido_por IS NULL;
+-- Índices para conflitos
+CREATE INDEX idx_conflitos_fazenda ON conflitos(fazenda_id);
+CREATE INDEX idx_conflitos_tabela ON conflitos(tabela);
+CREATE INDEX idx_conflitos_resolvido ON conflitos(resolvido_por) WHERE resolvido_por IS NULL;
 
 -- Tabela de audit log
 CREATE TABLE audit_log (
