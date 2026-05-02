@@ -660,53 +660,234 @@ useEffect(() => {
 
 ---
 
-## 11. Checklist Final
+## 11. Métricas de Monitoramento Pós-Migração
 
-### 11.1 Pré-Migração
+### 11.1 Métricas Técnicas
+
+#### Performance
+- **Tempo de resposta médio:** <500ms para queries simples
+- **Tempo de resposta 95º percentil:** <1s
+- **Taxa de erro de API:** <1%
+- **Tempo de sync:** <5s para 100 registros
+- **Uso de banda:** <100MB/dia por fazenda
+
+#### Banco de Dados
+- **Tamanho do database:** Monitorar crescimento mensal
+- **Conexões simultâneas:** <50 (plano gratuito), <150 (plano Pro)
+- **Query performance:** <100ms para queries principais
+- **Index hit ratio:** >95%
+
+#### Sincronização
+- **Taxa de sucesso de sync:** >99%
+- **Taxa de conflitos:** <1%
+- **Tempo de resolução de conflitos:** <1min
+- **Queue size:** <100 itens pendentes
+
+### 11.2 Métricas de Negócio
+
+#### Usuários
+- **Taxa de adoção:** >90% após 1 semana
+- **Satisfação:** >85% (pesquisa)
+- **Suporte:** <5 chamadas/semana
+- **Tempo para primeira tarefa:** <30s
+
+#### Dados
+- **Volume diário de registros:** Monitorar tendências
+- **Atividade por fazenda:** Identificar fazendas inativas
+- **Tempo de preenchimento:** <2min por caderneta
+- **Taxa de registros completos:** >95%
+
+### 11.3 Ferramentas de Monitoramento
+
+#### Supabase Dashboard
+- Database metrics (conexões, tamanho, queries)
+- API metrics (requests, errors, latência)
+- Storage metrics (uso, bandwidth)
+- Real-time logs
+
+#### Frontend Monitoring
+- Sentry (error tracking) - plano gratuito
+- Google Analytics (uso) - gratuito
+- Custom logging (sync status, conflicts)
+
+#### Alertas
+- Taxa de erro >5%
+- Tempo de resposta >2s
+- Sync queue >1000 itens
+- Database size >80% do limite
+
+### 11.4 Relatórios Semanais
+
+#### Relatório Técnico
+- Performance média
+- Erros e incidentes
+- Crescimento de dados
+- Status de sincronização
+
+#### Relatório de Negócio
+- Número de usuários ativos
+- Volume de registros
+- Fazendas mais ativas
+- Feedback dos usuários
+
+---
+
+## 12. Rollback Plan Detalhado
+
+### 12.1 Pré-Migração (Backup)
+
+#### Backup do Google Sheets
+1. Fazer download completo da planilha principal
+2. Fazer download de todas as abas (9 cadernetas)
+3. Salvar em formato XLSX e CSV
+4. Armazenar em local seguro (Google Drive + backup local)
+5. Documentar timestamp do backup
+
+#### Backup do Frontend
+1. Fazer commit com tag `pre-migration`
+2. Documentar versão atual do app
+3. Capturar configuração atual (environment variables)
+4. Backup do IndexedDB (se houver dados críticos)
+
+### 12.2 Durante Migração
+
+#### Checkpoints de Validação
+Após cada fase da migração:
+1. **Fase 1 (Schema):** Validar que todas as tabelas foram criadas
+2. **Fase 2 (Dados):** Validar contagem de registros (antes/depois)
+3. **Fase 3 (Frontend):** Testar funcionalidade básica
+4. **Fase 4 (Acesso):** Testar login por ID de fazenda
+
+#### Critérios de Sucesso
+- Contagem de registros: 100% migrados
+- Integridade de dados: 0% de corrupção
+- Funcionalidade: 100% das cadernetas funcionando
+- Performance: Tempo de resposta <1s
+
+### 12.3 Pós-Migração (30 dias)
+
+#### Período de Observação
+- **Dia 1-7:** Monitoramento intensivo (24h)
+- **Dia 8-14:** Monitoramento diário
+- **Dia 15-30:** Monitoramento semanal
+
+#### Critérios de Rollback
+**Se algum critério falhar nos primeiros 7 dias:**
+1. Taxa de erro >10% (vs <1% esperado)
+2. Tempo de resposta >3s (vs <1s esperado)
+3. Taxa de sync <90% (vs >99% esperado)
+4. Perda de dados >1 registro
+5. Feedback negativo >50% dos usuários
+
+### 12.4 Procedimento de Rollback
+
+#### Rollback para Google Sheets
+1. **Parar app:** Desabilitar frontend (GitHub Pages)
+2. **Reverter frontend:** Fazer checkout do commit `pre-migration`
+3. **Reverter backend:** Reverter para Vercel anterior
+4. **Restaurar dados:** Reupar planilha do backup
+5. **Testar:** Validar que sistema funciona como antes
+6. **Comunicar:** Avisar usuários sobre rollback
+7. **Investigar:** Analisar causa do problema
+
+#### Rollback Parcial
+Se apenas uma fazenda tiver problemas:
+1. Isolar fazenda problemática
+2. Reverter apenas essa fazenda para Google Sheets
+3. Continuar operação para outras fazendas
+4. Corrigir problema e migrar novamente
+
+### 12.5 Comunicação com Usuários
+
+#### Pré-Migração (7 dias antes)
+```
+"Caros usuários,
+
+Informamos que realizaremos uma atualização do sistema no dia XX/XX às HH:00.
+O app ficará indisponível por aproximadamente 30 minutos.
+
+Após a atualização:
+- O app funcionará normalmente
+- Todos os dados estarão preservados
+- A velocidade será melhorada
+
+Em caso de dúvidas, entre em contato pelo WhatsApp: [número]"
+```
+
+#### Pós-Migração (após sucesso)
+```
+"Atualização concluída com sucesso!
+
+O app está funcionando normalmente com melhorias de performance.
+Todos os dados foram migrados com sucesso.
+
+Se encontrar algum problema, entre em contato."
+```
+
+#### Rollback (se necessário)
+```
+"Encontramos um problema na atualização.
+Estamos revertendo para o sistema anterior.
+
+O app estará disponível novamente em 30 minutos.
+Pedimos desculpas pelo inconveniente."
+```
+
+---
+
+## 13. Checklist Final
+
+### 13.1 Pré-Migração
 - [ ] Backup completo do Google Sheets
 - [ ] Projeto Supabase criado
-- [ ] Auth configurado
 - [ ] Environment variables configuradas
 - [ ] Schema database criado
 - [ ] RLS habilitado
 - [ ] Políticas de segurança criadas
+- [ ] Edge Function implementada
+- [ ] Commit tag `pre-migration` criado
 
-### 11.2 Migração
-- [ ] Cadastros migrados
+### 13.2 Migração
+- [ ] Cadastros migrados (fazendas com acesso_id)
 - [ ] Registros migrados (9 cadernetas)
-- [ ] Validação de contagem
-- [ ] Validação de integridade
+- [ ] Validação de contagem (100%)
+- [ ] Validação de integridade (0% corrupção)
 
-### 11.3 Integração
+### 13.3 Integração
 - [ ] supabaseService implementado
-- [ ] IndexedDB atualizado
+- [ ] IndexedDB atualizado (supabase_id)
 - [ ] useSync atualizado
-- [ ] Auth implementado
-- [ ] Multi-tenant implementado
+- [ ] Sistema de acesso por ID implementado
+- [ ] Upload de logos funcional
 
-### 11.4 Testes
+### 13.4 Testes
 - [ ] Testes unitários
-- [ ] Testes de integração
-- [ ] Testes de performance
-- [ ] Testes de segurança
+- [ ] Testes de integração (offline → online)
+- [ ] Testes de performance (<1s)
+- [ ] Testes de isolamento por fazenda
+- [ ] Testes com usuários reais
 
-### 11.5 Deploy
+### 13.5 Deploy
 - [ ] Deploy staging
-- [ ] Testes com usuários
-- [ ] Backup final
+- [ ] Monitoramento inicial (7 dias)
+- [ ] Backup final do Google Sheets
 - [ ] Deploy produção
-- [ ] Monitoramento
+- [ ] Monitoramento contínuo (30 dias)
 
 ---
 
-## 12. Conclusão
+## 14. Conclusão
 
 Este plano detalha a migração completa do sistema Caderneta Digital Gesta-Up de Google Sheets para Supabase, garantindo:
 
 1. **100% de funcionalidade atual** mantida
 2. **Escalabilidade** para 25+ fazendas
-3. **Segurança** com RLS e autenticação robusta
+3. **Segurança** com RLS e validação em duas camadas
 4. **Performance** consistente (sem rate limiting)
 5. **Futuro** preparado para sistema web e checklists
+6. **Rollback** plan detalhado para contingências
+7. **Monitoramento** métricas para acompanhamento pós-migração
 
 A migração é dividida em 6 semanas, com testes extensivos em cada fase para garantir zero downtime e perda zero de dados.
+
+---
