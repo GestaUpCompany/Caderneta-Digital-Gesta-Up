@@ -52,14 +52,33 @@ export default function Configuracoes() {
     return { sucesso: false }
   }
 
-  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string }> => {
+  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string }> => {
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
-      // Obter dados da fazenda do Supabase diretamente (sem Edge Function)
-      const fazenda = await getFazendaByAcessoId(acessoId)
+      
+      // Chamar Edge Function para obter token JWT do peão
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const loginResponse = await fetch(`${supabaseUrl}/functions/v1/login-peao`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acesso_id: acessoId }),
+      })
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json()
+        console.error('Erro ao fazer login do peão:', errorData)
+        return { sucesso: false }
+      }
+
+      const loginData = await loginResponse.json()
+      console.log('Login do peão bem-sucedido, token recebido')
+      
+      // Obter dados da fazenda usando o token JWT
+      const fazenda = await getFazendaByAcessoId(acessoId, loginData.access_token)
       console.log('Fazenda encontrada:', fazenda)
+      
       if (fazenda) {
-        return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome }
+        return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome, token: loginData.access_token }
       }
     } catch (error) {
       console.error('Erro ao validar fazenda no Supabase:', error)

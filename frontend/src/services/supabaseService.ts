@@ -90,8 +90,15 @@ type TablesUpdate = Database['public']['Tables']
 
 // ==================== FAZENDAS ====================
 
-export async function getFazendaByAcessoId(acessoId: string) {
-  const { data, error } = await supabase
+export async function getFazendaByAcessoId(acessoId: string, accessToken?: string) {
+  const client = accessToken 
+    ? (await import('@supabase/supabase-js')).createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        accessToken
+      )
+    : supabase
+  
+  const { data, error } = await client
     .from('fazendas')
     .select('*')
     .eq('acesso_id', acessoId)
