@@ -56,9 +56,9 @@ export default function Configuracoes() {
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
       
-      // Chamar Edge Function para obter token JWT do peão
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const loginResponse = await fetch(`${supabaseUrl}/functions/v1/login-peao`, {
+      // Chamar backend Vercel para obter token JWT do peão
+      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      const loginResponse = await fetch(`${backendUrl}/api/auth/login-peao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acesso_id: acessoId }),
