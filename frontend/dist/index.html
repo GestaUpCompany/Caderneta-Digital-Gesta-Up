@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/Caderneta-Digital-Gesta-Up/logo-gestaup-app-cadernetadigital.png" />
+    <link rel="preload" as="image" href="/Caderneta-Digital-Gesta-Up/cadernetas/maternidade.png" />
+    <link rel="preload" as="image" href="/Caderneta-Digital-Gesta-Up/cadernetas/pastagens.png" />
+    <link rel="preload" as="image" href="/Caderneta-Digital-Gesta-Up/cadernetas/rodeio.png" />
+    <link rel="preload" as="image" href="/Caderneta-Digital-Gesta-Up/cadernetas/suplementacao.png" />
+    <link rel="preload" as="image" href="/Caderneta-Digital-Gesta-Up/cadernetas/bebedouros.png" />
+    <link rel="preload" as="image" href="/Caderneta-Digital-Gesta-Up/cadernetas/movimentacao.png" />
+    <link rel="preload" as="image" href="/Caderneta-Digital-Gesta-Up/cadernetas/enfermaria.png" />
+    <link rel="preload" as="image" href="/cadernetas/cadernetas.png" />
+    <link rel="preload" as="image" href="/cadernetas/checklists.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1a3a2a" />
+    <meta name="description" content="Cadernetas de campo para peões de fazenda" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Gesta'Up Cadernetas" />
+    <title>Gesta'Up Cadernetas Digitais</title>
+    <style>
+      #splash {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #1a3a2a;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 20px;
+        transition: opacity 0.5s ease;
+      }
+      #splash.hide { opacity: 0; pointer-events: none; }
+      #splash img { width: 120px; height: 120px; border-radius: 24px; }
+      #splash h1 { color: #fff; font-family: sans-serif; font-size: 1.5rem; font-weight: 800; text-align: center; margin: 0; }
+      #splash span { color: #FACC15; font-family: sans-serif; font-size: 0.9rem; text-align: center; }
+      #splash .bar { width: 160px; height: 4px; background: #222; border-radius: 9999px; overflow: hidden; }
+      #splash .bar-fill { height: 100%; background: #FACC15; border-radius: 9999px; animation: load 1.4s ease forwards; }
+      @keyframes load { from { width: 0% } to { width: 100% } }
+    </style>
+    <script type="module" crossorigin src="/Caderneta-Digital-Gesta-Up/assets/index-Bd8BC8zl.js"></script>
+    <link rel="modulepreload" crossorigin href="/Caderneta-Digital-Gesta-Up/assets/state-CWbjsnX4.js">
+    <link rel="modulepreload" crossorigin href="/Caderneta-Digital-Gesta-Up/assets/vendor-SucCn0Xt.js">
+    <link rel="modulepreload" crossorigin href="/Caderneta-Digital-Gesta-Up/assets/ui-DHmXR79W.js">
+    <link rel="stylesheet" crossorigin href="/Caderneta-Digital-Gesta-Up/assets/index-B-Rd4HWp.css">
+  <link rel="manifest" href="/Caderneta-Digital-Gesta-Up/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/Caderneta-Digital-Gesta-Up/registerSW.js"></script></head>
+  <body>
+    <div id="splash">
+      <img src="/Caderneta-Digital-Gesta-Up/logo-gestaup-app-cadernetadigital.png" alt="Logo" />
+      <h1>Gesta'Up<br/>Cadernetas Digitais</h1>
+      <span>Gestão rural na palma da mão</span>
+      <div class="bar"><div class="bar-fill"></div></div>
+    </div>
+    <div id="root"></div>
+    <script>
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          var s = document.getElementById('splash');
+          if (s) { s.classList.add('hide'); setTimeout(function(){ s.remove(); }, 500); }
+        }, 1600);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1 @@
+import{j as o}from"./index-Bd8BC8zl.js";import{L as r}from"./ListaRegistros-ChQaBKMo.js";import"./state-CWbjsnX4.js";import"./vendor-SucCn0Xt.js";import"./ui-DHmXR79W.js";import"./api-B8J6CGNe.js";function t(){return o.jsx(r,{caderneta:"bebedouros",titulo:"BEBEDOUROS",rotaForm:"/caderneta/bebedouros"})}export{t as default};

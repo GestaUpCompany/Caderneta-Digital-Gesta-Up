@@ -1,0 +1,1 @@
+import{j as s}from"./index-Bd8BC8zl.js";import{L as t}from"./ListaRegistros-ChQaBKMo.js";import"./state-CWbjsnX4.js";import"./vendor-SucCn0Xt.js";import"./ui-DHmXR79W.js";import"./api-B8J6CGNe.js";function i(){return s.jsx(t,{caderneta:"saida-insumos",titulo:"SAÍDA DE INSUMOS",rotaForm:"/caderneta/saida-insumos"})}export{i as default};

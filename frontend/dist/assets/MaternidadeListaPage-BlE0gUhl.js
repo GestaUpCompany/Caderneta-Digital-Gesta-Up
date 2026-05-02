@@ -1,0 +1,1 @@
+import{j as t}from"./index-Bd8BC8zl.js";import{L as r}from"./ListaRegistros-ChQaBKMo.js";import"./state-CWbjsnX4.js";import"./vendor-SucCn0Xt.js";import"./ui-DHmXR79W.js";import"./api-B8J6CGNe.js";function a(){return t.jsx(r,{caderneta:"maternidade",titulo:"MATERNIDADE",rotaForm:"/caderneta/maternidade"})}export{a as default};

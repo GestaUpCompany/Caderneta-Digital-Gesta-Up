@@ -1,0 +1,1 @@
+import{j as r}from"./index-Bd8BC8zl.js";import{L as t}from"./ListaRegistros-ChQaBKMo.js";import"./state-CWbjsnX4.js";import"./vendor-SucCn0Xt.js";import"./ui-DHmXR79W.js";import"./api-B8J6CGNe.js";function a(){return r.jsx(t,{caderneta:"enfermaria",titulo:"ENFERMARIA",rotaForm:"/caderneta/enfermaria"})}export{a as default};
