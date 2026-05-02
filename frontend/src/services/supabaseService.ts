@@ -94,7 +94,16 @@ export async function getFazendaByAcessoId(acessoId: string, accessToken?: strin
   const client = accessToken 
     ? (await import('@supabase/supabase-js')).createClient(
         import.meta.env.VITE_SUPABASE_URL,
-        accessToken
+        import.meta.env.VITE_SUPABASE_ANON_KEY,
+        {
+          auth: {
+            storage: {
+              getItem: () => accessToken,
+              setItem: () => {},
+              removeItem: () => {},
+            },
+          },
+        }
       )
     : supabase
   
