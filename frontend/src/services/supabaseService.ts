@@ -91,23 +91,32 @@ type TablesUpdate = Database['public']['Tables']
 // ==================== FAZENDAS ====================
 
 export async function getFazendaByAcessoId(acessoId: string, accessToken?: string) {
-  const client = accessToken 
-    ? (await import('@supabase/supabase-js')).createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY,
-        {
-          auth: {
-            storage: {
-              getItem: () => accessToken,
-              setItem: () => {},
-              removeItem: () => {},
-            },
-          },
-        }
-      )
-    : supabase
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   
-  const { data, error } = await client
+  // Se temos token JWT, usar REST API diretamente com ele
+  if (accessToken) {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/fazendas?select=*&acesso_id=eq.${acessoId}&ativo=eq.true`,
+      {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Erro ao buscar fazenda: ${errorText}`)
+    }
+
+    const data = await response.json()
+    return data[0] || null
+  }
+  
+  // Caso contrário, usar cliente Supabase normal
+  const { data, error } = await supabase
     .from('fazendas')
     .select('*')
     .eq('acesso_id', acessoId)
