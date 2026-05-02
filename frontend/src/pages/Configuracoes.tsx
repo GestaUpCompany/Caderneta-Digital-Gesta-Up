@@ -7,7 +7,6 @@ import { Button, Input } from '../components/ui'
 import ValidationModal from '../components/ValidationModal'
 import { BACKEND_URL, DATABASE_URL, DEVICE_SHEET_URL } from '../utils/constants'
 import { getDeviceId } from '../utils/deviceId'
-import { validateFarmAccess } from '../services/supabaseClient'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 
 export default function Configuracoes() {
@@ -55,14 +54,10 @@ export default function Configuracoes() {
 
   const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string }> => {
     try {
-      // Validar acesso usando Edge Function
-      const valid = await validateFarmAccess('', acessoId)
-      if (!valid) {
-        return { sucesso: false }
-      }
-
-      // Obter dados da fazenda do Supabase
+      console.log('Validando fazenda no Supabase com acessoId:', acessoId)
+      // Obter dados da fazenda do Supabase diretamente (sem Edge Function)
       const fazenda = await getFazendaByAcessoId(acessoId)
+      console.log('Fazenda encontrada:', fazenda)
       if (fazenda) {
         return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome }
       }
@@ -80,25 +75,36 @@ export default function Configuracoes() {
     setShowValidationModal(true)
     setValidationStatus('validating')
 
-    // Validar com posição 1 para obter URL da planilha da caderneta
-    const validacaoCaderneta = await validarFazendaNaBase(fazenda.trim(), 1)
+    // Verificar se está usando apenas Supabase (sem planilha)
+    const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
 
-    // Validar com posição 3 para obter URL da planilha de cadastro
-    const validacaoCadastro = await validarFazendaNaBase(fazenda.trim(), 3)
+    let validacaoCaderneta = { sucesso: false, nome: '', link: '' }
+    let validacaoCadastro = { sucesso: false, nome: '', link: '' }
+    let validacaoSupabase = { sucesso: false, fazendaId: '', nome: '' }
 
-    // Validar no Supabase para obter fazendaId (UUID)
-    const validacaoSupabase = await validarFazendaNoSupabase(fazenda.trim())
+    if (!useSupabase) {
+      // Validar com posição 1 para obter URL da planilha da caderneta
+      const resultCaderneta = await validarFazendaNaBase(fazenda.trim(), 1)
+      validacaoCaderneta = { sucesso: resultCaderneta.sucesso, nome: resultCaderneta.nome || '', link: resultCaderneta.link || '' }
+
+      // Validar com posição 3 para obter URL da planilha de cadastro
+      const resultCadastro = await validarFazendaNaBase(fazenda.trim(), 3)
+      validacaoCadastro = { sucesso: resultCadastro.sucesso, nome: resultCadastro.nome || '', link: resultCadastro.link || '' }
+    } else {
+      // Validar no Supabase para obter fazendaId (UUID)
+      const resultSupabase = await validarFazendaNoSupabase(fazenda.trim())
+      validacaoSupabase = { sucesso: resultSupabase.sucesso, fazendaId: resultSupabase.fazendaId || '', nome: resultSupabase.nome || '' }
+    }
 
     setValidandoFazenda(false)
 
-    if (!validacaoCaderneta.sucesso) {
+    if (!useSupabase && !validacaoCaderneta.sucesso) {
       setShowValidationModal(false)
       setErrors([{ field: 'fazenda', message: 'Verifique o ID digitado ou contate o administrador' }])
       return
     }
 
     // Se Supabase estiver habilitado, validar também no Supabase
-    const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
     let supabaseFazendaId = ''
     if (useSupabase) {
       if (!validacaoSupabase.sucesso) {
@@ -111,19 +117,27 @@ export default function Configuracoes() {
 
     setValidationStatus('success')
 
-    // Se validou com sucesso, usa o nome e link retornados da base de dados
-    const nomeFazenda = validacaoCaderneta.nome || fazenda.trim()
-    const linkPlanilha = validacaoCaderneta.link
-    const linkCadastro = validacaoCadastro.link
+    // Se validou com sucesso, usa o nome e link retornados
+    let nomeFazenda = ''
+    let linkPlanilha = ''
+    let linkCadastro = ''
 
-    if (!linkPlanilha) {
+    if (useSupabase) {
+      nomeFazenda = validacaoSupabase.nome || fazenda.trim()
+    } else {
+      nomeFazenda = validacaoCaderneta.nome || fazenda.trim()
+      linkPlanilha = validacaoCaderneta.link
+      linkCadastro = validacaoCadastro.link
+    }
+
+    if (!useSupabase && !linkPlanilha) {
       setShowValidationModal(false)
       setErrors([{ field: 'fazenda', message: 'Link da planilha não encontrado na base de dados. Contate o administrador.' }])
       return
     }
 
     // Aviso se link de cadastro não for encontrado (não é obrigatório)
-    if (!linkCadastro) {
+    if (!useSupabase && !linkCadastro) {
       console.warn('Link de cadastro não encontrado na base de dados. Funcionalidades de cadastro podem não funcionar corretamente.')
     }
 
@@ -139,22 +153,24 @@ export default function Configuracoes() {
     dispatch(setConfig(configData))
     dispatch(setConfigurado(true))
     
-    // Salvar data de configuração da fazenda no analytics
-    const farmConfigDate = new Date().toLocaleDateString('pt-BR')
-    try {
-      const deviceId = getDeviceId()
-      await fetch(`${BACKEND_URL}/api/devices/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deviceSheetUrl: DEVICE_SHEET_URL,
-          uuid: deviceId,
-          fazenda: fazenda || '',
-          farmConfigDate,
-        }),
-      })
-    } catch (error) {
-      console.error('Erro ao salvar data de configuração:', error)
+    // Salvar data de configuração da fazenda no analytics (apenas se usar planilha)
+    if (!useSupabase) {
+      const farmConfigDate = new Date().toLocaleDateString('pt-BR')
+      try {
+        const deviceId = getDeviceId()
+        await fetch(`${BACKEND_URL}/api/devices/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceSheetUrl: DEVICE_SHEET_URL,
+            uuid: deviceId,
+            fazenda: fazenda || '',
+            farmConfigDate,
+          }),
+        })
+      } catch (error) {
+        console.error('Erro ao salvar data de configuração:', error)
+      }
     }
     
     setTimeout(() => {
