@@ -3,10 +3,13 @@ export type SyncStatus = 'pending' | 'synced' | 'conflict' | 'error'
 export interface Registro {
   id: string
   googleRowId?: number
+  supabaseId?: string
   version: number
   lastModified: string
   syncStatus: SyncStatus
   data: string
+  usuario?: string
+  dispositivoId?: string
   [key: string]: unknown
 }
 

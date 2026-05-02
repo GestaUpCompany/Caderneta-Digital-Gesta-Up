@@ -325,16 +325,16 @@ Durante a migração, gerar `acesso_id` único para cada fazenda:
 - **Dia 7:** Setup frontend (supabaseClient, tipos TypeScript)
 
 ### FASE 2: Migração de Dados (Semana 2)
-- **Dia 1-2:** Criar script de migração (Google Sheets → Supabase)
-- **Dia 3-4:** Migrar cadastros (fazendas com acesso_id, pastos, lotes, insumos)
-- **Dia 5-6:** Migrar registros (9 cadernetas)
-- **Dia 7:** Validação (contagem, integridade)
+- **Dia 1-2:** Criar script de migração (Google Sheets → Supabase) - **PULADO** (trabalhar do zero)
+- **Dia 3-4:** Migrar cadastros (fazendas com acesso_id, pastos, lotes, insumos) - **PULADO** (trabalhar do zero)
+- **Dia 5-6:** Migrar registros (9 cadernetas) - **PULADO** (trabalhar do zero)
+- **Dia 7:** Validação (contagem, integridade) - **PULADO** (trabalhar do zero)
 
-### FASE 3: Integração Frontend (Semana 3)
+### FASE 3: Integração Frontend com Dual-Write (Semana 3)
 - **Dia 1-2:** Criar supabaseService (CRUD para 9 cadernetas)
-- **Dia 3-4:** Atualizar IndexedDB (adicionar supabase_id)
-- **Dia 5-6:** Atualizar useSync para usar Supabase
-- **Dia 7:** Atualizar páginas das cadernetas
+- **Dia 3-4:** Implementar dual-write no syncService (Google Sheets + Supabase simultâneo)
+- **Dia 5-6:** Adicionar flag USE_SUPABASE para ativar/desativar Supabase
+- **Dia 7:** Testar dual-write em produção com dados reais
 
 ### FASE 4: Sistema de Acesso por ID (Semana 4)
 - **Dia 1-2:** Implementar validação de acesso_id da fazenda
@@ -342,19 +342,93 @@ Durante a migração, gerar `acesso_id` único para cada fazenda:
 - **Dia 5-6:** Atualizar tela de configuração para usar Supabase
 - **Dia 7:** Testes de acesso por ID
 
-### FASE 5: Testes e Validação (Semana 5)
-- **Dia 1-2:** Testes unitários (serviços, hooks)
-- **Dia 3-4:** Testes de integração (offline → online)
-- **Dia 5:** Testes de performance (100k, 1M registros)
-- **Dia 6:** Testes de isolamento por fazenda
-- **Dia 7:** Correção de bugs
+### FASE 5: Validação e Consistência (Semana 5)
+- **Dia 1-2:** Monitorar logs de dual-write (Google Sheets vs Supabase)
+- **Dia 3-4:** Validar consistência de dados entre as duas fontes
+- **Dia 5:** Corrigir inconsistências se houver
+- **Dia 6:** Validar performance com dual-write
+- **Dia 7:** Aprovação para remover Google Sheets
 
-### FASE 6: Deploy (Semana 6)
-- **Dia 1-2:** Deploy staging
-- **Dia 3-4:** Testes com usuários reais
-- **Dia 5:** Backup final do Google Sheets
-- **Dia 6:** Deploy produção
-- **Dia 7:** Monitoramento inicial
+### FASE 6: Remoção do Google Sheets (Semana 6)
+- **Dia 1-2:** Backup final do Google Sheets
+- **Dia 3-4:** Remover dual-write, usar apenas Supabase
+- **Dia 5-6:** Testes finais com apenas Supabase
+- **Dia 7:** Monitoramento pós-remoção
+
+---
+
+## 5.1 Estratégia de Migração com Dual-Write
+
+### 5.1.1 Por que Dual-Write?
+Como decidimos trabalhar do zero (sem migrar dados do Google Sheets), precisamos de uma estratégia que permita:
+- Continuar usando o sistema atual em produção sem interromper os usuários
+- Testar o Supabase em produção real com dados reais
+- Rollback instantâneo se algo der errado
+- Validação lado a lado dos dados
+
+### 5.1.2 Como Funciona o Dual-Write
+O sistema gravará simultaneamente em duas fontes:
+1. **Google Sheets** (atual) - Continua funcionando normalmente
+2. **Supabase** (novo) - Recebe os mesmos dados em paralelo
+
+Se o Supabase falhar:
+- O sistema continua funcionando com Google Sheets
+- Log de erro é registrado
+- Usuário não percebe a falha
+
+Se o Google Sheets falhar:
+- O sistema continua funcionando com Supabase
+- Log de erro é registrado
+- Usuário não percebe a falha
+
+### 5.1.3 Implementação Técnica
+
+#### Flag de Controle
+```typescript
+// .env
+VITE_USE_SUPABASE=true  // true = dual-write, false = apenas Google Sheets
+```
+
+#### Modificação no syncService
+```typescript
+async function syncRegistro(registro: Registro) {
+  // Sempre grava no Google Sheets (atual)
+  await syncToGoogleSheets(registro)
+
+  // Se flag ativada, grava também no Supabase
+  if (import.meta.env.VITE_USE_SUPABASE === 'true') {
+    try {
+      await syncToSupabase(registro)
+    } catch (error) {
+      console.error('Erro ao gravar no Supabase:', error)
+      // Continua funcionando com Google Sheets
+    }
+  }
+}
+```
+
+#### Logs Separados
+- Google Sheets: Log normal atual
+- Supabase: Log adicional com prefixo `[SUPABASE]`
+- Monitoramento: Comparar logs para validar consistência
+
+### 5.1.4 Validação e Rollback
+
+#### Validação de Consistência
+- Comparar contagem de registros entre as fontes
+- Validar timestamps e metadados
+- Verificar integridade dos dados
+
+#### Rollback
+- Se Supabase tiver problemas: `VITE_USE_SUPABASE=false`
+- Sistema volta a usar apenas Google Sheets instantaneamente
+- Nenhuma mudança no código necessária
+
+#### Remoção do Google Sheets
+- Após validação completa (1-2 semanas)
+- Backup final do Google Sheets
+- Remover código de Google Sheets
+- Manter apenas Supabase
 
 ---
 

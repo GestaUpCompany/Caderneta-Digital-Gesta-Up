@@ -14,7 +14,7 @@ import { SYNC_INTERVAL_MS } from '../utils/constants'
 
 export function useSync() {
   const dispatch = useDispatch()
-  const { planilhaUrl, configurado } = useSelector((state: RootState) => state.config)
+  const { planilhaUrl, fazendaId, configurado } = useSelector((state: RootState) => state.config)
   const isRunning = useRef(false)
 
   const updatePendingCount = useCallback(async () => {
@@ -43,7 +43,7 @@ export function useSync() {
         return
       }
 
-      const { synced, failed } = await processQueue(planilhaUrl)
+      const { synced, failed } = await processQueue(planilhaUrl, fazendaId)
 
       if (failed > 0) {
         dispatch(setError(`${failed} registro(s) não sincronizados. Tentando novamente...`))
