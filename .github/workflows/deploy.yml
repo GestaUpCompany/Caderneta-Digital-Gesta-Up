@@ -31,7 +31,7 @@ jobs:
         env:
           VITE_BACKEND_URL: https://caderneta-digital-gesta-up.vercel.app
           VITE_SUPABASE_URL: https://nrwljcvhwbezmoummxbl.supabase.co
-          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yd2xqY3Zod2Jlem1vdW1teGJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjIyNDEsImV4cCI6MjA5MzI5ODI0MX0.-es-LlZ61AtLPjoORm2RHi5AviDoKdI5bV14rukTpww
+          VITE_SUPABASE_ANON_KEY: sb_publishable_0VGLGOTvk6e0fAyaldDMbA_3rkKlXHa
           VITE_USE_SUPABASE: true
         
       - name: Setup Pages
