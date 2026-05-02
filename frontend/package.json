@@ -24,6 +24,7 @@
     "@capacitor/splash-screen": "^8.0.1",
     "@headlessui/react": "^2.1.9",
     "@reduxjs/toolkit": "^2.3.0",
+    "@supabase/supabase-js": "^2.105.1",
     "idb": "^8.0.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.441.0",
