@@ -107,6 +107,8 @@ export default function Configuracoes() {
       console.log('Fazenda encontrada:', fazenda)
       
       if (fazenda) {
+        // Salvar token JWT no localStorage
+        localStorage.setItem('supabase_token', loginData.access_token)
         return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome, token: loginData.access_token }
       }
     } catch (error) {

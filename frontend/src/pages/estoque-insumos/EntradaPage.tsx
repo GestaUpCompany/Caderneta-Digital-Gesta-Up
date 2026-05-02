@@ -56,7 +56,7 @@ export default function EntradaPage() {
       }
 
       try {
-        const data = await loadCadastroData(cadastroSheetUrl)
+        const data = await loadCadastroData(cadastroSheetUrl, fazendaId)
         setCadastroData(data)
         setLoading(false)
       } catch (err) {
@@ -66,7 +66,7 @@ export default function EntradaPage() {
     }
 
     loadData()
-  }, [cadastroSheetUrl])
+  }, [cadastroSheetUrl, fazendaId])
 
   // Carregar dados de suplementação (insumos)
   useEffect(() => {

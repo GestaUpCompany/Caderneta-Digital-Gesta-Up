@@ -39,12 +39,12 @@ export default function EstoquePage() {
       setLoading(true)
       setError(null)
 
-      if (!cadastroSheetUrl) {
+      if (!cadastroSheetUrl && !fazendaId) {
         throw new Error('URL da planilha de cadastro não configurada')
       }
 
       // Carregar dados de cadastro
-      const cadastro = await loadCadastroData(cadastroSheetUrl)
+      const cadastro = await loadCadastroData(cadastroSheetUrl, fazendaId)
       setCadastroData(cadastro)
 
       // Carregar dados de estoque

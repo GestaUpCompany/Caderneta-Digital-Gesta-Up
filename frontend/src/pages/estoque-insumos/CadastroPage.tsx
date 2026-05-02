@@ -8,7 +8,7 @@ import { BACKEND_URL } from '../../utils/constants'
 
 export default function CadastroPage() {
   const navigate = useNavigate()
-  const { fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [data, setData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -16,14 +16,14 @@ export default function CadastroPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!cadastroSheetUrl) {
+      if (!cadastroSheetUrl && !fazendaId) {
         setError('URL da planilha de cadastro não configurada')
         setLoading(false)
         return
       }
 
       try {
-        const cadastroData = await loadCadastroData(cadastroSheetUrl)
+        const cadastroData = await loadCadastroData(cadastroSheetUrl, fazendaId)
         setData(cadastroData)
         setLoading(false)
       } catch (err) {
@@ -33,7 +33,7 @@ export default function CadastroPage() {
     }
 
     loadData()
-  }, [cadastroSheetUrl])
+  }, [cadastroSheetUrl, fazendaId])
 
   // Carregar dados de suplementação (insumos e dietas)
   useEffect(() => {

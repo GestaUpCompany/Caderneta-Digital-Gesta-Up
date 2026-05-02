@@ -1,5 +1,6 @@
 import { BACKEND_URL } from '../utils/constants'
 import { saveCadastroData, getAllCadastroData } from './indexedDB'
+import * as supabaseService from './supabaseService'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
@@ -110,8 +111,38 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
  * Busca dados de cadastro da API (apenas quando online e após sync)
  * Usa endpoints batch para reduzir número de requisições
  */
-async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCacheData> {
+async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): Promise<CadastroCacheData> {
+  const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
+  
   try {
+    if (useSupabase && fazendaId) {
+      // Buscar do Supabase
+      console.log('[CadastroCache] Buscando dados do Supabase para fazenda:', fazendaId)
+      
+      const token = localStorage.getItem('supabase_token')
+      
+      const [pastosData, lotesData] = await Promise.all([
+        supabaseService.getPastos(fazendaId, token || undefined),
+        supabaseService.getLotes(fazendaId, token || undefined)
+      ])
+      
+      const pastos = pastosData?.map((p: any) => p.nome) || []
+      const lotes = lotesData?.map((l: any) => l.nome) || []
+      
+      return {
+        pastos,
+        lotes,
+        frigorificos: [],
+        pastosDetalhes: {},
+        lotesDetalhes: {},
+        mineral: [],
+        proteinado: [],
+        racao: [],
+        insumos: [],
+        dietas: [],
+      }
+    }
+    
     // Buscar pastos com detalhes em uma única requisição (endpoint batch)
     const pastosRes = await fetch(`${BACKEND_URL}/api/insumos/pastos-completos`, {
       method: 'POST',
@@ -180,8 +211,8 @@ async function fetchCadastroData(cadastroSheetUrl: string): Promise<CadastroCach
  * Atualiza o cache de dados de cadastro
  * Verifica se há sync pendente antes de atualizar para evitar conflitos
  */
-export async function updateCadastroCache(cadastroSheetUrl: string): Promise<void> {
-  if (!cadastroSheetUrl) return
+export async function updateCadastroCache(cadastroSheetUrl: string, fazendaId?: string): Promise<void> {
+  if (!cadastroSheetUrl && !fazendaId) return
 
   try {
     console.log('[CadastroCache] Iniciando atualização do cache da API...')
@@ -192,7 +223,7 @@ export async function updateCadastroCache(cadastroSheetUrl: string): Promise<voi
       return
     }
 
-    const data = await fetchCadastroData(cadastroSheetUrl)
+    const data = await fetchCadastroData(cadastroSheetUrl, fazendaId)
     await saveToCache(data)
     cacheData = data
     lastCacheUpdate = Date.now()
@@ -217,9 +248,9 @@ export async function updateCadastroCache(cadastroSheetUrl: string): Promise<voi
  * Inicializa o cache de dados de cadastro
  * Primeiro tenta carregar do IndexedDB, depois atualiza se online
  */
-export async function initializeCadastroCache(cadastroSheetUrl: string): Promise<void> {
-  if (!cadastroSheetUrl) {
-    console.log('[CadastroCache] cadastroSheetUrl não disponível, pulando inicialização')
+export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaId?: string): Promise<void> {
+  if (!cadastroSheetUrl && !fazendaId) {
+    console.log('[CadastroCache] cadastroSheetUrl e fazendaId não disponíveis, pulando inicialização')
     return
   }
 
@@ -238,7 +269,7 @@ export async function initializeCadastroCache(cadastroSheetUrl: string): Promise
   // Depois atualizar se online
   if (navigator.onLine) {
     console.log('[CadastroCache] App está online, atualizando cache da API...')
-    await updateCadastroCache(cadastroSheetUrl)
+    await updateCadastroCache(cadastroSheetUrl, fazendaId)
   } else {
     console.log('[CadastroCache] App está offline, usando dados do cache')
   }
@@ -247,16 +278,16 @@ export async function initializeCadastroCache(cadastroSheetUrl: string): Promise
 /**
  * Inicia polling para atualizar cache a cada 5 minutos
  */
-export function startCadastroCachePolling(cadastroSheetUrl: string): void {
+export function startCadastroCachePolling(cadastroSheetUrl: string, fazendaId?: string): void {
   if (pollingInterval) {
     clearInterval(pollingInterval)
   }
 
   console.log('[CadastroCache] Iniciando polling de 5 minutos para atualização do cache')
   pollingInterval = window.setInterval(async () => {
-    if (navigator.onLine && cadastroSheetUrl) {
+    if (navigator.onLine && (cadastroSheetUrl || fazendaId)) {
       console.log('[CadastroCache] Polling: atualizando cache...')
-      await updateCadastroCache(cadastroSheetUrl)
+      await updateCadastroCache(cadastroSheetUrl, fazendaId)
     }
   }, CACHE_EXPIRY_MS)
 }

@@ -152,7 +152,31 @@ export async function updateFazenda(id: string, fazenda: TablesUpdate['fazendas'
 
 // ==================== PASTOS ====================
 
-export async function getPastos(fazendaId: string) {
+export async function getPastos(fazendaId: string, accessToken?: string) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  
+  // Se temos token JWT, usar REST API diretamente com ele
+  if (accessToken) {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/pastos?select=*&fazenda_id=eq.${fazendaId}&ativo=eq.true&order=nome`,
+      {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Erro ao buscar pastos: ${errorText}`)
+    }
+
+    return await response.json()
+  }
+  
+  // Caso contrário, usar cliente Supabase normal
   const { data, error } = await supabase
     .from('pastos')
     .select('*')
@@ -198,7 +222,31 @@ export async function deletePasto(id: string) {
 
 // ==================== LOTES ====================
 
-export async function getLotes(fazendaId: string) {
+export async function getLotes(fazendaId: string, accessToken?: string) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  
+  // Se temos token JWT, usar REST API diretamente com ele
+  if (accessToken) {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/lotes?select=*&fazenda_id=eq.${fazendaId}&ativo=eq.true&order=nome`,
+      {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Erro ao buscar lotes: ${errorText}`)
+    }
+
+    return await response.json()
+  }
+  
+  // Caso contrário, usar cliente Supabase normal
   const { data, error } = await supabase
     .from('lotes')
     .select('*')

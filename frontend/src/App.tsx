@@ -77,7 +77,7 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome, isLoading } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
-  const { cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { cadastroSheetUrl, fazendaId } = useSelector((state: RootState) => state.config)
   
   // Hooks de analytics (desativados temporariamente)
   // const sessionTime = useSessionTimer()
@@ -86,14 +86,14 @@ function AppInner() {
 
   // Inicializar cache de dados de cadastro
   useEffect(() => {
-    if (cadastroSheetUrl) {
-      initializeCadastroCache(cadastroSheetUrl)
-      startCadastroCachePolling(cadastroSheetUrl)
+    if (cadastroSheetUrl || fazendaId) {
+      initializeCadastroCache(cadastroSheetUrl, fazendaId)
+      startCadastroCachePolling(cadastroSheetUrl, fazendaId)
     }
     return () => {
       stopCadastroCachePolling()
     }
-  }, [cadastroSheetUrl])
+  }, [cadastroSheetUrl, fazendaId])
 
   useEffect(() => {
     if (syncStatus === 'conflict') {
