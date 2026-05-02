@@ -28,11 +28,6 @@ jobs:
       - name: Build PWA
         working-directory: ./frontend
         run: npm run build
-        env:
-          VITE_BACKEND_URL: https://caderneta-digital-gesta-up.vercel.app
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_USE_SUPABASE: true
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
