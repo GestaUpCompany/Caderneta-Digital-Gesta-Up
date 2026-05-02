@@ -8,7 +8,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórios')
 }
 
+// Criar cliente Supabase com anon key
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+
+// Criar cliente Supabase com token JWT (para operações autenticadas)
+export function createSupabaseClientWithToken(token: string) {
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  })
+}
 
 // Função para validar acesso à fazenda usando Edge Function
 export async function validateFarmAccess(fazendaId: string, acessoId: string): Promise<boolean> {

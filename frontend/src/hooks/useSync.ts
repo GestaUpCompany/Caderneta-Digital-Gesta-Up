@@ -23,7 +23,7 @@ export function useSync() {
   }, [dispatch])
 
   const runSync = useCallback(async () => {
-    if (!configurado || !planilhaUrl || isRunning.current) {
+    if (!configurado || (!planilhaUrl && !fazendaId) || isRunning.current) {
       return
     }
 
@@ -62,7 +62,7 @@ export function useSync() {
     } finally {
       isRunning.current = false
     }
-  }, [configurado, planilhaUrl, dispatch, updatePendingCount])
+  }, [configurado, planilhaUrl, fazendaId, dispatch, updatePendingCount])
 
   useEffect(() => {
     const handleOnline = () => {
@@ -90,12 +90,12 @@ export function useSync() {
   }, [dispatch, runSync])
 
   useEffect(() => {
-    if (!configurado || !planilhaUrl) return
+    if (!configurado || (!planilhaUrl && !fazendaId)) return
     const interval = setInterval(() => {
       if (navigator.onLine) runSync()
     }, SYNC_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, [configurado, planilhaUrl, runSync])
+  }, [configurado, planilhaUrl, fazendaId, runSync])
 
   useEffect(() => {
     updatePendingCount()

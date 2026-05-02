@@ -7,8 +7,8 @@ import {
   SyncQueueItem,
   CadernetaStore,
 } from './indexedDB'
-import { generateId } from '../utils/generateId'
 import { BACKEND_URL, MAX_RETRY_COUNT } from '../utils/constants'
+import { generateId } from '../utils/generateId'
 import { Registro } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
 
@@ -246,7 +246,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
 function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string): any {
   const baseData = {
     fazenda_id: fazendaId,
-    dispositivo_id: registro.dispositivoId || null,
+    dispositivo_id: null,
     nome_usuario: registro.usuario || null,
     sync_status: 'synced',
     version: registro.version || 1,
@@ -257,11 +257,11 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: registro.data,
-        pasto_id: registro.pasto || null,
-        lote_id: registro.lote || null,
-        peso_cria: registro.pesoCria || null,
+        pasto: registro.pasto || null,
+        lote: registro.lote || null,
+        peso_cria_kg: registro.pesoCria ? Number(registro.pesoCria) : null,
         numero_cria: registro.numeroCria || null,
-        tratamento: registro.tratamento || null,
+        tratamento: Array.isArray(registro.tratamento) ? registro.tratamento.join(', ') : (registro.tratamento || null),
         tipo_parto: registro.tipoParto || null,
         sexo: registro.sexo || null,
         raca: registro.raca || null,
@@ -273,127 +273,135 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data: registro.data,
         manejador: registro.manejador || null,
-        lote_id: registro.numeroLote || null,
-        pasto_saida_id: registro.pastoSaida || null,
-        avaliacao_saida: registro.avaliacaoSaida || null,
-        pasto_entrada_id: registro.pastoEntrada || null,
-        avaliacao_entrada: registro.avaliacaoEntrada || null,
-        vaca: (registro.vaca as number) || false,
-        touro: (registro.touro as number) || false,
-        bezerro: (registro.bezerro as number) || false,
-        boi_gordo: (registro.boiGordo as number) || false,
-        boi_magro: (registro.boiMagro as number) || false,
-        garrote: (registro.garrote as number) || false,
-        novilha: (registro.novilha as number) || false,
-        tropa: (registro.tropa as number) || false,
-        outros: (registro.outros as number) || false,
-        total_animais: ((registro.vaca as number) || 0) + ((registro.touro as number) || 0) + ((registro.bezerro as number) || 0) + ((registro.boiGordo as number) || 0) + ((registro.boiMagro as number) || 0) + ((registro.garrote as number) || 0) + ((registro.novilha as number) || 0) + ((registro.tropa as number) || 0) + ((registro.outros as number) || 0),
+        lote: registro.numeroLote || null,
+        pasto_saida: registro.pastoSaida || null,
+        avaliacao_saida: registro.avaliacaoSaida ? Number(registro.avaliacaoSaida) : null,
+        pasto_entrada: registro.pastoEntrada || null,
+        avaliacao_entrada: registro.avaliacaoEntrada ? Number(registro.avaliacaoEntrada) : null,
+        vaca: Number(registro.vaca) || 0,
+        touro: Number(registro.touro) || 0,
+        bezerro: Number(registro.bezerro) || 0,
+        boi_magro: Number(registro.boiMagro) || 0,
+        garrote: Number(registro.garrote) || 0,
+        novilha: Number(registro.novilha) || 0,
       }
     case 'rodeio':
       return {
         ...baseData,
         data: registro.data,
-        pasto_id: registro.pasto || null,
-        lote_id: registro.numeroLote || null,
-        vaca: registro.vaca || 0,
-        touro: registro.touro || 0,
-        bezerro: registro.bezerro || 0,
-        boi: registro.boiGordo || 0,
-        garrote: registro.garrote || 0,
-        novilha: registro.novilha || 0,
-        tropa: registro.tropa || 0,
-        outros: registro.outros || 0,
-        total_cabecas: registro.totalCabecas || 0,
-        escore_gado_ideal: registro.escoreGadoIdeal === 'Sim',
-        agua_boa: registro.aguaBoaBebedouro === 'Sim',
-        pastagem_adequada: registro.pastagemAdequada === 'Sim',
-        animais_doentes: registro.animaisDoentes === 'Sim',
-        cercas_cochos: registro.cercasCochos === 'Sim',
-        carrapatos_moscas: registro.carrapatosMoscas === 'Sim',
-        animais_entrevados: registro.animaisEntrevero === 'Sim',
-        animal_morto: registro.animalMorto === 'Sim',
-        animais_tratados: registro.animaisTratados || null,
-        escore_fezes: registro.escoreFezes || null,
-        equipe: registro.equipe || null,
-        procedimentos: registro.procedimentos || null,
+        pasto: registro.pasto || null,
+        lote: registro.numeroLote || null,
+        vaca: Number(registro.vaca) || 0,
+        touro: Number(registro.touro) || 0,
+        bezerro: Number(registro.bezerro) || 0,
+        boi: Number(registro.boiGordo) || 0,
+        garrote: Number(registro.garrote) || 0,
+        novilha: Number(registro.novilha) || 0,
+        total_cabecas: Number(registro.totalCabecas) || 0,
+        escore_gado_ideal: registro.escoreGadoIdeal === 'S' || registro.escoreGadoIdeal === 'Sim',
+        escore_gado_ideal_obs: registro.escoreGadoIdealObs || null,
+        agua_boa_bebedouro: registro.aguaBoaBebedouro === 'S' || registro.aguaBoaBebedouro === 'Sim',
+        agua_boa_bebedouro_obs: registro.aguaBoaBebedouroObs || null,
+        pastagem_adequada: registro.pastagemAdequada === 'S' || registro.pastagemAdequada === 'Sim',
+        pastagem_adequada_obs: registro.pastagemAdequadaObs || null,
+        animais_doentes: registro.animaisDoentes === 'S' || registro.animaisDoentes === 'Sim',
+        animais_doentes_obs: registro.animaisDoentesObs || null,
+        cercas_cochos: registro.cercasCochos === 'S' || registro.cercasCochos === 'Sim',
+        cercas_cochos_obs: registro.cercasCochosObs || null,
+        carrapatos_moscas: registro.carrapatosMoscas === 'S' || registro.carrapatosMoscas === 'Sim',
+        carrapatos_moscas_obs: registro.carrapatosMoscasObs || null,
+        animais_entrevero: registro.animaisEntrevero === 'S' || registro.animaisEntrevero === 'Sim',
+        animais_entrevero_obs: registro.animaisEntreveroObs || null,
+        animal_morto: registro.animalMorto === 'S' || registro.animalMorto === 'Sim',
+        animal_morto_obs: registro.animalMortoObs || null,
+        animais_tratados: Number(registro.animaisTratados) || 0,
+        escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
+        equipe: registro.equipe ? Number(registro.equipe) : null,
+        procedimentos: Array.isArray(registro.procedimentos) ? registro.procedimentos : null,
       }
-    case 'suplementacao':
+    case 'suplementacao': {
+      const supCats = Array.isArray(registro.categorias) ? registro.categorias as string[] : []
       return {
         ...baseData,
         data: registro.data,
         tratador: registro.tratador || null,
-        pasto_id: registro.pasto || null,
-        lote_id: registro.numeroLote || null,
+        pasto: registro.pasto || null,
+        lote: registro.numeroLote || null,
         produto: registro.produto || null,
-        vaca: (registro.categoriasString as string)?.includes('Vaca') || false,
-        touro: (registro.categoriasString as string)?.includes('Touro') || false,
-        bezerro: (registro.categoriasString as string)?.includes('Bezerro') || false,
-        boi: (registro.categoriasString as string)?.includes('Boi') || false,
-        garrote: (registro.categoriasString as string)?.includes('Garrote') || false,
-        novilha: (registro.categoriasString as string)?.includes('Novilha') || false,
-        leitura: registro.leituraCocho || null,
-        sacos: registro.kgCocho || null,
-        kg: registro.kgDeposito || null,
-        creep: registro.creepKg || null,
+        gado: (registro.categoriasString as string) || null,
+        vaca: supCats.includes('Vaca'),
+        touro: supCats.includes('Touro'),
+        bezerro: supCats.includes('Bezerro'),
+        boi: supCats.includes('Boi'),
+        garrote: supCats.includes('Garrote'),
+        novilha: supCats.includes('Novilha'),
+        leitura: registro.leituraCocho ? Number(registro.leituraCocho) : null,
+        sacos: registro.kgCocho ? Number(registro.kgCocho) : 0,
+        kg_cocho: registro.kgCocho ? Number(registro.kgCocho) : 0,
+        kg_deposito: registro.kgDeposito ? Number(registro.kgDeposito) : 0,
+        creep: registro.creepKg ? Number(registro.creepKg) : 0,
       }
+    }
     case 'bebedouros':
       return {
         ...baseData,
         data: registro.data,
         responsavel: registro.responsavel || null,
-        pasto_id: registro.pasto || null,
-        lote_id: registro.numeroLote || null,
+        pasto: registro.pasto || null,
+        lote: registro.numeroLote || null,
         gado: registro.categoria || null,
         categoria: registro.categoria || null,
-        leitura: registro.leituraBebedouro || null,
+        leitura_bebedouro: registro.leituraBebedouro ? Number(registro.leituraBebedouro) : null,
         numero_bebedouro: registro.numeroBebedouro || null,
         observacao: registro.observacao || null,
       }
-    case 'movimentacao':
+    case 'movimentacao': {
+      const cats = Array.isArray(registro.categorias) ? registro.categorias as string[] : []
+      const catStr = (registro.categoria as string) || ''
       return {
         ...baseData,
         data: registro.data,
-        lote_origem_id: registro.loteOrigem || null,
-        lote_destino_id: registro.loteDestino || null,
-        numero_cabecas: registro.numeroCabecas || null,
-        peso_medio: registro.pesoMedio || null,
-        categoria: registro.categoria || null,
-        vaca: registro.vaca || false,
-        touro: registro.touro || false,
-        bezerro: registro.bezerro || false,
-        boi_gordo: registro.boiGordo || false,
-        boi_magro: registro.boiMagro || false,
-        garrote: registro.garrote || false,
-        novilha: registro.novilha || false,
-        tropa: registro.tropa || false,
-        outros: registro.outros || false,
-        motivo: registro.motivoMovimentacao || null,
-        identificacao: registro.brincoChip || null,
-        causa: registro.causaObservacao || null,
+        lote_origem: registro.loteOrigem || null,
+        lote_destino: registro.loteDestino || null,
+        numero_cabecas: registro.numeroCabecas ? Number(registro.numeroCabecas) : null,
+        peso_medio_kg: registro.pesoMedio ? Number(registro.pesoMedio) : null,
+        vaca: cats.includes('Vaca') || catStr.includes('Vaca'),
+        touro: cats.includes('Touro') || catStr.includes('Touro'),
+        bezerro: cats.includes('Bezerro') || catStr.includes('Bezerro'),
+        boi_gordo: cats.includes('Boi Gordo') || catStr.includes('Boi Gordo'),
+        boi_magro: cats.includes('Boi Magro') || catStr.includes('Boi Magro'),
+        garrote: cats.includes('Garrote') || catStr.includes('Garrote'),
+        novilha: cats.includes('Novilha') || catStr.includes('Novilha'),
+        tropa: cats.includes('Tropa') || catStr.includes('Tropa'),
+        outros: cats.includes('Outros') || catStr.includes('Outros'),
+        motivo_movimentacao: registro.motivoMovimentacao || null,
+        brinco_chip: registro.brincoChip || null,
+        causa_observacao: registro.causaObservacao || null,
       }
+    }
     case 'enfermaria':
       return {
         ...baseData,
         data: registro.data,
-        pasto_id: registro.pasto || null,
-        lote_id: registro.lote || null,
+        pasto: registro.pasto || null,
+        lote: registro.lote || null,
         brinco_chip: registro.brincoChip || null,
         categoria: registro.categoria || null,
-        problema_casco: registro.problemaCasco === 'Sim',
+        problema_casco: registro.problemaCasco === 'S' || registro.problemaCasco === 'Sim',
         problema_casco_obs: registro.problemaCascoObs || null,
-        sintomas_pneumonia: registro.sintomasPneumonia === 'Sim',
+        sintomas_pneumonia: registro.sintomasPneumonia === 'S' || registro.sintomasPneumonia === 'Sim',
         sintomas_pneumonia_obs: registro.sintomasPneumoniaObs || null,
-        picado_cobra: registro.picadoCobra === 'Sim',
+        picado_cobra: registro.picadoCobra === 'S' || registro.picadoCobra === 'Sim',
         picado_cobra_obs: registro.picadoCobraObs || null,
-        incoordenacao_tremores: registro.incoordenacaoTremores === 'Sim',
+        incoordenacao_tremores: registro.incoordenacaoTremores === 'S' || registro.incoordenacaoTremores === 'Sim',
         incoordenacao_tremores_obs: registro.incoordenacaoTremoresObs || null,
-        febre_alta: registro.febreAlta === 'Sim',
+        febre_alta: registro.febreAlta === 'S' || registro.febreAlta === 'Sim',
         febre_alta_obs: registro.febreAltaObs || null,
-        presenca_sangue: registro.presencaSangue === 'Sim',
+        presenca_sangue: registro.presencaSangue === 'S' || registro.presencaSangue === 'Sim',
         presenca_sangue_obs: registro.presencaSangueObs || null,
-        fraturas: registro.fraturas === 'Sim',
+        fraturas: registro.fraturas === 'S' || registro.fraturas === 'Sim',
         fraturas_obs: registro.fraturasObs || null,
-        desordens_digestivas: registro.desordensDigestivas === 'Sim',
+        desordens_digestivas: registro.desordensDigestivas === 'S' || registro.desordensDigestivas === 'Sim',
         desordens_digestivas_obs: registro.desordensDigestivasObs || null,
         tratamento: registro.tratamento || null,
       }
@@ -410,15 +418,15 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         fornecedor: registro.fornecedor || null,
         placa: registro.placa || null,
         motorista: registro.motorista || null,
-        responsavel: registro.responsavelRecebimento || null,
+        responsavel_recebimento: registro.responsavelRecebimento || null,
       }
     case 'saida-insumos':
       return {
         ...baseData,
         data_producao: registro.dataProducao,
-        dieta: registro.dietaProduzida || null,
-        destino: registro.destinoProducao || null,
-        total: registro.totalProduzido || null,
+        dieta_produzida: registro.dietaProduzida || null,
+        destino_producao: registro.destinoProducao || null,
+        total_produzido: registro.totalProduzido ? Number(registro.totalProduzido) : null,
       }
     default:
       return baseData
@@ -521,49 +529,43 @@ export async function processQueue(planilhaUrl: string, fazendaId?: string): Pro
     }
 
     try {
-      const values = getColumnValues(item.store, registro)
-
-      // Dual-Write: Sempre grava no Google Sheets (atual)
-      if (item.operation === 'create') {
-        const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ planilhaUrl, values, id: registro.id }),
-        })
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const json = await res.json() as { rowNumber: number }
-        await updateSyncStatus(item.store, item.registroId, 'synced', json.rowNumber)
-
-      } else if (item.operation === 'update' && registro.googleRowId) {
-        const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}/${registro.googleRowId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ planilhaUrl, values }),
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      // Se usando Supabase com fazendaId, gravar direto no Supabase
+      if (USE_SUPABASE && fazendaId) {
+        await syncToSupabase(item.store, registro, fazendaId, item.operation)
         await updateSyncStatus(item.store, item.registroId, 'synced')
+        console.log(`[SUPABASE] Registro sincronizado com sucesso: ${item.store}/${item.registroId}`)
       }
 
-      // Dual-Write: Se flag ativada, grava também no Supabase
-      if (USE_SUPABASE && fazendaId) {
-        try {
-          await syncToSupabase(item.store, registro, fazendaId, item.operation)
-          // Salvar supabaseId no registro para updates futuros
-          if (item.operation === 'create') {
-            // Nota: Precisamos obter o ID do Supabase após create
-            // Por enquanto, vamos apenas logar sucesso
-          }
-        } catch (supabaseError) {
-          // Se Supabase falhar, não quebra o fluxo
-          // O sistema continua funcionando com Google Sheets
-          console.error('[DUAL-WRITE] Erro ao gravar no Supabase, continuando com Google Sheets:', supabaseError)
+      // Se tem planilhaUrl, gravar no Google Sheets
+      if (planilhaUrl) {
+        const values = getColumnValues(item.store, registro)
+
+        if (item.operation === 'create') {
+          const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ planilhaUrl, values, id: registro.id }),
+          })
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const json = await res.json() as { rowNumber: number }
+          await updateSyncStatus(item.store, item.registroId, 'synced', json.rowNumber)
+
+        } else if (item.operation === 'update' && registro.googleRowId) {
+          const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}/${registro.googleRowId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ planilhaUrl, values }),
+          })
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          await updateSyncStatus(item.store, item.registroId, 'synced')
         }
       }
 
       await removeFromSyncQueue(item.id)
       synced++
-    } catch {
+    } catch (err) {
+      console.error(`[SYNC] Erro ao sincronizar ${item.store}/${item.registroId}:`, err)
       item.retryCount++
       await addToSyncQueue(item)
       failed++

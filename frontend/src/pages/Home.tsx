@@ -11,19 +11,7 @@ const BASE = import.meta.env.BASE_URL
 
 export default function Home() {
   const navigate = useNavigate()
-  const { configurado, fazenda, fazendaId, usuario } = useSelector((state: RootState) => state.config)
-
-  // Verificar se é fazenda Marcon, GestaUp, Sirio, Guanabara, Alegria, Dias Cardoso, Estrela da Jacamim ou Paribó (usando o ID)
-  const farmId = fazendaId || fazenda
-  const isMarcon = farmId?.toLowerCase().includes('marcon')
-  const isGestaUp = farmId?.toLowerCase().includes('gestaup')
-  const isSirio = farmId?.toLowerCase().includes('sirio') || farmId?.toLowerCase().includes('sírio')
-  const isGuanabara = farmId?.toLowerCase().includes('guanabara')
-  const isAlegria = farmId?.toLowerCase().includes('alegria')
-  const isDiasCardoso = farmId?.toLowerCase().includes('dias cardoso') || farmId?.toLowerCase().includes('diascardoso')
-  const isJacamim = farmId?.toLowerCase().includes('jacamim') || farmId?.toLowerCase().includes('estrela da jacamim')
-  const isParibo = farmId?.toLowerCase().includes('paribo')
-  const showInsumos = isMarcon || isGestaUp || isSirio || isGuanabara || isAlegria || isDiasCardoso || isJacamim || isParibo
+  const { configurado, fazenda, usuario } = useSelector((state: RootState) => state.config)
 
   // Verificar primeiro acesso e redirecionar automaticamente
   useEffect(() => {
@@ -213,18 +201,16 @@ export default function Home() {
               </button>
 
               {/* Botão Checklists */}
-              {showInsumos && (
-                <button
-                  onClick={() => navigate('/modulos/checklists')}
-                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm"
-                  style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.1))' }}
-                >
-                  <img src={`${BASE}home/checklists.png`} alt="Checklists" className="w-40 h-auto object-contain rounded-[32px]" />
-                  <span className="text-base font-bold text-center leading-tight text-gray-900">
-                    CHECKLISTS
-                  </span>
-                </button>
-              )}
+              <button
+                onClick={() => navigate('/modulos/checklists')}
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm"
+                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.1))' }}
+              >
+                <img src={`${BASE}home/checklists.png`} alt="Checklists" className="w-40 h-auto object-contain rounded-[32px]" />
+                <span className="text-base font-bold text-center leading-tight text-gray-900">
+                  CHECKLISTS
+                </span>
+              </button>
             </div>
 
             {/* Botões de baixo: Configurações e Relatórios */}
