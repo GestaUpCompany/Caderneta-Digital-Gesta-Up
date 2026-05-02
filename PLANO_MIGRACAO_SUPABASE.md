@@ -138,7 +138,7 @@ CREATE TABLE registros_maternidade (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   fazenda_id UUID NOT NULL REFERENCES fazendas(id) ON DELETE CASCADE,
   dispositivo_id UUID REFERENCES dispositivos(id) ON DELETE SET NULL,
-  usuario_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  nome_usuario TEXT, -- Nome do peão (em vez de usuario_id)
   
   -- Campos específicos
   data DATE NOT NULL,
@@ -163,6 +163,8 @@ CREATE TABLE registros_maternidade (
 );
 ```
 
+**Nota:** Todas as outras 8 tabelas de registros (registros_pastagens, registros_rodeio, registros_suplementacao, registros_bebedouros, registros_movimentacao, registros_enfermaria, registros_entrada_insumos, registros_saida_insumos) devem seguir o mesmo padrão, substituindo `usuario_id` por `nome_usuario TEXT` para manter compatibilidade com o sistema atual (nome do peão).
+
 ---
 
 ### 4. Row Level Security (RLS)
@@ -177,6 +179,7 @@ CREATE TABLE registros_maternidade (
 - **Sem Supabase Auth:** Não usar autenticação do Supabase
 - **Acesso por ID:** Usuário digita `acesso_id` da fazenda
 - **Validação no Frontend:** Verificar se fazenda existe e está ativa
+- **Validação no Backend:** Edge Function valida fazenda_id em todas as requisições
 - **RLS por Fazenda:** Queries sempre filtram por `fazenda_id`
 
 ### 4.3 Exemplo de Política (pastos)
@@ -229,6 +232,57 @@ TO anon
 USING (true);
 ```
 
+### 4.5 Validação de Acesso no Backend (Segurança Adicional)
+
+Como não usamos Supabase Auth, implementamos uma camada extra de segurança no backend para garantir que cada requisição está acessando apenas dados da fazenda correta.
+
+#### 4.5.1 Edge Function para Validação
+```typescript
+// supabase/functions/validate-fazenda/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
+serve(async (req) => {
+  // Validar que fazenda_id no request corresponde ao acesso_id
+  const fazendaId = req.headers.get('x-fazenda-id')
+  const acessoId = req.headers.get('x-acesso-id')
+  
+  if (!fazendaId || !acessoId) {
+    return new Response('Missing headers', { status: 401 })
+  }
+  
+  // Validar no Supabase
+  const { data: fazenda } = await supabase
+    .from('fazendas')
+    .select('id')
+    .eq('id', fazendaId)
+    .eq('acesso_id', acessoId)
+    .eq('ativo', true)
+    .single()
+    
+  if (!fazenda) {
+    return new Response('Invalid fazenda', { status: 403 })
+  }
+  
+  return new Response('OK', { status: 200 })
+})
+```
+
+#### 4.5.2 Uso no Frontend
+```typescript
+// Adicionar headers em todas as requisições críticas
+const { data } = await supabase
+  .from('registros_maternidade')
+  .select('*')
+  .eq('fazenda_id', fazendaId)
+  .setHeader('x-acesso-id', acessoId) // Validado pela Edge Function
+```
+
+#### 4.5.3 Estratégia de Geração de acesso_id
+Durante a migração, gerar `acesso_id` único para cada fazenda:
+- Normalizar nome da fazenda (remover acentos, espaços)
+- Adicionar sufixo numérico se houver duplicatas
+- Exemplo: "aruã-001", "sol-nascente-001"
+
 ---
 
 ## 5. Cronograma de Migração (6 Semanas)
@@ -237,7 +291,8 @@ USING (true);
 - **Dia 1-2:** Setup Supabase, Environment Variables (sem Auth)
 - **Dia 3-4:** Criar schema database (todas as tabelas + índices)
 - **Dia 5:** Criar RLS e políticas de segurança (acesso público com filtro por fazenda_id)
-- **Dia 6-7:** Setup frontend (supabaseClient, tipos TypeScript)
+- **Dia 6:** Implementar Edge Function para validação de acesso_id
+- **Dia 7:** Setup frontend (supabaseClient, tipos TypeScript)
 
 ### FASE 2: Migração de Dados (Semana 2)
 - **Dia 1-2:** Criar script de migração (Google Sheets → Supabase)
