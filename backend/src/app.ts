@@ -8,6 +8,7 @@ import { suplementacaoRouter } from './controllers/suplementacaoController'
 import { insumosRouter } from './controllers/insumosController'
 import { devicesRouter } from './controllers/devicesController'
 import { pastagensRouter } from './controllers/pastagensController'
+import { authRouter } from './controllers/authController'
 import versionRouter from './controllers/versionController'
 import { securityHeaders, requestLogger, errorHandler } from './middleware/security'
 import { logger } from './utils/logger'
@@ -71,6 +72,7 @@ app.use('/api/suplementacao', suplementacaoRouter)
 app.use('/api/insumos', insumosRouter)
 app.use('/api/devices', devicesRouter)
 app.use('/api/pastagens', pastagensRouter)
+app.use('/api/auth', authRouter)
 app.use('/api', versionRouter)
 
 app.get('/api/health', (_req, res) => {
