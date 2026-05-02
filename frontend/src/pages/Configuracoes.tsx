@@ -56,17 +56,46 @@ export default function Configuracoes() {
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
       
-      // Chamar backend Vercel para obter token JWT do peão
-      const backendUrl = import.meta.env.VITE_BACKEND_URL
-      const loginResponse = await fetch(`${backendUrl}/api/auth/login-peao`, {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      
+      // Buscar peão na tabela peoes usando anon key
+      const peaoResponse = await fetch(`${supabaseUrl}/rest/v1/peoes?fazenda_id=eq.${acessoId}&ativo=eq.true`, {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+      })
+
+      if (!peaoResponse.ok) {
+        console.error('Erro ao buscar peão:', await peaoResponse.text())
+        return { sucesso: false }
+      }
+
+      const peaoData = await peaoResponse.json()
+      if (!peaoData || peaoData.length === 0) {
+        console.error('Peão não encontrado para esta fazenda')
+        return { sucesso: false }
+      }
+
+      const peao = peaoData[0]
+      console.log('Peão encontrado:', peao.email)
+
+      // Fazer login no Supabase Auth com email/senha do peão
+      const loginResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acesso_id: acessoId }),
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({
+          email: peao.email,
+          password: peao.password,
+        }),
       })
 
       if (!loginResponse.ok) {
-        const errorData = await loginResponse.json()
-        console.error('Erro ao fazer login do peão:', errorData)
+        console.error('Erro ao fazer login:', await loginResponse.text())
         return { sucesso: false }
       }
 
