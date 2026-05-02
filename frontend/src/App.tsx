@@ -299,7 +299,7 @@ function AppInner() {
 
 function App() {
   return (
-    <Router>
+    <Router basename="/Caderneta-Digital-Gesta-Up">
       <AppInner />
     </Router>
   )
