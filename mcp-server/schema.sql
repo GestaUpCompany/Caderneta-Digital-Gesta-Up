@@ -5,6 +5,38 @@
 -- TABELAS CORE (Multi-tenant)
 -- ============================================
 
+-- Tabela de usuários (para sistema web)
+CREATE TABLE usuarios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  nome TEXT NOT NULL,
+  telefone TEXT,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índices para usuarios
+CREATE INDEX idx_usuarios_email ON usuarios(email);
+CREATE INDEX idx_usuarios_ativo ON usuarios(ativo);
+
+-- Tabela de relação usuario-fazenda (para sistema web)
+CREATE TABLE usuario_fazenda (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  fazenda_id UUID NOT NULL REFERENCES fazendas(id) ON DELETE CASCADE,
+  papel TEXT NOT NULL, -- admin, gerente, peao
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(usuario_id, fazenda_id)
+);
+
+-- Índices para usuario_fazenda
+CREATE INDEX idx_usuario_fazenda_usuario ON usuario_fazenda(usuario_id);
+CREATE INDEX idx_usuario_fazenda_fazenda ON usuario_fazenda(fazenda_id);
+CREATE INDEX idx_usuario_fazenda_papel ON usuario_fazenda(papel);
+CREATE INDEX idx_usuario_fazenda_ativo ON usuario_fazenda(ativo);
+
 -- Tabela de fazendas
 CREATE TABLE fazendas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -548,7 +580,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Adicionar trigger para atualizar updated_at em todas as tabelas
+CREATE TRIGGER update_usuarios_updated_at BEFORE UPDATE ON usuarios
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_fazendas_updated_at BEFORE UPDATE ON fazendas
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_usuario_fazenda_updated_at BEFORE UPDATE ON usuario_fazenda
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_dispositivos_updated_at BEFORE UPDATE ON dispositivos

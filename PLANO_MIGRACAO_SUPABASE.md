@@ -17,10 +17,12 @@ Migrar o sistema Caderneta Digital Gesta-Up de Google Sheets para Supabase, mant
 - **Banco de Dados:** Google Sheets (limitado a 100 req/100s)
 - **Cadernetas:** 9 módulos (maternidade, pastagens, rodeio, suplementação, bebedouros, movimentacao, enfermaria, entrada-insumos, saida-insumos)
 - **Sincronização:** Offline-first com IndexedDB + fila de sync
-- **Acesso:** Usuário digita ID da fazenda (sem login/senha)
+- **Acesso App Móvel:** Usuário digita ID da fazenda (sem login/senha)
 
-### 1.3 Escopo Futuro
+### 1.3 Escopo Futuro (Sistema Web)
 - **Sistema Web:** Dashboard administrativo para gestão de fazendas
+- **Autenticação Web:** Login/senha com Supabase Auth
+- **Hierarquia de Permissões:** Admin (todas fazendas + criar fazendas), Gerente (suas fazendas + criar cadastros), Peão (suas fazendas + apenas registros)
 - **Cadastros:** Pastos, lotes, funcionários, insumos, checklists
 - **Multi-tenant:** 25+ fazendas com isolamento de dados
 - **Expansão:** 16 cadernetas + 20 checklists
@@ -39,7 +41,9 @@ Migrar o sistema Caderneta Digital Gesta-Up de Google Sheets para Supabase, mant
 
 ### 2.1 Tabelas Core (Multi-tenant)
 1. **fazendas** - Configuração de fazendas (inclui ID de acesso)
-2. **dispositivos** - Dispositivos móveis registrados (por fazenda)
+2. **usuarios** - Usuários do sistema web (admin, gerente, peão)
+3. **usuario_fazenda** - Relação N:N entre usuários e fazendas com papéis
+4. **dispositivos** - Dispositivos móveis registrados (por fazenda)
 
 ### 2.2 Tabelas de Cadastro
 5. **pastos** - Cadastro de pastos
@@ -101,6 +105,32 @@ CREATE TABLE dispositivos (
   plataforma TEXT, -- iOS, Android
   ultimo_acesso TIMESTAMPTZ DEFAULT NOW(),
   ativo BOOLEAN DEFAULT true
+);
+```
+
+### 3.3 usuarios (Para Sistema Web)
+```sql
+CREATE TABLE usuarios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  nome TEXT NOT NULL,
+  telefone TEXT,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 3.4 usuario_fazenda (Para Sistema Web)
+```sql
+CREATE TABLE usuario_fazenda (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  fazenda_id UUID NOT NULL REFERENCES fazendas(id) ON DELETE CASCADE,
+  papel TEXT NOT NULL, -- admin, gerente, peao
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(usuario_id, fazenda_id)
 );
 ```
 
@@ -889,5 +919,73 @@ Este plano detalha a migração completa do sistema Caderneta Digital Gesta-Up d
 7. **Monitoramento** métricas para acompanhamento pós-migração
 
 A migração é dividida em 6 semanas, com testes extensivos em cada fase para garantir zero downtime e perda zero de dados.
+
+---
+
+## 15. Autenticação: App Móvel vs Sistema Web
+
+### 15.1 App Móvel (PWA)
+- **Acesso:** Usuário digita ID da fazenda (sem login/senha)
+- **Validação:** Frontend + Edge Function
+- **Isolamento:** Por fazenda_id em todas as queries
+- **Rastreabilidade:** Nome do peão (campo nome_usuario) + device_id
+- **Use Case:** Peões em campo, baixa fricção
+
+### 15.2 Sistema Web (Dashboard)
+- **Acesso:** Login/senha com Supabase Auth
+- **Validação:** Supabase Auth + RLS
+- **Isolamento:** Por usuário_id + fazenda_id via usuario_fazenda
+- **Rastreabilidade:** Usuario_id em audit_log
+- **Use Case:** Gestão administrativa, controle total
+
+### 15.3 Hierarquia de Permissões (Sistema Web)
+
+#### Admin
+- Acesso a todas as fazendas
+- Criar/editar/deletar fazendas
+- Criar/editar/deletar usuários
+- Atribuir papéis (admin, gerente, peao)
+- Ver todos os dados de todas as fazendas
+
+#### Gerente
+- Acesso apenas às fazendas atribuídas
+- Criar/editar/deletar cadastros (pastos, lotes, insumos)
+- Ver todos os dados das suas fazendas
+- Atribuir peões às suas fazendas
+
+#### Peão
+- Acesso apenas às fazendas atribuídas
+- Criar registros (9 cadernetas)
+- Ver apenas seus próprios registros
+- Não pode criar/editar cadastros
+
+### 15.4 RLS para Sistema Web
+
+```sql
+-- Exemplo: RLS para pastos (sistema web)
+CREATE POLICY "Gerente pode ver pastos da sua fazenda"
+ON pastos FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM usuario_fazenda
+    WHERE usuario_fazenda.usuario_id = auth.uid()
+    AND usuario_fazenda.fazenda_id = pastos.fazenda_id
+    AND usuario_fazenda.papel IN ('admin', 'gerente')
+  )
+);
+
+-- Admin pode ver todos os pastos
+CREATE POLICY "Admin pode ver todos os pastos"
+ON pastos FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM usuario_fazenda
+    WHERE usuario_fazenda.usuario_id = auth.uid()
+    AND usuario_fazenda.papel = 'admin'
+  )
+);
+```
 
 ---
