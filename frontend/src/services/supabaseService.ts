@@ -1,6 +1,90 @@
 import { supabase } from './supabaseClient'
 import type { Database } from '../types/supabase'
 
+// Função para fazer upload de logo de fazenda
+export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
+  try {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${fazendaId}/logo.${fileExt}`
+    const filePath = `${fileName}`
+
+    const { error } = await supabase.storage
+      .from('logos')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true
+      })
+
+    if (error) {
+      console.error('Erro ao fazer upload do logo:', error)
+      return null
+    }
+
+    // Obter URL pública
+    const { data: { publicUrl } } = supabase.storage
+      .from('logos')
+      .getPublicUrl(filePath)
+
+    // Atualizar fazenda com a URL do logo
+    const { error: updateError } = await supabase
+      .from('fazendas')
+      .update({ logo_url: publicUrl })
+      .eq('id', fazendaId)
+
+    if (updateError) {
+      console.error('Erro ao atualizar URL do logo na fazenda:', updateError)
+    }
+
+    return publicUrl
+  } catch (error) {
+    console.error('Erro ao fazer upload do logo:', error)
+    return null
+  }
+}
+
+// Função para deletar logo de fazenda
+export async function deleteFazendaLogo(fazendaId: string): Promise<boolean> {
+  try {
+    // Listar arquivos no bucket para encontrar o logo
+    const { data: files } = await supabase.storage
+      .from('logos')
+      .list(fazendaId, {
+        limit: 100,
+        sortBy: { column: 'name', order: 'asc' }
+      })
+
+    if (!files || files.length === 0) {
+      return true
+    }
+
+    // Deletar todos os arquivos (deveria ter apenas o logo)
+    const filesToDelete = files.map(file => `${fazendaId}/${file.name}`)
+    const { error } = await supabase.storage
+      .from('logos')
+      .remove(filesToDelete)
+
+    if (error) {
+      console.error('Erro ao deletar logo:', error)
+      return false
+    }
+
+    // Atualizar fazenda removendo a URL do logo
+    const { error: updateError } = await supabase
+      .from('fazendas')
+      .update({ logo_url: null })
+      .eq('id', fazendaId)
+
+    if (updateError) {
+      console.error('Erro ao atualizar fazenda:', updateError)
+    }
+
+    return true
+  } catch (error) {
+    console.error('Erro ao deletar logo:', error)
+    return false
+  }
+}
+
 type TablesInsert = Database['public']['Tables']
 type TablesUpdate = Database['public']['Tables']
 
