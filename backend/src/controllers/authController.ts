@@ -3,16 +3,16 @@ import { createClient } from '@supabase/supabase-js'
 
 const router = express.Router()
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error('SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios')
-}
-
 // POST /api/auth/login-peao - Faz login do peão e retorna token JWT
 router.post('/login-peao', async (req, res) => {
   try {
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      return res.status(500).json({ error: 'Configuração do Supabase não encontrada' })
+    }
+
     const { acesso_id } = req.body
 
     if (!acesso_id) {

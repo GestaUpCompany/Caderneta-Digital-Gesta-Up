@@ -5,8 +5,9 @@ node_modules/
 # Build outputs
 dist/
 build/
-*/dist/
-*/build/
+frontend/dist/
+frontend/build/
+# backend/dist is needed for Vercel deployment
 
 # Environment variables
 .env
