@@ -7,6 +7,8 @@ import { Button, Input } from '../components/ui'
 import ValidationModal from '../components/ValidationModal'
 import { BACKEND_URL, DATABASE_URL, DEVICE_SHEET_URL } from '../utils/constants'
 import { getDeviceId } from '../utils/deviceId'
+import { validateFarmAccess } from '../services/supabaseClient'
+import { getFazendaByAcessoId } from '../services/supabaseService'
 
 export default function Configuracoes() {
   const navigate = useNavigate()
@@ -51,6 +53,25 @@ export default function Configuracoes() {
     return { sucesso: false }
   }
 
+  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string }> => {
+    try {
+      // Validar acesso usando Edge Function
+      const valid = await validateFarmAccess('', acessoId)
+      if (!valid) {
+        return { sucesso: false }
+      }
+
+      // Obter dados da fazenda do Supabase
+      const fazenda = await getFazendaByAcessoId(acessoId)
+      if (fazenda) {
+        return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome }
+      }
+    } catch (error) {
+      console.error('Erro ao validar fazenda no Supabase:', error)
+    }
+    return { sucesso: false }
+  }
+
   const handleSalvar = async () => {
     setSuccessMsg('')
     if (!validate()) return
@@ -65,12 +86,27 @@ export default function Configuracoes() {
     // Validar com posição 3 para obter URL da planilha de cadastro
     const validacaoCadastro = await validarFazendaNaBase(fazenda.trim(), 3)
 
+    // Validar no Supabase para obter fazendaId (UUID)
+    const validacaoSupabase = await validarFazendaNoSupabase(fazenda.trim())
+
     setValidandoFazenda(false)
 
     if (!validacaoCaderneta.sucesso) {
       setShowValidationModal(false)
       setErrors([{ field: 'fazenda', message: 'Verifique o ID digitado ou contate o administrador' }])
       return
+    }
+
+    // Se Supabase estiver habilitado, validar também no Supabase
+    const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
+    let supabaseFazendaId = ''
+    if (useSupabase) {
+      if (!validacaoSupabase.sucesso) {
+        setShowValidationModal(false)
+        setErrors([{ field: 'fazenda', message: 'ID não encontrado no Supabase. Contate o administrador.' }])
+        return
+      }
+      supabaseFazendaId = validacaoSupabase.fazendaId || ''
     }
 
     setValidationStatus('success')
@@ -94,7 +130,7 @@ export default function Configuracoes() {
     setFazendaNome(nomeFazenda)
     const configData = {
       fazenda: nomeFazenda,
-      fazendaId: fazenda.trim(),
+      fazendaId: useSupabase ? supabaseFazendaId : fazenda.trim(),
       usuario: usuario.trim(),
       planilhaUrl: linkPlanilha,
       cadastroSheetUrl: linkCadastro || ''
