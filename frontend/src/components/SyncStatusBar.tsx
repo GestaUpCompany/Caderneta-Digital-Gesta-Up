@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
+import SyncErrorModal from './SyncErrorModal'
 
 const STATUS_CONFIG = {
   online: { bg: 'bg-green-700', icon: '✅', label: 'SINCRONIZADO' },
@@ -13,8 +15,14 @@ export default function SyncStatusBar() {
   const { status, pendingCount, errorMessage } = useSelector(
     (state: RootState) => state.sync
   )
+  const [showErrorModal, setShowErrorModal] = useState(false)
 
   const config = STATUS_CONFIG[status]
+
+  const handleRecordsDeleted = () => {
+    // Trigger a sync check or update
+    window.location.reload()
+  }
 
   // Só mostrar quando houver erro ou offline
   if (status !== 'error' && status !== 'offline') {
@@ -22,28 +30,42 @@ export default function SyncStatusBar() {
   }
 
   return (
-    <div className={`${config.bg} text-white px-4 py-2`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-base">{config.icon}</span>
-          <span className="text-sm font-bold">{config.label}</span>
-          {pendingCount > 0 && (
-            <span className="bg-white text-gray-900 text-xs font-bold px-2 py-0.5 rounded-full">
-              {pendingCount} pendente{pendingCount > 1 ? 's' : ''}
-            </span>
-          )}
+    <>
+      <div
+        className={`${config.bg} text-white px-4 py-2 ${status === 'error' ? 'cursor-pointer hover:bg-red-800 transition-colors' : ''}`}
+        onClick={status === 'error' ? () => setShowErrorModal(true) : undefined}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{config.icon}</span>
+            <span className="text-sm font-bold">{config.label}</span>
+            {pendingCount > 0 && (
+              <span className="bg-white text-gray-900 text-xs font-bold px-2 py-0.5 rounded-full">
+                {pendingCount} pendente{pendingCount > 1 ? 's' : ''}
+              </span>
+            )}
+            {status === 'error' && (
+              <span className="text-xs opacity-75 ml-2">👆 Clique para ver detalhes</span>
+            )}
+          </div>
         </div>
+
+        {status === 'error' && errorMessage && (
+          <p className="text-xs mt-1 opacity-90">{errorMessage}</p>
+        )}
+
+        {status === 'offline' && (
+          <p className="text-[12px] mt-1 opacity-90">
+            Não se preocupe, use o aplicativo à vontade. Nenhum registro será perdido.
+          </p>
+        )}
       </div>
 
-      {status === 'error' && errorMessage && (
-        <p className="text-xs mt-1 opacity-90">{errorMessage}</p>
-      )}
-
-      {status === 'offline' && (
-        <p className="text-[12px] mt-1 opacity-90">
-          Não se preocupe, use o aplicativo à vontade. Nenhum registro será perdido.
-        </p>
-      )}
-    </div>
+      <SyncErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        onRecordsDeleted={handleRecordsDeleted}
+      />
+    </>
   )
 }
