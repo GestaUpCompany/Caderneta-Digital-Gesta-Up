@@ -14,7 +14,7 @@ export default function Configuracoes() {
   const dispatch = useDispatch()
   const config = useSelector((state: RootState) => state.config)
 
-  const [fazenda, setFazenda] = useState(config.fazendaId || config.fazenda)
+  const [fazenda, setFazenda] = useState(config.acessoId || config.fazendaId || config.fazenda)
   const [usuario, setUsuario] = useState(config.usuario)
   const [fazendaNome, setFazendaNome] = useState(config.fazenda || '')
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
@@ -52,7 +52,7 @@ export default function Configuracoes() {
     return { sucesso: false }
   }
 
-  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string }> => {
+  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string }> => {
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
       
@@ -109,7 +109,7 @@ export default function Configuracoes() {
       if (fazenda) {
         // Salvar token JWT no localStorage
         localStorage.setItem('supabase_token', loginData.access_token)
-        return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome, token: loginData.access_token }
+        return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome, token: loginData.access_token, acessoId: fazenda.acesso_id }
       }
     } catch (error) {
       console.error('Erro ao validar fazenda no Supabase:', error)
@@ -130,7 +130,7 @@ export default function Configuracoes() {
 
     let validacaoCaderneta = { sucesso: false, nome: '', link: '' }
     let validacaoCadastro = { sucesso: false, nome: '', link: '' }
-    let validacaoSupabase = { sucesso: false, fazendaId: '', nome: '' }
+    let validacaoSupabase = { sucesso: false, fazendaId: '', nome: '', acessoId: '' }
 
     if (!useSupabase) {
       // Validar com posição 1 para obter URL da planilha da caderneta
@@ -143,7 +143,7 @@ export default function Configuracoes() {
     } else {
       // Validar no Supabase para obter fazendaId (UUID)
       const resultSupabase = await validarFazendaNoSupabase(fazenda.trim())
-      validacaoSupabase = { sucesso: resultSupabase.sucesso, fazendaId: resultSupabase.fazendaId || '', nome: resultSupabase.nome || '' }
+      validacaoSupabase = { sucesso: resultSupabase.sucesso, fazendaId: resultSupabase.fazendaId || '', nome: resultSupabase.nome || '', acessoId: resultSupabase.acessoId || '' }
     }
 
     setValidandoFazenda(false)
@@ -156,6 +156,7 @@ export default function Configuracoes() {
 
     // Se Supabase estiver habilitado, validar também no Supabase
     let supabaseFazendaId = ''
+    let supabaseAcessoId = ''
     if (useSupabase) {
       if (!validacaoSupabase.sucesso) {
         setShowValidationModal(false)
@@ -163,6 +164,7 @@ export default function Configuracoes() {
         return
       }
       supabaseFazendaId = validacaoSupabase.fazendaId || ''
+      supabaseAcessoId = validacaoSupabase.acessoId || ''
     }
 
     setValidationStatus('success')
@@ -192,9 +194,16 @@ export default function Configuracoes() {
     }
 
     setFazendaNome(nomeFazenda)
+    
+    // Atualizar o campo do ID da fazenda para mostrar o acesso_id (caso esteja usando Supabase)
+    if (useSupabase && supabaseAcessoId) {
+      setFazenda(supabaseAcessoId)
+    }
+    
     const configData = {
       fazenda: nomeFazenda,
       fazendaId: useSupabase ? supabaseFazendaId : fazenda.trim(),
+      acessoId: useSupabase ? supabaseAcessoId : fazenda.trim(),
       usuario: usuario.trim(),
       planilhaUrl: linkPlanilha,
       cadastroSheetUrl: linkCadastro || ''

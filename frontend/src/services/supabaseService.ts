@@ -91,10 +91,13 @@ type TablesUpdate = Database['public']['Tables']
 // ==================== FAZENDAS ====================
 
 export async function getFazendaByAcessoId(acessoId: string) {
+  // Converter para minúsculas para validação case-insensitive
+  const acessoIdNormalizado = acessoId.toLowerCase()
+  
   const { data, error } = await supabase
     .from('fazendas')
     .select('*')
-    .eq('acesso_id', acessoId)
+    .ilike('acesso_id', acessoIdNormalizado)
     .eq('ativo', true)
     .single()
 

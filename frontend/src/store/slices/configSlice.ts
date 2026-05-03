@@ -3,6 +3,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 interface ConfigState {
   fazenda: string
   fazendaId: string
+  acessoId: string
   usuario: string
   planilhaUrl: string
   cadastroSheetUrl: string
@@ -12,6 +13,7 @@ interface ConfigState {
 const initialState: ConfigState = {
   fazenda: '',
   fazendaId: '',
+  acessoId: '',
   usuario: '',
   planilhaUrl: '',
   cadastroSheetUrl: '',
