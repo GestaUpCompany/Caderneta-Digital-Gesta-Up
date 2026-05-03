@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { APP_VERSION, VERSION_CHECK_URL, VERSION_CHECK_INTERVAL, VersionInfo, VersionResponse } from '../utils/version'
 import { BACKEND_URL } from '../utils/constants'
 
+const isDev = import.meta.env.MODE === 'development'
+
 export function useVersionCheck() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<VersionInfo | null>(null)
@@ -10,6 +12,11 @@ export function useVersionCheck() {
   const [error, setError] = useState<string | null>(null)
 
   const checkForUpdates = useCallback(async () => {
+    // Não verificar atualizações em desenvolvimento
+    if (isDev) {
+      return
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -39,7 +46,7 @@ export function useVersionCheck() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [isDev])
 
   // Verificar se uma versão é mais nova que outra
   const isNewerVersion = (latest: string, current: string): boolean => {

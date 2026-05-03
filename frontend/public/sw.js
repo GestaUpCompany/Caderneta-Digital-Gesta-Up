@@ -22,18 +22,14 @@ self.addEventListener('activate', (event) => {
   )
 })
 
-// Handler de erro para recarregar automaticamente em caso de 404
+// Handler de erro - não recarrega automaticamente em caso de erro de fetch
+// Em desenvolvimento, erros de fetch são comuns e não devem causar reload
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request).catch((error) => {
-      // Se o fetch falhar (404, network error, etc.), tenta recarregar a página
+      // Apenas logar o erro, não recarregar a página
       console.error('Fetch error:', error)
-      return self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: 'RELOAD' })
-        })
-        throw error
-      })
+      throw error
     })
   )
 })
