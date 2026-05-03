@@ -9,9 +9,28 @@ interface LoteDetalhesCardProps {
 }
 
 export default function LoteDetalhesCard({ detalhes, processarCategorias }: LoteDetalhesCardProps) {
-  const categoriasProcessadas = processarCategorias && detalhes.categorias
-    ? processarCategorias(detalhes.categorias).join(', ')
-    : detalhes.categorias || '-'
+  // Fazer parsing de JSON para texto puro se necessário
+  let categoriasTexto = detalhes.categorias || '-'
+  
+  try {
+    // Se categorias for uma string JSON, fazer o parsing
+    if (detalhes.categorias && typeof detalhes.categorias === 'string' && detalhes.categorias.startsWith('[')) {
+      const categoriasArray = JSON.parse(detalhes.categorias)
+      if (Array.isArray(categoriasArray)) {
+        // Formatar com iniciais maiúsculas
+        categoriasTexto = categoriasArray
+          .map((cat: string) => cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase())
+          .join(', ')
+      }
+    }
+  } catch (error) {
+    // Se falhar o parsing, usar o valor original
+    categoriasTexto = detalhes.categorias || '-'
+  }
+
+  const categoriasProcessadas = processarCategorias && categoriasTexto !== '-'
+    ? processarCategorias(categoriasTexto).join(', ')
+    : categoriasTexto
 
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
