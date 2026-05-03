@@ -64,6 +64,23 @@ export async function getRegistrosPendentes(store: CadernetaStore): Promise<Regi
   return index.getAll('pending')
 }
 
+export async function getRegistrosComErro(store: CadernetaStore): Promise<Registro[]> {
+  const db = await getDB()
+  const index = db.transaction(store).store.index('syncStatus')
+  return index.getAll('error')
+}
+
+export async function getAllRegistrosComErro(): Promise<{ store: CadernetaStore; registros: Registro[] }[]> {
+  const result: { store: CadernetaStore; registros: Registro[] }[] = []
+  for (const store of STORES) {
+    const registros = await getRegistrosComErro(store)
+    if (registros.length > 0) {
+      result.push({ store, registros })
+    }
+  }
+  return result
+}
+
 export async function deleteRegistro(store: CadernetaStore, id: string): Promise<void> {
   const db = await getDB()
   await db.delete(store, id)
@@ -114,6 +131,16 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
 export async function removeFromSyncQueue(id: string): Promise<void> {
   const db = await getDB()
   await db.delete('syncQueue', id)
+}
+
+export async function removeFromSyncQueueByRegistroId(registroId: string): Promise<void> {
+  const db = await getDB()
+  const queue = await db.getAll('syncQueue')
+  for (const item of queue as SyncQueueItem[]) {
+    if (item.registroId === registroId) {
+      await db.delete('syncQueue', item.id)
+    }
+  }
 }
 
 export async function clearSyncQueue(): Promise<void> {
