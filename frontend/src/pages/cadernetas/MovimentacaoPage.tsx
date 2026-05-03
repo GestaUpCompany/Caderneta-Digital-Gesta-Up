@@ -8,6 +8,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
@@ -73,7 +74,7 @@ const makeInitial = (): FormState => ({
 
 export default function MovimentacaoPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -132,28 +133,24 @@ export default function MovimentacaoPage() {
   // Buscar detalhes do lote origem quando selecionado
   useEffect(() => {
     async function carregarDetalhesLoteOrigem() {
-      if (!form.loteOrigem || !cadastroSheetUrl) {
+      if (!form.loteOrigem || !fazendaId) {
         setDetalhesLoteOrigem(null)
         return
       }
 
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.loteOrigem }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setDetalhesLoteOrigem(data.detalhes)
+        const lote = await getLoteByNome(fazendaId, form.loteOrigem)
+        if (lote) {
+          setDetalhesLoteOrigem(lote)
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote origem:', error)
+        setDetalhesLoteOrigem(null)
       }
     }
 
     carregarDetalhesLoteOrigem()
-  }, [form.loteOrigem, cadastroSheetUrl])
+  }, [form.loteOrigem, fazendaId])
 
   const handleSalvar = async () => {
     setSalvando(true)

@@ -11,7 +11,8 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData, getPastoDetalhes, getLoteDetalhes } from '../../services/cadastroCache'
+import { getCachedCadastroData, getPastoDetalhes } from '../../services/cadastroCache'
+import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
 const BASE = import.meta.env.BASE_URL
@@ -105,7 +106,7 @@ function processarCategorias(categorias: string): string[] {
 
 export default function PastagensPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, planilhaUrl, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, planilhaUrl, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -277,36 +278,24 @@ export default function PastagensPage() {
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
     async function carregarDetalhesLote() {
-      if (!form.numeroLote || !cadastroSheetUrl) {
+      if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
         return
       }
 
-      // Primeiro verificar no cache
-      const cacheDetalhes = getLoteDetalhes(form.numeroLote)
-      if (cacheDetalhes) {
-        setDetalhesLote(cacheDetalhes)
-        return
-      }
-
-      // Se não estiver no cache, buscar da API
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.numeroLote }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setDetalhesLote(data.detalhes)
+        const lote = await getLoteByNome(fazendaId, form.numeroLote)
+        if (lote) {
+          setDetalhesLote(lote)
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
+        setDetalhesLote(null)
       }
     }
 
     carregarDetalhesLote()
-  }, [form.numeroLote, cadastroSheetUrl])
+  }, [form.numeroLote, fazendaId])
 
   const total = ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'].reduce(
     (acc, c) => acc + (Number(form[c as keyof FormState]) || 0), 0

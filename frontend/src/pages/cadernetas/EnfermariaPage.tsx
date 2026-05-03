@@ -8,6 +8,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 
@@ -121,7 +122,7 @@ const makeInitial = (): FormState => ({
 
 export default function EnfermariaPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -167,28 +168,24 @@ export default function EnfermariaPage() {
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
     async function carregarDetalhesLote() {
-      if (!form.lote || !cadastroSheetUrl) {
+      if (!form.lote || !fazendaId) {
         setDetalhesLote(null)
         return
       }
 
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/lote-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.lote }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setDetalhesLote(data.detalhes)
+        const lote = await getLoteByNome(fazendaId, form.lote)
+        if (lote) {
+          setDetalhesLote(lote)
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
+        setDetalhesLote(null)
       }
     }
 
     carregarDetalhesLote()
-  }, [form.lote, cadastroSheetUrl])
+  }, [form.lote, fazendaId])
 
   const handleSalvar = async () => {
     setSalvando(true)

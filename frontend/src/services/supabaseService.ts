@@ -185,6 +185,19 @@ export async function getLotes(fazendaId: string) {
   return data
 }
 
+export async function getLoteByNome(fazendaId: string, nome: string) {
+  const { data, error } = await supabase
+    .from('lotes')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 export async function createLote(lote: TablesInsert['lotes']['Insert']) {
   const { data, error } = await supabase
     .from('lotes')

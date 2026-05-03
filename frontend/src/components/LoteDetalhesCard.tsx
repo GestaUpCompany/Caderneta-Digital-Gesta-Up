@@ -1,17 +1,17 @@
 interface LoteDetalhesCardProps {
   detalhes: {
-    categorias: string
-    nCabecas: number
-    pesoVivo: number
-    qtdBezerros: number
+    categorias?: string
+    n_cabecas?: number
+    peso_vivo_kg?: number
+    qtd_bezerros?: number
   }
   processarCategorias?: (categorias: string) => string[]
 }
 
 export default function LoteDetalhesCard({ detalhes, processarCategorias }: LoteDetalhesCardProps) {
-  const categoriasProcessadas = processarCategorias 
+  const categoriasProcessadas = processarCategorias && detalhes.categorias
     ? processarCategorias(detalhes.categorias).join(', ')
-    : detalhes.categorias
+    : detalhes.categorias || '-'
 
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -22,15 +22,15 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias }: Lote
         </div>
         <div>
           <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-          <p className="text-gray-900 font-bold">{detalhes.nCabecas}</p>
+          <p className="text-gray-900 font-bold">{detalhes.n_cabecas || '-'}</p>
         </div>
         <div>
           <p className="text-gray-500 font-semibold">PESO VIVO</p>
-          <p className="text-gray-900 font-bold">{detalhes.pesoVivo} kg</p>
+          <p className="text-gray-900 font-bold">{detalhes.peso_vivo_kg ? `${detalhes.peso_vivo_kg} kg` : '-'}</p>
         </div>
         <div>
           <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
-          <p className="text-gray-900 font-bold">{detalhes.qtdBezerros}</p>
+          <p className="text-gray-900 font-bold">{detalhes.qtd_bezerros || '-'}</p>
         </div>
       </div>
     </div>

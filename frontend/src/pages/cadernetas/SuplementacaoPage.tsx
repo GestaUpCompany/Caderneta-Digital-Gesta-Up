@@ -11,7 +11,7 @@ import { BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getMineralNomes, getProteinadoNomes, getRacaoNomes, getInsumosNomes, getDietasNomes } from '../../services/supabaseService'
+import { getMineralNomes, getProteinadoNomes, getRacaoNomes, getInsumosNomes, getDietasNomes, getLoteByNome } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
@@ -161,28 +161,24 @@ export default function SuplementacaoPage() {
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
     async function carregarDetalhesLote() {
-      if (!form.numeroLote || !cadastroSheetUrl) {
+      if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
         return
       }
 
       try {
-        const res = await fetch(`${BACKEND_URL}/api/insumos/lote-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, lote: form.numeroLote }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setDetalhesLote(data.detalhes)
+        const lote = await getLoteByNome(fazendaId, form.numeroLote)
+        if (lote) {
+          setDetalhesLote(lote)
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
+        setDetalhesLote(null)
       }
     }
 
     carregarDetalhesLote()
-  }, [form.numeroLote, cadastroSheetUrl])
+  }, [form.numeroLote, fazendaId])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
