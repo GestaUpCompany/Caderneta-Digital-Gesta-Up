@@ -102,8 +102,8 @@ export default function Configuracoes() {
       const loginData = await loginResponse.json()
       console.log('Login do peão bem-sucedido, token recebido')
       
-      // Obter dados da fazenda usando o token JWT
-      const fazenda = await getFazendaByAcessoId(acessoId, loginData.access_token)
+      // Obter dados da fazenda
+      const fazenda = await getFazendaByAcessoId(acessoId)
       console.log('Fazenda encontrada:', fazenda)
       
       if (fazenda) {

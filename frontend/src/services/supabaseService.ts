@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient'
-import { createSupabaseClientWithToken } from './supabaseClient'
 import type { Database } from '../types/supabase'
 
 // Função para fazer upload de logo de fazenda
@@ -91,32 +90,7 @@ type TablesUpdate = Database['public']['Tables']
 
 // ==================== FAZENDAS ====================
 
-export async function getFazendaByAcessoId(acessoId: string, accessToken?: string) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-  
-  // Se temos token JWT, usar REST API diretamente com ele
-  if (accessToken) {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/fazendas?select=*&acesso_id=eq.${acessoId}&ativo=eq.true`,
-      {
-        headers: {
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Erro ao buscar fazenda: ${errorText}`)
-    }
-
-    const data = await response.json()
-    return data[0] || null
-  }
-  
-  // Caso contrário, usar cliente Supabase normal
+export async function getFazendaByAcessoId(acessoId: string) {
   const { data, error } = await supabase
     .from('fazendas')
     .select('*')
@@ -153,31 +127,7 @@ export async function updateFazenda(id: string, fazenda: TablesUpdate['fazendas'
 
 // ==================== PASTOS ====================
 
-export async function getPastos(fazendaId: string, accessToken?: string) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-  
-  // Se temos token JWT, usar REST API diretamente com ele
-  if (accessToken) {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/pastos?select=*&fazenda_id=eq.${fazendaId}&ativo=eq.true&order=nome`,
-      {
-        headers: {
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Erro ao buscar pastos: ${errorText}`)
-    }
-
-    return await response.json()
-  }
-  
-  // Caso contrário, usar cliente Supabase normal
+export async function getPastos(fazendaId: string) {
   const { data, error } = await supabase
     .from('pastos')
     .select('*')
@@ -223,31 +173,7 @@ export async function deletePasto(id: string) {
 
 // ==================== LOTES ====================
 
-export async function getLotes(fazendaId: string, accessToken?: string) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-  
-  // Se temos token JWT, usar REST API diretamente com ele
-  if (accessToken) {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/lotes?select=*&fazenda_id=eq.${fazendaId}&ativo=eq.true&order=nome`,
-      {
-        headers: {
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Erro ao buscar lotes: ${errorText}`)
-    }
-
-    return await response.json()
-  }
-  
-  // Caso contrário, usar cliente Supabase normal
+export async function getLotes(fazendaId: string) {
   const { data, error } = await supabase
     .from('lotes')
     .select('*')
@@ -561,10 +487,7 @@ export async function getRegistrosMaternidade(fazendaId: string, dataInicio?: st
 }
 
 export async function createRegistroMaternidade(registro: TablesInsert['registros_maternidade']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_maternidade')
     .insert(registro)
     .select()
@@ -575,10 +498,7 @@ export async function createRegistroMaternidade(registro: TablesInsert['registro
 }
 
 export async function updateRegistroMaternidade(id: string, registro: TablesUpdate['registros_maternidade']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_maternidade')
     .update(registro)
     .eq('id', id)
@@ -621,10 +541,7 @@ export async function getRegistrosPastagens(fazendaId: string, dataInicio?: stri
 }
 
 export async function createRegistroPastagens(registro: TablesInsert['registros_pastagens']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_pastagens')
     .insert(registro)
     .select()
@@ -635,10 +552,7 @@ export async function createRegistroPastagens(registro: TablesInsert['registros_
 }
 
 export async function updateRegistroPastagens(id: string, registro: TablesUpdate['registros_pastagens']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_pastagens')
     .update(registro)
     .eq('id', id)
@@ -681,10 +595,7 @@ export async function getRegistrosRodeio(fazendaId: string, dataInicio?: string,
 }
 
 export async function createRegistroRodeio(registro: TablesInsert['registros_rodeio']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_rodeio')
     .insert(registro)
     .select()
@@ -695,10 +606,7 @@ export async function createRegistroRodeio(registro: TablesInsert['registros_rod
 }
 
 export async function updateRegistroRodeio(id: string, registro: TablesUpdate['registros_rodeio']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_rodeio')
     .update(registro)
     .eq('id', id)
@@ -741,10 +649,7 @@ export async function getRegistrosSuplementacao(fazendaId: string, dataInicio?: 
 }
 
 export async function createRegistroSuplementacao(registro: TablesInsert['registros_suplementacao']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_suplementacao')
     .insert(registro)
     .select()
@@ -755,10 +660,7 @@ export async function createRegistroSuplementacao(registro: TablesInsert['regist
 }
 
 export async function updateRegistroSuplementacao(id: string, registro: TablesUpdate['registros_suplementacao']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_suplementacao')
     .update(registro)
     .eq('id', id)
@@ -801,10 +703,7 @@ export async function getRegistrosBebedouros(fazendaId: string, dataInicio?: str
 }
 
 export async function createRegistroBebedouros(registro: TablesInsert['registros_bebedouros']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_bebedouros')
     .insert(registro)
     .select()
@@ -815,10 +714,7 @@ export async function createRegistroBebedouros(registro: TablesInsert['registros
 }
 
 export async function updateRegistroBebedouros(id: string, registro: TablesUpdate['registros_bebedouros']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_bebedouros')
     .update(registro)
     .eq('id', id)
@@ -861,10 +757,7 @@ export async function getRegistrosMovimentacao(fazendaId: string, dataInicio?: s
 }
 
 export async function createRegistroMovimentacao(registro: TablesInsert['registros_movimentacao']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_movimentacao')
     .insert(registro)
     .select()
@@ -875,10 +768,7 @@ export async function createRegistroMovimentacao(registro: TablesInsert['registr
 }
 
 export async function updateRegistroMovimentacao(id: string, registro: TablesUpdate['registros_movimentacao']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_movimentacao')
     .update(registro)
     .eq('id', id)
@@ -921,10 +811,7 @@ export async function getRegistrosEnfermaria(fazendaId: string, dataInicio?: str
 }
 
 export async function createRegistroEnfermaria(registro: TablesInsert['registros_enfermaria']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_enfermaria')
     .insert(registro)
     .select()
@@ -935,10 +822,7 @@ export async function createRegistroEnfermaria(registro: TablesInsert['registros
 }
 
 export async function updateRegistroEnfermaria(id: string, registro: TablesUpdate['registros_enfermaria']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_enfermaria')
     .update(registro)
     .eq('id', id)
@@ -981,10 +865,7 @@ export async function getRegistrosEntradaInsumos(fazendaId: string, dataInicio?:
 }
 
 export async function createRegistroEntradaInsumos(registro: TablesInsert['registros_entrada_insumos']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_entrada_insumos')
     .insert(registro)
     .select()
@@ -995,10 +876,7 @@ export async function createRegistroEntradaInsumos(registro: TablesInsert['regis
 }
 
 export async function updateRegistroEntradaInsumos(id: string, registro: TablesUpdate['registros_entrada_insumos']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_entrada_insumos')
     .update(registro)
     .eq('id', id)
@@ -1041,10 +919,7 @@ export async function getRegistrosSaidaInsumos(fazendaId: string, dataInicio?: s
 }
 
 export async function createRegistroSaidaInsumos(registro: TablesInsert['registros_saida_insumos']['Insert']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_saida_insumos')
     .insert(registro)
     .select()
@@ -1055,10 +930,7 @@ export async function createRegistroSaidaInsumos(registro: TablesInsert['registr
 }
 
 export async function updateRegistroSaidaInsumos(id: string, registro: TablesUpdate['registros_saida_insumos']['Update']) {
-  const token = localStorage.getItem('supabase_token')
-  const client = token ? createSupabaseClientWithToken(token) : supabase
-  
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('registros_saida_insumos')
     .update(registro)
     .eq('id', id)

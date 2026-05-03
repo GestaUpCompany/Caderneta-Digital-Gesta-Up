@@ -119,11 +119,9 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       // Buscar do Supabase
       console.log('[CadastroCache] Buscando dados do Supabase para fazenda:', fazendaId)
       
-      const token = localStorage.getItem('supabase_token')
-      
       const [pastosData, lotesData] = await Promise.all([
-        supabaseService.getPastos(fazendaId, token || undefined),
-        supabaseService.getLotes(fazendaId, token || undefined)
+        supabaseService.getPastos(fazendaId),
+        supabaseService.getLotes(fazendaId)
       ])
       
       const pastos = pastosData?.map((p: any) => p.nome) || []

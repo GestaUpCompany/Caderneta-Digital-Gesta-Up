@@ -45,12 +45,9 @@ export async function loadCadastroData(
       // Buscar do Supabase
       console.log('Buscando pastos e lotes do Supabase para fazenda:', fazendaId)
       
-      // Buscar token JWT do localStorage
-      const token = localStorage.getItem('supabase_token')
-      
       const [pastosData, lotesData] = await Promise.all([
-        supabaseService.getPastos(fazendaId, token || undefined),
-        supabaseService.getLotes(fazendaId, token || undefined)
+        supabaseService.getPastos(fazendaId),
+        supabaseService.getLotes(fazendaId)
       ])
       
       pastos = pastosData?.map((p: any) => p.nome) || []
