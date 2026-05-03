@@ -122,7 +122,7 @@ const makeInitial = (): FormState => ({
 
 export default function EnfermariaPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)

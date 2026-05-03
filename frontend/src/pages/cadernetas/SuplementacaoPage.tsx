@@ -7,7 +7,6 @@ import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
-import { BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
@@ -85,7 +84,7 @@ const makeInitial = (usuario?: string): FormState => ({
 
 export default function SuplementacaoPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
