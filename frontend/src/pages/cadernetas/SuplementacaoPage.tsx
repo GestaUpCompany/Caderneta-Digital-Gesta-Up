@@ -11,6 +11,7 @@ import { BACKEND_URL } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { getMineralNomes, getProteinadoNomes, getRacaoNomes, getInsumosNomes, getDietasNomes } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
@@ -84,7 +85,7 @@ const makeInitial = (usuario?: string): FormState => ({
 
 export default function SuplementacaoPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -99,21 +100,6 @@ export default function SuplementacaoPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
-  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
-
-  // Carregar dados de suplementação quando cadastroSheetUrl mudar
-  useEffect(() => {
-    const cache = getCachedCadastroData()
-    if (cache) {
-      setSuplementacaoData({
-        mineral: cache.mineral || [],
-        proteinado: cache.proteinado || [],
-        racao: cache.racao || [],
-        insumos: cache.insumos || [],
-        dietas: cache.dietas || [],
-      })
-    }
-  }, [])
 
   // Carregar suplementos quando tipo principal muda (exceto Creep)
   useEffect(() => {
@@ -124,39 +110,44 @@ export default function SuplementacaoPage() {
         return
       }
 
-      if (!suplementacaoData) {
+      // Buscar do Supabase usando o fazendaId
+      if (!fazendaId) {
         setSuplementos([])
         return
       }
 
-      // Mapear tipo de produto para a coluna correspondente
-      let suplementosArray: string[] = []
-      switch (form.produto) {
-        case 'Mineral':
-          suplementosArray = suplementacaoData.mineral || []
-          break
-        case 'Proteinado':
-          suplementosArray = suplementacaoData.proteinado || []
-          break
-        case 'Ração':
-          suplementosArray = suplementacaoData.racao || []
-          break
-        case 'Insumos':
-          suplementosArray = suplementacaoData.insumos || []
-          break
-        case 'Dietas':
-          suplementosArray = suplementacaoData.dietas || []
-          break
-        default:
-          suplementosArray = []
-      }
+      try {
+        let suplementosArray: string[] = []
+        switch (form.produto) {
+          case 'Mineral':
+            suplementosArray = await getMineralNomes(fazendaId)
+            break
+          case 'Proteinado':
+            suplementosArray = await getProteinadoNomes(fazendaId)
+            break
+          case 'Ração':
+            suplementosArray = await getRacaoNomes(fazendaId)
+            break
+          case 'Insumos':
+            suplementosArray = await getInsumosNomes(fazendaId)
+            break
+          case 'Dietas':
+            suplementosArray = await getDietasNomes(fazendaId)
+            break
+          default:
+            suplementosArray = []
+        }
 
-      setSuplementos(suplementosArray)
-      setSuplemento('')
+        setSuplementos(suplementosArray)
+        setSuplemento('')
+      } catch (error) {
+        console.error('Erro ao carregar suplementos:', error)
+        setSuplementos([])
+      }
     }
 
     carregarSuplementos()
-  }, [form.produto, suplementacaoData])
+  }, [form.produto, fazendaId])
 
   // Carregar pastos e lotes do cache global
   useEffect(() => {

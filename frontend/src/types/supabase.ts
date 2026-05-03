@@ -159,6 +159,59 @@ export type Database = {
           },
         ]
       }
+      dietas: {
+        Row: {
+          ativo: boolean | null
+          consumo_diario_kg: number | null
+          created_at: string | null
+          custo_diario_animal: number | null
+          custo_total: number | null
+          descricao: string | null
+          fazenda_id: string
+          id: string
+          insumos: Json | null
+          nome: string
+          tipo: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          consumo_diario_kg?: number | null
+          created_at?: string | null
+          custo_diario_animal?: number | null
+          custo_total?: number | null
+          descricao?: string | null
+          fazenda_id: string
+          id?: string
+          insumos?: Json | null
+          nome: string
+          tipo?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          consumo_diario_kg?: number | null
+          created_at?: string | null
+          custo_diario_animal?: number | null
+          custo_total?: number | null
+          descricao?: string | null
+          fazenda_id?: string
+          id?: string
+          insumos?: Json | null
+          nome?: string
+          tipo?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dietas_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispositivos: {
         Row: {
           ativo: boolean | null
@@ -251,6 +304,124 @@ export type Database = {
         }
         Relationships: []
       }
+      fornecedores: {
+        Row: {
+          ativo: boolean | null
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
+          created_at: string | null
+          email: string | null
+          endereco: string | null
+          estado: string | null
+          fazenda_id: string
+          id: string
+          nome: string
+          razao_social: string | null
+          telefone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          fazenda_id: string
+          id?: string
+          nome: string
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          fazenda_id?: string
+          id?: string
+          nome?: string
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fornecedores_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frigorificos: {
+        Row: {
+          ativo: boolean | null
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
+          created_at: string | null
+          email: string | null
+          endereco: string | null
+          estado: string | null
+          fazenda_id: string
+          id: string
+          nome: string
+          razao_social: string | null
+          telefone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          fazenda_id: string
+          id?: string
+          nome: string
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          fazenda_id?: string
+          id?: string
+          nome?: string
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frigorificos_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcionarios: {
         Row: {
           ativo: boolean | null
@@ -299,10 +470,18 @@ export type Database = {
         Row: {
           ativo: boolean | null
           created_at: string | null
+          custo_saco: number | null
+          custo_total_estoque: number | null
+          custo_unitario: number | null
           estoque_atual: number | null
+          estoque_minimo: number | null
+          fabricante: string | null
           fazenda_id: string
+          fornecedor: string | null
           id: string
+          marca: string | null
           nome: string
+          peso_saco: number | null
           tipo: string | null
           unidade: string | null
           updated_at: string | null
@@ -310,10 +489,18 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
           estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
           fazenda_id: string
+          fornecedor?: string | null
           id?: string
+          marca?: string | null
           nome: string
+          peso_saco?: number | null
           tipo?: string | null
           unidade?: string | null
           updated_at?: string | null
@@ -321,10 +508,18 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
           estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
           fazenda_id?: string
+          fornecedor?: string | null
           id?: string
+          marca?: string | null
           nome?: string
+          peso_saco?: number | null
           tipo?: string | null
           unidade?: string | null
           updated_at?: string | null
@@ -348,8 +543,10 @@ export type Database = {
           id: string
           n_cabecas: number | null
           nome: string
+          numero_cabecas: number | null
           peso_vivo_kg: number | null
           qtd_bezerros: number | null
+          quantidade_bezerros: number | null
           updated_at: string | null
         }
         Insert: {
@@ -360,8 +557,10 @@ export type Database = {
           id?: string
           n_cabecas?: number | null
           nome: string
+          numero_cabecas?: number | null
           peso_vivo_kg?: number | null
           qtd_bezerros?: number | null
+          quantidade_bezerros?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -372,13 +571,145 @@ export type Database = {
           id?: string
           n_cabecas?: number | null
           nome?: string
+          numero_cabecas?: number | null
           peso_vivo_kg?: number | null
           qtd_bezerros?: number | null
+          quantidade_bezerros?: number | null
           updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "lotes_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mineral: {
+        Row: {
+          ativo: boolean | null
+          composicao: Json | null
+          created_at: string | null
+          custo_saco: number | null
+          custo_total_estoque: number | null
+          custo_unitario: number | null
+          estoque_atual: number | null
+          estoque_minimo: number | null
+          fabricante: string | null
+          fazenda_id: string
+          fornecedor: string | null
+          id: string
+          marca: string | null
+          nome: string
+          peso_saco: number | null
+          tipo: string | null
+          unidade_medida: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          composicao?: Json | null
+          created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
+          estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
+          fazenda_id: string
+          fornecedor?: string | null
+          id?: string
+          marca?: string | null
+          nome: string
+          peso_saco?: number | null
+          tipo?: string | null
+          unidade_medida?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          composicao?: Json | null
+          created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
+          estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
+          fazenda_id?: string
+          fornecedor?: string | null
+          id?: string
+          marca?: string | null
+          nome?: string
+          peso_saco?: number | null
+          tipo?: string | null
+          unidade_medida?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mineral_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimentacao_estoque: {
+        Row: {
+          created_at: string | null
+          criado_por: string | null
+          custo_total: number | null
+          custo_unitario: number | null
+          data_movimentacao: string
+          fazenda_id: string
+          fornecedor: string | null
+          id: string
+          motivo: string | null
+          nota_fiscal: string | null
+          quantidade: number
+          registro_id: string
+          tabela_origem: string
+          tipo_movimentacao: string
+        }
+        Insert: {
+          created_at?: string | null
+          criado_por?: string | null
+          custo_total?: number | null
+          custo_unitario?: number | null
+          data_movimentacao?: string
+          fazenda_id: string
+          fornecedor?: string | null
+          id?: string
+          motivo?: string | null
+          nota_fiscal?: string | null
+          quantidade: number
+          registro_id: string
+          tabela_origem: string
+          tipo_movimentacao: string
+        }
+        Update: {
+          created_at?: string | null
+          criado_por?: string | null
+          custo_total?: number | null
+          custo_unitario?: number | null
+          data_movimentacao?: string
+          fazenda_id?: string
+          fornecedor?: string | null
+          id?: string
+          motivo?: string | null
+          nota_fiscal?: string | null
+          quantidade?: number
+          registro_id?: string
+          tabela_origem?: string
+          tipo_movimentacao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacao_estoque_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -433,6 +764,178 @@ export type Database = {
           },
         ]
       }
+      peoes: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          email: string
+          fazenda_id: string
+          id: string
+          password: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          email: string
+          fazenda_id: string
+          id?: string
+          password: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          email?: string
+          fazenda_id?: string
+          id?: string
+          password?: string
+        }
+        Relationships: []
+      }
+      proteinado: {
+        Row: {
+          ativo: boolean | null
+          composicao: Json | null
+          created_at: string | null
+          custo_saco: number | null
+          custo_total_estoque: number | null
+          custo_unitario: number | null
+          estoque_atual: number | null
+          estoque_minimo: number | null
+          fabricante: string | null
+          fazenda_id: string
+          fornecedor: string | null
+          id: string
+          marca: string | null
+          nome: string
+          peso_saco: number | null
+          teor_proteico: number | null
+          tipo: string | null
+          unidade_medida: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          composicao?: Json | null
+          created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
+          estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
+          fazenda_id: string
+          fornecedor?: string | null
+          id?: string
+          marca?: string | null
+          nome: string
+          peso_saco?: number | null
+          teor_proteico?: number | null
+          tipo?: string | null
+          unidade_medida?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          composicao?: Json | null
+          created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
+          estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
+          fazenda_id?: string
+          fornecedor?: string | null
+          id?: string
+          marca?: string | null
+          nome?: string
+          peso_saco?: number | null
+          teor_proteico?: number | null
+          tipo?: string | null
+          unidade_medida?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proteinado_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      racao: {
+        Row: {
+          ativo: boolean | null
+          composicao: Json | null
+          created_at: string | null
+          custo_saco: number | null
+          custo_total_estoque: number | null
+          custo_unitario: number | null
+          estoque_atual: number | null
+          estoque_minimo: number | null
+          fabricante: string | null
+          fazenda_id: string
+          fornecedor: string | null
+          id: string
+          marca: string | null
+          nome: string
+          peso_saco: number | null
+          tipo: string | null
+          unidade_medida: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          composicao?: Json | null
+          created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
+          estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
+          fazenda_id: string
+          fornecedor?: string | null
+          id?: string
+          marca?: string | null
+          nome: string
+          peso_saco?: number | null
+          tipo?: string | null
+          unidade_medida?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          composicao?: Json | null
+          created_at?: string | null
+          custo_saco?: number | null
+          custo_total_estoque?: number | null
+          custo_unitario?: number | null
+          estoque_atual?: number | null
+          estoque_minimo?: number | null
+          fabricante?: string | null
+          fazenda_id?: string
+          fornecedor?: string | null
+          id?: string
+          marca?: string | null
+          nome?: string
+          peso_saco?: number | null
+          tipo?: string | null
+          unidade_medida?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "racao_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       registros_bebedouros: {
         Row: {
           categoria: string | null
@@ -445,11 +948,11 @@ export type Database = {
           google_row_id: number | null
           id: string
           leitura_bebedouro: number | null
-          lote_id: string | null
+          lote: string | null
           nome_usuario: string | null
           numero_bebedouro: string | null
           observacao: string | null
-          pasto_id: string | null
+          pasto: string | null
           responsavel: string | null
           sync_status: string | null
           updated_at: string | null
@@ -466,11 +969,11 @@ export type Database = {
           google_row_id?: number | null
           id?: string
           leitura_bebedouro?: number | null
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           numero_bebedouro?: string | null
           observacao?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           responsavel?: string | null
           sync_status?: string | null
           updated_at?: string | null
@@ -487,11 +990,11 @@ export type Database = {
           google_row_id?: number | null
           id?: string
           leitura_bebedouro?: number | null
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           numero_bebedouro?: string | null
           observacao?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           responsavel?: string | null
           sync_status?: string | null
           updated_at?: string | null
@@ -510,20 +1013,6 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_bebedouros_lote_id_fkey"
-            columns: ["lote_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_bebedouros_pasto_id_fkey"
-            columns: ["pasto_id"]
-            isOneToOne: false
-            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
@@ -547,9 +1036,9 @@ export type Database = {
           id: string
           incoordenacao_tremores: boolean | null
           incoordenacao_tremores_obs: string | null
-          lote_id: string | null
+          lote: string | null
           nome_usuario: string | null
-          pasto_id: string | null
+          pasto: string | null
           picado_cobra: boolean | null
           picado_cobra_obs: string | null
           presenca_sangue: boolean | null
@@ -582,9 +1071,9 @@ export type Database = {
           id?: string
           incoordenacao_tremores?: boolean | null
           incoordenacao_tremores_obs?: string | null
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           picado_cobra?: boolean | null
           picado_cobra_obs?: string | null
           presenca_sangue?: boolean | null
@@ -617,9 +1106,9 @@ export type Database = {
           id?: string
           incoordenacao_tremores?: boolean | null
           incoordenacao_tremores_obs?: string | null
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           picado_cobra?: boolean | null
           picado_cobra_obs?: string | null
           presenca_sangue?: boolean | null
@@ -647,20 +1136,6 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_enfermaria_lote_id_fkey"
-            columns: ["lote_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_enfermaria_pasto_id_fkey"
-            columns: ["pasto_id"]
-            isOneToOne: false
-            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
@@ -762,11 +1237,11 @@ export type Database = {
           fazenda_id: string
           google_row_id: number | null
           id: string
-          lote_id: string | null
+          lote: string | null
           nome_usuario: string | null
           numero_cria: string | null
           numero_mae: string | null
-          pasto_id: string | null
+          pasto: string | null
           peso_cria_kg: number | null
           raca: string | null
           sexo: string | null
@@ -785,11 +1260,11 @@ export type Database = {
           fazenda_id: string
           google_row_id?: number | null
           id?: string
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           numero_cria?: string | null
           numero_mae?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           peso_cria_kg?: number | null
           raca?: string | null
           sexo?: string | null
@@ -808,11 +1283,11 @@ export type Database = {
           fazenda_id?: string
           google_row_id?: number | null
           id?: string
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           numero_cria?: string | null
           numero_mae?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           peso_cria_kg?: number | null
           raca?: string | null
           sexo?: string | null
@@ -837,20 +1312,6 @@ export type Database = {
             referencedRelation: "fazendas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "registros_maternidade_lote_id_fkey"
-            columns: ["lote_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_maternidade_pasto_id_fkey"
-            columns: ["pasto_id"]
-            isOneToOne: false
-            referencedRelation: "pastos"
-            referencedColumns: ["id"]
-          },
         ]
       }
       registros_movimentacao: {
@@ -868,8 +1329,8 @@ export type Database = {
           garrote: boolean | null
           google_row_id: number | null
           id: string
-          lote_destino_id: string | null
-          lote_origem_id: string | null
+          lote_destino: string | null
+          lote_origem: string | null
           motivo_movimentacao: string | null
           nome_usuario: string | null
           novilha: boolean | null
@@ -897,8 +1358,8 @@ export type Database = {
           garrote?: boolean | null
           google_row_id?: number | null
           id?: string
-          lote_destino_id?: string | null
-          lote_origem_id?: string | null
+          lote_destino?: string | null
+          lote_origem?: string | null
           motivo_movimentacao?: string | null
           nome_usuario?: string | null
           novilha?: boolean | null
@@ -926,8 +1387,8 @@ export type Database = {
           garrote?: boolean | null
           google_row_id?: number | null
           id?: string
-          lote_destino_id?: string | null
-          lote_origem_id?: string | null
+          lote_destino?: string | null
+          lote_origem?: string | null
           motivo_movimentacao?: string | null
           nome_usuario?: string | null
           novilha?: boolean | null
@@ -956,20 +1417,6 @@ export type Database = {
             referencedRelation: "fazendas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "registros_movimentacao_lote_destino_id_fkey"
-            columns: ["lote_destino_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_movimentacao_lote_origem_id_fkey"
-            columns: ["lote_origem_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
         ]
       }
       registros_pastagens: {
@@ -986,12 +1433,12 @@ export type Database = {
           garrote: number | null
           google_row_id: number | null
           id: string
-          lote_id: string | null
+          lote: string | null
           manejador: string | null
           nome_usuario: string | null
           novilha: number | null
-          pasto_entrada_id: string | null
-          pasto_saida_id: string | null
+          pasto_entrada: string | null
+          pasto_saida: string | null
           sync_status: string | null
           touro: number | null
           updated_at: string | null
@@ -1011,12 +1458,12 @@ export type Database = {
           garrote?: number | null
           google_row_id?: number | null
           id?: string
-          lote_id?: string | null
+          lote?: string | null
           manejador?: string | null
           nome_usuario?: string | null
           novilha?: number | null
-          pasto_entrada_id?: string | null
-          pasto_saida_id?: string | null
+          pasto_entrada?: string | null
+          pasto_saida?: string | null
           sync_status?: string | null
           touro?: number | null
           updated_at?: string | null
@@ -1036,12 +1483,12 @@ export type Database = {
           garrote?: number | null
           google_row_id?: number | null
           id?: string
-          lote_id?: string | null
+          lote?: string | null
           manejador?: string | null
           nome_usuario?: string | null
           novilha?: number | null
-          pasto_entrada_id?: string | null
-          pasto_saida_id?: string | null
+          pasto_entrada?: string | null
+          pasto_saida?: string | null
           sync_status?: string | null
           touro?: number | null
           updated_at?: string | null
@@ -1061,27 +1508,6 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_pastagens_lote_id_fkey"
-            columns: ["lote_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_pastagens_pasto_entrada_id_fkey"
-            columns: ["pasto_entrada_id"]
-            isOneToOne: false
-            referencedRelation: "pastos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_pastagens_pasto_saida_id_fkey"
-            columns: ["pasto_saida_id"]
-            isOneToOne: false
-            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
@@ -1115,12 +1541,12 @@ export type Database = {
           garrote: number | null
           google_row_id: number | null
           id: string
-          lote_id: string | null
+          lote: string | null
           nome_usuario: string | null
           novilha: number | null
           pastagem_adequada: boolean | null
           pastagem_adequada_obs: string | null
-          pasto_id: string | null
+          pasto: string | null
           procedimentos: string[] | null
           sync_status: string | null
           total_cabecas: number | null
@@ -1157,12 +1583,12 @@ export type Database = {
           garrote?: number | null
           google_row_id?: number | null
           id?: string
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           novilha?: number | null
           pastagem_adequada?: boolean | null
           pastagem_adequada_obs?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           procedimentos?: string[] | null
           sync_status?: string | null
           total_cabecas?: number | null
@@ -1199,12 +1625,12 @@ export type Database = {
           garrote?: number | null
           google_row_id?: number | null
           id?: string
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           novilha?: number | null
           pastagem_adequada?: boolean | null
           pastagem_adequada_obs?: string | null
-          pasto_id?: string | null
+          pasto?: string | null
           procedimentos?: string[] | null
           sync_status?: string | null
           total_cabecas?: number | null
@@ -1226,20 +1652,6 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_rodeio_lote_id_fkey"
-            columns: ["lote_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_rodeio_pasto_id_fkey"
-            columns: ["pasto_id"]
-            isOneToOne: false
-            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
@@ -1330,10 +1742,10 @@ export type Database = {
           kg_cocho: number | null
           kg_deposito: number | null
           leitura: number | null
-          lote_id: string | null
+          lote: string | null
           nome_usuario: string | null
           novilha: boolean | null
-          pasto_id: string | null
+          pasto: string | null
           produto: string | null
           sacos: number | null
           sync_status: string | null
@@ -1359,10 +1771,10 @@ export type Database = {
           kg_cocho?: number | null
           kg_deposito?: number | null
           leitura?: number | null
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           novilha?: boolean | null
-          pasto_id?: string | null
+          pasto?: string | null
           produto?: string | null
           sacos?: number | null
           sync_status?: string | null
@@ -1388,10 +1800,10 @@ export type Database = {
           kg_cocho?: number | null
           kg_deposito?: number | null
           leitura?: number | null
-          lote_id?: string | null
+          lote?: string | null
           nome_usuario?: string | null
           novilha?: boolean | null
-          pasto_id?: string | null
+          pasto?: string | null
           produto?: string | null
           sacos?: number | null
           sync_status?: string | null
@@ -1414,20 +1826,6 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_suplementacao_lote_id_fkey"
-            columns: ["lote_id"]
-            isOneToOne: false
-            referencedRelation: "lotes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_suplementacao_pasto_id_fkey"
-            columns: ["pasto_id"]
-            isOneToOne: false
-            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
@@ -1534,28 +1932,34 @@ export type Database = {
       usuarios: {
         Row: {
           ativo: boolean | null
+          auth_id: string | null
           created_at: string | null
           email: string
           id: string
           nome: string
+          papel: string | null
           telefone: string | null
           updated_at: string | null
         }
         Insert: {
           ativo?: boolean | null
+          auth_id?: string | null
           created_at?: string | null
           email: string
           id?: string
           nome: string
+          papel?: string | null
           telefone?: string | null
           updated_at?: string | null
         }
         Update: {
           ativo?: boolean | null
+          auth_id?: string | null
           created_at?: string | null
           email?: string
           id?: string
           nome?: string
+          papel?: string | null
           telefone?: string | null
           updated_at?: string | null
         }

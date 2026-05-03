@@ -330,6 +330,18 @@ export async function getInsumos(fazendaId: string) {
   return data
 }
 
+export async function getInsumosNomes(fazendaId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('insumos')
+    .select('nome')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data?.map(item => item.nome) || []
+}
+
 export async function createInsumo(insumo: TablesInsert['insumos']['Insert']) {
   const { data, error } = await supabase
     .from('insumos')
@@ -346,6 +358,154 @@ export async function updateInsumo(id: string, insumo: TablesUpdate['insumos']['
     .from('insumos')
     .update(insumo)
     .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// ==================== MINERAL ====================
+
+export async function getMineral(fazendaId: string) {
+  const { data, error } = await supabase
+    .from('mineral')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
+export async function getMineralNomes(fazendaId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('mineral')
+    .select('nome')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data?.map(item => item.nome) || []
+}
+
+export async function createMineral(mineral: any) {
+  const { data, error } = await supabase
+    .from('mineral')
+    .insert(mineral)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// ==================== PROTEINADO ====================
+
+export async function getProteinado(fazendaId: string) {
+  const { data, error } = await supabase
+    .from('proteinado')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
+export async function getProteinadoNomes(fazendaId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('proteinado')
+    .select('nome')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data?.map(item => item.nome) || []
+}
+
+export async function createProteinado(proteinado: any) {
+  const { data, error } = await supabase
+    .from('proteinado')
+    .insert(proteinado)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// ==================== RACAO ====================
+
+export async function getRacao(fazendaId: string) {
+  const { data, error } = await supabase
+    .from('racao')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
+export async function getRacaoNomes(fazendaId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('racao')
+    .select('nome')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data?.map(item => item.nome) || []
+}
+
+export async function createRacao(racao: any) {
+  const { data, error } = await supabase
+    .from('racao')
+    .insert(racao)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// ==================== DIETAS ====================
+
+export async function getDietas(fazendaId: string) {
+  const { data, error } = await supabase
+    .from('dietas')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
+export async function getDietasNomes(fazendaId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('dietas')
+    .select('nome')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data?.map(item => item.nome) || []
+}
+
+export async function createDieta(dieta: any) {
+  const { data, error } = await supabase
+    .from('dietas')
+    .insert(dieta)
     .select()
     .single()
 
