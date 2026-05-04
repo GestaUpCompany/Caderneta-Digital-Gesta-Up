@@ -55,6 +55,7 @@ interface FormState {
   motivoMovimentacao: string
   brincoChip: string
   causaObservacao: string
+  causaMorte: string
   categorias: string[]
   outrosTexto: string
 }
@@ -69,6 +70,7 @@ const makeInitial = (): FormState => ({
   motivoMovimentacao: '',
   brincoChip: '',
   causaObservacao: '',
+  causaMorte: '',
   categorias: [],
   outrosTexto: '',
 })
@@ -83,6 +85,7 @@ export default function MovimentacaoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
+  const [causasMorte, setCausasMorte] = useState<string[]>([])
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,14 +125,16 @@ export default function MovimentacaoPage() {
     }
   }, [form.motivoMovimentacao])
 
-  // Carregar lotes e frigoríficos do cache global
+  // Carregar pastos e lotes do cache global
   useEffect(() => {
     const cache = getCachedCadastroData()
     if (cache) {
       setLotesDisponiveis(cache.lotes || [])
       setFrigorificosDisponiveis(cache.frigorificos || [])
+      setCausasMorte(cache.causasMorte || [])
     }
   }, [])
+
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
@@ -138,6 +143,7 @@ export default function MovimentacaoPage() {
       if (data) {
         setLotesDisponiveis(data.lotes || [])
         setFrigorificosDisponiveis(data.frigorificos || [])
+        setCausasMorte(data.causasMorte || [])
       }
     })
 
@@ -196,6 +202,7 @@ export default function MovimentacaoPage() {
       motivoMovimentacao: form.motivoMovimentacao,
       brincoChip: form.brincoChip,
       causaObservacao: form.causaObservacao,
+      causaMorte: form.causaMorte,
     })
 
     setSalvando(false)
@@ -214,6 +221,7 @@ export default function MovimentacaoPage() {
         motivoMovimentacao: form.motivoMovimentacao,
         brincoChip: form.brincoChip,
         causaObservacao: form.causaObservacao,
+        causaMorte: form.causaMorte,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -348,8 +356,29 @@ export default function MovimentacaoPage() {
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-lg font-bold text-gray-900">DESTINO: CEMITÉRIO</p>
                   </div>
+                  {causasMorte.length > 0 ? (
+                    <SearchableModal
+                      label="CAUSA DA MORTE *"
+                      value={form.causaMorte}
+                      onChange={(val) => setForm((p) => ({ ...p, causaMorte: val }))}
+                      error={getError('causaMorte')}
+                      options={causasMorte}
+                      placeholder="Selecione a causa..."
+                      id="causaMorte"
+                      name="causaMorte"
+                    />
+                  ) : (
+                    <Input
+                      label="CAUSA DA MORTE *"
+                      placeholder="Ex: Doença, acidente, etc."
+                      value={form.causaMorte}
+                      onChange={setInput('causaMorte')}
+                      error={getError('causaMorte')}
+                      id="causaMorte"
+                    />
+                  )}
                   <Input
-                    label="CAUSA / OBSERVAÇÃO:"
+                    label="OBSERVAÇÃO:"
                     placeholder="Descreva detalhes da movimentação"
                     value={form.causaObservacao}
                     onChange={setInput('causaObservacao')}

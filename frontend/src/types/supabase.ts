@@ -587,6 +587,41 @@ export type Database = {
           },
         ]
       }
+      causas_morte: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          fazenda_id: string
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id: string
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id?: string
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "causas_morte_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mineral: {
         Row: {
           ativo: boolean | null
@@ -1339,6 +1374,7 @@ export type Database = {
           boi_magro: boolean | null
           brinco_chip: string | null
           causa_observacao: string | null
+          causa_morte: string | null
           created_at: string | null
           data: string
           deleted_at: string | null
@@ -1368,6 +1404,7 @@ export type Database = {
           boi_magro?: boolean | null
           brinco_chip?: string | null
           causa_observacao?: string | null
+          causa_morte?: string | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
@@ -1397,6 +1434,7 @@ export type Database = {
           boi_magro?: boolean | null
           brinco_chip?: string | null
           causa_observacao?: string | null
+          causa_morte?: string | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null

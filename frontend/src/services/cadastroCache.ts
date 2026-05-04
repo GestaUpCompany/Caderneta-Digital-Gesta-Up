@@ -31,6 +31,7 @@ export interface CadastroCacheData {
   pastos: string[]
   lotes: string[]
   frigorificos?: string[]
+  causasMorte?: string[]
   mineral?: string[]
   proteinado?: string[]
   racao?: string[]
@@ -55,6 +56,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos?.length || 0,
         lotes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotes?.length || 0,
         frigorificos: cached[CACHE_KEYS.PASTOS_LOTES]?.frigorificos?.length || 0,
+        causasMorte: cached[CACHE_KEYS.PASTOS_LOTES]?.causasMorte?.length || 0,
         pastosDetalhes: Object.keys(cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {}).length,
         lotesDetalhes: Object.keys(cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {}).length,
         mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral?.length || 0,
@@ -67,6 +69,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos || [],
         lotes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotes || [],
         frigorificos: cached[CACHE_KEYS.PASTOS_LOTES]?.frigorificos || [],
+        causasMorte: cached[CACHE_KEYS.PASTOS_LOTES]?.causasMorte || [],
         pastosDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {},
         lotesDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {},
         mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral || [],
@@ -93,6 +96,7 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       pastos: data.pastos,
       lotes: data.lotes,
       frigorificos: data.frigorificos || [],
+      causasMorte: data.causasMorte || [],
       pastosDetalhes: data.pastosDetalhes || {},
       lotesDetalhes: data.lotesDetalhes || {},
     })
@@ -103,7 +107,7 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       insumos: data.insumos,
       dietas: data.dietas,
     })
-    
+
     // Emitir evento para notificar que o cache foi atualizado
     eventBus.emit(CADASTRO_CACHE_UPDATED, data)
   } catch (error) {
@@ -123,28 +127,33 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       // Buscar do Supabase
       console.log('[CadastroCache] Buscando dados do Supabase para fazenda:', fazendaId)
       
-      const [pastosData, lotesData, mineralData, proteinadoData, racaoData, insumosData, dietasData] = await Promise.all([
+      const [pastosData, lotesData, frigorificosData, causasMorteData, mineralData, proteinadoData, racaoData, insumosData, dietasData] = await Promise.all([
         supabaseService.getPastos(fazendaId),
         supabaseService.getLotes(fazendaId),
+        supabaseService.getFrigorificos(fazendaId),
+        supabaseService.getCausasMorte(fazendaId),
         supabaseService.getMineral(fazendaId),
         supabaseService.getProteinado(fazendaId),
         supabaseService.getRacao(fazendaId),
         supabaseService.getInsumos(fazendaId),
         supabaseService.getDietas(fazendaId)
       ])
-      
+
       const pastos = pastosData?.map((p: any) => p.nome) || []
       const lotes = lotesData?.map((l: any) => l.nome) || []
+      const frigorificos = frigorificosData?.map((f: any) => f.nome) || []
+      const causasMorte = causasMorteData?.map((c: any) => c.nome) || []
       const mineral = mineralData?.map((m: any) => m.nome) || []
       const proteinado = proteinadoData?.map((p: any) => p.nome) || []
       const racao = racaoData?.map((r: any) => r.nome) || []
       const insumos = insumosData?.map((i: any) => i.nome) || []
       const dietas = dietasData?.map((d: any) => d.nome) || []
-      
+
       return {
         pastos,
         lotes,
-        frigorificos: [],
+        frigorificos,
+        causasMorte,
         pastosDetalhes: {},
         lotesDetalhes: {},
         mineral,

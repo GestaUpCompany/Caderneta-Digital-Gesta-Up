@@ -262,6 +262,21 @@ export async function createCategoria(categoria: TablesInsert['categorias']['Ins
   return data
 }
 
+// ==================== CAUSAS DE MORTE ====================
+
+export async function getCausasMorte(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('causas_morte')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 // ==================== INSUMOS ====================
 
 export async function getInsumos(fazendaId: string) {
@@ -490,6 +505,21 @@ export async function createFuncionario(funcionario: TablesInsert['funcionarios'
     .insert(funcionario)
     .select()
     .single()
+
+  if (error) throw error
+  return data
+}
+
+// ==================== FRIGORIFICOS ====================
+
+export async function getFrigorificos(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('frigorificos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
 
   if (error) throw error
   return data
