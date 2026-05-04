@@ -13,6 +13,7 @@ import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -56,6 +57,18 @@ const CATEGORIAS_MAE = [
   { value: 'Leiteira', label: 'LEITEIRA' },
 ]
 
+const ESCORES = [
+  { value: '1', label: '1', color: 'bg-red-500' },
+  { value: '1.5', label: '1.5', color: 'bg-red-500' },
+  { value: '2', label: '2', color: 'bg-red-500' },
+  { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
+  { value: '3', label: '3', color: 'bg-green-500' },
+  { value: '3.5', label: '3.5', color: 'bg-green-500' },
+  { value: '4', label: '4', color: 'bg-green-500' },
+  { value: '4.5', label: '4.5', color: 'bg-yellow-300' },
+  { value: '5', label: '5', color: 'bg-yellow-300' },
+]
+
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -81,6 +94,7 @@ interface FormState {
   racaOutros: string
   numeroMae: string
   categoriaMae: string
+  escoreMatriz: string
 }
 
 const makeInitial = (): FormState => ({
@@ -97,6 +111,7 @@ const makeInitial = (): FormState => ({
   racaOutros: '',
   numeroMae: '',
   categoriaMae: '',
+  escoreMatriz: '',
 })
 
 export default function MaternidadePage() {
@@ -145,6 +160,19 @@ export default function MaternidadePage() {
     }
   }, [])
 
+  // Escutar atualizações do cache de cadastro
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
+      console.log('[MaternidadePage] Cache atualizado, recarregando dados')
+      if (data) {
+        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+      }
+    })
+
+    return unsubscribe
+  }, [])
+
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
     async function carregarDetalhesLote() {
@@ -190,6 +218,7 @@ export default function MaternidadePage() {
       raca: racaFinal,
       numeroMae: form.numeroMae,
       categoriaMae: form.categoriaMae,
+      escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
     })
 
     setSalvando(false)
@@ -210,6 +239,7 @@ export default function MaternidadePage() {
         raca: racaFinal,
         numeroMae: form.numeroMae,
         categoriaMae: form.categoriaMae,
+        escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -449,6 +479,24 @@ export default function MaternidadePage() {
             error={getError('categoriaMae')}
             gridCols={2}
           />
+        </div>
+
+        {/* Seção 7: Escore da Matriz */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. ESCORE DA MATRIZ</h2>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {ESCORES.map((escore) => (
+              <button
+                key={escore.value}
+                onClick={() => set('escoreMatriz')(escore.value)}
+                className={`py-3 px-4 rounded-xl font-bold transition-all transform hover:scale-105 ${
+                  form.escoreMatriz === escore.value ? `${escore.color} text-black` : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                {escore.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Ações */}

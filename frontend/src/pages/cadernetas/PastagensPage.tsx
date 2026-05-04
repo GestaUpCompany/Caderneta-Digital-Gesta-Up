@@ -14,6 +14,7 @@ import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData, getPastoDetalhes } from '../../services/cadastroCache'
 import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -30,7 +31,7 @@ const ESCORES = [
   { value: '1.5', label: '1.5', color: 'bg-red-500' },
   { value: '2', label: '2', color: 'bg-red-500' },
   { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
-  { value: '3', label: '3', color: 'bg-yellow-400' },
+  { value: '3', label: '3', color: 'bg-green-500' },
   { value: '3.5', label: '3.5', color: 'bg-green-500' },
   { value: '4', label: '4', color: 'bg-green-500' },
   { value: '4.5', label: '4.5', color: 'bg-yellow-300' },
@@ -135,6 +136,19 @@ export default function PastagensPage() {
       setPastosDisponiveis(cache.pastos || [])
       setLotesDisponiveis(cache.lotes || [])
     }
+  }, [])
+
+  // Escutar atualizações do cache de cadastro
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
+      console.log('[PastagensPage] Cache atualizado, recarregando dados')
+      if (data) {
+        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+      }
+    })
+
+    return unsubscribe
   }, [])
 
   // Buscar detalhes do pasto de saída quando selecionado

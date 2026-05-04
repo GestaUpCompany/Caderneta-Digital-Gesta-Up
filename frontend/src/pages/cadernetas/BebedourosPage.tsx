@@ -10,6 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -86,6 +87,19 @@ export default function BebedourosPage() {
       setPastosDisponiveis(cache.pastos || [])
       setLotesDisponiveis(cache.lotes || [])
     }
+  }, [])
+
+  // Escutar atualizações do cache de cadastro
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
+      console.log('[BebedourosPage] Cache atualizado, recarregando dados')
+      if (data) {
+        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+      }
+    })
+
+    return unsubscribe
   }, [])
 
   const handleSalvar = async () => {
@@ -278,7 +292,6 @@ export default function BebedourosPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÃO</h2>
           <Input
-            label="OBSERVAÇÃO"
             placeholder="Detalhes adicionais (opcional)"
             value={form.observacao}
             onChange={setInput('observacao')}

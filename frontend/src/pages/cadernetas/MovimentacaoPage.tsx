@@ -11,6 +11,7 @@ import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const MOTIVOS = [
   { value: 'Morte', label: 'MORTE', icon: '⚰️' },
@@ -128,6 +129,19 @@ export default function MovimentacaoPage() {
       setLotesDisponiveis(cache.lotes || [])
       setFrigorificosDisponiveis(cache.frigorificos || [])
     }
+  }, [])
+
+  // Escutar atualizações do cache de cadastro
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
+      console.log('[MovimentacaoPage] Cache atualizado, recarregando dados')
+      if (data) {
+        setLotesDisponiveis(data.lotes || [])
+        setFrigorificosDisponiveis(data.frigorificos || [])
+      }
+    })
+
+    return unsubscribe
   }, [])
 
   // Buscar detalhes do lote origem quando selecionado
