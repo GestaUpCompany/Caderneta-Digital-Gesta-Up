@@ -210,9 +210,6 @@ export default function Configuracoes() {
       logoUrl: useSupabase ? validacaoSupabase.logoUrl : ''
     }
 
-    console.log('[Configuracoes] configData logoUrl:', configData.logoUrl)
-    console.log('[Configuracoes] validacaoSupabase.logoUrl:', validacaoSupabase.logoUrl)
-
     dispatch(setConfig(configData))
     dispatch(setConfigurado(true))
     

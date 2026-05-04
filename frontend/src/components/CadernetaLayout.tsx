@@ -28,26 +28,17 @@ export default function CadernetaLayout({
   const { acessoId } = useSelector((state: RootState) => state.config)
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
 
-  console.log('[CadernetaLayout] acessoId from Redux:', acessoId)
-
   // Buscar logoUrl diretamente do banco usando acessoId
   useEffect(() => {
     async function fetchLogoUrl() {
       if (!acessoId) {
-        console.log('[CadernetaLayout] No acessoId, skipping logo fetch')
         return
       }
 
       try {
-        console.log('[CadernetaLayout] Fetching fazenda for acessoId:', acessoId)
         const fazenda = await getFazendaByAcessoId(acessoId)
-        console.log('[CadernetaLayout] Fazenda fetched:', fazenda)
-        
         if (fazenda?.logo_url) {
-          console.log('[CadernetaLayout] logo_url from database:', fazenda.logo_url)
           setLogoUrl(fazenda.logo_url)
-        } else {
-          console.log('[CadernetaLayout] No logo_url in database')
         }
       } catch (error) {
         console.error('[CadernetaLayout] Error fetching fazenda:', error)
@@ -56,8 +47,6 @@ export default function CadernetaLayout({
 
     fetchLogoUrl()
   }, [acessoId])
-
-  console.log('[CadernetaLayout] logoUrl state:', logoUrl)
 
   const handleBack = () => {
     if (onBack) {

@@ -32,10 +32,6 @@ export default function FarmLogo({
   const sizeConfig = SIZES[size]
   const farmLogoUrl = (logoUrl && logoUrl.trim() !== '') ? logoUrl : (farmName ? getFarmLogo(farmName) : null)
 
-  console.log('[FarmLogo] logoUrl prop:', logoUrl)
-  console.log('[FarmLogo] farmName:', farmName)
-  console.log('[FarmLogo] farmLogoUrl final:', farmLogoUrl)
-
   // Detectar se é fazenda Sirio para aplicar formato circular
   const isSirio = farmName?.toLowerCase().includes('sirio') || farmName?.toLowerCase().includes('sírio')
   const farmRadius = farmBorderRadius || (isSirio ? 'rounded-full' : borderRadius)
