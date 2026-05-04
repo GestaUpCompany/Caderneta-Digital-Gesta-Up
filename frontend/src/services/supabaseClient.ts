@@ -63,30 +63,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
 // Criar cliente Supabase com token do localStorage (se disponível)
 export function getSupabaseClient() {
-  const token = localStorage.getItem('supabase_token')
-  if (token) {
-    // Verificar se o token está expirado
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      const now = Math.floor(Date.now() / 1000)
-      
-      // Se o token expirou ou vai expirar em menos de 1 minuto, limpar
-      if (payload.exp && payload.exp - now < 60) {
-        console.log('[SupabaseClient] Token expirado ou expirando em breve, limpando localStorage')
-        localStorage.removeItem('supabase_token')
-        localStorage.removeItem('supabase_refresh_token')
-        return supabase
-      }
-    } catch (error) {
-      console.error('[SupabaseClient] Erro ao verificar expiração do token:', error)
-      // Se houver erro, limpar token e usar cliente anon
-      localStorage.removeItem('supabase_token')
-      localStorage.removeItem('supabase_refresh_token')
-      return supabase
-    }
-    
-    return createSupabaseClientWithToken(token)
-  }
+  // Sempre usar cliente anon para evitar problemas de token expirado
   return supabase
 }
 
