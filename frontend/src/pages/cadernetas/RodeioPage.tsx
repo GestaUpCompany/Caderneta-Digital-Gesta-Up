@@ -163,7 +163,7 @@ export default function RodeioPage() {
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
-    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data) => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[RodeioPage] Cache atualizado, recarregando dados')
       if (data) {
         setPastosDisponiveis(data.pastos || [])
