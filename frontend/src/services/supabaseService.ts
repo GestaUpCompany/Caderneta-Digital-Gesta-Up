@@ -131,7 +131,7 @@ export async function updateFazenda(id: string, fazenda: TablesUpdate['fazendas'
 // ==================== PASTOS ====================
 
 export async function getPastos(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('pastos')
     .select('*')
@@ -178,7 +178,7 @@ export async function deletePasto(id: string) {
 // ==================== LOTES ====================
 
 export async function getLotes(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('lotes')
     .select('*')
@@ -191,7 +191,7 @@ export async function getLotes(fazendaId: string) {
 }
 
 export async function getLoteByNome(fazendaId: string, nome: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('lotes')
     .select('*')
@@ -239,7 +239,7 @@ export async function deleteLote(id: string) {
 // ==================== CATEGORIAS ====================
 
 export async function getCategorias(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('categorias')
     .select('*')
@@ -265,7 +265,7 @@ export async function createCategoria(categoria: TablesInsert['categorias']['Ins
 // ==================== CAUSAS DE MORTE ====================
 
 export async function getCausasMorte(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('causas_morte')
     .select('*')
@@ -280,7 +280,7 @@ export async function getCausasMorte(fazendaId: string) {
 // ==================== INSUMOS ====================
 
 export async function getInsumos(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('insumos')
     .select('*')
@@ -293,7 +293,7 @@ export async function getInsumos(fazendaId: string) {
 }
 
 export async function getInsumosNomes(fazendaId: string): Promise<string[]> {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('insumos')
     .select('nome')
@@ -331,7 +331,7 @@ export async function updateInsumo(id: string, insumo: TablesUpdate['insumos']['
 // ==================== MINERAL ====================
 
 export async function getMineral(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('mineral')
     .select('*')
@@ -344,7 +344,7 @@ export async function getMineral(fazendaId: string) {
 }
 
 export async function getMineralNomes(fazendaId: string): Promise<string[]> {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('mineral')
     .select('nome')
@@ -370,7 +370,7 @@ export async function createMineral(mineral: any) {
 // ==================== PROTEINADO ====================
 
 export async function getProteinado(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('proteinado')
     .select('*')
@@ -383,7 +383,7 @@ export async function getProteinado(fazendaId: string) {
 }
 
 export async function getProteinadoNomes(fazendaId: string): Promise<string[]> {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('proteinado')
     .select('nome')
@@ -409,7 +409,7 @@ export async function createProteinado(proteinado: any) {
 // ==================== RACAO ====================
 
 export async function getRacao(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('racao')
     .select('*')
@@ -422,7 +422,7 @@ export async function getRacao(fazendaId: string) {
 }
 
 export async function getRacaoNomes(fazendaId: string): Promise<string[]> {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('racao')
     .select('nome')
@@ -448,7 +448,7 @@ export async function createRacao(racao: any) {
 // ==================== DIETAS ====================
 
 export async function getDietas(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('dietas')
     .select('*')
@@ -461,7 +461,7 @@ export async function getDietas(fazendaId: string) {
 }
 
 export async function getDietasNomes(fazendaId: string): Promise<string[]> {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('dietas')
     .select('nome')
@@ -487,7 +487,7 @@ export async function createDieta(dieta: any) {
 // ==================== FUNCIONARIOS ====================
 
 export async function getFuncionarios(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('funcionarios')
     .select('*')
@@ -513,7 +513,7 @@ export async function createFuncionario(funcionario: TablesInsert['funcionarios'
 // ==================== FRIGORIFICOS ====================
 
 export async function getFrigorificos(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('frigorificos')
     .select('*')
@@ -528,7 +528,7 @@ export async function getFrigorificos(fazendaId: string) {
 // ==================== BEBEDOUROS ====================
 
 export async function getBebedouros(fazendaId: string) {
-  const client = await getSupabaseClient()
+  const client = getSupabaseClient()
   const { data, error } = await client
     .from('bebedouros')
     .select('*')
