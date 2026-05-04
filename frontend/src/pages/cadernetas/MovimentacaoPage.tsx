@@ -113,8 +113,8 @@ export default function MovimentacaoPage() {
       case 'Abate':
       case 'Entrada':
       case 'Entrevero':
-        // Para esses casos, o usuário precisa selecionar o destino
-        // Não setar valor automático
+        // Para esses casos, limpar o destino para que o usuário selecione
+        setForm((p) => ({ ...p, loteDestino: '' }))
         break
       default:
         break
