@@ -84,6 +84,32 @@ function AppInner() {
   // const { getScreens } = useScreenTracking()
   // const { offlineTime, onlineTime } = useNetworkTracking()
 
+  // Limpar tokens expirados automaticamente ao carregar o app
+  useEffect(() => {
+    const clearExpiredTokens = () => {
+      const token = localStorage.getItem('supabase_token')
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]))
+          const now = Math.floor(Date.now() / 1000)
+          
+          // Limpar se expirou ou vai expirar em menos de 5 minutos
+          if (payload.exp && payload.exp - now < 300) {
+            console.log('[App] Limpando token expirado do localStorage')
+            localStorage.removeItem('supabase_token')
+            localStorage.removeItem('supabase_refresh_token')
+          }
+        } catch (error) {
+          console.error('[App] Erro ao verificar token, limpando:', error)
+          localStorage.removeItem('supabase_token')
+          localStorage.removeItem('supabase_refresh_token')
+        }
+      }
+    }
+
+    clearExpiredTokens()
+  }, [])
+
   // Inicializar cache de dados de cadastro
   useEffect(() => {
     if (cadastroSheetUrl || fazendaId) {
