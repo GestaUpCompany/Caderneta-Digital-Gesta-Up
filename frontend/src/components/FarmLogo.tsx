@@ -2,6 +2,7 @@ import { getFarmLogo, LOGO_URL } from '../utils/constants'
 
 interface FarmLogoProps {
   farmName?: string
+  logoUrl?: string
   type?: 'gestaup' | 'farm' | 'both'
   size?: 'small' | 'medium' | 'large'
   borderRadius?: string
@@ -20,6 +21,7 @@ const BORDER_RADIUS = 'rounded-[22px]'
 
 export default function FarmLogo({
   farmName,
+  logoUrl,
   type = 'both',
   size = 'medium',
   borderRadius = BORDER_RADIUS,
@@ -28,7 +30,11 @@ export default function FarmLogo({
   gap = 'gap-12',
 }: FarmLogoProps) {
   const sizeConfig = SIZES[size]
-  const farmLogoUrl = farmName ? getFarmLogo(farmName) : null
+  const farmLogoUrl = (logoUrl && logoUrl.trim() !== '') ? logoUrl : (farmName ? getFarmLogo(farmName) : null)
+
+  console.log('[FarmLogo] logoUrl prop:', logoUrl)
+  console.log('[FarmLogo] farmName:', farmName)
+  console.log('[FarmLogo] farmLogoUrl final:', farmLogoUrl)
 
   // Detectar se é fazenda Sirio para aplicar formato circular
   const isSirio = farmName?.toLowerCase().includes('sirio') || farmName?.toLowerCase().includes('sírio')

@@ -1,5 +1,8 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
+import { RootState } from '../store/store'
+import { getFazendaByAcessoId } from '../services/supabaseService'
 import FarmLogo from './FarmLogo'
 
 interface CadernetaLayoutProps {
@@ -22,6 +25,39 @@ export default function CadernetaLayout({
   extraHeaderContent,
 }: CadernetaLayoutProps) {
   const navigate = useNavigate()
+  const { acessoId } = useSelector((state: RootState) => state.config)
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
+
+  console.log('[CadernetaLayout] acessoId from Redux:', acessoId)
+
+  // Buscar logoUrl diretamente do banco usando acessoId
+  useEffect(() => {
+    async function fetchLogoUrl() {
+      if (!acessoId) {
+        console.log('[CadernetaLayout] No acessoId, skipping logo fetch')
+        return
+      }
+
+      try {
+        console.log('[CadernetaLayout] Fetching fazenda for acessoId:', acessoId)
+        const fazenda = await getFazendaByAcessoId(acessoId)
+        console.log('[CadernetaLayout] Fazenda fetched:', fazenda)
+        
+        if (fazenda?.logo_url) {
+          console.log('[CadernetaLayout] logo_url from database:', fazenda.logo_url)
+          setLogoUrl(fazenda.logo_url)
+        } else {
+          console.log('[CadernetaLayout] No logo_url in database')
+        }
+      } catch (error) {
+        console.error('[CadernetaLayout] Error fetching fazenda:', error)
+      }
+    }
+
+    fetchLogoUrl()
+  }, [acessoId])
+
+  console.log('[CadernetaLayout] logoUrl state:', logoUrl)
 
   const handleBack = () => {
     if (onBack) {
@@ -64,7 +100,7 @@ export default function CadernetaLayout({
       {showLogos && (
         <div className="bg-[#1a3a2a] text-white px-4 py-5">
           <div className="flex items-center justify-center gap-8">
-            <FarmLogo type="both" size="medium" />
+            <FarmLogo type="both" size="medium" logoUrl={logoUrl} />
           </div>
         </div>
       )}

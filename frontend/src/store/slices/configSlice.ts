@@ -7,6 +7,7 @@ interface ConfigState {
   usuario: string
   planilhaUrl: string
   cadastroSheetUrl: string
+  logoUrl: string
   configurado: boolean
 }
 
@@ -17,6 +18,7 @@ const initialState: ConfigState = {
   usuario: '',
   planilhaUrl: '',
   cadastroSheetUrl: '',
+  logoUrl: '',
   configurado: false,
 }
 

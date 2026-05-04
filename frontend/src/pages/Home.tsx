@@ -6,12 +6,34 @@ import { RootState } from '../store/store'
 import { ClipboardList, Sun, Moon } from 'lucide-react'
 import FarmLogo from '../components/FarmLogo'
 import { VERSICULOS, Versiculo } from '../config/versiculos'
+import { getFazendaByAcessoId } from '../services/supabaseService'
 
 const BASE = import.meta.env.BASE_URL
 
 export default function Home() {
   const navigate = useNavigate()
-  const { configurado, fazenda, usuario } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, usuario, acessoId } = useSelector((state: RootState) => state.config)
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
+
+  // Buscar logoUrl diretamente do banco usando acessoId
+  useEffect(() => {
+    async function fetchLogoUrl() {
+      if (!acessoId || !configurado) {
+        return
+      }
+
+      try {
+        const fazendaData = await getFazendaByAcessoId(acessoId)
+        if (fazendaData?.logo_url) {
+          setLogoUrl(fazendaData.logo_url)
+        }
+      } catch (error) {
+        console.error('[Home] Error fetching fazenda:', error)
+      }
+    }
+
+    fetchLogoUrl()
+  }, [acessoId, configurado])
 
   // Verificar primeiro acesso e redirecionar automaticamente
   useEffect(() => {
@@ -111,6 +133,7 @@ export default function Home() {
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={configurado ? fazenda : undefined}
+              logoUrl={logoUrl}
               type="both"
               size="medium"
               className="justify-between w-full"
