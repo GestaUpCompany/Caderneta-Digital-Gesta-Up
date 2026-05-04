@@ -1447,6 +1447,7 @@ export type Database = {
           data: string
           deleted_at: string | null
           dispositivo_id: string | null
+          escore_gado: number | null
           fazenda_id: string
           garrote: number | null
           google_row_id: number | null
@@ -1472,6 +1473,7 @@ export type Database = {
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          escore_gado?: number | null
           fazenda_id: string
           garrote?: number | null
           google_row_id?: number | null
@@ -1497,6 +1499,7 @@ export type Database = {
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          escore_gado?: number | null
           fazenda_id?: string
           garrote?: number | null
           google_row_id?: number | null

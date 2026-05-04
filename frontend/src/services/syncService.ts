@@ -293,6 +293,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         boi_magro: Number(registro.boiMagro) || 0,
         garrote: Number(registro.garrote) || 0,
         novilha: Number(registro.novilha) || 0,
+        escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
       }
     case 'rodeio':
       return {
