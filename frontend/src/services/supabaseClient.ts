@@ -22,6 +22,15 @@ export function createSupabaseClientWithToken(token: string) {
   })
 }
 
+// Criar cliente Supabase com token do localStorage (se disponível)
+export function getSupabaseClient() {
+  const token = localStorage.getItem('supabase_token')
+  if (token) {
+    return createSupabaseClientWithToken(token)
+  }
+  return supabase
+}
+
 // Função para validar acesso à fazenda usando Edge Function
 export async function validateFarmAccess(fazendaId: string, acessoId: string): Promise<boolean> {
   try {

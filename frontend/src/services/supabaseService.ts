@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { supabase, getSupabaseClient } from './supabaseClient'
 import type { Database } from '../types/supabase'
 
 // Função para fazer upload de logo de fazenda
@@ -273,7 +273,8 @@ export async function getInsumos(fazendaId: string) {
 }
 
 export async function getInsumosNomes(fazendaId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const client = getSupabaseClient()
+  const { data, error } = await client
     .from('insumos')
     .select('nome')
     .eq('fazenda_id', fazendaId)
@@ -322,7 +323,8 @@ export async function getMineral(fazendaId: string) {
 }
 
 export async function getMineralNomes(fazendaId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const client = getSupabaseClient()
+  const { data, error } = await client
     .from('mineral')
     .select('nome')
     .eq('fazenda_id', fazendaId)
@@ -359,7 +361,8 @@ export async function getProteinado(fazendaId: string) {
 }
 
 export async function getProteinadoNomes(fazendaId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const client = getSupabaseClient()
+  const { data, error } = await client
     .from('proteinado')
     .select('nome')
     .eq('fazenda_id', fazendaId)
@@ -396,7 +399,8 @@ export async function getRacao(fazendaId: string) {
 }
 
 export async function getRacaoNomes(fazendaId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const client = getSupabaseClient()
+  const { data, error } = await client
     .from('racao')
     .select('nome')
     .eq('fazenda_id', fazendaId)
@@ -433,7 +437,8 @@ export async function getDietas(fazendaId: string) {
 }
 
 export async function getDietasNomes(fazendaId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const client = getSupabaseClient()
+  const { data, error } = await client
     .from('dietas')
     .select('nome')
     .eq('fazenda_id', fazendaId)
