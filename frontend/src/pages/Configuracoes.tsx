@@ -59,8 +59,8 @@ export default function Configuracoes() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
       
-      // Buscar peão na tabela peoes usando anon key
-      const peaoResponse = await fetch(`${supabaseUrl}/rest/v1/peoes?fazenda_id=eq.${acessoId}&ativo=eq.true`, {
+      // Buscar peão na tabela peoes usando anon key (case-insensitive)
+      const peaoResponse = await fetch(`${supabaseUrl}/rest/v1/peoes?fazenda_id=ilike.${acessoId}&ativo=eq.true`, {
         headers: {
           'apikey': supabaseAnonKey,
           'Authorization': `Bearer ${supabaseAnonKey}`,

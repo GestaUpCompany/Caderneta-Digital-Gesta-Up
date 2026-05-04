@@ -27,6 +27,9 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    // Converter acesso_id para minúsculas para validação case-insensitive
+    const acessoIdLower = acesso_id.toLowerCase()
+
     // Criar cliente Supabase com service role key (tem permissões totais)
     // @ts-ignore - Deno.env is available in Deno runtime but not in local TypeScript
     const supabase = createClient(
@@ -36,11 +39,11 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Buscar peão pelo acesso_id da fazenda
+    // Buscar peão pelo acesso_id da fazenda (case-insensitive)
     const { data: peao, error: peaoError } = await supabase
       .from('peoes')
       .select('*')
-      .eq('fazenda_id', acesso_id)
+      .ilike('fazenda_id', acessoIdLower)
       .eq('ativo', true)
       .single()
 
