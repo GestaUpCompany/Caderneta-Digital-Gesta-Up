@@ -13,6 +13,7 @@ import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getMineralNomes, getProteinadoNomes, getRacaoNomes, getInsumosNomes, getDietasNomes, getLoteByNome } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -56,6 +57,14 @@ const LEITURAS = [
   { value: '3', label: '3', icon: '🔴' },
 ]
 
+const ESCALA_5 = [
+  { value: '1', label: '1', icon: '🔴' },
+  { value: '2', label: '2', icon: '🟡' },
+  { value: '3', label: '3', icon: '🟢' },
+  { value: '4', label: '4', icon: '🟡' },
+  { value: '5', label: '5', icon: '🔴' },
+]
+
 interface FormState {
   data: string
   tratador: string
@@ -67,6 +76,7 @@ interface FormState {
   kgDeposito: string
   categorias: string[]
   outrosTexto: string
+  escoreFezes: string
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -80,6 +90,7 @@ const makeInitial = (usuario?: string): FormState => ({
   kgDeposito: '',
   categorias: [],
   outrosTexto: '',
+  escoreFezes: '',
 })
 
 export default function SuplementacaoPage() {
@@ -137,11 +148,55 @@ export default function SuplementacaoPage() {
             suplementosArray = []
         }
 
+        // Fallback para cache se Supabase retornar vazio
+        if (suplementosArray.length === 0) {
+          console.log('[SuplementacaoPage] Supabase retornou vazio, usando cache como fallback')
+          const cached = getCachedCadastroData()
+          switch (form.produto) {
+            case 'Mineral':
+              suplementosArray = cached?.mineral || []
+              break
+            case 'Proteinado':
+              suplementosArray = cached?.proteinado || []
+              break
+            case 'Ração':
+              suplementosArray = cached?.racao || []
+              break
+            case 'Insumos':
+              suplementosArray = cached?.insumos || []
+              break
+            case 'Dietas':
+              suplementosArray = cached?.dietas || []
+              break
+          }
+        }
+
         setSuplementos(suplementosArray)
         setSuplemento('')
       } catch (error) {
-        console.error('Erro ao carregar suplementos:', error)
-        setSuplementos([])
+        console.error('Erro ao carregar suplementos do Supabase, usando cache como fallback:', error)
+        // Fallback para cache em caso de erro
+        const cached = getCachedCadastroData()
+        let suplementosArray: string[] = []
+        switch (form.produto) {
+          case 'Mineral':
+            suplementosArray = cached?.mineral || []
+            break
+          case 'Proteinado':
+            suplementosArray = cached?.proteinado || []
+            break
+          case 'Ração':
+            suplementosArray = cached?.racao || []
+            break
+          case 'Insumos':
+            suplementosArray = cached?.insumos || []
+            break
+          case 'Dietas':
+            suplementosArray = cached?.dietas || []
+            break
+        }
+        setSuplementos(suplementosArray)
+        setSuplemento('')
       }
     }
 
@@ -155,6 +210,39 @@ export default function SuplementacaoPage() {
       setPastosDisponiveis(cache.pastos || [])
       setLotesDisponiveis(cache.lotes || [])
     }
+  }, [])
+
+  // Escutar atualizações do cache de cadastro
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data) => {
+      console.log('[SuplementacaoPage] Cache atualizado, recarregando dados')
+      if (data) {
+        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+        // Se houver um produto selecionado, recarregar suplementos
+        if (form.produto && form.produto !== 'Creep') {
+          switch (form.produto) {
+            case 'Mineral':
+              setSuplementos(data.mineral || [])
+              break
+            case 'Proteinado':
+              setSuplementos(data.proteinado || [])
+              break
+            case 'Ração':
+              setSuplementos(data.racao || [])
+              break
+            case 'Insumos':
+              setSuplementos(data.insumos || [])
+              break
+            case 'Dietas':
+              setSuplementos(data.dietas || [])
+              break
+          }
+        }
+      }
+    })
+
+    return unsubscribe
   }, [])
 
   // Buscar detalhes do lote quando selecionado
@@ -223,6 +311,7 @@ export default function SuplementacaoPage() {
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
       categorias: form.categorias,
       categoriasString: categoriasString,
+      escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
     })
 
     setSalvando(false)
@@ -242,6 +331,7 @@ export default function SuplementacaoPage() {
         kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
         kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
         categorias: categoriasString,
+        escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -429,13 +519,6 @@ export default function SuplementacaoPage() {
             <span className="text-xl">📄</span>
             <span>VER POP LEITURA DE COCHO</span>
           </button>
-          <button
-            onClick={() => setShowFezesModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>VER POP FEZES</span>
-          </button>
           <Radio
             name="leitura"
             label="LEITURA DO COCHO (-1 a 3)"
@@ -465,6 +548,22 @@ export default function SuplementacaoPage() {
               min="0"
             />
           </div>
+          <button
+            onClick={() => setShowFezesModal(true)}
+            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          >
+            <span className="text-xl">📄</span>
+            <span>VER POP FEZES</span>
+          </button>
+          <Radio
+            name="escoreFezes"
+            label="ESCORE DE FEZES (1 a 5)"
+            options={ESCALA_5}
+            value={form.escoreFezes}
+            onChange={set('escoreFezes')}
+            error={getError('escoreFezes')}
+            gridCols={5}
+          />
         </div>
 
         {/* Seção 4: Gado e Categorias */}

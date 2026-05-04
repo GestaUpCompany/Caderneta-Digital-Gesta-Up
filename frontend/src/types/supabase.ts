@@ -1019,8 +1019,12 @@ export type Database = {
       }
       registros_enfermaria: {
         Row: {
+          andar_cambaleante: boolean | null
+          andar_cambaleante_obs: string | null
           brinco_chip: string | null
           categoria: string | null
+          cegueira: boolean | null
+          cegueira_obs: string | null
           created_at: string | null
           data: string
           deleted_at: string | null
@@ -1049,13 +1053,18 @@ export type Database = {
           sintomas_pneumonia_obs: string | null
           sync_status: string | null
           tratamento: string | null
+          tratamento_obs: string | null
           tratamento_outros: string | null
           updated_at: string | null
           version: number | null
         }
         Insert: {
+          andar_cambaleante?: boolean | null
+          andar_cambaleante_obs?: string | null
           brinco_chip?: string | null
           categoria?: string | null
+          cegueira?: boolean | null
+          cegueira_obs?: string | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
@@ -1084,13 +1093,18 @@ export type Database = {
           sintomas_pneumonia_obs?: string | null
           sync_status?: string | null
           tratamento?: string | null
+          tratamento_obs?: string | null
           tratamento_outros?: string | null
           updated_at?: string | null
           version?: number | null
         }
         Update: {
+          andar_cambaleante?: boolean | null
+          andar_cambaleante_obs?: string | null
           brinco_chip?: string | null
           categoria?: string | null
+          cegueira?: boolean | null
+          cegueira_obs?: string | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null
@@ -1119,6 +1133,7 @@ export type Database = {
           sintomas_pneumonia_obs?: string | null
           sync_status?: string | null
           tratamento?: string | null
+          tratamento_obs?: string | null
           tratamento_outros?: string | null
           updated_at?: string | null
           version?: number | null
@@ -1234,6 +1249,7 @@ export type Database = {
           data: string
           deleted_at: string | null
           dispositivo_id: string | null
+          escore_matriz: number | null
           fazenda_id: string
           google_row_id: number | null
           id: string
@@ -1257,6 +1273,7 @@ export type Database = {
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          escore_matriz?: number | null
           fazenda_id: string
           google_row_id?: number | null
           id?: string
@@ -1280,6 +1297,7 @@ export type Database = {
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          escore_matriz?: number | null
           fazenda_id?: string
           google_row_id?: number | null
           id?: string
@@ -1535,6 +1553,7 @@ export type Database = {
           dispositivo_id: string | null
           equipe: number | null
           escore_fezes: number | null
+          escore_gado: number | null
           escore_gado_ideal: boolean | null
           escore_gado_ideal_obs: string | null
           fazenda_id: string
@@ -1577,6 +1596,7 @@ export type Database = {
           dispositivo_id?: string | null
           equipe?: number | null
           escore_fezes?: number | null
+          escore_gado?: number | null
           escore_gado_ideal?: boolean | null
           escore_gado_ideal_obs?: string | null
           fazenda_id: string
@@ -1619,6 +1639,7 @@ export type Database = {
           dispositivo_id?: string | null
           equipe?: number | null
           escore_fezes?: number | null
+          escore_gado?: number | null
           escore_gado_ideal?: boolean | null
           escore_gado_ideal_obs?: string | null
           fazenda_id?: string
@@ -1734,6 +1755,7 @@ export type Database = {
           data: string
           deleted_at: string | null
           dispositivo_id: string | null
+          escore_fezes: number | null
           fazenda_id: string
           gado: string | null
           garrote: boolean | null
@@ -1763,6 +1785,7 @@ export type Database = {
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          escore_fezes?: number | null
           fazenda_id: string
           gado?: string | null
           garrote?: boolean | null
@@ -1792,6 +1815,7 @@ export type Database = {
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          escore_fezes?: number | null
           fazenda_id?: string
           gado?: string | null
           garrote?: boolean | null

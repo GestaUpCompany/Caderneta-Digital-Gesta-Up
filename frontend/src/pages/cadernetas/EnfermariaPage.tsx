@@ -11,6 +11,7 @@ import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const TRATAMENTOS = [
   { value: 'Mata Bicheira', label: 'MATA BICHEIRA' },
@@ -36,6 +37,8 @@ const DIAGNOSTICOS = [
   { campo: 'presencaSangue', label: 'Presença de sangue?' },
   { campo: 'fraturas', label: 'Fraturas?' },
   { campo: 'desordensDigestivas', label: 'Desordens digestivas?' },
+  { campo: 'cegueira', label: 'Cegueira?' },
+  { campo: 'andarCambaleante', label: 'Andar cambaleante?' },
 ]
 
 const SN_OPTIONS = [
@@ -91,6 +94,11 @@ interface FormState {
   fraturasObs: string
   desordensDigestivas: string
   desordensDigestivasObs: string
+  cegueira: string
+  cegueiraObs: string
+  andarCambaleante: string
+  andarCambaleanteObs: string
+  observacaoTratamento: string
 }
 
 const makeInitial = (): FormState => ({
@@ -118,6 +126,11 @@ const makeInitial = (): FormState => ({
   fraturasObs: '',
   desordensDigestivas: '',
   desordensDigestivasObs: '',
+  cegueira: '',
+  cegueiraObs: '',
+  andarCambaleante: '',
+  andarCambaleanteObs: '',
+  observacaoTratamento: '',
 })
 
 export default function EnfermariaPage() {
@@ -163,6 +176,19 @@ export default function EnfermariaPage() {
       setPastosDisponiveis(cache.pastos || [])
       setLotesDisponiveis(cache.lotes || [])
     }
+  }, [])
+
+  // Escutar atualizações do cache de cadastro
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data) => {
+      console.log('[EnfermariaPage] Cache atualizado, recarregando dados')
+      if (data) {
+        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+      }
+    })
+
+    return unsubscribe
   }, [])
 
   // Buscar detalhes do lote quando selecionado
@@ -232,7 +258,12 @@ export default function EnfermariaPage() {
       fraturasObs: form.fraturasObs,
       desordensDigestivas: form.desordensDigestivas,
       desordensDigestivasObs: form.desordensDigestivasObs,
+      cegueira: form.cegueira,
+      cegueiraObs: form.cegueiraObs,
+      andarCambaleante: form.andarCambaleante,
+      andarCambaleanteObs: form.andarCambaleanteObs,
       tratamento: tratamentoFinal,
+      observacaoTratamento: form.observacaoTratamento,
     })
 
     setSalvando(false)
@@ -262,7 +293,12 @@ export default function EnfermariaPage() {
         fraturasObs: form.fraturasObs,
         desordensDigestivas: form.desordensDigestivas,
         desordensDigestivasObs: form.desordensDigestivasObs,
+        cegueira: form.cegueira,
+        cegueiraObs: form.cegueiraObs,
+        andarCambaleante: form.andarCambaleante,
+        andarCambaleanteObs: form.andarCambaleanteObs,
         tratamento: tratamentoFinal,
+        observacaoTratamento: form.observacaoTratamento,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -325,49 +361,52 @@ export default function EnfermariaPage() {
           )}
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
-          {pastosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label="PASTO"
-              value={form.pasto}
-              onChange={(val) => setForm((p) => ({ ...p, pasto: val }))}
-              error={getError('pasto')}
-              options={pastosDisponiveis}
-              placeholder="Buscar pasto..."
-              id="pasto"
-              name="pasto"
-            />
-          ) : (
-            <Input
-              label="PASTO"
-              placeholder="Carregando..."
-              value={form.pasto}
-              onChange={setInput('pasto')}
-              error={getError('pasto')}
-              disabled
-              id="pasto"
-            />
-          )}
-          {lotesDisponiveis.length > 0 ? (
-            <SearchableModal
-              label="LOTE"
-              value={form.lote}
-              onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
-              error={getError('lote')}
-              options={lotesDisponiveis}
-              placeholder="Buscar lote..."
-              id="lote"
-              name="lote"
-            />
-          ) : (
-            <Input
-              label="LOTE"
-              placeholder="Carregando..."
-              value={form.lote}
-              onChange={setInput('lote')}
-              error={getError('lote')}
-              disabled
-            />
-          )}
+          <div className="grid grid-cols-2 gap-3">
+            {pastosDisponiveis.length > 0 ? (
+              <SearchableModal
+                label="PASTO"
+                value={form.pasto}
+                onChange={(val) => setForm((p) => ({ ...p, pasto: val }))}
+                error={getError('pasto')}
+                options={pastosDisponiveis}
+                placeholder="Buscar pasto..."
+                id="pasto"
+                name="pasto"
+              />
+            ) : (
+              <Input
+                label="PASTO"
+                placeholder="Carregando..."
+                value={form.pasto}
+                onChange={setInput('pasto')}
+                error={getError('pasto')}
+                disabled
+                id="pasto"
+              />
+            )}
+            {lotesDisponiveis.length > 0 ? (
+              <SearchableModal
+                label="LOTE"
+                value={form.lote}
+                onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
+                error={getError('lote')}
+                options={lotesDisponiveis}
+                placeholder="Buscar lote..."
+                id="lote"
+                name="lote"
+              />
+            ) : (
+              <Input
+                label="LOTE"
+                placeholder="Carregando..."
+                value={form.lote}
+                onChange={setInput('lote')}
+                error={getError('lote')}
+                disabled
+                id="lote"
+              />
+            )}
+          </div>
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
@@ -452,6 +491,12 @@ export default function EnfermariaPage() {
               error={getError('tratamentoOutros')}
             />
           )}
+          <Input
+            label="OBSERVAÇÃO"
+            placeholder="Detalhes adicionais (opcional)"
+            value={form.observacaoTratamento}
+            onChange={setInput('observacaoTratamento')}
+          />
         </div>
 
         <div className="flex flex-col gap-3">

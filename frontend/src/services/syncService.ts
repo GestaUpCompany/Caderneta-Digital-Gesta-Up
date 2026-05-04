@@ -36,6 +36,7 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'raca' },
       { field: 'numeroMae' },
       { field: 'categoriaMae' },
+      { field: 'escoreMatriz' },
     ],
   },
   pastagens: {
@@ -94,6 +95,7 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'animalMortoObs', defaultValue: '' },
       { field: 'escoreFezes' },
       { field: 'equipe' },
+      { field: 'escoreGado' },
     ],
   },
   suplementacao: {
@@ -108,6 +110,7 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'kgCocho' },
       { field: 'kgDeposito' },
       { field: 'categoriasString' },
+      { field: 'escoreFezes' },
     ],
   },
   bebedouros: {
@@ -143,22 +146,27 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'brincoChip' },
       { field: 'categoria' },
       { field: 'problemaCasco' },
-      { field: 'problemaCascoObs' },
+      { field: 'problemaCascoObs', defaultValue: '' },
       { field: 'sintomasPneumonia' },
-      { field: 'sintomasPneumoniaObs' },
+      { field: 'sintomasPneumoniaObs', defaultValue: '' },
       { field: 'picadoCobra' },
-      { field: 'picadoCobraObs' },
+      { field: 'picadoCobraObs', defaultValue: '' },
       { field: 'incoordenacaoTremores' },
-      { field: 'incoordenacaoTremoresObs' },
+      { field: 'incoordenacaoTremoresObs', defaultValue: '' },
       { field: 'febreAlta' },
-      { field: 'febreAltaObs' },
+      { field: 'febreAltaObs', defaultValue: '' },
       { field: 'presencaSangue' },
-      { field: 'presencaSangueObs' },
+      { field: 'presencaSangueObs', defaultValue: '' },
       { field: 'fraturas' },
-      { field: 'fraturasObs' },
+      { field: 'fraturasObs', defaultValue: '' },
       { field: 'desordensDigestivas' },
-      { field: 'desordensDigestivasObs' },
+      { field: 'desordensDigestivasObs', defaultValue: '' },
+      { field: 'cegueira' },
+      { field: 'cegueiraObs', defaultValue: '' },
+      { field: 'andarCambaleante' },
+      { field: 'andarCambaleanteObs', defaultValue: '' },
       { field: 'tratamento' },
+      { field: 'observacaoTratamento', defaultValue: '' },
     ],
   },
   'entrada-insumos': {
@@ -267,6 +275,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         raca: registro.raca || null,
         numero_mae: registro.numeroMae || null,
         categoria_mae: registro.categoriaMae || null,
+        escore_matriz: registro.escoreMatriz ? Number(registro.escoreMatriz) : null,
       }
     case 'pastagens':
       return {
@@ -317,6 +326,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         animais_tratados: Number(registro.animaisTratados) || 0,
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         equipe: registro.equipe ? Number(registro.equipe) : null,
+        escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
         procedimentos: Array.isArray(registro.procedimentos) ? registro.procedimentos : null,
       }
     case 'suplementacao': {
@@ -340,6 +350,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         kg_cocho: registro.kgCocho ? Number(registro.kgCocho) : 0,
         kg_deposito: registro.kgDeposito ? Number(registro.kgDeposito) : 0,
         creep: registro.creepKg ? Number(registro.creepKg) : 0,
+        escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
       }
     }
     case 'bebedouros':
@@ -403,7 +414,12 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         fraturas_obs: registro.fraturasObs || null,
         desordens_digestivas: registro.desordensDigestivas === 'S' || registro.desordensDigestivas === 'Sim',
         desordens_digestivas_obs: registro.desordensDigestivasObs || null,
+        cegueira: registro.cegueira === 'S' || registro.cegueira === 'Sim',
+        cegueira_obs: registro.cegueiraObs || null,
+        andar_cambaleante: registro.andarCambaleante === 'S' || registro.andarCambaleante === 'Sim',
+        andar_cambaleante_obs: registro.andarCambaleanteObs || null,
         tratamento: registro.tratamento || null,
+        tratamento_obs: registro.observacaoTratamento || null,
       }
     case 'entrada-insumos':
       return {

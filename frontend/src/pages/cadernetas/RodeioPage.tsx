@@ -13,6 +13,7 @@ import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -41,6 +42,18 @@ const ESCALA_EQUIPE = [
   { value: '3', label: '3' },
   { value: '4', label: '4' },
   { value: '5', label: '5' },
+]
+
+const ESCORES = [
+  { value: '1', label: '1', color: 'bg-red-500' },
+  { value: '1.5', label: '1.5', color: 'bg-red-500' },
+  { value: '2', label: '2', color: 'bg-red-500' },
+  { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
+  { value: '3', label: '3', color: 'bg-green-500' },
+  { value: '3.5', label: '3.5', color: 'bg-green-500' },
+  { value: '4', label: '4', color: 'bg-green-500' },
+  { value: '4.5', label: '4.5', color: 'bg-yellow-300' },
+  { value: '5', label: '5', color: 'bg-yellow-300' },
 ]
 
 const CATEGORIAS_ANIMAIS: { campo: string; label: string }[] = [
@@ -100,6 +113,7 @@ interface FormState extends SnFields {
   outros: string
   escoreFezes: string
   equipe: string
+  escoreGado: string
 }
 
 const makeInitial = (): FormState => ({
@@ -117,6 +131,7 @@ const makeInitial = (): FormState => ({
   animalMorto: '', animalMortoObs: '',
   escoreFezes: '',
   equipe: '',
+  escoreGado: '',
 })
 
 const SN_OPTIONS = [
@@ -144,6 +159,19 @@ export default function RodeioPage() {
       setPastosDisponiveis(cache.pastos || [])
       setLotesDisponiveis(cache.lotes || [])
     }
+  }, [])
+
+  // Escutar atualizações do cache de cadastro
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data) => {
+      console.log('[RodeioPage] Cache atualizado, recarregando dados')
+      if (data) {
+        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+      }
+    })
+
+    return unsubscribe
   }, [])
 
   // Buscar detalhes do lote quando selecionado
@@ -216,6 +244,7 @@ export default function RodeioPage() {
       animalMortoObs: form.animalMortoObs || '',
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       equipe: form.equipe ? Number(form.equipe) : null,
+      escoreGado: form.escoreGado ? Number(form.escoreGado) : null,
     })
 
     setSalvando(false)
@@ -256,6 +285,7 @@ export default function RodeioPage() {
         animalMortoObs: form.animalMortoObs || '',
         escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
         equipe: form.equipe ? Number(form.equipe) : null,
+        escoreGado: form.escoreGado ? Number(form.escoreGado) : null,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -449,6 +479,24 @@ export default function RodeioPage() {
             error={getError('equipe')}
             gridCols={5}
           />
+        </div>
+
+        {/* Seção 5: Escore do Gado */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. ESCORE DO GADO</h2>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {ESCORES.map((escore) => (
+              <button
+                key={escore.value}
+                onClick={() => set('escoreGado')(escore.value)}
+                className={`py-3 px-4 rounded-xl font-bold transition-all transform hover:scale-105 ${
+                  form.escoreGado === escore.value ? `${escore.color} text-black` : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                {escore.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Seção 5: Procedimentos - OCULTO (PODERÁ SER REUTILIZADO NA ENFERMARIA) */}
