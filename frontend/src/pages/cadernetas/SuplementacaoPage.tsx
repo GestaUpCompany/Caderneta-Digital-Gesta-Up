@@ -75,7 +75,7 @@ const CHECKLIST_PERGUNTAS = [
   { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO?' },
   { campo: 'cochosCondicoes', label: 'OS COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
   { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
-  { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO:' },
+  { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO (cm/cab):' },
   { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
   { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO?' },
 ]
@@ -362,16 +362,6 @@ export default function SuplementacaoPage() {
       aterroAcessoIdealObs: form.aterroAcessoIdealObs || '',
       espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
       espacamentoCochoObs: form.espacamentoCochoObs || '',
-      // Calcular espacamento_cocho_ideal baseado na tolerância de 5%
-      espacamentoCochoIdeal: (() => {
-        if (!form.espacamentoCochoCmCab) return null
-        const espacamentoNum = Number(form.espacamentoCochoCmCab)
-        const ESPACAMENTO_IDEAL = 40
-        const TOLERANCIA_PERCENTUAL = 5
-        const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
-        const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
-        return diferencaPercentual <= TOLERANCIA_PERCENTUAL
-      })(),
       depositoCondicoes: form.depositoCondicoes === 'Sim',
       depositoCondicoesObs: form.depositoCondicoesObs || '',
       estoqueDepositio: form.estoqueDepositio === 'Sim',
@@ -396,6 +386,19 @@ export default function SuplementacaoPage() {
         kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
         categorias: categoriasString,
         escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
+        // Checklist fields
+        limpezaCocho: form.limpezaCocho === 'Sim',
+        limpezaCochoObs: form.limpezaCochoObs || '',
+        cochosCondicoes: form.cochosCondicoes === 'Sim',
+        cochosCondicoesObs: form.cochosCondicoesObs || '',
+        aterroAcessoIdeal: form.aterroAcessoIdeal === 'Sim',
+        aterroAcessoIdealObs: form.aterroAcessoIdealObs || '',
+        espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
+        espacamentoCochoObs: form.espacamentoCochoObs || '',
+        depositoCondicoes: form.depositoCondicoes === 'Sim',
+        depositoCondicoesObs: form.depositoCondicoesObs || '',
+        estoqueDepositio: form.estoqueDepositio === 'Sim',
+        estoqueDepositioObs: form.estoqueDepositioObs || '',
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -671,15 +674,15 @@ export default function SuplementacaoPage() {
                   type="number"
                   step="0.1"
                 />
+                <EspacamentoCochoCard espacamentoInformado={form.espacamentoCochoCmCab} />
                 {form.espacamentoCochoCmCab && (
-                  <EspacamentoCochoCard espacamentoInformado={form.espacamentoCochoCmCab} />
+                  <Input
+                    placeholder="Adicionar observação (opcional)"
+                    value={form.espacamentoCochoObs}
+                    onChange={setInput('espacamentoCochoObs')}
+                    className="mt-2"
+                  />
                 )}
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={form.espacamentoCochoObs}
-                  onChange={setInput('espacamentoCochoObs')}
-                  className="mt-2"
-                />
               </div>
             ) : (
               <div key={campo}>

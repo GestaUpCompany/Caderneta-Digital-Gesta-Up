@@ -208,7 +208,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'leituraCocho',
       'kgCocho',
       'kgDeposito',
-      'categorias'
+      'categorias',
+      'escoreFezes'
     ]
     
     ordemSuplementacao.forEach(key => {
