@@ -301,7 +301,7 @@ export default function MaternidadePage() {
           className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
         >
           <span className="text-xl">📄</span>
-          <span>VER POP MATERNIDADE</span>
+          <span>POP MATERNIDADE</span>
         </button>
       </div>
 

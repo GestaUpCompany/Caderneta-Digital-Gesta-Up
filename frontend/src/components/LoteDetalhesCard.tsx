@@ -32,6 +32,9 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias }: Lote
     ? processarCategorias(categoriasTexto).join(', ')
     : categoriasTexto
 
+  // Calcular total de cabeças (n° cabeças + qtd bezerros)
+  const totalCabecas = (detalhes.n_cabecas || 0) + (detalhes.qtd_bezerros || 0)
+
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
       <div className="grid grid-cols-2 gap-2 text-base">
@@ -44,12 +47,16 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias }: Lote
           <p className="text-gray-900 font-bold">{detalhes.n_cabecas || '-'}</p>
         </div>
         <div>
+          <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
+          <p className="text-gray-900 font-bold">{detalhes.qtd_bezerros || '-'}</p>
+        </div>
+        <div>
           <p className="text-gray-500 font-semibold">PESO VIVO</p>
           <p className="text-gray-900 font-bold">{detalhes.peso_vivo_kg ? `${detalhes.peso_vivo_kg} kg` : '-'}</p>
         </div>
-        <div>
-          <p className="text-gray-500 font-semibold">QTD. BEZERROS</p>
-          <p className="text-gray-900 font-bold">{detalhes.qtd_bezerros || '-'}</p>
+        <div className="col-span-2">
+          <p className="text-gray-500 font-semibold">TOTAL CABEÇAS</p>
+          <p className="text-[#3b82f6] font-bold text-lg">{totalCabecas} animais</p>
         </div>
       </div>
     </div>

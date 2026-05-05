@@ -525,6 +525,58 @@ export async function getFrigorificos(fazendaId: string) {
   return data
 }
 
+export async function getUltimaDataPastoEntrada(fazendaId: string, nomePasto: string): Promise<string | null> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('registros_pastagens')
+    .select('created_at')
+    .eq('fazenda_id', fazendaId)
+    .eq('pasto_entrada', nomePasto)
+    .not('created_at', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    throw error
+  }
+  
+  return data?.created_at || null
+}
+
+export async function getUltimaDataPastoSaida(fazendaId: string, nomePasto: string): Promise<string | null> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('registros_pastagens')
+    .select('created_at')
+    .eq('fazenda_id', fazendaId)
+    .eq('pasto_saida', nomePasto)
+    .not('created_at', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    throw error
+  }
+  
+  return data?.created_at || null
+}
+
+export async function getPastoByNome(fazendaId: string, nome: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('pastos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== BEBEDOUROS ====================
 
 export async function getBebedouros(fazendaId: string) {

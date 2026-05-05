@@ -22,12 +22,12 @@ export default function PastoDetalhesCard({ detalhes, tipo, tempo }: PastoDetalh
           <p className="text-gray-900 font-bold">{detalhes.areaUtil} ha</p>
         </div>
         <div>
-          <p className="text-gray-500 font-semibold">ESPÉCIE</p>
-          <p className="text-gray-900 font-bold">{detalhes.especie}</p>
-        </div>
-        <div className="col-span-2">
           <p className="text-gray-500 font-semibold">{alturaLabel}</p>
           <p className="text-gray-900 font-bold">{altura} cm</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-gray-500 font-semibold">ESPÉCIE</p>
+          <p className="text-gray-900 font-bold">{detalhes.especie}</p>
         </div>
         {tempo && (
           <div className="col-span-2">

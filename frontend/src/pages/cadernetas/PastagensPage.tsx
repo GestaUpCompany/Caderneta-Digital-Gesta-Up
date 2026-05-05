@@ -11,8 +11,9 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData, getPastoDetalhes } from '../../services/cadastroCache'
-import { getLoteByNome } from '../../services/supabaseService'
+import { getCachedCadastroData } from '../../services/cadastroCache'
+import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida } from '../../services/supabaseService'
+import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
@@ -107,7 +108,7 @@ function processarCategorias(categorias: string): string[] {
 
 export default function PastagensPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, planilhaUrl, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, planilhaUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -154,36 +155,37 @@ export default function PastagensPage() {
   // Buscar detalhes do pasto de saída quando selecionado
   useEffect(() => {
     async function carregarDetalhesPastoSaida() {
-      if (!form.pastoSaida || !cadastroSheetUrl) {
+      if (!form.pastoSaida || !fazendaId) {
         setDetalhesPastoSaida(null)
         return
       }
 
-      // Primeiro verificar no cache
-      const cacheDetalhes = getPastoDetalhes(form.pastoSaida)
-      if (cacheDetalhes) {
-        setDetalhesPastoSaida(cacheDetalhes)
-        return
-      }
-
-      // Se não estiver no cache, buscar da API
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/pasto-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, pasto: form.pastoSaida }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setDetalhesPastoSaida(data.detalhes)
+        // Buscar detalhes do pasto
+        const pasto = await getPastoByNome(fazendaId, form.pastoSaida)
+        
+        // Buscar última data de entrada para calcular tempo de ocupação
+        const ultimaDataEntrada = await getUltimaDataPastoEntrada(fazendaId, form.pastoSaida)
+        const tempoOcupacao = ultimaDataEntrada ? calcularDiferencaTempo(ultimaDataEntrada) : 'Primeiro uso'
+        
+        if (pasto) {
+          setDetalhesPastoSaida({
+            areaUtil: pasto.area_util_ha?.toString() || '',
+            especie: pasto.especie || '',
+            alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
+            alturaSaida: pasto.altura_saida_cm?.toString() || '',
+          })
+          // Atualizar o campo tempoOcupação no formulário
+          set('tempoOcupacao')(tempoOcupacao)
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do pasto de saída:', error)
+        setDetalhesPastoSaida(null)
       }
     }
 
     carregarDetalhesPastoSaida()
-  }, [form.pastoSaida, cadastroSheetUrl])
+  }, [form.pastoSaida, fazendaId])
 
   // Calcular tempo de ocupação quando pastoSaida mudar
   useEffect(() => {
@@ -223,36 +225,37 @@ export default function PastagensPage() {
   // Buscar detalhes do pasto de entrada quando selecionado
   useEffect(() => {
     async function carregarDetalhesPastoEntrada() {
-      if (!form.pastoEntrada || !cadastroSheetUrl) {
+      if (!form.pastoEntrada || !fazendaId) {
         setDetalhesPastoEntrada(null)
         return
       }
 
-      // Primeiro verificar no cache
-      const cacheDetalhes = getPastoDetalhes(form.pastoEntrada)
-      if (cacheDetalhes) {
-        setDetalhesPastoEntrada(cacheDetalhes)
-        return
-      }
-
-      // Se não estiver no cache, buscar da API
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/insumos/pasto-detalhes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl, pasto: form.pastoEntrada }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setDetalhesPastoEntrada(data.detalhes)
+        // Buscar detalhes do pasto
+        const pasto = await getPastoByNome(fazendaId, form.pastoEntrada)
+        
+        // Buscar última data de saída para calcular tempo de vedação
+        const ultimaDataSaida = await getUltimaDataPastoSaida(fazendaId, form.pastoEntrada)
+        const tempoVedacao = ultimaDataSaida ? calcularDiferencaTempo(ultimaDataSaida) : 'Primeiro uso'
+        
+        if (pasto) {
+          setDetalhesPastoEntrada({
+            areaUtil: pasto.area_util_ha?.toString() || '',
+            especie: pasto.especie || '',
+            alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
+            alturaSaida: pasto.altura_saida_cm?.toString() || '',
+          })
+          // Atualizar o campo tempoVedacao no formulário
+          set('tempoVedacao')(tempoVedacao)
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do pasto de entrada:', error)
+        setDetalhesPastoEntrada(null)
       }
     }
 
     carregarDetalhesPastoEntrada()
-  }, [form.pastoEntrada, cadastroSheetUrl])
+  }, [form.pastoEntrada, fazendaId])
 
   // Calcular tempo de vedação quando pastoEntrada mudar
   useEffect(() => {
@@ -382,6 +385,8 @@ export default function PastagensPage() {
         tropa: form.tropa ? Number(form.tropa) : 0,
         outros: form.outros ? Number(form.outros) : 0,
         escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
+        n_cabecas: detalhesLote?.n_cabecas || 0,
+        qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
       }
       setRegistroSalvo(dadosRegistro)
       setShowSuccessModal(true)
@@ -488,7 +493,7 @@ export default function PastagensPage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PASTO DE SAÍDA</h2>
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
-              label="PASTO DE SAÍDA"
+              label=""
               value={form.pastoSaida}
               onChange={set('pastoSaida')}
               error={getError('pastoSaida')}
@@ -527,7 +532,7 @@ export default function PastagensPage() {
           className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
         >
           <span className="text-xl">📄</span>
-          <span>VER POP MANEJO DE PASTAGENS</span>
+          <span>POP MANEJO DE PASTAGENS</span>
         </button>
 
         {/* Seção 3: Pasto de Entrada */}
@@ -535,7 +540,7 @@ export default function PastagensPage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. PASTO DE ENTRADA</h2>
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
-              label="PASTO DE ENTRADA"
+              label=""
               value={form.pastoEntrada}
               onChange={set('pastoEntrada')}
               error={getError('pastoEntrada')}
@@ -594,6 +599,28 @@ export default function PastagensPage() {
               <span className="text-lg font-bold text-gray-700">TOTAL</span>
               <span className="text-2xl font-bold text-black">{total} animais</span>
             </div>
+          )}
+          {total > 0 && detalhesLote && (
+            (() => {
+              const totalCabecasLote = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+              const diferenca = total - totalCabecasLote
+              if (diferenca !== 0) {
+                return (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                    <p className="text-base font-semibold text-orange-800 text-justify">
+                      ⚠️ O total informado ({total} animais) não coincide com o total do lote ({totalCabecasLote} animais)
+                    </p>
+                    <p className="text-base text-orange-700 mt-1">
+                      {diferenca > 0 
+                        ? `Faltam ${diferenca} animais para completar o lote` 
+                        : `Há ${Math.abs(diferenca)} animais a mais no lote`
+                      }
+                    </p>
+                  </div>
+                )
+              }
+              return null
+            })()
           )}
         </div>
 

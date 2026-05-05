@@ -517,7 +517,7 @@ export default function SuplementacaoPage() {
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
           >
             <span className="text-xl">📄</span>
-            <span>VER POP LEITURA DE COCHO</span>
+            <span>POP LEITURA DE COCHO</span>
           </button>
           <Radio
             name="leitura"
@@ -553,7 +553,7 @@ export default function SuplementacaoPage() {
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
           >
             <span className="text-xl">📄</span>
-            <span>VER POP FEZES</span>
+            <span>POP FEZES</span>
           </button>
           <Radio
             name="escoreFezes"

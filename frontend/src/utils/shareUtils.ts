@@ -352,35 +352,82 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       })
     }
   } else {
-    camposNormais.forEach(([key, value]) => {
-      let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-      const valorFormatado = formatFieldValue(key, value)
+    // Para pastagens, usar estrutura organizada
+    if (caderneta === 'pastagens') {
+      // Cabeçalho
+      texto += `*MANEJADOR:* ${registro.manejador || '—'}\n\n`
       
-      // Para enfermaria, verificar se há observação associada
-      if (caderneta === 'enfermaria' && key.endsWith('Obs')) {
-        return // Já tratado abaixo
-      }
+      // Seção PASTO SAÍDA
+      texto += `*PASTO SAÍDA*\n`
+      texto += `*Nome:* ${registro.pastoSaida || '—'}\n`
+      texto += `*Avaliação saída:* ${registro.avaliacaoSaida || '—'}\n`
+      texto += `*Tempo de ocupação:* ${registro.tempoOcupacao || '—'}\n\n`
       
-      texto += `*${label}:* ${valorFormatado}\n`
+      // Seção PASTO ENTRADA
+      texto += `*PASTO ENTRADA*\n`
+      texto += `*Nome:* ${registro.pastoEntrada || '—'}\n`
+      texto += `*Avaliação entrada:* ${registro.avaliacaoEntrada || '—'}\n`
+      texto += `*Tempo de vedação:* ${registro.tempoVedacao || '—'}\n\n`
       
-      // Para movimentação, adicionar campos especiais após loteOrigem
-      if (caderneta === 'movimentacao' && key === 'loteOrigem' && camposMovimentacaoEspeciais.length > 0) {
-        camposMovimentacaoEspeciais.forEach(([campoKey, campoValue]) => {
-          let campoLabel = LABELS_BY_CADERNETA[caderneta]?.[campoKey] || campoKey.toUpperCase()
-          const campoValorFormatado = formatFieldValue(campoKey, campoValue)
-          texto += `*${campoLabel}:* ${campoValorFormatado}\n`
-        })
-      }
+      // Seção LOTE E CATEGORIAS
+      texto += `*LOTE:* ${registro.numeroLote || '—'}\n`
       
-      // Para enfermaria, adicionar observação abaixo do campo principal
-      if (caderneta === 'enfermaria' && !key.endsWith('Obs') && !key.startsWith('tratamento')) {
-        const obsKey = `${key}Obs`
-        const obsValue = registro[obsKey]
-        if (obsValue && obsValue !== '' && obsValue !== null && obsValue !== undefined) {
-          texto += `*OBSERVAÇÃO:* ${String(obsValue)}\n`
+      // Adicionar categorias com valor > 0
+      const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
+      categorias.forEach(key => {
+        const value = Number(registro[key]) || 0
+        if (value > 0) {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          texto += `*${label}:* ${value}\n`
         }
+      })
+      
+      // Escore do gado
+      if (registro.escoreGado) {
+        texto += `*ESCORE DO GADO:* ${registro.escoreGado}\n`
       }
-    })
+      
+    } else {
+      // Para outras cadernetas, manter o fluxo normal
+      camposNormais.forEach(([key, value]) => {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        
+        // Para enfermaria, verificar se há observação associada
+        if (caderneta === 'enfermaria' && key.endsWith('Obs')) {
+          return // Já tratado abaixo
+        }
+        
+        // Para pastagens, ignorar campos de detalhes dos pastos (já tratados acima)
+        if (caderneta === 'pastagens' && [
+          'pastoSaidaAreaUtil', 'pastoSaidaEspecie', 'pastoSaidaAlturaEntrada', 'pastoSaidaAlturaSaida',
+          'pastoEntradaAreaUtil', 'pastoEntradaEspecie', 'pastoEntradaAlturaEntrada', 'pastoEntradaAlturaSaida',
+          'pasto', 'avaliacao', 'manejador', 'numeroLote' // campos já tratados na estrutura organizada
+        ].includes(key)) {
+          return // Não incluir detalhes dos pastos no texto compartilhável
+        }
+        
+        texto += `*${label}:* ${valorFormatado}\n`
+        
+        // Para movimentação, adicionar campos especiais após loteOrigem
+        if (caderneta === 'movimentacao' && key === 'loteOrigem' && camposMovimentacaoEspeciais.length > 0) {
+          camposMovimentacaoEspeciais.forEach(([campoKey, campoValue]) => {
+            let campoLabel = LABELS_BY_CADERNETA[caderneta]?.[campoKey] || campoKey.toUpperCase()
+            const campoValorFormatado = formatFieldValue(campoKey, campoValue)
+            texto += `*${campoLabel}:* ${campoValorFormatado}\n`
+          })
+        }
+        
+        // Para enfermaria, adicionar observação abaixo do campo principal
+        if (caderneta === 'enfermaria' && !key.endsWith('Obs') && !key.startsWith('tratamento')) {
+          const obsKey = `${key}Obs`
+          const obsValue = registro[obsKey]
+          if (obsValue && obsValue !== '' && obsValue !== null && obsValue !== undefined) {
+            texto += `*OBSERVAÇÃO:* ${String(obsValue)}\n`
+          }
+        }
+      })
+    }
   }
 
   // Adicionar campos após peso médio (movimentação)
@@ -397,6 +444,25 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `*Animal ${id}*\n`
       texto += `*Tratamentos:* ${tratamentos}\n\n`
     })
+  }
+
+  // Adicionar aviso de divergência de cabeças para pastagens
+  if (caderneta === 'pastagens') {
+    // Calcular total informado (soma de todas as categorias)
+    const totalInformado = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].reduce((total, key) => {
+      const value = Number(registro[key]) || 0
+      return total + value
+    }, 0)
+    
+    // Calcular total do lote (n_cabecas + qtd_bezerros)
+    const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
+    
+    // Verificar se há divergência
+    if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {
+      const diferenca = totalInformado - totalLote
+      texto += `\n⚠️ Divergência n° cabeças: Total informado (${totalInformado}) ≠ Total lote (${totalLote})`
+      texto += `\nDiferença: ${diferenca > 0 ? `+${diferenca}` : diferenca} animais`
+    }
   }
 
   return texto
