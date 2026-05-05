@@ -1943,8 +1943,9 @@ export type Database = {
           cochos_condicoes_obs: string | null
           aterro_acesso_ideal: boolean | null
           aterro_acesso_ideal_obs: string | null
+          espacamento_cocho_cm_cab: number | null
+          espacamento_cocho_obs: string | null
           espacamento_cocho_ideal: boolean | null
-          espacamento_cocho_ideal_obs: string | null
           deposito_condicoes: boolean | null
           deposito_condicoes_obs: string | null
           estoque_deposito: boolean | null
@@ -1986,8 +1987,9 @@ export type Database = {
           cochos_condicoes_obs?: string | null
           aterro_acesso_ideal?: boolean | null
           aterro_acesso_ideal_obs?: string | null
+          espacamento_cocho_cm_cab?: number | null
+          espacamento_cocho_obs?: string | null
           espacamento_cocho_ideal?: boolean | null
-          espacamento_cocho_ideal_obs?: string | null
           deposito_condicoes?: boolean | null
           deposito_condicoes_obs?: string | null
           estoque_deposito?: boolean | null
@@ -2029,8 +2031,9 @@ export type Database = {
           cochos_condicoes_obs?: string | null
           aterro_acesso_ideal?: boolean | null
           aterro_acesso_ideal_obs?: string | null
+          espacamento_cocho_cm_cab?: number | null
+          espacamento_cocho_obs?: string | null
           espacamento_cocho_ideal?: boolean | null
-          espacamento_cocho_ideal_obs?: string | null
           deposito_condicoes?: boolean | null
           deposito_condicoes_obs?: string | null
           estoque_deposito?: boolean | null

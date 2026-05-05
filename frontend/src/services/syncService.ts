@@ -350,6 +350,20 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         kg_deposito: registro.kgDeposito ? Number(registro.kgDeposito) : 0,
         creep: registro.creepKg ? Number(registro.creepKg) : 0,
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
+        // Checklist fields
+        limpeza_cocho: registro.limpezaCocho === 'Sim',
+        limpeza_cocho_obs: registro.limpezaCochoObs || null,
+        cochos_condicoes: registro.cochosCondicoes === 'Sim',
+        cochos_condicoes_obs: registro.cochosCondicoesObs || null,
+        aterro_acesso_ideal: registro.aterroAcessoIdeal === 'Sim',
+        aterro_acesso_ideal_obs: registro.aterroAcessoIdealObs || null,
+        espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null,
+        espacamento_cocho_obs: registro.espacamentoCochoObs || null,
+        espacamento_cocho_ideal: registro.espacamentoCochoIdeal || null,
+        deposito_condicoes: registro.depositoCondicoes === 'Sim',
+        deposito_condicoes_obs: registro.depositoCondicoesObs || null,
+        estoque_deposito: registro.estoqueDepositio === 'Sim',
+        estoque_deposito_obs: registro.estoqueDepositioObs || null,
       }
     }
     case 'bebedouros':
@@ -364,6 +378,15 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         leitura_bebedouro: registro.leituraBebedouro ? Number(registro.leituraBebedouro) : null,
         numero_bebedouro: registro.numeroBebedouro || null,
         observacao: registro.observacao || null,
+        // Checklist fields
+        agua_suficiente: registro.aguaSuficiente === 'Sim',
+        agua_suficiente_obs: registro.aguaSuficienteObs || null,
+        vazao_bebedouro_ideal: registro.vazaoBebedouroIdeal === 'Sim',
+        vazao_bebedouro_ideal_obs: registro.vazaoBebedouroIdealObs || null,
+        aterro_acesso_bebedouro_ideal: registro.aterroAcessoBebedouroIdeal === 'Sim',
+        aterro_acesso_bebedouro_ideal_obs: registro.aterroAcessoBebedouroIdealObs || null,
+        espacamento_bebedouro_ideal: registro.espacamentoBebedouroIdeal === 'Sim',
+        espacamento_bebedouro_ideal_obs: registro.espacamentoBebedouroIdealObs || null,
       }
     case 'movimentacao': {
       const cats = Array.isArray(registro.categorias) ? registro.categorias as string[] : []

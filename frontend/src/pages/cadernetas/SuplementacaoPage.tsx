@@ -12,6 +12,7 @@ import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getMineralNomes, getProteinadoNomes, getRacaoNomes, getInsumosNomes, getDietasNomes, getLoteByNome } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import EspacamentoCochoCard from '../../components/EspacamentoCochoCard'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
@@ -65,6 +66,20 @@ const ESCALA_5 = [
   { value: '5', label: '5', icon: '🔴' },
 ]
 
+const SN_OPTIONS = [
+  { value: 'Sim', label: 'SIM', icon: '✅' },
+  { value: 'Não', label: 'NÃO', icon: '❌' },
+]
+
+const CHECKLIST_PERGUNTAS = [
+  { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO?' },
+  { campo: 'cochosCondicoes', label: 'OS COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
+  { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
+  { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO:' },
+  { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
+  { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO?' },
+]
+
 interface FormState {
   data: string
   tratador: string
@@ -77,6 +92,19 @@ interface FormState {
   categorias: string[]
   outrosTexto: string
   escoreFezes: string
+  // Checklist fields
+  limpezaCocho: string
+  limpezaCochoObs: string
+  cochosCondicoes: string
+  cochosCondicoesObs: string
+  aterroAcessoIdeal: string
+  aterroAcessoIdealObs: string
+  espacamentoCochoCmCab: string
+  espacamentoCochoObs: string
+  depositoCondicoes: string
+  depositoCondicoesObs: string
+  estoqueDepositio: string
+  estoqueDepositioObs: string
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -91,6 +119,19 @@ const makeInitial = (usuario?: string): FormState => ({
   categorias: [],
   outrosTexto: '',
   escoreFezes: '',
+  // Checklist fields
+  limpezaCocho: '',
+  limpezaCochoObs: '',
+  cochosCondicoes: '',
+  cochosCondicoesObs: '',
+  aterroAcessoIdeal: '',
+  aterroAcessoIdealObs: '',
+  espacamentoCochoCmCab: '',
+  espacamentoCochoObs: '',
+  depositoCondicoes: '',
+  depositoCondicoesObs: '',
+  estoqueDepositio: '',
+  estoqueDepositioObs: '',
 })
 
 export default function SuplementacaoPage() {
@@ -312,6 +353,29 @@ export default function SuplementacaoPage() {
       categorias: form.categorias,
       categoriasString: categoriasString,
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
+      // Checklist fields
+      limpezaCocho: form.limpezaCocho === 'Sim',
+      limpezaCochoObs: form.limpezaCochoObs || '',
+      cochosCondicoes: form.cochosCondicoes === 'Sim',
+      cochosCondicoesObs: form.cochosCondicoesObs || '',
+      aterroAcessoIdeal: form.aterroAcessoIdeal === 'Sim',
+      aterroAcessoIdealObs: form.aterroAcessoIdealObs || '',
+      espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
+      espacamentoCochoObs: form.espacamentoCochoObs || '',
+      // Calcular espacamento_cocho_ideal baseado na tolerância de 5%
+      espacamentoCochoIdeal: (() => {
+        if (!form.espacamentoCochoCmCab) return null
+        const espacamentoNum = Number(form.espacamentoCochoCmCab)
+        const ESPACAMENTO_IDEAL = 40
+        const TOLERANCIA_PERCENTUAL = 5
+        const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
+        const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
+        return diferencaPercentual <= TOLERANCIA_PERCENTUAL
+      })(),
+      depositoCondicoes: form.depositoCondicoes === 'Sim',
+      depositoCondicoesObs: form.depositoCondicoesObs || '',
+      estoqueDepositio: form.estoqueDepositio === 'Sim',
+      estoqueDepositioObs: form.estoqueDepositioObs || '',
     })
 
     setSalvando(false)
@@ -509,9 +573,34 @@ export default function SuplementacaoPage() {
           )}
         </div>
 
-        {/* Seção 3: Leitura e Quantidade */}
+        {/* Seção 3: Gado e Categorias */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. LEITURA E QUANTIDADE</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CLASSIFICAÇÃO DO GADO</h2>
+          <CheckboxGroup
+            label="CATEGORIAS:"
+            options={CATEGORIAS}
+            selectedValues={form.categorias}
+            onChange={handleCategoriasChange}
+            error={getError('categorias')}
+            gridCols={2}
+            hideCheckbox={true}
+            id="categorias"
+            dataField="categorias"
+          />
+          {form.categorias.includes('Outros') && (
+            <Input
+              label="ESPECIFICAR OUTROS:"
+              placeholder="Descreva a categoria"
+              value={form.outrosTexto}
+              onChange={setInput('outrosTexto')}
+              error={getError('outrosTexto')}
+            />
+          )}
+        </div>
+
+        {/* Seção 4: Leitura e Quantidade */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. LEITURA E QUANTIDADE</h2>
           <button
             onClick={() => setShowPdfModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -566,29 +655,52 @@ export default function SuplementacaoPage() {
           />
         </div>
 
-        {/* Seção 4: Gado e Categorias */}
+        {/* Seção 5: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CLASSIFICAÇÃO DO GADO</h2>
-          <CheckboxGroup
-            label="CATEGORIAS:"
-            options={CATEGORIAS}
-            selectedValues={form.categorias}
-            onChange={handleCategoriasChange}
-            error={getError('categorias')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="categorias"
-            dataField="categorias"
-          />
-          {form.categorias.includes('Outros') && (
-            <Input
-              label="ESPECIFICAR OUTROS:"
-              placeholder="Descreva a categoria"
-              value={form.outrosTexto}
-              onChange={setInput('outrosTexto')}
-              error={getError('outrosTexto')}
-            />
-          )}
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. CHECKLIST</h2>
+          {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
+            campo === 'espacamentoCocho' ? (
+              <div key={campo}>
+                <Input
+                  label={label}
+                  placeholder="Digite o espaçamento em cm/cab"
+                  value={form.espacamentoCochoCmCab}
+                  onChange={setInput('espacamentoCochoCmCab')}
+                  error={getError('espacamentoCochoCmCab')}
+                  inputMode="decimal"
+                  type="number"
+                  step="0.1"
+                />
+                {form.espacamentoCochoCmCab && (
+                  <EspacamentoCochoCard espacamentoInformado={form.espacamentoCochoCmCab} />
+                )}
+                <Input
+                  placeholder="Adicionar observação (opcional)"
+                  value={form.espacamentoCochoObs}
+                  onChange={setInput('espacamentoCochoObs')}
+                  className="mt-2"
+                />
+              </div>
+            ) : (
+              <div key={campo}>
+                <Radio
+                  name={campo}
+                  label={label}
+                  options={SN_OPTIONS}
+                  value={(form as any)[campo]}
+                  onChange={set(campo as keyof FormState)}
+                  error={getError(campo)}
+                  gridCols={2}
+                />
+                <Input
+                  placeholder="Adicionar observação (opcional)"
+                  value={(form as any)[`${campo}Obs`] || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                  className="mt-2"
+                />
+              </div>
+            )
+          ))}
         </div>
 
         <div className="flex flex-col gap-3">

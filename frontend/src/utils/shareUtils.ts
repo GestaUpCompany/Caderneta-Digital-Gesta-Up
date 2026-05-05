@@ -200,7 +200,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar ordem específica dos formulários
     const ordemSuplementacao = [
-      'data',
       'tratador',
       'pasto',
       'numeroLote',
@@ -218,6 +217,57 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `*${label}:* ${valorFormatado}\n`
+      }
+    })
+
+    // Adicionar checklist após categorias
+    const checklistPerguntas = [
+      { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO?' },
+      { campo: 'cochosCondicoes', label: 'OS COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
+      { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
+      { campo: 'espacamentoCochoCmCab', label: 'ESPAÇAMENTO DO COCHO' },
+      { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
+      { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO?' },
+    ]
+
+    checklistPerguntas.forEach(({ campo, label }) => {
+      if (campo === 'espacamentoCochoCmCab') {
+        // Tratamento especial para espaçamento do cocho
+        const valor = registro[campo]
+        if (valor !== null && valor !== undefined && valor !== '') {
+          texto += `*${label}:* ${valor} cm/cab\n`
+          
+          // Calcular se está ideal e diferença percentual
+          const espacamentoNum = Number(valor)
+          const ESPACAMENTO_IDEAL = 40
+          const TOLERANCIA_PERCENTUAL = 5
+          const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
+          const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
+          const ideal = diferencaPercentual <= TOLERANCIA_PERCENTUAL
+          const sinal = espacamentoNum >= ESPACAMENTO_IDEAL ? '+' : '-'
+          
+          texto += `*IDEAL?* ${ideal ? 'Sim' : 'Não'} (${sinal}${diferencaPercentual.toFixed(1)}%)\n`
+        }
+        
+        // Adicionar observação do espaçamento
+        const obsValue = registro.espacamentoCochoObs
+        if (obsValue && obsValue !== '') {
+          texto += `*OBSERVAÇÃO:* ${obsValue}\n`
+        }
+      } else {
+        // Tratamento padrão para outras perguntas (Sim/Não)
+        const valor = registro[campo]
+        if (valor !== null && valor !== undefined && valor !== '') {
+          const valorFormatado = valor === true ? 'Sim' : valor === false ? 'Não' : String(valor)
+          texto += `*${label}:* ${valorFormatado}\n`
+        }
+        
+        // Adicionar observação
+        const obsField = `${campo}Obs`
+        const obsValue = registro[obsField]
+        if (obsValue && obsValue !== '') {
+          texto += `*OBSERVAÇÃO:* ${obsValue}\n`
+        }
       }
     })
   } else if (caderneta === 'rodeio') {
