@@ -17,31 +17,88 @@ export type Database = {
       bebedouros: {
         Row: {
           ativo: boolean | null
+          capacidade: number | null
           created_at: string | null
+          data_ultima_limpeza: string | null
           fazenda_id: string
           id: string
+          meta_intervalo_limpeza: number | null
           nome: string
           updated_at: string | null
         }
         Insert: {
           ativo?: boolean | null
+          capacidade?: number | null
           created_at?: string | null
+          data_ultima_limpeza?: string | null
           fazenda_id: string
           id?: string
+          meta_intervalo_limpeza?: number | null
           nome: string
           updated_at?: string | null
         }
         Update: {
           ativo?: boolean | null
+          capacidade?: number | null
           created_at?: string | null
+          data_ultima_limpeza?: string | null
           fazenda_id?: string
           id?: string
+          meta_intervalo_limpeza?: number | null
           nome?: string
           updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "bebedouros_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historico_limpezas_bebedouros: {
+        Row: {
+          bebedouro_id: string
+          created_at: string | null
+          data_limpeza: string
+          fazenda_id: string
+          id: string
+          observacao: string | null
+          responsavel: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bebedouro_id: string
+          created_at?: string | null
+          data_limpeza: string
+          fazenda_id: string
+          id?: string
+          observacao?: string | null
+          responsavel?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bebedouro_id?: string
+          created_at?: string | null
+          data_limpeza?: string
+          fazenda_id?: string
+          id?: string
+          observacao?: string | null
+          responsavel?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_limpezas_bebedouros_bebedouro_id_fkey"
+            columns: ["bebedouro_id"]
+            isOneToOne: false
+            referencedRelation: "bebedouros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_limpezas_bebedouros_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -1027,6 +1084,15 @@ export type Database = {
           sync_status: string | null
           updated_at: string | null
           version: number | null
+          // Checklist fields
+          agua_suficiente: boolean | null
+          agua_suficiente_obs: string | null
+          vazao_bebedouro_ideal: boolean | null
+          vazao_bebedouro_ideal_obs: string | null
+          aterro_acesso_bebedouro_ideal: boolean | null
+          aterro_acesso_bebedouro_ideal_obs: string | null
+          espacamento_bebedouro_ideal: boolean | null
+          espacamento_bebedouro_ideal_obs: string | null
         }
         Insert: {
           categoria?: string | null
@@ -1048,6 +1114,15 @@ export type Database = {
           sync_status?: string | null
           updated_at?: string | null
           version?: number | null
+          // Checklist fields
+          agua_suficiente?: boolean | null
+          agua_suficiente_obs?: string | null
+          vazao_bebedouro_ideal?: boolean | null
+          vazao_bebedouro_ideal_obs?: string | null
+          aterro_acesso_bebedouro_ideal?: boolean | null
+          aterro_acesso_bebedouro_ideal_obs?: string | null
+          espacamento_bebedouro_ideal?: boolean | null
+          espacamento_bebedouro_ideal_obs?: string | null
         }
         Update: {
           categoria?: string | null
@@ -1069,6 +1144,15 @@ export type Database = {
           sync_status?: string | null
           updated_at?: string | null
           version?: number | null
+          // Checklist fields
+          agua_suficiente?: boolean | null
+          agua_suficiente_obs?: string | null
+          vazao_bebedouro_ideal?: boolean | null
+          vazao_bebedouro_ideal_obs?: string | null
+          aterro_acesso_bebedouro_ideal?: boolean | null
+          aterro_acesso_bebedouro_ideal_obs?: string | null
+          espacamento_bebedouro_ideal?: boolean | null
+          espacamento_bebedouro_ideal_obs?: string | null
         }
         Relationships: [
           {
@@ -1852,6 +1936,19 @@ export type Database = {
           updated_at: string | null
           vaca: boolean | null
           version: number | null
+          // Checklist fields
+          limpeza_cocho: boolean | null
+          limpeza_cocho_obs: string | null
+          cochos_condicoes: boolean | null
+          cochos_condicoes_obs: string | null
+          aterro_acesso_ideal: boolean | null
+          aterro_acesso_ideal_obs: string | null
+          espacamento_cocho_ideal: boolean | null
+          espacamento_cocho_ideal_obs: string | null
+          deposito_condicoes: boolean | null
+          deposito_condicoes_obs: string | null
+          estoque_deposito: boolean | null
+          estoque_deposito_obs: string | null
         }
         Insert: {
           bezerro?: boolean | null
@@ -1882,6 +1979,19 @@ export type Database = {
           updated_at?: string | null
           vaca?: boolean | null
           version?: number | null
+          // Checklist fields
+          limpeza_cocho?: boolean | null
+          limpeza_cocho_obs?: string | null
+          cochos_condicoes?: boolean | null
+          cochos_condicoes_obs?: string | null
+          aterro_acesso_ideal?: boolean | null
+          aterro_acesso_ideal_obs?: string | null
+          espacamento_cocho_ideal?: boolean | null
+          espacamento_cocho_ideal_obs?: string | null
+          deposito_condicoes?: boolean | null
+          deposito_condicoes_obs?: string | null
+          estoque_deposito?: boolean | null
+          estoque_deposito_obs?: string | null
         }
         Update: {
           bezerro?: boolean | null
@@ -1912,6 +2022,19 @@ export type Database = {
           updated_at?: string | null
           vaca?: boolean | null
           version?: number | null
+          // Checklist fields
+          limpeza_cocho?: boolean | null
+          limpeza_cocho_obs?: string | null
+          cochos_condicoes?: boolean | null
+          cochos_condicoes_obs?: string | null
+          aterro_acesso_ideal?: boolean | null
+          aterro_acesso_ideal_obs?: string | null
+          espacamento_cocho_ideal?: boolean | null
+          espacamento_cocho_ideal_obs?: string | null
+          deposito_condicoes?: boolean | null
+          deposito_condicoes_obs?: string | null
+          estoque_deposito?: boolean | null
+          estoque_deposito_obs?: string | null
         }
         Relationships: [
           {

@@ -592,6 +592,90 @@ export async function getBebedouros(fazendaId: string) {
   return data
 }
 
+export async function getBebedouroByNome(fazendaId: string, nome: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('bebedouros')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function getUltimaDataLimpezaBebedouro(fazendaId: string, bebedouroId: string): Promise<string | null> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('historico_limpezas_bebedouros')
+    .select('data_limpeza')
+    .eq('fazenda_id', fazendaId)
+    .eq('bebedouro_id', bebedouroId)
+    .order('data_limpeza', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error && error.code !== 'PGRST116') {
+    throw error
+  }
+
+  return data?.data_limpeza || null
+}
+
+export async function getIntervaloMedioLimpezas(fazendaId: string, bebedouroId: string): Promise<number> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('historico_limpezas_bebedouros')
+    .select('data_limpeza')
+    .eq('fazenda_id', fazendaId)
+    .eq('bebedouro_id', bebedouroId)
+    .order('data_limpeza', { ascending: true })
+
+  if (error) throw error
+
+  if (!data || data.length < 2) {
+    return 0
+  }
+
+  // Calcular intervalos entre limpezas consecutivas
+  let totalDias = 0
+  for (let i = 1; i < data.length; i++) {
+    const dataAnterior = new Date(data[i - 1].data_limpeza)
+    const dataAtual = new Date(data[i].data_limpeza)
+    const diffMs = dataAtual.getTime() - dataAnterior.getTime()
+    const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    totalDias += diffDias
+  }
+
+  return Math.round(totalDias / (data.length - 1))
+}
+
+export async function createHistoricoLimpeza(
+  fazendaId: string,
+  bebedouroId: string,
+  dataLimpeza: string,
+  responsavel?: string,
+  observacao?: string
+) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('historico_limpezas_bebedouros')
+    .insert({
+      fazenda_id: fazendaId,
+      bebedouro_id: bebedouroId,
+      data_limpeza: dataLimpeza,
+      responsavel: responsavel || null,
+      observacao: observacao || null,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== REGISTROS MATERNIDADE ====================
 
 export async function getRegistrosMaternidade(fazendaId: string, dataInicio?: string, dataFim?: string) {

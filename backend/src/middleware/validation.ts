@@ -83,6 +83,19 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     kgCocho: Joi.number().min(0).default(0),
     kgDeposito: Joi.number().min(0).default(0),
     categorias: Joi.array().items(Joi.string()).min(1).required(),
+    // Checklist fields
+    limpezaCocho: Joi.boolean().allow(null),
+    limpezaCochoObs: Joi.string().allow(''),
+    cochosCondicoes: Joi.boolean().allow(null),
+    cochosCondicoesObs: Joi.string().allow(''),
+    aterroAcessoIdeal: Joi.boolean().allow(null),
+    aterroAcessoIdealObs: Joi.string().allow(''),
+    espacamentoCochoIdeal: Joi.boolean().allow(null),
+    espacamentoCochoIdealObs: Joi.string().allow(''),
+    depositoCondicoes: Joi.boolean().allow(null),
+    depositoCondicoesObs: Joi.string().allow(''),
+    estoqueDepositio: Joi.boolean().allow(null),
+    estoqueDepositioObs: Joi.string().allow(''),
   }),
 
   bebedouros: Joi.object({
@@ -94,6 +107,15 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     leituraBebedouro: Joi.number().integer().min(1).max(3).required(),
     numeroBebedouro: Joi.string().allow(''),
     observacao: Joi.string().allow(''),
+    // Checklist fields
+    aguaSuficiente: Joi.boolean().allow(null),
+    aguaSuficienteObs: Joi.string().allow(''),
+    vazaoBebedouroIdeal: Joi.boolean().allow(null),
+    vazaoBebedouroIdealObs: Joi.string().allow(''),
+    aterroAcessoBebedouroIdeal: Joi.boolean().allow(null),
+    aterroAcessoBebedouroIdealObs: Joi.string().allow(''),
+    espacamentoBebedouroIdeal: Joi.boolean().allow(null),
+    espacamentoBebedouroIdealObs: Joi.string().allow(''),
   }),
 
   movimentacao: Joi.object({

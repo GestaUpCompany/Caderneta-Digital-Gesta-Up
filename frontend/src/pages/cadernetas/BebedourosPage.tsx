@@ -9,9 +9,10 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome } from '../../services/supabaseService'
+import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
@@ -44,6 +45,18 @@ const LEITURAS_BEBEDOURO = [
   { value: '3', label: '3', icon: '🔴' },
 ]
 
+const SN_OPTIONS = [
+  { value: 'Sim', label: 'SIM', icon: '✅' },
+  { value: 'Não', label: 'NÃO', icon: '❌' },
+]
+
+const CHECKLIST_PERGUNTAS = [
+  { campo: 'aguaSuficiente', label: 'ÁGUA ESTÁ SUFICIENTE?' },
+  { campo: 'vazaoBebedouroIdeal', label: 'A VAZÃO DO BEBEDOURO ESTÁ IDEAL?' },
+  { campo: 'aterroAcessoBebedouroIdeal', label: 'ATERRO / ACESSO DO BEBEDOURO ESTÁ IDEAL?' },
+  { campo: 'espacamentoBebedouroIdeal', label: 'ESPAÇAMENTO DO BEBEDOURO ESTÁ IDEAL?' },
+]
+
 interface FormState {
   data: string
   responsavel: string
@@ -54,6 +67,19 @@ interface FormState {
   numeroBebedouro: string
   observacao: string
   outrosTexto: string
+  // Checklist fields
+  aguaSuficiente: string
+  aguaSuficienteObs: string
+  vazaoBebedouroIdeal: string
+  vazaoBebedouroIdealObs: string
+  aterroAcessoBebedouroIdeal: string
+  aterroAcessoBebedouroIdealObs: string
+  espacamentoBebedouroIdeal: string
+  espacamentoBebedouroIdealObs: string
+  // Limpeza info fields (read-only)
+  tempoDesdeLimpeza: string
+  intervaloMedioLimpezas: string
+  metaIntervaloLimpeza: string
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -66,6 +92,19 @@ const makeInitial = (usuario?: string): FormState => ({
   numeroBebedouro: '',
   observacao: '',
   outrosTexto: '',
+  // Checklist fields
+  aguaSuficiente: '',
+  aguaSuficienteObs: '',
+  vazaoBebedouroIdeal: '',
+  vazaoBebedouroIdealObs: '',
+  aterroAcessoBebedouroIdeal: '',
+  aterroAcessoBebedouroIdealObs: '',
+  espacamentoBebedouroIdeal: '',
+  espacamentoBebedouroIdealObs: '',
+  // Limpeza info fields (read-only)
+  tempoDesdeLimpeza: '',
+  intervaloMedioLimpezas: '',
+  metaIntervaloLimpeza: '',
 })
 
 export default function BebedourosPage() {
@@ -140,6 +179,69 @@ export default function BebedourosPage() {
     carregarDetalhesLote()
   }, [form.numeroLote, fazendaId])
 
+  // Calcular dados de limpeza quando bebedouro for selecionado
+  useEffect(() => {
+    async function carregarDadosLimpeza() {
+      if (!form.numeroBebedouro || !fazendaId) {
+        setForm((prev) => ({
+          ...prev,
+          tempoDesdeLimpeza: '',
+          intervaloMedioLimpezas: '',
+          metaIntervaloLimpeza: '',
+        }))
+        return
+      }
+
+      try {
+        const bebedouro = await getBebedouroByNome(fazendaId, form.numeroBebedouro)
+        if (!bebedouro) {
+          setForm((prev) => ({
+            ...prev,
+            tempoDesdeLimpeza: '',
+            intervaloMedioLimpezas: '',
+            metaIntervaloLimpeza: '',
+          }))
+          return
+        }
+
+        // Calcular tempo desde última limpeza
+        const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouro(fazendaId, bebedouro.id)
+        let tempoDesdeLimpeza = 'Sem histórico'
+        if (ultimaDataLimpeza) {
+          const dataLimpeza = new Date(ultimaDataLimpeza)
+          const hoje = new Date()
+          const diffMs = hoje.getTime() - dataLimpeza.getTime()
+          const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+          tempoDesdeLimpeza = `${diffDias} dias`
+        }
+
+        // Calcular intervalo médio de limpezas
+        const intervaloMedio = await getIntervaloMedioLimpezas(fazendaId, bebedouro.id)
+        const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'
+
+        // Meta de intervalo
+        const metaIntervalo = bebedouro.meta_intervalo_limpeza ? `${bebedouro.meta_intervalo_limpeza} dias` : 'Não definida'
+
+        setForm((prev) => ({
+          ...prev,
+          tempoDesdeLimpeza,
+          intervaloMedioLimpezas: intervaloMedioStr,
+          metaIntervaloLimpeza: metaIntervalo,
+        }))
+      } catch (error) {
+        console.error('Erro ao carregar dados de limpeza:', error)
+        setForm((prev) => ({
+          ...prev,
+          tempoDesdeLimpeza: '',
+          intervaloMedioLimpezas: '',
+          metaIntervaloLimpeza: '',
+        }))
+      }
+    }
+
+    carregarDadosLimpeza()
+  }, [form.numeroBebedouro, fazendaId])
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
@@ -165,6 +267,15 @@ export default function BebedourosPage() {
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
       observacao: form.observacao,
+      // Checklist fields
+      aguaSuficiente: form.aguaSuficiente === 'Sim',
+      aguaSuficienteObs: form.aguaSuficienteObs || '',
+      vazaoBebedouroIdeal: form.vazaoBebedouroIdeal === 'Sim',
+      vazaoBebedouroIdealObs: form.vazaoBebedouroIdealObs || '',
+      aterroAcessoBebedouroIdeal: form.aterroAcessoBebedouroIdeal === 'Sim',
+      aterroAcessoBebedouroIdealObs: form.aterroAcessoBebedouroIdealObs || '',
+      espacamentoBebedouroIdeal: form.espacamentoBebedouroIdeal === 'Sim',
+      espacamentoBebedouroIdealObs: form.espacamentoBebedouroIdealObs || '',
     })
 
     setSalvando(false)
@@ -172,6 +283,30 @@ export default function BebedourosPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
+      // Registrar limpeza no histórico se um bebedouro foi selecionado
+      if (form.numeroBebedouro && fazendaId) {
+        try {
+          const bebedouro = await getBebedouroByNome(fazendaId, form.numeroBebedouro)
+          if (bebedouro) {
+            // Converter data do formato DD/MM/YYYY para YYYY-MM-DD
+            const [dia, mes, ano] = form.data.split('/')
+            const dataLimpeza = `${ano}-${mes}-${dia}`
+            
+            await createHistoricoLimpeza(
+              fazendaId,
+              bebedouro.id,
+              dataLimpeza,
+              form.responsavel,
+              form.observacao || 'Registro de inspeção'
+            )
+            console.log('[BebedourosPage] Limpeza registrada no histórico')
+          }
+        } catch (error) {
+          console.error('[BebedourosPage] Erro ao registrar limpeza:', error)
+          // Não impedir o sucesso do salvamento se o registro de limpeza falhar
+        }
+      }
+
       // Armazenar o registro salvo para compartilhamento
       const dadosRegistro = {
         data: form.data,
@@ -321,6 +456,13 @@ export default function BebedourosPage() {
               id="numeroBebedouro"
             />
           )}
+          {form.numeroBebedouro && (
+            <BebedouroDetalhesCard
+              tempoDesdeLimpeza={form.tempoDesdeLimpeza}
+              intervaloMedioLimpezas={form.intervaloMedioLimpezas}
+              metaIntervaloLimpeza={form.metaIntervaloLimpeza}
+            />
+          )}
           <Radio
             name="leituraBebedouro"
             label={"LEITURA DE BEBEDOURO" + "\n" + "(1 a 3)"}
@@ -339,9 +481,33 @@ export default function BebedourosPage() {
           </button>
         </div>
 
-        {/* Seção 4: Observação */}
+        {/* Seção 4: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST</h2>
+          {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
+            <div key={campo}>
+              <Radio
+                name={campo}
+                label={label}
+                options={SN_OPTIONS}
+                value={(form as any)[campo]}
+                onChange={set(campo as keyof FormState)}
+                error={getError(campo)}
+                gridCols={2}
+              />
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={(form as any)[`${campo}Obs`]}
+                onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                className="mt-2"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Seção 5: Observação */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. OBSERVAÇÃO</h2>
           <Input
             placeholder="Detalhes adicionais (opcional)"
             value={form.observacao}
