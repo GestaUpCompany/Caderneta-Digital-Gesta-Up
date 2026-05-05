@@ -666,7 +666,7 @@ export default function SuplementacaoPage() {
               <div key={campo}>
                 <Input
                   label={label}
-                  placeholder="Digite o espaçamento em cm/cab"
+                  placeholder="Espaçamento em cm/cab"
                   value={form.espacamentoCochoCmCab}
                   onChange={setInput('espacamentoCochoCmCab')}
                   error={getError('espacamentoCochoCmCab')}
