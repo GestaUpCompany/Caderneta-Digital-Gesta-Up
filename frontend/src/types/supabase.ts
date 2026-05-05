@@ -1610,7 +1610,7 @@ export type Database = {
         Row: {
           agua_boa_bebedouro: boolean | null
           agua_boa_bebedouro_obs: string | null
-          animais_doentes: boolean | null
+          animais_doentes_bichados: boolean | null
           animais_doentes_obs: string | null
           animais_entrevero: boolean | null
           animais_entrevero_obs: string | null
@@ -1653,7 +1653,7 @@ export type Database = {
         Insert: {
           agua_boa_bebedouro?: boolean | null
           agua_boa_bebedouro_obs?: string | null
-          animais_doentes?: boolean | null
+          animais_doentes_bichados?: boolean | null
           animais_doentes_obs?: string | null
           animais_entrevero?: boolean | null
           animais_entrevero_obs?: string | null
@@ -1696,7 +1696,7 @@ export type Database = {
         Update: {
           agua_boa_bebedouro?: boolean | null
           agua_boa_bebedouro_obs?: string | null
-          animais_doentes?: boolean | null
+          animais_doentes_bichados?: boolean | null
           animais_doentes_obs?: string | null
           animais_entrevero?: boolean | null
           animais_entrevero_obs?: string | null

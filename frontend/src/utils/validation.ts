@@ -165,7 +165,7 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
     escoreGadoIdeal: 'Escore do gado ideal',
     aguaBoaBebedouro: 'Água / Bebedouro',
     pastagemAdequada: 'Pastagem adequada',
-    animaisDoentes: 'Animais doentes',
+    animaisDoentes: 'Animais doentes / bichados',
     cercasCochos: 'Cercas / Cochos',
     carrapatosMoscas: 'Carrapatos / Moscas',
     animaisEntreverados: 'Animais entrevero',

@@ -68,7 +68,7 @@ const RODEIO_LABELS = {
   aguaBoaBebedouroObs: 'Observação',
   pastagemAdequada: 'PASTAGEM ADEQUADA',
   pastagemAdequadaObs: 'Observação',
-  animaisDoentes: 'ANIMAIS DOENTES',
+  animaisDoentes: 'ANIMAIS DOENTES / BICHADOS',
   animaisDoentesObs: 'Observação',
   cercasCochos: 'CERCAS, COCHOS',
   cercasCochosObs: 'Observação',

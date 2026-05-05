@@ -314,7 +314,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         agua_boa_bebedouro_obs: registro.aguaBoaBebedouroObs || null,
         pastagem_adequada: registro.pastagemAdequada === 'S' || registro.pastagemAdequada === 'Sim',
         pastagem_adequada_obs: registro.pastagemAdequadaObs || null,
-        animais_doentes: registro.animaisDoentes === 'S' || registro.animaisDoentes === 'Sim',
+        animais_doentes_bichados: registro.animaisDoentes === 'S' || registro.animaisDoentes === 'Sim',
         animais_doentes_obs: registro.animaisDoentesObs || null,
         cercas_cochos: registro.cercasCochos === 'S' || registro.cercasCochos === 'Sim',
         cercas_cochos_obs: registro.cercasCochosObs || null,
@@ -324,11 +324,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         animais_entrevero_obs: registro.animaisEntreveroObs || null,
         animal_morto: registro.animalMorto === 'S' || registro.animalMorto === 'Sim',
         animal_morto_obs: registro.animalMortoObs || null,
-        animais_tratados: Number(registro.animaisTratados) || 0,
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         equipe: registro.equipe ? Number(registro.equipe) : null,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
-        procedimentos: Array.isArray(registro.procedimentos) ? registro.procedimentos : null,
       }
     case 'suplementacao': {
       const supCats = Array.isArray(registro.categorias) ? registro.categorias as string[] : []

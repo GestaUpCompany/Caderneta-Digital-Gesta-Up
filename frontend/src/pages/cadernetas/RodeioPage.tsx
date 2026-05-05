@@ -21,7 +21,7 @@ const AVALIACOES_SN = [
   { campo: 'escoreGadoIdeal', label: 'ESCORE DO GADO IDEAL?' },
   { campo: 'aguaBoaBebedouro', label: 'ÁGUA BOA / BEBEDOURO?' },
   { campo: 'pastagemAdequada', label: 'PASTAGEM ADEQUADA?' },
-  { campo: 'animaisDoentes', label: 'ANIMAIS DOENTES?' },
+  { campo: 'animaisDoentes', label: 'ANIMAIS DOENTES / BICHADOS?' },
   { campo: 'cercasCochos', label: 'CERCAS / COCHOS OK?' },
   { campo: 'carrapatosMoscas', label: 'CARRAPATOS / MOSCAS?' },
   { campo: 'animaisEntreverados', label: 'ANIMAIS ENTREVERADOS?' },
@@ -267,6 +267,8 @@ export default function RodeioPage() {
         tropa: form.tropa ? Number(form.tropa) : 0,
         outros: form.outros ? Number(form.outros) : 0,
         totalCabecas: total,
+        n_cabecas: detalhesLote?.n_cabecas || 0,
+        qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
         escoreGadoIdeal: form.escoreGadoIdeal,
         escoreGadoIdealObs: form.escoreGadoIdealObs || '',
         aguaBoaBebedouro: form.aguaBoaBebedouro,
@@ -424,6 +426,30 @@ export default function RodeioPage() {
               <span className="text-lg font-bold text-gray-700">TOTAL</span>
               <span className="text-2xl font-bold text-black">{total} cabeças</span>
             </div>
+          )}
+          
+          {/* Aviso de divergência de cabeças */}
+          {total > 0 && detalhesLote && (
+            (() => {
+              const totalLote = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+              if (total !== totalLote) {
+                const diferenca = total - totalLote
+                return (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                    <p className="text-base font-semibold text-orange-800 text-justify">
+                      ⚠️ O total informado ({total} animais) não coincide com o total do lote ({totalLote} animais)
+                    </p>
+                    <p className="text-base text-orange-700 mt-1">
+                      {diferenca > 0 
+                        ? `Faltam ${diferenca} animais para completar o lote` 
+                        : `Há ${Math.abs(diferenca)} animais a mais no lote`
+                      }
+                    </p>
+                  </div>
+                )
+              }
+              return null
+            })()
           )}
         </div>
 

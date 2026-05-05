@@ -39,7 +39,7 @@ const FIELD_NAMES: Record<string, string> = {
   escoreGadoIdeal: 'Escore do Gado',
   aguaBoaBebedouro: 'Água / Bebedouro',
   pastagemAdequada: 'Pastagem Adequada',
-  animaisDoentes: 'Animais Doentes',
+  animaisDoentes: 'Animais Doentes / Bichados',
   cercasCochos: 'Cercas / Cochos',
   carrapatosMoscas: 'Carrapatos / Moscas',
   animaisEntreverados: 'Animais Entreverados',
