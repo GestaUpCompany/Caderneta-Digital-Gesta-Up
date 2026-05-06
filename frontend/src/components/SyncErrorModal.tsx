@@ -15,6 +15,7 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   movimentacao: 'Movimentação',
   enfermaria: 'Enfermaria',
   morte: 'Morte',
+  clima: 'Clima',
   'entrada-insumos': 'Entrada de Insumos',
   'saida-insumos': 'Saída de Insumos',
   'insumos-por-saida': 'Insumos por Saída',

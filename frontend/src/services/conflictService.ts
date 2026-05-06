@@ -55,6 +55,7 @@ function buildRegistroFromRow(
     'entrada-insumos': ['dataEntrada', 'horario', 'produto', 'quantidade', 'valorUnitario', 'valorTotal', 'notaFiscal', 'fornecedor', 'placa', 'motorista', 'responsavelRecebimento'],
     'saida-insumos': ['dataProducao', 'dietaProduzida', 'destinoProducao', 'totalProduzido', 'insumosQuantidades'],
     'insumos-por-saida': ['idSaida', 'dataProducao', 'dietaProduzida', 'insumo', 'quantidade'],
+    clima: ['data', 'responsavel', 'temperaturaMedia', 'observacao'],
   }
 
   const fields = fieldsByCaderneta[caderneta]
