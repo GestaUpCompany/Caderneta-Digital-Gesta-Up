@@ -49,6 +49,7 @@ function buildRegistroFromRow(
     ],
     suplementacao: ['data', 'tratador', 'pasto', 'numeroLote', 'produto', 'gado', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha', 'leitura', 'sacos', 'kgCocho', 'kgDeposito', 'creep'],
     bebedouros: ['data', 'responsavel', 'pasto', 'numeroLote', 'gado', 'categoria', 'leituraBebedouro', 'numeroBebedouro', 'observacao'],
+    morte: ['data', 'pasto', 'lote', 'brincoChip', 'sexo', 'raca', 'idade', 'pesoVivo', 'causaMorte', 'vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'],
     movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'pesoMedio', 'vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
     enfermaria: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'problemaCasco', 'problemaCascoObs', 'sintomasPneumonia', 'sintomasPneumoniaObs', 'picadoCobra', 'picadoCobraObs', 'incoordenacaoTremores', 'incoordenacaoTremoresObs', 'febreAlta', 'febreAltaObs', 'presencaSangue', 'presencaSangueObs', 'fraturas', 'fraturasObs', 'desordensDigestivas', 'desordensDigestivasObs'],
     'entrada-insumos': ['dataEntrada', 'horario', 'produto', 'quantidade', 'valorUnitario', 'valorTotal', 'notaFiscal', 'fornecedor', 'placa', 'motorista', 'responsavelRecebimento'],
