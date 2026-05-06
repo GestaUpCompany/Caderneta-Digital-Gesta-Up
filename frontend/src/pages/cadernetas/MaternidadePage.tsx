@@ -60,13 +60,13 @@ const CATEGORIAS_MAE = [
 const ESCORES = [
   { value: '1', label: '1', color: 'bg-red-500' },
   { value: '1.5', label: '1.5', color: 'bg-red-500' },
-  { value: '2', label: '2', color: 'bg-red-500' },
+  { value: '2', label: '2', color: 'bg-yellow-400' },
   { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
   { value: '3', label: '3', color: 'bg-green-500' },
   { value: '3.5', label: '3.5', color: 'bg-green-500' },
-  { value: '4', label: '4', color: 'bg-green-500' },
-  { value: '4.5', label: '4.5', color: 'bg-yellow-300' },
-  { value: '5', label: '5', color: 'bg-yellow-300' },
+  { value: '4', label: '4', color: 'bg-yellow-400' },
+  { value: '4.5', label: '4.5', color: 'bg-yellow-400' },
+  { value: '5', label: '5', color: 'bg-red-500' },
 ]
 
 // Função para processar categorias com diferentes delimitadores
@@ -122,6 +122,7 @@ export default function MaternidadePage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
@@ -469,6 +470,13 @@ export default function MaternidadePage() {
         {/* Seção 7: Escore da Matriz */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">7. ESCORE DA MATRIZ</h2>
+          <button
+            onClick={() => setShowEscoreModal(true)}
+            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          >
+            <span className="text-xl">📄</span>
+            <span>POP ESCORE CORPORAL</span>
+          </button>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             {ESCORES.map((escore) => (
               <button
@@ -516,6 +524,14 @@ export default function MaternidadePage() {
           `${BASE}docs/maternidade/POP_Maternidade_5.jpg`,
           `${BASE}docs/maternidade/POP_Maternidade_6.jpg`,
           `${BASE}docs/maternidade/POP_Maternidade_7.jpg`
+        ]}
+      />
+
+      <PdfModal
+        isOpen={showEscoreModal}
+        onClose={() => setShowEscoreModal(false)}
+        images={[
+          `${BASE}docs/ECC/POP_ECC.jpeg`
         ]}
       />
     </div>

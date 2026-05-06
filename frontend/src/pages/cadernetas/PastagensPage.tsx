@@ -30,13 +30,13 @@ const AVALIACOES = [
 const ESCORES = [
   { value: '1', label: '1', color: 'bg-red-500' },
   { value: '1.5', label: '1.5', color: 'bg-red-500' },
-  { value: '2', label: '2', color: 'bg-red-500' },
+  { value: '2', label: '2', color: 'bg-yellow-400' },
   { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
   { value: '3', label: '3', color: 'bg-green-500' },
   { value: '3.5', label: '3.5', color: 'bg-green-500' },
-  { value: '4', label: '4', color: 'bg-green-500' },
-  { value: '4.5', label: '4.5', color: 'bg-yellow-300' },
-  { value: '5', label: '5', color: 'bg-yellow-300' },
+  { value: '4', label: '4', color: 'bg-yellow-400' },
+  { value: '4.5', label: '4.5', color: 'bg-yellow-400' },
+  { value: '5', label: '5', color: 'bg-red-500' },
 ]
 
 interface FormState {
@@ -118,6 +118,7 @@ export default function PastagensPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [detalhesPastoSaida, setDetalhesPastoSaida] = useState<any>(null)
   const [detalhesPastoEntrada, setDetalhesPastoEntrada] = useState<any>(null)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
@@ -598,6 +599,13 @@ export default function PastagensPage() {
         {/* Seção 5: Escore do Gado */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">5. ESCORE DO GADO</h2>
+          <button
+            onClick={() => setShowEscoreModal(true)}
+            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          >
+            <span className="text-xl">📄</span>
+            <span>POP ESCORE CORPORAL</span>
+          </button>
           <div className="grid grid-cols-3 gap-2">
             {ESCORES.map((escore) => (
               <button
@@ -644,6 +652,14 @@ export default function PastagensPage() {
           `${BASE}docs/pastagens/POP_Pastagens_01.jpg`,
           `${BASE}docs/pastagens/POP_Pastagens_02.jpg`,
           `${BASE}docs/pastagens/POP_Pastagens_03.jpg`
+        ]}
+      />
+
+      <PdfModal
+        isOpen={showEscoreModal}
+        onClose={() => setShowEscoreModal(false)}
+        images={[
+          `${BASE}docs/ECC/POP_ECC.jpeg`
         ]}
       />
     </div>

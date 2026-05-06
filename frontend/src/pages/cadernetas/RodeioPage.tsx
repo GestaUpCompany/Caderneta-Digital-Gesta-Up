@@ -47,13 +47,13 @@ const ESCALA_EQUIPE = [
 const ESCORES = [
   { value: '1', label: '1', color: 'bg-red-500' },
   { value: '1.5', label: '1.5', color: 'bg-red-500' },
-  { value: '2', label: '2', color: 'bg-red-500' },
+  { value: '2', label: '2', color: 'bg-yellow-400' },
   { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
   { value: '3', label: '3', color: 'bg-green-500' },
   { value: '3.5', label: '3.5', color: 'bg-green-500' },
-  { value: '4', label: '4', color: 'bg-green-500' },
-  { value: '4.5', label: '4.5', color: 'bg-yellow-300' },
-  { value: '5', label: '5', color: 'bg-yellow-300' },
+  { value: '4', label: '4', color: 'bg-yellow-400' },
+  { value: '4.5', label: '4.5', color: 'bg-yellow-400' },
+  { value: '5', label: '5', color: 'bg-red-500' },
 ]
 
 const CATEGORIAS_ANIMAIS: { campo: string; label: string }[] = [
@@ -148,6 +148,7 @@ export default function RodeioPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
@@ -476,6 +477,13 @@ export default function RodeioPage() {
         {/* Seção 5: Escore do Gado */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">5. ESCORE DO GADO</h2>
+          <button
+            onClick={() => setShowEscoreModal(true)}
+            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          >
+            <span className="text-xl">📄</span>
+            <span>POP ESCORE CORPORAL</span>
+          </button>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             {ESCORES.map((escore) => (
               <button
@@ -594,6 +602,14 @@ export default function RodeioPage() {
         onClose={() => setShowPdfModal(false)}
         images={[
           `${BASE}docs/fezes/POP_Fezes_01.jpg`
+        ]}
+      />
+
+      <PdfModal
+        isOpen={showEscoreModal}
+        onClose={() => setShowEscoreModal(false)}
+        images={[
+          `${BASE}docs/ECC/POP_ECC.jpeg`
         ]}
       />
     </div>
