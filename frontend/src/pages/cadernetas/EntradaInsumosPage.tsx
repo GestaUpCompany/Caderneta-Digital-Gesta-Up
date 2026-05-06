@@ -166,20 +166,7 @@ export default function EntradaInsumosPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      const dadosRegistro = {
-        dataEntrada: form.dataEntrada,
-        horario: form.horario,
-        produto: form.produto,
-        quantidade: form.quantidade ? Number(form.quantidade) : 0,
-        valorUnitario: form.valorUnitario ? Number(form.valorUnitario) : 0,
-        valorTotal: form.valorTotal ? Number(form.valorTotal) : 0,
-        notaFiscal: form.notaFiscal,
-        fornecedor: form.fornecedor,
-        placa: form.placa,
-        motorista: form.motorista,
-        responsavelRecebimento: form.responsavelRecebimento,
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
       setIsHorarioManual(false)

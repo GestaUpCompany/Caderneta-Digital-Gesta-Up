@@ -245,6 +245,9 @@ export default function RodeioPage() {
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       equipe: form.equipe ? Number(form.equipe) : null,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : null,
+      // Campos de divergência
+      n_cabecas: detalhesLote?.n_cabecas || 0,
+      qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
     })
 
     setSalvando(false)
@@ -252,44 +255,7 @@ export default function RodeioPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Armazenar o registro salvo para compartilhamento
-      const dadosRegistro = {
-        data: form.data,
-        pasto: form.pasto,
-        numeroLote: form.numeroLote,
-        vaca: form.vaca ? Number(form.vaca) : 0,
-        touro: form.touro ? Number(form.touro) : 0,
-        boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
-        boiMagro: form.boiMagro ? Number(form.boiMagro) : 0,
-        garrote: form.garrote ? Number(form.garrote) : 0,
-        bezerro: form.bezerro ? Number(form.bezerro) : 0,
-        novilha: form.novilha ? Number(form.novilha) : 0,
-        tropa: form.tropa ? Number(form.tropa) : 0,
-        outros: form.outros ? Number(form.outros) : 0,
-        totalCabecas: total,
-        n_cabecas: detalhesLote?.n_cabecas || 0,
-        qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
-        escoreGadoIdeal: form.escoreGadoIdeal,
-        escoreGadoIdealObs: form.escoreGadoIdealObs || '',
-        aguaBoaBebedouro: form.aguaBoaBebedouro,
-        aguaBoaBebedouroObs: form.aguaBoaBebedouroObs || '',
-        pastagemAdequada: form.pastagemAdequada,
-        pastagemAdequadaObs: form.pastagemAdequadaObs || '',
-        animaisDoentes: form.animaisDoentes,
-        animaisDoentesObs: form.animaisDoentesObs || '',
-        cercasCochos: form.cercasCochos,
-        cercasCochosObs: form.cercasCochosObs || '',
-        carrapatosMoscas: form.carrapatosMoscas,
-        carrapatosMoscasObs: form.carrapatosMoscasObs || '',
-        animaisEntreverados: form.animaisEntreverados,
-        animaisEntreveradosObs: form.animaisEntreveradosObs || '',
-        animalMorto: form.animalMorto,
-        animalMortoObs: form.animalMortoObs || '',
-        escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
-        equipe: form.equipe ? Number(form.equipe) : null,
-        escoreGado: form.escoreGado ? Number(form.escoreGado) : null,
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
@@ -441,8 +407,8 @@ export default function RodeioPage() {
                     </p>
                     <p className="text-base text-orange-700 mt-1">
                       {diferenca > 0 
-                        ? `Faltam ${diferenca} animais para completar o lote` 
-                        : `Há ${Math.abs(diferenca)} animais a mais no lote`
+                        ? `Excedeu ${diferenca} animais do total do lote` 
+                        : `Faltam ${Math.abs(diferenca)} animais para completar o lote`
                       }
                     </p>
                   </div>

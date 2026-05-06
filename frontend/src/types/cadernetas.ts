@@ -176,3 +176,39 @@ export interface RegistroInsumosPorSaida extends Registro {
   insumo: string
   quantidade: number
 }
+
+export interface RegistroMorte extends Registro {
+  pasto: string
+  lote: string
+  brincoChip: string
+  vaca: number
+  touro: number
+  boiGordo: number
+  boiMagro: number
+  garrote: number
+  bezerro: number
+  novilha: number
+  tropa: number
+  outros: number
+  sexo: string
+  raca: string
+  racaOutros: string
+  idade: string
+  pesoVivo: number | null
+  causaMorte: string
+  causaMorteOutros: string
+  secrecaoOrificios: 'S' | 'N'
+  secrecaoOrificiosObs: string
+  sintomasPneumonia: 'S' | 'N'
+  sintomasPneumoniaObs: string
+  inchaco: 'S' | 'N'
+  inchacoObs: string
+  incoordenacaoTremores: 'S' | 'N'
+  incoordenacaoTremoresObs: string
+  apatiaFraqueza: 'S' | 'N'
+  apatiaFraquezaObs: string
+  presencaSangue: 'S' | 'N'
+  presencaSangueObs: string
+  desordensDigestivas: 'S' | 'N'
+  desordensDigestivasObs: string
+}

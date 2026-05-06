@@ -1054,6 +1054,40 @@ export async function deleteRegistroEnfermaria(id: string) {
   if (error) throw error
 }
 
+// ==================== REGISTROS MORTE ====================
+
+export async function createRegistroMorte(registro: TablesInsert['registros_morte']['Insert']) {
+  const { data, error } = await supabase
+    .from('registros_morte')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroMorte(id: string, registro: TablesUpdate['registros_morte']['Update']) {
+  const { data, error } = await supabase
+    .from('registros_morte')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteRegistroMorte(id: string) {
+  const { error } = await supabase
+    .from('registros_morte')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
 // ==================== REGISTROS ENTRADA INSUMOS ====================
 
 export async function getRegistrosEntradaInsumos(fazendaId: string, dataInicio?: string, dataFim?: string) {

@@ -18,6 +18,7 @@ const MATERNIDADE_LABELS = {
   tratamento: 'TRATAMENTO',
   pesoCria: 'PESO CRIA',
   categoriaMae: 'CATEGORIA MÃE',
+  escoreMatriz: 'ESCORE MATRIZ',
 }
 
 const PASTAGENS_LABELS = {
@@ -145,6 +146,39 @@ const ENFERMARIA_LABELS = {
   desordensDigestivasObs: 'OBSERVAÇÃO',
 }
 
+const MORTE_LABELS = {
+  ...COMMON_LABELS,
+  brincoChip: 'BRINCO/CHIP',
+  vaca: 'VACA',
+  touro: 'TOURO',
+  boiGordo: 'BOI GORDO',
+  boiMagro: 'BOI MAGRO',
+  garrote: 'GARROTE',
+  bezerro: 'BEZERRO',
+  novilha: 'NOVILHA',
+  tropa: 'TROPA',
+  outros: 'OUTROS',
+  sexo: 'SEXO',
+  raca: 'RAÇA',
+  idade: 'IDADE',
+  pesoVivo: 'PESO VIVO (kg)',
+  causaMorte: 'CAUSA DA MORTE',
+  secrecaoOrificios: 'SECREÇÃO NOS ORIFÍCIOS',
+  secrecaoOrificiosObs: 'OBSERVAÇÃO',
+  sintomasPneumonia: 'SINTOMAS PNEUMONIA',
+  sintomasPneumoniaObs: 'OBSERVAÇÃO',
+  inchaco: 'INCHAÇO',
+  inchacoObs: 'OBSERVAÇÃO',
+  incoordenacaoTremores: 'INCOORDENAÇÃO E TREMORES',
+  incoordenacaoTremoresObs: 'OBSERVAÇÃO',
+  apatiaFraqueza: 'APATIA OU FRAQUEZA',
+  apatiaFraquezaObs: 'OBSERVAÇÃO',
+  presencaSangue: 'PRESENÇA DE SANGUE',
+  presencaSangueObs: 'OBSERVAÇÃO',
+  desordensDigestivas: 'DESORDENS DIGESTIVAS',
+  desordensDigestivasObs: 'OBSERVAÇÃO',
+}
+
 const ENTRADA_INSUMOS_LABELS = {
   dataEntrada: 'DATA DE ENTRADA',
   horario: 'HORÁRIO',
@@ -183,6 +217,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   bebedouros: BEBEDOUROS_LABELS,
   movimentacao: MOVIMENTACAO_LABELS,
   enfermaria: ENFERMARIA_LABELS,
+  morte: MORTE_LABELS,
   'entrada-insumos': ENTRADA_INSUMOS_LABELS,
   'saida-insumos': SAIDA_INSUMOS_LABELS,
   'insumos-por-saida': INSUMOS_POR_SAIDA_LABELS,

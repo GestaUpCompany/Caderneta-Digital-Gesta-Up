@@ -276,6 +276,10 @@ export default function BebedourosPage() {
       aterroAcessoBebedouroIdealObs: form.aterroAcessoBebedouroIdealObs || '',
       espacamentoBebedouroIdeal: form.espacamentoBebedouroIdeal === 'Sim',
       espacamentoBebedouroIdealObs: form.espacamentoBebedouroIdealObs || '',
+      // Limpeza info fields
+      tempoDesdeLimpeza: form.tempoDesdeLimpeza,
+      intervaloMedioLimpezas: form.intervaloMedioLimpezas,
+      metaIntervaloLimpeza: form.metaIntervaloLimpeza,
     })
 
     setSalvando(false)
@@ -307,18 +311,7 @@ export default function BebedourosPage() {
         }
       }
 
-      // Armazenar o registro salvo para compartilhamento
-      const dadosRegistro = {
-        data: form.data,
-        responsavel: form.responsavel,
-        pasto: form.pasto,
-        numeroLote: form.numeroLote,
-        categoria: categoriaString,
-        leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
-        numeroBebedouro: form.numeroBebedouro,
-        observacao: form.observacao,
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
     }

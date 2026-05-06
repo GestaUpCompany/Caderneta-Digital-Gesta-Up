@@ -368,7 +368,12 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                         'categoria',
                         'numeroBebedouro',
                         'leituraBebedouro',
-                        'observacao'
+                        'observacao',
+                        // Checklist fields
+                        'aguaSuficiente',
+                        'vazaoBebedouroIdeal',
+                        'aterroAcessoBebedouroIdeal',
+                        'espacamentoBebedouroIdeal'
                       ]
                       
                       ordemBebedouros.forEach(key => {
@@ -388,7 +393,15 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                         'leituraCocho',
                         'kgCocho',
                         'kgDeposito',
-                        'categorias'
+                        'categorias',
+                        'escoreFezes',
+                        // Checklist fields
+                        'limpezaCocho',
+                        'cochosCondicoes',
+                        'aterroAcessoIdeal',
+                        'espacamentoCochoCmCab',
+                        'depositoCondicoes',
+                        'estoqueDepositio'
                       ]
                       
                       ordemSuplementacao.forEach(key => {

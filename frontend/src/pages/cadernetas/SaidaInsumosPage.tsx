@@ -151,14 +151,7 @@ export default function SaidaInsumosPage() {
         }
       }
 
-      const dadosRegistro = {
-        dataProducao: form.dataProducao,
-        dietaProduzida: form.dietaProduzida,
-        destinoProducao: form.destinoProducao,
-        totalProduzido: form.totalProduzido ? Number(form.totalProduzido) : 0,
-        insumosQuantidades: form.insumosQuantidades,
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
     } catch (err) {

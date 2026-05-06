@@ -6,6 +6,7 @@ import { validate, CadernetaType } from '../utils/validation'
 
 export interface SaveResult {
   success: boolean
+  registro?: Registro
   id?: string
   errors?: { field: string; message: string }[]
 }
@@ -42,7 +43,7 @@ export async function salvarRegistro(
 
   await enqueueRegistro(caderneta, registro.id, 'create')
 
-  return { success: true, id: registro.id }
+  return { success: true, registro, id: registro.id }
 }
 
 export async function listarRegistros(caderneta: CadernetaStore): Promise<Registro[]> {

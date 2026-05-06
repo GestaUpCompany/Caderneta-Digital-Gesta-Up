@@ -349,6 +349,9 @@ export default function PastagensPage() {
       tropa: form.tropa ? Number(form.tropa) : 0,
       outros: form.outros ? Number(form.outros) : 0,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
+      // Campos de divergência
+      n_cabecas: detalhesLote?.n_cabecas || 0,
+      qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
     })
 
     setSalvando(false)
@@ -356,39 +359,7 @@ export default function PastagensPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Armazenar o registro salvo para compartilhamento
-      const dadosRegistro = {
-        data: form.data,
-        manejador: form.manejador,
-        numeroLote: form.numeroLote,
-        pastoSaida: form.pastoSaida,
-        avaliacaoSaida: form.avaliacaoSaida ? Number(form.avaliacaoSaida) : 0,
-        tempoOcupacao: form.tempoOcupacao,
-        pastoSaidaAreaUtil: detalhesPastoSaida?.areaUtil || '',
-        pastoSaidaEspecie: detalhesPastoSaida?.especie || '',
-        pastoSaidaAlturaEntrada: detalhesPastoSaida?.alturaEntrada || '',
-        pastoSaidaAlturaSaida: detalhesPastoSaida?.alturaSaida || '',
-        pastoEntrada: form.pastoEntrada,
-        avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
-        tempoVedacao: form.tempoVedacao,
-        pastoEntradaAreaUtil: detalhesPastoEntrada?.areaUtil || '',
-        pastoEntradaEspecie: detalhesPastoEntrada?.especie || '',
-        pastoEntradaAlturaEntrada: detalhesPastoEntrada?.alturaEntrada || '',
-        pastoEntradaAlturaSaida: detalhesPastoEntrada?.alturaSaida || '',
-        vaca: form.vaca ? Number(form.vaca) : 0,
-        touro: form.touro ? Number(form.touro) : 0,
-        boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
-        boiMagro: form.boiMagro ? Number(form.boiMagro) : 0,
-        garrote: form.garrote ? Number(form.garrote) : 0,
-        bezerro: form.bezerro ? Number(form.bezerro) : 0,
-        novilha: form.novilha ? Number(form.novilha) : 0,
-        tropa: form.tropa ? Number(form.tropa) : 0,
-        outros: form.outros ? Number(form.outros) : 0,
-        escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
-        n_cabecas: detalhesLote?.n_cabecas || 0,
-        qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
       setEditandoManejador(false)
@@ -497,7 +468,7 @@ export default function PastagensPage() {
               value={form.pastoSaida}
               onChange={set('pastoSaida')}
               error={getError('pastoSaida')}
-              options={pastosDisponiveis}
+              options={pastosDisponiveis.filter(p => p !== form.pastoEntrada)}
               placeholder="Buscar pasto..."
               id="pastoSaida"
               name="pastoSaida"
@@ -612,8 +583,8 @@ export default function PastagensPage() {
                     </p>
                     <p className="text-base text-orange-700 mt-1">
                       {diferenca > 0 
-                        ? `Faltam ${diferenca} animais para completar o lote` 
-                        : `Há ${Math.abs(diferenca)} animais a mais no lote`
+                        ? `Excedeu ${diferenca} animais do total do lote` 
+                        : `Faltam ${Math.abs(diferenca)} animais para completar o lote`
                       }
                     </p>
                   </div>

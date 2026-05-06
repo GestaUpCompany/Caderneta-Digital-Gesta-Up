@@ -270,7 +270,36 @@ export function validateEnfermaria(data: Record<string, unknown>): ValidationRes
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria'
+export function validateMorte(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.pasto))
+    errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
+  if (!isNonEmptyString(data.lote))
+    errors.push({ field: 'lote', message: 'Lote é obrigatório' })
+  if (!isNonEmptyString(data.sexo))
+    errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
+  if (!isNonEmptyString(data.raca))
+    errors.push({ field: 'raca', message: 'Raça é obrigatória' })
+  if (!isNonEmptyString(data.idade))
+    errors.push({ field: 'idade', message: 'Idade é obrigatória' })
+  if (!isNonEmptyString(data.causaMorte))
+    errors.push({ field: 'causaMorte', message: 'Causa da morte é obrigatória' })
+
+  const categoriasError = validateCategoriasNumericas(
+    data,
+    ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'],
+    'categorias',
+    'Preencha ao menos uma categoria de animal'
+  )
+  if (categoriasError) errors.push(categoriasError)
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -280,6 +309,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   bebedouros: validateBebedouros,
   movimentacao: validateMovimentacao,
   enfermaria: validateEnfermaria,
+  morte: validateMorte,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

@@ -373,34 +373,7 @@ export default function SuplementacaoPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Armazenar o registro salvo para compartilhamento
-      const dadosRegistro = {
-        data: form.data,
-        tratador: form.tratador,
-        pasto: form.pasto,
-        numeroLote: form.numeroLote,
-        produto: produtoFinal,
-        creepKg: creepKgFinal,
-        leituraCocho: form.leitura ? Number(form.leitura) : null,
-        kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
-        kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
-        categorias: categoriasString,
-        escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
-        // Checklist fields
-        limpezaCocho: form.limpezaCocho === 'Sim',
-        limpezaCochoObs: form.limpezaCochoObs || '',
-        cochosCondicoes: form.cochosCondicoes === 'Sim',
-        cochosCondicoesObs: form.cochosCondicoesObs || '',
-        aterroAcessoIdeal: form.aterroAcessoIdeal === 'Sim',
-        aterroAcessoIdealObs: form.aterroAcessoIdealObs || '',
-        espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
-        espacamentoCochoObs: form.espacamentoCochoObs || '',
-        depositoCondicoes: form.depositoCondicoes === 'Sim',
-        depositoCondicoesObs: form.depositoCondicoesObs || '',
-        estoqueDepositio: form.estoqueDepositio === 'Sim',
-        estoqueDepositioObs: form.estoqueDepositioObs || '',
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
       setSuplemento('')

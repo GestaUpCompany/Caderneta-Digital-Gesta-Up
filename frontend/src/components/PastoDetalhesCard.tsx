@@ -10,7 +10,7 @@ interface PastoDetalhesCardProps {
 }
 
 export default function PastoDetalhesCard({ detalhes, tipo, tempo }: PastoDetalhesCardProps) {
-  const altura = detalhes.alturaSaida || detalhes.alturaEntrada
+  const altura = tipo === 'saida' ? detalhes.alturaSaida : detalhes.alturaEntrada
   const alturaLabel = tipo === 'saida' ? 'ALTURA SAÍDA' : tipo === 'entrada' ? 'ALTURA ENTRADA' : 'ALTURA'
   const tempoLabel = tipo === 'saida' ? 'TEMPO OCUPAÇÃO' : tipo === 'entrada' ? 'TEMPO VEDAÇÃO' : 'TEMPO'
 

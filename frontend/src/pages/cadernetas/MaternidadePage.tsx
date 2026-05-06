@@ -226,22 +226,7 @@ export default function MaternidadePage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Armazenar o registro salvo para compartilhamento
-      const dadosRegistro = {
-        data: form.data,
-        pasto: form.pasto,
-        lote: form.lote,
-        pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
-        numeroCria: form.numeroCria,
-        tratamento: tratamentoFinal,
-        tipoParto: form.tipoParto,
-        sexo: form.sexo,
-        raca: racaFinal,
-        numeroMae: form.numeroMae,
-        categoriaMae: form.categoriaMae,
-        escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
     }

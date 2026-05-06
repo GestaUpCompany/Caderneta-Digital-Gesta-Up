@@ -376,60 +376,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         }
       })
     }
-  } else if (caderneta === 'rodeio') {
-    // Para rodeio, usar ordem específica dos formulários
-    const ordemRodeio = [
-      'data',
-      'pasto',
-      'numeroLote',
-      'vaca',
-      'touro',
-      'boiGordo',
-      'boiMagro',
-      'garrote',
-      'bezerro',
-      'novilha',
-      'tropa',
-      'outros',
-      'totalCabecas',
-      'escoreGadoIdeal',
-      'aguaBoaBebedouro',
-      'pastagemAdequada',
-      'animaisDoentes',
-      'cercasCochos',
-      'carrapatosMoscas',
-      'animaisEntrevero',
-      'animalMorto',
-      'escoreFezes',
-      'equipe'
-    ]
-    
-    ordemRodeio.forEach(key => {
-      const value = registro[key]
-      // Para campos numéricos (categorias), não incluir se for 0
-      if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
-        if (value !== null && value !== undefined && value !== '' && Number(value) > 0) {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          const valorFormatado = formatFieldValue(key, value)
-          texto += `*${label}:* ${valorFormatado}\n`
-        }
-      } else if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
-        
-        // Adicionar quebra de linha após TOTAL CABEÇAS no rodeio
-        if (caderneta === 'rodeio' && key === 'totalCabecas') {
-          texto += `\n`
-        }
-      }
-      
-      // Adicionar observação imediatamente após o campo principal
-      const obsField = `${key}Obs`
-      if (registro[obsField] && registro[obsField] !== '') {
-        texto += `*OBSERVAÇÃO:* ${registro[obsField]}\n`
-      }
-    })
   } else if (caderneta === 'enfermaria') {
     // Para enfermaria, usar ordem específica dos formulários
     const ordemEnfermaria = [
@@ -611,7 +557,54 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (registro.escoreGado) {
         texto += `*ESCORE DO GADO:* ${registro.escoreGado}\n`
       }
-      
+    } else if (caderneta === 'maternidade') {
+      // Seção: INFORMAÇÕES BÁSICAS
+      texto += `INFORMAÇÕES BÁSICAS\n`
+      if (registro.pasto) {
+        texto += `PASTO: ${registro.pasto}\n`
+      }
+      if (registro.lote) {
+        texto += `LOTE: ${registro.lote}\n`
+      }
+      texto += `\n`
+
+      // Seção: DADOS DA CRIA
+      texto += `DADOS DA CRIA\n`
+      if (registro.pesoCria) {
+        texto += `PESO CRIA: ${registro.pesoCria} kg\n`
+      }
+      if (registro.numeroCria) {
+        texto += `NÚMERO CRIA: ${registro.numeroCria}\n`
+      }
+      if (registro.sexo) {
+        texto += `SEXO: ${registro.sexo}\n`
+      }
+      if (registro.raca) {
+        texto += `RAÇA: ${registro.raca}\n`
+      }
+      texto += `\n`
+
+      // Seção: PARTO
+      texto += `PARTO\n`
+      if (registro.tipoParto) {
+        texto += `TIPO DE PARTO: ${registro.tipoParto}\n`
+      }
+      if (registro.tratamento) {
+        texto += `TRATAMENTO: ${registro.tratamento}\n`
+      }
+      texto += `\n`
+
+      // Seção: MÃE
+      texto += `MÃE\n`
+      if (registro.numeroMae) {
+        texto += `NÚMERO MÃE: ${registro.numeroMae}\n`
+      }
+      if (registro.categoriaMae) {
+        texto += `CATEGORIA MÃE: ${registro.categoriaMae}\n`
+      }
+      if (registro.escoreMatriz) {
+        texto += `ESCORE MATRIZ: ${registro.escoreMatriz}\n`
+      }
     } else {
       // Para outras cadernetas, manter o fluxo normal
       camposNormais.forEach(([key, value]) => {

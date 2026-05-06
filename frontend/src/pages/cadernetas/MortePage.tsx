@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio, CheckboxGroup } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -12,33 +12,28 @@ import { getLoteByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { supabase } from '../../services/supabaseClient'
 
-const TRATAMENTOS = [
-  { value: 'Mata Bicheira', label: 'MATA BICHEIRA' },
-  { value: 'Antibiótico', label: 'ANTIBIÓTICO' },
-  { value: 'Tiguvon', label: 'TIGUVON' },
-  { value: 'Vermífugo', label: 'VERMÍFUGO' },
-  { value: 'Anti-Tóxico', label: 'ANTI-TÓXICO' },
-  { value: 'Anti-Inflamatório', label: 'ANTI-INFLAMATÓRIO' },
-  { value: 'Soro Antiofídico', label: 'SORO ANTIOFÍDICO' },
-  { value: 'Soro Vitamínico', label: 'SORO VITAMÍNICO' },
-  { value: 'Vacina', label: 'VACINA' },
-  { value: 'Inseticida', label: 'INSETICIDA' },
-  { value: 'Complexo Vitamínico', label: 'COMPLEXO VITAMÍNICO' },
+const SEXO = [
+  { value: 'Macho', label: 'MACHO', icon: '♂️' },
+  { value: 'Fêmea', label: 'FÊMEA', icon: '♀️' },
+]
+
+const RACAS = [
+  { value: 'Nelore', label: 'NELORE' },
+  { value: 'Angus', label: 'ANGUS' },
+  { value: 'Leiteiro', label: 'LEITEIRO' },
+  { value: 'Anelorado', label: 'ANELORADO' },
+  { value: 'SRD', label: 'SRD' },
   { value: 'Outros', label: 'OUTROS' },
 ]
 
-const DIAGNOSTICOS = [
-  { campo: 'problemaCasco', label: 'PROBLEMA DE CASCO?' },
-  { campo: 'sintomasPneumonia', label: 'SINTOMAS PNEUMONIA?' },
-  { campo: 'picadoCobra', label: 'PICADO POR COBRA?' },
-  { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO E TREMORES MUSCULARES?' },
-  { campo: 'febreAlta', label: 'FEBRE ALTA?' },
-  { campo: 'presencaSangue', label: 'PRESENÇA DE SANGUE?' },
-  { campo: 'fraturas', label: 'FRATURAS?' },
-  { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS?' },
-  { campo: 'cegueira', label: 'CEGUEIRA?' },
-  { campo: 'andarCambaleante', label: 'ANDAR CAMBALEANTE?' },
+const IDADES = [
+  { value: '0 a 4 meses', label: '0 A 4 MESES' },
+  { value: '5 a 12 meses', label: '5 A 12 MESES' },
+  { value: '13 a 24 meses', label: '13 A 24 MESES' },
+  { value: '25 a 36 meses', label: '25 A 36 MESES' },
+  { value: 'Acima de 36 meses', label: 'ACIMA DE 36 MESES' },
 ]
 
 const SN_OPTIONS = [
@@ -46,59 +41,51 @@ const SN_OPTIONS = [
   { value: 'N', label: 'NÃO', icon: '❌' },
 ]
 
-const CATEGORIAS = [
-  { value: 'Vaca', label: 'VACA' },
-  { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi Gordo', label: 'BOI GORDO' },
-  { value: 'Boi Magro', label: 'BOI MAGRO' },
-  { value: 'Garrote', label: 'GARROTE' },
-  { value: 'Bezerro', label: 'BEZERRO' },
-  { value: 'Novilha', label: 'NOVILHA' },
-  { value: 'Tropa', label: 'TROPA' },
-  { value: 'Outros', label: 'OUTROS' },
+const DIAGNOSTICOS = [
+  { campo: 'secrecaoOrificios', label: 'SECREÇÃO NOS ORIFÍCIOS?' },
+  { campo: 'sintomasPneumonia', label: 'SINTOMAS PNEUMONIA?' },
+  { campo: 'inchaco', label: 'INCHAÇO?' },
+  { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO E TREMORES MUSCULARES?' },
+  { campo: 'apatiaFraqueza', label: 'APATIA OU FRAQUEZA?' },
+  { campo: 'presencaSangue', label: 'PRESENÇA DE SANGUE?' },
+  { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS?' },
 ]
-
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
-}
 
 interface FormState {
   data: string
   pasto: string
   lote: string
   brincoChip: string
-  categorias: string[]
-  outrosTexto: string
-  tratamentos: string[]
-  tratamentoOutros: string
-  problemaCasco: string
-  problemaCascoObs: string
+  vaca: string
+  touro: string
+  boiGordo: string
+  boiMagro: string
+  garrote: string
+  bezerro: string
+  novilha: string
+  tropa: string
+  outros: string
+  sexo: string
+  raca: string
+  racaOutros: string
+  idade: string
+  pesoVivo: string
+  causaMorte: string
+  causaMorteOutros: string
+  secrecaoOrificios: string
+  secrecaoOrificiosObs: string
   sintomasPneumonia: string
   sintomasPneumoniaObs: string
-  picadoCobra: string
-  picadoCobraObs: string
+  inchaco: string
+  inchacoObs: string
   incoordenacaoTremores: string
   incoordenacaoTremoresObs: string
-  febreAlta: string
-  febreAltaObs: string
+  apatiaFraqueza: string
+  apatiaFraquezaObs: string
   presencaSangue: string
   presencaSangueObs: string
-  fraturas: string
-  fraturasObs: string
   desordensDigestivas: string
   desordensDigestivasObs: string
-  cegueira: string
-  cegueiraObs: string
-  andarCambaleante: string
-  andarCambaleanteObs: string
-  observacaoTratamento: string
 }
 
 const makeInitial = (): FormState => ({
@@ -106,34 +93,39 @@ const makeInitial = (): FormState => ({
   pasto: '',
   lote: '',
   brincoChip: '',
-  categorias: [],
-  outrosTexto: '',
-  tratamentos: [],
-  tratamentoOutros: '',
-  problemaCasco: '',
-  problemaCascoObs: '',
+  vaca: '',
+  touro: '',
+  boiGordo: '',
+  boiMagro: '',
+  garrote: '',
+  bezerro: '',
+  novilha: '',
+  tropa: '',
+  outros: '',
+  sexo: '',
+  raca: '',
+  racaOutros: '',
+  idade: '',
+  pesoVivo: '',
+  causaMorte: '',
+  causaMorteOutros: '',
+  secrecaoOrificios: '',
+  secrecaoOrificiosObs: '',
   sintomasPneumonia: '',
   sintomasPneumoniaObs: '',
-  picadoCobra: '',
-  picadoCobraObs: '',
+  inchaco: '',
+  inchacoObs: '',
   incoordenacaoTremores: '',
   incoordenacaoTremoresObs: '',
-  febreAlta: '',
-  febreAltaObs: '',
+  apatiaFraqueza: '',
+  apatiaFraquezaObs: '',
   presencaSangue: '',
   presencaSangueObs: '',
-  fraturas: '',
-  fraturasObs: '',
   desordensDigestivas: '',
   desordensDigestivasObs: '',
-  cegueira: '',
-  cegueiraObs: '',
-  andarCambaleante: '',
-  andarCambaleanteObs: '',
-  observacaoTratamento: '',
 })
 
-export default function EnfermariaPage() {
+export default function MortePage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
@@ -144,30 +136,12 @@ export default function EnfermariaPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [causasMorte, setCausasMorte] = useState<{ value: string; label: string }[]>([])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
-
-  const handleCategoriasChange = (newCategorias: string[]) => {
-    setForm((prev) => ({ ...prev, categorias: newCategorias }))
-  }
-
-  const handleTratamentosChange = (newTratamentos: string[]) => {
-    if (!newTratamentos.includes('Outros')) {
-      setForm(prev => ({
-        ...prev,
-        tratamentos: newTratamentos,
-        tratamentoOutros: ''
-      }))
-    } else {
-      setForm(prev => ({
-        ...prev,
-        tratamentos: newTratamentos
-      }))
-    }
-  }
 
   // Carregar pastos e lotes do cache global
   useEffect(() => {
@@ -181,7 +155,7 @@ export default function EnfermariaPage() {
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
-      console.log('[EnfermariaPage] Cache atualizado, recarregando dados')
+      console.log('[MortePage] Cache atualizado, recarregando dados')
       if (data) {
         setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
@@ -213,57 +187,79 @@ export default function EnfermariaPage() {
     carregarDetalhesLote()
   }, [form.lote, fazendaId])
 
+  // Buscar causas de morte do Supabase
+  useEffect(() => {
+    async function carregarCausasMorte() {
+      if (!fazendaId) return
+
+      try {
+        const { data, error } = await supabase
+          .from('causas_morte')
+          .select('nome')
+          .eq('fazenda_id', fazendaId)
+          .eq('ativo', true)
+          .order('nome')
+
+        if (error) {
+          console.error('Erro ao buscar causas de morte:', error)
+          return
+        }
+
+        if (data) {
+          const causas = data.map(c => ({
+            value: c.nome,
+            label: c.nome.toUpperCase()
+          }))
+          setCausasMorte(causas)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar causas de morte:', error)
+      }
+    }
+
+    carregarCausasMorte()
+  }, [fazendaId])
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
 
-    // Construir string final de tratamentos
-    const tratamentosFinais = form.tratamentos.map(t =>
-      t === 'Outros' ? form.tratamentoOutros : t
-    ).filter(Boolean)
+    const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
+    const causaMorteFinal = form.causaMorte === 'Outros' ? form.causaMorteOutros : form.causaMorte
 
-    const tratamentoFinal = tratamentosFinais.join(', ')
-
-    // Montar categorias como string separada por vírgula
-    let categoriasArray = form.categorias.filter(c => c !== 'Outros')
-    
-    // Se "Outros" estiver selecionado e houver texto, adicionar no final
-    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
-      categoriasArray.push(`Outros: ${form.outrosTexto.trim()}`)
-    } else if (form.categorias.includes('Outros')) {
-      categoriasArray.push('Outros')
-    }
-    
-    const categoriasString = categoriasArray.join(', ')
-
-    const result = await salvarRegistro('enfermaria', {
+    const result = await salvarRegistro('morte', {
       data: form.data,
       pasto: form.pasto,
       lote: form.lote,
       brincoChip: form.brincoChip,
-      categoria: categoriasString,
-      problemaCasco: form.problemaCasco,
-      problemaCascoObs: form.problemaCascoObs,
+      vaca: form.vaca ? Number(form.vaca) : 0,
+      touro: form.touro ? Number(form.touro) : 0,
+      boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
+      boiMagro: form.boiMagro ? Number(form.boiMagro) : 0,
+      garrote: form.garrote ? Number(form.garrote) : 0,
+      bezerro: form.bezerro ? Number(form.bezerro) : 0,
+      novilha: form.novilha ? Number(form.novilha) : 0,
+      tropa: form.tropa ? Number(form.tropa) : 0,
+      outros: form.outros ? Number(form.outros) : 0,
+      sexo: form.sexo,
+      raca: racaFinal,
+      idade: form.idade,
+      pesoVivo: form.pesoVivo ? Number(form.pesoVivo) : null,
+      causaMorte: causaMorteFinal,
+      secrecaoOrificios: form.secrecaoOrificios,
+      secrecaoOrificiosObs: form.secrecaoOrificiosObs,
       sintomasPneumonia: form.sintomasPneumonia,
       sintomasPneumoniaObs: form.sintomasPneumoniaObs,
-      picadoCobra: form.picadoCobra,
-      picadoCobraObs: form.picadoCobraObs,
+      inchaco: form.inchaco,
+      inchacoObs: form.inchacoObs,
       incoordenacaoTremores: form.incoordenacaoTremores,
       incoordenacaoTremoresObs: form.incoordenacaoTremoresObs,
-      febreAlta: form.febreAlta,
-      febreAltaObs: form.febreAltaObs,
+      apatiaFraqueza: form.apatiaFraqueza,
+      apatiaFraquezaObs: form.apatiaFraquezaObs,
       presencaSangue: form.presencaSangue,
       presencaSangueObs: form.presencaSangueObs,
-      fraturas: form.fraturas,
-      fraturasObs: form.fraturasObs,
       desordensDigestivas: form.desordensDigestivas,
       desordensDigestivasObs: form.desordensDigestivasObs,
-      cegueira: form.cegueira,
-      cegueiraObs: form.cegueiraObs,
-      andarCambaleante: form.andarCambaleante,
-      andarCambaleanteObs: form.andarCambaleanteObs,
-      tratamento: tratamentoFinal,
-      observacaoTratamento: form.observacaoTratamento,
     })
 
     setSalvando(false)
@@ -298,9 +294,9 @@ export default function EnfermariaPage() {
           >
             VOLTAR
           </button>
-          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">ENFERMARIA</h1>
+          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">MORTE</h1>
           <button
-            onClick={() => navigate('/caderneta/enfermaria/lista')}
+            onClick={() => navigate('/caderneta/morte/lista')}
             className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
           >
             REGISTROS
@@ -379,7 +375,7 @@ export default function EnfermariaPage() {
             )}
           </div>
           {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={() => []} />
           )}
         </div>
 
@@ -393,31 +389,118 @@ export default function EnfermariaPage() {
             onChange={setInput('brincoChip')}
             error={getError('brincoChip')}
           />
-          <CheckboxGroup
-            label="CATEGORIAS:"
-            options={CATEGORIAS}
-            selectedValues={form.categorias}
-            onChange={handleCategoriasChange}
-            error={getError('categorias')}
+        </div>
+
+        {/* Seção 3: Quantificação de Animais */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO DE ANIMAIS</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="VACA" placeholder="0" value={form.vaca} onChange={setInput('vaca')} inputMode="numeric" type="number" />
+            <Input label="TOURO" placeholder="0" value={form.touro} onChange={setInput('touro')} inputMode="numeric" type="number" />
+            <Input label="BOI GORDO" placeholder="0" value={form.boiGordo} onChange={setInput('boiGordo')} inputMode="numeric" type="number" />
+            <Input label="BOI MAGRO" placeholder="0" value={form.boiMagro} onChange={setInput('boiMagro')} inputMode="numeric" type="number" />
+            <Input label="GARROTE" placeholder="0" value={form.garrote} onChange={setInput('garrote')} inputMode="numeric" type="number" />
+            <Input label="BEZERRO" placeholder="0" value={form.bezerro} onChange={setInput('bezerro')} inputMode="numeric" type="number" />
+            <Input label="NOVILHA" placeholder="0" value={form.novilha} onChange={setInput('novilha')} inputMode="numeric" type="number" />
+            <Input label="TROPA" placeholder="0" value={form.tropa} onChange={setInput('tropa')} inputMode="numeric" type="number" />
+            <Input label="OUTROS" placeholder="0" value={form.outros} onChange={setInput('outros')} inputMode="numeric" type="number" />
+          </div>
+        </div>
+
+        {/* Seção 4: Sexo e Raça */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. SEXO E RAÇA</h2>
+          <Radio
+            name="sexo"
+            label="SEXO"
+            options={SEXO}
+            value={form.sexo}
+            onChange={(val) => setForm((p) => ({ ...p, sexo: val }))}
+            error={getError('sexo')}
             gridCols={2}
-            hideCheckbox={true}
-            id="categorias"
-            dataField="categorias"
           />
-          {form.categorias.includes('Outros') && (
+          <Radio
+            name="raca"
+            label="RAÇA"
+            options={RACAS}
+            value={form.raca}
+            onChange={(val) => setForm((p) => ({ ...p, raca: val }))}
+            error={getError('raca')}
+            gridCols={2}
+          />
+          {form.raca === 'Outros' && (
             <Input
-              label="ESPECIFICAR OUTROS:"
-              placeholder="Descreva a categoria"
-              value={form.outrosTexto}
-              onChange={setInput('outrosTexto')}
-              error={getError('outrosTexto')}
+              label="QUAL RAÇA?"
+              placeholder="Especifique a raça"
+              value={form.racaOutros}
+              onChange={setInput('racaOutros')}
+              error={getError('racaOutros')}
             />
           )}
         </div>
 
-        {/* Seção 3: Diagnóstico */}
+        {/* Seção 5: Idade e Peso */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DIAGNÓSTICO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. IDADE E PESO</h2>
+          <Radio
+            name="idade"
+            label="IDADE"
+            options={IDADES}
+            value={form.idade}
+            onChange={(val) => setForm((p) => ({ ...p, idade: val }))}
+            error={getError('idade')}
+            gridCols={2}
+          />
+          <Input
+            label="PESO VIVO (kg)"
+            placeholder="Ex: 450"
+            value={form.pesoVivo}
+            onChange={setInput('pesoVivo')}
+            inputMode="decimal"
+            type="number"
+            error={getError('pesoVivo')}
+          />
+        </div>
+
+        {/* Seção 6: Causa da Morte */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. CAUSA DA MORTE</h2>
+          {causasMorte.length > 0 ? (
+            <SearchableModal
+              label="CAUSA DA MORTE"
+              value={form.causaMorte}
+              onChange={(val) => setForm((p) => ({ ...p, causaMorte: val }))}
+              error={getError('causaMorte')}
+              options={causasMorte.map(c => c.value)}
+              placeholder="Buscar causa da morte..."
+              id="causaMorte"
+              name="causaMorte"
+            />
+          ) : (
+            <Input
+              label="CAUSA DA MORTE"
+              placeholder="Carregando..."
+              value={form.causaMorte}
+              onChange={setInput('causaMorte')}
+              error={getError('causaMorte')}
+              disabled
+              id="causaMorte"
+            />
+          )}
+          {form.causaMorte === 'Outros' && (
+            <Input
+              label="ESPECIFIQUE A CAUSA"
+              placeholder="Descreva a causa da morte"
+              value={form.causaMorteOutros}
+              onChange={setInput('causaMorteOutros')}
+              error={getError('causaMorteOutros')}
+            />
+          )}
+        </div>
+
+        {/* Seção 7: Diagnóstico */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. DIAGNÓSTICO</h2>
           {DIAGNOSTICOS.map(({ campo, label }) => (
             <div key={campo}>
               <Radio
@@ -439,37 +522,6 @@ export default function EnfermariaPage() {
           ))}
         </div>
 
-        {/* Seção 4: Tratamento */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTO</h2>
-          <CheckboxGroup
-            label="TRATAMENTO"
-            options={TRATAMENTOS}
-            selectedValues={form.tratamentos}
-            onChange={handleTratamentosChange}
-            error={getError('tratamentos')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="tratamentos"
-            dataField="tratamentos"
-          />
-          {form.tratamentos.includes('Outros') && (
-            <Input
-              label="DESCREVA O TRATAMENTO"
-              placeholder="Ex: Outro tratamento..."
-              value={form.tratamentoOutros}
-              onChange={setInput('tratamentoOutros')}
-              error={getError('tratamentoOutros')}
-            />
-          )}
-          <Input
-            label="OBSERVAÇÃO"
-            placeholder="Detalhes adicionais (opcional)"
-            value={form.observacaoTratamento}
-            onChange={setInput('observacaoTratamento')}
-          />
-        </div>
-
         <div className="flex flex-col gap-3">
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
             SALVAR
@@ -485,9 +537,9 @@ export default function EnfermariaPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName="Enfermaria"
+        cadernetaName="Morte"
         registro={registroSalvo}
-        caderneta="enfermaria"
+        caderneta="morte"
       />
     </div>
   )
