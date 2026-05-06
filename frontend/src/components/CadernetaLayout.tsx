@@ -25,7 +25,7 @@ export default function CadernetaLayout({
   extraHeaderContent,
 }: CadernetaLayoutProps) {
   const navigate = useNavigate()
-  const { acessoId } = useSelector((state: RootState) => state.config)
+  const { acessoId, fazenda } = useSelector((state: RootState) => state.config)
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
 
   // Buscar logoUrl diretamente do banco usando acessoId
@@ -89,7 +89,7 @@ export default function CadernetaLayout({
       {showLogos && (
         <div className="bg-[#1a3a2a] text-white px-4 py-5">
           <div className="flex items-center justify-center gap-8">
-            <FarmLogo type="both" size="medium" logoUrl={logoUrl} />
+            <FarmLogo type="both" size="medium" logoUrl={logoUrl} farmName={fazenda} />
           </div>
         </div>
       )}
