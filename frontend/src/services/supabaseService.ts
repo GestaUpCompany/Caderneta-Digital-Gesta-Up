@@ -1067,6 +1067,31 @@ export async function deleteRegistroEnfermaria(id: string) {
   if (error) throw error
 }
 
+// ==================== REGISTROS CLIMA ====================
+
+export async function createRegistroClima(registro: TablesInsert['registros_clima']['Insert']) {
+  const { data, error } = await supabase
+    .from('registros_clima')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroClima(id: string, registro: TablesUpdate['registros_clima']['Update']) {
+  const { data, error } = await supabase
+    .from('registros_clima')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== REGISTROS MORTE ====================
 
 export async function createRegistroMorte(registro: TablesInsert['registros_morte']['Insert']) {

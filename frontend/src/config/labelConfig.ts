@@ -189,6 +189,13 @@ const MORTE_LABELS = {
   desordensDigestivasObs: 'OBSERVAÇÃO',
 }
 
+const CLIMA_LABELS = {
+  ...COMMON_LABELS,
+  responsavel: 'RESPONSÁVEL',
+  temperaturaMedia: 'TEMPERATURA MÉDIA (°C)',
+  observacao: 'OBSERVAÇÃO',
+}
+
 const ENTRADA_INSUMOS_LABELS = {
   dataEntrada: 'DATA DE ENTRADA',
   horario: 'HORÁRIO',
@@ -228,6 +235,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   movimentacao: MOVIMENTACAO_LABELS,
   enfermaria: ENFERMARIA_LABELS,
   morte: MORTE_LABELS,
+  clima: CLIMA_LABELS,
   'entrada-insumos': ENTRADA_INSUMOS_LABELS,
   'saida-insumos': SAIDA_INSUMOS_LABELS,
   'insumos-por-saida': INSUMOS_POR_SAIDA_LABELS,

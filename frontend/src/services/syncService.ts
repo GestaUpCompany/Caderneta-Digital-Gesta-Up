@@ -237,6 +237,14 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'quantidade' },
     ],
   },
+  clima: {
+    columns: [
+      { field: 'data' },
+      { field: 'responsavel' },
+      { field: 'temperaturaMedia' },
+      { field: 'observacao' },
+    ],
+  },
 }
 
 function getColumnValues(store: CadernetaStore, registro: Registro): (string | number | null)[] {
@@ -282,6 +290,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
   movimentacao: 'registros_movimentacao',
   enfermaria: 'registros_enfermaria',
   morte: 'registros_morte',
+  clima: 'registros_clima',
   'entrada-insumos': 'registros_entrada_insumos',
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
@@ -513,6 +522,15 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         desordens_digestivas: registro.desordensDigestivas === 'S' || registro.desordensDigestivas === 'Sim',
         desordens_digestivas_obs: registro.desordensDigestivasObs || null,
       }
+    case 'clima':
+      return {
+        ...baseData,
+        data: registro.data,
+        responsavel: registro.responsavel,
+        temperatura_media: registro.temperaturaMedia ? Number(registro.temperaturaMedia) : null,
+        observacao: registro.observacao || null,
+        medicoes: registro.medicoes || [],
+      }
     case 'entrada-insumos':
       return {
         ...baseData,
@@ -573,6 +591,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_morte':
           await supabaseService.createRegistroMorte(data)
           break
+        case 'registros_clima':
+          await supabaseService.createRegistroClima(data)
+          break
         case 'registros_entrada_insumos':
           await supabaseService.createRegistroEntradaInsumos(data)
           break
@@ -607,6 +628,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_morte':
           await supabaseService.updateRegistroMorte(supabaseId, data)
+          break
+        case 'registros_clima':
+          await supabaseService.updateRegistroClima(supabaseId, data)
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)

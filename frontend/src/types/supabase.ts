@@ -58,6 +58,44 @@ export type Database = {
           },
         ]
       }
+      pluviometros: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          fazenda_id: string
+          id: string
+          localizacao: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id: string
+          id?: string
+          localizacao: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id?: string
+          id?: string
+          localizacao?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pluviometros_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historico_limpezas_bebedouros: {
         Row: {
           bebedouro_id: string
@@ -1434,6 +1472,72 @@ export type Database = {
           },
           {
             foreignKeyName: "registros_morte_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_clima: {
+        Row: {
+          id: string
+          fazenda_id: string
+          dispositivo_id: string | null
+          nome_usuario: string | null
+          data: string
+          responsavel: string
+          temperatura_media: number | null
+          observacao: string | null
+          medicoes: Json
+          sync_status: string | null
+          version: number | null
+          created_at: string | null
+          updated_at: string | null
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          fazenda_id: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data: string
+          responsavel: string
+          temperatura_media?: number | null
+          observacao?: string | null
+          medicoes?: Json
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          fazenda_id?: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data?: string
+          responsavel?: string
+          temperatura_media?: number | null
+          observacao?: string | null
+          medicoes?: Json
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_clima_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_clima_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"

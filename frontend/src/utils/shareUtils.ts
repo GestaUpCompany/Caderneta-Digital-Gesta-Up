@@ -487,6 +487,35 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         }
       }
     })
+  } else if (caderneta === 'clima') {
+    // Para clima, usar ordem específica
+    const ordemClima = ['responsavel', 'temperaturaMedia']
+    
+    ordemClima.forEach(key => {
+      const value = registro[key]
+      if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `*${label}:* ${valorFormatado}\n`
+      }
+    })
+
+    // Adicionar medições de pluviômetros
+    if (registro.medicoes && Array.isArray(registro.medicoes)) {
+      texto += `\n`
+      registro.medicoes.forEach((m: any) => {
+        if (m.medicao !== null && m.medicao !== undefined && m.medicao !== '') {
+          const nome = m.pluviometro_nome || m.pluviometroNome || 'Pluviômetro'
+          const localizacao = m.pluviometro_localizacao || m.pluviometroLocalizacao
+          texto += `*${nome}${localizacao ? ` (${localizacao})` : ''}:* ${m.medicao} mm\n`
+        }
+      })
+    }
+
+    // Adicionar observação no final
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `\n*OBSERVAÇÃO:* ${registro.observacao}\n`
+    }
   } else if (caderneta === 'rodeio') {
     // Para rodeio, usar ordem específica dos formulários
     const ordemRodeio = [

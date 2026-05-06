@@ -160,6 +160,18 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     desordensDigestivas: Joi.string().valid('S', 'N').required(),
     desordensDigestivasObs: Joi.string().allow(''),
   }),
+  clima: Joi.object({
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    responsavel: Joi.string().required(),
+    temperaturaMedia: Joi.number().min(-50).max(60).allow(null),
+    observacao: Joi.string().allow(''),
+    medicoes: Joi.array().items(Joi.object({
+      pluviometro_id: Joi.string().required(),
+      pluviometro_nome: Joi.string().required(),
+      pluviometro_localizacao: Joi.string().allow(''),
+      medicao: Joi.number().min(0).required(),
+    })).allow(null).optional(),
+  }),
 }
 
 export function validateCaderneta(caderneta: string) {
@@ -189,7 +201,7 @@ export function validateSyncRequest(req: Request, res: Response, next: NextFunct
     planilhaUrl: Joi.string().uri().required(),
     registros: Joi.array().items(Joi.object({
       id: Joi.string().required(),
-      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte').required(),
+      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima').required(),
       operacao: Joi.string().valid('create', 'update', 'delete').required(),
       dados: Joi.object().required(),
     })).min(1).required(),

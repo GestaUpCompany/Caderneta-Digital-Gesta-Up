@@ -305,7 +305,18 @@ export function validateMorte(data: Record<string, unknown>): ValidationResult {
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte'
+export function validateClima(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.responsavel))
+    errors.push({ field: 'responsavel', message: 'Responsável é obrigatório' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -316,6 +327,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   movimentacao: validateMovimentacao,
   enfermaria: validateEnfermaria,
   morte: validateMorte,
+  clima: validateClima,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {
