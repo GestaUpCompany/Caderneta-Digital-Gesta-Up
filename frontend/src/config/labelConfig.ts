@@ -63,6 +63,7 @@ const RODEIO_LABELS = {
   novilha: 'NOVILHA',
   tropa: 'TROPA',
   outros: 'OUTROS',
+  totalCabecas: 'N° CABEÇAS',
   escoreGadoIdeal: 'ESCORE GADO IDEAL',
   escoreGadoIdealObs: 'Observação',
   aguaBoaBebedouro: 'ÁGUA BOA BEBEDOURO',
@@ -81,20 +82,21 @@ const RODEIO_LABELS = {
   animalMortoObs: 'Observação',
   escoreFezes: 'ESCORE FEZES',
   equipe: 'EQUIPE',
+  escoreGado: 'ESCORE GADO',
 }
 
 const SUPLEMENTACAO_LABELS = {
   ...COMMON_LABELS,
   tratador: 'TRATADOR',
-  numeroLote: 'NÚMERO LOTE',
-  produto: 'PRODUTO',
+  numeroLote: 'N° LOTE',
+  produto: 'SUPLEMENTO',
   gado: 'TIPO DE GADO',
   recria: 'CREEP',
   leitura: 'LEITURA DO COCHO',
   leituraCocho: 'LEITURA COCHO',
   creepKg: 'CREEP (KG)',
-  kgCocho: 'KG no cocho',
-  kgDeposito: 'KG no depósito',
+  kgCocho: 'SUPLEMENTO COCHO (KG)',
+  kgDeposito: 'SUPLEMENTO DEPÓSITO (KG)',
   sacos: 'SACOS',
   suplementoQtd: 'SUPLEMENTO/QTD',
 }

@@ -59,6 +59,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (caderneta === 'rodeio' && key === 'data') {
         return
       }
+      // Filtrar campos que não devem aparecer no texto compartilhável do rodeio
+      if (caderneta === 'rodeio' && ['n_cabecas', 'qtd_bezerros'].includes(key)) {
+        return
+      }
       // Filtrar categorias de gado com valor zero no rodeio
       if (caderneta === 'rodeio' && ['vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha'].includes(key)) {
         const numValue = Number(value)
@@ -274,8 +278,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Informações Básicas
     texto += `*TRATADOR:* ${registro.tratador || '—'}\n`
     texto += `*PASTO:* ${registro.pasto || '—'}\n`
-    texto += `*NÚMERO LOTE:* ${registro.numeroLote || '—'}\n`
-    texto += `*PRODUTO:* ${registro.produto || '—'}\n\n`
+    texto += `*N° LOTE:* ${registro.numeroLote || '—'}\n`
+    texto += `*SUPLEMENTO:* ${registro.produto || '—'}\n\n`
     
     // Seção: Categorias
     if (registro.categorias && Array.isArray(registro.categorias) && registro.categorias.length > 0) {
@@ -287,10 +291,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `*LEITURA COCHO:* ${registro.leituraCocho}\n`
     }
     if (registro.kgCocho !== null && registro.kgCocho !== undefined && registro.kgCocho !== 0) {
-      texto += `*KG no cocho:* ${registro.kgCocho}\n`
+      texto += `*SUPLEMENTO COCHO (KG):* ${registro.kgCocho}\n`
     }
     if (registro.kgDeposito !== null && registro.kgDeposito !== undefined && registro.kgDeposito !== 0) {
-      texto += `*KG no depósito:* ${registro.kgDeposito}\n`
+      texto += `*SUPLEMENTO DEPÓSITO (KG):* ${registro.kgDeposito}\n`
     }
     if (registro.escoreFezes !== null && registro.escoreFezes !== undefined && registro.escoreFezes !== '') {
       texto += `*ESCORE FEZES:* ${registro.escoreFezes}\n`
@@ -481,6 +485,65 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         }
       }
     })
+  } else if (caderneta === 'rodeio') {
+    // Para rodeio, usar ordem específica dos formulários
+    const ordemRodeio = [
+      'pasto',
+      'numeroLote',
+      'vaca',
+      'touro',
+      'boiGordo',
+      'boiMagro',
+      'garrote',
+      'bezerro',
+      'novilha',
+      'tropa',
+      'outros',
+      'totalCabecas',
+      'escoreGadoIdeal',
+      'aguaBoaBebedouro',
+      'pastagemAdequada',
+      'animaisDoentes',
+      'cercasCochos',
+      'carrapatosMoscas',
+      'animaisEntreverados',
+      'animalMorto',
+      'escoreFezes',
+      'equipe',
+      'escoreGado'
+    ]
+    
+    ordemRodeio.forEach(key => {
+      const value = registro[key]
+      // Para campos numéricos (categorias), não incluir se for 0
+      if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
+        if (value !== null && value !== undefined && value !== '' && Number(value) > 0) {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const valorFormatado = formatFieldValue(key, value)
+          texto += `*${label}:* ${valorFormatado}\n`
+        }
+      } else if (['escoreGadoIdeal', 'aguaBoaBebedouro', 'pastagemAdequada', 'animaisDoentes', 'cercasCochos', 'carrapatosMoscas', 'animaisEntreverados', 'animalMorto'].includes(key)) {
+        // Para campos booleanos de avaliação, sempre incluir mostrando Sim/Não
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = value === true ? 'Sim' : (value === false ? 'Não' : formatFieldValue(key, value))
+        texto += `*${label}:* ${valorFormatado}\n`
+        
+        // Adicionar observação imediatamente após o campo principal (apenas texto OBSERVAÇÃO)
+        const obsField = `${key}Obs`
+        if (registro[obsField] && registro[obsField] !== '') {
+          texto += `*OBSERVAÇÃO:* ${registro[obsField]}\n`
+        }
+      } else if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `*${label}:* ${valorFormatado}\n`
+        
+        // Adicionar quebra de linha após totalCabecas
+        if (key === 'totalCabecas') {
+          texto += `\n`
+        }
+      }
+    })
   } else if (caderneta === 'entrada-insumos') {
     // Para entrada de insumos, usar ordem específica dos formulários
     const ordemEntradaInsumos = [
@@ -635,43 +698,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           return // Não incluir detalhes dos pastos no texto compartilhável
         }
         
-        // Aplicar plural em categorias de animais no rodeio
-        let labelFinal = label
-        let valorFinal = valorFormatado
-        if (caderneta === 'rodeio' && ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'].includes(key)) {
-          const quantidade = Number(value) || 0
-          if (quantidade > 1) {
-            // Aplicar plural
-            if (key === 'vaca') labelFinal = 'VACAS'
-            else if (key === 'touro') labelFinal = 'TOUROS'
-            else if (key === 'bezerro') labelFinal = 'BEZERROS(AS)'
-            else if (key === 'boiGordo') labelFinal = 'BOIS GORDOS'
-            else if (key === 'boiMagro') labelFinal = 'BOIS MAGROS'
-            else if (key === 'garrote') labelFinal = 'GARROTES'
-            else if (key === 'novilha') labelFinal = 'NOVILHAS'
-            else if (key === 'tropa') labelFinal = 'TROPAS'
-            else if (key === 'outros') labelFinal = 'OUTROS'
-          } else if (quantidade === 1) {
-            // Manter singular
-            if (key === 'bezerro') labelFinal = 'BEZERRO(A)'
-          }
+        // Para rodeio, ignorar campos já tratados na ordem específica
+        if (caderneta === 'rodeio') {
+          return // Já tratado na ordem específica acima
         }
         
-        // Converter valores Sim/Não para S/N (sem interrogações)
-        if (caderneta === 'rodeio' && [
-          'escoreGadoIdeal', 'aguaBoaBebedouro', 'pastagemAdequada', 'animaisDoentes', 
-          'cercasCochos', 'carrapatosMoscas', 'animaisEntreverados', 'animalMorto'
-        ].includes(key)) {
-          if (valorFormatado === 'Sim') valorFinal = 'S'
-          if (valorFormatado === 'Não') valorFinal = 'N'
-        }
-        
-        texto += `*${labelFinal}:* ${valorFinal}\n`
-        
-        // Adicionar quebra de linha após TOTAL CABEÇAS no rodeio
-        if (caderneta === 'rodeio' && key === 'totalCabecas') {
-          texto += `\n`
-        }
+        texto += `*${label}:* ${valorFormatado}\n`
         
         // Para movimentação, adicionar campos especiais após loteOrigem
         if (caderneta === 'movimentacao' && key === 'loteOrigem' && camposMovimentacaoEspeciais.length > 0) {
