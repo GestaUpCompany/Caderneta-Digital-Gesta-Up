@@ -1657,6 +1657,8 @@ export type Database = {
           outros: boolean | null
           peso_medio_kg: number | null
           sync_status: string | null
+          tipo_entrada: string | null
+          tipo_saida: string | null
           touro: boolean | null
           tropa: boolean | null
           updated_at: string | null
@@ -1686,6 +1688,8 @@ export type Database = {
           outros?: boolean | null
           peso_medio_kg?: number | null
           sync_status?: string | null
+          tipo_entrada?: string | null
+          tipo_saida?: string | null
           touro?: boolean | null
           tropa?: boolean | null
           updated_at?: string | null
@@ -1715,6 +1719,8 @@ export type Database = {
           outros?: boolean | null
           peso_medio_kg?: number | null
           sync_status?: string | null
+          tipo_entrada?: string | null
+          tipo_saida?: string | null
           touro?: boolean | null
           tropa?: boolean | null
           updated_at?: string | null

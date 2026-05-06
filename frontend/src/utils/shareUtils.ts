@@ -187,6 +187,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.motivoMovimentacao) {
       texto += `MOTIVO: ${registro.motivoMovimentacao}\n`
     }
+    // Mostrar sub-tipo se for Saída ou Entrada
+    if (registro.motivoMovimentacao === 'Saída' && registro.tipoSaida) {
+      texto += `TIPO: ${registro.tipoSaida}\n`
+    }
+    if (registro.motivoMovimentacao === 'Entrada' && registro.tipoEntrada) {
+      texto += `TIPO: ${registro.tipoEntrada}\n`
+    }
     if (registro.loteDestino) {
       texto += `DESTINO: ${registro.loteDestino}\n`
     }

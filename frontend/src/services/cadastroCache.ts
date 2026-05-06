@@ -33,6 +33,7 @@ export interface CadastroCacheData {
   frigorificos?: string[]
   causasMorte?: string[]
   bebedouros?: string[]
+  fornecedores?: string[]
   mineral?: string[]
   proteinado?: string[]
   racao?: string[]
@@ -59,6 +60,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         frigorificos: cached[CACHE_KEYS.PASTOS_LOTES]?.frigorificos?.length || 0,
         causasMorte: cached[CACHE_KEYS.PASTOS_LOTES]?.causasMorte?.length || 0,
         bebedouros: cached[CACHE_KEYS.PASTOS_LOTES]?.bebedouros?.length || 0,
+        fornecedores: cached[CACHE_KEYS.PASTOS_LOTES]?.fornecedores?.length || 0,
         pastosDetalhes: Object.keys(cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {}).length,
         lotesDetalhes: Object.keys(cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {}).length,
         mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral?.length || 0,
@@ -73,6 +75,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         frigorificos: cached[CACHE_KEYS.PASTOS_LOTES]?.frigorificos || [],
         causasMorte: cached[CACHE_KEYS.PASTOS_LOTES]?.causasMorte || [],
         bebedouros: cached[CACHE_KEYS.PASTOS_LOTES]?.bebedouros || [],
+        fornecedores: cached[CACHE_KEYS.PASTOS_LOTES]?.fornecedores || [],
         pastosDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {},
         lotesDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {},
         mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral || [],
@@ -101,6 +104,7 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       frigorificos: data.frigorificos || [],
       causasMorte: data.causasMorte || [],
       bebedouros: data.bebedouros || [],
+      fornecedores: data.fornecedores || [],
       pastosDetalhes: data.pastosDetalhes || {},
       lotesDetalhes: data.lotesDetalhes || {},
     })
@@ -131,12 +135,13 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       // Buscar do Supabase
       console.log('[CadastroCache] Buscando dados do Supabase para fazenda:', fazendaId)
       
-      const [pastosData, lotesData, frigorificosData, causasMorteData, bebedourosData, mineralData, proteinadoData, racaoData, insumosData, dietasData] = await Promise.all([
+      const [pastosData, lotesData, frigorificosData, causasMorteData, bebedourosData, fornecedoresData, mineralData, proteinadoData, racaoData, insumosData, dietasData] = await Promise.all([
         supabaseService.getPastos(fazendaId),
         supabaseService.getLotes(fazendaId),
         supabaseService.getFrigorificos(fazendaId),
         supabaseService.getCausasMorte(fazendaId),
         supabaseService.getBebedouros(fazendaId),
+        supabaseService.getFornecedores(fazendaId),
         supabaseService.getMineral(fazendaId),
         supabaseService.getProteinado(fazendaId),
         supabaseService.getRacao(fazendaId),
@@ -149,6 +154,7 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       const frigorificos = frigorificosData?.map((f: any) => f.nome) || []
       const causasMorte = causasMorteData?.map((c: any) => c.nome) || []
       const bebedouros = bebedourosData?.map((b: any) => b.nome) || []
+      const fornecedores = fornecedoresData?.map((f: any) => f.nome) || []
       const mineral = mineralData?.map((m: any) => m.nome) || []
       const proteinado = proteinadoData?.map((p: any) => p.nome) || []
       const racao = racaoData?.map((r: any) => r.nome) || []
@@ -161,6 +167,7 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         frigorificos,
         causasMorte,
         bebedouros,
+        fornecedores,
         pastosDetalhes: {},
         lotesDetalhes: {},
         mineral,
@@ -342,6 +349,7 @@ export function getCachedCadastroData(): CadastroCacheData | null {
     frigorificos: [...(cacheData.frigorificos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     causasMorte: [...(cacheData.causasMorte || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     bebedouros: [...(cacheData.bebedouros || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    fornecedores: [...(cacheData.fornecedores || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     mineral: [...(cacheData.mineral || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     proteinado: [...(cacheData.proteinado || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     racao: [...(cacheData.racao || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),

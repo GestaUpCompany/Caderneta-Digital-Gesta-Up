@@ -525,6 +525,19 @@ export async function getFrigorificos(fazendaId: string) {
   return data
 }
 
+export async function getFornecedores(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('fornecedores')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 export async function getUltimaDataPastoEntrada(fazendaId: string, nomePasto: string): Promise<string | null> {
   const client = getSupabaseClient()
   const { data, error } = await client

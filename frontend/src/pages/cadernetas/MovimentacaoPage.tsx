@@ -15,10 +15,22 @@ import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const MOTIVOS = [
   { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
-  { value: 'Transferência', label: 'TRANSFERÊNCIA', icon: '🚚' },
+  { value: 'Saída', label: 'SAÍDA', icon: '🚚' },
   { value: 'Abate', label: 'ABATE', icon: '🏭' },
   { value: 'Entrada', label: 'ENTRADA', icon: '📥' },
   { value: 'Entrevero', label: 'ENTREVERO', icon: '🔀' },
+]
+
+const TIPO_SAIDA = [
+  { value: 'Venda', label: 'VENDA', icon: '' },
+  { value: 'Apartação', label: 'APARTAÇÃO', icon: '' },
+  { value: 'Transferência', label: 'TRANSF.', icon: '' },
+]
+
+const TIPO_ENTRADA = [
+  { value: 'Compras', label: 'COMPRAS', icon: '' },
+  { value: 'Apartação', label: 'APARTAÇÃO', icon: '' },
+  { value: 'Transferência', label: 'TRANSF.', icon: '' },
 ]
 
 const CATEGORIAS = [
@@ -52,6 +64,8 @@ interface FormState {
   numeroCabecas: string
   pesoMedio: string
   motivoMovimentacao: string
+  tipoSaida: string // Venda, Apartação, Transferência
+  tipoEntrada: string // Compras, Apartação, Transferência
   brincoChip: string
   causaObservacao: string
   categorias: string[]
@@ -66,6 +80,8 @@ const makeInitial = (): FormState => ({
   numeroCabecas: '',
   pesoMedio: '',
   motivoMovimentacao: '',
+  tipoSaida: '',
+  tipoEntrada: '',
   brincoChip: '',
   causaObservacao: '',
   categorias: [],
@@ -82,6 +98,7 @@ export default function MovimentacaoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
+  const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([])
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,20 +115,26 @@ export default function MovimentacaoPage() {
   // Lógica para definir destino automaticamente baseado no motivo
   useEffect(() => {
     if (!form.motivoMovimentacao) {
-      setForm((p) => ({ ...p, loteDestino: '' }))
+      setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
       return
     }
 
     switch (form.motivoMovimentacao) {
       case 'Consumo':
-        setForm((p) => ({ ...p, loteDestino: 'Cantina' }))
+        setForm((p) => ({ ...p, loteDestino: 'Cantina', tipoSaida: '', tipoEntrada: '' }))
         break
-      case 'Transferência':
-      case 'Abate':
+      case 'Saída':
+        // Limpar destino e tipo de saída para que o usuário selecione
+        setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
+        break
       case 'Entrada':
+        // Limpar destino e tipo de entrada para que o usuário selecione
+        setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
+        break
+      case 'Abate':
       case 'Entrevero':
         // Para esses casos, limpar o destino para que o usuário selecione
-        setForm((p) => ({ ...p, loteDestino: '' }))
+        setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
         break
       default:
         break
@@ -124,6 +147,7 @@ export default function MovimentacaoPage() {
     if (cache) {
       setLotesDisponiveis(cache.lotes || [])
       setFrigorificosDisponiveis(cache.frigorificos || [])
+      setFornecedoresDisponiveis(cache.fornecedores || [])
     }
   }, [])
 
@@ -135,6 +159,7 @@ export default function MovimentacaoPage() {
       if (data) {
         setLotesDisponiveis(data.lotes || [])
         setFrigorificosDisponiveis(data.frigorificos || [])
+        setFornecedoresDisponiveis(data.fornecedores || [])
       }
     })
 
@@ -191,6 +216,8 @@ export default function MovimentacaoPage() {
       categorias: form.categorias,
       categoria: categoriasString,
       motivoMovimentacao: form.motivoMovimentacao,
+      tipoSaida: form.tipoSaida || null,
+      tipoEntrada: form.tipoEntrada || null,
       brincoChip: form.brincoChip,
       causaObservacao: form.causaObservacao,
     })
@@ -380,36 +407,153 @@ export default function MovimentacaoPage() {
                     onChange={setInput('causaObservacao')}
                   />
                 </>
-              ) : form.motivoMovimentacao === 'Transferência' || form.motivoMovimentacao === 'Entrada' ? (
+              ) : form.motivoMovimentacao === 'Saída' ? (
                 <>
-                  {lotesDisponiveis.length > 0 ? (
-                    <SearchableModal
-                      label="SELECIONE O LOTE:"
-                      value={form.loteDestino}
-                      onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
-                      error={getError('loteDestino')}
-                      options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
-                      placeholder="Buscar lote..."
-                      id="loteDestino"
-                      name="loteDestino"
-                    />
-                  ) : (
-                    <Input
-                      label="SELECIONE O LOTE:"
-                      placeholder="Carregando..."
-                      value={form.loteDestino}
-                      onChange={setInput('loteDestino')}
-                      error={getError('loteDestino')}
-                      disabled
-                      id="loteDestino"
-                    />
-                  )}
-                  <Input
-                    label="CAUSA / OBSERVAÇÃO:"
-                    placeholder="Descreva detalhes da movimentação"
-                    value={form.causaObservacao}
-                    onChange={setInput('causaObservacao')}
+                  <Radio
+                    name="tipoSaida"
+                    options={TIPO_SAIDA}
+                    value={form.tipoSaida}
+                    onChange={(val) => setForm((p) => ({ ...p, tipoSaida: val, loteDestino: '' }))}
+                    error={getError('tipoSaida')}
+                    gridCols={3}
                   />
+                  {form.tipoSaida === 'Venda' || form.tipoSaida === 'Transferência' ? (
+                    <>
+                      {fornecedoresDisponiveis.length > 0 ? (
+                        <SearchableModal
+                          label="SELECIONE O FORNECEDOR:"
+                          value={form.loteDestino}
+                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
+                          error={getError('loteDestino')}
+                          options={fornecedoresDisponiveis}
+                          placeholder="Buscar fornecedor..."
+                          id="loteDestino"
+                          name="loteDestino"
+                        />
+                      ) : (
+                        <Input
+                          label="SELECIONE O FORNECEDOR:"
+                          placeholder="Carregando..."
+                          value={form.loteDestino}
+                          onChange={setInput('loteDestino')}
+                          error={getError('loteDestino')}
+                          disabled
+                          id="loteDestino"
+                        />
+                      )}
+                      <Input
+                        label="CAUSA / OBSERVAÇÃO:"
+                        placeholder="Descreva detalhes da movimentação"
+                        value={form.causaObservacao}
+                        onChange={setInput('causaObservacao')}
+                      />
+                    </>
+                  ) : form.tipoSaida === 'Apartação' ? (
+                    <>
+                      {lotesDisponiveis.length > 0 ? (
+                        <SearchableModal
+                          label="SELECIONE O LOTE:"
+                          value={form.loteDestino}
+                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
+                          error={getError('loteDestino')}
+                          options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
+                          placeholder="Buscar lote..."
+                          id="loteDestino"
+                          name="loteDestino"
+                        />
+                      ) : (
+                        <Input
+                          label="SELECIONE O LOTE:"
+                          placeholder="Carregando..."
+                          value={form.loteDestino}
+                          onChange={setInput('loteDestino')}
+                          error={getError('loteDestino')}
+                          disabled
+                          id="loteDestino"
+                        />
+                      )}
+                      <Input
+                        label="CAUSA / OBSERVAÇÃO:"
+                        placeholder="Descreva detalhes da movimentação"
+                        value={form.causaObservacao}
+                        onChange={setInput('causaObservacao')}
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : form.motivoMovimentacao === 'Entrada' ? (
+                <>
+                  <Radio
+                    name="tipoEntrada"
+                    options={TIPO_ENTRADA}
+                    value={form.tipoEntrada}
+                    onChange={(val) => setForm((p) => ({ ...p, tipoEntrada: val, loteDestino: '' }))}
+                    error={getError('tipoEntrada')}
+                    gridCols={3}
+                  />
+                  {form.tipoEntrada === 'Compras' ? (
+                    <>
+                      {fornecedoresDisponiveis.length > 0 ? (
+                        <SearchableModal
+                          label="SELECIONE O FORNECEDOR:"
+                          value={form.loteDestino}
+                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
+                          error={getError('loteDestino')}
+                          options={fornecedoresDisponiveis}
+                          placeholder="Buscar fornecedor..."
+                          id="loteDestino"
+                          name="loteDestino"
+                        />
+                      ) : (
+                        <Input
+                          label="SELECIONE O FORNECEDOR:"
+                          placeholder="Carregando..."
+                          value={form.loteDestino}
+                          onChange={setInput('loteDestino')}
+                          error={getError('loteDestino')}
+                          disabled
+                          id="loteDestino"
+                        />
+                      )}
+                      <Input
+                        label="CAUSA / OBSERVAÇÃO:"
+                        placeholder="Descreva detalhes da movimentação"
+                        value={form.causaObservacao}
+                        onChange={setInput('causaObservacao')}
+                      />
+                    </>
+                  ) : form.tipoEntrada === 'Apartação' || form.tipoEntrada === 'Transferência' ? (
+                    <>
+                      {lotesDisponiveis.length > 0 ? (
+                        <SearchableModal
+                          label="SELECIONE O LOTE:"
+                          value={form.loteDestino}
+                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
+                          error={getError('loteDestino')}
+                          options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
+                          placeholder="Buscar lote..."
+                          id="loteDestino"
+                          name="loteDestino"
+                        />
+                      ) : (
+                        <Input
+                          label="SELECIONE O LOTE:"
+                          placeholder="Carregando..."
+                          value={form.loteDestino}
+                          onChange={setInput('loteDestino')}
+                          error={getError('loteDestino')}
+                          disabled
+                          id="loteDestino"
+                        />
+                      )}
+                      <Input
+                        label="CAUSA / OBSERVAÇÃO:"
+                        placeholder="Descreva detalhes da movimentação"
+                        value={form.causaObservacao}
+                        onChange={setInput('causaObservacao')}
+                      />
+                    </>
+                  ) : null}
                 </>
               ) : form.motivoMovimentacao === 'Entrevero' ? (
                 <>

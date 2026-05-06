@@ -444,6 +444,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tropa: cats.includes('Tropa') || catStr.includes('Tropa'),
         outros: cats.includes('Outros') || catStr.includes('Outros'),
         motivo_movimentacao: registro.motivoMovimentacao || null,
+        tipo_saida: registro.tipoSaida || null,
+        tipo_entrada: registro.tipoEntrada || null,
         brinco_chip: registro.brincoChip || null,
         causa_observacao: registro.causaObservacao || null,
       }
