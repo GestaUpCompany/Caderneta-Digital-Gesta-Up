@@ -169,6 +169,42 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'observacaoTratamento', defaultValue: '' },
     ],
   },
+  morte: {
+    columns: [
+      { field: 'data' },
+      { field: 'pasto' },
+      { field: 'lote' },
+      { field: 'brincoChip' },
+      { field: 'vaca' },
+      { field: 'touro' },
+      { field: 'boiGordo' },
+      { field: 'boiMagro' },
+      { field: 'garrote' },
+      { field: 'bezerro' },
+      { field: 'novilha' },
+      { field: 'tropa' },
+      { field: 'outros' },
+      { field: 'sexo' },
+      { field: 'raca' },
+      { field: 'idade' },
+      { field: 'pesoVivo' },
+      { field: 'causaMorte' },
+      { field: 'secrecaoOrificios' },
+      { field: 'secrecaoOrificiosObs', defaultValue: '' },
+      { field: 'sintomasPneumonia' },
+      { field: 'sintomasPneumoniaObs', defaultValue: '' },
+      { field: 'inchaco' },
+      { field: 'inchacoObs', defaultValue: '' },
+      { field: 'incoordenacaoTremores' },
+      { field: 'incoordenacaoTremoresObs', defaultValue: '' },
+      { field: 'apatiaFraqueza' },
+      { field: 'apatiaFraquezaObs', defaultValue: '' },
+      { field: 'presencaSangue' },
+      { field: 'presencaSangueObs', defaultValue: '' },
+      { field: 'desordensDigestivas' },
+      { field: 'desordensDigestivasObs', defaultValue: '' },
+    ],
+  },
   'entrada-insumos': {
     columns: [
       { field: 'dataEntrada' },
@@ -245,9 +281,10 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
   bebedouros: 'registros_bebedouros',
   movimentacao: 'registros_movimentacao',
   enfermaria: 'registros_enfermaria',
+  morte: 'registros_morte',
   'entrada-insumos': 'registros_entrada_insumos',
   'saida-insumos': 'registros_saida_insumos',
-  'insumos-por-saida': 'registros_saida_insumos',
+  'insumos-por-saida': 'insumos_por_saida',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -409,7 +446,6 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         motivo_movimentacao: registro.motivoMovimentacao || null,
         brinco_chip: registro.brincoChip || null,
         causa_observacao: registro.causaObservacao || null,
-        causa_morte: registro.causaMorte || null,
       }
     }
     case 'enfermaria':
@@ -442,6 +478,42 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         andar_cambaleante_obs: registro.andarCambaleanteObs || null,
         tratamento: registro.tratamento || null,
         tratamento_obs: registro.observacaoTratamento || null,
+      }
+    case 'morte':
+      return {
+        ...baseData,
+        data: registro.data,
+        pasto: registro.pasto || null,
+        lote: registro.lote || null,
+        brinco_chip: registro.brincoChip || null,
+        vaca: Number(registro.vaca) || 0,
+        touro: Number(registro.touro) || 0,
+        boi_gordo: Number(registro.boiGordo) || 0,
+        boi_magro: Number(registro.boiMagro) || 0,
+        garrote: Number(registro.garrote) || 0,
+        bezerro: Number(registro.bezerro) || 0,
+        novilha: Number(registro.novilha) || 0,
+        tropa: Number(registro.tropa) || 0,
+        outros: Number(registro.outros) || 0,
+        sexo: registro.sexo || null,
+        raca: registro.raca || null,
+        idade: registro.idade || null,
+        peso_vivo: registro.pesoVivo ? Number(registro.pesoVivo) : null,
+        causa_morte: registro.causaMorte || null,
+        secrecao_orificios: registro.secrecaoOrificios === 'S' || registro.secrecaoOrificios === 'Sim',
+        secrecao_orificios_obs: registro.secrecaoOrificiosObs || null,
+        sintomas_pneumonia: registro.sintomasPneumonia === 'S' || registro.sintomasPneumonia === 'Sim',
+        sintomas_pneumonia_obs: registro.sintomasPneumoniaObs || null,
+        inchaco: registro.inchaco === 'S' || registro.inchaco === 'Sim',
+        inchaco_obs: registro.inchacoObs || null,
+        incoordenacao_tremores: registro.incoordenacaoTremores === 'S' || registro.incoordenacaoTremores === 'Sim',
+        incoordenacao_tremores_obs: registro.incoordenacaoTremoresObs || null,
+        apatia_fraqueza: registro.apatiaFraqueza === 'S' || registro.apatiaFraqueza === 'Sim',
+        apatia_fraqueza_obs: registro.apatiaFraquezaObs || null,
+        presenca_sangue: registro.presencaSangue === 'S' || registro.presencaSangue === 'Sim',
+        presenca_sangue_obs: registro.presencaSangueObs || null,
+        desordens_digestivas: registro.desordensDigestivas === 'S' || registro.desordensDigestivas === 'Sim',
+        desordens_digestivas_obs: registro.desordensDigestivasObs || null,
       }
     case 'entrada-insumos':
       return {
@@ -500,6 +572,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_enfermaria':
           await supabaseService.createRegistroEnfermaria(data)
           break
+        case 'registros_morte':
+          await supabaseService.createRegistroMorte(data)
+          break
         case 'registros_entrada_insumos':
           await supabaseService.createRegistroEntradaInsumos(data)
           break
@@ -531,6 +606,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_enfermaria':
           await supabaseService.updateRegistroEnfermaria(supabaseId, data)
+          break
+        case 'registros_morte':
+          await supabaseService.updateRegistroMorte(supabaseId, data)
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)

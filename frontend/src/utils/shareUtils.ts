@@ -91,6 +91,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (caderneta === 'enfermaria' && key.endsWith('Obs')) {
         return // Não incluir campos de observação separadamente
       }
+      // Filtrar campos de observação na morte (serão agrupados com o campo principal)
+      if (caderneta === 'morte' && key.endsWith('Obs')) {
+        return // Não incluir campos de observação separadamente
+      }
       if (caderneta === 'movimentacao') {
         // Campos de categoria individual
         if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa'].includes(key)) {
@@ -155,111 +159,80 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
 
   // Adicionar campos normais com labels em itálico
   if (caderneta === 'movimentacao') {
-    // Para movimentação, usar ordem específica dos formulários
-    const ordemMovimentacao = [
-      'data',
-      'loteOrigem',
-      'brincoChip',
-      'numeroCabecas',
-      'pesoMedio',
-      'categoria',
-      'motivoMovimentacao',
-      'causaObservacao',
-      'loteDestino'
-    ]
-    
-    ordemMovimentacao.forEach(key => {
-      const value = registro[key]
-      if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
-      }
-    })
+    // Seção: ORIGEM
+    texto += `ORIGEM\n`
+    if (registro.loteOrigem) {
+      texto += `LOTE ORIGEM: ${registro.loteOrigem}\n`
+    }
+    if (registro.brincoChip) {
+      texto += `BRINCO/CHIP: ${registro.brincoChip}\n`
+    }
+    texto += `\n`
+
+    // Seção: QUANTIFICAÇÃO
+    texto += `QUANTIFICAÇÃO\n`
+    if (registro.numeroCabecas) {
+      texto += `NÚMERO CABEÇAS: ${registro.numeroCabecas}\n`
+    }
+    if (registro.pesoMedio) {
+      texto += `PESO MÉDIO: ${registro.pesoMedio}\n`
+    }
+    if (registro.categoria) {
+      texto += `CATEGORIA: ${registro.categoria}\n`
+    }
+    texto += `\n`
+
+    // Seção: MOVIMENTAÇÃO
+    texto += `MOVIMENTAÇÃO\n`
+    if (registro.motivoMovimentacao) {
+      texto += `MOTIVO: ${registro.motivoMovimentacao}\n`
+    }
+    if (registro.loteDestino) {
+      texto += `DESTINO: ${registro.loteDestino}\n`
+    }
+    if (registro.causaObservacao) {
+      texto += `CAUSA/OBSERVAÇÃO: ${registro.causaObservacao}\n`
+    }
   } else if (caderneta === 'bebedouros') {
-    // Para bebedouros, usar ordem específica dos formulários
-    const ordemBebedouros = [
-      'data',
-      'responsavel',
-      'pasto',
-      'numeroLote',
-      'categoria',
-      'numeroBebedouro',
-      'leituraBebedouro',
-      'observacao'
+    // Para bebedouros, usar estrutura organizada por seções
+    
+    // Seção: Informações Básicas
+    texto += `*RESPONSÁVEL:* ${registro.responsavel || '—'}\n`
+    texto += `*PASTO:* ${registro.pasto || '—'}\n`
+    texto += `*NÚMERO LOTE:* ${registro.numeroLote || '—'}\n`
+    texto += `*CATEGORIA:* ${registro.categoria || '—'}\n\n`
+    
+    // Seção: Inspeção Atual
+    if (registro.numeroBebedouro) {
+      texto += `*INSPEÇÃO ATUAL*\n`
+      texto += `*NÚMERO BEBEDOURO:* ${registro.numeroBebedouro}\n`
+    }
+    if (registro.leituraBebedouro !== null && registro.leituraBebedouro !== undefined) {
+      texto += `*LEITURA BEBEDOURO:* ${registro.leituraBebedouro}\n`
+    }
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.observacao}\n`
+    }
+    
+    // Checklist fields
+    const checklistBebedouros = [
+      { campo: 'aguaSuficiente', label: 'ÁGUA SUFICIENTE' },
+      { campo: 'vazaoBebedouroIdeal', label: 'VAZÃO BEBEDOURO IDEAL' },
+      { campo: 'aterroAcessoBebedouroIdeal', label: 'ATERRO / ACESSO BEBEDOURO IDEAL' },
+      { campo: 'espacamentoBebedouroIdeal', label: 'ESPAÇAMENTO BEBEDOURO IDEAL' },
     ]
     
-    ordemBebedouros.forEach(key => {
-      const value = registro[key]
-      if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
-      }
+    // Verificar se há algum campo do checklist preenchido
+    const temChecklistBebedouros = checklistBebedouros.some(({ campo }) => {
+      return registro[campo] === true || registro[campo] === false
     })
-  } else if (caderneta === 'suplementacao') {
-    // Para suplementacao, usar ordem específica dos formulários
-    const ordemSuplementacao = [
-      'tratador',
-      'pasto',
-      'numeroLote',
-      'produto',
-      'creepKg',
-      'leituraCocho',
-      'kgCocho',
-      'kgDeposito',
-      'categorias',
-      'escoreFezes'
-    ]
     
-    ordemSuplementacao.forEach(key => {
-      const value = registro[key]
-      if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
-      }
-    })
-
-    // Adicionar checklist após categorias
-    const checklistPerguntas = [
-      { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO?' },
-      { campo: 'cochosCondicoes', label: 'OS COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
-      { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
-      { campo: 'espacamentoCochoCmCab', label: 'ESPAÇAMENTO DO COCHO' },
-      { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
-      { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO?' },
-    ]
-
-    checklistPerguntas.forEach(({ campo, label }) => {
-      if (campo === 'espacamentoCochoCmCab') {
-        // Tratamento especial para espaçamento do cocho
+    if (temChecklistBebedouros) {
+      texto += `\n*CHECKLIST*\n`
+      checklistBebedouros.forEach(({ campo, label }) => {
         const valor = registro[campo]
-        if (valor !== null && valor !== undefined && valor !== '') {
-          texto += `*${label}:* ${valor} cm/cab\n`
-          
-          // Calcular se está ideal e diferença percentual
-          const espacamentoNum = Number(valor)
-          const ESPACAMENTO_IDEAL = 40
-          const TOLERANCIA_PERCENTUAL = 5
-          const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
-          const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
-          const ideal = diferencaPercentual <= TOLERANCIA_PERCENTUAL
-          const sinal = espacamentoNum >= ESPACAMENTO_IDEAL ? '+' : '-'
-          
-          texto += `*IDEAL?* ${ideal ? 'Sim' : 'Não'} (${sinal}${diferencaPercentual.toFixed(1)}%)\n`
-        }
-        
-        // Adicionar observação do espaçamento
-        const obsValue = registro.espacamentoCochoObs
-        if (obsValue && obsValue !== '') {
-          texto += `*OBSERVAÇÃO:* ${obsValue}\n`
-        }
-      } else {
-        // Tratamento padrão para outras perguntas (Sim/Não)
-        const valor = registro[campo]
-        if (valor !== null && valor !== undefined && valor !== '') {
-          const valorFormatado = valor === true ? 'Sim' : valor === false ? 'Não' : String(valor)
+        if (valor === true || valor === false) {
+          const valorFormatado = valor ? 'Sim' : 'Não'
           texto += `*${label}:* ${valorFormatado}\n`
         }
         
@@ -269,8 +242,140 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         if (obsValue && obsValue !== '') {
           texto += `*OBSERVAÇÃO:* ${obsValue}\n`
         }
+      })
+    }
+    
+    // Seção: Histórico de Limpeza
+    if (registro.tempoDesdeLimpeza || registro.intervaloMedioLimpezas || registro.metaIntervaloLimpeza) {
+      texto += `\n*HISTÓRICO DE LIMPEZA*\n`
+      if (registro.tempoDesdeLimpeza) {
+        texto += `*TEMPO DESDE ÚLTIMA LIMPEZA:* ${registro.tempoDesdeLimpeza}\n`
       }
+      if (registro.intervaloMedioLimpezas) {
+        texto += `*INTERVALO MÉDIO DE LIMPEZAS:* ${registro.intervaloMedioLimpezas}\n`
+      }
+      if (registro.metaIntervaloLimpeza) {
+        texto += `*META DE INTERVALO:* ${registro.metaIntervaloLimpeza}\n`
+      }
+    }
+  } else if (caderneta === 'suplementacao') {
+    // Para suplementacao, usar estrutura organizada por seções
+    
+    // Seção: Informações Básicas
+    texto += `*TRATADOR:* ${registro.tratador || '—'}\n`
+    texto += `*PASTO:* ${registro.pasto || '—'}\n`
+    texto += `*NÚMERO LOTE:* ${registro.numeroLote || '—'}\n`
+    texto += `*PRODUTO:* ${registro.produto || '—'}\n\n`
+    
+    // Seção: Categorias
+    if (registro.categorias && Array.isArray(registro.categorias) && registro.categorias.length > 0) {
+      texto += `*CATEGORIAS:* ${registro.categorias.join(', ')}\n\n`
+    }
+    
+    // Seção: Leituras e Quantidades
+    if (registro.leituraCocho !== null && registro.leituraCocho !== undefined && registro.leituraCocho !== '') {
+      texto += `*LEITURA COCHO:* ${registro.leituraCocho}\n`
+    }
+    if (registro.kgCocho !== null && registro.kgCocho !== undefined && registro.kgCocho !== 0) {
+      texto += `*KG no cocho:* ${registro.kgCocho}\n`
+    }
+    if (registro.kgDeposito !== null && registro.kgDeposito !== undefined && registro.kgDeposito !== 0) {
+      texto += `*KG no depósito:* ${registro.kgDeposito}\n`
+    }
+    if (registro.escoreFezes !== null && registro.escoreFezes !== undefined && registro.escoreFezes !== '') {
+      texto += `*ESCORE FEZES:* ${registro.escoreFezes}\n`
+    }
+    
+    // Seção: Checklist Cochos
+    const checklistCochos = [
+      { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO' },
+      { campo: 'cochosCondicoes', label: 'COCHOS EM BOAS CONDIÇÕES' },
+      { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO' },
+      { campo: 'espacamentoCochoCmCab', label: 'ESPAÇAMENTO DO COCHO' },
+    ]
+    
+    // Verificar se há algum campo do checklist de cochos preenchido
+    const temChecklistCochos = checklistCochos.some(({ campo }) => {
+      if (campo === 'espacamentoCochoCmCab') {
+        return registro[campo] !== null && registro[campo] !== undefined && registro[campo] !== ''
+      }
+      return registro[campo] === true || registro[campo] === false
     })
+    
+    if (temChecklistCochos) {
+      texto += `\n*CHECKLIST COCHOS*\n`
+      
+      checklistCochos.forEach(({ campo, label }) => {
+        if (campo === 'espacamentoCochoCmCab') {
+          // Tratamento especial para espaçamento do cocho
+          const valor = registro[campo]
+          if (valor !== null && valor !== undefined && valor !== '') {
+            texto += `*${label}:* ${valor} cm/cab\n`
+            
+            // Calcular se está ideal e diferença percentual
+            const espacamentoNum = Number(valor)
+            const ESPACAMENTO_IDEAL = 40
+            const TOLERANCIA_PERCENTUAL = 5
+            const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
+            const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
+            const ideal = diferencaPercentual <= TOLERANCIA_PERCENTUAL
+            const sinal = espacamentoNum >= ESPACAMENTO_IDEAL ? '+' : '-'
+            
+            texto += `*IDEAL?* ${ideal ? 'Sim' : 'Não'} (${sinal}${diferencaPercentual.toFixed(1)}%)\n`
+          }
+          
+          // Adicionar observação do espaçamento
+          const obsValue = registro.espacamentoCochoObs
+          if (obsValue && obsValue !== '') {
+            texto += `*OBSERVAÇÃO:* ${obsValue}\n`
+          }
+        } else {
+          // Tratamento padrão para outras perguntas (Sim/Não)
+          const valor = registro[campo]
+          if (valor === true || valor === false) {
+            const valorFormatado = valor ? 'Sim' : 'Não'
+            texto += `*${label}:* ${valorFormatado}\n`
+          }
+          
+          // Adicionar observação
+          const obsField = `${campo}Obs`
+          const obsValue = registro[obsField]
+          if (obsValue && obsValue !== '') {
+            texto += `*OBSERVAÇÃO:* ${obsValue}\n`
+          }
+        }
+      })
+    }
+    
+    // Seção: Checklist Depósito
+    const checklistDeposito = [
+      { campo: 'depositoCondicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
+      { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO' },
+    ]
+    
+    // Verificar se há algum campo do checklist de depósito preenchido
+    const temChecklistDeposito = checklistDeposito.some(({ campo }) => {
+      return registro[campo] === true || registro[campo] === false
+    })
+    
+    if (temChecklistDeposito) {
+      texto += `\n*CHECKLIST DEPÓSITO*\n`
+      
+      checklistDeposito.forEach(({ campo, label }) => {
+        const valor = registro[campo]
+        if (valor === true || valor === false) {
+          const valorFormatado = valor ? 'Sim' : 'Não'
+          texto += `*${label}:* ${valorFormatado}\n`
+        }
+        
+        // Adicionar observação
+        const obsField = `${campo}Obs`
+        const obsValue = registro[obsField]
+        if (obsValue && obsValue !== '') {
+          texto += `*OBSERVAÇÃO:* ${obsValue}\n`
+        }
+      })
+    }
   } else if (caderneta === 'rodeio') {
     // Para rodeio, usar ordem específica dos formulários
     const ordemRodeio = [
@@ -322,8 +427,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       // Adicionar observação imediatamente após o campo principal
       const obsField = `${key}Obs`
       if (registro[obsField] && registro[obsField] !== '') {
-        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        texto += `*${label} - OBSERVAÇÃO:* ${registro[obsField]}\n`
+        texto += `*OBSERVAÇÃO:* ${registro[obsField]}\n`
       }
     })
   } else if (caderneta === 'enfermaria') {
@@ -358,6 +462,67 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (registro[obsField] && registro[obsField] !== '') {
         const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         texto += `*${label} - OBSERVAÇÃO:* ${registro[obsField]}\n`
+      }
+    })
+  } else if (caderneta === 'morte') {
+    // Para morte, usar ordem específica dos formulários
+    const ordemMorte = [
+      'data',
+      'pasto',
+      'lote',
+      'brincoChip',
+      'vaca',
+      'touro',
+      'boiGordo',
+      'boiMagro',
+      'garrote',
+      'bezerro',
+      'novilha',
+      'tropa',
+      'outros',
+      'sexo',
+      'raca',
+      'idade',
+      'pesoVivo',
+      'causaMorte',
+      'secrecaoOrificios',
+      'sintomasPneumonia',
+      'inchaco',
+      'incoordenacaoTremores',
+      'apatiaFraqueza',
+      'presencaSangue',
+      'desordensDigestivas'
+    ]
+    
+    ordemMorte.forEach(key => {
+      const value = registro[key]
+      // Para campos numéricos (categorias), não incluir se for 0
+      if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
+        if (value !== null && value !== undefined && value !== '' && Number(value) > 0) {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const valorFormatado = formatFieldValue(key, value)
+          texto += `*${label}:* ${valorFormatado}\n`
+        }
+      } else if (['secrecaoOrificios', 'sintomasPneumonia', 'inchaco', 'incoordenacaoTremores', 'apatiaFraqueza', 'presencaSangue', 'desordensDigestivas'].includes(key)) {
+        // Para campos booleanos de diagnóstico, sempre incluir mostrando Sim/Não
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = value === true ? 'Sim' : 'Não'
+        texto += `*${label}:* ${valorFormatado}\n`
+        
+        // Adicionar observação imediatamente após o campo principal (apenas texto OBSERVAÇÃO)
+        const obsField = `${key}Obs`
+        if (registro[obsField] && registro[obsField] !== '') {
+          texto += `*OBSERVAÇÃO:* ${registro[obsField]}\n`
+        }
+      } else if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `*${label}:* ${valorFormatado}\n`
+        
+        // Adicionar quebra de linha após causa da morte
+        if (key === 'causaMorte') {
+          texto += `\n`
+        }
       }
     })
   } else if (caderneta === 'entrada-insumos') {
@@ -557,7 +722,26 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {
       const diferenca = totalInformado - totalLote
       texto += `\n⚠️ Divergência n° cabeças: Total informado (${totalInformado}) ≠ Total lote (${totalLote})`
-      texto += `\nDiferença: ${diferenca > 0 ? `+${diferenca}` : diferenca} animais`
+      texto += `\n${diferenca > 0 ? `Excedeu ${diferenca} animais do total do lote` : `Faltam ${Math.abs(diferenca)} animais para completar o lote`}`
+    }
+  }
+
+  // Adicionar aviso de divergência de cabeças para rodeio
+  if (caderneta === 'rodeio') {
+    // Calcular total informado (soma de todas as categorias)
+    const totalInformado = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].reduce((total, key) => {
+      const value = Number(registro[key]) || 0
+      return total + value
+    }, 0)
+    
+    // Calcular total do lote (n_cabecas + qtd_bezerros)
+    const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
+    
+    // Verificar se há divergência
+    if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {
+      const diferenca = totalInformado - totalLote
+      texto += `\n⚠️ Divergência n° cabeças: Total informado (${totalInformado}) ≠ Total lote (${totalLote})`
+      texto += `\n${diferenca > 0 ? `Excedeu ${diferenca} animais do total do lote` : `Faltam ${Math.abs(diferenca)} animais para completar o lote`}`
     }
   }
 

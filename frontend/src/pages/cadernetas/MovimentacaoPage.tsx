@@ -14,7 +14,6 @@ import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const MOTIVOS = [
-  { value: 'Morte', label: 'MORTE', icon: '⚰️' },
   { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
   { value: 'Transferência', label: 'TRANSFERÊNCIA', icon: '🚚' },
   { value: 'Abate', label: 'ABATE', icon: '🏭' },
@@ -55,7 +54,6 @@ interface FormState {
   motivoMovimentacao: string
   brincoChip: string
   causaObservacao: string
-  causaMorte: string
   categorias: string[]
   outrosTexto: string
 }
@@ -70,7 +68,6 @@ const makeInitial = (): FormState => ({
   motivoMovimentacao: '',
   brincoChip: '',
   causaObservacao: '',
-  causaMorte: '',
   categorias: [],
   outrosTexto: '',
 })
@@ -85,7 +82,6 @@ export default function MovimentacaoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
-  const [causasMorte, setCausasMorte] = useState<string[]>([])
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,9 +103,6 @@ export default function MovimentacaoPage() {
     }
 
     switch (form.motivoMovimentacao) {
-      case 'Morte':
-        setForm((p) => ({ ...p, loteDestino: 'Cemitério' }))
-        break
       case 'Consumo':
         setForm((p) => ({ ...p, loteDestino: 'Cantina' }))
         break
@@ -131,7 +124,6 @@ export default function MovimentacaoPage() {
     if (cache) {
       setLotesDisponiveis(cache.lotes || [])
       setFrigorificosDisponiveis(cache.frigorificos || [])
-      setCausasMorte(cache.causasMorte || [])
     }
   }, [])
 
@@ -143,7 +135,6 @@ export default function MovimentacaoPage() {
       if (data) {
         setLotesDisponiveis(data.lotes || [])
         setFrigorificosDisponiveis(data.frigorificos || [])
-        setCausasMorte(data.causasMorte || [])
       }
     })
 
@@ -202,7 +193,6 @@ export default function MovimentacaoPage() {
       motivoMovimentacao: form.motivoMovimentacao,
       brincoChip: form.brincoChip,
       causaObservacao: form.causaObservacao,
-      causaMorte: form.causaMorte,
     })
 
     setSalvando(false)
@@ -210,20 +200,7 @@ export default function MovimentacaoPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Armazenar o registro salvo para compartilhamento
-      const dadosRegistro = {
-        data: form.data,
-        loteOrigem: form.loteOrigem,
-        loteDestino: destinoFinal,
-        numeroCabecas: form.numeroCabecas ? Number(form.numeroCabecas) : 0,
-        pesoMedio: form.pesoMedio ? Number(form.pesoMedio) : null,
-        categoria: categoriasString,
-        motivoMovimentacao: form.motivoMovimentacao,
-        brincoChip: form.brincoChip,
-        causaObservacao: form.causaObservacao,
-        causaMorte: form.causaMorte,
-      }
-      setRegistroSalvo(dadosRegistro)
+      setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
@@ -336,6 +313,15 @@ export default function MovimentacaoPage() {
               min="0"
             />
           </div>
+          {/* Identificação - apenas se for 1 cabeça */}
+          {form.numeroCabecas === '1' && (
+            <Input
+              label="BRINCO / CHIP"
+              placeholder="Ex: 2023-145"
+              value={form.brincoChip}
+              onChange={setInput('brincoChip')}
+            />
+          )}
         </div>
 
         {/* Seção 3: Motivo da Movimentação */}
@@ -351,40 +337,7 @@ export default function MovimentacaoPage() {
           />
           {form.motivoMovimentacao ? (
             <>
-              {form.motivoMovimentacao === 'Morte' ? (
-                <>
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-lg font-bold text-gray-900">DESTINO: CEMITÉRIO</p>
-                  </div>
-                  {causasMorte.length > 0 ? (
-                    <SearchableModal
-                      label="CAUSA DA MORTE *"
-                      value={form.causaMorte}
-                      onChange={(val) => setForm((p) => ({ ...p, causaMorte: val }))}
-                      error={getError('causaMorte')}
-                      options={causasMorte}
-                      placeholder="Selecione a causa..."
-                      id="causaMorte"
-                      name="causaMorte"
-                    />
-                  ) : (
-                    <Input
-                      label="CAUSA DA MORTE *"
-                      placeholder="Ex: Doença, acidente, etc."
-                      value={form.causaMorte}
-                      onChange={setInput('causaMorte')}
-                      error={getError('causaMorte')}
-                      id="causaMorte"
-                    />
-                  )}
-                  <Input
-                    label="OBSERVAÇÃO:"
-                    placeholder="Descreva detalhes da movimentação"
-                    value={form.causaObservacao}
-                    onChange={setInput('causaObservacao')}
-                  />
-                </>
-              ) : form.motivoMovimentacao === 'Consumo' ? (
+              {form.motivoMovimentacao === 'Consumo' ? (
                 <>
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-lg font-bold text-gray-900">DESTINO: CANTINA</p>
@@ -528,17 +481,6 @@ export default function MovimentacaoPage() {
               error={getError('outrosTexto')}
             />
           )}
-        </div>
-
-        {/* Seção 5: Identificação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. IDENTIFICAÇÃO</h2>
-          <Input
-            label="BRINCO / CHIP"
-            placeholder="Ex: 2023-145"
-            value={form.brincoChip}
-            onChange={setInput('brincoChip')}
-          />
         </div>
 
         <div className="flex flex-col gap-3">

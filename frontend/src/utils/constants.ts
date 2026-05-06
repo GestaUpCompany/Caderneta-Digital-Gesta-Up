@@ -73,6 +73,7 @@ export const CADERNETAS = [
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', sheetName: 'Bebedouros', disponivel: true },
   { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', sheetName: 'Movimentacao', disponivel: true },
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', sheetName: 'Enfermaria', disponivel: true },
+  { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#DC2626', sheetName: 'Morte', disponivel: true },
   { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '📥', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
   { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '📤', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
 ]
@@ -84,7 +85,7 @@ export const TIPOS_GADO = ['Cria', 'Recria', 'Engorda'] as const
 export const PRODUTOS_SUPLEMENTACAO = ['Mineral', 'Proteinado', 'Ração'] as const
 
 export const MOTIVOS_MOVIMENTACAO = [
-  'Morte', 'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entrevero',
+  'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entrevero',
 ] as const
 
 export const TIPOS_PARTO = ['Normal', 'Distócico', 'Cesárea'] as const
@@ -92,7 +93,7 @@ export const TIPOS_PARTO = ['Normal', 'Distócico', 'Cesárea'] as const
 export const SEXO_ANIMAL = ['Macho', 'Fêmea'] as const
 
 export const DB_NAME = 'cadernetas-digitais'
-export const DB_VERSION = 3
+export const DB_VERSION = 4
 
 export const MAX_RETRY_COUNT = 3
 export const SYNC_INTERVAL_MS = 30_000

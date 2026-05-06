@@ -1309,6 +1309,153 @@ export type Database = {
           },
         ]
       }
+      registros_morte: {
+        Row: {
+          id: string
+          fazenda_id: string
+          dispositivo_id: string | null
+          nome_usuario: string | null
+          data: string
+          pasto: string | null
+          lote: string | null
+          brinco_chip: string | null
+          vaca: number
+          touro: number
+          boi_gordo: number
+          boi_magro: number
+          garrote: number
+          bezerro: number
+          novilha: number
+          tropa: number
+          outros: number
+          sexo: string | null
+          raca: string | null
+          idade: string | null
+          peso_vivo: number | null
+          causa_morte: string | null
+          secrecao_orificios: boolean
+          secrecao_orificios_obs: string | null
+          sintomas_pneumonia: boolean
+          sintomas_pneumonia_obs: string | null
+          inchaco: boolean
+          inchaco_obs: string | null
+          incoordenacao_tremores: boolean
+          incoordenacao_tremores_obs: string | null
+          apatia_fraqueza: boolean
+          apatia_fraqueza_obs: string | null
+          presenca_sangue: boolean
+          presenca_sangue_obs: string | null
+          desordens_digestivas: boolean
+          desordens_digestivas_obs: string | null
+          sync_status: string | null
+          version: number | null
+          created_at: string | null
+          updated_at: string | null
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          fazenda_id: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data: string
+          pasto?: string | null
+          lote?: string | null
+          brinco_chip?: string | null
+          vaca?: number
+          touro?: number
+          boi_gordo?: number
+          boi_magro?: number
+          garrote?: number
+          bezerro?: number
+          novilha?: number
+          tropa?: number
+          outros?: number
+          sexo?: string | null
+          raca?: string | null
+          idade?: string | null
+          peso_vivo?: number | null
+          causa_morte?: string | null
+          secrecao_orificios?: boolean
+          secrecao_orificios_obs?: string | null
+          sintomas_pneumonia?: boolean
+          sintomas_pneumonia_obs?: string | null
+          inchaco?: boolean
+          inchaco_obs?: string | null
+          incoordenacao_tremores?: boolean
+          incoordenacao_tremores_obs?: string | null
+          apatia_fraqueza?: boolean
+          apatia_fraqueza_obs?: string | null
+          presenca_sangue?: boolean
+          presenca_sangue_obs?: string | null
+          desordens_digestivas?: boolean
+          desordens_digestivas_obs?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          fazenda_id?: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data?: string
+          pasto?: string | null
+          lote?: string | null
+          brinco_chip?: string | null
+          vaca?: number
+          touro?: number
+          boi_gordo?: number
+          boi_magro?: number
+          garrote?: number
+          bezerro?: number
+          novilha?: number
+          tropa?: number
+          outros?: number
+          sexo?: string | null
+          raca?: string | null
+          idade?: string | null
+          peso_vivo?: number | null
+          causa_morte?: string | null
+          secrecao_orificios?: boolean
+          secrecao_orificios_obs?: string | null
+          sintomas_pneumonia?: boolean
+          sintomas_pneumonia_obs?: string | null
+          inchaco?: boolean
+          inchaco_obs?: string | null
+          incoordenacao_tremores?: boolean
+          incoordenacao_tremores_obs?: string | null
+          apatia_fraqueza?: boolean
+          apatia_fraqueza_obs?: string | null
+          presenca_sangue?: boolean
+          presenca_sangue_obs?: string | null
+          desordens_digestivas?: boolean
+          desordens_digestivas_obs?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_morte_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_morte_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       registros_entrada_insumos: {
         Row: {
           created_at: string | null
@@ -1493,7 +1640,6 @@ export type Database = {
           boi_magro: boolean | null
           brinco_chip: string | null
           causa_observacao: string | null
-          causa_morte: string | null
           created_at: string | null
           data: string
           deleted_at: string | null
@@ -1523,7 +1669,6 @@ export type Database = {
           boi_magro?: boolean | null
           brinco_chip?: string | null
           causa_observacao?: string | null
-          causa_morte?: string | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
@@ -1553,7 +1698,6 @@ export type Database = {
           boi_magro?: boolean | null
           brinco_chip?: string | null
           causa_observacao?: string | null
-          causa_morte?: string | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null
