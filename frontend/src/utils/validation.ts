@@ -371,7 +371,31 @@ export function validateCantina(data: Record<string, unknown>): ValidationResult
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina'
+export function validateLimpeza(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isPositiveNumber(data.numeroEquipe) || Number(data.numeroEquipe) === 0)
+    errors.push({ field: 'numeroEquipe', message: 'N° Equipe deve ser maior que zero' })
+  if (!isNonEmptyString(data.setor))
+    errors.push({ field: 'setor', message: 'Setor é obrigatório' })
+  if (!isNonEmptyString(data.local))
+    errors.push({ field: 'local', message: 'Local é obrigatório' })
+  if (!isNonEmptyString(data.horaInicio))
+    errors.push({ field: 'horaInicio', message: 'Hora de início é obrigatória' })
+  if (!isNonEmptyString(data.horaFinal))
+    errors.push({ field: 'horaFinal', message: 'Hora final é obrigatória' })
+
+  // Validar pelo menos um tipo de limpeza selecionado
+  if (!data.limpezaRealizada || !Array.isArray(data.limpezaRealizada) || data.limpezaRealizada.length === 0) {
+    errors.push({ field: 'limpezaRealizada', message: 'Selecione pelo menos um tipo de limpeza realizada' })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -385,6 +409,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   clima: validateClima,
   abastecimento: validateAbastecimento,
   cantina: validateCantina,
+  limpeza: validateLimpeza,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

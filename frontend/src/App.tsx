@@ -69,6 +69,8 @@ const EntradaInsumosPage = lazy(() => import('./pages/cadernetas/EntradaInsumosP
 const EntradaInsumosListaPage = lazy(() => import('./pages/cadernetas/EntradaInsumosListaPage'))
 const SaidaInsumosPage = lazy(() => import('./pages/cadernetas/SaidaInsumosPage'))
 const SaidaInsumosListaPage = lazy(() => import('./pages/cadernetas/SaidaInsumosListaPage'))
+const LimpezaPage = lazy(() => import('./pages/cadernetas/LimpezaPage'))
+const LimpezaListaPage = lazy(() => import('./pages/cadernetas/LimpezaListaPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
@@ -324,6 +326,10 @@ function AppInner() {
             {/* Saída de Insumos */}
             <Route path="/caderneta/saida-insumos" element={<SaidaInsumosPage />} />
             <Route path="/caderneta/saida-insumos/lista" element={<SaidaInsumosListaPage />} />
+
+            {/* Limpeza */}
+            <Route path="/caderneta/limpeza" element={<LimpezaPage />} />
+            <Route path="/caderneta/limpeza/lista" element={<LimpezaListaPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

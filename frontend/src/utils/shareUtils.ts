@@ -320,6 +320,88 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.observacao && registro.observacao !== '') {
       texto += `\n*OBSERVAÇÃO:* ${registro.observacao}\n`
     }
+  } else if (caderneta === 'limpeza') {
+    // Seção: DADOS DA LIMPEZA
+    texto += `N° da Equipe: ${registro.numeroEquipe || '—'}\n`
+    texto += `Setor: ${registro.setor || '—'}\n`
+    texto += `Local: ${registro.local || '—'}\n`
+    
+    // Calcular duração se tiver hora início e fim
+    if (registro.horaInicio && registro.horaFinal) {
+      const inicio = registro.horaInicio
+      const fim = registro.horaFinal
+      texto += `Hora Início: ${inicio}\n`
+      texto += `Hora Final: ${fim}`
+      
+      // Calcular duração
+      const [h1, m1] = inicio.split(':').map(Number)
+      const [h2, m2] = fim.split(':').map(Number)
+      const minutosInicio = h1 * 60 + m1
+      const minutosFim = h2 * 60 + m2
+      let duracaoMinutos = minutosFim - minutosInicio
+      
+      // Se for negativo, assumiu que passou para o próximo dia
+      if (duracaoMinutos < 0) {
+        duracaoMinutos += 24 * 60
+      }
+      
+      const horas = Math.floor(duracaoMinutos / 60)
+      const minutos = duracaoMinutos % 60
+      texto += ` (${horas}h${minutos > 0 ? minutos.toString().padStart(2, '0') : '00'})\n`
+    } else {
+      if (registro.horaInicio) {
+        texto += `Hora Início: ${registro.horaInicio}\n`
+      }
+      if (registro.horaFinal) {
+        texto += `Hora Final: ${registro.horaFinal}\n`
+      }
+    }
+    
+    // Seção: Tipos de Limpeza
+    if (registro.limpezaRealizada && Array.isArray(registro.limpezaRealizada) && registro.limpezaRealizada.length > 0) {
+      texto += `Tipos de Limpeza: `
+      
+      // Mapear valores para labels
+      const labelMap: Record<string, string> = {
+        capina: 'Capina',
+        grama: 'Grama',
+        herbicida: 'Herbicida',
+        veiculo: 'Veículo',
+        moto: 'Moto',
+        trator: 'Trator',
+        implemento: 'Implemento',
+        barracao: 'Barracão',
+        curral: 'Curral',
+        banheiros: 'Banheiros',
+        sede: 'Sede',
+        alojamento: 'Alojamento',
+        pocilga: 'Pocilga',
+        galinheiro: 'Galinheiro',
+        aprisco: 'Aprisco',
+        baias: 'Baias',
+        tanque: 'Tanque',
+        jardins: 'Jardins',
+        oficina: 'Oficina',
+        corredores: 'Corredores',
+        aceiros: 'Aceiros',
+        entrada: 'Entrada',
+        pista: 'Pista',
+        reservatorio: 'Reservatório',
+        poda_arvores: 'Poda Árvores',
+        lixo_recolhido: 'Lixo Recolhido',
+        patio: 'Pátio',
+        rocada: 'Roçada',
+        horta: 'Horta',
+      }
+      
+      const labels = registro.limpezaRealizada.map(valor => labelMap[valor] || valor)
+      texto += `${labels.join(', ')}\n`
+    }
+    
+    // Observação
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `Observação: ${registro.observacao}\n`
+    }
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar estrutura organizada por seções
     

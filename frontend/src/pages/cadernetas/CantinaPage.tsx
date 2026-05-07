@@ -7,20 +7,23 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
-const ITENS_OPTIONS = [
-  'Arroz',
-  'Feijão',
-  'Macarrão',
-  'Traseiro',
-  'Dianteiro',
-  'Ponta Agulha',
-  'Suíno',
-  'Frango',
-  'Ovo',
-  'Carneiro',
-  'Peixe',
-  'Gás Cozinha',
-]
+// Mapeamento: label exibido -> valor armazenado no Supabase
+const ITEM_LABELS: Record<string, string> = {
+  'Arroz': 'Arroz',
+  'Feijão': 'Feijão',
+  'Macarrão': 'Macarrão',
+  'Traseiro': 'Traseiro',
+  'Dianteiro': 'Dianteiro',
+  'Ponta Ag.': 'Ponta Agulha',
+  'Suíno': 'Suíno',
+  'Frango': 'Frango',
+  'Ovo': 'Ovo',
+  'Carneiro': 'Carneiro',
+  'Peixe': 'Peixe',
+  'Gás Cozinha': 'Gás Cozinha',
+}
+
+const ITENS_OPTIONS = Object.keys(ITEM_LABELS)
 
 interface FormState {
   data: string
@@ -68,6 +71,13 @@ export default function CantinaPage() {
     setSalvando(true)
     setErrors([])
 
+    // Converter labels de exibição para valores de armazenamento
+    const itensStorage: Record<string, string> = {}
+    Object.entries(form.itens).forEach(([displayLabel, value]) => {
+      const storageKey = ITEM_LABELS[displayLabel] || displayLabel
+      itensStorage[storageKey] = value
+    })
+
     const result = await salvarRegistro('cantina', {
       data: form.data,
       numeroCozinheiras: form.numeroCozinheiras,
@@ -77,7 +87,7 @@ export default function CantinaPage() {
       numeroLanches: form.numeroLanches,
       numeroRefeicoesAlmoco: form.numeroRefeicoesAlmoco,
       numeroRefeicoesJantar: form.numeroRefeicoesJantar,
-      itens: form.itens,
+      itens: itensStorage,
       observacao: form.observacao,
     })
 

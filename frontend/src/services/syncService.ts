@@ -164,6 +164,17 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'observacao' },
     ],
   },
+  limpeza: {
+    columns: [
+      { field: 'data' },
+      { field: 'numeroEquipe' },
+      { field: 'setor' },
+      { field: 'local' },
+      { field: 'horaInicio' },
+      { field: 'horaFinal' },
+      { field: 'observacao' },
+    ],
+  },
   movimentacao: {
     columns: [
       { field: 'data' },
@@ -332,6 +343,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
   clima: 'registros_clima',
   abastecimento: 'registros_abastecimento',
   cantina: 'registros_cantina',
+  limpeza: 'registros_limpeza',
   'entrada-insumos': 'registros_entrada_insumos',
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
@@ -606,6 +618,19 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         itens: registro.itens || null,
         observacao: registro.observacao || null,
       }
+    case 'limpeza':
+      return {
+        ...baseData,
+        data: registro.data,
+        nome_usuario: registro.nomeUsuario || null,
+        numero_equipe: registro.numeroEquipe ? Number(registro.numeroEquipe) : null,
+        setor: registro.setor || null,
+        local: registro.local || null,
+        hora_inicio: registro.horaInicio || null,
+        hora_final: registro.horaFinal || null,
+        limpeza_realizada: registro.limpezaRealizada || null,
+        observacao: registro.observacao || null,
+      }
     case 'entrada-insumos':
       return {
         ...baseData,
@@ -675,6 +700,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_cantina':
           await supabaseService.createRegistroCantina(data)
           break
+        case 'registros_limpeza':
+          await supabaseService.createRegistroLimpeza(data)
+          break
         case 'registros_entrada_insumos':
           await supabaseService.createRegistroEntradaInsumos(data)
           break
@@ -718,6 +746,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_cantina':
           await supabaseService.updateRegistroCantina(supabaseId, data)
+          break
+        case 'registros_limpeza':
+          await supabaseService.updateRegistroLimpeza(supabaseId, data)
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)

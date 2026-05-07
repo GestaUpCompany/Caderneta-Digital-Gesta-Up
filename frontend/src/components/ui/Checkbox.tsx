@@ -15,9 +15,9 @@ export default function Checkbox({ label, error, className = '', ...props }: Che
           {...props}
         />
         <div className={`
-          w-10 h-10 min-w-[40px] min-h-[40px] 
-          border-2 rounded-lg bg-white 
-          peer-checked:bg-black peer-checked:border-black
+          w-10 h-10 min-w-[40px] min-h-[40px]
+          border-2 rounded-lg bg-white
+          peer-checked:bg-[#1a3a2a] peer-checked:border-[#1a3a2a]
           peer-focus:ring-4 peer-focus:ring-yellow-400
           transition-all flex items-center justify-center
           ${error ? 'border-red-500' : 'border-gray-400'}

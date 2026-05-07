@@ -17,10 +17,11 @@ export type CadernetaStore =
   | 'entrada-insumos'
   | 'saida-insumos'
   | 'insumos-por-saida'
+  | 'limpeza'
 
 const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
-  'entrada-insumos', 'saida-insumos', 'insumos-por-saida',
+  'entrada-insumos', 'saida-insumos', 'insumos-por-saida', 'limpeza',
 ]
 
 async function getDB(): Promise<IDBPDatabase> {

@@ -1164,6 +1164,60 @@ export async function updateRegistroMorte(id: string, registro: TablesUpdate<'re
   return data
 }
 
+// ==================== REGISTROS LIMPEZA ====================
+
+export async function getRegistrosLimpeza(fazendaId: string, dataInicio?: string, dataFim?: string) {
+  let query = supabase
+    .from('registros_limpeza')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+
+  if (dataInicio) {
+    query = query.gte('data', dataInicio)
+  }
+  if (dataFim) {
+    query = query.lte('data', dataFim)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+
+export async function createRegistroLimpeza(registro: TablesInsert<'registros_limpeza'>) {
+  const { data, error } = await supabase
+    .from('registros_limpeza')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroLimpeza(id: string, registro: TablesUpdate<'registros_limpeza'>) {
+  const { data, error } = await supabase
+    .from('registros_limpeza')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteRegistroLimpeza(id: string) {
+  const { error } = await supabase
+    .from('registros_limpeza')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
 export async function deleteRegistroMorte(id: string) {
   const { error } = await supabase
     .from('registros_morte')

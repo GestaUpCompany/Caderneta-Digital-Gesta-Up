@@ -35,6 +35,41 @@ const formatFieldValue = (key: string, value: unknown): string => {
   if (key === 'categorias' && Array.isArray(value)) {
     return value.join(', ')
   }
+  if (key === 'limpezaRealizada' && Array.isArray(value)) {
+    // Mapear valores para labels legíveis
+    const labelMap: Record<string, string> = {
+      capina: 'Capina',
+      grama: 'Grama',
+      herbicida: 'Herbicida',
+      veiculo: 'Veículo',
+      moto: 'Moto',
+      trator: 'Trator',
+      implemento: 'Implemento',
+      barracao: 'Barracão',
+      curral: 'Curral',
+      banheiros: 'Banheiros',
+      sede: 'Sede',
+      alojamento: 'Alojamento',
+      pocilga: 'Pocilga',
+      galinheiro: 'Galinheiro',
+      aprisco: 'Aprisco',
+      baias: 'Baias',
+      tanque: 'Tanque',
+      jardins: 'Jardins',
+      oficina: 'Oficina',
+      corredores: 'Corredores',
+      aceiros: 'Aceiros',
+      entrada: 'Entrada',
+      pista: 'Pista',
+      reservatorio: 'Reservatório',
+      poda_arvores: 'Poda Árvores',
+      lixo_recolhido: 'Lixo Recolhido',
+      patio: 'Pátio',
+      rocada: 'Roçada',
+      horta: 'Horta',
+    }
+    return value.map(v => labelMap[v as string] || v as string).join(', ')
+  }
   return valueStr
 }
 
@@ -554,6 +589,24 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                           }
                         })
                       }
+                    } else if (caderneta === 'limpeza') {
+                      // Para limpeza, usar ordem específica dos formulários
+                      const ordemLimpeza = [
+                        'numeroEquipe',
+                        'setor',
+                        'local',
+                        'horaInicio',
+                        'horaFinal',
+                        'limpezaRealizada',
+                        'observacao'
+                      ]
+                      
+                      ordemLimpeza.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
                     } else {
                       Object.entries(registro).forEach(([key, value]) => {
                         if (

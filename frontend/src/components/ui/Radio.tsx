@@ -52,8 +52,8 @@ export default function Radio({
                 transition-all active:scale-95
                 flex flex-col items-center justify-center gap-1
                 ${isCompact ? 'p-2 min-h-[70px]' : 'p-3 sm:p-4 min-h-[70px] sm:min-h-[80px]'}
-                ${isSelected 
-                  ? 'bg-black text-white border-black' 
+                ${isSelected
+                  ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
                   : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'
                 }
                 ${error && !isSelected ? 'border-red-300' : ''}

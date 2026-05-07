@@ -79,7 +79,7 @@ export default function CheckboxGroup({
                 }
                 ${isCompact ? 'p-2 min-h-[70px]' : hideCheckbox ? 'p-3 sm:p-4 min-h-[70px] sm:min-h-[80px]' : 'min-h-[60px]'}
                 ${isSelected
-                  ? 'bg-black text-white border-black'
+                  ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
                   : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'
                 }
                 ${error ? 'border-red-500' : ''}
@@ -98,7 +98,7 @@ export default function CheckboxGroup({
                 `}>
                   {isSelected && (
                     <svg
-                      className="w-4 h-4 text-black"
+                      className="w-4 h-4 text-[#1a3a2a]"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"

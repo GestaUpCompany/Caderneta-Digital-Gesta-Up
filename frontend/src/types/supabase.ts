@@ -2466,6 +2466,81 @@ export type Database = {
           },
         ]
       }
+      registros_limpeza: {
+        Row: {
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          hora_final: string | null
+          hora_inicio: string | null
+          id: string
+          limpeza_realizada: Json | null
+          local: string | null
+          nome_usuario: string | null
+          numero_equipe: number | null
+          observacao: string | null
+          setor: string | null
+          sync_status: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          hora_final?: string | null
+          hora_inicio?: string | null
+          id?: string
+          limpeza_realizada?: Json | null
+          local?: string | null
+          nome_usuario?: string | null
+          numero_equipe?: number | null
+          observacao?: string | null
+          setor?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          hora_final?: string | null
+          hora_inicio?: string | null
+          id?: string
+          limpeza_realizada?: Json | null
+          local?: string | null
+          nome_usuario?: string | null
+          numero_equipe?: number | null
+          observacao?: string | null
+          setor?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_limpeza_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_limpeza_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_queue: {
         Row: {
           created_at: string | null

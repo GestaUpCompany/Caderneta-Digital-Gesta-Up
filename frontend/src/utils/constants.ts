@@ -77,7 +77,8 @@ export const CADERNETAS = [
   { id: 'clima', label: 'CLIMA', emoji: '🌤️', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', sheetName: 'Clima', disponivel: true },
   { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#10b981', sheetName: 'Abastecimento', disponivel: true },
   { id: 'cantina', label: 'CANTINA', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#f59e0b', sheetName: 'Cantina', disponivel: true },
-  { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '📥', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
+  { id: 'limpeza', label: 'LIMPEZA', emoji: '🧹', icon: `${BASE}cadernetas/limpeza.png`, color: '#8B5CF6', sheetName: 'Limpeza', disponivel: true },
+  { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '�', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
   { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '📤', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
 ]
 
@@ -96,7 +97,7 @@ export const TIPOS_PARTO = ['Normal', 'Distócico', 'Cesárea'] as const
 export const SEXO_ANIMAL = ['Macho', 'Fêmea'] as const
 
 export const DB_NAME = 'cadernetas-digitais'
-export const DB_VERSION = 7
+export const DB_VERSION = 8
 
 export const MAX_RETRY_COUNT = 3
 export const SYNC_INTERVAL_MS = 30_000
