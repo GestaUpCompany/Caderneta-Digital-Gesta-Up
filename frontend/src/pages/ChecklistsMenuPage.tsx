@@ -28,32 +28,7 @@ export default function ChecklistsMenuPage() {
     setRecentChecklists(getRecentChecklists())
   }, [])
 
-  const menuItems: any[] = [
-    {
-      id: 'bebedouros',
-      label: 'BEBEDOUROS',
-      emoji: '💧',
-      icon: '/cadernetas/bebedouros.png',
-      color: '#3b82f6',
-      path: '/caderneta/bebedouros',
-    },
-    {
-      id: 'abastecimento',
-      label: 'ABASTECIMENTO',
-      emoji: '⛽',
-      icon: '/cadernetas/abastecimento.png',
-      color: '#10b981',
-      path: '/caderneta/abastecimento',
-    },
-    {
-      id: 'cantina',
-      label: 'CANTINA',
-      emoji: '🍽️',
-      icon: '/cadernetas/cantina.png',
-      color: '#f59e0b',
-      path: '/caderneta/cantina',
-    },
-  ]
+  const menuItems: any[] = []
 
   const filteredItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchTerm.toLowerCase())

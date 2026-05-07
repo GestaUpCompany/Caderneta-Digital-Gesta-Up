@@ -78,8 +78,8 @@ export const CADERNETAS = [
   { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', sheetName: 'Abastecimento', disponivel: true },
   { id: 'cantina', label: 'CANTINA', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', sheetName: 'Cantina', disponivel: true },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '🧹', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', sheetName: 'Limpeza', disponivel: true },
-  { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '�', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
-  { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '📤', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
+  { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: false },
+  { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '📤', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: false },
 ]
 
 export const CATEGORIAS_ANIMAL = ['Vaca', 'Touro', 'Boi', 'Bezerro', 'Garrote', 'Novilha'] as const
