@@ -127,66 +127,63 @@ export default function AbastecimentoPage() {
   }
 
   return (
-    <>
-      <CadernetaLayout title="ABASTECIMENTO" cadernetaId="abastecimento">
-        {errors.length > 0 && <ValidationMessage errors={errors} />}
+    <CadernetaLayout title="ABASTECIMENTO" cadernetaId="abastecimento">
+      {errors.length > 0 && <ValidationMessage errors={errors} />}
+      {/* Seção 1: Dados Principais */}
+      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
+        <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
+        <Input label="QUEM ABASTECEU?" placeholder="Nome de quem abasteceu" value={form.quemAbasteceu} onChange={setInput('quemAbasteceu')} error={getError('quemAbasteceu')} />
+        <Input label="OPERADOR MOTORISTA?" placeholder="Nome do operador/motorista" value={form.operadorMotorista} onChange={setInput('operadorMotorista')} error={getError('operadorMotorista')} />
+        <Input label="VEÍCULO TRATOR?" placeholder="Modelo do veículo/trator" value={form.veiculoTrator} onChange={setInput('veiculoTrator')} error={getError('veiculoTrator')} />
+        <Input label="PLACA?" placeholder="Placa do veículo" value={form.placa} onChange={setInput('placa')} error={getError('placa')} />
+        <Input label="HIDRÔMETRO INICIAL?" placeholder="Leitura inicial" value={form.hidrometroInicial} onChange={setInput('hidrometroInicial')} error={getError('hidrometroInicial')} />
+        <Input label="HIDRÔMETRO FINAL?" placeholder="Leitura final" value={form.hidrometroFinal} onChange={setInput('hidrometroFinal')} error={getError('hidrometroFinal')} />
+        <Input label="TOTAL ABASTECIDO (L)" placeholder="Calculado automaticamente" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} readOnly />
+      </div>
 
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
-          <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
-          <Input label="QUEM ABASTECEU?" placeholder="Nome de quem abasteceu" value={form.quemAbasteceu} onChange={setInput('quemAbasteceu')} error={getError('quemAbasteceu')} />
-          <Input label="OPERADOR MOTORISTA?" placeholder="Nome do operador/motorista" value={form.operadorMotorista} onChange={setInput('operadorMotorista')} error={getError('operadorMotorista')} />
-          <Input label="VEÍCULO TRATOR?" placeholder="Modelo do veículo/trator" value={form.veiculoTrator} onChange={setInput('veiculoTrator')} error={getError('veiculoTrator')} />
-          <Input label="PLACA?" placeholder="Placa do veículo" value={form.placa} onChange={setInput('placa')} error={getError('placa')} />
-          <Input label="HIDRÔMETRO INICIAL?" placeholder="Leitura inicial" value={form.hidrometroInicial} onChange={setInput('hidrometroInicial')} error={getError('hidrometroInicial')} />
-          <Input label="HIDRÔMETRO FINAL?" placeholder="Leitura final" value={form.hidrometroFinal} onChange={setInput('hidrometroFinal')} error={getError('hidrometroFinal')} />
-          <Input label="TOTAL ABASTECIDO (L)" placeholder="Calculado automaticamente" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} readOnly />
-        </div>
+      {/* Seção 2: Combustível e Operação */}
+      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. COMBUSTÍVEL E OPERAÇÃO</h2>
+        <Radio
+          name="combustivel"
+          label="COMBUSTÍVEL?"
+          options={COMBUSTIVEL_OPTIONS}
+          value={form.combustivel}
+          onChange={(val) => setForm((prev) => ({ ...prev, combustivel: val }))}
+          error={getError('combustivel')}
+          gridCols={2}
+        />
+        <Input label="ODÔMETRO?" placeholder="Leitura do odômetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} />
+        <Radio
+          name="tipoOperacao"
+          label="TIPO DE OPERAÇÃO?"
+          options={OPERACAO_OPTIONS}
+          value={form.tipoOperacao}
+          onChange={(val) => setForm((prev) => ({ ...prev, tipoOperacao: val }))}
+          error={getError('tipoOperacao')}
+          gridCols={2}
+        />
+      </div>
 
-        {/* Seção 2: Combustível e Operação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. COMBUSTÍVEL E OPERAÇÃO</h2>
-          <Radio
-            name="combustivel"
-            label="COMBUSTÍVEL?"
-            options={COMBUSTIVEL_OPTIONS}
-            value={form.combustivel}
-            onChange={(val) => setForm((prev) => ({ ...prev, combustivel: val }))}
-            error={getError('combustivel')}
-            gridCols={2}
-          />
-          <Input label="ODÔMETRO?" placeholder="Leitura do odômetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} />
-          <Radio
-            name="tipoOperacao"
-            label="TIPO DE OPERAÇÃO?"
-            options={OPERACAO_OPTIONS}
-            value={form.tipoOperacao}
-            onChange={(val) => setForm((prev) => ({ ...prev, tipoOperacao: val }))}
-            error={getError('tipoOperacao')}
-            gridCols={2}
-          />
-        </div>
+      {/* Seção 3: Observação */}
+      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÃO</h2>
+        <Input
+          placeholder="Detalhes adicionais (opcional)"
+          value={form.observacao}
+          onChange={setInput('observacao')}
+        />
+      </div>
 
-        {/* Seção 3: Observação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÃO</h2>
-          <Input
-            placeholder="Detalhes adicionais (opcional)"
-            value={form.observacao}
-            onChange={setInput('observacao')}
-          />
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
-            SALVAR REGISTRO
-          </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
-            LIMPAR
-          </Button>
-        </div>
-      </CadernetaLayout>
+      <div className="flex flex-col gap-3">
+        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          SALVAR REGISTRO
+        </Button>
+        <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          LIMPAR
+        </Button>
+      </div>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -197,6 +194,6 @@ export default function AbastecimentoPage() {
         registro={registroSalvo}
         caderneta="abastecimento"
       />
-    </>
+    </CadernetaLayout>
   )
 }

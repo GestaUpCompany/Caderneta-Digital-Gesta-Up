@@ -151,6 +151,19 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'observacao' },
     ],
   },
+  cantina: {
+    columns: [
+      { field: 'data' },
+      { field: 'numeroCozinheiras' },
+      { field: 'quemCozinhou' },
+      { field: 'quemAjudou' },
+      { field: 'numeroCafeManha' },
+      { field: 'numeroLanches' },
+      { field: 'numeroRefeicoesAlmoco' },
+      { field: 'numeroRefeicoesJantar' },
+      { field: 'observacao' },
+    ],
+  },
   movimentacao: {
     columns: [
       { field: 'data' },
@@ -318,6 +331,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
   morte: 'registros_morte',
   clima: 'registros_clima',
   abastecimento: 'registros_abastecimento',
+  cantina: 'registros_cantina',
   'entrada-insumos': 'registros_entrada_insumos',
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
@@ -577,6 +591,21 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo_operacao: registro.tipoOperacao || null,
         observacao: registro.observacao || null,
       }
+    case 'cantina':
+      return {
+        ...baseData,
+        data: registro.data,
+        nome_usuario: registro.nomeUsuario || null,
+        numero_cozinheiras: registro.numeroCozinheiras ? Number(registro.numeroCozinheiras) : null,
+        quem_cozinhou: registro.quemCozinhou || null,
+        quem_ajudou: registro.quemAjudou || null,
+        numero_cafe_manha: registro.numeroCafeManha ? Number(registro.numeroCafeManha) : null,
+        numero_lanches: registro.numeroLanches ? Number(registro.numeroLanches) : null,
+        numero_refeicoes_almoco: registro.numeroRefeicoesAlmoco ? Number(registro.numeroRefeicoesAlmoco) : null,
+        numero_refeicoes_jantar: registro.numeroRefeicoesJantar ? Number(registro.numeroRefeicoesJantar) : null,
+        itens: registro.itens || null,
+        observacao: registro.observacao || null,
+      }
     case 'entrada-insumos':
       return {
         ...baseData,
@@ -643,6 +672,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_abastecimento':
           await supabaseService.createRegistroAbastecimento(data)
           break
+        case 'registros_cantina':
+          await supabaseService.createRegistroCantina(data)
+          break
         case 'registros_entrada_insumos':
           await supabaseService.createRegistroEntradaInsumos(data)
           break
@@ -683,6 +715,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_abastecimento':
           await supabaseService.updateRegistroAbastecimento(supabaseId, data)
+          break
+        case 'registros_cantina':
+          await supabaseService.updateRegistroCantina(supabaseId, data)
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)

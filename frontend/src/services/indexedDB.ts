@@ -13,12 +13,13 @@ export type CadernetaStore =
   | 'morte'
   | 'clima'
   | 'abastecimento'
+  | 'cantina'
   | 'entrada-insumos'
   | 'saida-insumos'
   | 'insumos-por-saida'
 
 const STORES: CadernetaStore[] = [
-  'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento',
+  'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
   'entrada-insumos', 'saida-insumos', 'insumos-por-saida',
 ]
 

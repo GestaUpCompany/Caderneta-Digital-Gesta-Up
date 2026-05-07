@@ -45,6 +45,14 @@ export default function ChecklistsMenuPage() {
       color: '#10b981',
       path: '/caderneta/abastecimento',
     },
+    {
+      id: 'cantina',
+      label: 'CANTINA',
+      emoji: '🍽️',
+      icon: '/cadernetas/cantina.png',
+      color: '#f59e0b',
+      path: '/caderneta/cantina',
+    },
   ]
 
   const filteredItems = menuItems.filter(item =>

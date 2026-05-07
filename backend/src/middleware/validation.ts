@@ -189,6 +189,31 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     tipoOperacao: Joi.string().valid('Nutrição', 'Pulverização', 'Gradagem', 'Fertilização/Correção', 'Limpeza', 'Niveladora', 'Rodagem', 'Manutenção', 'Plantio', 'Esterco', 'Colheita', 'Compactação', 'Roçada', 'Serviços Gerais', 'Terraplanagem').required(),
     observacao: Joi.string().allow(''),
   }),
+
+  cantina: Joi.object({
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    numeroCozinheiras: Joi.number().min(0).required(),
+    quemCozinhou: Joi.string().required(),
+    quemAjudou: Joi.string().allow(''),
+    numeroCafeManha: Joi.number().min(0).allow(''),
+    numeroLanches: Joi.number().min(0).allow(''),
+    numeroRefeicoesAlmoco: Joi.number().min(0).allow(''),
+    numeroRefeicoesJantar: Joi.number().min(0).allow(''),
+    itens: Joi.object().custom((value) => {
+      if (!value || typeof value !== 'object') {
+        throw new Error('Preencha pelo menos um item')
+      }
+      const valores = Object.values(value)
+      const algumPreenchido = valores.some(
+        (v: any) => v !== null && v !== undefined && v !== '' && Number(v) > 0
+      )
+      if (!algumPreenchido) {
+        throw new Error('Preencha pelo menos um item')
+      }
+      return value
+    }).required(),
+    observacao: Joi.string().allow(''),
+  }),
 }
 
 export function validateCaderneta(caderneta: string) {
@@ -218,7 +243,7 @@ export function validateSyncRequest(req: Request, res: Response, next: NextFunct
     planilhaUrl: Joi.string().uri().required(),
     registros: Joi.array().items(Joi.object({
       id: Joi.string().required(),
-      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima', 'abastecimento').required(),
+      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima', 'abastecimento', 'cantina').required(),
       operacao: Joi.string().valid('create', 'update', 'delete').required(),
       dados: Joi.object().required(),
     })).min(1).required(),

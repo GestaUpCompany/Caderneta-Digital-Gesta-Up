@@ -136,6 +136,18 @@ const ABASTECIMENTO_LABELS = {
   observacao: 'OBSERVAÇÃO',
 }
 
+const CANTINA_LABELS = {
+  ...COMMON_LABELS,
+  numeroCozinheiras: 'N° COZINHEIRAS',
+  quemCozinhou: 'QUEM COZINHOU',
+  quemAjudou: 'QUEM AJUDOU',
+  numeroCafeManha: 'N° CAFÉ DA MANHÃ',
+  numeroLanches: 'N° LANCHES',
+  numeroRefeicoesAlmoco: 'N° REFEIÇÕES ALMOÇO',
+  numeroRefeicoesJantar: 'N° REFEIÇÕES JANTAR',
+  observacao: 'OBSERVAÇÃO',
+}
+
 const MOVIMENTACAO_LABELS = {
   ...COMMON_LABELS,
   loteOrigem: 'LOTE ORIGEM',
@@ -258,6 +270,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   suplementacao: SUPLEMENTACAO_LABELS,
   bebedouros: BEBEDOUROS_LABELS,
   abastecimento: ABASTECIMENTO_LABELS,
+  cantina: CANTINA_LABELS,
   movimentacao: MOVIMENTACAO_LABELS,
   enfermaria: ENFERMARIA_LABELS,
   morte: MORTE_LABELS,

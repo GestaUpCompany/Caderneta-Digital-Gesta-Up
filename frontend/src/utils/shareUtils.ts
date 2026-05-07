@@ -288,6 +288,38 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.observacao && registro.observacao !== '') {
       texto += `*OBSERVAÇÃO:* ${registro.observacao}\n`
     }
+  } else if (caderneta === 'cantina') {
+    // Seção: DADOS DA CANTINA
+    texto += `*DADOS DA CANTINA*\n`
+    texto += `*N° COZINHEIRAS:* ${registro.numeroCozinheiras || '—'}\n`
+    texto += `*QUEM COZINHOU:* ${registro.quemCozinhou || '—'}\n`
+    texto += `*QUEM AJUDOU:* ${registro.quemAjudou || '—'}\n\n`
+    
+    // Seção: REFEIÇÕES
+    texto += `*REFEIÇÕES*\n`
+    texto += `*N° CAFÉ DA MANHÃ:* ${registro.numeroCafeManha || '—'}\n`
+    texto += `*N° LANCHES:* ${registro.numeroLanches || '—'}\n`
+    texto += `*N° REFEIÇÕES ALMOÇO:* ${registro.numeroRefeicoesAlmoco || '—'}\n`
+    texto += `*N° REFEIÇÕES JANTAR:* ${registro.numeroRefeicoesJantar || '—'}\n\n`
+    
+    // Seção: ITENS
+    if (registro.itens && typeof registro.itens === 'object') {
+      const itens = registro.itens as Record<string, unknown>
+      const itensPreenchidos = Object.entries(itens).filter(([_, valor]) => 
+        valor !== null && valor !== undefined && valor !== '' && Number(valor) > 0
+      )
+      
+      if (itensPreenchidos.length > 0) {
+        texto += `*ITENS*\n`
+        itensPreenchidos.forEach(([nome, valor]) => {
+          texto += `*${nome.toUpperCase()}:* ${valor}\n`
+        })
+      }
+    }
+    
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `\n*OBSERVAÇÃO:* ${registro.observacao}\n`
+    }
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar estrutura organizada por seções
     

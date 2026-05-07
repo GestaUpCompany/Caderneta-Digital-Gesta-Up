@@ -345,7 +345,33 @@ export function validateAbastecimento(data: Record<string, unknown>): Validation
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento'
+export function validateCantina(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isPositiveNumber(data.numeroCozinheiras) || Number(data.numeroCozinheiras) === 0)
+    errors.push({ field: 'numeroCozinheiras', message: 'N° Cozinheiras deve ser maior que zero' })
+  if (!isNonEmptyString(data.quemCozinhou))
+    errors.push({ field: 'quemCozinhou', message: 'Quem cozinhou é obrigatório' })
+
+  // Validar pelo menos um item preenchido
+  if (data.itens && typeof data.itens === 'object') {
+    const itens = data.itens as Record<string, unknown>
+    const algumItemPreenchido = Object.values(itens).some(
+      (valor) => valor !== null && valor !== undefined && valor !== '' && Number(valor) > 0
+    )
+    if (!algumItemPreenchido) {
+      errors.push({ field: 'itens', message: 'Preencha pelo menos um item' })
+    }
+  } else {
+    errors.push({ field: 'itens', message: 'Preencha pelo menos um item' })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -358,6 +384,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   morte: validateMorte,
   clima: validateClima,
   abastecimento: validateAbastecimento,
+  cantina: validateCantina,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

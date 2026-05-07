@@ -525,6 +525,35 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                           camposNormais.push([obsField, registro[obsField]])
                         }
                       })
+                    } else if (caderneta === 'cantina') {
+                      // Para cantina, usar ordem específica dos formulários
+                      const ordemCantina = [
+                        'numeroCozinheiras',
+                        'quemCozinhou',
+                        'quemAjudou',
+                        'numeroCafeManha',
+                        'numeroLanches',
+                        'numeroRefeicoesAlmoco',
+                        'numeroRefeicoesJantar',
+                        'observacao'
+                      ]
+                      
+                      ordemCantina.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
+                      
+                      // Adicionar itens preenchidos
+                      if (registro.itens && typeof registro.itens === 'object') {
+                        const itens = registro.itens as Record<string, unknown>
+                        Object.entries(itens).forEach(([nome, valor]) => {
+                          if (valor !== null && valor !== undefined && valor !== '' && Number(valor) > 0) {
+                            camposNormais.push([nome, valor])
+                          }
+                        })
+                      }
                     } else {
                       Object.entries(registro).forEach(([key, value]) => {
                         if (

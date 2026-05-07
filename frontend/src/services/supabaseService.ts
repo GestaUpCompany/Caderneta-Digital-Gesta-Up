@@ -1117,6 +1117,31 @@ export async function updateRegistroAbastecimento(id: string, registro: TablesUp
   return data
 }
 
+// ==================== REGISTROS CANTINA ====================
+
+export async function createRegistroCantina(registro: TablesInsert<'registros_cantina'>) {
+  const { data, error } = await supabase
+    .from('registros_cantina')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroCantina(id: string, registro: TablesUpdate<'registros_cantina'>) {
+  const { data, error } = await supabase
+    .from('registros_cantina')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== REGISTROS MORTE ====================
 
 export async function createRegistroMorte(registro: TablesInsert['registros_morte']['Insert']) {
