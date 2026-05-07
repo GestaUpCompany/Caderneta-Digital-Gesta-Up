@@ -274,6 +274,20 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         texto += `*META DE INTERVALO:* ${registro.metaIntervaloLimpeza}\n`
       }
     }
+  } else if (caderneta === 'abastecimento') {
+    texto += `*QUEM ABASTECEU:* ${registro.quemAbasteceu || '—'}\n`
+    texto += `*OPERADOR MOTORISTA:* ${registro.operadorMotorista || '—'}\n`
+    texto += `*VEÍCULO TRATOR:* ${registro.veiculoTrator || '—'}\n`
+    texto += `*PLACA:* ${registro.placa || '—'}\n`
+    texto += `*HIDRÔMETRO INICIAL:* ${registro.hidrometroInicial || '—'}\n`
+    texto += `*HIDRÔMETRO FINAL:* ${registro.hidrometroFinal || '—'}\n`
+    texto += `*TOTAL ABASTECIDO:* ${registro.totalAbastecido || '—'}\n`
+    texto += `*COMBUSTÍVEL:* ${registro.combustivel || '—'}\n`
+    texto += `*ODÔMETRO:* ${registro.odometro || '—'}\n`
+    texto += `*TIPO DE OPERAÇÃO:* ${registro.tipoOperacao || '—'}\n`
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.observacao}\n`
+    }
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar estrutura organizada por seções
     

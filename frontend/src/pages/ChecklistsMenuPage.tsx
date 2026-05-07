@@ -28,7 +28,24 @@ export default function ChecklistsMenuPage() {
     setRecentChecklists(getRecentChecklists())
   }, [])
 
-  const menuItems: any[] = []
+  const menuItems: any[] = [
+    {
+      id: 'bebedouros',
+      label: 'BEBEDOUROS',
+      emoji: '💧',
+      icon: '/cadernetas/bebedouros.png',
+      color: '#3b82f6',
+      path: '/caderneta/bebedouros',
+    },
+    {
+      id: 'abastecimento',
+      label: 'ABASTECIMENTO',
+      emoji: '⛽',
+      icon: '/cadernetas/abastecimento.png',
+      color: '#10b981',
+      path: '/caderneta/abastecimento',
+    },
+  ]
 
   const filteredItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchTerm.toLowerCase())

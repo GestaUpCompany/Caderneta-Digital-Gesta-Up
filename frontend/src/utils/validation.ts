@@ -316,7 +316,36 @@ export function validateClima(data: Record<string, unknown>): ValidationResult {
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima'
+export function validateAbastecimento(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.quemAbasteceu))
+    errors.push({ field: 'quemAbasteceu', message: 'Quem abasteceu é obrigatório' })
+  if (!isNonEmptyString(data.operadorMotorista))
+    errors.push({ field: 'operadorMotorista', message: 'Operador motorista é obrigatório' })
+  if (!isNonEmptyString(data.veiculoTrator))
+    errors.push({ field: 'veiculoTrator', message: 'Veículo trator é obrigatório' })
+  if (!isNonEmptyString(data.placa))
+    errors.push({ field: 'placa', message: 'Placa é obrigatória' })
+  if (!isNonEmptyString(data.hidrometroInicial))
+    errors.push({ field: 'hidrometroInicial', message: 'Hidrômetro inicial é obrigatório' })
+  if (!isNonEmptyString(data.hidrometroFinal))
+    errors.push({ field: 'hidrometroFinal', message: 'Hidrômetro final é obrigatório' })
+  if (!isNonEmptyString(data.totalAbastecido))
+    errors.push({ field: 'totalAbastecido', message: 'Total abastecido é obrigatório' })
+  if (!isNonEmptyString(data.combustivel))
+    errors.push({ field: 'combustivel', message: 'Combustível é obrigatório' })
+  if (!isNonEmptyString(data.odometro))
+    errors.push({ field: 'odometro', message: 'Odômetro é obrigatório' })
+  if (!isNonEmptyString(data.tipoOperacao))
+    errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -328,6 +357,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   enfermaria: validateEnfermaria,
   morte: validateMorte,
   clima: validateClima,
+  abastecimento: validateAbastecimento,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

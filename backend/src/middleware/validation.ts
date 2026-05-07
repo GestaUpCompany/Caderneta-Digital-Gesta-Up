@@ -174,6 +174,21 @@ const schemas: Record<string, Joi.ObjectSchema> = {
       medicao: Joi.number().min(0).required(),
     })).allow(null).optional(),
   }),
+
+  abastecimento: Joi.object({
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    quemAbasteceu: Joi.string().required(),
+    operadorMotorista: Joi.string().required(),
+    veiculoTrator: Joi.string().required(),
+    placa: Joi.string().required(),
+    hidrometroInicial: Joi.number().min(0).required(),
+    hidrometroFinal: Joi.number().min(0).required(),
+    totalAbastecido: Joi.number().min(0).required(),
+    combustivel: Joi.string().valid('Álcool', 'Gasolina', 'Diesel S10', 'Diesel Comum').required(),
+    odometro: Joi.string().required(),
+    tipoOperacao: Joi.string().valid('Nutrição', 'Pulverização', 'Gradagem', 'Fertilização/Correção', 'Limpeza', 'Niveladora', 'Rodagem', 'Manutenção', 'Plantio', 'Esterco', 'Colheita', 'Compactação', 'Roçada', 'Serviços Gerais', 'Terraplanagem').required(),
+    observacao: Joi.string().allow(''),
+  }),
 }
 
 export function validateCaderneta(caderneta: string) {
@@ -203,7 +218,7 @@ export function validateSyncRequest(req: Request, res: Response, next: NextFunct
     planilhaUrl: Joi.string().uri().required(),
     registros: Joi.array().items(Joi.object({
       id: Joi.string().required(),
-      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima').required(),
+      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima', 'abastecimento').required(),
       operacao: Joi.string().valid('create', 'update', 'delete').required(),
       dados: Joi.object().required(),
     })).min(1).required(),

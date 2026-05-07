@@ -75,6 +75,7 @@ export const CADERNETAS = [
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', sheetName: 'Enfermaria', disponivel: true },
   { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', sheetName: 'Morte', disponivel: true },
   { id: 'clima', label: 'CLIMA', emoji: '🌤️', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', sheetName: 'Clima', disponivel: true },
+  { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#10b981', sheetName: 'Abastecimento', disponivel: true },
   { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '📥', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
   { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '📤', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
 ]
@@ -94,7 +95,7 @@ export const TIPOS_PARTO = ['Normal', 'Distócico', 'Cesárea'] as const
 export const SEXO_ANIMAL = ['Macho', 'Fêmea'] as const
 
 export const DB_NAME = 'cadernetas-digitais'
-export const DB_VERSION = 5
+export const DB_VERSION = 6
 
 export const MAX_RETRY_COUNT = 3
 export const SYNC_INTERVAL_MS = 30_000

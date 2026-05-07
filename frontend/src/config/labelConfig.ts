@@ -121,6 +121,21 @@ const BEBEDOUROS_LABELS = {
   boiaProtecaoBoasCondicoesObs: 'OBSERVAÇÃO BÓIA E PROTEÇÃO',
 }
 
+const ABASTECIMENTO_LABELS = {
+  ...COMMON_LABELS,
+  quemAbasteceu: 'QUEM ABASTECEU',
+  operadorMotorista: 'OPERADOR MOTORISTA',
+  veiculoTrator: 'VEÍCULO TRATOR',
+  placa: 'PLACA',
+  hidrometroInicial: 'HIDRÔMETRO INICIAL',
+  hidrometroFinal: 'HIDRÔMETRO FINAL',
+  totalAbastecido: 'TOTAL ABASTECIDO',
+  combustivel: 'COMBUSTÍVEL',
+  odometro: 'ODÔMETRO',
+  tipoOperacao: 'TIPO DE OPERAÇÃO',
+  observacao: 'OBSERVAÇÃO',
+}
+
 const MOVIMENTACAO_LABELS = {
   ...COMMON_LABELS,
   loteOrigem: 'LOTE ORIGEM',
@@ -242,6 +257,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   rodeio: RODEIO_LABELS,
   suplementacao: SUPLEMENTACAO_LABELS,
   bebedouros: BEBEDOUROS_LABELS,
+  abastecimento: ABASTECIMENTO_LABELS,
   movimentacao: MOVIMENTACAO_LABELS,
   enfermaria: ENFERMARIA_LABELS,
   morte: MORTE_LABELS,

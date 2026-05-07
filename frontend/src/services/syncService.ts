@@ -135,6 +135,22 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'boiaProtecaoBoasCondicoesObs' },
     ],
   },
+  abastecimento: {
+    columns: [
+      { field: 'data' },
+      { field: 'quemAbasteceu' },
+      { field: 'operadorMotorista' },
+      { field: 'veiculoTrator' },
+      { field: 'placa' },
+      { field: 'hidrometroInicial' },
+      { field: 'hidrometroFinal' },
+      { field: 'totalAbastecido' },
+      { field: 'combustivel' },
+      { field: 'odometro' },
+      { field: 'tipoOperacao' },
+      { field: 'observacao' },
+    ],
+  },
   movimentacao: {
     columns: [
       { field: 'data' },
@@ -301,6 +317,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
   enfermaria: 'registros_enfermaria',
   morte: 'registros_morte',
   clima: 'registros_clima',
+  abastecimento: 'registros_abastecimento',
   'entrada-insumos': 'registros_entrada_insumos',
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
@@ -543,6 +560,23 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         observacao: registro.observacao || null,
         medicoes: registro.medicoes || [],
       }
+    case 'abastecimento':
+      return {
+        ...baseData,
+        data: registro.data,
+        nome_usuario: registro.nomeUsuario || null,
+        quem_abasteceu: registro.quemAbasteceu || null,
+        operador_motorista: registro.operadorMotorista || null,
+        veiculo_trator: registro.veiculoTrator || null,
+        placa: registro.placa || null,
+        hidrometro_inicial: registro.hidrometroInicial ? Number(registro.hidrometroInicial) : null,
+        hidrometro_final: registro.hidrometroFinal ? Number(registro.hidrometroFinal) : null,
+        total_abastecido: registro.totalAbastecido ? Number(registro.totalAbastecido) : null,
+        combustivel: registro.combustivel || null,
+        odometro: registro.odometro || null,
+        tipo_operacao: registro.tipoOperacao || null,
+        observacao: registro.observacao || null,
+      }
     case 'entrada-insumos':
       return {
         ...baseData,
@@ -606,6 +640,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_clima':
           await supabaseService.createRegistroClima(data)
           break
+        case 'registros_abastecimento':
+          await supabaseService.createRegistroAbastecimento(data)
+          break
         case 'registros_entrada_insumos':
           await supabaseService.createRegistroEntradaInsumos(data)
           break
@@ -643,6 +680,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_clima':
           await supabaseService.updateRegistroClima(supabaseId, data)
+          break
+        case 'registros_abastecimento':
+          await supabaseService.updateRegistroAbastecimento(supabaseId, data)
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)

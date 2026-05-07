@@ -1092,6 +1092,31 @@ export async function updateRegistroClima(id: string, registro: TablesUpdate['re
   return data
 }
 
+// ==================== REGISTROS ABASTECIMENTO ====================
+
+export async function createRegistroAbastecimento(registro: TablesInsert<'registros_abastecimento'>) {
+  const { data, error } = await supabase
+    .from('registros_abastecimento')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroAbastecimento(id: string, registro: TablesUpdate<'registros_abastecimento'>) {
+  const { data, error } = await supabase
+    .from('registros_abastecimento')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== REGISTROS MORTE ====================
 
 export async function createRegistroMorte(registro: TablesInsert['registros_morte']['Insert']) {
