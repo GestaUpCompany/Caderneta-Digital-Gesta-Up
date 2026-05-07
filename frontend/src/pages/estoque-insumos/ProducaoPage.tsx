@@ -25,7 +25,7 @@ interface FormData {
 
 export default function ProducaoPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
   // const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -207,6 +207,7 @@ export default function ProducaoPage() {
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
+              logoUrl={logoUrl}
               type="both"
               size="medium"
               className="justify-between w-full"

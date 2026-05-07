@@ -8,7 +8,7 @@ import { BACKEND_URL } from '../../utils/constants'
 
 export default function CadastroPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
   const [data, setData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -69,6 +69,7 @@ export default function CadastroPage() {
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
+              logoUrl={logoUrl}
               type="both"
               size="medium"
               className="justify-between w-full"

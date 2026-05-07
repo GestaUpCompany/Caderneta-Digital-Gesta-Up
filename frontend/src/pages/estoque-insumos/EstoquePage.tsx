@@ -20,7 +20,7 @@ interface EstoqueRow {
 
 export default function EstoquePage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -130,6 +130,7 @@ export default function EstoquePage() {
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
+              logoUrl={logoUrl}
               type="both"
               size="medium"
               className="justify-between w-full"

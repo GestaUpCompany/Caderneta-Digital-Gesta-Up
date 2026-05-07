@@ -29,7 +29,7 @@ const makeInitial = (): FormState => ({
 
 export default function SaidaInsumosPage() {
   const navigate = useNavigate()
-  const { fazenda, cadastroSheetUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -198,6 +198,7 @@ export default function SaidaInsumosPage() {
         <div className="flex items-center justify-center gap-8">
           <FarmLogo
             farmName={fazenda}
+            logoUrl={logoUrl}
             type="both"
             size="medium"
           />

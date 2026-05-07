@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Button } from '../components/ui'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
+import { setConfig } from '../store/slices/configSlice'
 import { ClipboardList, Sun, Moon } from 'lucide-react'
 import FarmLogo from '../components/FarmLogo'
 import { VERSICULOS, Versiculo } from '../config/versiculos'
@@ -12,8 +13,8 @@ const BASE = import.meta.env.BASE_URL
 
 export default function Home() {
   const navigate = useNavigate()
-  const { configurado, fazenda, usuario, acessoId } = useSelector((state: RootState) => state.config)
-  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
+  const dispatch = useDispatch()
+  const { configurado, fazenda, usuario, acessoId, logoUrl } = useSelector((state: RootState) => state.config)
 
   // Buscar logoUrl diretamente do banco usando acessoId
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function Home() {
       try {
         const fazendaData = await getFazendaByAcessoId(acessoId)
         if (fazendaData?.logo_url) {
-          setLogoUrl(fazendaData.logo_url)
+          dispatch(setConfig({ logoUrl: fazendaData.logo_url }))
         }
       } catch (error) {
         console.error('[Home] Error fetching fazenda:', error)

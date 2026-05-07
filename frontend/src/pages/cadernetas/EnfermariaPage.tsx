@@ -137,7 +137,7 @@ const makeInitial = (): FormState => ({
 
 export default function EnfermariaPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -316,6 +316,7 @@ export default function EnfermariaPage() {
         <div className="flex items-center justify-center gap-8">
           <FarmLogo
             farmName={fazenda}
+            logoUrl={logoUrl}
             type="both"
             size="medium"
           />

@@ -27,7 +27,7 @@ const addRecentRelatorio = (relatorioId: string) => {
 
 export default function RelatoriosPage() {
   const navigate = useNavigate()
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl } = useSelector((state: RootState) => state.config)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [recentRelatorios, setRecentRelatorios] = useState<string[]>([])
@@ -60,6 +60,7 @@ export default function RelatoriosPage() {
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
+              logoUrl={logoUrl}
               type="both"
               size="medium"
               className="justify-between w-full"

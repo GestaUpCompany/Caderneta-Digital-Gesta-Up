@@ -16,7 +16,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -70,6 +70,7 @@ export default function ModulosMenuPage() {
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
+              logoUrl={logoUrl}
               type="both"
               size="medium"
               className="justify-between w-full"

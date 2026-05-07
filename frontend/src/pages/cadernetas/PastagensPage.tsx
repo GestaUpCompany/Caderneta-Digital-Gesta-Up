@@ -108,7 +108,7 @@ function processarCategorias(categorias: string): string[] {
 
 export default function PastagensPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, planilhaUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, planilhaUrl, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -403,6 +403,7 @@ export default function PastagensPage() {
         <div className="flex items-center justify-center gap-8">
           <FarmLogo
             farmName={fazenda}
+            logoUrl={logoUrl}
             type="both"
             size="medium"
           />

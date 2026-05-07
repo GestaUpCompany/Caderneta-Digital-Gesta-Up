@@ -19,7 +19,7 @@ const addRecentChecklist = (checklistId: string) => {
 
 export default function ChecklistsMenuPage() {
   const navigate = useNavigate()
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl } = useSelector((state: RootState) => state.config)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [recentChecklists, setRecentChecklists] = useState<string[]>([])
@@ -59,6 +59,7 @@ export default function ChecklistsMenuPage() {
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
+              logoUrl={logoUrl}
               type="both"
               size="medium"
               className="justify-between w-full"
