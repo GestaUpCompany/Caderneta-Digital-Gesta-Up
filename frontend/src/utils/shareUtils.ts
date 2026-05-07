@@ -402,6 +402,56 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.observacao && registro.observacao !== '') {
       texto += `Observação: ${registro.observacao}\n`
     }
+  } else if (caderneta === 'operacoes-maquinas') {
+    // Formato compacto e organizado
+    const veiculo = registro.veiculoTrator || '—'
+    const implemento = registro.implementoUtilizado || '—'
+    texto += `Veículo: ${veiculo} | Implemento: ${implemento}\n`
+    
+    if (registro.horaInicial && registro.horaFinal) {
+      texto += `Horário: ${registro.horaInicial} - ${registro.horaFinal}\n`
+    }
+    
+    if (registro.odometroInicial && registro.odometroFinal) {
+      const total = registro.totalOdometro || '—'
+      texto += `Odômetro: ${registro.odometroInicial} km → ${registro.odometroFinal} km (Total: ${total} km)\n`
+    }
+    
+    if (registro.tipoOperacao && typeof registro.tipoOperacao === 'string') {
+      // Converter formato snake_case para legível
+      const tipoOperacaoLabel = registro.tipoOperacao.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+      texto += `Operação: ${tipoOperacaoLabel}\n`
+    }
+    
+    // Linha compacta com produto, quantidade, área e dose
+    const camposQuantidade = []
+    if (registro.produtoAplicado) camposQuantidade.push(`Produto: ${registro.produtoAplicado}`)
+    if (registro.quantidadeTotalAplicada) camposQuantidade.push(`Qtd: ${registro.quantidadeTotalAplicada}`)
+    if (registro.areaTrabalhada) camposQuantidade.push(`Área: ${registro.areaTrabalhada}`)
+    if (registro.doseAplicada) camposQuantidade.push(`Dose: ${registro.doseAplicada}`)
+    
+    if (camposQuantidade.length > 0) {
+      texto += `${camposQuantidade.join(' | ')}\n`
+    }
+    
+    // Meta diária
+    if (registro.metaDiariaBatida) {
+      const metaLabel = registro.metaDiariaBatida === 'S' || registro.metaDiariaBatida === 'Sim' ? 'Sim' : 'Não'
+      const metaObs = registro.metaDiariaBatidaObs ? ` (${registro.metaDiariaBatidaObs})` : ''
+      texto += `Meta Diária: ${metaLabel}${metaObs}\n`
+    }
+    
+    // Imprevisto
+    if (registro.algumImprevisto) {
+      const imprevistoLabel = registro.algumImprevisto === 'S' || registro.algumImprevisto === 'Sim' ? 'Sim' : 'Não'
+      const imprevistoObs = registro.algumImprevistoObs ? ` (${registro.algumImprevistoObs})` : ''
+      texto += `Imprevisto: ${imprevistoLabel}${imprevistoObs}\n`
+    }
+    
+    // Observação
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `Obs: ${registro.observacao}\n`
+    }
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar estrutura organizada por seções
     
