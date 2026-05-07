@@ -1,5 +1,5 @@
 import { supabase, getSupabaseClient } from './supabaseClient'
-import type { Database, TablesInsert, TablesUpdate } from '../types/supabase'
+import type { TablesInsert, TablesUpdate } from '../types/supabase'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
