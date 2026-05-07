@@ -328,8 +328,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Calcular duração se tiver hora início e fim
     if (registro.horaInicio && registro.horaFinal) {
-      const inicio = registro.horaInicio
-      const fim = registro.horaFinal
+      const inicio = String(registro.horaInicio)
+      const fim = String(registro.horaFinal)
       texto += `Hora Início: ${inicio}\n`
       texto += `Hora Final: ${fim}`
       

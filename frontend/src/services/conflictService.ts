@@ -54,6 +54,7 @@ function buildRegistroFromRow(
     morte: ['data', 'pasto', 'lote', 'brincoChip', 'vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros', 'outraCategoria', 'sexo', 'raca', 'racaOutros', 'idade', 'pesoVivo', 'causaMorte', 'causaMorteOutros', 'secrecaoOrificios', 'secrecaoOrificiosObs', 'sintomasPneumonia', 'sintomasPneumoniaObs', 'inchaco', 'incoordenacaoTremores', 'incoordenacaoTremoresObs', 'apatiaFraqueza', 'apatiaFraquezaObs', 'cegueira', 'cegueiraObs', 'andarCambaleante', 'andarCambaleanteObs', 'tratamento', 'observacaoTratamento'],
     abastecimento: ['data', 'quemAbasteceu', 'operadorMotorista', 'veiculoTrator', 'placa', 'combustivel', 'tipoOperacao'],
     cantina: ['data', 'numeroCozinheiras', 'quemCozinhou', 'quemAjudou', 'numeroCafeManha', 'numeroLanches', 'numeroRefeicoesAlmoco', 'numeroRefeicoesJantar', 'observacao'],
+    limpeza: ['data', 'numeroEquipe', 'setor', 'local', 'horaInicio', 'horaFinal', 'limpezaRealizada', 'observacao'],
     'entrada-insumos': ['dataEntrada', 'horario', 'produto', 'quantidade', 'valorUnitario', 'valorTotal', 'notaFiscal', 'fornecedor', 'placa', 'motorista', 'responsavelRecebimento'],
     'saida-insumos': ['dataProducao', 'dietaProduzida', 'destinoProducao', 'totalProduzido', 'insumosQuantidades'],
     'insumos-por-saida': ['idSaida', 'dataProducao', 'dietaProduzida', 'insumo', 'quantidade'],
