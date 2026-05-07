@@ -2298,6 +2298,174 @@ export type Database = {
           },
         ]
       }
+      registros_abastecimento: {
+        Row: {
+          combustivel: string
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          hidrometro_final: string | null
+          hidrometro_inicial: string | null
+          id: string
+          google_row_id: number | null
+          odometro: string | null
+          observacao: string | null
+          operador_motorista: string | null
+          placa: string | null
+          quem_abasteceu: string | null
+          sync_status: string | null
+          total_abastecido: string | null
+          tipo_operacao: string | null
+          updated_at: string | null
+          veiculo_trator: string | null
+          version: number | null
+        }
+        Insert: {
+          combustivel: string
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          hidrometro_final?: string | null
+          hidrometro_inicial?: string | null
+          id?: string
+          google_row_id?: number | null
+          odometro?: string | null
+          observacao?: string | null
+          operador_motorista?: string | null
+          placa?: string | null
+          quem_abasteceu?: string | null
+          sync_status?: string | null
+          total_abastecido?: string | null
+          tipo_operacao?: string | null
+          updated_at?: string | null
+          veiculo_trator?: string | null
+          version?: number | null
+        }
+        Update: {
+          combustivel?: string
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          hidrometro_final?: string | null
+          hidrometro_inicial?: string | null
+          id?: string
+          google_row_id?: number | null
+          odometro?: string | null
+          observacao?: string | null
+          operador_motorista?: string | null
+          placa?: string | null
+          quem_abasteceu?: string | null
+          sync_status?: string | null
+          total_abastecido?: string | null
+          tipo_operacao?: string | null
+          updated_at?: string | null
+          veiculo_trator?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_abastecimento_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_abastecimento_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_cantina: {
+        Row: {
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          google_row_id: number | null
+          id: string
+          itens: Json | null
+          numero_cafe_manha: number | null
+          numero_cozinheiras: number
+          numero_lanches: number | null
+          numero_refeicoes_almoco: number | null
+          numero_refeicoes_jantar: number | null
+          observacao: string | null
+          quem_ajudou: string | null
+          quem_cozinhou: string
+          sync_status: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          google_row_id?: number | null
+          id?: string
+          itens?: Json | null
+          numero_cafe_manha?: number | null
+          numero_cozinheiras: number
+          numero_lanches?: number | null
+          numero_refeicoes_almoco?: number | null
+          numero_refeicoes_jantar?: number | null
+          observacao?: string | null
+          quem_ajudou?: string | null
+          quem_cozinhou: string
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          google_row_id?: number | null
+          id?: string
+          itens?: Json | null
+          numero_cafe_manha?: number | null
+          numero_cozinheiras?: number
+          numero_lanches?: number | null
+          numero_refeicoes_almoco?: number | null
+          numero_refeicoes_jantar?: number | null
+          observacao?: string | null
+          quem_ajudou?: string | null
+          quem_cozinhou?: string
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_cantina_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_cantina_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_queue: {
         Row: {
           created_at: string | null
