@@ -94,11 +94,9 @@ export function useServiceWorkerUpdate() {
       // Limpar dismiss ao atualizar
       localStorage.removeItem('sw-update-dismissed')
       setDismissedAt(null)
-      // Recarregar página suavemente após breve delay para garantir novos recursos
+      // Recarregar página imediatamente sem delay
       setIsReloading(true)
-      setTimeout(() => {
-        window.location.href = window.location.origin + '/Caderneta-Digital-Gesta-Up/'
-      }, 500)
+      window.location.href = window.location.origin + '/Caderneta-Digital-Gesta-Up/'
     }
 
     // Listener para mensagem do service worker (SW_ACTIVATED)
