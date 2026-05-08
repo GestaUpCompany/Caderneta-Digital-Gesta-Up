@@ -53,13 +53,13 @@ export default function Page() {
           <div className="flex items-start gap-3">
             <Check className="w-6 h-6 text-yellow-500 mt-0.5 flex-shrink-0" />
             <p className="text-gray-700">
-              Cadernetas digitais para controle completo do seu rebanho
+              Cadernetas digitais para controle operacional completo
             </p>
           </div>
           <div className="flex items-start gap-3">
             <Check className="w-6 h-6 text-yellow-500 mt-0.5 flex-shrink-0" />
             <p className="text-gray-700">
-              Sincronização automática com Google Sheets
+              Sincronização automática com o banco de dados na nuvem
             </p>
           </div>
           <div className="flex items-start gap-3">
