@@ -1,6 +1,6 @@
 import { openDB, IDBPDatabase } from 'idb'
 import { Registro } from '../types/cadernetas'
-import { DB_NAME, DB_VERSION } from '../utils/constants'
+import { DB_NAME } from '../utils/constants'
 
 export type CadernetaStore =
   | 'maternidade'
@@ -18,14 +18,15 @@ export type CadernetaStore =
   | 'saida-insumos'
   | 'insumos-por-saida'
   | 'limpeza'
+  | 'operacoes-maquinas'
 
 const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
-  'entrada-insumos', 'saida-insumos', 'insumos-por-saida', 'limpeza',
+  'entrada-insumos', 'saida-insumos', 'insumos-por-saida', 'limpeza', 'operacoes-maquinas',
 ]
 
 async function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, DB_VERSION, {
+  return openDB(DB_NAME, 17, {
     upgrade(db) {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) {

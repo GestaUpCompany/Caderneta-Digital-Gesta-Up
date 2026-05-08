@@ -279,9 +279,22 @@ export async function updateCadastroCache(cadastroSheetUrl: string, fazendaId?: 
   }
 }
 
+let currentFazendaId: string | null = null
+
+/**
+ * Limpa o cache de dados de cadastro
+ */
+export function clearCadastroCache(): void {
+  cacheData = null
+  lastCacheUpdate = 0
+  currentFazendaId = null
+  console.log('[CadastroCache] Cache limpo')
+}
+
 /**
  * Inicializa o cache de dados de cadastro
  * Primeiro tenta carregar do IndexedDB, depois atualiza se online
+ * Limpa o cache se a fazenda mudou
  */
 export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaId?: string): Promise<void> {
   if (!cadastroSheetUrl && !fazendaId) {
@@ -289,6 +302,13 @@ export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaI
     return
   }
 
+  // Limpar cache se a fazenda mudou
+  if (fazendaId && currentFazendaId && fazendaId !== currentFazendaId) {
+    console.log('[CadastroCache] Fazenda mudou, limpando cache...')
+    clearCadastroCache()
+  }
+
+  currentFazendaId = fazendaId || null
   console.log('[CadastroCache] Iniciando inicialização do cache de cadastro...')
   
   // Primeiro carregar do cache (rápido, funciona offline)
