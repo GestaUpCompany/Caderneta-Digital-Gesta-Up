@@ -275,18 +275,32 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
     }
   } else if (caderneta === 'abastecimento') {
+    // Seção: Dados do Abastecimento
+    texto += `*DADOS DO ABASTECIMENTO*\n`
     texto += `*QUEM ABASTECEU:* ${registro.quemAbasteceu || '—'}\n`
     texto += `*OPERADOR MOTORISTA:* ${registro.operadorMotorista || '—'}\n`
     texto += `*VEÍCULO TRATOR:* ${registro.veiculoTrator || '—'}\n`
     texto += `*PLACA:* ${registro.placa || '—'}\n`
-    texto += `*HIDRÔMETRO INICIAL:* ${registro.hidrometroInicial || '—'}\n`
-    texto += `*HIDRÔMETRO FINAL:* ${registro.hidrometroFinal || '—'}\n`
-    texto += `*TOTAL ABASTECIDO:* ${registro.totalAbastecido || '—'}\n`
+    
+    if (registro.hidrometroInicial && registro.hidrometroFinal) {
+      texto += `*HIDRÔMETRO:* ${registro.hidrometroInicial} L → ${registro.hidrometroFinal} L\n`
+    }
+    if (registro.totalAbastecido) {
+      texto += `*TOTAL HIDRÔMETRO:* ${registro.totalAbastecido} L\n`
+    }
+    
+    texto += `\n`
+    
+    // Seção: Combustível e Operação
+    texto += `*COMBUSTÍVEL E OPERAÇÃO*\n`
     texto += `*COMBUSTÍVEL:* ${registro.combustivel || '—'}\n`
     texto += `*ODÔMETRO:* ${registro.odometro || '—'}\n`
-    texto += `*TIPO DE OPERAÇÃO:* ${registro.tipoOperacao || '—'}\n`
+    texto += `*TIPO DE OPERAÇÃO:* ${registro.tipoOperacao || '—'}\n\n`
+    
+    // Seção: Observação
     if (registro.observacao && registro.observacao !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.observacao}\n`
+      texto += `*OBSERVAÇÃO*\n`
+      texto += `${registro.observacao}\n`
     }
   } else if (caderneta === 'cantina') {
     // Seção: DADOS DA CANTINA
@@ -403,54 +417,61 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `Observação: ${registro.observacao}\n`
     }
   } else if (caderneta === 'operacoes-maquinas') {
-    // Formato compacto e organizado
-    const veiculo = registro.veiculoTrator || '—'
-    const implemento = registro.implementoUtilizado || '—'
-    texto += `Veículo: ${veiculo} | Implemento: ${implemento}\n`
+    // Seção: Dados da Operação
+    texto += `*DADOS DA OPERAÇÃO*\n`
+    texto += `*VEÍCULO TRATOR:* ${registro.veiculoTrator || '—'}\n`
+    texto += `*IMPLEMENTO UTILIZADO:* ${registro.implementoUtilizado || '—'}\n`
     
     if (registro.horaInicial && registro.horaFinal) {
-      texto += `Horário: ${registro.horaInicial} - ${registro.horaFinal}\n`
+      texto += `*HORÁRIO:* ${registro.horaInicial} → ${registro.horaFinal}\n`
     }
     
     if (registro.odometroInicial && registro.odometroFinal) {
       const total = registro.totalOdometro || '—'
-      texto += `Odômetro: ${registro.odometroInicial} km → ${registro.odometroFinal} km (Total: ${total} km)\n`
+      texto += `*ODÔMETRO:* ${registro.odometroInicial} km → ${registro.odometroFinal} km\n`
+      texto += `*TOTAL ODÔMETRO:* ${total} km\n`
     }
     
+    texto += `\n`
+    
+    // Seção: Tipo de Operação
     if (registro.tipoOperacao && typeof registro.tipoOperacao === 'string') {
-      // Converter formato snake_case para legível
       const tipoOperacaoLabel = registro.tipoOperacao.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-      texto += `Operação: ${tipoOperacaoLabel}\n`
+      texto += `*TIPO DE OPERAÇÃO:* ${tipoOperacaoLabel}\n\n`
     }
     
-    // Linha compacta com produto, quantidade, área e dose
-    const camposQuantidade = []
-    if (registro.produtoAplicado) camposQuantidade.push(`Produto: ${registro.produtoAplicado}`)
-    if (registro.quantidadeTotalAplicada) camposQuantidade.push(`Qtd: ${registro.quantidadeTotalAplicada}`)
-    if (registro.areaTrabalhada) camposQuantidade.push(`Área: ${registro.areaTrabalhada}`)
-    if (registro.doseAplicada) camposQuantidade.push(`Dose: ${registro.doseAplicada}`)
-    
-    if (camposQuantidade.length > 0) {
-      texto += `${camposQuantidade.join(' | ')}\n`
+    // Seção: Detalhes da Aplicação
+    if (registro.produtoAplicado || registro.quantidadeTotalAplicada || registro.areaTrabalhada || registro.doseAplicada) {
+      texto += `*DETALHES DA APLICAÇÃO*\n`
+      texto += `*PRODUTO APLICADO:* ${registro.produtoAplicado || '—'}\n`
+      texto += `*QUANTIDADE TOTAL APLICADA:* ${registro.quantidadeTotalAplicada || '—'}\n`
+      texto += `*ÁREA TRABALHADA:* ${registro.areaTrabalhada || '—'}\n`
+      texto += `*DOSE APLICADA:* ${registro.doseAplicada || '—'}\n\n`
     }
     
-    // Meta diária
-    if (registro.metaDiariaBatida) {
-      const metaLabel = registro.metaDiariaBatida === 'S' || registro.metaDiariaBatida === 'Sim' ? 'Sim' : 'Não'
-      const metaObs = registro.metaDiariaBatidaObs ? ` (${registro.metaDiariaBatidaObs})` : ''
-      texto += `Meta Diária: ${metaLabel}${metaObs}\n`
+    // Seção: Avaliação
+    if (registro.metaDiariaBatida || registro.algumImprevisto) {
+      texto += `*AVALIAÇÃO*\n`
+      
+      if (registro.metaDiariaBatida) {
+        const metaLabel = registro.metaDiariaBatida === 'S' || registro.metaDiariaBatida === 'Sim' ? 'Sim' : 'Não'
+        const metaObs = registro.metaDiariaBatidaObs ? ` (${registro.metaDiariaBatidaObs})` : ''
+        texto += `*META DIÁRIA BATIDA:* ${metaLabel}${metaObs}\n`
+      }
+      
+      if (registro.algumImprevisto) {
+        const imprevistoLabel = registro.algumImprevisto === 'S' || registro.algumImprevisto === 'Sim' ? 'Sim' : 'Não'
+        const imprevistoObs = registro.algumImprevistoObs ? ` (${registro.algumImprevistoObs})` : ''
+        texto += `*ALGUM IMPREVISTO:* ${imprevistoLabel}${imprevistoObs}\n`
+      }
+      
+      texto += `\n`
     }
     
-    // Imprevisto
-    if (registro.algumImprevisto) {
-      const imprevistoLabel = registro.algumImprevisto === 'S' || registro.algumImprevisto === 'Sim' ? 'Sim' : 'Não'
-      const imprevistoObs = registro.algumImprevistoObs ? ` (${registro.algumImprevistoObs})` : ''
-      texto += `Imprevisto: ${imprevistoLabel}${imprevistoObs}\n`
-    }
-    
-    // Observação
+    // Seção: Observação
     if (registro.observacao && registro.observacao !== '') {
-      texto += `Obs: ${registro.observacao}\n`
+      texto += `*OBSERVAÇÃO*\n`
+      texto += `${registro.observacao}\n`
     }
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar estrutura organizada por seções

@@ -36,6 +36,21 @@ function isSnBoolean(value: unknown): boolean {
   return value === 'S' || value === 'N'
 }
 
+function isValidTime(value: unknown): boolean {
+  if (typeof value !== 'string' || value.trim() === '') return false
+  const regex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/
+  return regex.test(value)
+}
+
+function isTimeAfter(startTime: unknown, endTime: unknown): boolean {
+  if (!isValidTime(startTime) || !isValidTime(endTime)) return false
+  const [startHours, startMinutes] = (startTime as string).split(':').map(Number)
+  const [endHours, endMinutes] = (endTime as string).split(':').map(Number)
+  const startTotalMinutes = startHours * 60 + startMinutes
+  const endTotalMinutes = endHours * 60 + endMinutes
+  return endTotalMinutes > startTotalMinutes
+}
+
 function isScaleValue(value: unknown, min: number, max: number, required = false): boolean {
   if (value === null || value === undefined || value === '') return !required
   const num = Number(value)
@@ -395,7 +410,62 @@ export function validateLimpeza(data: Record<string, unknown>): ValidationResult
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza'
+export function validateOperacoesMaquinas(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.veiculoTrator))
+    errors.push({ field: 'veiculoTrator', message: 'Veículo/Trator é obrigatório' })
+  if (!isNonEmptyString(data.implementoUtilizado))
+    errors.push({ field: 'implementoUtilizado', message: 'Implemento utilizado é obrigatório' })
+  
+  // Validar formato de horas
+  if (!isNonEmptyString(data.horaInicial))
+    errors.push({ field: 'horaInicial', message: 'Hora inicial é obrigatória' })
+  else if (!isValidTime(data.horaInicial))
+    errors.push({ field: 'horaInicial', message: 'Hora inicial inválida. Use formato HH:MM' })
+  
+  if (!isNonEmptyString(data.horaFinal))
+    errors.push({ field: 'horaFinal', message: 'Hora final é obrigatória' })
+  else if (!isValidTime(data.horaFinal))
+    errors.push({ field: 'horaFinal', message: 'Hora final inválida. Use formato HH:MM' })
+  
+  // Validar que hora final é maior que hora inicial
+  if (isValidTime(data.horaInicial) && isValidTime(data.horaFinal) && !isTimeAfter(data.horaInicial, data.horaFinal)) {
+    errors.push({ field: 'horaFinal', message: 'Hora final deve ser maior que hora inicial' })
+  }
+  
+  if (!isNonEmptyString(data.odometroInicial))
+    errors.push({ field: 'odometroInicial', message: 'Odômetro inicial é obrigatório' })
+  if (!isNonEmptyString(data.odometroFinal))
+    errors.push({ field: 'odometroFinal', message: 'Odômetro final é obrigatório' })
+  if (!isNonEmptyString(data.tipoOperacao))
+    errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
+
+  // Validar que total odometro foi calculado (deve ser positivo quando ambos odômetros estão preenchidos)
+  if (data.odometroInicial && data.odometroFinal && !isPositiveNumber(data.totalOdometro)) {
+    errors.push({ field: 'totalOdometro', message: 'Odômetro final deve ser maior que o inicial' })
+  }
+
+  // Validar valores positivos em campos numéricos
+  if (data.quantidadeTotalAplicada && !isPositiveNumber(data.quantidadeTotalAplicada))
+    errors.push({ field: 'quantidadeTotalAplicada', message: 'Quantidade total aplicada deve ser positiva' })
+  if (data.areaTrabalhada && !isPositiveNumber(data.areaTrabalhada))
+    errors.push({ field: 'areaTrabalhada', message: 'Área trabalhada deve ser positiva' })
+  if (data.doseAplicada && !isPositiveNumber(data.doseAplicada))
+    errors.push({ field: 'doseAplicada', message: 'Dose aplicada deve ser positiva' })
+
+  // Validar perguntas S/N
+  if (!isSnBoolean(data.metaDiariaBatida))
+    errors.push({ field: 'metaDiariaBatida', message: 'Meta diária batida: selecione SIM ou NÃO' })
+  if (!isSnBoolean(data.algumImprevisto))
+    errors.push({ field: 'algumImprevisto', message: 'Algum imprevisto: selecione SIM ou NÃO' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -410,6 +480,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   abastecimento: validateAbastecimento,
   cantina: validateCantina,
   limpeza: validateLimpeza,
+  'operacoes-maquinas': validateOperacoesMaquinas,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

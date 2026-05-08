@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { useSelector } from 'react-redux'
+import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { RootState } from '../../store/store'
+import { getFuncionarios } from '../../services/supabaseService'
 
 const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
@@ -64,11 +67,13 @@ const makeInitial = (): FormState => ({
 
 export default function AbastecimentoPage() {
   const navigate = useNavigate()
+  const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
 
   // Calcular total abastecido automaticamente
   useEffect(() => {
@@ -81,8 +86,37 @@ export default function AbastecimentoPage() {
     }
   }, [form.hidrometroInicial, form.hidrometroFinal])
 
+  // Buscar funcionários da fazenda
+  useEffect(() => {
+    async function carregarFuncionarios() {
+      if (!fazendaId) {
+        setFuncionariosDisponiveis([])
+        return
+      }
+
+      try {
+        const funcionarios = await getFuncionarios(fazendaId)
+        if (funcionarios) {
+          const nomes = funcionarios
+            .map(f => f.nome)
+            .filter((nome): nome is string => nome !== null && nome !== undefined)
+            .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+          setFuncionariosDisponiveis(nomes)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar funcionários:', error)
+        setFuncionariosDisponiveis([])
+      }
+    }
+
+    carregarFuncionarios()
+  }, [fazendaId])
+
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const set = (field: keyof FormState) => (value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
@@ -134,7 +168,28 @@ export default function AbastecimentoPage() {
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
         <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
         <Input label="QUEM ABASTECEU?" placeholder="Nome de quem abasteceu" value={form.quemAbasteceu} onChange={setInput('quemAbasteceu')} error={getError('quemAbasteceu')} />
-        <Input label="OPERADOR MOTORISTA?" placeholder="Nome do operador/motorista" value={form.operadorMotorista} onChange={setInput('operadorMotorista')} error={getError('operadorMotorista')} />
+        <>
+          {funcionariosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="OPERADOR MOTORISTA?"
+              value={form.operadorMotorista}
+              onChange={set('operadorMotorista')}
+              error={getError('operadorMotorista')}
+              options={funcionariosDisponiveis}
+              placeholder="Buscar funcionário..."
+              id="operadorMotorista"
+              name="operadorMotorista"
+            />
+          ) : (
+            <Input
+              label="OPERADOR MOTORISTA?"
+              placeholder="Nome do operador/motorista"
+              value={form.operadorMotorista}
+              onChange={setInput('operadorMotorista')}
+              error={getError('operadorMotorista')}
+            />
+          )}
+        </>
         <Input label="VEÍCULO TRATOR?" placeholder="Modelo do veículo/trator" value={form.veiculoTrator} onChange={setInput('veiculoTrator')} error={getError('veiculoTrator')} />
         <Input label="PLACA?" placeholder="Placa do veículo" value={form.placa} onChange={setInput('placa')} error={getError('placa')} />
         <Input label="HIDRÔMETRO INICIAL?" placeholder="Leitura inicial" value={form.hidrometroInicial} onChange={setInput('hidrometroInicial')} error={getError('hidrometroInicial')} />

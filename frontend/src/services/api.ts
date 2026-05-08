@@ -36,14 +36,22 @@ export async function salvarRegistro(
     syncStatus: 'pending' as const,
   } as Registro
 
-  await saveRegistro(caderneta, registro)
+  try {
+    await saveRegistro(caderneta, registro)
 
-  // Pequeno delay para garantir persistência no IndexedDB (especialmente Android 13)
-  await new Promise(resolve => setTimeout(resolve, 100))
+    // Pequeno delay para garantir persistência no IndexedDB (especialmente Android 13)
+    await new Promise(resolve => setTimeout(resolve, 100))
 
-  await enqueueRegistro(caderneta, registro.id, 'create')
+    await enqueueRegistro(caderneta, registro.id, 'create')
 
-  return { success: true, registro, id: registro.id }
+    return { success: true, registro, id: registro.id }
+  } catch (error) {
+    console.error('Erro ao salvar registro:', error)
+    return { 
+      success: false, 
+      errors: [{ field: 'general', message: 'Erro ao salvar registro. Tente novamente.' }] 
+    }
+  }
 }
 
 export async function listarRegistros(caderneta: CadernetaStore): Promise<Registro[]> {
