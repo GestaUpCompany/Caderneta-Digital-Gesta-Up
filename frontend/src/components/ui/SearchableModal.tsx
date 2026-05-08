@@ -87,7 +87,7 @@ export default function SearchableModal({
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-semibold text-gray-700 mb-1">
+      <label className="block text-lg font-bold text-gray-900 mb-2">
         {label}
       </label>
       <button
