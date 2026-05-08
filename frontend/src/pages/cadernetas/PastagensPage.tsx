@@ -108,7 +108,7 @@ function processarCategorias(categorias: string): string[] {
 
 export default function PastagensPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, planilhaUrl, logoUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -188,41 +188,6 @@ export default function PastagensPage() {
     carregarDetalhesPastoSaida()
   }, [form.pastoSaida, fazendaId])
 
-  // Calcular tempo de ocupação quando pastoSaida mudar
-  useEffect(() => {
-    async function calcularTempoOcupacao() {
-      if (!form.pastoSaida || !planilhaUrl) {
-        set('tempoOcupacao')('')
-        return
-      }
-
-      try {
-        // Usar data/hora atual para cálculo, não a data do formulário
-        const agora = new Date()
-        const dataAtualFormatada = `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`
-
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/pastagens/calcular-tempo`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            planilhaUrl: planilhaUrl,
-            pasto: form.pastoSaida,
-            tipo: 'saida',
-            dataAtual: dataAtualFormatada,
-          }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          set('tempoOcupacao')(data.tempo)
-        }
-      } catch (error) {
-        console.error('Erro ao calcular tempo de ocupação:', error)
-      }
-    }
-
-    calcularTempoOcupacao()
-  }, [form.pastoSaida, planilhaUrl])
-
   // Buscar detalhes do pasto de entrada quando selecionado
   useEffect(() => {
     async function carregarDetalhesPastoEntrada() {
@@ -257,41 +222,6 @@ export default function PastagensPage() {
 
     carregarDetalhesPastoEntrada()
   }, [form.pastoEntrada, fazendaId])
-
-  // Calcular tempo de vedação quando pastoEntrada mudar
-  useEffect(() => {
-    async function calcularTempoVedacao() {
-      if (!form.pastoEntrada || !planilhaUrl) {
-        set('tempoVedacao')('')
-        return
-      }
-
-      try {
-        // Usar data/hora atual para cálculo, não a data do formulário
-        const agora = new Date()
-        const dataAtualFormatada = `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`
-
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/pastagens/calcular-tempo`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            planilhaUrl: planilhaUrl,
-            pasto: form.pastoEntrada,
-            tipo: 'entrada',
-            dataAtual: dataAtualFormatada,
-          }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          set('tempoVedacao')(data.tempo)
-        }
-      } catch (error) {
-        console.error('Erro ao calcular tempo de vedação:', error)
-      }
-    }
-
-    calcularTempoVedacao()
-  }, [form.pastoEntrada, planilhaUrl])
 
   // Buscar detalhes do lote quando selecionado
   useEffect(() => {
