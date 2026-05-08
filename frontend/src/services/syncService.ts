@@ -175,6 +175,19 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'observacao' },
     ],
   },
+  'operacoes-maquinas': {
+    columns: [
+      { field: 'data' },
+      { field: 'veiculoTrator' },
+      { field: 'implementoUtilizado' },
+      { field: 'horaInicial' },
+      { field: 'horaFinal' },
+      { field: 'odometroInicial' },
+      { field: 'odometroFinal' },
+      { field: 'tipoOperacao' },
+      { field: 'observacao' },
+    ],
+  },
   movimentacao: {
     columns: [
       { field: 'data' },
@@ -344,6 +357,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
   abastecimento: 'registros_abastecimento',
   cantina: 'registros_cantina',
   limpeza: 'registros_limpeza',
+  'operacoes-maquinas': 'registros_operacoes_maquinas',
   'entrada-insumos': 'registros_entrada_insumos',
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
@@ -631,6 +645,28 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         limpeza_realizada: registro.limpezaRealizada || null,
         observacao: registro.observacao || null,
       }
+    case 'operacoes-maquinas':
+      return {
+        ...baseData,
+        data: registro.data,
+        veiculo_trator: registro.veiculoTrator || null,
+        implemento_utilizado: registro.implementoUtilizado || null,
+        hora_inicial: registro.horaInicial || null,
+        hora_final: registro.horaFinal || null,
+        odometro_inicial: registro.odometroInicial || null,
+        odometro_final: registro.odometroFinal || null,
+        total_odometro: registro.totalOdometro || null,
+        tipo_operacao: registro.tipoOperacao || null,
+        produto_aplicado: registro.produtoAplicado || null,
+        quantidade_total_aplicada: registro.quantidadeTotalAplicada || null,
+        area_trabalhada: registro.areaTrabalhada || null,
+        dose_aplicada: registro.doseAplicada || null,
+        meta_diaria_batida: registro.metaDiariaBatida || null,
+        meta_diaria_batida_obs: registro.metaDiariaBatidaObs || null,
+        algum_imprevisto: registro.algumImprevisto || null,
+        algum_imprevisto_obs: registro.algumImprevistoObs || null,
+        observacao: registro.observacao || null,
+      }
     case 'entrada-insumos':
       return {
         ...baseData,
@@ -703,6 +739,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_limpeza':
           await supabaseService.createRegistroLimpeza(data)
           break
+        case 'registros_operacoes_maquinas':
+          await supabaseService.createRegistroOperacoesMaquinas(data)
+          break
         case 'registros_entrada_insumos':
           await supabaseService.createRegistroEntradaInsumos(data)
           break
@@ -749,6 +788,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_limpeza':
           await supabaseService.updateRegistroLimpeza(supabaseId, data)
+          break
+        case 'registros_operacoes_maquinas':
+          await supabaseService.updateRegistroOperacoesMaquinas(supabaseId, data)
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)

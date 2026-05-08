@@ -2541,6 +2541,111 @@ export type Database = {
           },
         ]
       }
+      registros_operacoes_maquinas: {
+        Row: {
+          area_trabalhada: string | null
+          algum_imprevisto: string | null
+          algum_imprevisto_obs: string | null
+          created_at: string
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          dose_aplicada: string | null
+          fazenda_id: string
+          hora_final: string | null
+          hora_inicial: string | null
+          id: string
+          implemento_utilizado: string
+          meta_diaria_batida: string | null
+          meta_diaria_batida_obs: string | null
+          nome_usuario: string | null
+          observacao: string | null
+          odometro_final: string
+          odometro_inicial: string
+          produto_aplicado: string | null
+          quantidade_total_aplicada: string | null
+          sync_status: string
+          tipo_operacao: string
+          total_odometro: string | null
+          updated_at: string
+          version: number
+          veiculo_trator: string
+        }
+        Insert: {
+          area_trabalhada?: string | null
+          algum_imprevisto?: string | null
+          algum_imprevisto_obs?: string | null
+          created_at?: string
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          dose_aplicada?: string | null
+          fazenda_id: string
+          hora_final?: string | null
+          hora_inicial?: string | null
+          id?: string
+          implemento_utilizado: string
+          meta_diaria_batida?: string | null
+          meta_diaria_batida_obs?: string | null
+          nome_usuario?: string | null
+          observacao?: string | null
+          odometro_final: string
+          odometro_inicial: string
+          produto_aplicado?: string | null
+          quantidade_total_aplicada?: string | null
+          sync_status?: string
+          tipo_operacao: string
+          total_odometro?: string | null
+          updated_at?: string
+          version?: number
+          veiculo_trator: string
+        }
+        Update: {
+          area_trabalhada?: string | null
+          algum_imprevisto?: string | null
+          algum_imprevisto_obs?: string | null
+          created_at?: string
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          dose_aplicada?: string | null
+          fazenda_id?: string
+          hora_final?: string | null
+          hora_inicial?: string | null
+          id?: string
+          implemento_utilizado?: string
+          meta_diaria_batida?: string | null
+          meta_diaria_batida_obs?: string | null
+          nome_usuario?: string | null
+          observacao?: string | null
+          odometro_final?: string
+          odometro_inicial?: string
+          produto_aplicado?: string | null
+          quantidade_total_aplicada?: string | null
+          sync_status?: string
+          tipo_operacao?: string
+          total_odometro?: string | null
+          updated_at?: string
+          version?: number
+          veiculo_trator?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_operacoes_maquinas_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_operacoes_maquinas_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_queue: {
         Row: {
           created_at: string | null
