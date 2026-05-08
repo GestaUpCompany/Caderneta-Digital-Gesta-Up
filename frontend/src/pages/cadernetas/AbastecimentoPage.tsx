@@ -66,6 +66,11 @@ const makeInitial = (): FormState => ({
 })
 
 export default function AbastecimentoPage() {
+  // Scroll para o topo imediatamente (antes do render)
+  if (typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }
+
   const navigate = useNavigate()
   const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial())
@@ -167,7 +172,28 @@ export default function AbastecimentoPage() {
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
         <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
-        <Input label="QUEM ABASTECEU?" placeholder="Nome de quem abasteceu" value={form.quemAbasteceu} onChange={setInput('quemAbasteceu')} error={getError('quemAbasteceu')} />
+        <>
+          {funcionariosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="QUEM ABASTECEU?"
+              value={form.quemAbasteceu}
+              onChange={set('quemAbasteceu')}
+              error={getError('quemAbasteceu')}
+              options={funcionariosDisponiveis}
+              placeholder="Buscar funcionário..."
+              id="quemAbasteceu"
+              name="quemAbasteceu"
+            />
+          ) : (
+            <Input
+              label="QUEM ABASTECEU?"
+              placeholder="Nome de quem abasteceu"
+              value={form.quemAbasteceu}
+              onChange={setInput('quemAbasteceu')}
+              error={getError('quemAbasteceu')}
+            />
+          )}
+        </>
         <>
           {funcionariosDisponiveis.length > 0 ? (
             <SearchableModal
