@@ -59,6 +59,20 @@ const CATEGORIAS = [
   { value: 'Outros', label: 'OUTROS' },
 ]
 
+const RACAS = [
+  { value: 'Nelore', label: 'NELORE' },
+  { value: 'Angus', label: 'ANGUS' },
+  { value: 'Leiteiro', label: 'LEITEIRO' },
+  { value: 'Anelorado', label: 'ANELORADO' },
+  { value: 'SRD', label: 'SRD' },
+  { value: 'Outros', label: 'OUTROS' },
+]
+
+const SEXO_OPTIONS = [
+  { value: 'Macho', label: 'MACHO', icon: '♂️' },
+  { value: 'Fêmea', label: 'FÊMEA', icon: '♀️' },
+]
+
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -76,6 +90,10 @@ interface FormState {
   lote: string
   brinco: string
   chip: string
+  sexo: string
+  raca: string
+  racaOutros: string
+  idade: string
   categorias: string[]
   outrosTexto: string
   tratamentos: string[]
@@ -95,14 +113,15 @@ const makeInitial = (): FormState => ({
   lote: '',
   brinco: '',
   chip: '',
+  sexo: '',
+  raca: '',
+  racaOutros: '',
+  idade: '',
   categorias: [],
   outrosTexto: '',
   tratamentos: [],
   tratamentoOutros: '',
-  diagnosticos: DIAGNOSTICOS.reduce((acc, { campo }) => {
-    acc[campo] = { valor: null, observacao: '' }
-    return acc
-  }, {} as FormState['diagnosticos']),
+  diagnosticos: {},
   observacaoTratamento: '',
 })
 
@@ -227,12 +246,17 @@ export default function EnfermariaPage() {
     
     const categoriasString = categoriasArray.join(', ')
 
+    const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
+
     const result = await salvarRegistro('enfermaria', {
       data: form.data,
       pasto: form.pasto,
       lote: form.lote,
       brinco: form.brinco,
       chip: form.chip,
+      sexo: form.sexo,
+      raca: racaFinal,
+      idade: form.idade,
       categoria: categoriasString,
       diagnosticos: form.diagnosticos,
       tratamento: tratamentoFinal,
@@ -373,6 +397,40 @@ export default function EnfermariaPage() {
             value={form.chip}
             onChange={setInput('chip')}
             error={getError('chip')}
+          />
+          <Radio
+            name="sexo"
+            label="SEXO"
+            options={SEXO_OPTIONS}
+            value={form.sexo}
+            onChange={(val) => setForm((p) => ({ ...p, sexo: val }))}
+            error={getError('sexo')}
+            gridCols={2}
+          />
+          <Radio
+            name="raca"
+            label="RAÇA"
+            options={RACAS}
+            value={form.raca}
+            onChange={(val) => setForm((p) => ({ ...p, raca: val }))}
+            error={getError('raca')}
+            gridCols={2}
+          />
+          {form.raca === 'Outros' && (
+            <Input
+              label="QUAL RAÇA?"
+              placeholder="Ex: Brahman, Hereford, Simmental..."
+              value={form.racaOutros}
+              onChange={setInput('racaOutros')}
+              error={getError('racaOutros')}
+            />
+          )}
+          <Input
+            label="IDADE"
+            placeholder="Ex: 2 anos, 6 meses..."
+            value={form.idade}
+            onChange={setInput('idade')}
+            error={getError('idade')}
           />
           <CheckboxGroup
             label="CATEGORIAS:"

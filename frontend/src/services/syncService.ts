@@ -522,6 +522,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote: registro.lote || null,
         brinco: registro.brinco || null,
         chip: registro.chip || null,
+        sexo: registro.sexo || null,
+        raca: registro.raca || null,
+        idade: registro.idade || null,
         categoria: registro.categoria || null,
         diagnosticos: registro.diagnosticos || {},
         tratamento: registro.tratamento || null,
@@ -568,6 +571,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         combustivel: registro.combustivel || null,
         odometro: registro.odometro || null,
         tipo_operacao: registro.tipoOperacao || null,
+        tipo_operacao_outros: registro.tipoOperacaoOutros || null,
         observacao: registro.observacao || null,
       }
     case 'cantina':
@@ -583,6 +587,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         numero_refeicoes_almoco: registro.numeroRefeicoesAlmoco ? Number(registro.numeroRefeicoesAlmoco) : null,
         numero_refeicoes_jantar: registro.numeroRefeicoesJantar ? Number(registro.numeroRefeicoesJantar) : null,
         itens: registro.itens || null,
+        nome_outros: registro.nomeOutros || null,
+        quantidade_outros: registro.quantidadeOutros || null,
+        unidade_outros: registro.unidadeOutros || null,
         observacao: registro.observacao || null,
       }
     case 'limpeza':

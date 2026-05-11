@@ -126,6 +126,9 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     lote: Joi.string().required(),
     brinco: Joi.string().allow(''),
     chip: Joi.string().allow(''),
+    sexo: Joi.string().valid('Macho', 'Fêmea').required(),
+    raca: Joi.string().valid('Nelore', 'Angus', 'Leiteiro', 'Anelorado', 'SRD', 'Outros').required(),
+    idade: Joi.string().allow(''),
     categoria: Joi.string().required(),
     tratamento: Joi.string().allow(''),
     observacaoTratamento: Joi.string().allow(''),
@@ -197,7 +200,8 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     totalAbastecido: Joi.number().min(0).required(),
     combustivel: Joi.string().valid('Álcool', 'Gasolina', 'Diesel S10', 'Diesel Comum').required(),
     odometro: Joi.string().required(),
-    tipoOperacao: Joi.string().valid('Nutrição', 'Pulverização', 'Gradagem', 'Fertilização/Correção', 'Limpeza', 'Niveladora', 'Rodagem', 'Manutenção', 'Plantio', 'Esterco', 'Colheita', 'Compactação', 'Roçada', 'Serviços Gerais', 'Terraplanagem').required(),
+    tipoOperacao: Joi.string().valid('Nutrição', 'Pulverização', 'Gradagem', 'Fertilização/Correção', 'Limpeza', 'Niveladora', 'Rodagem', 'Manutenção', 'Plantio', 'Esterco', 'Colheita', 'Compactação', 'Roçada', 'Serviços Gerais', 'Terraplanagem', 'Outros').required(),
+    tipoOperacaoOutros: Joi.string().allow(''),
     observacao: Joi.string().allow(''),
   }),
 
@@ -222,7 +226,10 @@ const schemas: Record<string, Joi.ObjectSchema> = {
         throw new Error('Preencha pelo menos um item')
       }
       return value
-    }).required(),
+    }).default({}),
+    nomeOutros: Joi.string().allow(''),
+    quantidadeOutros: Joi.string().allow(''),
+    unidadeOutros: Joi.string().valid('kg', 'unid.', 'pct').allow(''),
     observacao: Joi.string().allow(''),
   }),
 

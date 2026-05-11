@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, DatePicker, ValidationMessage } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, Radio, Checkbox } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
@@ -21,9 +21,33 @@ const ITEM_LABELS: Record<string, string> = {
   'Carneiro': 'Carneiro',
   'Peixe': 'Peixe',
   'Gás Cozinha': 'Gás Cozinha',
+  'Outros': 'Outros',
 }
 
-const ITENS_OPTIONS = Object.keys(ITEM_LABELS)
+// Mapeamento de unidades de medida para cada item
+const ITEM_UNITS: Record<string, string> = {
+  'Arroz': 'kg',
+  'Feijão': 'kg',
+  'Macarrão': 'pacote',
+  'Traseiro': 'kg',
+  'Dianteiro': 'kg',
+  'Ponta Ag.': 'kg',
+  'Suíno': 'kg',
+  'Frango': 'kg',
+  'Ovo': 'unid.',
+  'Carneiro': 'kg',
+  'Peixe': 'kg',
+  'Gás Cozinha': 'unid.',
+  'Outros': '',
+}
+
+const UNIDADES_OPTIONS = [
+  { value: 'kg', label: 'KG' },
+  { value: 'unid.', label: 'UNID.' },
+  { value: 'pct', label: 'PCT' },
+]
+
+const ITENS_OPTIONS = Object.keys(ITEM_LABELS).filter(item => item !== 'Outros')
 
 interface FormState {
   data: string
@@ -35,6 +59,10 @@ interface FormState {
   numeroRefeicoesAlmoco: string
   numeroRefeicoesJantar: string
   itens: Record<string, string>
+  outrosHabilitado: boolean
+  nomeOutros: string
+  quantidadeOutros: string
+  unidadeOutros: string
   observacao: string
 }
 
@@ -48,6 +76,10 @@ const makeInitial = (): FormState => ({
   numeroRefeicoesAlmoco: '',
   numeroRefeicoesJantar: '',
   itens: ITENS_OPTIONS.reduce((acc, item) => ({ ...acc, [item]: '' }), {} as Record<string, string>),
+  outrosHabilitado: false,
+  nomeOutros: '',
+  quantidadeOutros: '',
+  unidadeOutros: '',
   observacao: '',
 })
 
@@ -88,6 +120,9 @@ export default function CantinaPage() {
       numeroRefeicoesAlmoco: form.numeroRefeicoesAlmoco,
       numeroRefeicoesJantar: form.numeroRefeicoesJantar,
       itens: itensStorage,
+      nomeOutros: form.nomeOutros,
+      quantidadeOutros: form.quantidadeOutros,
+      unidadeOutros: form.unidadeOutros,
       observacao: form.observacao,
     })
 
@@ -144,9 +179,58 @@ export default function CantinaPage() {
         <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO DE ITENS</h2>
         <div className="grid grid-cols-2 gap-4 items-stretch">
           {ITENS_OPTIONS.map((item) => (
-            <Input key={item} label={item.toUpperCase()} type="number" placeholder="Quantidade" value={form.itens[item] || ''} onChange={setItem(item)} error={getError(`itens.${item}`)} />
+            <Input 
+              key={item} 
+              label={item.toUpperCase()} 
+              type="number" 
+              placeholder={ITEM_UNITS[item] || 'Quantidade'} 
+              value={form.itens[item] || ''} 
+              onChange={setItem(item)} 
+              error={getError(`itens.${item}`)} 
+            />
           ))}
         </div>
+        <Checkbox
+          label="Adicionar item não listado"
+          checked={form.outrosHabilitado}
+          onChange={(e) => {
+            setForm((p) => ({ ...p, outrosHabilitado: e.target.checked }))
+            if (!e.target.checked) {
+              setForm((p) => ({ ...p, nomeOutros: '', quantidadeOutros: '', unidadeOutros: '' }))
+            }
+          }}
+          className="[&_div]:w-8 [&_div]:h-8 [&_div]:min-w-[32px] [&_div]:min-h-[32px] [&_svg]:w-5 [&_svg]:h-5"
+        />
+        {form.outrosHabilitado && (
+          <div className="grid grid-cols-1 gap-4 items-stretch mt-2">
+            <Input 
+              label="NOME DO ITEM" 
+              placeholder="Especifique o item" 
+              value={form.nomeOutros} 
+              onChange={setInput('nomeOutros')} 
+              error={getError('nomeOutros')} 
+            />
+            <div className="grid grid-cols-2 gap-4 items-stretch">
+              <Input 
+                label="QUANTIDADE" 
+                type="number"
+                placeholder="Quantidade" 
+                value={form.quantidadeOutros} 
+                onChange={setInput('quantidadeOutros')} 
+                error={getError('quantidadeOutros')} 
+              />
+              <Radio
+                name="unidadeOutros"
+                label="UNIDADE"
+                options={UNIDADES_OPTIONS}
+                value={form.unidadeOutros}
+                onChange={(val) => setForm((p) => ({ ...p, unidadeOutros: val }))}
+                error={getError('unidadeOutros')}
+                gridCols={3}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Seção 4: Observações */}

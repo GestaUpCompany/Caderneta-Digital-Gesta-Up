@@ -284,15 +284,18 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Seção: Hidrômetro
     texto += `HIDRÔMETRO\n`
-    texto += `HIDRÔMETRO INICIAL: *${registro.hidrometroInicial || '—'}*\n`
-    texto += `HIDRÔMETRO FINAL: *${registro.hidrometroFinal || '—'}*\n`
-    texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'}*\n\n`
+    texto += `INICIAL: *${registro.hidrometroInicial || '—'} L*\n`
+    texto += `FINAL: *${registro.hidrometroFinal || '—'} L*\n`
+    texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'} L*\n\n`
     
     // Seção: Combustível
     texto += `COMBUSTÍVEL\n`
     texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
-    texto += `ODÔMETRO: *${registro.odometro || '—'}*\n`
+    texto += `ODÔMETRO: *${registro.odometro || '—'} km*\n`
     texto += `TIPO DE OPERAÇÃO: *${registro.tipoOperacao || '—'}*\n`
+    if (registro.tipoOperacao === 'Outros' && registro.tipoOperacaoOutros) {
+      texto += `ESPECIFICAR: *${registro.tipoOperacaoOutros}*\n`
+    }
     if (registro.observacao) {
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
@@ -309,6 +312,32 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `N° LANCHES: *${registro.numeroLanches || '—'}*\n`
     texto += `N° REFEIÇÕES ALMOÇO: *${registro.numeroRefeicoesAlmoco || '—'}*\n`
     texto += `N° REFEIÇÕES JANTAR: *${registro.numeroRefeicoesJantar || '—'}*\n`
+    
+    // Seção: ITENS
+    if (registro.itens && Object.keys(registro.itens).length > 0) {
+      texto += `\nITENS\n`
+      Object.entries(registro.itens).forEach(([key, value]) => {
+        if (value && value !== '' && value !== '0') {
+          const label = key.toUpperCase()
+          // Para itens fixos, usar ITEM_UNITS do CantinaPage se disponível
+          // Para simplicidade, vamos mostrar apenas o valor
+          texto += `${label}: *${value}*\n`
+        }
+      })
+    }
+    
+    // Seção: OUTROS
+    if (registro.nomeOutros || registro.quantidadeOutros) {
+      texto += `\nOUTROS\n`
+      if (registro.nomeOutros) {
+        texto += `NOME DO ITEM: *${registro.nomeOutros}*\n`
+      }
+      if (registro.quantidadeOutros) {
+        const unidade = registro.unidadeOutros || ''
+        texto += `QUANTIDADE: *${registro.quantidadeOutros}${unidade ? ' ' + unidade : ''}*\n`
+      }
+    }
+    
     if (registro.observacao) {
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
@@ -559,6 +588,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'lote',
       'brinco',
       'chip',
+      'sexo',
+      'raca',
+      'idade',
       'categoria',
       'tratamento',
     ]
@@ -663,7 +695,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'decomposicao'
     ]
 
-    texto += '\nDIAGNÓSTICOS:\n'
+    texto += 'DIAGNÓSTICOS:\n'
     
     ordemDiagnosticos.forEach(key => {
       const data = (registro.diagnosticos as any)?.[key]

@@ -127,8 +127,8 @@ const BEBEDOUROS_LABELS = {
 const ABASTECIMENTO_LABELS = {
   ...COMMON_LABELS,
   quemAbasteceu: 'QUEM ABASTECEU',
-  operadorMotorista: 'OPERADOR MOTORISTA',
-  veiculoTrator: 'VEÍCULO TRATOR',
+  operadorMotorista: 'OPERADOR/MOTORISTA',
+  veiculoTrator: 'TRATOR/VEÍCULO',
   placa: 'PLACA',
   hidrometroInicial: 'HIDRÔMETRO INICIAL',
   hidrometroFinal: 'HIDRÔMETRO FINAL',
@@ -136,6 +136,7 @@ const ABASTECIMENTO_LABELS = {
   combustivel: 'COMBUSTÍVEL',
   odometro: 'ODÔMETRO',
   tipoOperacao: 'TIPO DE OPERAÇÃO',
+  tipoOperacaoOutros: 'ESPECIFICAR',
   observacao: 'OBSERVAÇÃO',
 }
 
@@ -174,6 +175,9 @@ const ENFERMARIA_LABELS = {
   categoria: 'CATEGORIA',
   tratamento: 'TRATAMENTO',
   tratamentoOutros: 'Outros',
+  sexo: 'SEXO',
+  raca: 'RAÇA',
+  idade: 'IDADE',
   pododermiteCascos: 'PODODERMITE DOS CASCOS',
   pododermiteCascosObs: 'OBSERVAÇÃO',
   sintomasPneumonia: 'SINTOMAS DE PNEUMONIA',
@@ -190,6 +194,12 @@ const ENFERMARIA_LABELS = {
   fraturasObs: 'OBSERVAÇÃO',
   desordensDigestivas: 'DESORDENS DIGESTIVAS / TIMPANISMO / DIARREIA',
   desordensDigestivasObs: 'OBSERVAÇÃO',
+  cegueira: 'CEGUEIRA',
+  cegueiraObs: 'OBSERVAÇÃO',
+  andarCambaleante: 'ANDAR CAMBALEANTE',
+  andarCambaleanteObs: 'OBSERVAÇÃO',
+  bicheira: 'TEM BICHEIRA',
+  bicheiraObs: 'OBSERVAÇÃO',
 }
 
 const MORTE_LABELS = {

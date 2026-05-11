@@ -125,6 +125,9 @@ export interface RegistroMovimentacao extends Registro {
 export interface RegistroEnfermaria extends Registro {
   lote: string
   brincoChip: string
+  sexo: string
+  raca: string
+  idade: string
   categoria: string
   tratamento: string
   tratamentoOutros: string

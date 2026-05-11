@@ -31,6 +31,7 @@ const OPERACAO_OPTIONS = [
   { value: 'Roçada', label: 'ROÇADA' },
   { value: 'Serviços Gerais', label: 'SERVIÇOS GERAIS' },
   { value: 'Terraplanagem', label: 'TERRAPLANAGEM' },
+  { value: 'Outros', label: 'OUTROS' },
 ]
 
 interface FormState {
@@ -45,6 +46,7 @@ interface FormState {
   combustivel: string
   odometro: string
   tipoOperacao: string
+  tipoOperacaoOutros: string
   observacao: string
 }
 
@@ -60,6 +62,7 @@ const makeInitial = (): FormState => ({
   combustivel: '',
   odometro: '',
   tipoOperacao: '',
+  tipoOperacaoOutros: '',
   observacao: '',
 })
 
@@ -115,6 +118,7 @@ export default function AbastecimentoPage() {
       combustivel: form.combustivel,
       odometro: form.odometro,
       tipoOperacao: form.tipoOperacao,
+      tipoOperacaoOutros: form.tipoOperacaoOutros,
       observacao: form.observacao,
     })
 
@@ -171,7 +175,7 @@ export default function AbastecimentoPage() {
         <>
           {funcionariosDisponiveis.length > 0 ? (
             <SearchableModal
-              label="OPERADOR MOTORISTA?"
+              label="OPERADOR/MOTORISTA?"
               value={form.operadorMotorista}
               onChange={set('operadorMotorista')}
               error={getError('operadorMotorista')}
@@ -182,7 +186,7 @@ export default function AbastecimentoPage() {
             />
           ) : (
             <Input
-              label="OPERADOR MOTORISTA?"
+              label="OPERADOR/MOTORISTA?"
               placeholder="Nome do operador/motorista"
               value={form.operadorMotorista}
               onChange={setInput('operadorMotorista')}
@@ -190,7 +194,7 @@ export default function AbastecimentoPage() {
             />
           )}
         </>
-        <Input label="VEÍCULO TRATOR?" placeholder="Modelo do veículo/trator" value={form.veiculoTrator} onChange={setInput('veiculoTrator')} error={getError('veiculoTrator')} />
+        <Input label="TRATOR/VEÍCULO?" placeholder="Modelo do veículo/trator" value={form.veiculoTrator} onChange={setInput('veiculoTrator')} error={getError('veiculoTrator')} />
         <Input label="PLACA?" placeholder="Placa do veículo" value={form.placa} onChange={setInput('placa')} error={getError('placa')} />
         <Input label="HIDRÔMETRO INICIAL?" placeholder="Leitura inicial" value={form.hidrometroInicial} onChange={setInput('hidrometroInicial')} error={getError('hidrometroInicial')} />
         <Input label="HIDRÔMETRO FINAL?" placeholder="Leitura final" value={form.hidrometroFinal} onChange={setInput('hidrometroFinal')} error={getError('hidrometroFinal')} />
@@ -219,6 +223,15 @@ export default function AbastecimentoPage() {
           error={getError('tipoOperacao')}
           gridCols={2}
         />
+        {form.tipoOperacao === 'Outros' && (
+          <Input
+            label="ESPECIFICAR"
+            placeholder="Especifique o tipo de operação"
+            value={form.tipoOperacaoOutros}
+            onChange={setInput('tipoOperacaoOutros')}
+            error={getError('tipoOperacaoOutros')}
+          />
+        )}
       </div>
 
       {/* Seção 3: Observação */}
