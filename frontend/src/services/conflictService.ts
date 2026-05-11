@@ -60,6 +60,7 @@ function buildRegistroFromRow(
     'insumos-por-saida': ['idSaida', 'dataProducao', 'dietaProduzida', 'insumo', 'quantidade'],
     clima: ['data', 'responsavel', 'temperaturaMedia', 'observacao'],
     'operacoes-maquinas': ['data', 'veiculoTrator', 'implementoUtilizado', 'horaInicial', 'horaFinal', 'odometroInicial', 'odometroFinal', 'totalOdometro', 'tipoOperacao', 'produtoAplicado', 'quantidadeTotalAplicada', 'areaTrabalhada', 'doseAplicada', 'metaDiariaBatida', 'metaDiariaBatidaObs', 'algumImprevisto', 'algumImprevistoObs', 'observacao'],
+    problemas: ['data', 'setor', 'local', 'descricaoProblema', 'causaIdentificada', 'causaIdentificadaObs', 'acaoCorretivaRealizada', 'acaoCorretivaRealizadaObs', 'tipoOcorrencia', 'tipoOcorrenciaObs', 'causaRaizIdentificada', 'causaRaizIdentificadaObs', 'gravidadeImpacto', 'gravidadeImpactoObs', 'tipoProblema', 'tipoProblemaObs', 'prioridade'],
   }
 
   const fields = fieldsByCaderneta[caderneta]
