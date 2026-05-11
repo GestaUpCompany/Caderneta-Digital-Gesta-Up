@@ -13,6 +13,7 @@ const SHEET_NAMES: Record<string, string> = {
   bebedouros: 'Bebedouros',
   movimentacao: 'Movimentação',
   enfermaria: 'Enfermaria',
+  problemas: 'Problemas',
 }
 
 interface SyncResult {

@@ -214,6 +214,26 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     }).required(),
     observacao: Joi.string().allow(''),
   }),
+
+  problemas: Joi.object({
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    setor: Joi.string().valid('Gado', 'Máquinas', 'ADM', 'Fábrica', 'Manutenção', 'Terceirizado').required(),
+    local: Joi.string().required(),
+    descricaoProblema: Joi.string().required(),
+    causaIdentificada: Joi.string().valid('S', 'N').required(),
+    causaIdentificadaObs: Joi.string().allow(''),
+    acaoCorretivaRealizada: Joi.string().valid('S', 'N').required(),
+    acaoCorretivaRealizadaObs: Joi.string().allow(''),
+    tipoOcorrencia: Joi.string().valid('Única', 'Repetitiva').required(),
+    tipoOcorrenciaObs: Joi.string().allow(''),
+    causaRaizIdentificada: Joi.string().valid('S', 'N').required(),
+    causaRaizIdentificadaObs: Joi.string().allow(''),
+    gravidadeImpacto: Joi.string().valid('baixa', 'média', 'alta').required(),
+    gravidadeImpactoObs: Joi.string().allow(''),
+    tipoProblema: Joi.string().valid('Estrutural', 'Máquinas', 'Processos', 'Rebanho').required(),
+    tipoProblemaObs: Joi.string().allow(''),
+    prioridade: Joi.string().valid('baixa', 'média', 'alta').required(),
+  }),
 }
 
 export function validateCaderneta(caderneta: string) {
@@ -243,14 +263,14 @@ export function validateSyncRequest(req: Request, res: Response, next: NextFunct
     planilhaUrl: Joi.string().uri().required(),
     registros: Joi.array().items(Joi.object({
       id: Joi.string().required(),
-      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima', 'abastecimento', 'cantina').required(),
+      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima', 'abastecimento', 'cantina', 'problemas').required(),
       operacao: Joi.string().valid('create', 'update', 'delete').required(),
       dados: Joi.object().required(),
     })).min(1).required(),
   })
 
   const { error } = schema.validate(req.body)
-  
+
   if (error) {
     logger.warn(`Validação de sync falhou: ${error.message}`)
     return res.status(400).json({ error: 'Requisição de sincronização inválida' })

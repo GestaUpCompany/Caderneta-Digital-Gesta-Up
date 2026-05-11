@@ -607,6 +607,33 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                           camposNormais.push([key, value])
                         }
                       })
+                    } else if (caderneta === 'problemas') {
+                      // Para problemas, usar ordem específica dos formulários
+                      const ordemProblemas = [
+                        'setor',
+                        'local',
+                        'descricaoProblema',
+                        'causaIdentificada',
+                        'causaIdentificadaObs',
+                        'acaoCorretivaRealizada',
+                        'acaoCorretivaRealizadaObs',
+                        'tipoOcorrencia',
+                        'tipoOcorrenciaObs',
+                        'causaRaizIdentificada',
+                        'causaRaizIdentificadaObs',
+                        'gravidadeImpacto',
+                        'gravidadeImpactoObs',
+                        'tipoProblema',
+                        'tipoProblemaObs',
+                        'prioridade'
+                      ]
+
+                      ordemProblemas.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
                     } else {
                       Object.entries(registro).forEach(([key, value]) => {
                         if (

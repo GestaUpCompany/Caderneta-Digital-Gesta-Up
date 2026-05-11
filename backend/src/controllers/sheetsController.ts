@@ -15,6 +15,7 @@ const SHEET_NAMES: Record<string, string> = {
   'entrada-insumos': 'Entrada Insumos',
   'saida-insumos': 'Saída Insumos',
   'insumos-por-saida': 'Insumos por Saída',
+  problemas: 'Problemas',
 }
 
 sheetsRouter.post('/validate', async (req: Request, res: Response) => {

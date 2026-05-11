@@ -2646,6 +2646,108 @@ export type Database = {
           },
         ]
       }
+      registros_problemas: {
+        Row: {
+          id: string
+          fazenda_id: string
+          dispositivo_id: string | null
+          nome_usuario: string | null
+          data: string
+          setor: string | null
+          local: string | null
+          descricao_problema: string | null
+          causa_identificada: boolean
+          causa_identificada_obs: string | null
+          acao_corretiva_realizada: boolean
+          acao_corretiva_realizada_obs: string | null
+          tipo_ocorrencia: string | null
+          tipo_ocorrencia_obs: string | null
+          causa_raiz_identificada: boolean
+          causa_raiz_identificada_obs: string | null
+          gravidade_impacto: string | null
+          gravidade_impacto_obs: string | null
+          tipo_problema: string | null
+          tipo_problema_obs: string | null
+          prioridade: string | null
+          sync_status: string | null
+          version: number | null
+          created_at: string | null
+          updated_at: string | null
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          fazenda_id: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data: string
+          setor?: string | null
+          local?: string | null
+          descricao_problema?: string | null
+          causa_identificada?: boolean
+          causa_identificada_obs?: string | null
+          acao_corretiva_realizada?: boolean
+          acao_corretiva_realizada_obs?: string | null
+          tipo_ocorrencia?: string | null
+          tipo_ocorrencia_obs?: string | null
+          causa_raiz_identificada?: boolean
+          causa_raiz_identificada_obs?: string | null
+          gravidade_impacto?: string | null
+          gravidade_impacto_obs?: string | null
+          tipo_problema?: string | null
+          tipo_problema_obs?: string | null
+          prioridade?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          fazenda_id?: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data?: string
+          setor?: string | null
+          local?: string | null
+          descricao_problema?: string | null
+          causa_identificada?: boolean
+          causa_identificada_obs?: string | null
+          acao_corretiva_realizada?: boolean
+          acao_corretiva_realizada_obs?: string | null
+          tipo_ocorrencia?: string | null
+          tipo_ocorrencia_obs?: string | null
+          causa_raiz_identificada?: boolean
+          causa_raiz_identificada_obs?: string | null
+          gravidade_impacto?: string | null
+          gravidade_impacto_obs?: string | null
+          tipo_problema?: string | null
+          tipo_problema_obs?: string | null
+          prioridade?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_problemas_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_problemas_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_queue: {
         Row: {
           created_at: string | null

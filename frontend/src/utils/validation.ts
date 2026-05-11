@@ -465,7 +465,53 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas'
+function validateProblemas(data: Record<string, unknown>): ValidationResult {
+  const errors: { field: string; message: string }[] = []
+
+  // Validar data
+  if (!data.data || typeof data.data !== 'string' || data.data.trim() === '')
+    errors.push({ field: 'data', message: 'Data é obrigatória' })
+
+  // Validar setor
+  if (!data.setor || typeof data.setor !== 'string' || data.setor.trim() === '')
+    errors.push({ field: 'setor', message: 'Setor é obrigatório' })
+
+  // Validar local
+  if (!data.local || typeof data.local !== 'string' || data.local.trim() === '')
+    errors.push({ field: 'local', message: 'Local é obrigatório' })
+
+  // Validar descrição do problema
+  if (!data.descricaoProblema || typeof data.descricaoProblema !== 'string' || data.descricaoProblema.trim() === '')
+    errors.push({ field: 'descricaoProblema', message: 'Descrição do problema é obrigatória' })
+
+  // Validar perguntas S/N
+  if (!isSnBoolean(data.causaIdentificada))
+    errors.push({ field: 'causaIdentificada', message: 'Causa identificada: selecione SIM ou NÃO' })
+  if (!isSnBoolean(data.acaoCorretivaRealizada))
+    errors.push({ field: 'acaoCorretivaRealizada', message: 'Ação corretiva realizada: selecione SIM ou NÃO' })
+  if (!isSnBoolean(data.causaRaizIdentificada))
+    errors.push({ field: 'causaRaizIdentificada', message: 'Causa raiz identificada: selecione SIM ou NÃO' })
+
+  // Validar tipo de ocorrência
+  if (!data.tipoOcorrencia || typeof data.tipoOcorrencia !== 'string' || data.tipoOcorrencia.trim() === '')
+    errors.push({ field: 'tipoOcorrencia', message: 'Tipo de ocorrência é obrigatório' })
+
+  // Validar gravidade/impacto
+  if (!data.gravidadeImpacto || typeof data.gravidadeImpacto !== 'string' || data.gravidadeImpacto.trim() === '')
+    errors.push({ field: 'gravidadeImpacto', message: 'Gravidade ou impacto é obrigatório' })
+
+  // Validar tipo de problema
+  if (!data.tipoProblema || typeof data.tipoProblema !== 'string' || data.tipoProblema.trim() === '')
+    errors.push({ field: 'tipoProblema', message: 'Tipo de problema é obrigatório' })
+
+  // Validar prioridade
+  if (!data.prioridade || typeof data.prioridade !== 'string' || data.prioridade.trim() === '')
+    errors.push({ field: 'prioridade', message: 'Prioridade é obrigatória' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'problemas'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -481,6 +527,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   cantina: validateCantina,
   limpeza: validateLimpeza,
   'operacoes-maquinas': validateOperacoesMaquinas,
+  problemas: validateProblemas,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

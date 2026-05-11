@@ -826,6 +826,64 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         }
       })
     }
+  } else if (caderneta === 'problemas') {
+    // Seção: Localização
+    texto += `*LOCALIZAÇÃO*\n`
+    texto += `*SETOR:* ${registro.setor || '—'}\n`
+    texto += `*LOCAL:* ${registro.local || '—'}\n\n`
+
+    // Seção: Descrição do Problema
+    texto += `*DESCRIÇÃO DO PROBLEMA*\n`
+    texto += `${registro.descricaoProblema || '—'}\n\n`
+
+    // Seção: Análise
+    texto += `*ANÁLISE*\n`
+    if (registro.causaIdentificada) {
+      const causaLabel = registro.causaIdentificada === 'S' ? 'Sim' : 'Não'
+      texto += `*CAUSA IDENTIFICADA:* ${causaLabel}\n`
+    }
+    if (registro.causaIdentificadaObs && registro.causaIdentificadaObs !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.causaIdentificadaObs}\n`
+    }
+    if (registro.acaoCorretivaRealizada) {
+      const acaoLabel = registro.acaoCorretivaRealizada === 'S' ? 'Sim' : 'Não'
+      texto += `*AÇÃO CORRETIVA REALIZADA:* ${acaoLabel}\n`
+    }
+    if (registro.acaoCorretivaRealizadaObs && registro.acaoCorretivaRealizadaObs !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.acaoCorretivaRealizadaObs}\n`
+    }
+    texto += `\n`
+
+    // Seção: Classificação
+    texto += `*CLASSIFICAÇÃO*\n`
+    if (registro.tipoOcorrencia) {
+      texto += `*TIPO DE OCORRÊNCIA:* ${registro.tipoOcorrencia}\n`
+    }
+    if (registro.tipoOcorrenciaObs && registro.tipoOcorrenciaObs !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.tipoOcorrenciaObs}\n`
+    }
+    if (registro.causaRaizIdentificada) {
+      const raizLabel = registro.causaRaizIdentificada === 'S' ? 'Sim' : 'Não'
+      texto += `*CAUSA RAIZ IDENTIFICADA:* ${raizLabel}\n`
+    }
+    if (registro.causaRaizIdentificadaObs && registro.causaRaizIdentificadaObs !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.causaRaizIdentificadaObs}\n`
+    }
+    if (registro.gravidadeImpacto) {
+      texto += `*GRAVIDADE/IMPACTO:* ${registro.gravidadeImpacto}\n`
+    }
+    if (registro.gravidadeImpactoObs && registro.gravidadeImpactoObs !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.gravidadeImpactoObs}\n`
+    }
+    if (registro.tipoProblema) {
+      texto += `*TIPO DE PROBLEMA:* ${registro.tipoProblema}\n`
+    }
+    if (registro.tipoProblemaObs && registro.tipoProblemaObs !== '') {
+      texto += `*OBSERVAÇÃO:* ${registro.tipoProblemaObs}\n`
+    }
+    if (registro.prioridade) {
+      texto += `*PRIORIDADE:* ${registro.prioridade}\n`
+    }
   } else {
     // Para pastagens, usar estrutura organizada
     if (caderneta === 'pastagens') {

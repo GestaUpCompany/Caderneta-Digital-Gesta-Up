@@ -1089,6 +1089,31 @@ export async function updateRegistroClima(id: string, registro: TablesUpdate<'re
   return data
 }
 
+// ==================== REGISTROS PROBLEMAS ====================
+
+export async function createRegistroProblemas(registro: TablesInsert<'registros_problemas'>) {
+  const { data, error } = await supabase
+    .from('registros_problemas')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroProblemas(id: string, registro: TablesUpdate<'registros_problemas'>) {
+  const { data, error } = await supabase
+    .from('registros_problemas')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== REGISTROS ABASTECIMENTO ====================
 
 export async function createRegistroAbastecimento(registro: TablesInsert<'registros_abastecimento'>) {

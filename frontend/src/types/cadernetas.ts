@@ -212,3 +212,22 @@ export interface RegistroMorte extends Registro {
   desordensDigestivas: 'S' | 'N'
   desordensDigestivasObs: string
 }
+
+export interface RegistroProblemas extends Registro {
+  setor: string
+  local: string
+  descricaoProblema: string
+  causaIdentificada: 'S' | 'N'
+  causaIdentificadaObs: string
+  acaoCorretivaRealizada: 'S' | 'N'
+  acaoCorretivaRealizadaObs: string
+  tipoOcorrencia: string
+  tipoOcorrenciaObs: string
+  causaRaizIdentificada: 'S' | 'N'
+  causaRaizIdentificadaObs: string
+  gravidadeImpacto: string
+  gravidadeImpactoObs: string
+  tipoProblema: string
+  tipoProblemaObs: string
+  prioridade: string
+}

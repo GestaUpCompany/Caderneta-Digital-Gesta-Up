@@ -74,6 +74,8 @@ const LimpezaPage = lazy(() => import('./pages/cadernetas/LimpezaPage'))
 const LimpezaListaPage = lazy(() => import('./pages/cadernetas/LimpezaListaPage'))
 const OperacoesMaquinasPage = lazy(() => import('./pages/cadernetas/OperacoesMaquinasPage'))
 const OperacoesMaquinasListaPage = lazy(() => import('./pages/cadernetas/OperacoesMaquinasListaPage'))
+const ProblemasPage = lazy(() => import('./pages/cadernetas/ProblemasPage'))
+const ProblemasListaPage = lazy(() => import('./pages/cadernetas/ProblemasListaPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
@@ -337,6 +339,10 @@ function AppInner() {
             {/* Operações de Máquinas */}
             <Route path="/caderneta/operacoes-maquinas" element={<OperacoesMaquinasPage />} />
             <Route path="/caderneta/operacoes-maquinas/lista" element={<OperacoesMaquinasListaPage />} />
+
+            {/* Problemas */}
+            <Route path="/caderneta/problemas" element={<ProblemasPage />} />
+            <Route path="/caderneta/problemas/lista" element={<ProblemasListaPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

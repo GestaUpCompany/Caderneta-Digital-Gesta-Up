@@ -308,6 +308,27 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'observacao' },
     ],
   },
+  problemas: {
+    columns: [
+      { field: 'data' },
+      { field: 'setor' },
+      { field: 'local' },
+      { field: 'descricaoProblema' },
+      { field: 'causaIdentificada' },
+      { field: 'causaIdentificadaObs', defaultValue: '' },
+      { field: 'acaoCorretivaRealizada' },
+      { field: 'acaoCorretivaRealizadaObs', defaultValue: '' },
+      { field: 'tipoOcorrencia' },
+      { field: 'tipoOcorrenciaObs', defaultValue: '' },
+      { field: 'causaRaizIdentificada' },
+      { field: 'causaRaizIdentificadaObs', defaultValue: '' },
+      { field: 'gravidadeImpacto' },
+      { field: 'gravidadeImpactoObs', defaultValue: '' },
+      { field: 'tipoProblema' },
+      { field: 'tipoProblemaObs', defaultValue: '' },
+      { field: 'prioridade' },
+    ],
+  },
 }
 
 function getColumnValues(store: CadernetaStore, registro: Registro): (string | number | null)[] {
@@ -361,6 +382,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string> = {
   'entrada-insumos': 'registros_entrada_insumos',
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
+  problemas: 'registros_problemas',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -690,6 +712,27 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         destino_producao: registro.destinoProducao || null,
         total_produzido: registro.totalProduzido ? Number(registro.totalProduzido) : null,
       }
+    case 'problemas':
+      return {
+        ...baseData,
+        data: registro.data,
+        setor: registro.setor || null,
+        local: registro.local || null,
+        descricao_problema: registro.descricaoProblema || null,
+        causa_identificada: registro.causaIdentificada === 'S',
+        causa_identificada_obs: registro.causaIdentificadaObs || null,
+        acao_corretiva_realizada: registro.acaoCorretivaRealizada === 'S',
+        acao_corretiva_realizada_obs: registro.acaoCorretivaRealizadaObs || null,
+        tipo_ocorrencia: registro.tipoOcorrencia || null,
+        tipo_ocorrencia_obs: registro.tipoOcorrenciaObs || null,
+        causa_raiz_identificada: registro.causaRaizIdentificada === 'S',
+        causa_raiz_identificada_obs: registro.causaRaizIdentificadaObs || null,
+        gravidade_impacto: registro.gravidadeImpacto || null,
+        gravidade_impacto_obs: registro.gravidadeImpactoObs || null,
+        tipo_problema: registro.tipoProblema || null,
+        tipo_problema_obs: registro.tipoProblemaObs || null,
+        prioridade: registro.prioridade || null,
+      }
     default:
       return baseData
   }
@@ -748,6 +791,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_saida_insumos':
           await supabaseService.createRegistroSaidaInsumos(data)
           break
+        case 'registros_problemas':
+          await supabaseService.createRegistroProblemas(data)
+          break
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {
@@ -797,6 +843,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_saida_insumos':
           await supabaseService.updateRegistroSaidaInsumos(supabaseId, data)
+          break
+        case 'registros_problemas':
+          await supabaseService.updateRegistroProblemas(supabaseId, data)
           break
       }
       console.log(`[SUPABASE] Registro atualizado com sucesso em ${tableName}`)
