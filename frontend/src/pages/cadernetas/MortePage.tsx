@@ -378,14 +378,14 @@ export default function MortePage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
           <Input
-            label="BRINCO"
+            label="ID. BRINCO"
             placeholder="Número do brinco"
             value={form.brinco}
             onChange={setInput('brinco')}
             error={getError('brinco')}
           />
           <Input
-            label="CHIP"
+            label="ID. CHIP"
             placeholder="Número do chip"
             value={form.chip}
             onChange={setInput('chip')}

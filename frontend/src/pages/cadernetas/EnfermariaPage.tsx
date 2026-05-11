@@ -39,6 +39,7 @@ const DIAGNOSTICOS = [
   { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS?' },
   { campo: 'cegueira', label: 'CEGUEIRA?' },
   { campo: 'andarCambaleante', label: 'ANDAR CAMBALEANTE?' },
+  { campo: 'bicheira', label: 'TEM BICHEIRA?' },
 ]
 
 const SN_OPTIONS = [
@@ -99,6 +100,8 @@ interface FormState {
   cegueiraObs: string
   andarCambaleante: string
   andarCambaleanteObs: string
+  bicheira: string
+  bicheiraObs: string
   observacaoTratamento: string
 }
 
@@ -132,6 +135,8 @@ const makeInitial = (): FormState => ({
   cegueiraObs: '',
   andarCambaleante: '',
   andarCambaleanteObs: '',
+  bicheira: '',
+  bicheiraObs: '',
   observacaoTratamento: '',
 })
 
@@ -265,6 +270,8 @@ export default function EnfermariaPage() {
       cegueiraObs: form.cegueiraObs,
       andarCambaleante: form.andarCambaleante,
       andarCambaleanteObs: form.andarCambaleanteObs,
+      bicheira: form.bicheira,
+      bicheiraObs: form.bicheiraObs,
       tratamento: tratamentoFinal,
       observacaoTratamento: form.observacaoTratamento,
     })
@@ -391,14 +398,14 @@ export default function EnfermariaPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
           <Input
-            label="BRINCO"
+            label="ID. BRINCO"
             placeholder="Número do brinco"
             value={form.brinco}
             onChange={setInput('brinco')}
             error={getError('brinco')}
           />
           <Input
-            label="CHIP"
+            label="ID. CHIP"
             placeholder="Número do chip"
             value={form.chip}
             onChange={setInput('chip')}

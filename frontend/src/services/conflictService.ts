@@ -34,12 +34,12 @@ function buildRegistroFromRow(
   }
 
   const fieldsByCaderneta: Record<CadernetaStore, string[]> = {
-    maternidade: ['data', 'pasto', 'pesoCria', 'numeroCria', 'tratamento', 'tipoParto', 'sexo', 'raca', 'numeroMae', 'categoriaMae'],
+    maternidade: ['data', 'pasto', 'pesoCria', 'idCria', 'tratamento', 'tipoParto', 'sexo', 'raca', 'brincoMae', 'chipMae', 'categoriaMae'],
     pastagens: ['data', 'manejador', 'numeroLote', 'pastoSaida', 'avaliacaoSaida', 'pastoEntrada', 'avaliacaoEntrada', 'vaca', 'touro', 'bezerro', 'boiMagro', 'garrote', 'novilha', 'totalAnimais'],
     rodeio: [
       'data', 'pasto', 'numeroLote', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha',
-      'totalCabecas', 'escoreGadoIdeal', 'aguaBoaBebedouro', 'pastagemAdequada', 'animaisDoentes',
-      'cercasCochos', 'carrapatosMoscas', 'animaisEntrevero', 'animalMorto', 'animaisTratados',
+      'totalCabecas', 'escoreGadoIdeal', 'bebedourosCochos', 'pastagensTaxaLotacao', 'animaisMachucadosDoentesBichados',
+      'cercasCochosPorteiras', 'carrapatosMoscas', 'animaisEntrevero', 'animalMorto', 'animaisTratados',
       'escoreFezes', 'equipe',
       // 20 pares de colunas para animais tratados
       ...Array.from({ length: 20 }, (_, i) => [
@@ -47,10 +47,10 @@ function buildRegistroFromRow(
         `animal${i + 1}Tratamentos`,
       ]).flat(),
     ],
-    suplementacao: ['data', 'tratador', 'pasto', 'numeroLote', 'produto', 'gado', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha', 'leitura', 'sacos', 'kgCocho', 'kgDeposito', 'creep'],
+    suplementacao: ['data', 'tratador', 'pasto', 'numeroLote', 'produto', 'gado', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha', 'leitura', 'sacos', 'kgCocho', 'kgDeposito'],
     bebedouros: ['data', 'responsavel', 'pasto', 'numeroLote', 'gado', 'categoria', 'leituraBebedouro', 'numeroBebedouro', 'observacao'],
     movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'pesoMedio', 'categoria', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
-    enfermaria: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'tratamento', 'tratamentoOutros', 'problemaCasco', 'problemaCascoObs', 'sintomasPneumonia', 'sintomasPneumoniaObs', 'picadoCobra', 'picadoCobraObs', 'incoordenacaoTremores', 'incoordenacaoTremoresObs', 'observacao'],
+    enfermaria: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'tratamento', 'tratamentoOutros', 'problemaCasco', 'problemaCascoObs', 'sintomasPneumonia', 'sintomasPneumoniaObs', 'picadoCobra', 'picadoCobraObs', 'incoordenacaoTremores', 'incoordenacaoTremoresObs', 'bicheira', 'bicheiraObs', 'observacao'],
     morte: ['data', 'pasto', 'lote', 'brincoChip', 'vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros', 'outraCategoria', 'sexo', 'raca', 'racaOutros', 'idade', 'pesoVivo', 'causaMorte', 'causaMorteOutros', 'secrecaoOrificios', 'secrecaoOrificiosObs', 'sintomasPneumonia', 'sintomasPneumoniaObs', 'inchaco', 'incoordenacaoTremores', 'incoordenacaoTremoresObs', 'apatiaFraqueza', 'apatiaFraquezaObs', 'cegueira', 'cegueiraObs', 'andarCambaleante', 'andarCambaleanteObs', 'tratamento', 'observacaoTratamento'],
     abastecimento: ['data', 'quemAbasteceu', 'operadorMotorista', 'veiculoTrator', 'placa', 'combustivel', 'tipoOperacao'],
     cantina: ['data', 'numeroCozinheiras', 'quemCozinhou', 'quemAjudou', 'numeroCafeManha', 'numeroLanches', 'numeroRefeicoesAlmoco', 'numeroRefeicoesJantar', 'observacao'],

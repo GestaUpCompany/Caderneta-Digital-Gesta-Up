@@ -167,75 +167,75 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: ORIGEM
     texto += `ORIGEM\n`
     if (registro.loteOrigem) {
-      texto += `LOTE ORIGEM: ${registro.loteOrigem}\n`
+      texto += `LOTE ORIGEM: *${registro.loteOrigem}*\n`
     }
     if (registro.brinco) {
-      texto += `BRINCO: ${registro.brinco}\n`
+      texto += `BRINCO: *${registro.brinco}*\n`
     }
     if (registro.chip) {
-      texto += `CHIP: ${registro.chip}\n`
+      texto += `CHIP: *${registro.chip}*\n`
     }
     texto += `\n`
 
     // Seção: QUANTIFICAÇÃO
     texto += `QUANTIFICAÇÃO\n`
     if (registro.numeroCabecas) {
-      texto += `NÚMERO CABEÇAS: ${registro.numeroCabecas}\n`
+      texto += `NÚMERO CABEÇAS: *${registro.numeroCabecas}*\n`
     }
     if (registro.pesoMedio) {
-      texto += `PESO MÉDIO: ${registro.pesoMedio}\n`
+      texto += `PESO MÉDIO (KG): *${registro.pesoMedio}*\n`
     }
     if (registro.categoria) {
-      texto += `CATEGORIA: ${registro.categoria}\n`
+      texto += `CATEGORIA: *${registro.categoria}*\n`
     }
     texto += `\n`
 
     // Seção: MOVIMENTAÇÃO
     texto += `MOVIMENTAÇÃO\n`
     if (registro.motivoMovimentacao) {
-      texto += `MOTIVO: ${registro.motivoMovimentacao}\n`
+      texto += `MOTIVO: *${registro.motivoMovimentacao}*\n`
     }
     // Mostrar sub-tipo se for Saída ou Entrada
     if (registro.motivoMovimentacao === 'Saída' && registro.tipoSaida) {
-      texto += `TIPO: ${registro.tipoSaida}\n`
+      texto += `TIPO: *${registro.tipoSaida}*\n`
     }
     if (registro.motivoMovimentacao === 'Entrada' && registro.tipoEntrada) {
-      texto += `TIPO: ${registro.tipoEntrada}\n`
+      texto += `TIPO: *${registro.tipoEntrada}*\n`
     }
     if (registro.loteDestino) {
-      texto += `DESTINO: ${registro.loteDestino}\n`
+      texto += `DESTINO: *${registro.loteDestino}*\n`
     }
     if (registro.causaObservacao) {
-      texto += `CAUSA/OBSERVAÇÃO: ${registro.causaObservacao}\n`
+      texto += `CAUSA/OBSERVAÇÃO: *${registro.causaObservacao}*\n`
     }
   } else if (caderneta === 'bebedouros') {
     // Para bebedouros, usar estrutura organizada por seções
     
     // Seção: Informações Básicas
-    texto += `*RESPONSÁVEL:* ${registro.responsavel || '—'}\n`
-    texto += `*PASTO:* ${registro.pasto || '—'}\n`
-    texto += `*NÚMERO LOTE:* ${registro.numeroLote || '—'}\n`
-    texto += `*CATEGORIA:* ${registro.categoria || '—'}\n\n`
+    texto += `RESPONSÁVEL: *${registro.responsavel || '—'}*\n`
+    texto += `PASTO: *${registro.pasto || '—'}*\n`
+    texto += `NÚMERO LOTE: *${registro.numeroLote || '—'}*\n`
+    texto += `CATEGORIA: *${registro.categoria || '—'}*\n\n`
     
     // Seção: Inspeção Atual
     if (registro.numeroBebedouro) {
-      texto += `*INSPEÇÃO ATUAL*\n`
-      texto += `*NÚMERO BEBEDOURO:* ${registro.numeroBebedouro}\n`
+      texto += `INSPEÇÃO ATUAL\n`
+      texto += `NÚMERO BEBEDOURO: *${registro.numeroBebedouro}*\n`
     }
     if (registro.leituraBebedouro !== null && registro.leituraBebedouro !== undefined) {
-      texto += `*LEITURA BEBEDOURO:* ${registro.leituraBebedouro}\n`
+      texto += `LEITURA BEBEDOURO: *${registro.leituraBebedouro}*\n`
     }
     if (registro.observacao && registro.observacao !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.observacao}\n`
+      texto += `OBSERVAÇÃO: *${registro.observacao}*\n`
     }
     
     // Checklist fields
     const checklistBebedouros = [
-      { campo: 'aguaSuficiente', label: 'ÁGUA SUFICIENTE' },
-      { campo: 'vazaoBebedouroIdeal', label: 'VAZÃO BEBEDOURO IDEAL' },
-      { campo: 'aterroAcessoBebedouroIdeal', label: 'ATERRO / ACESSO BEBEDOURO IDEAL' },
+      { campo: 'aguaSuficiente', label: 'QUANTIDADE DE ÁGUA ESTÁ ADEQUADA?' },
+      { campo: 'vazaoBebedouroIdeal', label: 'VAZÃO DA BÓIA ESTÁ IDEAL?' },
+      { campo: 'aterroAcessoBebedouroIdeal', label: 'ATERRO / ACESSO AO BEBEDOURO ESTÁ ADEQUADO?' },
       { campo: 'espacamentoBebedouroIdeal', label: 'ESPAÇAMENTO BEBEDOURO IDEAL' },
-      { campo: 'boiaProtecaoBoasCondicoes', label: 'BÓIA E PROTEÇÃO EM BOAS CONDIÇÕES' },
+      { campo: 'boiaProtecaoBoasCondicoes', label: 'BÓIA E PROTEÇÃO DA BÓIA ESTÃO EM BOAS CONDIÇÕES?' },
     ]
     
     // Verificar se há algum campo do checklist preenchido
@@ -244,108 +244,86 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     })
     
     if (temChecklistBebedouros) {
-      texto += `\n*CHECKLIST*\n`
+      texto += `\nCHECKLIST\n`
       checklistBebedouros.forEach(({ campo, label }) => {
         const valor = registro[campo]
         if (valor === true || valor === false) {
           const valorFormatado = valor ? 'Sim' : 'Não'
-          texto += `*${label}:* ${valorFormatado}\n`
+          texto += `${label}: *${valorFormatado}*\n`
         }
         
         // Adicionar observação
         const obsField = `${campo}Obs`
         const obsValue = registro[obsField]
         if (obsValue && obsValue !== '') {
-          texto += `*OBSERVAÇÃO:* ${obsValue}\n`
+          texto += `OBSERVAÇÃO: *${obsValue}*\n`
         }
       })
     }
     
     // Seção: Histórico de Limpeza
     if (registro.tempoDesdeLimpeza || registro.intervaloMedioLimpezas || registro.metaIntervaloLimpeza) {
-      texto += `\n*HISTÓRICO DE LIMPEZA*\n`
+      texto += `\nHISTÓRICO DE LIMPEZA\n`
       if (registro.tempoDesdeLimpeza) {
-        texto += `*TEMPO DESDE ÚLTIMA LIMPEZA:* ${registro.tempoDesdeLimpeza}\n`
+        texto += `TEMPO DESDE ÚLTIMA LIMPEZA: *${registro.tempoDesdeLimpeza}*\n`
       }
       if (registro.intervaloMedioLimpezas) {
-        texto += `*INTERVALO MÉDIO DE LIMPEZAS:* ${registro.intervaloMedioLimpezas}\n`
+        texto += `INTERVALO MÉDIO LIMPEZAS: *${registro.intervaloMedioLimpezas}*\n`
       }
       if (registro.metaIntervaloLimpeza) {
-        texto += `*META DE INTERVALO:* ${registro.metaIntervaloLimpeza}\n`
+        texto += `META INTERVALO LIMPEZA: *${registro.metaIntervaloLimpeza}*\n`
       }
     }
   } else if (caderneta === 'abastecimento') {
     // Seção: Dados do Abastecimento
-    texto += `*DADOS DO ABASTECIMENTO*\n`
-    texto += `*QUEM ABASTECEU:* ${registro.quemAbasteceu || '—'}\n`
-    texto += `*OPERADOR MOTORISTA:* ${registro.operadorMotorista || '—'}\n`
-    texto += `*VEÍCULO TRATOR:* ${registro.veiculoTrator || '—'}\n`
-    texto += `*PLACA:* ${registro.placa || '—'}\n`
+    texto += `DADOS DO ABASTECIMENTO\n`
+    texto += `QUEM ABASTECEU: *${registro.quemAbasteceu || '—'}*\n`
+    texto += `OPERADOR MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
+    texto += `VEÍCULO TRATOR: *${registro.veiculoTrator || '—'}*\n`
+    texto += `PLACA: *${registro.placa || '—'}*\n\n`
     
-    if (registro.hidrometroInicial && registro.hidrometroFinal) {
-      texto += `*HIDRÔMETRO:* ${registro.hidrometroInicial} L → ${registro.hidrometroFinal} L\n`
-    }
-    if (registro.totalAbastecido) {
-      texto += `*TOTAL HIDRÔMETRO:* ${registro.totalAbastecido} L\n`
-    }
+    // Seção: Hidrômetro
+    texto += `HIDRÔMETRO\n`
+    texto += `HIDRÔMETRO INICIAL: *${registro.hidrometroInicial || '—'}*\n`
+    texto += `HIDRÔMETRO FINAL: *${registro.hidrometroFinal || '—'}*\n`
+    texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'}*\n\n`
     
-    texto += `\n`
-    
-    // Seção: Combustível e Operação
-    texto += `*COMBUSTÍVEL E OPERAÇÃO*\n`
-    texto += `*COMBUSTÍVEL:* ${registro.combustivel || '—'}\n`
-    texto += `*ODÔMETRO:* ${registro.odometro || '—'}\n`
-    texto += `*TIPO DE OPERAÇÃO:* ${registro.tipoOperacao || '—'}\n\n`
-    
-    // Seção: Observação
-    if (registro.observacao && registro.observacao !== '') {
-      texto += `*OBSERVAÇÃO*\n`
-      texto += `${registro.observacao}\n`
+    // Seção: Combustível
+    texto += `COMBUSTÍVEL\n`
+    texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
+    texto += `ODÔMETRO: *${registro.odometro || '—'}*\n`
+    texto += `TIPO DE OPERAÇÃO: *${registro.tipoOperacao || '—'}*\n`
+    if (registro.observacao) {
+      texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
   } else if (caderneta === 'cantina') {
     // Seção: DADOS DA CANTINA
-    texto += `*DADOS DA CANTINA*\n`
-    texto += `*N° COZINHEIRAS:* ${registro.numeroCozinheiras || '—'}\n`
-    texto += `*QUEM COZINHOU:* ${registro.quemCozinhou || '—'}\n`
-    texto += `*QUEM AJUDOU:* ${registro.quemAjudou || '—'}\n\n`
+    texto += `DADOS DA CANTINA\n`
+    texto += `N° COZINHEIRAS: *${registro.numeroCozinheiras || '—'}*\n`
+    texto += `QUEM COZINHOU: *${registro.quemCozinhou || '—'}*\n`
+    texto += `QUEM AJUDOU: *${registro.quemAjudou || '—'}*\n\n`
     
-    // Seção: REFEIÇÕES
-    texto += `*REFEIÇÕES*\n`
-    texto += `*N° CAFÉ DA MANHÃ:* ${registro.numeroCafeManha || '—'}\n`
-    texto += `*N° LANCHES:* ${registro.numeroLanches || '—'}\n`
-    texto += `*N° REFEIÇÕES ALMOÇO:* ${registro.numeroRefeicoesAlmoco || '—'}\n`
-    texto += `*N° REFEIÇÕES JANTAR:* ${registro.numeroRefeicoesJantar || '—'}\n\n`
-    
-    // Seção: ITENS
-    if (registro.itens && typeof registro.itens === 'object') {
-      const itens = registro.itens as Record<string, unknown>
-      const itensPreenchidos = Object.entries(itens).filter(([_, valor]) => 
-        valor !== null && valor !== undefined && valor !== '' && Number(valor) > 0
-      )
-      
-      if (itensPreenchidos.length > 0) {
-        texto += `*ITENS*\n`
-        itensPreenchidos.forEach(([nome, valor]) => {
-          texto += `*${nome.toUpperCase()}:* ${valor}\n`
-        })
-      }
-    }
-    
-    if (registro.observacao && registro.observacao !== '') {
-      texto += `\n*OBSERVAÇÃO:* ${registro.observacao}\n`
+    // Seção: QUANTIDADES
+    texto += `QUANTIDADES\n`
+    texto += `N° CAFÉ DA MANHÃ: *${registro.numeroCafeManha || '—'}*\n`
+    texto += `N° LANCHES: *${registro.numeroLanches || '—'}*\n`
+    texto += `N° REFEIÇÕES ALMOÇO: *${registro.numeroRefeicoesAlmoco || '—'}*\n`
+    texto += `N° REFEIÇÕES JANTAR: *${registro.numeroRefeicoesJantar || '—'}*\n`
+    if (registro.observacao) {
+      texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
   } else if (caderneta === 'limpeza') {
     // Seção: DADOS DA LIMPEZA
-    texto += `N° da Equipe: ${registro.numeroEquipe || '—'}\n`
-    texto += `Setor: ${registro.setor || '—'}\n`
-    texto += `Local: ${registro.local || '—'}\n`
+    texto += `N° da Equipe: *${registro.numeroEquipe || '—'}*\n`
+    texto += `Setor: *${registro.setor || '—'}*\n`
+    texto += `Local: *${registro.local || '—'}*\n`
     
     // Calcular duração se tiver hora início e fim
     if (registro.horaInicio && registro.horaFinal) {
       const inicio = String(registro.horaInicio)
       const fim = String(registro.horaFinal)
-      texto += `Hora Início: ${inicio}\n`
-      texto += `Hora Final: ${fim}`
+      texto += `Hora Início: *${inicio}*\n`
+      texto += `Hora Final: *${fim}*`
       
       // Calcular duração
       const [h1, m1] = inicio.split(':').map(Number)
@@ -364,16 +342,16 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += ` (${horas}h${minutos > 0 ? minutos.toString().padStart(2, '0') : '00'})\n`
     } else {
       if (registro.horaInicio) {
-        texto += `Hora Início: ${registro.horaInicio}\n`
+        texto += `Hora Início: *${registro.horaInicio}*\n`
       }
       if (registro.horaFinal) {
-        texto += `Hora Final: ${registro.horaFinal}\n`
+        texto += `Hora Final: *${registro.horaFinal}*\n`
       }
     }
     
     // Seção: Tipos de Limpeza
     if (registro.limpezaRealizada && Array.isArray(registro.limpezaRealizada) && registro.limpezaRealizada.length > 0) {
-      texto += `Tipos de Limpeza: `
+      texto += `Tipos de Limpeza: *`
       
       // Mapear valores para labels
       const labelMap: Record<string, string> = {
@@ -409,27 +387,27 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
       
       const labels = registro.limpezaRealizada.map(valor => labelMap[valor] || valor)
-      texto += `${labels.join(', ')}\n`
+      texto += `${labels.join(', ')}*\n`
     }
     
     // Observação
     if (registro.observacao && registro.observacao !== '') {
-      texto += `Observação: ${registro.observacao}\n`
+      texto += `Observação: *${registro.observacao}*\n`
     }
   } else if (caderneta === 'operacoes-maquinas') {
     // Seção: Dados da Operação
-    texto += `*DADOS DA OPERAÇÃO*\n`
-    texto += `*VEÍCULO TRATOR:* ${registro.veiculoTrator || '—'}\n`
-    texto += `*IMPLEMENTO UTILIZADO:* ${registro.implementoUtilizado || '—'}\n`
+    texto += `DADOS DA OPERAÇÃO\n`
+    texto += `VEÍCULO TRATOR: *${registro.veiculoTrator || '—'}*\n`
+    texto += `IMPLEMENTO UTILIZADO: *${registro.implementoUtilizado || '—'}*\n`
     
     if (registro.horaInicial && registro.horaFinal) {
-      texto += `*HORÁRIO:* ${registro.horaInicial} → ${registro.horaFinal}\n`
+      texto += `HORÁRIO: *${registro.horaInicial} → ${registro.horaFinal}*\n`
     }
     
     if (registro.odometroInicial && registro.odometroFinal) {
       const total = registro.totalOdometro || '—'
-      texto += `*ODÔMETRO:* ${registro.odometroInicial} km → ${registro.odometroFinal} km\n`
-      texto += `*TOTAL ODÔMETRO:* ${total} km\n`
+      texto += `ODÔMETRO: *${registro.odometroInicial} km → ${registro.odometroFinal} km*\n`
+      texto += `TOTAL ODÔMETRO: *${total} km*\n`
     }
     
     texto += `\n`
@@ -437,32 +415,32 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Tipo de Operação
     if (registro.tipoOperacao && typeof registro.tipoOperacao === 'string') {
       const tipoOperacaoLabel = registro.tipoOperacao.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-      texto += `*TIPO DE OPERAÇÃO:* ${tipoOperacaoLabel}\n\n`
+      texto += `TIPO DE OPERAÇÃO: *${tipoOperacaoLabel}*\n\n`
     }
     
     // Seção: Detalhes da Aplicação
     if (registro.produtoAplicado || registro.quantidadeTotalAplicada || registro.areaTrabalhada || registro.doseAplicada) {
-      texto += `*DETALHES DA APLICAÇÃO*\n`
-      texto += `*PRODUTO APLICADO:* ${registro.produtoAplicado || '—'}\n`
-      texto += `*QUANTIDADE TOTAL APLICADA:* ${registro.quantidadeTotalAplicada || '—'}\n`
-      texto += `*ÁREA TRABALHADA:* ${registro.areaTrabalhada || '—'}\n`
-      texto += `*DOSE APLICADA:* ${registro.doseAplicada || '—'}\n\n`
+      texto += `DETALHES DA APLICAÇÃO\n`
+      texto += `PRODUTO APLICADO: *${registro.produtoAplicado || '—'}*\n`
+      texto += `QUANTIDADE TOTAL APLICADA: *${registro.quantidadeTotalAplicada || '—'}*\n`
+      texto += `ÁREA TRABALHADA: *${registro.areaTrabalhada || '—'}*\n`
+      texto += `DOSE APLICADA: *${registro.doseAplicada || '—'}*\n\n`
     }
     
     // Seção: Avaliação
     if (registro.metaDiariaBatida || registro.algumImprevisto) {
-      texto += `*AVALIAÇÃO*\n`
+      texto += `AVALIAÇÃO\n`
       
       if (registro.metaDiariaBatida) {
         const metaLabel = registro.metaDiariaBatida === 'S' || registro.metaDiariaBatida === 'Sim' ? 'Sim' : 'Não'
         const metaObs = registro.metaDiariaBatidaObs ? ` (${registro.metaDiariaBatidaObs})` : ''
-        texto += `*META DIÁRIA BATIDA:* ${metaLabel}${metaObs}\n`
+        texto += `META DIÁRIA BATIDA: *${metaLabel}${metaObs}*\n`
       }
       
       if (registro.algumImprevisto) {
         const imprevistoLabel = registro.algumImprevisto === 'S' || registro.algumImprevisto === 'Sim' ? 'Sim' : 'Não'
         const imprevistoObs = registro.algumImprevistoObs ? ` (${registro.algumImprevistoObs})` : ''
-        texto += `*ALGUM IMPREVISTO:* ${imprevistoLabel}${imprevistoObs}\n`
+        texto += `ALGUM IMPREVISTO: *${imprevistoLabel}${imprevistoObs}*\n`
       }
       
       texto += `\n`
@@ -470,127 +448,110 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Seção: Observação
     if (registro.observacao && registro.observacao !== '') {
-      texto += `*OBSERVAÇÃO*\n`
+      texto += `OBSERVAÇÃO\n`
       texto += `${registro.observacao}\n`
     }
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar estrutura organizada por seções
     
     // Seção: Informações Básicas
-    texto += `*TRATADOR:* ${registro.tratador || '—'}\n`
-    texto += `*PASTO:* ${registro.pasto || '—'}\n`
-    texto += `*N° LOTE:* ${registro.numeroLote || '—'}\n`
-    texto += `*SUPLEMENTO:* ${registro.produto || '—'}\n\n`
+    texto += `TRATADOR: *${registro.tratador || '—'}*\n`
+    texto += `PASTO: *${registro.pasto || '—'}*\n`
+    texto += `N° LOTE: *${registro.numeroLote || '—'}*\n`
+    texto += `SUPLEMENTO: *${registro.produto || '—'}*\n\n`
     
     // Seção: Categorias
     if (registro.categorias && Array.isArray(registro.categorias) && registro.categorias.length > 0) {
-      texto += `*CATEGORIAS:* ${registro.categorias.join(', ')}\n\n`
+      texto += `CATEGORIAS: *${registro.categorias.join(', ')}*\n\n`
     }
     
     // Seção: Leituras e Quantidades
     if (registro.leituraCocho !== null && registro.leituraCocho !== undefined && registro.leituraCocho !== '') {
-      texto += `*LEITURA COCHO:* ${registro.leituraCocho}\n`
+      texto += `LEITURA COCHO: *${registro.leituraCocho}*\n`
     }
     if (registro.kgCocho !== null && registro.kgCocho !== undefined && registro.kgCocho !== 0) {
-      texto += `*SUPLEMENTO COCHO (KG):* ${registro.kgCocho}\n`
+      texto += `SUPLEMENTO COCHO (KG): *${registro.kgCocho}*\n`
     }
     if (registro.kgDeposito !== null && registro.kgDeposito !== undefined && registro.kgDeposito !== 0) {
-      texto += `*SUPLEMENTO DEPÓSITO (KG):* ${registro.kgDeposito}\n`
+      texto += `SUPLEMENTO DEPÓSITO (KG): *${registro.kgDeposito}*\n`
     }
     if (registro.escoreFezes !== null && registro.escoreFezes !== undefined && registro.escoreFezes !== '') {
-      texto += `*ESCORE FEZES:* ${registro.escoreFezes}\n`
+      texto += `ESCORE FEZES: *${registro.escoreFezes}*\n`
     }
     
-    // Seção: Checklist Cochos
+    // Seção: Checklist Cochos - sempre exibir todas as perguntas
     const checklistCochos = [
-      { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO' },
-      { campo: 'cochosCondicoes', label: 'COCHOS EM BOAS CONDIÇÕES' },
+      { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
+      { campo: 'cochosCondicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
       { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO' },
       { campo: 'espacamentoCochoCmCab', label: 'ESPAÇAMENTO DO COCHO' },
     ]
     
-    // Verificar se há algum campo do checklist de cochos preenchido
-    const temChecklistCochos = checklistCochos.some(({ campo }) => {
+    texto += `\nCHECKLIST COCHOS\n`
+    
+    checklistCochos.forEach(({ campo, label }) => {
       if (campo === 'espacamentoCochoCmCab') {
-        return registro[campo] !== null && registro[campo] !== undefined && registro[campo] !== ''
-      }
-      return registro[campo] === true || registro[campo] === false
-    })
-    
-    if (temChecklistCochos) {
-      texto += `\n*CHECKLIST COCHOS*\n`
-      
-      checklistCochos.forEach(({ campo, label }) => {
-        if (campo === 'espacamentoCochoCmCab') {
-          // Tratamento especial para espaçamento do cocho
-          const valor = registro[campo]
-          if (valor !== null && valor !== undefined && valor !== '') {
-            texto += `*${label}:* ${valor} cm/cab\n`
-            
-            // Calcular se está ideal e diferença percentual
-            const espacamentoNum = Number(valor)
-            const ESPACAMENTO_IDEAL = 40
-            const TOLERANCIA_PERCENTUAL = 5
-            const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
-            const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
-            const ideal = diferencaPercentual <= TOLERANCIA_PERCENTUAL
-            const sinal = espacamentoNum >= ESPACAMENTO_IDEAL ? '+' : '-'
-            
-            texto += `*IDEAL?* ${ideal ? 'Sim' : 'Não'} (${sinal}${diferencaPercentual.toFixed(1)}%)\n`
-          }
+        // Tratamento especial para espaçamento do cocho
+        const valor = registro[campo]
+        if (valor !== null && valor !== undefined && valor !== '') {
+          texto += `${label}: *${valor} cm/cab*\n`
           
-          // Adicionar observação do espaçamento
-          const obsValue = registro.espacamentoCochoObs
-          if (obsValue && obsValue !== '') {
-            texto += `*OBSERVAÇÃO:* ${obsValue}\n`
-          }
-        } else {
-          // Tratamento padrão para outras perguntas (Sim/Não)
-          const valor = registro[campo]
-          if (valor === true || valor === false) {
-            const valorFormatado = valor ? 'Sim' : 'Não'
-            texto += `*${label}:* ${valorFormatado}\n`
-          }
+          // Calcular se está ideal e diferença percentual
+          const espacamentoNum = Number(valor)
+          const ESPACAMENTO_IDEAL = 40
+          const TOLERANCIA_PERCENTUAL = 5
+          const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
+          const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
+          const ideal = diferencaPercentual <= TOLERANCIA_PERCENTUAL
+          const sinal = espacamentoNum >= ESPACAMENTO_IDEAL ? '+' : '-'
           
-          // Adicionar observação
-          const obsField = `${campo}Obs`
-          const obsValue = registro[obsField]
-          if (obsValue && obsValue !== '') {
-            texto += `*OBSERVAÇÃO:* ${obsValue}\n`
-          }
+          texto += `IDEAL?: *${ideal ? 'Sim' : 'Não'} (${sinal}${diferencaPercentual.toFixed(1)}%)*\n`
         }
-      })
-    }
-    
-    // Seção: Checklist Depósito
-    const checklistDeposito = [
-      { campo: 'depositoCondicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
-      { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO' },
-    ]
-    
-    // Verificar se há algum campo do checklist de depósito preenchido
-    const temChecklistDeposito = checklistDeposito.some(({ campo }) => {
-      return registro[campo] === true || registro[campo] === false
-    })
-    
-    if (temChecklistDeposito) {
-      texto += `\n*CHECKLIST DEPÓSITO*\n`
-      
-      checklistDeposito.forEach(({ campo, label }) => {
+        
+        // Adicionar observação do espaçamento
+        const obsValue = registro.espacamentoCochoObs
+        if (obsValue && obsValue !== '') {
+          texto += `OBSERVAÇÃO: *${obsValue}*\n`
+        }
+      } else {
+        // Tratamento padrão para outras perguntas (Sim/Não)
         const valor = registro[campo]
         if (valor === true || valor === false) {
           const valorFormatado = valor ? 'Sim' : 'Não'
-          texto += `*${label}:* ${valorFormatado}\n`
+          texto += `${label}: *${valorFormatado}*\n`
         }
         
         // Adicionar observação
         const obsField = `${campo}Obs`
         const obsValue = registro[obsField]
         if (obsValue && obsValue !== '') {
-          texto += `*OBSERVAÇÃO:* ${obsValue}\n`
+          texto += `OBSERVAÇÃO: *${obsValue}*\n`
         }
-      })
-    }
+      }
+    })
+    
+    // Seção: Checklist Depósito - sempre exibir todas as perguntas
+    const checklistDeposito = [
+      { campo: 'depositoCondicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
+      { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO' },
+    ]
+    
+    texto += `\nCHECKLIST DEPÓSITO\n`
+    
+    checklistDeposito.forEach(({ campo, label }) => {
+      const valor = registro[campo]
+      if (valor === true || valor === false) {
+        const valorFormatado = valor ? 'Sim' : 'Não'
+        texto += `${label}: *${valorFormatado}*\n`
+      }
+      
+      // Adicionar observação
+      const obsField = `${campo}Obs`
+      const obsValue = registro[obsField]
+      if (obsValue && obsValue !== '') {
+        texto += `OBSERVAÇÃO: *${obsValue}*\n`
+      }
+    })
   } else if (caderneta === 'enfermaria') {
     // Para enfermaria, usar ordem específica dos formulários
     const ordemEnfermaria = [
@@ -607,7 +568,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'febreAlta',
       'presencaSangue',
       'fraturas',
-      'desordensDigestivas'
+      'desordensDigestivas',
+      'cegueira',
+      'andarCambaleante',
+      'bicheira'
     ]
     
     ordemEnfermaria.forEach(key => {
@@ -615,14 +579,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
       }
       
       // Adicionar observação imediatamente após o campo principal
       const obsField = `${key}Obs`
       if (registro[obsField] && registro[obsField] !== '') {
         const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        texto += `*${label} - OBSERVAÇÃO:* ${registro[obsField]}\n`
+        texto += `${label} - OBSERVAÇÃO: *${registro[obsField]}*\n`
       }
     })
   } else if (caderneta === 'morte') {
@@ -655,7 +619,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (key === 'categoriaOutros') {
         if (registro.categoria === 'Outros' && value !== null && value !== undefined && value !== '') {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          texto += `*${label}:* ${value}\n`
+          texto += `${label}: *${value}*\n`
         }
         return
       }
@@ -664,17 +628,17 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         // Para campos booleanos de diagnóstico, sempre incluir mostrando Sim/Não
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = value === true || value === 'S' ? 'Sim' : 'Não'
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
         
         // Adicionar observação imediatamente após o campo principal (apenas texto OBSERVAÇÃO)
         const obsField = `${key}Obs`
         if (registro[obsField] && registro[obsField] !== '') {
-          texto += `*OBSERVAÇÃO:* ${registro[obsField]}\n`
+          texto += `OBSERVAÇÃO: *${registro[obsField]}*\n`
         }
       } else if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
         
         // Adicionar quebra de linha após chip e categoria
         if (key === 'chip' || key === 'categoria') {
@@ -696,7 +660,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
       }
     })
 
@@ -707,14 +671,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         if (m.medicao !== null && m.medicao !== undefined && m.medicao !== '') {
           const nome = m.pluviometro_nome || m.pluviometroNome || 'Pluviômetro'
           const localizacao = m.pluviometro_localizacao || m.pluviometroLocalizacao
-          texto += `*${nome}${localizacao ? ` (${localizacao})` : ''}:* ${m.medicao} mm\n`
+          texto += `${nome}${localizacao ? ` (${localizacao})` : ''}: *${m.medicao} mm*\n`
         }
       })
     }
 
     // Adicionar observação no final
     if (registro.observacao && registro.observacao !== '') {
-      texto += `\n*OBSERVAÇÃO:* ${registro.observacao}\n`
+      texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
   } else if (caderneta === 'rodeio') {
     // Para rodeio, usar ordem específica dos formulários
@@ -732,10 +696,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'outros',
       'totalCabecas',
       'escoreGadoIdeal',
-      'aguaBoaBebedouro',
-      'pastagemAdequada',
-      'animaisDoentes',
-      'cercasCochos',
+      'bebedourosCochos',
+      'pastagensTaxaLotacao',
+      'animaisMachucadosDoentesBichados',
+      'cercasCochosPorteiras',
       'carrapatosMoscas',
       'animaisEntreverados',
       'animalMorto',
@@ -751,23 +715,23 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         if (value !== null && value !== undefined && value !== '' && Number(value) > 0) {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = formatFieldValue(key, value)
-          texto += `*${label}:* ${valorFormatado}\n`
+          texto += `${label}: *${valorFormatado}*\n`
         }
-      } else if (['escoreGadoIdeal', 'aguaBoaBebedouro', 'pastagemAdequada', 'animaisDoentes', 'cercasCochos', 'carrapatosMoscas', 'animaisEntreverados', 'animalMorto'].includes(key)) {
+      } else if (['escoreGadoIdeal', 'bebedourosCochos', 'pastagensTaxaLotacao', 'animaisMachucadosDoentesBichados', 'cercasCochosPorteiras', 'carrapatosMoscas', 'animaisEntreverados', 'animalMorto'].includes(key)) {
         // Para campos booleanos de avaliação, sempre incluir mostrando Sim/Não
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = value === true ? 'Sim' : (value === false ? 'Não' : formatFieldValue(key, value))
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
         
         // Adicionar observação imediatamente após o campo principal (apenas texto OBSERVAÇÃO)
         const obsField = `${key}Obs`
         if (registro[obsField] && registro[obsField] !== '') {
-          texto += `*OBSERVAÇÃO:* ${registro[obsField]}\n`
+          texto += `OBSERVAÇÃO: *${registro[obsField]}*\n`
         }
       } else if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
         
         // Adicionar quebra de linha após totalCabecas
         if (key === 'totalCabecas') {
@@ -796,7 +760,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
       }
     })
   } else if (caderneta === 'saida-insumos') {
@@ -813,159 +777,166 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
       }
     })
     
     // Adicionar insumos utilizados
     if (registro.insumosQuantidades) {
-      texto += '\n*INSUMOS UTILIZADOS (kg):*\n'
+      texto += '\nINSUMOS UTILIZADOS (kg)\n'
       Object.entries(registro.insumosQuantidades).forEach(([insumo, quantidade]) => {
         if (quantidade && parseFloat(String(quantidade)) > 0) {
-          texto += `*${insumo}:* ${quantidade}\n`
+          texto += `${insumo}: *${quantidade}*\n`
         }
       })
     }
   } else if (caderneta === 'problemas') {
     // Seção: Localização
-    texto += `*LOCALIZAÇÃO*\n`
-    texto += `*SETOR:* ${registro.setor || '—'}\n`
-    texto += `*LOCAL:* ${registro.local || '—'}\n\n`
+    texto += `LOCALIZAÇÃO\n`
+    texto += `SETOR: *${registro.setor || '—'}*\n`
+    texto += `LOCAL: *${registro.local || '—'}*\n\n`
 
     // Seção: Descrição do Problema
-    texto += `*DESCRIÇÃO DO PROBLEMA*\n`
+    texto += `DESCRIÇÃO DO PROBLEMA\n`
     texto += `${registro.descricaoProblema || '—'}\n\n`
 
     // Seção: Análise
-    texto += `*ANÁLISE*\n`
+    texto += `ANÁLISE\n`
     if (registro.causaIdentificada) {
       const causaLabel = registro.causaIdentificada === 'S' ? 'Sim' : 'Não'
-      texto += `*CAUSA IDENTIFICADA:* ${causaLabel}\n`
+      texto += `CAUSA IDENTIFICADA: *${causaLabel}*\n`
     }
     if (registro.causaIdentificadaObs && registro.causaIdentificadaObs !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.causaIdentificadaObs}\n`
+      texto += `OBSERVAÇÃO: *${registro.causaIdentificadaObs}*\n`
     }
     if (registro.acaoCorretivaRealizada) {
       const acaoLabel = registro.acaoCorretivaRealizada === 'S' ? 'Sim' : 'Não'
-      texto += `*AÇÃO CORRETIVA REALIZADA:* ${acaoLabel}\n`
+      texto += `AÇÃO CORRETIVA REALIZADA: *${acaoLabel}*\n`
     }
     if (registro.acaoCorretivaRealizadaObs && registro.acaoCorretivaRealizadaObs !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.acaoCorretivaRealizadaObs}\n`
+      texto += `OBSERVAÇÃO: *${registro.acaoCorretivaRealizadaObs}*\n`
     }
     texto += `\n`
 
     // Seção: Classificação
-    texto += `*CLASSIFICAÇÃO*\n`
+    texto += `CLASSIFICAÇÃO\n`
     if (registro.tipoOcorrencia) {
-      texto += `*TIPO DE OCORRÊNCIA:* ${registro.tipoOcorrencia}\n`
+      texto += `TIPO DE OCORRÊNCIA: *${registro.tipoOcorrencia}*\n`
     }
     if (registro.tipoOcorrenciaObs && registro.tipoOcorrenciaObs !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.tipoOcorrenciaObs}\n`
+      texto += `OBSERVAÇÃO: *${registro.tipoOcorrenciaObs}*\n`
     }
     if (registro.causaRaizIdentificada) {
       const raizLabel = registro.causaRaizIdentificada === 'S' ? 'Sim' : 'Não'
-      texto += `*CAUSA RAIZ IDENTIFICADA:* ${raizLabel}\n`
+      texto += `CAUSA RAIZ IDENTIFICADA: *${raizLabel}*\n`
     }
     if (registro.causaRaizIdentificadaObs && registro.causaRaizIdentificadaObs !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.causaRaizIdentificadaObs}\n`
+      texto += `OBSERVAÇÃO: *${registro.causaRaizIdentificadaObs}*\n`
     }
     if (registro.gravidadeImpacto) {
-      texto += `*GRAVIDADE/IMPACTO:* ${registro.gravidadeImpacto}\n`
+      texto += `GRAVIDADE/IMPACTO: *${registro.gravidadeImpacto}*\n`
     }
     if (registro.gravidadeImpactoObs && registro.gravidadeImpactoObs !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.gravidadeImpactoObs}\n`
+      texto += `OBSERVAÇÃO: *${registro.gravidadeImpactoObs}*\n`
     }
     if (registro.tipoProblema) {
-      texto += `*TIPO DE PROBLEMA:* ${registro.tipoProblema}\n`
+      texto += `TIPO DE PROBLEMA: *${registro.tipoProblema}*\n`
     }
     if (registro.tipoProblemaObs && registro.tipoProblemaObs !== '') {
-      texto += `*OBSERVAÇÃO:* ${registro.tipoProblemaObs}\n`
+      texto += `OBSERVAÇÃO: *${registro.tipoProblemaObs}*\n`
     }
     if (registro.prioridade) {
-      texto += `*PRIORIDADE:* ${registro.prioridade}\n`
+      texto += `PRIORIDADE: *${registro.prioridade}*\n`
     }
   } else {
     // Para pastagens, usar estrutura organizada
     if (caderneta === 'pastagens') {
       // Cabeçalho
-      texto += `*MANEJADOR:* ${registro.manejador || '—'}\n\n`
-      
+      texto += `MANEJADOR: *${registro.manejador || '—'}*\n\n`
+
       // Seção PASTO SAÍDA
-      texto += `*PASTO SAÍDA*\n`
-      texto += `*Nome:* ${registro.pastoSaida || '—'}\n`
-      texto += `*Avaliação saída:* ${registro.avaliacaoSaida || '—'}\n`
-      texto += `*Tempo de ocupação:* ${registro.tempoOcupacao || '—'}\n\n`
-      
+      texto += `PASTO SAÍDA\n`
+      texto += `Nome: *${registro.pastoSaida || '—'}*\n`
+      texto += `Área útil: *${registro.pastoSaidaAreaUtil || '—'}* ha\n`
+      texto += `Espécie: *${registro.pastoSaidaEspecie || '—'}*\n`
+      texto += `Avaliação saída: *${registro.avaliacaoSaida || '—'}*\n`
+      texto += `Tempo de ocupação: *${registro.tempoOcupacao || '—'}*\n\n`
+
       // Seção PASTO ENTRADA
-      texto += `*PASTO ENTRADA*\n`
-      texto += `*Nome:* ${registro.pastoEntrada || '—'}\n`
-      texto += `*Avaliação entrada:* ${registro.avaliacaoEntrada || '—'}\n`
-      texto += `*Tempo de vedação:* ${registro.tempoVedacao || '—'}\n\n`
-      
+      texto += `PASTO ENTRADA\n`
+      texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
+      texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
+      texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
+      texto += `Avaliação entrada: *${registro.avaliacaoEntrada || '—'}*\n`
+      texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
+
       // Seção LOTE E CATEGORIAS
-      texto += `*LOTE:* ${registro.numeroLote || '—'}\n`
-      
+      texto += `LOTE: *${registro.numeroLote || '—'}*\n`
+
       // Adicionar categorias com valor > 0
       const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
       categorias.forEach(key => {
         const value = Number(registro[key]) || 0
         if (value > 0) {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          texto += `*${label}:* ${value}\n`
+          texto += `${label}: *${value}*\n`
         }
       })
-      
+
       // Escore do gado
       if (registro.escoreGado) {
-        texto += `*ESCORE DO GADO:* ${registro.escoreGado}\n`
+        texto += `ESCORE DO GADO: *${registro.escoreGado}*\n`
       }
     } else if (caderneta === 'maternidade') {
       // Seção: INFORMAÇÕES BÁSICAS
       texto += `INFORMAÇÕES BÁSICAS\n`
       if (registro.pasto) {
-        texto += `PASTO: ${registro.pasto}\n`
+        texto += `PASTO: *${registro.pasto}*\n`
       }
       if (registro.lote) {
-        texto += `LOTE: ${registro.lote}\n`
+        texto += `LOTE: *${registro.lote}*\n`
       }
       texto += `\n`
 
       // Seção: DADOS DA CRIA
       texto += `DADOS DA CRIA\n`
       if (registro.pesoCria) {
-        texto += `PESO CRIA: ${registro.pesoCria} kg\n`
+        texto += `PESO CRIA: *${registro.pesoCria}* kg\n`
       }
-      if (registro.numeroCria) {
-        texto += `NÚMERO CRIA: ${registro.numeroCria}\n`
+      if (registro.idCria) {
+        texto += `ID: *${registro.idCria}*\n`
       }
       if (registro.sexo) {
-        texto += `SEXO: ${registro.sexo}\n`
+        texto += `SEXO: *${registro.sexo}*\n`
       }
       if (registro.raca) {
-        texto += `RAÇA: ${registro.raca}\n`
+        texto += `RAÇA: *${registro.raca}*\n`
       }
       texto += `\n`
 
       // Seção: PARTO
       texto += `PARTO\n`
       if (registro.tipoParto) {
-        texto += `TIPO DE PARTO: ${registro.tipoParto}\n`
+        texto += `TIPO DE PARTO: *${registro.tipoParto}*\n`
       }
       if (registro.tratamento) {
-        texto += `TRATAMENTO: ${registro.tratamento}\n`
+        texto += `TRATAMENTO: *${registro.tratamento}*\n`
       }
       texto += `\n`
 
       // Seção: MÃE
       texto += `MÃE\n`
-      if (registro.numeroMae) {
-        texto += `NÚMERO MÃE: ${registro.numeroMae}\n`
+      if (registro.brincoMae) {
+        texto += `ID BRINCO: *${registro.brincoMae}*\n`
+      }
+      if (registro.chipMae) {
+        texto += `ID CHIP: *${registro.chipMae}*\n`
       }
       if (registro.categoriaMae) {
-        texto += `CATEGORIA MÃE: ${registro.categoriaMae}\n`
+        texto += `CATEGORIA MÃE: *${registro.categoriaMae}*\n`
       }
       if (registro.escoreMatriz) {
-        texto += `ESCORE MATRIZ: ${registro.escoreMatriz}\n`
+        texto += `ESCORE MATRIZ: *${registro.escoreMatriz}*\n`
       }
     } else {
       // Para outras cadernetas, manter o fluxo normal
@@ -992,14 +963,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           return // Já tratado na ordem específica acima
         }
         
-        texto += `*${label}:* ${valorFormatado}\n`
+        texto += `${label}: *${valorFormatado}*\n`
         
         // Para movimentação, adicionar campos especiais após loteOrigem
         if (caderneta === 'movimentacao' && key === 'loteOrigem' && camposMovimentacaoEspeciais.length > 0) {
           camposMovimentacaoEspeciais.forEach(([campoKey, campoValue]) => {
             let campoLabel = LABELS_BY_CADERNETA[caderneta]?.[campoKey] || campoKey.toUpperCase()
             const campoValorFormatado = formatFieldValue(campoKey, campoValue)
-            texto += `*${campoLabel}:* ${campoValorFormatado}\n`
+            texto += `${campoLabel}: *${campoValorFormatado}*\n`
           })
         }
         
@@ -1008,7 +979,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           const obsKey = `${key}Obs`
           const obsValue = registro[obsKey]
           if (obsValue && obsValue !== '' && obsValue !== null && obsValue !== undefined) {
-            texto += `*OBSERVAÇÃO:* ${String(obsValue)}\n`
+            texto += `OBSERVAÇÃO: *${String(obsValue)}*\n`
           }
         }
       })
@@ -1019,7 +990,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
   camposAposPesoMedio.forEach(([key, value]) => {
     let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
     const valorFormatado = formatFieldValue(key, value)
-    texto += `*${label}:* ${valorFormatado}\n`
+    texto += `${label}: *${valorFormatado}*\n`
   })
 
   // Adicionar animais tratados com estrutura especial

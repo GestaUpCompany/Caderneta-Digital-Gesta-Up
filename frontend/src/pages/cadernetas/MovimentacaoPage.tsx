@@ -335,7 +335,7 @@ export default function MovimentacaoPage() {
               min="0"
             />
             <Input
-              label="PESO MÉDIO"
+              label="PESO MÉDIO (kg)"
               placeholder="Ex: 450"
               value={form.pesoMedio}
               onChange={setInput('pesoMedio')}
@@ -433,18 +433,18 @@ export default function MovimentacaoPage() {
                     <>
                       {fornecedoresDisponiveis.length > 0 ? (
                         <SearchableModal
-                          label="SELECIONE O FORNECEDOR:"
+                          label="SELECIONE O DESTINO:"
                           value={form.loteDestino}
                           onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                           error={getError('loteDestino')}
                           options={fornecedoresDisponiveis}
-                          placeholder="Buscar fornecedor..."
+                          placeholder="Buscar destino..."
                           id="loteDestino"
                           name="loteDestino"
                         />
                       ) : (
                         <Input
-                          label="SELECIONE O FORNECEDOR:"
+                          label="SELECIONE O DESTINO:"
                           placeholder="Carregando..."
                           value={form.loteDestino}
                           onChange={setInput('loteDestino')}

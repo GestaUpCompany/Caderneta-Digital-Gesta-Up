@@ -111,8 +111,8 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.pasto))
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
-  if (!isNonEmptyString(data.numeroCria))
-    errors.push({ field: 'numeroCria', message: 'Número da cria é obrigatório' })
+  if (!isNonEmptyString(data.idCria))
+    errors.push({ field: 'idCria', message: 'ID é obrigatório' })
   if (!isNonEmptyString(data.tratamento))
     errors.push({ field: 'tratamento', message: 'Tratamento é obrigatório' })
   if (!isNonEmptyString(data.tipoParto))
@@ -121,8 +121,8 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
     errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
   if (!isNonEmptyString(data.raca))
     errors.push({ field: 'raca', message: 'Raça é obrigatória' })
-  if (!isNonEmptyString(data.numeroMae))
-    errors.push({ field: 'numeroMae', message: 'Número da mãe é obrigatório' })
+  if (!isNonEmptyString(data.brincoMae))
+    errors.push({ field: 'brincoMae', message: 'ID Brinco da mãe é obrigatório' })
   if (!isNonEmptyString(data.categoriaMae))
     errors.push({ field: 'categoriaMae', message: 'Categoria da mãe é obrigatória' })
 
@@ -178,10 +178,10 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
 
   const avaliacoesSN: Record<string, string> = {
     escoreGadoIdeal: 'Escore do gado ideal',
-    aguaBoaBebedouro: 'Água / Bebedouro',
-    pastagemAdequada: 'Pastagem adequada',
-    animaisDoentes: 'Animais doentes / bichados',
-    cercasCochos: 'Cercas / Cochos',
+    bebedourosCochos: 'Bebedouros / Cochos',
+    pastagensTaxaLotacao: 'Pastagens / Taxa de lotação',
+    animaisMachucadosDoentesBichados: 'Animais machucados / doentes / bichados',
+    cercasCochosPorteiras: 'Cercas / Cochos / Porteiras',
     carrapatosMoscas: 'Carrapatos / Moscas',
     animaisEntreverados: 'Animais entrevero',
     animalMorto: 'Animal morto',

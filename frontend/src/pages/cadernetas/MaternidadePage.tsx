@@ -27,6 +27,7 @@ const TRATAMENTOS = [
   { value: 'Vermífugo', label: 'VERMÍFUGO'},
   { value: 'Antibiótico', label: 'ANTIBIÓTICO'},
   { value: 'Probiótico', label: 'PROBIÓTICO'},
+  { value: 'Soro', label: 'SORO'},
   { value: 'Pesagem', label: 'PESAGEM' },
   { value: 'Outros', label: 'OUTROS'},
 ]
@@ -53,8 +54,8 @@ const RACAS = [
 const CATEGORIAS_MAE = [
   { value: 'Nulípara', label: 'NULÍPARA' },
   { value: 'Primípara', label: 'PRIMÍPARA' },
+  { value: 'Secundípara', label: 'SECUNDÍPARA' },
   { value: 'Multípara', label: 'MULTÍPARA' },
-  { value: 'Leiteira', label: 'LEITEIRA' },
 ]
 
 const ESCORES = [
@@ -85,14 +86,15 @@ interface FormState {
   pasto: string
   lote: string
   pesoCria: string
-  numeroCria: string
+  idCria: string
   tratamentos: string[]
   tratamentoOutros: string
   tipoParto: string
   sexo: string
   raca: string
   racaOutros: string
-  numeroMae: string
+  brincoMae: string
+  chipMae: string
   categoriaMae: string
   escoreMatriz: string
 }
@@ -102,14 +104,15 @@ const makeInitial = (): FormState => ({
   pasto: '',
   lote: '',
   pesoCria: '',
-  numeroCria: '',
+  idCria: '',
   tratamentos: [],
   tratamentoOutros: '',
   tipoParto: '',
   sexo: '',
   raca: '',
   racaOutros: '',
-  numeroMae: '',
+  brincoMae: '',
+  chipMae: '',
   categoriaMae: '',
   escoreMatriz: '',
 })
@@ -212,12 +215,13 @@ export default function MaternidadePage() {
       pasto: form.pasto,
       lote: form.lote,
       pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
-      numeroCria: form.numeroCria,
+      idCria: form.idCria,
       tratamento: tratamentoFinal,
       tipoParto: form.tipoParto,
       sexo: form.sexo,
       raca: racaFinal,
-      numeroMae: form.numeroMae,
+      brincoMae: form.brincoMae,
+      chipMae: form.chipMae,
       categoriaMae: form.categoriaMae,
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
     })
@@ -361,11 +365,11 @@ export default function MaternidadePage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
           <Input
-            label="NÚMERO DA CRIA"
+            label="ID"
             placeholder="Ex: 2023-145"
-            value={form.numeroCria}
-            onChange={setInputEvent('numeroCria')}
-            error={getError('numeroCria')}
+            value={form.idCria}
+            onChange={setInputEvent('idCria')}
+            error={getError('idCria')}
           />
           <Input
             label="PESO DA CRIA (kg)"
@@ -450,13 +454,22 @@ export default function MaternidadePage() {
         {/* Seção 6: Dados da Mãe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">6. DADOS DA MÃE</h2>
-          <Input
-            label="NÚMERO DA MÃE"
-            placeholder="Ex: 2021-089"
-            value={form.numeroMae}
-            onChange={setInputEvent('numeroMae')}
-            error={getError('numeroMae')}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="ID BRINCO"
+              placeholder="Ex: 2021-089"
+              value={form.brincoMae}
+              onChange={setInputEvent('brincoMae')}
+              error={getError('brincoMae')}
+            />
+            <Input
+              label="ID CHIP"
+              placeholder="Número do chip"
+              value={form.chipMae}
+              onChange={setInputEvent('chipMae')}
+              error={getError('chipMae')}
+            />
+          </div>
           <Radio
             name="categoriaMae"
             label="CATEGORIA DA MÃE"

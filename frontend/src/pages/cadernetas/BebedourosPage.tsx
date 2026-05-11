@@ -51,11 +51,11 @@ const SN_OPTIONS = [
 ]
 
 const CHECKLIST_PERGUNTAS = [
-  { campo: 'aguaSuficiente', label: 'ÁGUA ESTÁ SUFICIENTE?' },
-  { campo: 'vazaoBebedouroIdeal', label: 'A VAZÃO DO BEBEDOURO ESTÁ IDEAL?' },
-  { campo: 'aterroAcessoBebedouroIdeal', label: 'ATERRO / ACESSO DO BEBEDOURO ESTÁ IDEAL?' },
+  { campo: 'aguaSuficiente', label: 'QUANTIDADE DE ÁGUA ESTÁ ADEQUADA?' },
+  { campo: 'vazaoBebedouroIdeal', label: 'VAZÃO DA BÓIA ESTÁ IDEAL?' },
+  { campo: 'aterroAcessoBebedouroIdeal', label: 'ATERRO / ACESSO AO BEBEDOURO ESTÁ ADEQUADO?' },
   { campo: 'espacamentoBebedouroIdeal', label: 'ESPAÇAMENTO DO BEBEDOURO ESTÁ IDEAL?' },
-  { campo: 'boiaProtecaoBoasCondicoes', label: 'A BÓIA E A PROTEÇÃO ESTÃO EM BOAS CONDIÇÕES?' },
+  { campo: 'boiaProtecaoBoasCondicoes', label: 'BÓIA E PROTEÇÃO DA BÓIA ESTÃO EM BOAS CONDIÇÕES?' },
 ]
 
 interface FormState {

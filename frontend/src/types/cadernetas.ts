@@ -17,12 +17,13 @@ export interface RegistroMaternidade extends Registro {
   pasto: string
   lote: string
   pesoCria: number | null
-  numeroCria: string
+  idCria: string
   tratamento: string
   tipoParto: string
   sexo: string
   raca: string
-  numeroMae: string
+  brincoMae: string
+  chipMae: string
   categoriaMae: string
 }
 
@@ -53,14 +54,14 @@ export interface RegistroRodeio extends Registro {
   totalCabecas: number
   escoreGadoIdeal: 'S' | 'N'
   escoreGadoIdealObs: string
-  aguaBoaBebedouro: 'S' | 'N'
-  aguaBoaBebedouroObs: string
-  pastagemAdequada: 'S' | 'N'
-  pastagemAdequadaObs: string
-  animaisDoentes: 'S' | 'N'
-  animaisDoentesObs: string
-  cercasCochos: 'S' | 'N'
-  cercasCochosObs: string
+  bebedourosCochos: 'S' | 'N'
+  bebedourosCochosObs: string
+  pastagensTaxaLotacao: 'S' | 'N'
+  pastagensTaxaLotacaoObs: string
+  animaisMachucadosDoentesBichados: 'S' | 'N'
+  animaisMachucadosDoentesBichadosObs: string
+  cercasCochosPorteiras: 'S' | 'N'
+  cercasCochosPorteirasObs: string
   carrapatosMoscas: 'S' | 'N'
   carrapatosMoscasObs: string
   animaisEntrevero: 'S' | 'N'
@@ -89,7 +90,6 @@ export interface RegistroSuplementacao extends Registro {
   sacos: number
   kgCocho: number
   kgDeposito: number
-  creep: number
 }
 
 export interface RegistroBebedouros extends Registro {
@@ -145,6 +145,12 @@ export interface RegistroEnfermaria extends Registro {
   fraturasObs: string
   desordensDigestivas: 'S' | 'N'
   desordensDigestivasObs: string
+  cegueira: 'S' | 'N'
+  cegueiraObs: string
+  andarCambaleante: 'S' | 'N'
+  andarCambaleanteObs: string
+  bicheira: 'S' | 'N'
+  bicheiraObs: string
 }
 
 export interface RegistroEntradaInsumos extends Registro {

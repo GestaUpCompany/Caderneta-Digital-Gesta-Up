@@ -23,8 +23,6 @@ const PRODUTOS = [
   { value: 'Proteinado', label: 'PROTEINADO', icon: '' },
   { value: 'Ração', label: 'RAÇÃO', icon: '' },
   { value: 'Insumos', label: 'INSUMOS', icon: '' },
-  { value: 'Dietas', label: 'DIETAS', icon: '' },
-  { value: 'Creep', label: 'CREEP', icon: '' },
 ]
 
 const CATEGORIAS = [
@@ -72,8 +70,8 @@ const SN_OPTIONS = [
 ]
 
 const CHECKLIST_PERGUNTAS = [
-  { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO?' },
-  { campo: 'cochosCondicoes', label: 'OS COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
+  { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
+  { campo: 'cochosCondicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
   { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
   { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO (cm/cab):' },
   { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
@@ -148,9 +146,7 @@ export default function SuplementacaoPage() {
   const [proteinadoDisponiveis, setProteinadoDisponiveis] = useState<string[]>([])
   const [racaoDisponiveis, setRacaoDisponiveis] = useState<string[]>([])
   const [insumosDisponiveis, setInsumosDisponiveis] = useState<string[]>([])
-  const [dietasDisponiveis, setDietasDisponiveis] = useState<string[]>([])
   const [suplemento, setSuplemento] = useState('')
-  const [quantidadeCreep, setQuantidadeCreep] = useState('')
   const [kgDeposito, setKgDeposito] = useState('')
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
@@ -164,13 +160,11 @@ export default function SuplementacaoPage() {
       setProteinadoDisponiveis(cache.proteinado || [])
       setRacaoDisponiveis(cache.racao || [])
       setInsumosDisponiveis(cache.insumos || [])
-      setDietasDisponiveis(cache.dietas || [])
       setPastosDisponiveis(cache.pastos || [])
       setLotesDisponiveis(cache.lotes || [])
     }
   }, [])
 
-  // Limpar suplemento selecionado quando o produto muda
   useEffect(() => {
     setSuplemento('')
   }, [form.produto])
@@ -186,8 +180,6 @@ export default function SuplementacaoPage() {
         return racaoDisponiveis
       case 'Insumos':
         return insumosDisponiveis
-      case 'Dietas':
-        return dietasDisponiveis
       default:
         return []
     }
@@ -211,7 +203,6 @@ export default function SuplementacaoPage() {
         setProteinadoDisponiveis(data.proteinado || [])
         setRacaoDisponiveis(data.racao || [])
         setInsumosDisponiveis(data.insumos || [])
-        setDietasDisponiveis(data.dietas || [])
         setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
       }
@@ -258,9 +249,7 @@ export default function SuplementacaoPage() {
     setSalvando(true)
     setErrors([])
 
-    // Lógica do Creep
-    const produtoFinal = form.produto === 'Creep' ? 'Creep' : suplemento
-    const creepKgFinal = form.produto === 'Creep' ? quantidadeCreep : ''
+    const produtoFinal = suplemento
     
     // Montar categorias como string separada por vírgula
     let categoriasArray = form.categorias.filter(c => c !== 'Outros')
@@ -280,7 +269,6 @@ export default function SuplementacaoPage() {
       pasto: form.pasto,
       numeroLote: form.numeroLote,
       produto: produtoFinal,
-      creepKg: creepKgFinal,
       leituraCocho: form.leitura ? Number(form.leitura) : null,
       kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
@@ -311,7 +299,6 @@ export default function SuplementacaoPage() {
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
       setSuplemento('')
-      setQuantidadeCreep('')
       setKgDeposito('')
     }
   }
@@ -454,21 +441,6 @@ export default function SuplementacaoPage() {
               id="suplemento"
               name="suplemento"
             />
-          )}
-
-          {/* Campo numérico para Creep */}
-          {form.produto === 'Creep' && (
-            <div className="mt-2">
-              <Input
-                label="QUANTIDADE (kg)"
-                placeholder="0"
-                value={quantidadeCreep}
-                onChange={(e) => setQuantidadeCreep(e.target.value)}
-                inputMode="decimal"
-                type="number"
-                min="0"
-              />
-            </div>
           )}
         </div>
 

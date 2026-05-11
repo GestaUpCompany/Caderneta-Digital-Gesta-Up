@@ -19,10 +19,10 @@ const BASE = import.meta.env.BASE_URL
 
 const AVALIACOES_SN = [
   { campo: 'escoreGadoIdeal', label: 'ESCORE DO GADO IDEAL?' },
-  { campo: 'aguaBoaBebedouro', label: 'ÁGUA BOA / BEBEDOURO?' },
-  { campo: 'pastagemAdequada', label: 'PASTAGEM ADEQUADA?' },
-  { campo: 'animaisDoentes', label: 'ANIMAIS DOENTES / BICHADOS?' },
-  { campo: 'cercasCochos', label: 'CERCAS / COCHOS OK?' },
+  { campo: 'bebedourosCochos', label: 'BEBEDOUROS / COCHOS OK?' },
+  { campo: 'pastagensTaxaLotacao', label: 'PASTAGENS / TAXA DE LOTAÇÃO ADEQUADA?' },
+  { campo: 'animaisMachucadosDoentesBichados', label: 'ANIMAIS MACHUCADOS / DOENTES / BICHADOS?' },
+  { campo: 'cercasCochosPorteiras', label: 'CERCAS / COCHOS / PORTEIRAS OK?' },
   { campo: 'carrapatosMoscas', label: 'CARRAPATOS / MOSCAS?' },
   { campo: 'animaisEntreverados', label: 'ANIMAIS ENTREVERADOS?' },
   { campo: 'animalMorto', label: 'ANIMAL MORTO?' },
@@ -82,14 +82,14 @@ function processarCategorias(categorias: string): string[] {
 type SnFields = {
   escoreGadoIdeal: string
   escoreGadoIdealObs: string
-  aguaBoaBebedouro: string
-  aguaBoaBebedouroObs: string
-  pastagemAdequada: string
-  pastagemAdequadaObs: string
-  animaisDoentes: string
-  animaisDoentesObs: string
-  cercasCochos: string
-  cercasCochosObs: string
+  bebedourosCochos: string
+  bebedourosCochosObs: string
+  pastagensTaxaLotacao: string
+  pastagensTaxaLotacaoObs: string
+  animaisMachucadosDoentesBichados: string
+  animaisMachucadosDoentesBichadosObs: string
+  cercasCochosPorteiras: string
+  cercasCochosPorteirasObs: string
   carrapatosMoscas: string
   carrapatosMoscasObs: string
   animaisEntreverados: string
@@ -122,10 +122,10 @@ const makeInitial = (): FormState => ({
   numeroLote: '',
   vaca: '', touro: '', boiGordo: '', boiMagro: '', garrote: '', bezerro: '', novilha: '', tropa: '', outros: '',
   escoreGadoIdeal: '', escoreGadoIdealObs: '',
-  aguaBoaBebedouro: '', aguaBoaBebedouroObs: '',
-  pastagemAdequada: '', pastagemAdequadaObs: '',
-  animaisDoentes: '', animaisDoentesObs: '',
-  cercasCochos: '', cercasCochosObs: '',
+  bebedourosCochos: '', bebedourosCochosObs: '',
+  pastagensTaxaLotacao: '', pastagensTaxaLotacaoObs: '',
+  animaisMachucadosDoentesBichados: '', animaisMachucadosDoentesBichadosObs: '',
+  cercasCochosPorteiras: '', cercasCochosPorteirasObs: '',
   carrapatosMoscas: '', carrapatosMoscasObs: '',
   animaisEntreverados: '', animaisEntreveradosObs: '',
   animalMorto: '', animalMortoObs: '',
@@ -229,14 +229,14 @@ export default function RodeioPage() {
       totalCabecas: total,
       escoreGadoIdeal: form.escoreGadoIdeal,
       escoreGadoIdealObs: form.escoreGadoIdealObs || '',
-      aguaBoaBebedouro: form.aguaBoaBebedouro,
-      aguaBoaBebedouroObs: form.aguaBoaBebedouroObs || '',
-      pastagemAdequada: form.pastagemAdequada,
-      pastagemAdequadaObs: form.pastagemAdequadaObs || '',
-      animaisDoentes: form.animaisDoentes,
-      animaisDoentesObs: form.animaisDoentesObs || '',
-      cercasCochos: form.cercasCochos,
-      cercasCochosObs: form.cercasCochosObs || '',
+      bebedourosCochos: form.bebedourosCochos,
+      bebedourosCochosObs: form.bebedourosCochosObs || '',
+      pastagensTaxaLotacao: form.pastagensTaxaLotacao,
+      pastagensTaxaLotacaoObs: form.pastagensTaxaLotacaoObs || '',
+      animaisMachucadosDoentesBichados: form.animaisMachucadosDoentesBichados,
+      animaisMachucadosDoentesBichadosObs: form.animaisMachucadosDoentesBichadosObs || '',
+      cercasCochosPorteiras: form.cercasCochosPorteiras,
+      cercasCochosPorteirasObs: form.cercasCochosPorteirasObs || '',
       carrapatosMoscas: form.carrapatosMoscas,
       carrapatosMoscasObs: form.carrapatosMoscasObs || '',
       animaisEntreverados: form.animaisEntreverados,

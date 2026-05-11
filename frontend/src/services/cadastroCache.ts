@@ -39,7 +39,6 @@ export interface CadastroCacheData {
   proteinado?: string[]
   racao?: string[]
   insumos?: string[]
-  dietas?: string[]
   pastosDetalhes?: Record<string, PastoDetalhes>
   lotesDetalhes?: Record<string, LoteDetalhes>
 }
@@ -68,7 +67,6 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         proteinado: cached[CACHE_KEYS.SUPLEMENTACAO]?.proteinado?.length || 0,
         racao: cached[CACHE_KEYS.SUPLEMENTACAO]?.racao?.length || 0,
         insumos: cached[CACHE_KEYS.SUPLEMENTACAO]?.insumos?.length || 0,
-        dietas: cached[CACHE_KEYS.SUPLEMENTACAO]?.dietas?.length || 0,
       })
       return {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos || [],
@@ -84,7 +82,6 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         proteinado: cached[CACHE_KEYS.SUPLEMENTACAO]?.proteinado || [],
         racao: cached[CACHE_KEYS.SUPLEMENTACAO]?.racao || [],
         insumos: cached[CACHE_KEYS.SUPLEMENTACAO]?.insumos || [],
-        dietas: cached[CACHE_KEYS.SUPLEMENTACAO]?.dietas || [],
       }
     }
     console.log('[CadastroCache] Nenhum dado encontrado no cache')
@@ -116,7 +113,6 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       proteinado: data.proteinado,
       racao: data.racao,
       insumos: data.insumos,
-      dietas: data.dietas,
     })
 
     // Emitir evento para notificar que o cache foi atualizado
@@ -138,7 +134,7 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       // Buscar do Supabase
       console.log('[CadastroCache] Buscando dados do Supabase para fazenda:', fazendaId)
       
-      const [pastosData, lotesData, frigorificosData, causasMorteData, bebedourosData, fornecedoresData, funcionariosData, mineralData, proteinadoData, racaoData, insumosData, dietasData] = await Promise.all([
+      const [pastosData, lotesData, frigorificosData, causasMorteData, bebedourosData, fornecedoresData, funcionariosData, mineralData, proteinadoData, racaoData, insumosData] = await Promise.all([
         supabaseService.getPastos(fazendaId),
         supabaseService.getLotes(fazendaId),
         supabaseService.getFrigorificos(fazendaId),
@@ -149,8 +145,7 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         supabaseService.getMineral(fazendaId),
         supabaseService.getProteinado(fazendaId),
         supabaseService.getRacao(fazendaId),
-        supabaseService.getInsumos(fazendaId),
-        supabaseService.getDietas(fazendaId)
+        supabaseService.getInsumos(fazendaId)
       ])
 
       const pastos = pastosData?.map((p: any) => p.nome) || []
@@ -164,7 +159,6 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       const proteinado = proteinadoData?.map((p: any) => p.nome) || []
       const racao = racaoData?.map((r: any) => r.nome) || []
       const insumos = insumosData?.map((i: any) => i.nome) || []
-      const dietas = dietasData?.map((d: any) => d.nome) || []
 
       return {
         pastos,
@@ -180,7 +174,6 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         proteinado,
         racao,
         insumos,
-        dietas,
       }
     }
     
@@ -228,7 +221,6 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       proteinado: suplementacaoData.proteinado || [],
       racao: suplementacaoData.racao || [],
       insumos: suplementacaoData.insumos || [],
-      dietas: suplementacaoData.dietas || [],
     }
   } catch (error) {
     console.error('[CadastroCache] Erro ao buscar dados da API:', error)
@@ -243,7 +235,6 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       proteinado: [],
       racao: [],
       insumos: [],
-      dietas: [],
     }
   }
 }
@@ -278,7 +269,6 @@ export async function updateCadastroCache(cadastroSheetUrl: string, fazendaId?: 
       proteinado: data.proteinado?.length || 0,
       racao: data.racao?.length || 0,
       insumos: data.insumos?.length || 0,
-      dietas: data.dietas?.length || 0,
     })
   } catch (error) {
     console.error('Erro ao atualizar cache de cadastro:', error)
@@ -381,7 +371,6 @@ export function getCachedCadastroData(): CadastroCacheData | null {
     proteinado: [...(cacheData.proteinado || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     racao: [...(cacheData.racao || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     insumos: [...(cacheData.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    dietas: [...(cacheData.dietas || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     pastosDetalhes: cacheData.pastosDetalhes || {},
     lotesDetalhes: cacheData.lotesDetalhes || {},
   }

@@ -2153,7 +2153,6 @@ export type Database = {
           bezerro: boolean | null
           boi: boolean | null
           created_at: string | null
-          creep: number | null
           data: string
           deleted_at: string | null
           dispositivo_id: string | null
@@ -2197,7 +2196,6 @@ export type Database = {
           bezerro?: boolean | null
           boi?: boolean | null
           created_at?: string | null
-          creep?: number | null
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
@@ -2241,7 +2239,6 @@ export type Database = {
           bezerro?: boolean | null
           boi?: boolean | null
           created_at?: string | null
-          creep?: number | null
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
