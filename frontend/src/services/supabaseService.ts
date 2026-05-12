@@ -1271,7 +1271,7 @@ export async function getRegistrosOperacoesMaquinas(fazendaId: string, dataInici
 
 export async function getRegistrosManutencaoMaquinas(fazendaId: string, dataInicio?: string, dataFim?: string) {
   let query = supabase
-    .from('registros_manutencao_maquinas')
+    .from('registros_manutencao_maquinas' as any)
     .select('*')
     .eq('fazenda_id', fazendaId)
     .is('deleted_at', null)
@@ -1293,7 +1293,7 @@ export async function getRegistrosManutencaoMaquinas(fazendaId: string, dataInic
 
 export async function createRegistroManutencaoMaquinas(registro: any) {
   const { data, error } = await supabase
-    .from('registros_manutencao_maquinas')
+    .from('registros_manutencao_maquinas' as any)
     .insert(registro)
     .select()
     .single()
@@ -1304,7 +1304,7 @@ export async function createRegistroManutencaoMaquinas(registro: any) {
 
 export async function updateRegistroManutencaoMaquinas(id: string, registro: any) {
   const { data, error } = await supabase
-    .from('registros_manutencao_maquinas')
+    .from('registros_manutencao_maquinas' as any)
     .update(registro)
     .eq('id', id)
     .select()
@@ -1316,7 +1316,7 @@ export async function updateRegistroManutencaoMaquinas(id: string, registro: any
 
 export async function deleteRegistroManutencaoMaquinas(id: string) {
   const { error } = await supabase
-    .from('registros_manutencao_maquinas')
+    .from('registros_manutencao_maquinas' as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
