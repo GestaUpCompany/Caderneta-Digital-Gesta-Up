@@ -7,13 +7,15 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
     pasto: Joi.string().required(),
     pesoCria: Joi.number().min(0).max(100).allow(null),
-    idCria: Joi.string().required(),
+    idProvisorioCria: Joi.string().required(),
+    idBrincoCria: Joi.string().allow('', null),
+    idChipCria: Joi.string().allow('', null),
     tratamento: Joi.string().required(),
     tipoParto: Joi.string().valid('Normal', 'Auxiliado', 'Cesárea', 'Aborto').required(),
     sexo: Joi.string().valid('Macho', 'Fêmea').required(),
     raca: Joi.string().valid('Nelore', 'Angus', 'Leiteiro', 'Outros').required(),
-    brincoMae: Joi.string().required(),
-    chipMae: Joi.string().allow(''),
+    idBrincoMae: Joi.string().required(),
+    idChipMae: Joi.string().allow('', null),
     categoriaMae: Joi.string().valid('Nulípara', 'Primípara', 'Secundípara', 'Multípara').required(),
   }),
 
@@ -128,12 +130,31 @@ const schemas: Record<string, Joi.ObjectSchema> = {
 
   movimentacao: Joi.object({
     data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
-    loteOrigem: Joi.string().required(),
-    loteDestino: Joi.string().required(),
-    numeroCabecas: Joi.number().integer().min(1).required(),
+    loteOrigem: Joi.string().when('motivoMovimentacao', {
+      is: 'Doação',
+      then: Joi.string().allow('', null),
+      otherwise: Joi.string().required()
+    }),
+    destino: Joi.string().when('motivoMovimentacao', {
+      is: 'Doação',
+      then: Joi.string().allow('', null),
+      otherwise: Joi.string().required()
+    }),
+    numeroCabecas: Joi.number().integer().min(1).when('motivoMovimentacao', {
+      is: 'Doação',
+      then: Joi.number().allow(null, 0),
+      otherwise: Joi.number().integer().min(1).required()
+    }),
     pesoMedio: Joi.number().min(0).allow(null),
-    categoria: Joi.string().required(),
-    motivoMovimentacao: Joi.string().valid('Morte', 'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entreverado').required(),
+    categoria: Joi.string().when('motivoMovimentacao', {
+      is: 'Doação',
+      then: Joi.string().allow('', null),
+      otherwise: Joi.string().required()
+    }),
+    motivoMovimentacao: Joi.string().valid('Morte', 'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entrevero', 'Doação').required(),
+    tipoSaida: Joi.string().allow('', null),
+    tipoEntrada: Joi.string().allow('', null),
+    tipoDestino: Joi.string().allow('', null),
     brincoChip: Joi.string().allow(''),
     causaObservacao: Joi.string().allow(''),
   }),

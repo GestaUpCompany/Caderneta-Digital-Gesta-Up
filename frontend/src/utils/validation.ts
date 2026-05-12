@@ -111,8 +111,8 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.pasto))
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
-  if (!isNonEmptyString(data.idCria))
-    errors.push({ field: 'idCria', message: 'ID é obrigatório' })
+  if (!isNonEmptyString(data.idProvisorioCria))
+    errors.push({ field: 'idProvisorioCria', message: 'ID Provisório é obrigatório' })
   if (!isNonEmptyString(data.tratamento))
     errors.push({ field: 'tratamento', message: 'Tratamento é obrigatório' })
   if (!isNonEmptyString(data.tipoParto))
@@ -121,8 +121,8 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
     errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
   if (!isNonEmptyString(data.raca))
     errors.push({ field: 'raca', message: 'Raça é obrigatória' })
-  if (!isNonEmptyString(data.brincoMae))
-    errors.push({ field: 'brincoMae', message: 'ID Brinco da mãe é obrigatório' })
+  if (!isNonEmptyString(data.idBrincoMae))
+    errors.push({ field: 'idBrincoMae', message: 'ID Brinco da mãe é obrigatório' })
   if (!isNonEmptyString(data.categoriaMae))
     errors.push({ field: 'categoriaMae', message: 'Categoria da mãe é obrigatória' })
 
@@ -251,6 +251,17 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  
+  const motivo = data.motivoMovimentacao as string
+  
+  // Para Doação, apenas data e motivo são obrigatórios
+  if (motivo === 'Doação') {
+    if (!isNonEmptyString(data.motivoMovimentacao))
+      errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
+    return { isValid: errors.length === 0, errors }
+  }
+  
+  // Para outros motivos, validar campos normalmente
   if (!isNonEmptyString(data.loteOrigem))
     errors.push({ field: 'loteOrigem', message: 'Lote de origem é obrigatório' })
   if (!isNonEmptyString(data.loteDestino))

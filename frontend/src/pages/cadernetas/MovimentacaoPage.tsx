@@ -15,21 +15,22 @@ import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const MOTIVOS = [
   { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
-  { value: 'Saída', label: 'SAÍDA', icon: '🚚' },
-  { value: 'Abate', label: 'ABATE', icon: '🏭' },
+  { value: 'Abate', label: 'ABATE', icon: '🥩' },
+  { value: 'Saída', label: 'SAÍDA', icon: '📤' },
   { value: 'Entrada', label: 'ENTRADA', icon: '📥' },
   { value: 'Entrevero', label: 'ENTREVERO', icon: '🔀' },
+  { value: 'Doação', label: 'DOAÇÃO', icon: '🎁' },
 ]
 
 const TIPO_SAIDA = [
   { value: 'Venda', label: 'VENDA', icon: '' },
-  { value: 'Apartação', label: 'APARTAÇÃO', icon: '' },
+  { value: 'Apartação', label: 'APART.', icon: '' },
   { value: 'Transferência', label: 'TRANSF.', icon: '' },
 ]
 
 const TIPO_ENTRADA = [
   { value: 'Compras', label: 'COMPRAS', icon: '' },
-  { value: 'Apartação', label: 'APARTAÇÃO', icon: '' },
+  { value: 'Apartação', label: 'APART.', icon: '' },
   { value: 'Transferência', label: 'TRANSF.', icon: '' },
 ]
 
@@ -135,6 +136,7 @@ export default function MovimentacaoPage() {
         break
       case 'Abate':
       case 'Entrevero':
+      case 'Doação':
         // Para esses casos, limpar o destino para que o usuário selecione
         setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
         break
@@ -207,7 +209,35 @@ export default function MovimentacaoPage() {
     const categoriasString = categoriasSelecionadas.join(', ')
 
     // Se destino customizado for preenchido, usar em vez de loteDestino
-    const destinoFinal = form.destinoCustomizado.trim() ? form.destinoCustomizado.trim() : form.loteDestino
+    let destinoFinal = form.destinoCustomizado.trim() ? form.destinoCustomizado.trim() : form.loteDestino
+
+    // Determinar tipo_destino baseado no motivo
+    let tipoDestino = null
+    if (form.motivoMovimentacao === 'Consumo') {
+      tipoDestino = 'cantina'
+      // Garantir que loteDestino seja 'Cantina' quando for consumo
+      if (!destinoFinal || destinoFinal === '') {
+        destinoFinal = 'Cantina'
+      }
+    } else if (form.motivoMovimentacao === 'Abate') {
+      tipoDestino = 'frigorifico'
+    } else if (form.motivoMovimentacao === 'Saída') {
+      if (form.tipoSaida === 'Apartação') {
+        tipoDestino = 'lote'
+      } else if (form.tipoSaida === 'Venda' || form.tipoSaida === 'Transferência') {
+        tipoDestino = 'fornecedor'
+      }
+    } else if (form.motivoMovimentacao === 'Entrada') {
+      if (form.tipoEntrada === 'Compras') {
+        tipoDestino = 'fornecedor'
+      } else if (form.tipoEntrada === 'Apartação' || form.tipoEntrada === 'Transferência') {
+        tipoDestino = 'lote'
+      }
+    } else if (form.motivoMovimentacao === 'Entrevero') {
+      tipoDestino = form.destinoCustomizado.trim() ? 'customizado' : 'lote'
+    } else if (form.motivoMovimentacao === 'Doação') {
+      tipoDestino = 'customizado'
+    }
 
     const result = await salvarRegistro('movimentacao', {
       data: form.data,
@@ -220,6 +250,7 @@ export default function MovimentacaoPage() {
       motivoMovimentacao: form.motivoMovimentacao,
       tipoSaida: form.tipoSaida || null,
       tipoEntrada: form.tipoEntrada || null,
+      tipoDestino: tipoDestino,
       brinco: form.brinco,
       chip: form.chip,
       causaObservacao: form.causaObservacao,
@@ -597,6 +628,15 @@ export default function MovimentacaoPage() {
                   <Input
                     label="CAUSA / OBSERVAÇÃO:"
                     placeholder="Descreva detalhes da movimentação"
+                    value={form.causaObservacao}
+                    onChange={setInput('causaObservacao')}
+                  />
+                </>
+              ) : form.motivoMovimentacao === 'Doação' ? (
+                <>
+                  <Input
+                    label="OBSERVAÇÃO:"
+                    placeholder="Descreva detalhes da doação (opcional)"
                     value={form.causaObservacao}
                     onChange={setInput('causaObservacao')}
                   />

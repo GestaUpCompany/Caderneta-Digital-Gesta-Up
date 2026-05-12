@@ -88,15 +88,17 @@ interface FormState {
   pasto: string
   lote: string
   pesoCria: string
-  idCria: string
+  idProvisorioCria: string
+  idBrincoCria: string
+  idChipCria: string
   tratamentos: string[]
   tratamentoOutros: string
   tipoParto: string
   sexo: string
   raca: string
   racaOutros: string
-  brincoMae: string
-  chipMae: string
+  idBrincoMae: string
+  idChipMae: string
   categoriaMae: string
   escoreMatriz: string
 }
@@ -106,15 +108,17 @@ const makeInitial = (): FormState => ({
   pasto: '',
   lote: '',
   pesoCria: '',
-  idCria: '',
+  idProvisorioCria: '',
+  idBrincoCria: '',
+  idChipCria: '',
   tratamentos: [],
   tratamentoOutros: '',
   tipoParto: '',
   sexo: '',
   raca: '',
   racaOutros: '',
-  brincoMae: '',
-  chipMae: '',
+  idBrincoMae: '',
+  idChipMae: '',
   categoriaMae: '',
   escoreMatriz: '',
 })
@@ -217,13 +221,15 @@ export default function MaternidadePage() {
       pasto: form.pasto,
       lote: form.lote,
       pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
-      idCria: form.idCria,
+      idProvisorioCria: form.idProvisorioCria,
+      idBrincoCria: form.idBrincoCria,
+      idChipCria: form.idChipCria,
       tratamento: tratamentoFinal,
       tipoParto: form.tipoParto,
       sexo: form.sexo,
       raca: racaFinal,
-      brincoMae: form.brincoMae,
-      chipMae: form.chipMae,
+      idBrincoMae: form.idBrincoMae,
+      idChipMae: form.idChipMae,
       categoriaMae: form.categoriaMae,
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
     })
@@ -363,16 +369,62 @@ export default function MaternidadePage() {
           )}
         </div>
 
-        {/* Seção 2: Identificação */}
+        {/* Seção 2: Dados da Mãe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
-          <Input
-            label="ID"
-            placeholder="Ex: 2023-145"
-            value={form.idCria}
-            onChange={setInputEvent('idCria')}
-            error={getError('idCria')}
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO DA MÃE</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="ID BRINCO"
+              placeholder="Ex: 2021-089"
+              value={form.idBrincoMae}
+              onChange={setInputEvent('idBrincoMae')}
+              error={getError('idBrincoMae')}
+            />
+            <Input
+              label="ID CHIP"
+              placeholder="Número do chip"
+              value={form.idChipMae}
+              onChange={setInputEvent('idChipMae')}
+              error={getError('idChipMae')}
+            />
+          </div>
+          <Radio
+            name="categoriaMae"
+            label="CATEGORIA DA MÃE"
+            options={CATEGORIAS_MAE}
+            value={form.categoriaMae}
+            onChange={set('categoriaMae')}
+            error={getError('categoriaMae')}
+            gridCols={2}
           />
+        </div>
+
+        {/* Seção 3: Identificação */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. IDENTIFICAÇÃO DA CRIA</h2>
+          <Input
+            label="ID PROVISÓRIO"
+            placeholder="Ex: 2023-145"
+            value={form.idProvisorioCria}
+            onChange={setInputEvent('idProvisorioCria')}
+            error={getError('idProvisorioCria')}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="ID BRINCO (opcional)"
+              placeholder="Ex: 2023-145-B"
+              value={form.idBrincoCria}
+              onChange={setInputEvent('idBrincoCria')}
+              error={getError('idBrincoCria')}
+            />
+            <Input
+              label="ID CHIP (opcional)"
+              placeholder="Número do chip"
+              value={form.idChipCria}
+              onChange={setInputEvent('idChipCria')}
+              error={getError('idChipCria')}
+            />
+          </div>
           <Input
             label="PESO DA CRIA (kg)"
             placeholder="Ex: 32"
@@ -383,9 +435,9 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 3: Tratamento */}
+        {/* Seção 4: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TRATAMENTOS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTOS</h2>
           <CheckboxGroup
             label=""
             options={TRATAMENTOS}
@@ -408,9 +460,9 @@ export default function MaternidadePage() {
           )}
         </div>
 
-        {/* Seção 4: Parto */}
+        {/* Seção 5: Parto */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TIPO DE PARTO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TIPO DE PARTO</h2>
           <Radio
             name="tipoParto"
             options={TIPOS_PARTO}
@@ -421,9 +473,9 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 5: Sexo e Raça */}
+        {/* Seção 6: Sexo e Raça */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. SEXO E RAÇA</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. SEXO E RAÇA</h2>
           <Radio
             name="sexo"
             label="SEXO"
@@ -451,36 +503,6 @@ export default function MaternidadePage() {
               error={getError('racaOutros')}
             />
           )}
-        </div>
-
-        {/* Seção 6: Dados da Mãe */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. DADOS DA MÃE</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="ID BRINCO"
-              placeholder="Ex: 2021-089"
-              value={form.brincoMae}
-              onChange={setInputEvent('brincoMae')}
-              error={getError('brincoMae')}
-            />
-            <Input
-              label="ID CHIP"
-              placeholder="Número do chip"
-              value={form.chipMae}
-              onChange={setInputEvent('chipMae')}
-              error={getError('chipMae')}
-            />
-          </div>
-          <Radio
-            name="categoriaMae"
-            label="CATEGORIA DA MÃE"
-            options={CATEGORIAS_MAE}
-            value={form.categoriaMae}
-            onChange={set('categoriaMae')}
-            error={getError('categoriaMae')}
-            gridCols={2}
-          />
         </div>
 
         {/* Seção 7: Escore da Matriz */}

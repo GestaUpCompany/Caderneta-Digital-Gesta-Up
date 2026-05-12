@@ -994,13 +994,35 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
       texto += `\n`
 
-      // Seção: DADOS DA CRIA
-      texto += `DADOS DA CRIA\n`
+      // Seção: IDENTIFICAÇÃO DA MÃE
+      texto += `IDENTIFICAÇÃO DA MÃE\n`
+      if (registro.idBrincoMae) {
+        texto += `ID BRINCO: *${registro.idBrincoMae}*\n`
+      }
+      if (registro.idChipMae) {
+        texto += `ID CHIP: *${registro.idChipMae}*\n`
+      }
+      if (registro.categoriaMae) {
+        texto += `CATEGORIA MÃE: *${registro.categoriaMae}*\n`
+      }
+      if (registro.escoreMatriz) {
+        texto += `ESCORE MATRIZ: *${registro.escoreMatriz}*\n`
+      }
+      texto += `\n`
+
+      // Seção: IDENTIFICAÇÃO DA CRIA
+      texto += `IDENTIFICAÇÃO DA CRIA\n`
+      if (registro.idProvisorioCria) {
+        texto += `ID PROVISÓRIO: *${registro.idProvisorioCria}*\n`
+      }
+      if (registro.idBrincoCria) {
+        texto += `ID BRINCO: *${registro.idBrincoCria}*\n`
+      }
+      if (registro.idChipCria) {
+        texto += `ID CHIP: *${registro.idChipCria}*\n`
+      }
       if (registro.pesoCria) {
         texto += `PESO CRIA: *${registro.pesoCria}* kg\n`
-      }
-      if (registro.idCria) {
-        texto += `ID: *${registro.idCria}*\n`
       }
       if (registro.sexo) {
         texto += `SEXO: *${registro.sexo}*\n`
@@ -1017,22 +1039,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
       if (registro.tratamento) {
         texto += `TRATAMENTO: *${registro.tratamento}*\n`
-      }
-      texto += `\n`
-
-      // Seção: MÃE
-      texto += `MÃE\n`
-      if (registro.brincoMae) {
-        texto += `ID BRINCO: *${registro.brincoMae}*\n`
-      }
-      if (registro.chipMae) {
-        texto += `ID CHIP: *${registro.chipMae}*\n`
-      }
-      if (registro.categoriaMae) {
-        texto += `CATEGORIA MÃE: *${registro.categoriaMae}*\n`
-      }
-      if (registro.escoreMatriz) {
-        texto += `ESCORE MATRIZ: *${registro.escoreMatriz}*\n`
       }
     } else {
       // Para outras cadernetas, manter o fluxo normal

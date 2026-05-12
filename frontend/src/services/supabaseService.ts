@@ -573,6 +573,59 @@ export async function getUltimaDataPastoSaida(fazendaId: string, nomePasto: stri
   return data?.created_at || null
 }
 
+export async function getUltimoStatusPasto(fazendaId: string, nomePasto: string): Promise<'entrada' | 'saida' | null> {
+  const client = getSupabaseClient()
+  
+  // Buscar o último registro onde o pasto aparece como entrada
+  const { data: entradaData, error: entradaError } = await client
+    .from('registros_pastagens')
+    .select('created_at')
+    .eq('fazenda_id', fazendaId)
+    .eq('pasto_entrada', nomePasto)
+    .not('created_at', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  
+  if (entradaError && entradaError.code !== 'PGRST116') {
+    throw entradaError
+  }
+  
+  // Buscar o último registro onde o pasto aparece como saída
+  const { data: saidaData, error: saidaError } = await client
+    .from('registros_pastagens')
+    .select('created_at')
+    .eq('fazenda_id', fazendaId)
+    .eq('pasto_saida', nomePasto)
+    .not('created_at', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  
+  if (saidaError && saidaError.code !== 'PGRST116') {
+    throw saidaError
+  }
+  
+  // Comparar as datas para determinar qual foi o último registro
+  if (!entradaData && !saidaData) {
+    return null // Primeira vez que o pasto é usado
+  }
+  
+  if (!entradaData) {
+    return 'saida' // Só tem registro de saída
+  }
+  
+  if (!saidaData) {
+    return 'entrada' // Só tem registro de entrada
+  }
+  
+  // Comparar timestamps
+  const entradaTimestamp = new Date(entradaData.created_at).getTime()
+  const saidaTimestamp = new Date(saidaData.created_at).getTime()
+  
+  return entradaTimestamp > saidaTimestamp ? 'entrada' : 'saida'
+}
+
 export async function getPastoByNome(fazendaId: string, nome: string) {
   const client = getSupabaseClient()
   const { data, error } = await client

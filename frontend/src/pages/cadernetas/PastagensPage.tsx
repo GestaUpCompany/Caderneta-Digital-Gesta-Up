@@ -12,7 +12,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida } from '../../services/supabaseService'
+import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida, getUltimoStatusPasto } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -162,6 +162,17 @@ export default function PastagensPage() {
       }
 
       try {
+        // Verificar o último status do pasto para validar seleção
+        const ultimoStatus = await getUltimoStatusPasto(fazendaId, form.pastoSaida)
+        
+        // Se o último status foi saída, impedir seleção (pasto está vazio)
+        if (ultimoStatus === 'saida') {
+          setDetalhesPastoSaida(null)
+          setErrors([{ field: 'pastoSaida', message: 'Este pasto está vazio (último registro foi saída). Selecione outro pasto.' }])
+          set('pastoSaida')('')
+          return
+        }
+
         // Buscar detalhes do pasto
         const pasto = await getPastoByNome(fazendaId, form.pastoSaida)
         
@@ -178,6 +189,8 @@ export default function PastagensPage() {
           })
           // Atualizar o campo tempoOcupação no formulário
           set('tempoOcupacao')(tempoOcupacao)
+          // Remover erro se existia
+          setErrors(prev => prev.filter(e => e.field !== 'pastoSaida'))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do pasto de saída:', error)
@@ -197,6 +210,17 @@ export default function PastagensPage() {
       }
 
       try {
+        // Verificar o último status do pasto para validar seleção
+        const ultimoStatus = await getUltimoStatusPasto(fazendaId, form.pastoEntrada)
+        
+        // Se o último status foi entrada, impedir seleção (pasto está ocupado)
+        if (ultimoStatus === 'entrada') {
+          setDetalhesPastoEntrada(null)
+          setErrors([{ field: 'pastoEntrada', message: 'Este pasto está ocupado (último registro foi entrada). Selecione outro pasto.' }])
+          set('pastoEntrada')('')
+          return
+        }
+
         // Buscar detalhes do pasto
         const pasto = await getPastoByNome(fazendaId, form.pastoEntrada)
         
@@ -213,6 +237,8 @@ export default function PastagensPage() {
           })
           // Atualizar o campo tempoVedacao no formulário
           set('tempoVedacao')(tempoVedacao)
+          // Remover erro se existia
+          setErrors(prev => prev.filter(e => e.field !== 'pastoEntrada'))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do pasto de entrada:', error)
