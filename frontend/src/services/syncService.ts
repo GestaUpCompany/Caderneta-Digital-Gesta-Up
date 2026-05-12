@@ -440,8 +440,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         cochos_condicoes_obs: registro.cochosCondicoesObs || null,
         aterro_acesso_ideal: registro.aterroAcessoIdeal === 'Sim',
         aterro_acesso_ideal_obs: registro.aterroAcessoIdealObs || null,
-        espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null,
-        espacamento_cocho_obs: registro.espacamentoCochoObs || null,
+        // espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null, // Temporariamente desabilitado
+        // espacamento_cocho_obs: registro.espacamentoCochoObs || null, // Temporariamente desabilitado
         deposito_condicoes: registro.depositoCondicoes === 'Sim',
         deposito_condicoes_obs: registro.depositoCondicoesObs || null,
         estoque_deposito: registro.estoqueDepositio === 'Sim',

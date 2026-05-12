@@ -517,49 +517,23 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
       { campo: 'cochosCondicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
       { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO' },
-      { campo: 'espacamentoCochoCmCab', label: 'ESPAÇAMENTO DO COCHO' },
+      // { campo: 'espacamentoCochoCmCab', label: 'ESPAÇAMENTO DO COCHO' }, // Temporariamente desabilitado
     ]
     
     texto += `\nCHECKLIST COCHOS\n`
     
     checklistCochos.forEach(({ campo, label }) => {
-      if (campo === 'espacamentoCochoCmCab') {
-        // Tratamento especial para espaçamento do cocho
-        const valor = registro[campo]
-        if (valor !== null && valor !== undefined && valor !== '') {
-          texto += `${label}: *${valor} cm/cab*\n`
-          
-          // Calcular se está ideal e diferença percentual
-          const espacamentoNum = Number(valor)
-          const ESPACAMENTO_IDEAL = 40
-          const TOLERANCIA_PERCENTUAL = 5
-          const diferenca = Math.abs(espacamentoNum - ESPACAMENTO_IDEAL)
-          const diferencaPercentual = (diferenca / ESPACAMENTO_IDEAL) * 100
-          const ideal = diferencaPercentual <= TOLERANCIA_PERCENTUAL
-          const sinal = espacamentoNum >= ESPACAMENTO_IDEAL ? '+' : '-'
-          
-          texto += `IDEAL?: *${ideal ? 'Sim' : 'Não'} (${sinal}${diferencaPercentual.toFixed(1)}%)*\n`
-        }
-        
-        // Adicionar observação do espaçamento
-        const obsValue = registro.espacamentoCochoObs
-        if (obsValue && obsValue !== '') {
-          texto += `OBSERVAÇÃO: *${obsValue}*\n`
-        }
-      } else {
-        // Tratamento padrão para outras perguntas (Sim/Não)
-        const valor = registro[campo]
-        if (valor === true || valor === false) {
-          const valorFormatado = valor ? 'Sim' : 'Não'
-          texto += `${label}: *${valorFormatado}*\n`
-        }
-        
-        // Adicionar observação
-        const obsField = `${campo}Obs`
-        const obsValue = registro[obsField]
-        if (obsValue && obsValue !== '') {
-          texto += `OBSERVAÇÃO: *${obsValue}*\n`
-        }
+      const valor = registro[campo]
+      if (valor === true || valor === false) {
+        const valorFormatado = valor ? 'Sim' : 'Não'
+        texto += `${label}: *${valorFormatado}*\n`
+      }
+      
+      // Adicionar observação
+      const obsField = `${campo}Obs`
+      const obsValue = registro[obsField]
+      if (obsValue && obsValue !== '') {
+        texto += `OBSERVAÇÃO: *${obsValue}*\n`
       }
     })
     

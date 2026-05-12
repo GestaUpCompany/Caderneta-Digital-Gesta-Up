@@ -12,7 +12,7 @@ import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getLoteByNome } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
-import EspacamentoCochoCard from '../../components/EspacamentoCochoCard'
+// import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
@@ -73,7 +73,7 @@ const CHECKLIST_PERGUNTAS = [
   { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
   { campo: 'cochosCondicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
   { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
-  { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO (cm/cab):' },
+  // { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO (cm/cab):' }, // Temporariamente desabilitado
   { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
   { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO?' },
 ]
@@ -282,8 +282,8 @@ export default function SuplementacaoPage() {
       cochosCondicoesObs: form.cochosCondicoesObs || '',
       aterroAcessoIdeal: form.aterroAcessoIdeal === 'Sim',
       aterroAcessoIdealObs: form.aterroAcessoIdealObs || '',
-      espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
-      espacamentoCochoObs: form.espacamentoCochoObs || '',
+      // espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null, // Temporariamente desabilitado
+      // espacamentoCochoObs: form.espacamentoCochoObs || '', // Temporariamente desabilitado
       depositoCondicoes: form.depositoCondicoes === 'Sim',
       depositoCondicoesObs: form.depositoCondicoesObs || '',
       estoqueDepositio: form.estoqueDepositio === 'Sim',
@@ -530,47 +530,23 @@ export default function SuplementacaoPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">5. CHECKLIST</h2>
           {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
-            campo === 'espacamentoCocho' ? (
-              <div key={campo}>
-                <Input
-                  label={label}
-                  placeholder="Espaçamento em cm/cab"
-                  value={form.espacamentoCochoCmCab}
-                  onChange={setInput('espacamentoCochoCmCab')}
-                  error={getError('espacamentoCochoCmCab')}
-                  inputMode="decimal"
-                  type="number"
-                  step="0.1"
-                />
-                <EspacamentoCochoCard espacamentoInformado={form.espacamentoCochoCmCab} />
-                {form.espacamentoCochoCmCab && (
-                  <Input
-                    placeholder="Adicionar observação (opcional)"
-                    value={form.espacamentoCochoObs}
-                    onChange={setInput('espacamentoCochoObs')}
-                    className="mt-2"
-                  />
-                )}
-              </div>
-            ) : (
-              <div key={campo}>
-                <Radio
-                  name={campo}
-                  label={label}
-                  options={SN_OPTIONS}
-                  value={(form as any)[campo]}
-                  onChange={set(campo as keyof FormState)}
-                  error={getError(campo)}
-                  gridCols={2}
-                />
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={(form as any)[`${campo}Obs`] || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
-                  className="mt-2"
-                />
-              </div>
-            )
+            <div key={campo}>
+              <Radio
+                name={campo}
+                label={label}
+                options={SN_OPTIONS}
+                value={(form as any)[campo]}
+                onChange={set(campo as keyof FormState)}
+                error={getError(campo)}
+                gridCols={2}
+              />
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={(form as any)[`${campo}Obs`] || ''}
+                onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                className="mt-2"
+              />
+            </div>
           ))}
         </div>
 
