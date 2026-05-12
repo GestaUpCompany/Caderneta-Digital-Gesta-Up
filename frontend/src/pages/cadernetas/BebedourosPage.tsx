@@ -495,12 +495,14 @@ export default function BebedourosPage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={(form as any)[`${campo}Obs`] || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
-                className="mt-2"
-              />
+              {(form as any)[campo] === 'Sim' && (
+                <Input
+                  placeholder="Adicionar observação (opcional)"
+                  value={(form as any)[`${campo}Obs`] || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                  className="mt-2"
+                />
+              )}
             </div>
           ))}
         </div>

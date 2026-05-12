@@ -470,12 +470,10 @@ export default function EnfermariaPage() {
               />
               {form.diagnosticos[campo]?.valor === 'S' && (
                 <Input
-                  label="OBSERVAÇÃO"
-                  placeholder="Descreva observações..."
+                  placeholder="Adicionar observação (opcional)"
                   value={form.diagnosticos[campo]?.observacao || ''}
                   onChange={setDiagnosticoObs(campo)}
-                  error={getError(`${campo}Obs`)}
-                  className="mt-3"
+                  className="mt-2"
                 />
               )}
             </div>

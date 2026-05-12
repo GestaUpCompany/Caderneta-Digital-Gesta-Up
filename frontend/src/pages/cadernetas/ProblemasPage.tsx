@@ -228,12 +228,14 @@ export default function ProblemasPage() {
               error={getError('causaIdentificada')}
               gridCols={2}
             />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.causaIdentificadaObs}
-              onChange={setInput('causaIdentificadaObs')}
-              className="mt-2"
-            />
+            {form.causaIdentificada === 'S' && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.causaIdentificadaObs}
+                onChange={setInput('causaIdentificadaObs')}
+                className="mt-2"
+              />
+            )}
           </div>
 
           <div>
@@ -246,12 +248,14 @@ export default function ProblemasPage() {
               error={getError('acaoCorretivaRealizada')}
               gridCols={2}
             />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.acaoCorretivaRealizadaObs}
-              onChange={setInput('acaoCorretivaRealizadaObs')}
-              className="mt-2"
-            />
+            {form.acaoCorretivaRealizada === 'S' && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.acaoCorretivaRealizadaObs}
+                onChange={setInput('acaoCorretivaRealizadaObs')}
+                className="mt-2"
+              />
+            )}
           </div>
 
           <div>
@@ -282,12 +286,14 @@ export default function ProblemasPage() {
               error={getError('causaRaizIdentificada')}
               gridCols={2}
             />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.causaRaizIdentificadaObs}
-              onChange={setInput('causaRaizIdentificadaObs')}
-              className="mt-2"
-            />
+            {form.causaRaizIdentificada === 'S' && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.causaRaizIdentificadaObs}
+                onChange={setInput('causaRaizIdentificadaObs')}
+                className="mt-2"
+              />
+            )}
           </div>
         </div>
 

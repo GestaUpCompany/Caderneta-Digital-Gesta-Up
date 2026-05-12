@@ -11,7 +11,7 @@ const TIPO_OPERACAO_OPTIONS = [
   { value: 'nutricao', label: 'Nutrição' },
   { value: 'pulverizacao', label: 'Pulverização' },
   { value: 'gradagem', label: 'Gradagem' },
-  { value: 'fertilizacao_correcao', label: 'Fertilização/Correção' },
+  { value: 'fertilizacao_correcao', label: 'Fert./Corret.' },
   { value: 'limpeza', label: 'Limpeza' },
   { value: 'niveladora', label: 'Niveladora' },
   { value: 'rodagem', label: 'Rodagem' },
@@ -196,28 +196,30 @@ export default function OperacoesMaquinasPage() {
         <Input label="PRODUTO APLICADO?" placeholder="Produto aplicado" value={form.produtoAplicado} onChange={setInput('produtoAplicado')} error={getError('produtoAplicado')} />
         <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} error={getError('quantidadeTotalAplicada')} />
         <Input label="ÁREA TRABALHADA?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} error={getError('areaTrabalhada')} />
-        <Input label="DOSE APLICADA?" placeholder="Dose aplicada" value={form.doseAplicada} onChange={setInput('doseAplicada')} error={getError('doseAplicada')} />
+        <Input label="DOSE APLICADA/ha?" placeholder="Dose aplicada" value={form.doseAplicada} onChange={setInput('doseAplicada')} error={getError('doseAplicada')} />
       </div>
 
       {/* Seção 4: Avaliação */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">4. AVALIAÇÃO</h2>
         <div>
-          <Radio
-            name="metaDiariaBatida"
-            label="Meta diária batida?"
-            options={SN_OPTIONS}
-            value={form.metaDiariaBatida}
-            onChange={set('metaDiariaBatida')}
-            error={getError('metaDiariaBatida')}
-            gridCols={2}
-          />
-          <Input
-            placeholder="Adicionar observação (opcional)"
-            value={form.metaDiariaBatidaObs}
-            onChange={setInput('metaDiariaBatidaObs')}
-            className="mt-2"
-          />
+            <Radio
+              name="metaDiariaBatida"
+              label="Meta diária batida?"
+              options={SN_OPTIONS}
+              value={form.metaDiariaBatida}
+              onChange={set('metaDiariaBatida')}
+              error={getError('metaDiariaBatida')}
+              gridCols={2}
+            />
+            {form.metaDiariaBatida === 'S' && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.metaDiariaBatidaObs}
+                onChange={setInput('metaDiariaBatidaObs')}
+                className="mt-2"
+              />
+            )}
         </div>
         <div>
           <Radio
@@ -229,12 +231,14 @@ export default function OperacoesMaquinasPage() {
             error={getError('algumImprevisto')}
             gridCols={2}
           />
-          <Input
-            placeholder="Adicionar observação (opcional)"
-            value={form.algumImprevistoObs}
-            onChange={setInput('algumImprevistoObs')}
-            className="mt-2"
-          />
+          {form.algumImprevisto === 'S' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.algumImprevistoObs}
+              onChange={setInput('algumImprevistoObs')}
+              className="mt-2"
+            />
+          )}
         </div>
       </div>
 
