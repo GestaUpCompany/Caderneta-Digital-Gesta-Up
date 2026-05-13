@@ -2745,6 +2745,72 @@ export type Database = {
           },
         ]
       }
+      registros_almoxarifado: {
+        Row: {
+          id: string
+          fazenda_id: string
+          dispositivo_id: string | null
+          nome_usuario: string | null
+          data: string
+          quem_entregou: string | null
+          quem_pegou: string | null
+          itens: Json | null
+          observacao: string | null
+          sync_status: string | null
+          version: number | null
+          created_at: string | null
+          updated_at: string | null
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          fazenda_id: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data: string
+          quem_entregou?: string | null
+          quem_pegou?: string | null
+          itens?: Json | null
+          observacao?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          fazenda_id?: string
+          dispositivo_id?: string | null
+          nome_usuario?: string | null
+          data?: string
+          quem_entregou?: string | null
+          quem_pegou?: string | null
+          itens?: Json | null
+          observacao?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_almoxarifado_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_almoxarifado_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_queue: {
         Row: {
           created_at: string | null
