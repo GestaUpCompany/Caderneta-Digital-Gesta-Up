@@ -558,7 +558,82 @@ export function validateManutencaoMaquinas(data: Record<string, unknown>): Valid
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas'
+export function validateEntradaInsumos(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.dataEntrada as string))
+    errors.push({ field: 'dataEntrada', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isValidTime(data.horario))
+    errors.push({ field: 'horario', message: 'Horário inválido. Use HH:MM' })
+  if (!isNonEmptyString(data.produto))
+    errors.push({ field: 'produto', message: 'Produto é obrigatório' })
+  if (!isPositiveNumber(data.quantidade))
+    errors.push({ field: 'quantidade', message: 'Quantidade deve ser maior ou igual a zero' })
+  if (!isPositiveNumber(data.valorUnitario))
+    errors.push({ field: 'valorUnitario', message: 'Valor unitário deve ser maior ou igual a zero' })
+  if (!isPositiveNumber(data.valorTotal))
+    errors.push({ field: 'valorTotal', message: 'Valor total deve ser maior ou igual a zero' })
+  if (!isNonEmptyString(data.notaFiscal))
+    errors.push({ field: 'notaFiscal', message: 'Nota fiscal é obrigatória' })
+  if (!isNonEmptyString(data.fornecedor))
+    errors.push({ field: 'fornecedor', message: 'Fornecedor é obrigatório' })
+  if (!isNonEmptyString(data.responsavelRecebimento))
+    errors.push({ field: 'responsavelRecebimento', message: 'Responsável pelo recebimento é obrigatório' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export function validateSaidaInsumos(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.dataProducao as string))
+    errors.push({ field: 'dataProducao', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.dietaProduzida))
+    errors.push({ field: 'dietaProduzida', message: 'Dieta produzida é obrigatória' })
+  if (!isNonEmptyString(data.destinoProducao))
+    errors.push({ field: 'destinoProducao', message: 'Destino da produção é obrigatório' })
+  if (!isPositiveNumber(data.totalProduzido))
+    errors.push({ field: 'totalProduzido', message: 'Total produzido deve ser maior ou igual a zero' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export function validateAlmoxarifado(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.quemEntregou))
+    errors.push({ field: 'quemEntregou', message: 'Quem entregou é obrigatório' })
+  if (!isNonEmptyString(data.quemPegou))
+    errors.push({ field: 'quemPegou', message: 'Quem pegou é obrigatório' })
+
+  // Validar pelo menos um item preenchido
+  if (data.itens && Array.isArray(data.itens)) {
+    if (data.itens.length === 0) {
+      errors.push({ field: 'itens', message: 'Adicione pelo menos um item' })
+    } else {
+      data.itens.forEach((item: any, index: number) => {
+        if (!isNonEmptyString(item.tipo))
+          errors.push({ field: `itens[${index}].tipo`, message: 'Tipo do item é obrigatório' })
+        if (!isPositiveNumber(item.quantidade))
+          errors.push({ field: `itens[${index}].quantidade`, message: 'Quantidade deve ser maior que zero' })
+        if (!isNonEmptyString(item.tipoClassificacao))
+          errors.push({ field: `itens[${index}].tipoClassificacao`, message: 'Classificação é obrigatória' })
+        if (!isNonEmptyString(item.setor))
+          errors.push({ field: `itens[${index}].setor`, message: 'Setor é obrigatório' })
+        if (item.necessitaDevolucao === 'S' && !isNonEmptyString(item.prazoDevolucao))
+          errors.push({ field: `itens[${index}].prazoDevolucao`, message: 'Prazo de devolução é obrigatório quando necessita devolução' })
+      })
+    }
+  } else {
+    errors.push({ field: 'itens', message: 'Adicione pelo menos um item' })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -576,6 +651,9 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'operacoes-maquinas': validateOperacoesMaquinas,
   'manutencao-maquinas': validateManutencaoMaquinas,
   problemas: validateProblemas,
+  'entrada-insumos': validateEntradaInsumos,
+  'saida-insumos': validateSaidaInsumos,
+  almoxarifado: validateAlmoxarifado,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

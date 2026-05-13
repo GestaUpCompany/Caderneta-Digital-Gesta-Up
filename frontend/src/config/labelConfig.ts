@@ -272,6 +272,14 @@ const INSUMOS_POR_SAIDA_LABELS = {
   quantidade: 'QUANTIDADE (kg)',
 }
 
+const ALMOXARIFADO_LABELS = {
+  data: 'DATA',
+  quemEntregou: 'QUEM ENTREGOU',
+  quemPegou: 'QUEM PEGOU',
+  itens: 'ITENS RETIRADOS',
+  observacao: 'OBSERVAÇÃO',
+}
+
 // Exportar objeto principal
 export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   maternidade: MATERNIDADE_LABELS,
@@ -288,4 +296,5 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   'entrada-insumos': ENTRADA_INSUMOS_LABELS,
   'saida-insumos': SAIDA_INSUMOS_LABELS,
   'insumos-por-saida': INSUMOS_POR_SAIDA_LABELS,
+  almoxarifado: ALMOXARIFADO_LABELS,
 }

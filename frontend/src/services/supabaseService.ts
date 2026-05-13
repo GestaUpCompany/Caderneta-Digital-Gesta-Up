@@ -1524,3 +1524,28 @@ export async function deleteRegistroSaidaInsumos(id: string) {
 
   if (error) throw error
 }
+
+// ==================== REGISTROS ALMOXARIFADO ====================
+
+export async function createRegistroAlmoxarifado(registro: any) {
+  const { data, error } = await supabase
+    .from('registros_almoxarifado')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroAlmoxarifado(id: string, registro: any) {
+  const { data, error } = await supabase
+    .from('registros_almoxarifado')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}

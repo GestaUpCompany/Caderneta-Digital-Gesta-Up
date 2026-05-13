@@ -634,6 +634,19 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                           camposNormais.push([key, value])
                         }
                       })
+                    } else if (caderneta === 'almoxarifado') {
+                      const ordemAlmoxarifado = [
+                        'quemEntregou',
+                        'quemPegou',
+                        'observacao'
+                      ]
+                      
+                      ordemAlmoxarifado.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          camposNormais.push([key, value])
+                        }
+                      })
                     } else {
                       Object.entries(registro).forEach(([key, value]) => {
                         if (

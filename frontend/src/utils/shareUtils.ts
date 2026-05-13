@@ -104,6 +104,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (caderneta === 'rodeio' && key.endsWith('Obs')) {
         return // Não incluir campos de observação separadamente
       }
+      // Filtrar itens do almoxarifado (serão tratados separadamente)
+      if (caderneta === 'almoxarifado' && key === 'itens') {
+        return // Não incluir itens separadamente
+      }
       if (caderneta === 'movimentacao') {
         // Campos de categoria individual
         if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa'].includes(key)) {

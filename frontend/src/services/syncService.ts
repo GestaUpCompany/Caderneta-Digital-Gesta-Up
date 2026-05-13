@@ -304,6 +304,15 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'observacao', defaultValue: '' },
     ],
   },
+  almoxarifado: {
+    columns: [
+      { field: 'data' },
+      { field: 'quemEntregou' },
+      { field: 'quemPegou' },
+      { field: 'itens', defaultValue: [] },
+      { field: 'observacao', defaultValue: '' },
+    ],
+  },
 }
 
 function getColumnValues(store: CadernetaStore, registro: Registro): (string | number | null | object)[] {
@@ -359,6 +368,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
   problemas: 'registros_problemas',
+  almoxarifado: 'registros_almoxarifado',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -677,6 +687,23 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo_problema_obs: registro.tipoProblemaObs || null,
         prioridade: registro.prioridade || null,
       }
+    case 'almoxarifado':
+      // Converter formato de data DD/MM/YYYY HH:MM para YYYY-MM-DD HH:MM
+      const dataParts = registro.data ? registro.data.split(' ') : []
+      const dataHora = dataParts[0] ? dataParts[0].split('/') : []
+      const hora = dataParts[1] || '00:00'
+      const dataFormatada = dataHora.length === 3 
+        ? `${dataHora[2]}-${dataHora[1]}-${dataHora[0]} ${hora}`
+        : null
+      
+      return {
+        ...baseData,
+        data: dataFormatada,
+        quem_entregou: registro.quemEntregou || null,
+        quem_pegou: registro.quemPegou || null,
+        itens: registro.itens || [],
+        observacao: registro.observacao || null,
+      }
     default:
       return baseData
   }
@@ -741,6 +768,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_problemas':
           await supabaseService.createRegistroProblemas(data)
           break
+        case 'registros_almoxarifado':
+          await supabaseService.createRegistroAlmoxarifado(data)
+          break
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {
@@ -796,6 +826,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_problemas':
           await supabaseService.updateRegistroProblemas(supabaseId, data)
+          break
+        case 'registros_almoxarifado':
+          await supabaseService.updateRegistroAlmoxarifado(supabaseId, data)
           break
       }
       console.log(`[SUPABASE] Registro atualizado com sucesso em ${tableName}`)

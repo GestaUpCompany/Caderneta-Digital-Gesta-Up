@@ -70,6 +70,8 @@ const EntradaInsumosPage = lazy(() => import('./pages/cadernetas/EntradaInsumosP
 const EntradaInsumosListaPage = lazy(() => import('./pages/cadernetas/EntradaInsumosListaPage'))
 const SaidaInsumosPage = lazy(() => import('./pages/cadernetas/SaidaInsumosPage'))
 const SaidaInsumosListaPage = lazy(() => import('./pages/cadernetas/SaidaInsumosListaPage'))
+const AlmoxarifadoPage = lazy(() => import('./pages/cadernetas/AlmoxarifadoPage'))
+const AlmoxarifadoListaPage = lazy(() => import('./pages/cadernetas/AlmoxarifadoListaPage'))
 const LimpezaPage = lazy(() => import('./pages/cadernetas/LimpezaPage'))
 const LimpezaListaPage = lazy(() => import('./pages/cadernetas/LimpezaListaPage'))
 const OperacoesMaquinasPage = lazy(() => import('./pages/cadernetas/OperacoesMaquinasPage'))
@@ -333,6 +335,10 @@ function AppInner() {
             {/* Saída de Insumos */}
             <Route path="/caderneta/saida-insumos" element={<SaidaInsumosPage />} />
             <Route path="/caderneta/saida-insumos/lista" element={<SaidaInsumosListaPage />} />
+
+            {/* Almoxarifado */}
+            <Route path="/caderneta/almoxarifado" element={<AlmoxarifadoPage />} />
+            <Route path="/caderneta/almoxarifado/lista" element={<AlmoxarifadoListaPage />} />
 
             {/* Limpeza */}
             <Route path="/caderneta/limpeza" element={<LimpezaPage />} />

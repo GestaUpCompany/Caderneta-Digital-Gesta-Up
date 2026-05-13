@@ -124,7 +124,7 @@ export default function DatePicker({
 
   return (
     <div className={`${containerWidth}`}>
-      <label className="block text-sm font-black tracking-[0.3em] text-gray-500 uppercase mb-3">
+      <label className="block text-lg font-bold text-gray-900 mb-2">
         {label}
       </label>
 

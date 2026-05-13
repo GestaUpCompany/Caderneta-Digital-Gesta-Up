@@ -81,8 +81,9 @@ export const CADERNETAS = [
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES DE MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', sheetName: 'Operações de Máquinas', disponivel: true },
   { id: 'manutencao-maquinas', label: 'MANUTENÇÃO DE MÁQUINAS', emoji: '🔧', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', sheetName: 'Manutenção de Máquinas', disponivel: true },
   { id: 'problemas', label: 'PROBLEMAS', emoji: '⚠️', icon: `${BASE}cadernetas/problemas.png`, color: '#F59E0B', sheetName: 'Problemas', disponivel: true },
+  { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '📦', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', sheetName: 'Almoxarifado', disponivel: true },
   { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
-  { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '📤', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
+  { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '�', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
 ]
 
 export const CATEGORIAS_ANIMAL = ['Vaca', 'Touro', 'Boi', 'Bezerro', 'Garrote', 'Novilha'] as const
