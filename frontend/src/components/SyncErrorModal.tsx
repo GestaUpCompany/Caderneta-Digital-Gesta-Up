@@ -8,7 +8,7 @@ interface ErrorRecord {
 
 const STORE_NAMES: Record<CadernetaStore, string> = {
   maternidade: 'Maternidade',
-  pastagens: 'Troca de Pastos',
+  pastagens: 'Manejo de Pastagens',
   rodeio: 'Rodeio',
   suplementacao: 'Suplementação',
   bebedouros: 'Bebedouros',
@@ -18,6 +18,7 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   clima: 'Clima',
   abastecimento: 'Abastecimento',
   cantina: 'Cantina',
+  'leitura-cocho': 'Leitura de Cocho',
   'entrada-insumos': 'Entrada de Insumos',
   'saida-insumos': 'Saída de Insumos',
   'insumos-por-saida': 'Insumos por Saída',

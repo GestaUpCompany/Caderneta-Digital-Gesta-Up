@@ -274,6 +274,22 @@ export async function getCausasMorte(fazendaId: string) {
   return data
 }
 
+// ==================== MEDICAMENTOS ====================
+
+export async function getMedicamentos(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('medicamentos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('tipo')
+    .order('nome_comercial')
+
+  if (error) throw error
+  return data
+}
+
 // ==================== INSUMOS ====================
 
 export async function getInsumos(fazendaId: string) {

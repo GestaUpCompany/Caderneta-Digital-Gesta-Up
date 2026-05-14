@@ -9,22 +9,22 @@ export default function BebedouroDetalhesCard({
   intervaloMedioLimpezas,
   metaIntervaloLimpeza,
 }: BebedouroDetalhesCardProps) {
-  // Determinar se o intervalo atual está adequado comparado com a meta
+  // Determinar se o intervalo médio está adequado comparado com a meta
   const isAdequado = () => {
-    if (!tempoDesdeLimpeza || tempoDesdeLimpeza === 'Sem histórico' || !metaIntervaloLimpeza || metaIntervaloLimpeza === 'Não definida') {
+    if (!intervaloMedioLimpezas || intervaloMedioLimpezas === 'Sem dados suficientes' || !metaIntervaloLimpeza || metaIntervaloLimpeza === 'Não definida') {
       return null
     }
     
-    const diasDesde = parseInt(tempoDesdeLimpeza.replace(' dias', ''))
+    const intervaloMedio = parseInt(intervaloMedioLimpezas.replace(' dias', ''))
     const metaDias = parseInt(metaIntervaloLimpeza.replace(' dias', ''))
     
-    if (isNaN(diasDesde) || isNaN(metaDias)) {
+    if (isNaN(intervaloMedio) || isNaN(metaDias)) {
       return null
     }
     
-    // Adequado se estiver dentro de ±1 dia da meta
-    const diff = Math.abs(diasDesde - metaDias)
-    return diff <= 1
+    // Adequado se o intervalo médio for menor ou igual à meta (ou próximo da meta)
+    // Intervalo médio menor que a meta significa limpezas mais frequentes (bom)
+    return intervaloMedio <= metaDias + 1
   }
 
   const adequado = isAdequado()

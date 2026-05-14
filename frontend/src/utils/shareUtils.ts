@@ -560,8 +560,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
     })
   } else if (caderneta === 'enfermaria') {
-    // Para enfermaria, usar ordem específica dos formulários
-    const ordemEnfermaria = [
+    // DADOS DO ANIMAL
+    texto += '\nDADOS DO ANIMAL:\n'
+    
+    const ordemDadosAnimal = [
       'pasto',
       'lote',
       'brinco',
@@ -570,10 +572,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'raca',
       'idade',
       'categoria',
-      'tratamento',
     ]
     
-    ordemEnfermaria.forEach(key => {
+    ordemDadosAnimal.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
@@ -582,12 +583,22 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
     })
 
-    // Adicionar observação do tratamento
-    if (registro.observacaoTratamento && registro.observacaoTratamento !== '') {
-      texto += `OBSERVAÇÃO: *${registro.observacaoTratamento}*\n`
+    // MEDICAMENTOS
+    if (registro.medicamentos && Array.isArray(registro.medicamentos) && registro.medicamentos.length > 0) {
+      texto += '\nMEDICAMENTOS:\n'
+      registro.medicamentos.forEach((med: any) => {
+        texto += `${med.tipo} - ${med.nomeComercial}\n`
+        if (med.doseRecomendada) {
+          texto += `Dose recomendada: ${med.doseRecomendada}\n`
+        }
+        if (med.doseAplicada) {
+          texto += `Dose aplicada: ${med.doseAplicada}\n`
+        }
+        texto += '\n'
+      })
     }
 
-    // Iterar sobre diagnosticos na ordem específica
+    // DIAGNÓSTICOS
     const ordemDiagnosticos = [
       'pododermiteCascos',
       'sintomasPneumonia',
@@ -602,7 +613,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'bicheira'
     ]
 
-    texto += '\nDIAGNÓSTICOS:\n'
+    texto += 'DIAGNÓSTICOS:\n'
     
     ordemDiagnosticos.forEach(key => {
       const data = (registro.diagnosticos as any)?.[key]
@@ -616,6 +627,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         }
       }
     })
+
+    // OBSERVAÇÃO GERAL
+    if (registro.observacaoTratamento && registro.observacaoTratamento !== '') {
+      texto += `\nOBSERVAÇÃO: *${registro.observacaoTratamento}*\n`
+    }
   } else if (caderneta === 'morte') {
     // Para morte, usar ordem específica dos formulários
     const ordemMorte = [

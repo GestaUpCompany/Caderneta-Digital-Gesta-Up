@@ -66,7 +66,7 @@ pastagensRouter.post('/calcular-tempo', async (req: Request, res: Response) => {
   }
   
   try {
-    // Buscar todos os registros da aba Troca de Pastos
+    // Buscar todos os registros da aba Manejo de Pastagens
     const rows = await getRows(planilhaUrl, 'Troca de Pastos')
     logger.info(`Registros encontrados: ${rows.length}`)
     

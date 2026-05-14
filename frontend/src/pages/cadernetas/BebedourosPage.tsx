@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -16,18 +16,6 @@ import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
-
-const CATEGORIAS = [
-  { value: 'Vaca', label: 'VACA' },
-  { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi Gordo', label: 'BOI GORDO' },
-  { value: 'Boi Magro', label: 'BOI MAGRO' },
-  { value: 'Garrote', label: 'GARROTE' },
-  { value: 'Bezerro', label: 'BEZERRO' },
-  { value: 'Novilha', label: 'NOVILHA' },
-  { value: 'Tropa', label: 'TROPA' },
-  { value: 'Outros', label: 'OUTROS' },
-]
 
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
@@ -63,11 +51,9 @@ interface FormState {
   responsavel: string
   pasto: string
   numeroLote: string
-  categorias: string[]
   leituraBebedouro: string
   numeroBebedouro: string
   observacao: string
-  outrosTexto: string
   // Checklist fields
   aguaSuficiente: string
   aguaSuficienteObs: string
@@ -90,11 +76,9 @@ const makeInitial = (usuario?: string): FormState => ({
   responsavel: usuario || '',
   pasto: '',
   numeroLote: '',
-  categorias: [],
   leituraBebedouro: '',
   numeroBebedouro: '',
   observacao: '',
-  outrosTexto: '',
   // Checklist fields
   aguaSuficiente: '',
   aguaSuficienteObs: '',
@@ -133,10 +117,6 @@ export default function BebedourosPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
-
-  const handleCategoriasChange = (newCategorias: string[]) => {
-    setForm((prev) => ({ ...prev, categorias: newCategorias }))
-  }
 
   // Carregar pastos e lotes do cache global
   useEffect(() => {
@@ -251,24 +231,11 @@ export default function BebedourosPage() {
     setSalvando(true)
     setErrors([])
 
-    // Montar categoria como string separada por vírgula
-    let categoriasArray = form.categorias.filter(c => c !== 'Outros')
-    
-    // Se "Outros" estiver selecionado e houver texto, adicionar no final
-    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
-      categoriasArray.push(`Outros: ${form.outrosTexto.trim()}`)
-    } else if (form.categorias.includes('Outros')) {
-      categoriasArray.push('Outros')
-    }
-    
-    const categoriaString = categoriasArray.join(', ')
-
     const result = await salvarRegistro('bebedouros', {
       data: form.data,
       responsavel: form.responsavel,
       pasto: form.pasto,
       numeroLote: form.numeroLote,
-      categoria: categoriaString,
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
       observacao: form.observacao,
@@ -408,34 +375,9 @@ export default function BebedourosPage() {
           )}
         </div>
 
-        {/* Seção 2: Classificação */}
+        {/* Seção 2: Bebedouro */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CLASSIFICAÇÃO DO GADO</h2>
-          <CheckboxGroup
-            label="CATEGORIAS:"
-            options={CATEGORIAS}
-            selectedValues={form.categorias}
-            onChange={handleCategoriasChange}
-            error={getError('categorias')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="categorias"
-            dataField="categorias"
-          />
-          {form.categorias.includes('Outros') && (
-            <Input
-              label="ESPECIFICAR OUTROS:"
-              placeholder="Descreva a categoria"
-              value={form.outrosTexto}
-              onChange={setInput('outrosTexto')}
-              error={getError('outrosTexto')}
-            />
-          )}
-        </div>
-
-        {/* Seção 3: Bebedouro */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. BEBEDOURO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. BEBEDOURO</h2>
           {bebedourosDisponiveis.length > 0 ? (
             <SearchableModal
               label=""
@@ -481,9 +423,9 @@ export default function BebedourosPage() {
           </button>
         </div>
 
-        {/* Seção 4: Checklist */}
+        {/* Seção 3: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST</h2>
           {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
             <div key={campo}>
               <Radio
@@ -495,7 +437,7 @@ export default function BebedourosPage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              {(form as any)[campo] === 'Sim' && (
+              {(form as any)[campo] === 'Não' && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={(form as any)[`${campo}Obs`] || ''}
@@ -507,9 +449,9 @@ export default function BebedourosPage() {
           ))}
         </div>
 
-        {/* Seção 5: Observação */}
+        {/* Seção 4: Observação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. OBSERVAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÃO</h2>
           <Input
             placeholder="Detalhes adicionais (opcional)"
             value={form.observacao}

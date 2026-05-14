@@ -397,6 +397,29 @@ export default function MaternidadePage() {
             error={getError('categoriaMae')}
             gridCols={2}
           />
+          <div className="pt-4 border-t border-gray-100">
+            <h3 className="text-base font-bold text-gray-900 mb-4">ESCORE DA MATRIZ</h3>
+            <button
+              onClick={() => setShowEscoreModal(true)}
+              className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors mb-4"
+            >
+              <span className="text-xl">📄</span>
+              <span>POP ESCORE CORPORAL</span>
+            </button>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+              {ESCORES.map((escore) => (
+                <button
+                  key={escore.value}
+                  onClick={() => set('escoreMatriz')(escore.value)}
+                  className={`py-3 px-4 rounded-xl font-bold transition-all transform hover:scale-105 ${
+                    form.escoreMatriz === escore.value ? `${escore.color} text-black` : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {escore.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Seção 3: Identificação */}
@@ -411,15 +434,15 @@ export default function MaternidadePage() {
           />
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="ID BRINCO (opcional)"
-              placeholder="Ex: 2023-145-B"
+              label="ID BRINCO"
+              placeholder="Opcional"
               value={form.idBrincoCria}
               onChange={setInputEvent('idBrincoCria')}
               error={getError('idBrincoCria')}
             />
             <Input
-              label="ID CHIP (opcional)"
-              placeholder="Número do chip"
+              label="ID CHIP"
+              placeholder="Opcional"
               value={form.idChipCria}
               onChange={setInputEvent('idChipCria')}
               error={getError('idChipCria')}
@@ -503,31 +526,6 @@ export default function MaternidadePage() {
               error={getError('racaOutros')}
             />
           )}
-        </div>
-
-        {/* Seção 7: Escore da Matriz */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. ESCORE DA MATRIZ</h2>
-          <button
-            onClick={() => setShowEscoreModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP ESCORE CORPORAL</span>
-          </button>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-            {ESCORES.map((escore) => (
-              <button
-                key={escore.value}
-                onClick={() => set('escoreMatriz')(escore.value)}
-                className={`py-3 px-4 rounded-xl font-bold transition-all transform hover:scale-105 ${
-                  form.escoreMatriz === escore.value ? `${escore.color} text-black` : 'bg-gray-200 text-gray-700'
-                }`}
-              >
-                {escore.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Ações */}

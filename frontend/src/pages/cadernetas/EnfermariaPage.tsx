@@ -8,25 +8,10 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome } from '../../services/supabaseService'
+import { getLoteByNome, getMedicamentos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
-
-const TRATAMENTOS = [
-  { value: 'Mata Bicheira', label: 'MATA BICHEIRA' },
-  { value: 'Antibiótico', label: 'ANTIBIÓTICO' },
-  { value: 'Tiguvon', label: 'TIGUVON' },
-  { value: 'Vermífugo', label: 'VERMÍFUGO' },
-  { value: 'Anti-Tóxico', label: 'ANTI-TÓXICO' },
-  { value: 'Anti-Inflamatório', label: 'ANTI-INFLAMATÓRIO' },
-  { value: 'Soro Antiofídico', label: 'SORO ANTIOFÍDICO' },
-  { value: 'Soro Vitamínico', label: 'SORO VITAMÍNICO' },
-  { value: 'Vacina', label: 'VACINA' },
-  { value: 'Inseticida', label: 'INSETICIDA' },
-  { value: 'Complexo Vitamínico', label: 'COMPLEXO VITAMÍNICO' },
-  { value: 'Outros', label: 'OUTROS' },
-]
 
 const DIAGNOSTICOS = [
   { campo: 'pododermiteCascos', label: 'PODODERMITE DOS CASCOS?' },
@@ -73,6 +58,14 @@ const SEXO_OPTIONS = [
   { value: 'Fêmea', label: 'FÊMEA', icon: '♀️' },
 ]
 
+interface MedicamentoItem {
+  medicamentoId: string
+  tipo: string
+  nomeComercial: string
+  doseRecomendada: string
+  doseAplicada: string
+}
+
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -96,8 +89,6 @@ interface FormState {
   idade: string
   categorias: string[]
   outrosTexto: string
-  tratamentos: string[]
-  tratamentoOutros: string
   diagnosticos: {
     [key: string]: {
       valor: string | null
@@ -105,6 +96,7 @@ interface FormState {
     }
   }
   observacaoTratamento: string
+  medicamentos: MedicamentoItem[]
 }
 
 const makeInitial = (): FormState => ({
@@ -119,10 +111,9 @@ const makeInitial = (): FormState => ({
   idade: '',
   categorias: [],
   outrosTexto: '',
-  tratamentos: [],
-  tratamentoOutros: '',
   diagnosticos: {},
   observacaoTratamento: '',
+  medicamentos: [],
 })
 
 export default function EnfermariaPage() {
@@ -136,6 +127,11 @@ export default function EnfermariaPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [medicamentosDisponiveis, setMedicamentosDisponiveis] = useState<any[]>([])
+  const [mostrarFormularioMedicamento, setMostrarFormularioMedicamento] = useState(false)
+  const [medicamentoEditando, setMedicamentoEditando] = useState<MedicamentoItem | null>(null)
+  const [medicamentoEditandoIndex, setMedicamentoEditandoIndex] = useState<number | null>(null)
+  const [tipoFiltro, setTipoFiltro] = useState<string>('')
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -164,19 +160,70 @@ export default function EnfermariaPage() {
     setForm((prev) => ({ ...prev, categorias: newCategorias }))
   }
 
-  const handleTratamentosChange = (newTratamentos: string[]) => {
-    if (!newTratamentos.includes('Outros')) {
+  // Handlers para medicamentos
+  const handleAdicionarMedicamento = () => {
+    setMostrarFormularioMedicamento(true)
+    setMedicamentoEditando(null)
+    setMedicamentoEditandoIndex(null)
+    setTipoFiltro('')
+  }
+
+  const handleEditarMedicamento = (index: number) => {
+    setMostrarFormularioMedicamento(true)
+    setMedicamentoEditando(form.medicamentos[index])
+    setMedicamentoEditandoIndex(index)
+    setTipoFiltro(form.medicamentos[index].tipo)
+  }
+
+  const handleRemoverMedicamento = (index: number) => {
+    setForm(prev => ({
+      ...prev,
+      medicamentos: prev.medicamentos.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleSalvarMedicamento = () => {
+    if (!medicamentoEditando?.medicamentoId || !medicamentoEditando?.doseAplicada) {
+      return
+    }
+
+    if (medicamentoEditandoIndex !== null) {
+      // Editar existente
       setForm(prev => ({
         ...prev,
-        tratamentos: newTratamentos,
-        tratamentoOutros: ''
+        medicamentos: prev.medicamentos.map((item, index) =>
+          index === medicamentoEditandoIndex ? medicamentoEditando : item
+        )
       }))
     } else {
+      // Adicionar novo
       setForm(prev => ({
         ...prev,
-        tratamentos: newTratamentos
+        medicamentos: [...prev.medicamentos, medicamentoEditando]
       }))
     }
+
+    setMostrarFormularioMedicamento(false)
+    setMedicamentoEditando(null)
+    setMedicamentoEditandoIndex(null)
+    setTipoFiltro('')
+  }
+
+  const handleCancelarMedicamento = () => {
+    setMostrarFormularioMedicamento(false)
+    setMedicamentoEditando(null)
+    setMedicamentoEditandoIndex(null)
+    setTipoFiltro('')
+  }
+
+  const handleSelecionarMedicamento = (medicamento: any) => {
+    setMedicamentoEditando({
+      medicamentoId: medicamento.id,
+      tipo: medicamento.tipo,
+      nomeComercial: medicamento.nome_comercial,
+      doseRecomendada: medicamento.dose_recomendada || '',
+      doseAplicada: medicamentoEditando?.doseAplicada || '',
+    })
   }
 
   // Carregar pastos e lotes do cache global
@@ -187,6 +234,21 @@ export default function EnfermariaPage() {
       setLotesDisponiveis(cache.lotes || [])
     }
   }, [])
+
+  // Carregar medicamentos do Supabase
+  useEffect(() => {
+    const loadMedicamentos = async () => {
+      if (fazendaId) {
+        try {
+          const medicamentos = await getMedicamentos(fazendaId)
+          setMedicamentosDisponiveis(medicamentos || [])
+        } catch (error) {
+          console.error('Erro ao carregar medicamentos:', error)
+        }
+      }
+    }
+    loadMedicamentos()
+  }, [fazendaId])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
@@ -227,13 +289,6 @@ export default function EnfermariaPage() {
     setSalvando(true)
     setErrors([])
 
-    // Construir string final de tratamentos
-    const tratamentosFinais = form.tratamentos.map(t =>
-      t === 'Outros' ? form.tratamentoOutros : t
-    ).filter(Boolean)
-
-    const tratamentoFinal = tratamentosFinais.join(', ')
-
     // Montar categorias como string separada por vírgula
     let categoriasArray = form.categorias.filter(c => c !== 'Outros')
     
@@ -259,7 +314,7 @@ export default function EnfermariaPage() {
       idade: form.idade,
       categoria: categoriasString,
       diagnosticos: form.diagnosticos,
-      tratamento: tratamentoFinal,
+      medicamentos: form.medicamentos,
       observacaoTratamento: form.observacaoTratamento,
     })
 
@@ -483,26 +538,112 @@ export default function EnfermariaPage() {
         {/* Seção 4: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTO</h2>
-          <CheckboxGroup
-            label="TRATAMENTO"
-            options={TRATAMENTOS}
-            selectedValues={form.tratamentos}
-            onChange={handleTratamentosChange}
-            error={getError('tratamentos')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="tratamentos"
-            dataField="tratamentos"
-          />
-          {form.tratamentos.includes('Outros') && (
-            <Input
-              label="DESCREVA O TRATAMENTO"
-              placeholder="Ex: Outro tratamento..."
-              value={form.tratamentoOutros}
-              onChange={setInput('tratamentoOutros')}
-              error={getError('tratamentoOutros')}
-            />
+          
+          {/* Lista de medicamentos adicionados */}
+          {form.medicamentos.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {form.medicamentos.map((med, index) => (
+                <div key={index} className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <p className="text-lg font-bold text-gray-800 uppercase">{med.tipo}</p>
+                      <p className="text-base text-gray-900">{med.nomeComercial}</p>
+                      {med.doseRecomendada && (
+                        <p className="text-sm text-gray-600">Dose recomendada: {med.doseRecomendada}</p>
+                      )}
+                      <p className="text-base text-gray-900 font-semibold">Dose aplicada: {med.doseAplicada}</p>
+                    </div>
+                    <div className="flex gap-2 ml-2">
+                      <button
+                        onClick={() => handleEditarMedicamento(index)}
+                        className="text-blue-500 text-2xl"
+                        title="Editar medicamento"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => handleRemoverMedicamento(index)}
+                        className="text-red-500 text-2xl"
+                        title="Remover medicamento"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
+
+          {/* Botão para adicionar medicamento */}
+          {!mostrarFormularioMedicamento ? (
+            <Button
+              onClick={handleAdicionarMedicamento}
+              variant="secondary"
+              icon="➕"
+              fullWidth
+            >
+              ADICIONAR MEDICAMENTO
+            </Button>
+          ) : (
+            /* Formulário para adicionar/editar medicamento */
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 flex flex-col gap-4">
+              <h3 className="text-base font-bold text-gray-900">
+                {medicamentoEditandoIndex !== null ? 'EDITAR MEDICAMENTO' : 'NOVO MEDICAMENTO'}
+              </h3>
+              
+              {/* Filtro por tipo */}
+              <SearchableModal
+                label="FILTRAR POR TIPO"
+                value={tipoFiltro}
+                onChange={setTipoFiltro}
+                options={[...new Set(medicamentosDisponiveis.map(m => m.tipo))]}
+                placeholder="Todos"
+                id="tipoFiltro"
+                name="tipoFiltro"
+              />
+
+              {/* Seleção de medicamento */}
+              {tipoFiltro && (
+                <SearchableModal
+                  label="MEDICAMENTO"
+                  value={medicamentoEditando?.nomeComercial || ''}
+                  onChange={(val) => {
+                    const medicamento = medicamentosDisponiveis.find(m => m.nome_comercial === val)
+                    if (medicamento) {
+                      handleSelecionarMedicamento(medicamento)
+                    }
+                  }}
+                  options={medicamentosDisponiveis
+                    .filter(m => m.tipo === tipoFiltro)
+                    .map(m => m.nome_comercial)}
+                  placeholder="Selecione um medicamento..."
+                  id="medicamento"
+                  name="medicamento"
+                />
+              )}
+              {medicamentoEditando?.doseRecomendada && (
+                <p className="text-sm text-gray-600">Dose recomendada: {medicamentoEditando.doseRecomendada}</p>
+              )}
+
+              <Input
+                label="DOSE APLICADA"
+                placeholder="Informe a dose aplicada"
+                value={medicamentoEditando?.doseAplicada || ''}
+                onChange={(e) => setMedicamentoEditando(prev => prev ? { ...prev, doseAplicada: e.target.value } : null)}
+              />
+
+              <div className="flex gap-2">
+                <Button onClick={handleSalvarMedicamento} variant="success" icon="✓" className="text-sm">
+                  SALVAR
+                </Button>
+                <Button onClick={handleCancelarMedicamento} variant="secondary" icon="✕" className="text-sm">
+                  CANCELAR
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Input
             label="OBSERVAÇÃO"
             placeholder="Detalhes adicionais (opcional)"

@@ -4,7 +4,7 @@ export default function PastagensListaPage() {
   return (
     <ListaRegistros
       caderneta="pastagens"
-      titulo="TROCA DE PASTOS"
+      titulo={<>MANEJO<br/>PASTAGENS</>}
       rotaForm="/caderneta/pastagens"
     />
   )

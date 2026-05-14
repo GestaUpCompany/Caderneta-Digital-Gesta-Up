@@ -6,7 +6,7 @@ export const sheetsRouter = Router()
 
 const SHEET_NAMES: Record<string, string> = {
   maternidade: 'Maternidade Cria',
-  pastagens: 'Troca de Pastos',
+  pastagens: 'Manejo de Pastagens',
   rodeio: 'Rodeio Gado',
   suplementacao: 'Suplementação',
   bebedouros: 'Bebedouros',

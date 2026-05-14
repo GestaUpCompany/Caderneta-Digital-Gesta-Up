@@ -20,3 +20,11 @@ export function brToIso(br: string): string {
   const [day, month, year] = br.split('/')
   return `${year}-${month}-${day}`
 }
+
+export function brWithTimeToIso(br: string): string {
+  if (!br) return ''
+  // Formato esperado: "14/05/2026 09:47"
+  const [datePart, timePart] = br.split(' ')
+  const [day, month, year] = datePart.split('/')
+  return `${year}-${month}-${day} ${timePart || '00:00'}`
+}

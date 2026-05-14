@@ -44,9 +44,13 @@ interface FormState {
   manejador: string
   numeroLote: string
   pastoSaida: string
+  pastoSaidaAreaUtil: string
+  pastoSaidaEspecie: string
   avaliacaoSaida: string
   tempoOcupacao: string
   pastoEntrada: string
+  pastoEntradaAreaUtil: string
+  pastoEntradaEspecie: string
   avaliacaoEntrada: string
   tempoVedacao: string
   vaca: string
@@ -66,9 +70,13 @@ const makeInitial = (usuario?: string): FormState => ({
   manejador: usuario || '',
   numeroLote: '',
   pastoSaida: '',
+  pastoSaidaAreaUtil: '',
+  pastoSaidaEspecie: '',
   avaliacaoSaida: '',
   tempoOcupacao: '',
   pastoEntrada: '',
+  pastoEntradaAreaUtil: '',
+  pastoEntradaEspecie: '',
   avaliacaoEntrada: '',
   tempoVedacao: '',
   vaca: '',
@@ -189,6 +197,9 @@ export default function PastagensPage() {
           })
           // Atualizar o campo tempoOcupação no formulário
           set('tempoOcupacao')(tempoOcupacao)
+          // Atualizar campos de detalhes do pasto no formulário
+          set('pastoSaidaAreaUtil')(pasto.area_util_ha?.toString() || '')
+          set('pastoSaidaEspecie')(pasto.especie || '')
           // Remover erro se existia
           setErrors(prev => prev.filter(e => e.field !== 'pastoSaida'))
         }
@@ -235,8 +246,11 @@ export default function PastagensPage() {
             alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
             alturaSaida: pasto.altura_saida_cm?.toString() || '',
           })
-          // Atualizar o campo tempoVedacao no formulário
+          // Atualizar o campo tempoVedação no formulário
           set('tempoVedacao')(tempoVedacao)
+          // Atualizar campos de detalhes do pasto no formulário
+          set('pastoEntradaAreaUtil')(pasto.area_util_ha?.toString() || '')
+          set('pastoEntradaEspecie')(pasto.especie || '')
           // Remover erro se existia
           setErrors(prev => prev.filter(e => e.field !== 'pastoEntrada'))
         }
@@ -291,9 +305,13 @@ export default function PastagensPage() {
       manejador: form.manejador,
       numeroLote: form.numeroLote,
       pastoSaida: form.pastoSaida,
+      pastoSaidaAreaUtil: form.pastoSaidaAreaUtil,
+      pastoSaidaEspecie: form.pastoSaidaEspecie,
       avaliacaoSaida: form.avaliacaoSaida ? Number(form.avaliacaoSaida) : 0,
       tempoOcupacao: form.tempoOcupacao,
       pastoEntrada: form.pastoEntrada,
+      pastoEntradaAreaUtil: form.pastoEntradaAreaUtil,
+      pastoEntradaEspecie: form.pastoEntradaEspecie,
       avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
       tempoVedacao: form.tempoVedacao,
       vaca: form.vaca ? Number(form.vaca) : 0,
@@ -344,7 +362,7 @@ export default function PastagensPage() {
           >
             VOLTAR
           </button>
-          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">TROCA DE PASTOS</h1>
+          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2 text-center">MANEJO<br/>PASTAGENS</h1>
           <button
             onClick={() => navigate('/caderneta/pastagens/lista')}
             className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
@@ -597,7 +615,7 @@ export default function PastagensPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName="Troca de Pastos"
+        cadernetaName="Manejo de Pastagens"
         registro={registroSalvo}
         caderneta="pastagens"
       />

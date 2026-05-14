@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Registro } from '../../types/cadernetas'
@@ -13,7 +13,7 @@ import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/sha
 
 interface Props {
   caderneta: CadernetaStore
-  titulo: string
+  titulo: ReactNode
   rotaForm: string
 }
 

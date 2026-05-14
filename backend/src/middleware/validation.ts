@@ -69,7 +69,6 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     leituraCocho: Joi.number().integer().min(-1).max(3).required(),
     kgCocho: Joi.number().min(0).default(0),
     kgDeposito: Joi.number().min(0).default(0),
-    categorias: Joi.array().items(Joi.string()).min(1).required(),
     // Checklist fields
     limpezaCocho: Joi.boolean().allow(null),
     limpezaCochoObs: Joi.string().allow(''),
@@ -90,7 +89,6 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     responsavel: Joi.string().required(),
     pasto: Joi.string().required(),
     numeroLote: Joi.string().required(),
-    categoria: Joi.string().required(),
     leituraBebedouro: Joi.number().integer().min(1).max(3).required(),
     numeroBebedouro: Joi.string().allow(''),
     observacao: Joi.string().allow(''),

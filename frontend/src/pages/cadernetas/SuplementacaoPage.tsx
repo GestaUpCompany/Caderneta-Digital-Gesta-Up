@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
@@ -18,25 +18,6 @@ import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
 
-const PRODUTOS = [
-  { value: 'Mineral', label: 'MINERAL', icon: '' },
-  { value: 'Proteinado', label: 'PROTEINADO', icon: '' },
-  { value: 'Ração', label: 'RAÇÃO', icon: '' },
-  { value: 'Insumos', label: 'INSUMOS', icon: '' },
-]
-
-const CATEGORIAS = [
-  { value: 'Vaca', label: 'VACA' },
-  { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi Gordo', label: 'BOI GORDO' },
-  { value: 'Boi Magro', label: 'BOI MAGRO' },
-  { value: 'Garrote', label: 'GARROTE' },
-  { value: 'Bezerro', label: 'BEZERRO' },
-  { value: 'Novilha', label: 'NOVILHA' },
-  { value: 'Tropa', label: 'TROPA' },
-  { value: 'Outros', label: 'OUTROS' },
-]
-
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -47,6 +28,13 @@ function processarCategorias(categorias: string): string[] {
     .map(c => c.trim())
     .filter(c => c.length > 0)
 }
+
+const PRODUTOS = [
+  { value: 'Mineral', label: 'MINERAL', icon: '' },
+  { value: 'Proteinado', label: 'PROTEINADO', icon: '' },
+  { value: 'Ração', label: 'RAÇÃO', icon: '' },
+  { value: 'Insumos', label: 'INSUMOS', icon: '' },
+]
 
 const LEITURAS = [
   { value: '-1', label: '-1', icon: '🔴' },
@@ -87,8 +75,6 @@ interface FormState {
   leitura: string
   kgCocho: string
   kgDeposito: string
-  categorias: string[]
-  outrosTexto: string
   escoreFezes: string
   // Checklist fields
   limpezaCocho: string
@@ -114,8 +100,6 @@ const makeInitial = (usuario?: string): FormState => ({
   leitura: '',
   kgCocho: '',
   kgDeposito: '',
-  categorias: [],
-  outrosTexto: '',
   escoreFezes: '',
   // Checklist fields
   limpezaCocho: '',
@@ -241,27 +225,19 @@ export default function SuplementacaoPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  const handleCategoriasChange = (newCategorias: string[]) => {
-    setForm((prev) => ({ ...prev, categorias: newCategorias }))
-  }
-
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
 
     const produtoFinal = suplemento
     
-    // Montar categorias como string separada por vírgula
-    let categoriasArray = form.categorias.filter(c => c !== 'Outros')
-    
-    // Se "Outros" estiver selecionado e houver texto, adicionar no final
-    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
-      categoriasArray.push(`Outros: ${form.outrosTexto.trim()}`)
-    } else if (form.categorias.includes('Outros')) {
-      categoriasArray.push('Outros')
+    // Buscar categorias do lote selecionado
+    let categoriasString = ''
+    let categoriasArray: string[] = []
+    if (detalhesLote && detalhesLote.categorias) {
+      categoriasString = detalhesLote.categorias
+      categoriasArray = processarCategorias(detalhesLote.categorias)
     }
-    
-    const categoriasString = categoriasArray.join(', ')
 
     const result = await salvarRegistro('suplementacao', {
       data: form.data,
@@ -272,7 +248,7 @@ export default function SuplementacaoPage() {
       leituraCocho: form.leitura ? Number(form.leitura) : null,
       kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
-      categorias: form.categorias,
+      categorias: categoriasArray,
       categoriasString: categoriasString,
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       // Checklist fields
@@ -444,34 +420,9 @@ export default function SuplementacaoPage() {
           )}
         </div>
 
-        {/* Seção 3: Gado e Categorias */}
+        {/* Seção 3: Leitura e Quantidade */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CLASSIFICAÇÃO DO GADO</h2>
-          <CheckboxGroup
-            label="CATEGORIAS:"
-            options={CATEGORIAS}
-            selectedValues={form.categorias}
-            onChange={handleCategoriasChange}
-            error={getError('categorias')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="categorias"
-            dataField="categorias"
-          />
-          {form.categorias.includes('Outros') && (
-            <Input
-              label="ESPECIFICAR OUTROS:"
-              placeholder="Descreva a categoria"
-              value={form.outrosTexto}
-              onChange={setInput('outrosTexto')}
-              error={getError('outrosTexto')}
-            />
-          )}
-        </div>
-
-        {/* Seção 4: Leitura e Quantidade */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. LEITURA E QUANTIDADE</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. LEITURA E QUANTIDADE</h2>
           <button
             onClick={() => setShowPdfModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -526,10 +477,14 @@ export default function SuplementacaoPage() {
           />
         </div>
 
-        {/* Seção 5: Checklist */}
+        {/* Seção 4: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. CHECKLIST</h2>
-          {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST</h2>
+          {CHECKLIST_PERGUNTAS
+            .filter(({ campo }) => 
+              (campo !== 'estoqueDepositio' && campo !== 'depositoCondicoes') || kgDeposito.trim() !== ''
+            )
+            .map(({ campo, label }) => (
             <div key={campo}>
               <Radio
                 name={campo}

@@ -219,13 +219,6 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
   if (!isPositiveNumber(data.kgDeposito))
     errors.push({ field: 'kgDeposito', message: 'KG no depósito deve ser um número positivo' })
 
-  const categoriasError = validateCategoriasArray(
-    data.categorias,
-    'categorias',
-    'Selecione ao menos uma categoria de animal'
-  )
-  if (categoriasError) errors.push(categoriasError)
-
   return { isValid: errors.length === 0, errors }
 }
 

@@ -11,6 +11,7 @@ import { BACKEND_URL, MAX_RETRY_COUNT } from '../utils/constants'
 import { generateId } from '../utils/generateId'
 import { Registro } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
+import { brWithTimeToIso } from '../utils/formatDate'
 
 interface ColumnMapping {
   field: keyof Registro
@@ -313,6 +314,17 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'observacao', defaultValue: '' },
     ],
   },
+  'leitura-cocho': {
+    columns: [
+      { field: 'data' },
+      { field: 'pastoCurral' },
+      { field: 'numeroLote' },
+      { field: 'quantidadeCabecas' },
+      { field: 'mediaMS' },
+      { field: 'leituraCocho' },
+      { field: 'observacao' },
+    ],
+  },
 }
 
 function getColumnValues(store: CadernetaStore, registro: Registro): (string | number | null | object)[] {
@@ -369,6 +381,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'insumos-por-saida': 'insumos_por_saida',
   problemas: 'registros_problemas',
   almoxarifado: 'registros_almoxarifado',
+  'leitura-cocho': 'registros_leitura_cocho',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -385,7 +398,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'maternidade':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         lote: registro.lote || null,
         peso_cria_kg: registro.pesoCria ? Number(registro.pesoCria) : null,
@@ -404,12 +417,16 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'pastagens':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         manejador: registro.manejador || null,
         lote: registro.numeroLote || null,
         pasto_saida: registro.pastoSaida || null,
+        pasto_saida_area_util: registro.pastoSaidaAreaUtil || null,
+        pasto_saida_especie: registro.pastoSaidaEspecie || null,
         avaliacao_saida: registro.avaliacaoSaida ? Number(registro.avaliacaoSaida) : null,
         pasto_entrada: registro.pastoEntrada || null,
+        pasto_entrada_area_util: registro.pastoEntradaAreaUtil || null,
+        pasto_entrada_especie: registro.pastoEntradaEspecie || null,
         avaliacao_entrada: registro.avaliacaoEntrada ? Number(registro.avaliacaoEntrada) : null,
         vaca: Number(registro.vaca) || 0,
         touro: Number(registro.touro) || 0,
@@ -422,7 +439,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'rodeio':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         lote: registro.numeroLote || null,
         vaca: Number(registro.vaca) || 0,
@@ -438,45 +455,38 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
       }
     case 'suplementacao': {
-      const supCats = Array.isArray(registro.categorias) ? registro.categorias as string[] : []
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         tratador: registro.tratador || null,
         pasto: registro.pasto || null,
         lote: registro.numeroLote || null,
         produto: registro.produto || null,
-        gado: (registro.categoriasString as string) || null,
-        vaca: supCats.includes('Vaca'),
-        touro: supCats.includes('Touro'),
-        bezerro: supCats.includes('Bezerro'),
-        boi: supCats.includes('Boi'),
-        garrote: supCats.includes('Garrote'),
-        novilha: supCats.includes('Novilha'),
+        categorias: (registro.categoriasString as string) || null,
         leitura: registro.leituraCocho ? Number(registro.leituraCocho) : null,
         sacos: registro.kgCocho ? Number(registro.kgCocho) : 0,
         kg_cocho: registro.kgCocho ? Number(registro.kgCocho) : 0,
         kg_deposito: registro.kgDeposito ? Number(registro.kgDeposito) : 0,
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         // Checklist fields
-        limpeza_cocho: registro.limpezaCocho === 'Sim',
+        limpeza_cocho: registro.limpezaCocho || null,
         limpeza_cocho_obs: registro.limpezaCochoObs || null,
-        cochos_condicoes: registro.cochosCondicoes === 'Sim',
+        cochos_condicoes: registro.cochosCondicoes || null,
         cochos_condicoes_obs: registro.cochosCondicoesObs || null,
-        aterro_acesso_ideal: registro.aterroAcessoIdeal === 'Sim',
+        aterro_acesso_ideal: registro.aterroAcessoIdeal || null,
         aterro_acesso_ideal_obs: registro.aterroAcessoIdealObs || null,
         // espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null, // Temporariamente desabilitado
         // espacamento_cocho_obs: registro.espacamentoCochoObs || null, // Temporariamente desabilitado
-        deposito_condicoes: registro.depositoCondicoes === 'Sim',
+        deposito_condicoes: registro.depositoCondicoes || null,
         deposito_condicoes_obs: registro.depositoCondicoesObs || null,
-        estoque_deposito: registro.estoqueDepositio === 'Sim',
+        estoque_deposito: registro.estoqueDepositio || null,
         estoque_deposito_obs: registro.estoqueDepositioObs || null,
       }
     }
     case 'bebedouros':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         responsavel: registro.responsavel || null,
         pasto: registro.pasto || null,
         lote: registro.numeroLote || null,
@@ -500,7 +510,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'movimentacao': {
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         lote_origem: registro.loteOrigem || null,
         destino: registro.loteDestino || null,
         numero_cabecas: registro.numeroCabecas ? Number(registro.numeroCabecas) : null,
@@ -518,7 +528,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'enfermaria':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         lote: registro.lote || null,
         brinco: registro.brinco || null,
@@ -528,13 +538,13 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         idade: registro.idade || null,
         categoria: registro.categoria || null,
         diagnosticos: registro.diagnosticos || {},
-        tratamento: registro.tratamento || null,
+        medicamentos: registro.medicamentos || [],
         tratamento_obs: registro.observacaoTratamento || null,
       }
     case 'morte':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         lote: registro.lote || null,
         brinco: registro.brinco || null,
@@ -554,7 +564,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'clima':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         responsavel: registro.responsavel,
         temperatura_media: registro.temperaturaMedia ? Number(registro.temperaturaMedia) : null,
         observacao: registro.observacao || null,
@@ -563,7 +573,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'abastecimento':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         nome_usuario: registro.nomeUsuario || null,
         quem_abasteceu: registro.quemAbasteceu || null,
         operador_motorista: registro.operadorMotorista || null,
@@ -581,7 +591,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'cantina':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         nome_usuario: registro.nomeUsuario || null,
         numero_cozinheiras: registro.numeroCozinheiras ? Number(registro.numeroCozinheiras) : null,
         quem_cozinhou: registro.quemCozinhou || null,
@@ -599,7 +609,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'limpeza':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         nome_usuario: registro.nomeUsuario || null,
         numero_equipe: registro.numeroEquipe ? Number(registro.numeroEquipe) : null,
         setor: registro.setor || null,
@@ -612,7 +622,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'operacoes-maquinas':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         veiculo_trator: registro.veiculoTrator || null,
         implemento_utilizado: registro.implementoUtilizado || null,
         hora_inicial: registro.horaInicial || null,
@@ -634,7 +644,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'entrada-insumos':
       return {
         ...baseData,
-        data_entrada: registro.dataEntrada,
+        data_entrada: brWithTimeToIso(registro.dataEntrada as string),
         horario: registro.horario || null,
         produto: registro.produto || null,
         quantidade: registro.quantidade || null,
@@ -649,7 +659,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'saida-insumos':
       return {
         ...baseData,
-        data_producao: registro.dataProducao,
+        data_producao: brWithTimeToIso(registro.dataProducao as string),
         dieta_produzida: registro.dietaProduzida || null,
         destino_producao: registro.destinoProducao || null,
         total_produzido: registro.totalProduzido ? Number(registro.totalProduzido) : null,
@@ -657,7 +667,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'manutencao-maquinas':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         responsavel_checklist: registro.responsavelChecklist || null,
         operador_motorista: registro.operadorMotorista || null,
         veiculo_trator: registro.veiculoTrator || null,
@@ -669,7 +679,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'problemas':
       return {
         ...baseData,
-        data: registro.data,
+        data: brWithTimeToIso(registro.data),
         setor: registro.setor || null,
         local: registro.local || null,
         descricao_problema: registro.descricaoProblema || null,
@@ -688,20 +698,23 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         prioridade: registro.prioridade || null,
       }
     case 'almoxarifado':
-      // Converter formato de data DD/MM/YYYY HH:MM para YYYY-MM-DD HH:MM
-      const dataParts = registro.data ? registro.data.split(' ') : []
-      const dataHora = dataParts[0] ? dataParts[0].split('/') : []
-      const hora = dataParts[1] || '00:00'
-      const dataFormatada = dataHora.length === 3 
-        ? `${dataHora[2]}-${dataHora[1]}-${dataHora[0]} ${hora}`
-        : null
-      
       return {
         ...baseData,
-        data: dataFormatada,
+        data: brWithTimeToIso(registro.data),
         quem_entregou: registro.quemEntregou || null,
         quem_pegou: registro.quemPegou || null,
         itens: registro.itens || [],
+        observacao: registro.observacao || null,
+      }
+    case 'leitura-cocho':
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        pasto_curral: registro.pastoCurral || null,
+        lote: registro.numeroLote || null,
+        quantidade_cabecas: registro.quantidadeCabecas ? Number(registro.quantidadeCabecas) : null,
+        media_ms: registro.mediaMS ? Number(registro.mediaMS) : null,
+        leitura_cocho: registro.leituraCocho ? Number(registro.leituraCocho) : null,
         observacao: registro.observacao || null,
       }
     default:
