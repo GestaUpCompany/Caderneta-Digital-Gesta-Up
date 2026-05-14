@@ -561,7 +561,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     })
   } else if (caderneta === 'enfermaria') {
     // DADOS DO ANIMAL
-    texto += '\nDADOS DO ANIMAL:\n'
+    texto += 'DADOS DO ANIMAL:\n'
     
     const ordemDadosAnimal = [
       'pasto',
@@ -585,14 +585,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
 
     // MEDICAMENTOS
     if (registro.medicamentos && Array.isArray(registro.medicamentos) && registro.medicamentos.length > 0) {
-      texto += '\nMEDICAMENTOS:\n'
-      registro.medicamentos.forEach((med: any) => {
-        texto += `${med.tipo} - ${med.nomeComercial}\n`
+      texto += '\nMEDICAMENTOS\n'
+      registro.medicamentos.forEach((med: any, index: number) => {
+        texto += `${index + 1}. ${med.tipo} - ${med.nomeComercial}\n`
         if (med.doseRecomendada) {
-          texto += `Dose recomendada: ${med.doseRecomendada}\n`
+          texto += `   Dose recomendada: ${med.doseRecomendada}\n`
         }
         if (med.doseAplicada) {
-          texto += `Dose aplicada: ${med.doseAplicada}\n`
+          texto += `   Dose aplicada: ${med.doseAplicada}\n`
         }
         texto += '\n'
       })
