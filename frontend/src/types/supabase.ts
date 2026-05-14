@@ -1248,6 +1248,7 @@ export type Database = {
           tratamento: string | null
           tratamento_obs: string | null
           tratamento_outros: string | null
+          medicamentos: Json | null
           updated_at: string | null
           version: number | null
         }
@@ -1289,6 +1290,7 @@ export type Database = {
           tratamento?: string | null
           tratamento_obs?: string | null
           tratamento_outros?: string | null
+          medicamentos?: Json | null
           updated_at?: string | null
           version?: number | null
         }
@@ -1330,6 +1332,7 @@ export type Database = {
           tratamento?: string | null
           tratamento_obs?: string | null
           tratamento_outros?: string | null
+          medicamentos?: Json | null
           updated_at?: string | null
           version?: number | null
         }
@@ -1856,7 +1859,11 @@ export type Database = {
           nome_usuario: string | null
           novilha: number | null
           pasto_entrada: string | null
+          pasto_entrada_area_util: string | null
+          pasto_entrada_especie: string | null
           pasto_saida: string | null
+          pasto_saida_area_util: string | null
+          pasto_saida_especie: string | null
           sync_status: string | null
           touro: number | null
           updated_at: string | null
@@ -1882,7 +1889,11 @@ export type Database = {
           nome_usuario?: string | null
           novilha?: number | null
           pasto_entrada?: string | null
+          pasto_entrada_area_util?: string | null
+          pasto_entrada_especie?: string | null
           pasto_saida?: string | null
+          pasto_saida_area_util?: string | null
+          pasto_saida_especie?: string | null
           sync_status?: string | null
           touro?: number | null
           updated_at?: string | null
@@ -1908,7 +1919,11 @@ export type Database = {
           nome_usuario?: string | null
           novilha?: number | null
           pasto_entrada?: string | null
+          pasto_entrada_area_util?: string | null
+          pasto_entrada_especie?: string | null
           pasto_saida?: string | null
+          pasto_saida_area_util?: string | null
+          pasto_saida_especie?: string | null
           sync_status?: string | null
           touro?: number | null
           updated_at?: string | null
@@ -2804,6 +2819,122 @@ export type Database = {
           },
           {
             foreignKeyName: "registros_almoxarifado_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medicamentos: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          dose_recomendada: string | null
+          fazenda_id: string
+          id: string
+          nome_comercial: string
+          tipo: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          dose_recomendada?: string | null
+          fazenda_id: string
+          id?: string
+          nome_comercial: string
+          tipo: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          dose_recomendada?: string | null
+          fazenda_id?: string
+          id?: string
+          nome_comercial?: string
+          tipo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicamentos_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_leitura_cocho: {
+        Row: {
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          google_row_id: number | null
+          id: string
+          leitura_cocho: number | null
+          media_ms: number | null
+          nome_usuario: string | null
+          numero_lote: string | null
+          observacao: string | null
+          pasto_curral: string | null
+          quantidade_cabecas: number | null
+          sync_status: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          google_row_id?: number | null
+          id?: string
+          leitura_cocho?: number | null
+          media_ms?: number | null
+          nome_usuario?: string | null
+          numero_lote?: string | null
+          observacao?: string | null
+          pasto_curral?: string | null
+          quantidade_cabecas?: number | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          google_row_id?: number | null
+          id?: string
+          leitura_cocho?: number | null
+          media_ms?: number | null
+          nome_usuario?: string | null
+          numero_lote?: string | null
+          observacao?: string | null
+          pasto_curral?: string | null
+          quantidade_cabecas?: number | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_leitura_cocho_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_leitura_cocho_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"

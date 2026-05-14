@@ -34,7 +34,7 @@ interface FormState {
   observacao: string
 }
 
-const makeInitial = (usuario?: string): FormState => ({
+const makeInitial = (_usuario?: string): FormState => ({
   data: todayBR(),
   pastoCurral: '',
   numeroLote: '',
