@@ -62,6 +62,7 @@ interface MedicamentoItem {
   medicamentoId: string
   tipo: string
   nomeComercial: string
+  principioAtivo: string
   doseRecomendada: string
   doseAplicada: string
 }
@@ -221,6 +222,7 @@ export default function EnfermariaPage() {
       medicamentoId: medicamento.id,
       tipo: medicamento.tipo,
       nomeComercial: medicamento.nome_comercial,
+      principioAtivo: medicamento.principio_ativo || '',
       doseRecomendada: medicamento.dose_recomendada || '',
       doseAplicada: medicamentoEditando?.doseAplicada || '',
     })
@@ -622,8 +624,11 @@ export default function EnfermariaPage() {
                   name="medicamento"
                 />
               )}
+              {medicamentoEditando?.principioAtivo && (
+                <p className="text-base text-gray-600">Princípio ativo: {medicamentoEditando.principioAtivo}</p>
+              )}
               {medicamentoEditando?.doseRecomendada && (
-                <p className="text-sm text-gray-600">Dose recomendada: {medicamentoEditando.doseRecomendada}</p>
+                <p className="text-base text-gray-600">Dose recomendada: {medicamentoEditando.doseRecomendada}</p>
               )}
 
               <Input

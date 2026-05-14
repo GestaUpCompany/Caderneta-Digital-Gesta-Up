@@ -2834,6 +2834,7 @@ export type Database = {
           fazenda_id: string
           id: string
           nome_comercial: string
+          principio_ativo: string | null
           tipo: string
           updated_at: string | null
         }
@@ -2844,6 +2845,7 @@ export type Database = {
           fazenda_id: string
           id?: string
           nome_comercial: string
+          principio_ativo?: string | null
           tipo: string
           updated_at?: string | null
         }
@@ -2854,6 +2856,7 @@ export type Database = {
           fazenda_id?: string
           id?: string
           nome_comercial?: string
+          principio_ativo?: string | null
           tipo?: string
           updated_at?: string | null
         }
