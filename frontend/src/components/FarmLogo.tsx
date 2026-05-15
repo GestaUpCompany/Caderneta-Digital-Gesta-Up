@@ -13,8 +13,8 @@ interface FarmLogoProps {
 
 const SIZES = {
   small: { width: 'w-12', height: 'h-12', farmHeight: 'h-12' },
-  medium: { width: 'w-16', height: 'h-auto', farmHeight: 'h-[58px]' },
-  large: { width: 'w-24', height: 'h-auto', farmHeight: 'h-[80px]' },
+  medium: { width: 'w-16', height: 'h-16', farmHeight: 'h-16' },
+  large: { width: 'w-24', height: 'h-24', farmHeight: 'h-24' },
 }
 
 const BORDER_RADIUS = 'rounded-[22px]'

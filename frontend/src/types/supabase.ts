@@ -1559,6 +1559,7 @@ export type Database = {
           google_row_id: number | null
           horario: string | null
           id: string
+          insumo_id: string | null
           motorista: string | null
           nome_usuario: string | null
           nota_fiscal: string | null
@@ -1582,6 +1583,7 @@ export type Database = {
           google_row_id?: number | null
           horario?: string | null
           id?: string
+          insumo_id?: string | null
           motorista?: string | null
           nome_usuario?: string | null
           nota_fiscal?: string | null
@@ -1605,6 +1607,7 @@ export type Database = {
           google_row_id?: number | null
           horario?: string | null
           id?: string
+          insumo_id?: string | null
           motorista?: string | null
           nome_usuario?: string | null
           nota_fiscal?: string | null
@@ -2105,6 +2108,7 @@ export type Database = {
           fazenda_id: string
           google_row_id: number | null
           id: string
+          insumo_id: string | null
           insumos_quantidades: Json | null
           nome_usuario: string | null
           sync_status: string | null
@@ -2122,6 +2126,7 @@ export type Database = {
           fazenda_id: string
           google_row_id?: number | null
           id?: string
+          insumo_id?: string | null
           insumos_quantidades?: Json | null
           nome_usuario?: string | null
           sync_status?: string | null
@@ -2139,6 +2144,7 @@ export type Database = {
           fazenda_id?: string
           google_row_id?: number | null
           id?: string
+          insumo_id?: string | null
           insumos_quantidades?: Json | null
           nome_usuario?: string | null
           sync_status?: string | null
@@ -2159,6 +2165,84 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entrada_insumos_itens: {
+        Row: {
+          id: string
+          entrada_id: string
+          insumo_id: string
+          quantidade: number
+          valor_unitario: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          id?: string
+          entrada_id: string
+          insumo_id: string
+          quantidade: number
+          valor_unitario?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          id?: string
+          entrada_id?: string
+          insumo_id?: string
+          quantidade?: number
+          valor_unitario?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrada_insumos_itens_entrada_id_fkey"
+            columns: ["entrada_id"]
+            isOneToOne: false
+            referencedRelation: "registros_entrada_insumos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrada_insumos_itens_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saida_insumos_itens: {
+        Row: {
+          id: string
+          insumo_id: string
+          quantidade: number
+          saida_id: string
+        }
+        Insert: {
+          id?: string
+          insumo_id: string
+          quantidade: number
+          saida_id: string
+        }
+        Update: {
+          id?: string
+          insumo_id?: string
+          quantidade?: number
+          saida_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saida_insumos_itens_saida_id_fkey"
+            columns: ["saida_id"]
+            isOneToOne: false
+            referencedRelation: "registros_saida_insumos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saida_insumos_itens_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos"
             referencedColumns: ["id"]
           },
         ]

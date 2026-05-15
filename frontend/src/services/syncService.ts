@@ -4,6 +4,8 @@ import {
   addToSyncQueue,
   removeFromSyncQueue,
   updateSyncStatus,
+  updateRegistro,
+  getAllRegistros,
   SyncQueueItem,
   CadernetaStore,
 } from './indexedDB'
@@ -236,15 +238,23 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
     columns: [
       { field: 'dataEntrada' },
       { field: 'horario' },
-      { field: 'produto' },
-      { field: 'quantidade' },
-      { field: 'valorUnitario' },
-      { field: 'valorTotal' },
       { field: 'notaFiscal' },
       { field: 'fornecedor' },
       { field: 'placa' },
       { field: 'motorista' },
       { field: 'responsavelRecebimento' },
+      { field: 'itens' }, // Array de itens para processamento
+      { field: 'valorTotalEntrada' },
+    ],
+  },
+  'entrada-insumos-itens': {
+    columns: [
+      { field: 'entradaId' }, // ID do registro pai
+      { field: 'insumoId' },
+      { field: 'produto' },
+      { field: 'quantidade' },
+      { field: 'valorUnitario' },
+      { field: 'valorTotal' },
     ],
   },
   'saida-insumos': {
@@ -377,6 +387,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'operacoes-maquinas': 'registros_operacoes_maquinas',
   'manutencao-maquinas': 'registros_manutencao_maquinas',
   'entrada-insumos': 'registros_entrada_insumos',
+  'entrada-insumos-itens': 'entrada_insumos_itens',
   'saida-insumos': 'registros_saida_insumos',
   'insumos-por-saida': 'insumos_por_saida',
   problemas: 'registros_problemas',
@@ -646,15 +657,20 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data_entrada: brWithTimeToIso(registro.dataEntrada as string),
         horario: registro.horario || null,
-        produto: registro.produto || null,
-        quantidade: registro.quantidade || null,
-        valor_unitario: registro.valorUnitario || null,
-        valor_total: registro.valorTotal || null,
         nota_fiscal: registro.notaFiscal || null,
         fornecedor: registro.fornecedor || null,
         placa: registro.placa || null,
         motorista: registro.motorista || null,
         responsavel_recebimento: registro.responsavelRecebimento || null,
+      }
+    case 'entrada-insumos-itens':
+      return {
+        entrada_id: registro.entradaId,
+        insumo_id: registro.insumoId,
+        produto: registro.produto || null,
+        quantidade: registro.quantidade || null,
+        valor_unitario: registro.valorUnitario || null,
+        valor_total: registro.valorTotal || null,
       }
     case 'saida-insumos':
       return {
@@ -773,7 +789,25 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           await supabaseService.createRegistroManutencaoMaquinas(data)
           break
         case 'registros_entrada_insumos':
-          await supabaseService.createRegistroEntradaInsumos(data)
+          const entradaResult = await supabaseService.createRegistroEntradaInsumos(data)
+          // Atualizar registro local com ID do Supabase
+          await updateRegistro('entrada-insumos', registro.id, {
+            ...registro,
+            supabaseId: entradaResult.id,
+            syncStatus: 'synced'
+          })
+          // Atualizar itens com o novo ID do Supabase
+          const itens = await getAllRegistros('entrada-insumos-itens')
+          for (const item of itens) {
+            if (item.entradaId === registro.id) {
+              await updateRegistro('entrada-insumos-itens', item.id, {
+                entradaId: entradaResult.id
+              })
+            }
+          }
+          break
+        case 'entrada_insumos_itens':
+          await supabaseService.createEntradaInsumosItem(data)
           break
         case 'registros_saida_insumos':
           await supabaseService.createRegistroSaidaInsumos(data)
@@ -833,6 +867,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)
+          break
+        case 'entrada_insumos_itens':
+          await supabaseService.updateEntradaInsumosItem(supabaseId, data)
           break
         case 'registros_saida_insumos':
           await supabaseService.updateRegistroSaidaInsumos(supabaseId, data)

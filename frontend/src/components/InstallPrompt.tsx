@@ -68,7 +68,7 @@ export default function InstallPrompt() {
               O download será iniciado em breve.
             </p>
             <p className="text-gray-600 text-sm">
-              O aplicativo <strong>Gesta'Up Cadernetas Digitais</strong> será instalado automaticamente no seu dispositivo.
+              O aplicativo <strong>Manej'Us 360</strong> será instalado automaticamente no seu dispositivo.
             </p>
             <Button onClick={() => setShowDownloadBanner(false)} variant="primary" fullWidth>
               OK
@@ -86,7 +86,7 @@ export default function InstallPrompt() {
       <div className="flex items-center gap-3 mb-3">
         <span className="text-3xl">📱</span>
         <div className="flex-1">
-          <p className="text-white font-bold text-lg">Gesta'Up Cadernetas Digitais</p>
+          <p className="text-white font-bold text-lg">Manej'Us 360</p>
           <p className="text-gray-300 text-sm">
             Acesse rapidamente do seu celular, mesmo offline
           </p>

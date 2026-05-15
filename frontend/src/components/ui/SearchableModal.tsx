@@ -11,6 +11,8 @@ interface SearchableModalProps {
   id?: string
   name?: string
   dataField?: string
+  onCreateNew?: (searchTerm: string) => void
+  createNewLabel?: string
 }
 
 export default function SearchableModal({
@@ -24,6 +26,8 @@ export default function SearchableModal({
   id,
   name,
   dataField,
+  onCreateNew,
+  createNewLabel = 'Novo',
 }: SearchableModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -150,7 +154,20 @@ export default function SearchableModal({
               )}
             </div>
 
-            <div className="p-4 border-t border-gray-200">
+            <div className="p-4 border-t border-gray-200 flex flex-col gap-2">
+              {onCreateNew && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClose()
+                    onCreateNew(searchTerm)
+                  }}
+                  className="w-full px-4 py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>+</span>
+                  <span>{searchTerm ? `${createNewLabel}: "${searchTerm}"` : createNewLabel}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleClose}

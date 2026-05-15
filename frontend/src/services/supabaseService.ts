@@ -341,6 +341,29 @@ export async function updateInsumo(id: string, insumo: TablesUpdate<'insumos'>) 
   return data
 }
 
+export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insumos_itens'>) {
+  const { data, error } = await supabase
+    .from('entrada_insumos_itens')
+    .insert(item)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateEntradaInsumosItem(id: string, item: TablesUpdate<'entrada_insumos_itens'>) {
+  const { data, error } = await supabase
+    .from('entrada_insumos_itens')
+    .update(item)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== MINERAL ====================
 
 export async function getMineral(fazendaId: string) {

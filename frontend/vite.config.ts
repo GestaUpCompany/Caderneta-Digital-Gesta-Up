@@ -13,7 +13,7 @@ export default defineConfig({
     splitVendorChunkPlugin(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'logo-gestaup-app-cadernetadigital.png'],
+      includeAssets: ['favicon.svg', 'manejus360.png'],
       manifest: {
         name: "Gesta'Up Cadernetas Digitais",
         short_name: "Gesta'Up",
@@ -29,13 +29,13 @@ export default defineConfig({
         categories: ['business', 'productivity', 'utilities'],
         icons: [
           {
-            src: '/Caderneta-Digital-Gesta-Up/logo-gestaup-app-cadernetadigital.png',
+            src: '/Caderneta-Digital-Gesta-Up/manejus360.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/Caderneta-Digital-Gesta-Up/logo-gestaup-app-cadernetadigital.png',
+            src: '/Caderneta-Digital-Gesta-Up/manejus360.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'

@@ -15,6 +15,7 @@ export type CadernetaStore =
   | 'abastecimento'
   | 'cantina'
   | 'entrada-insumos'
+  | 'entrada-insumos-itens'
   | 'saida-insumos'
   | 'insumos-por-saida'
   | 'limpeza'
@@ -26,11 +27,11 @@ export type CadernetaStore =
 
 const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
-  'entrada-insumos', 'saida-insumos', 'insumos-por-saida', 'limpeza', 'operacoes-maquinas', 'manutencao-maquinas', 'problemas', 'almoxarifado', 'leitura-cocho',
+  'entrada-insumos', 'entrada-insumos-itens', 'saida-insumos', 'insumos-por-saida', 'limpeza', 'operacoes-maquinas', 'manutencao-maquinas', 'problemas', 'almoxarifado', 'leitura-cocho',
 ]
 
 async function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, 20, {
+  return openDB(DB_NAME, 21, {
     upgrade(db) {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) {
@@ -109,6 +110,15 @@ export async function updateSyncStatus(
     if (googleRowId !== undefined) registro.googleRowId = googleRowId
     registro.lastModified = new Date().toISOString()
     await db.put(store, registro)
+  }
+}
+
+export async function updateRegistro(store: CadernetaStore, id: string, updates: Partial<Registro>): Promise<void> {
+  const db = await getDB()
+  const registro = await db.get(store, id)
+  if (registro) {
+    const registroAtualizado = { ...registro, ...updates, lastModified: new Date().toISOString() }
+    await db.put(store, registroAtualizado)
   }
 }
 

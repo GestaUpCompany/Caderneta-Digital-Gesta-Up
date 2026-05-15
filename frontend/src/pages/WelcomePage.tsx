@@ -25,7 +25,7 @@ export default function Page() {
         {/* Logo */}
         <div className="w-32 h-32 bg-white rounded-[1.5rem] flex items-center justify-center mb-8 shadow-2xl">
           <img 
-            src="/Caderneta-Digital-Gesta-Up/logo-gestaup-app-cadernetadigital.png" 
+            src="/Caderneta-Digital-Gesta-Up/manejus360.png" 
             alt="Logo Gesta'Up" 
             className="w-24 h-24 rounded-2xl"
             onError={(e) => {
@@ -40,7 +40,7 @@ export default function Page() {
 
         {/* Título */}
         <h1 className="text-4xl font-bold text-center mb-4">
-          Gesta'Up Cadernetas Digitais
+          Manej'Us 360
         </h1>
 
         {/* Subtítulo */}
@@ -53,7 +53,7 @@ export default function Page() {
           <div className="flex items-start gap-3">
             <Check className="w-6 h-6 text-yellow-500 mt-0.5 flex-shrink-0" />
             <p className="text-gray-700">
-              Cadernetas digitais para controle operacional completo
+              Manej'Us 360 para controle operacional completo
             </p>
           </div>
           <div className="flex items-start gap-3">

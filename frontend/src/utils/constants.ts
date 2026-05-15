@@ -6,7 +6,7 @@ export const BACKEND_URL = isDev
 
 const BASE = import.meta.env.BASE_URL
 
-export const LOGO_URL = `${BASE}logo-gestaup-app-cadernetadigital.png`
+export const LOGO_URL = `${BASE}manejus360.png`
 
 export const DATABASE_URL = isDev
   ? (import.meta.env.VITE_DATABASE_URL || 'https://docs.google.com/spreadsheets/d/1HSq-3ihaSnVGIEPBCMdhYjCmFfwyWAQM7zFrkCuGxts/edit')

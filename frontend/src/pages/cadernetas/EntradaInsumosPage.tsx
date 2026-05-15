@@ -1,122 +1,230 @@
 import { useEffect, useState } from 'react'
-import { salvarRegistro } from '../../services/api'
+import { saveRegistro } from '../../services/indexedDB'
+import { enqueueRegistro } from '../../services/syncService'
+import { v4 as uuidv4 } from 'uuid'
+import { generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { scrollToFirstError } from '../../utils/scrollToError'
 import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
-import { loadCadastroData, CadastroData } from '../../services/cadastroData'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { BACKEND_URL } from '../../utils/constants'
+import { getFornecedores, getFuncionarios, getInsumos, createInsumo } from '../../services/supabaseService'
 
-interface FormState {
-  dataEntrada: string
-  horario: string
+interface ItemEntrada {
+  id: string // ID temporário para controle no frontend
+  insumoId: string
   produto: string
   quantidade: string
   valorUnitario: string
   valorTotal: string
+}
+
+interface FormState {
+  dataEntrada: string
+  horario: string
   notaFiscal: string
   fornecedor: string
   placa: string
   motorista: string
   responsavelRecebimento: string
+  itens: ItemEntrada[]
 }
 
-const makeInitial = (): FormState => ({
-  dataEntrada: todayBR(),
-  horario: '',
+const generateLocalId = () => Math.random().toString(36).substring(2, 9)
+
+const makeInitialItem = (): ItemEntrada => ({
+  id: generateLocalId(),
+  insumoId: '',
   produto: '',
   quantidade: '',
   valorUnitario: '',
   valorTotal: '',
+})
+
+const makeInitial = (): FormState => ({
+  dataEntrada: todayBR(),
+  horario: '',
   notaFiscal: '',
   fornecedor: '',
   placa: '',
   motorista: '',
   responsavelRecebimento: '',
+  itens: [makeInitialItem()],
 })
 
 export default function EntradaInsumosPage() {
   const navigate = useNavigate()
-  const { fazenda, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
-  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [fornecedoresSupabase, setFornecedoresSupabase] = useState<any[]>([])
+  const [funcionariosSupabase, setFuncionariosSupabase] = useState<any[]>([])
+  const [insumosSupabase, setInsumosSupabase] = useState<any[]>([])
+  const [loadingFornecedores, setLoadingFornecedores] = useState(false)
+  const [loadingFuncionarios, setLoadingFuncionarios] = useState(false)
   const [loadingInsumos, setLoadingInsumos] = useState(false)
   const [isHorarioManual, setIsHorarioManual] = useState(false)
+  const [novoInsumoModal, setNovoInsumoModal] = useState<{ open: boolean; nomeInicial: string; itemId: string }>({ open: false, nomeInicial: '', itemId: '' })
+  const [novoInsumoNome, setNovoInsumoNome] = useState('')
+  const [criandoInsumo, setCriandoInsumo] = useState(false)
 
-  const set = (field: keyof FormState) => (val: string) =>
+  const set = (field: keyof Omit<FormState, 'itens'>) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
 
-  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const setInput = (field: keyof Omit<FormState, 'itens'>) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
+  // Funções para gerenciar itens
+  const addItem = () => {
+    setForm(prev => ({
+      ...prev,
+      itens: [...prev.itens, makeInitialItem()]
+    }))
+  }
+
+  const removeItem = (itemId: string) => {
+    setForm(prev => ({
+      ...prev,
+      itens: prev.itens.filter(item => item.id !== itemId)
+    }))
+  }
+
+  const updateItem = (itemId: string, field: keyof ItemEntrada, value: string) => {
+    setForm(prev => ({
+      ...prev,
+      itens: prev.itens.map(item => {
+        if (item.id !== itemId) return item
+        const updated = { ...item, [field]: value }
+        // Recalcular valor total se quantidade ou valor unitário mudou
+        if (field === 'quantidade' || field === 'valorUnitario') {
+          const qtd = parseFloat(field === 'quantidade' ? value : item.quantidade) || 0
+          const unit = parseFloat(field === 'valorUnitario' ? value : item.valorUnitario) || 0
+          updated.valorTotal = (qtd * unit).toFixed(2)
+        }
+        return updated
+      })
+    }))
+  }
+
+  const updateItemProduto = (itemId: string, produtoNome: string) => {
+    const insumo = insumosSupabase.find(i => i.nome === produtoNome)
+    updateItem(itemId, 'produto', produtoNome)
+    updateItem(itemId, 'insumoId', insumo?.id || '')
+  }
+
+  const getValorTotalEntrada = () => {
+    return form.itens.reduce((total, item) => {
+      return total + (parseFloat(item.valorTotal) || 0)
+    }, 0).toFixed(2)
+  }
+
+  const abrirModalNovoInsumo = (itemId: string, nomeInicial: string) => {
+    setNovoInsumoNome(nomeInicial)
+    setNovoInsumoModal({ open: true, nomeInicial, itemId })
+  }
+
+  const handleCriarInsumo = async () => {
+    if (!novoInsumoNome.trim() || !fazendaId) return
+    setCriandoInsumo(true)
+    try {
+      const novoInsumo = await createInsumo({
+        nome: novoInsumoNome.trim(),
+        fazenda_id: fazendaId,
+        ativo: true,
+      })
+      // Recarregar lista de insumos
+      const insumos = await getInsumos(fazendaId)
+      setInsumosSupabase(insumos || [])
+      // Selecionar automaticamente o insumo criado
+      updateItem(novoInsumoModal.itemId, 'produto', novoInsumo.nome)
+      updateItem(novoInsumoModal.itemId, 'insumoId', novoInsumo.id)
+      setNovoInsumoModal({ open: false, nomeInicial: '', itemId: '' })
+      setNovoInsumoNome('')
+    } catch (error) {
+      console.error('Erro ao criar insumo:', error)
+    } finally {
+      setCriandoInsumo(false)
+    }
+  }
+
+  // Carregar fornecedores do Supabase
   useEffect(() => {
-    const loadData = async () => {
-      if (!cadastroSheetUrl) {
-        setLoading(false)
+    async function carregarFornecedores() {
+      if (!fazendaId) {
+        setFornecedoresSupabase([])
+        setLoadingFornecedores(false)
         return
       }
 
+      setLoadingFornecedores(true)
       try {
-        const data = await loadCadastroData(cadastroSheetUrl)
-        setCadastroData(data)
-        setLoading(false)
-      } catch (err) {
-        console.error('Erro ao carregar dados de cadastro:', err)
-        setLoading(false)
+        const fornecedores = await getFornecedores(fazendaId)
+        setFornecedoresSupabase(fornecedores || [])
+      } catch (error) {
+        console.error('Erro ao carregar fornecedores:', error)
+        setFornecedoresSupabase([])
+      } finally {
+        setLoadingFornecedores(false)
       }
     }
 
-    loadData()
-  }, [cadastroSheetUrl])
+    carregarFornecedores()
+  }, [fazendaId])
 
-  // Carregar dados de suplementação (insumos)
+  // Carregar funcionários do Supabase
   useEffect(() => {
-    async function carregarSuplementacaoData() {
-      if (!cadastroSheetUrl) {
-        setSuplementacaoData(null)
+    async function carregarFuncionarios() {
+      if (!fazendaId) {
+        setFuncionariosSupabase([])
+        setLoadingFuncionarios(false)
+        return
+      }
+
+      setLoadingFuncionarios(true)
+      try {
+        const funcionarios = await getFuncionarios(fazendaId)
+        setFuncionariosSupabase(funcionarios || [])
+      } catch (error) {
+        console.error('Erro ao carregar funcionários:', error)
+        setFuncionariosSupabase([])
+      } finally {
+        setLoadingFuncionarios(false)
+      }
+    }
+
+    carregarFuncionarios()
+  }, [fazendaId])
+
+  // Carregar insumos do Supabase
+  useEffect(() => {
+    async function carregarInsumos() {
+      if (!fazendaId) {
+        setInsumosSupabase([])
         setLoadingInsumos(false)
         return
       }
 
       setLoadingInsumos(true)
       try {
-        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setSuplementacaoData(data)
-        }
+        const insumos = await getInsumos(fazendaId)
+        setInsumosSupabase(insumos || [])
       } catch (error) {
-        console.error('Erro ao carregar dados de suplementação:', error)
+        console.error('Erro ao carregar insumos:', error)
+        setInsumosSupabase([])
       } finally {
         setLoadingInsumos(false)
       }
     }
 
-    carregarSuplementacaoData()
-  }, [cadastroSheetUrl])
-
-  useEffect(() => {
-    const quantidade = parseFloat(form.quantidade) || 0
-    const valorUnitario = parseFloat(form.valorUnitario) || 0
-    const total = quantidade * valorUnitario
-    setForm(prev => ({ ...prev, valorTotal: total.toFixed(2) }))
-  }, [form.quantidade, form.valorUnitario])
+    carregarInsumos()
+  }, [fazendaId])
 
   // Atualiza horário automaticamente a cada minuto se não foi editado pelo usuário
   useEffect(() => {
@@ -147,29 +255,73 @@ export default function EntradaInsumosPage() {
     setSalvando(true)
     setErrors([])
 
-    const result = await salvarRegistro('entrada-insumos', {
-      dataEntrada: form.dataEntrada,
-      horario: form.horario,
-      produto: form.produto,
-      quantidade: form.quantidade ? Number(form.quantidade) : 0,
-      valorUnitario: form.valorUnitario ? Number(form.valorUnitario) : 0,
-      valorTotal: form.valorTotal ? Number(form.valorTotal) : 0,
-      notaFiscal: form.notaFiscal,
-      fornecedor: form.fornecedor,
-      placa: form.placa,
-      motorista: form.motorista,
-      responsavelRecebimento: form.responsavelRecebimento,
-    })
+    // Validar itens
+    const itensValidos = form.itens.filter(item => item.insumoId && item.quantidade)
+    if (itensValidos.length === 0) {
+      setErrors([{ field: 'geral', message: 'Adicione pelo menos um item com produto e quantidade' }])
+      setSalvando(false)
+      return
+    }
 
-    setSalvando(false)
-    if (!result.success && result.errors) {
-      setErrors(result.errors)
-      scrollToFirstError(result.errors)
-    } else {
-      setRegistroSalvo(result.registro)
+    try {
+      // 1. Salvar cabeçalho da entrada
+      const agora = new Date()
+      const hora = agora.getHours().toString().padStart(2, '0')
+      const minuto = agora.getMinutes().toString().padStart(2, '0')
+      const dataComHora = `${form.dataEntrada} ${hora}:${minuto}`
+
+      const entradaId = uuidv4()
+      const registroEntrada = {
+        dataEntrada: form.dataEntrada,
+        horario: form.horario,
+        notaFiscal: form.notaFiscal,
+        fornecedor: form.fornecedor,
+        placa: form.placa,
+        motorista: form.motorista,
+        responsavelRecebimento: form.responsavelRecebimento,
+        data: dataComHora,
+        id: entradaId,
+        version: generateVersion(),
+        lastModified: getCurrentTimestamp(),
+        syncStatus: 'pending' as const,
+      }
+
+      await saveRegistro('entrada-insumos', registroEntrada)
+      await enqueueRegistro('entrada-insumos', entradaId, 'create')
+
+      // 2. Salvar cada item
+      for (const item of itensValidos) {
+        const itemId = uuidv4()
+        const registroItem = {
+          entradaId: entradaId,
+          insumoId: item.insumoId,
+          produto: item.produto,
+          quantidade: item.quantidade,
+          valorUnitario: item.valorUnitario,
+          valorTotal: item.valorTotal,
+          data: dataComHora,
+          id: itemId,
+          version: generateVersion(),
+          lastModified: getCurrentTimestamp(),
+          syncStatus: 'pending' as const,
+        }
+
+        await saveRegistro('entrada-insumos-itens', registroItem)
+        await enqueueRegistro('entrada-insumos-itens', itemId, 'create')
+      }
+
+      // 3. Delay para persistência
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      setRegistroSalvo(registroEntrada)
       setShowSuccessModal(true)
       setForm(makeInitial())
       setIsHorarioManual(false)
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+      setErrors([{ field: 'geral', message: 'Erro ao salvar registro. Tente novamente.' }])
+    } finally {
+      setSalvando(false)
     }
   }
 
@@ -194,7 +346,7 @@ export default function EntradaInsumosPage() {
           >
             VOLTAR
           </button>
-          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">ENTRADA DE INSUMOS</h1>
+          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2 text-center">ENTRADA INSUMOS</h1>
           <button
             onClick={() => navigate('/caderneta/entrada-insumos/lista')}
             className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
@@ -216,15 +368,15 @@ export default function EntradaInsumosPage() {
         </div>
       </div>
 
+      {/* Tarja de desenvolvimento */}
+      <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+        <p className="text-xs font-semibold text-amber-700 text-center">⚠️ EM DESENVOLVIMENTO</p>
+      </div>
+
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-4xl animate-spin">⏳</div>
-          </div>
-        ) : (
-          <>
+        <>
             {/* Seção 1: Dados da Entrada */}
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
               <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA ENTRADA</h2>
@@ -248,88 +400,113 @@ export default function EntradaInsumosPage() {
               </div>
             </div>
 
-            {/* Seção 2: Produto e Quantidade */}
+            {/* Seção 2: Itens da Entrada */}
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PRODUTO E QUANTIDADE</h2>
-              {suplementacaoData?.insumos && suplementacaoData.insumos.length > 0 ? (
-                <SearchableModal
-                  label="PRODUTO *"
-                  value={form.produto}
-                  onChange={set('produto')}
-                  error={getError('produto')}
-                  options={suplementacaoData.insumos}
-                  placeholder="Buscar insumo..."
-                  disabled={loadingInsumos}
-                  id="produto"
-                  name="produto"
-                />
-              ) : (
-                <Input
-                  label="PRODUTO *"
-                  placeholder={loadingInsumos ? 'Carregando...' : 'Digite o produto'}
-                  value={form.produto}
-                  onChange={setInput('produto')}
-                  error={getError('produto')}
-                  disabled={loadingInsumos}
-                  id="produto"
-                />
-              )}
-              <Input
-                label="QUANTIDADE (kg) *"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.quantidade}
-                onChange={setInput('quantidade')}
-                error={getError('quantidade')}
-                inputMode="decimal"
-              />
-              <Input
-                label="VALOR UNITÁRIO (R$/kg) *"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.valorUnitario}
-                onChange={setInput('valorUnitario')}
-                error={getError('valorUnitario')}
-                inputMode="decimal"
-              />
-              <Input
-                label="VALOR TOTAL (R$)"
-                value={form.valorTotal}
-                readOnly
-              />
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ITENS DA ENTRADA</h2>
+                <span className="text-sm text-gray-600">
+                  Total: R$ {getValorTotalEntrada()}
+                </span>
+              </div>
+              
+              {form.itens.map((item, index) => (
+                <div key={item.id} className="border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-700">Item {index + 1}</span>
+                    {form.itens.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="text-red-500 text-sm font-medium hover:text-red-700"
+                      >
+                        ✕ Remover
+                      </button>
+                    )}
+                  </div>
+                  
+                  <SearchableModal
+                    label="PRODUTO"
+                    value={item.produto}
+                    onChange={(value) => updateItemProduto(item.id, value)}
+                    error={getError(`item_${index}_produto`)}
+                    options={insumosSupabase.map(i => i.nome)}
+                    placeholder="Buscar produto..."
+                    disabled={loadingInsumos}
+                    id={`produto_${item.id}`}
+                    name={`produto_${item.id}`}
+                    onCreateNew={(termo) => abrirModalNovoInsumo(item.id, termo)}
+                    createNewLabel="Novo Insumo"
+                  />
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      label="QTD (kg)"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.quantidade}
+                      onChange={(e) => updateItem(item.id, 'quantidade', e.target.value)}
+                      error={getError(`item_${index}_quantidade`)}
+                      inputMode="decimal"
+                    />
+                    <Input
+                      label="VALOR UNIT (R$)"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.valorUnitario}
+                      onChange={(e) => updateItem(item.id, 'valorUnitario', e.target.value)}
+                      error={getError(`item_${index}_valorUnitario`)}
+                      inputMode="decimal"
+                    />
+                    <Input
+                      label="TOTAL (R$)"
+                      value={item.valorTotal}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              ))}
+              
+              <Button 
+                onClick={addItem} 
+                variant="secondary" 
+                icon="➕"
+                className="mt-2"
+              >
+                ADICIONAR ITEM
+              </Button>
             </div>
 
             {/* Seção 3: Documentação */}
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
               <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DOCUMENTAÇÃO</h2>
               <Input
-                label="N° NOTA FISCAL *"
+                label="N° NOTA FISCAL"
                 value={form.notaFiscal}
                 onChange={setInput('notaFiscal')}
                 error={getError('notaFiscal')}
               />
-              {cadastroData?.fornecedores && cadastroData.fornecedores.length > 0 ? (
+              {fornecedoresSupabase.length > 0 ? (
                 <SearchableModal
-                  label="FORNECEDOR *"
+                  label="FORNECEDOR"
                   value={form.fornecedor}
                   onChange={set('fornecedor')}
                   error={getError('fornecedor')}
-                  options={cadastroData.fornecedores}
+                  options={fornecedoresSupabase.map(f => f.nome)}
                   placeholder="Buscar fornecedor..."
-                  disabled={loading}
+                  disabled={loadingFornecedores}
                   id="fornecedor"
                   name="fornecedor"
                 />
               ) : (
                 <Input
-                  label="FORNECEDOR *"
-                  placeholder={loading ? 'Carregando...' : 'Digite o fornecedor'}
+                  label="FORNECEDOR"
+                  placeholder={loadingFornecedores ? 'Carregando...' : 'Digite o fornecedor'}
                   value={form.fornecedor}
                   onChange={setInput('fornecedor')}
                   error={getError('fornecedor')}
-                  disabled={loading}
+                  disabled={loadingFornecedores}
                   id="fornecedor"
                 />
               )}
@@ -339,35 +516,55 @@ export default function EntradaInsumosPage() {
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
               <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRANSPORTE</h2>
               <Input
-                label="PLACA *"
+                label="PLACA"
                 value={form.placa}
                 onChange={setInput('placa')}
                 error={getError('placa')}
               />
-              <Input
-                label="MOTORISTA *"
-                value={form.motorista}
-                onChange={setInput('motorista')}
-                error={getError('motorista')}
-              />
-              {cadastroData?.funcionarios && cadastroData.funcionarios.length > 0 ? (
+              {funcionariosSupabase.length > 0 ? (
                 <SearchableModal
-                  label="RESPONSÁVEL RECEBIMENTO *"
+                  label="MOTORISTA"
+                  value={form.motorista}
+                  onChange={set('motorista')}
+                  error={getError('motorista')}
+                  options={funcionariosSupabase.map(f => f.nome)}
+                  placeholder="Buscar funcionário..."
+                  disabled={loadingFuncionarios}
+                  id="motorista"
+                  name="motorista"
+                />
+              ) : (
+                <Input
+                  label="MOTORISTA *"
+                  placeholder={loadingFuncionarios ? 'Carregando...' : 'Digite o motorista'}
+                  value={form.motorista}
+                  onChange={setInput('motorista')}
+                  error={getError('motorista')}
+                  disabled={loadingFuncionarios}
+                  id="motorista"
+                />
+              )}
+              {funcionariosSupabase.length > 0 ? (
+                <SearchableModal
+                  label="RESPONSÁVEL RECEBIMENTO"
                   value={form.responsavelRecebimento}
                   onChange={set('responsavelRecebimento')}
                   error={getError('responsavelRecebimento')}
-                  options={cadastroData.funcionarios}
+                  options={funcionariosSupabase.map(f => f.nome)}
                   placeholder="Buscar funcionário..."
-                  disabled={loading}
+                  disabled={loadingFuncionarios}
+                  id="responsavelRecebimento"
+                  name="responsavelRecebimento"
                 />
               ) : (
                 <Input
                   label="RESPONSÁVEL RECEBIMENTO *"
-                  placeholder={loading ? 'Carregando...' : 'Digite o funcionário'}
+                  placeholder={loadingFuncionarios ? 'Carregando...' : 'Digite o funcionário'}
                   value={form.responsavelRecebimento}
                   onChange={setInput('responsavelRecebimento')}
                   error={getError('responsavelRecebimento')}
-                  disabled={loading}
+                  disabled={loadingFuncionarios}
+                  id="responsavelRecebimento"
                 />
               )}
             </div>
@@ -380,9 +577,46 @@ export default function EntradaInsumosPage() {
                 LIMPAR
               </Button>
             </div>
-          </>
-        )}
+        </>
       </main>
+
+      {/* Modal criação de novo insumo */}
+      {novoInsumoModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col gap-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900">Novo Insumo</h3>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">NOME DO INSUMO</label>
+              <input
+                type="text"
+                value={novoInsumoNome}
+                onChange={(e) => setNovoInsumoNome(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCriarInsumo()}
+                placeholder="Ex: Milho, Ração, Sal mineral..."
+                autoFocus
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setNovoInsumoModal({ open: false, nomeInicial: '', itemId: '' }); setNovoInsumoNome('') }}
+                className="flex-1 px-4 py-3 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-colors"
+              >
+                CANCELAR
+              </button>
+              <button
+                type="button"
+                onClick={handleCriarInsumo}
+                disabled={criandoInsumo || !novoInsumoNome.trim()}
+                className="flex-1 px-4 py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {criandoInsumo ? 'CRIANDO...' : 'CRIAR'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SuccessModal
         isOpen={showSuccessModal}
