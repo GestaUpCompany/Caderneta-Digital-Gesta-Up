@@ -56,6 +56,7 @@ function buildRegistroFromRow(
     cantina: ['data', 'numeroCozinheiras', 'quemCozinhou', 'quemAjudou', 'numeroCafeManha', 'numeroLanches', 'numeroRefeicoesAlmoco', 'numeroRefeicoesJantar', 'observacao'],
     limpeza: ['data', 'numeroEquipe', 'setor', 'local', 'horaInicio', 'horaFinal', 'limpezaRealizada', 'observacao'],
     'entrada-insumos': ['dataEntrada', 'horario', 'produto', 'quantidade', 'valorUnitario', 'valorTotal', 'notaFiscal', 'fornecedor', 'placa', 'motorista', 'responsavelRecebimento'],
+    'entrada-insumos-itens': ['entradaId', 'insumoId', 'produto', 'quantidade', 'valorUnitario', 'valorTotal', 'data'],
     'saida-insumos': ['dataProducao', 'dietaProduzida', 'destinoProducao', 'totalProduzido', 'insumosQuantidades'],
     'insumos-por-saida': ['idSaida', 'dataProducao', 'dietaProduzida', 'insumo', 'quantidade'],
     clima: ['data', 'responsavel', 'temperaturaMedia', 'observacao'],
