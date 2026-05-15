@@ -94,7 +94,7 @@ function AppInner() {
   useSync()
   const location = useLocation()
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
-  const { shouldShowWelcome, isLoading } = useFirstOpen()
+  const { shouldShowWelcome } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
   const { cadastroSheetUrl, fazendaId } = useSelector((state: RootState) => state.config)
   
@@ -272,7 +272,6 @@ function AppInner() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={
-              isLoading ? <PageLoader /> : 
               shouldShowWelcome ? <WelcomePage /> : <Home />
             } />
             <Route path="/welcome" element={<WelcomePage />} />

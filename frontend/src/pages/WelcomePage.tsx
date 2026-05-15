@@ -18,6 +18,14 @@ export default function Page() {
     localStorage.setItem('welcome-seen', 'true')
   }, [])
 
+  // Navegar automaticamente após 2,5 segundos
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      navigate('/')
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [navigate])
+
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col">
       {/* Header */}

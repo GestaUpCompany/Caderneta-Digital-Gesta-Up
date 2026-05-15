@@ -9,6 +9,7 @@ interface FarmLogoProps {
   farmBorderRadius?: string
   className?: string
   gap?: string
+  middleText?: string
 }
 
 const SIZES = {
@@ -28,6 +29,7 @@ export default function FarmLogo({
   farmBorderRadius,
   className = '',
   gap = 'gap-12',
+  middleText,
 }: FarmLogoProps) {
   const sizeConfig = SIZES[size]
   const farmLogoUrl = (logoUrl && logoUrl.trim() !== '') ? logoUrl : (farmName ? getFarmLogo(farmName) : null)
@@ -44,6 +46,12 @@ export default function FarmLogo({
           alt="Logo GestaUp"
           className={`${sizeConfig.width} ${sizeConfig.height} object-contain ${borderRadius} ml-8`}
         />
+      )}
+      {middleText && (
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-xl font-bold text-white leading-none">Manj'Us</span>
+          <span className="text-xl font-bold text-yellow-400 leading-none">360</span>
+        </div>
       )}
       {type !== 'gestaup' && farmName && (
         <img

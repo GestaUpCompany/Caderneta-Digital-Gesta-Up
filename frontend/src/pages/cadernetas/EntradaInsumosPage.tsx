@@ -438,9 +438,9 @@ export default function EntradaInsumosPage() {
                     createNewLabel="Novo Insumo"
                   />
                   
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-3">
                     <Input
-                      label="QTD (kg)"
+                      label="QUANTIDADE (kg)"
                       type="number"
                       step="0.01"
                       min="0"
@@ -450,7 +450,7 @@ export default function EntradaInsumosPage() {
                       inputMode="decimal"
                     />
                     <Input
-                      label="VALOR UNIT (R$)"
+                      label="VALOR UNITÁRIO (R$)"
                       type="number"
                       step="0.01"
                       min="0"
