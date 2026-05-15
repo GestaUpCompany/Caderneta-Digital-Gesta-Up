@@ -881,11 +881,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Para entrada de insumos, usar ordem específica dos formulários
     const ordemEntradaInsumos = [
       'dataEntrada',
-      'horario',
-      'produto',
-      'quantidade',
-      'valorUnitario',
-      'valorTotal',
       'notaFiscal',
       'fornecedor',
       'placa',
@@ -901,6 +896,31 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         texto += `${label}: *${valorFormatado}*\n`
       }
     })
+
+    // Adicionar itens da entrada
+    if (registro.itens && Array.isArray(registro.itens) && registro.itens.length > 0) {
+      texto += `\nITENS DA ENTRADA\n`
+      registro.itens.forEach((item: any, index: number) => {
+        texto += `${index + 1}. ${item.produto || '—'}\n`
+        if (item.quantidade) {
+          texto += `   Quantidade: *${item.quantidade}*\n`
+        }
+        if (item.valorUnitario) {
+          texto += `   Valor unitário: *R$ ${item.valorUnitario}*\n`
+        }
+        if (item.valorTotal) {
+          texto += `   Valor total: *R$ ${item.valorTotal}*\n`
+        }
+        texto += `\n`
+      })
+
+      // Calcular e adicionar valor total dos insumos
+      const valorTotalInsumos = registro.itens.reduce((total: number, item: any) => {
+        const valor = parseFloat(item.valorTotal) || 0
+        return total + valor
+      }, 0)
+      texto += `VALOR TOTAL: *R$ ${valorTotalInsumos.toFixed(2)}*\n`
+    }
   } else if (caderneta === 'saida-insumos') {
     // Para saída de insumos, usar ordem específica dos formulários
     const ordemSaidaInsumos = [

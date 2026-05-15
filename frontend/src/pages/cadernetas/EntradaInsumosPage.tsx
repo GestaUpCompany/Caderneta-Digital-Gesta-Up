@@ -313,7 +313,18 @@ export default function EntradaInsumosPage() {
       // 3. Delay para persistência
       await new Promise(resolve => setTimeout(resolve, 100))
 
-      setRegistroSalvo(registroEntrada)
+      // Adicionar itens ao registro para compartilhamento
+      const registroComItens = {
+        ...registroEntrada,
+        itens: itensValidos.map(item => ({
+          produto: item.produto,
+          quantidade: item.quantidade,
+          valorUnitario: item.valorUnitario,
+          valorTotal: item.valorTotal,
+        }))
+      }
+
+      setRegistroSalvo(registroComItens)
       setShowSuccessModal(true)
       setForm(makeInitial())
       setIsHorarioManual(false)
