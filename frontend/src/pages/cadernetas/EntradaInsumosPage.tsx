@@ -368,11 +368,6 @@ export default function EntradaInsumosPage() {
         </div>
       </div>
 
-      {/* Tarja de desenvolvimento */}
-      <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
-        <p className="text-xs font-semibold text-amber-700 text-center">⚠️ EM DESENVOLVIMENTO</p>
-      </div>
-
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
