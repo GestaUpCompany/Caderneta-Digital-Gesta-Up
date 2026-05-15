@@ -833,6 +833,7 @@ export type Database = {
           fazenda_id: string
           fornecedor: string | null
           id: string
+          insumo_id: string | null
           motivo: string | null
           nota_fiscal: string | null
           quantidade: number
@@ -849,6 +850,7 @@ export type Database = {
           fazenda_id: string
           fornecedor?: string | null
           id?: string
+          insumo_id?: string | null
           motivo?: string | null
           nota_fiscal?: string | null
           quantidade: number
@@ -865,6 +867,7 @@ export type Database = {
           fazenda_id?: string
           fornecedor?: string | null
           id?: string
+          insumo_id?: string | null
           motivo?: string | null
           nota_fiscal?: string | null
           quantidade?: number
@@ -878,6 +881,13 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacao_estoque_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos"
             referencedColumns: ["id"]
           },
         ]
