@@ -138,7 +138,7 @@ export default function Home() {
               type="both"
               size="medium"
               className="justify-between w-full"
-              middleText="Manj'Us 360"
+              middleText="Manej'Us 360"
             />
           </div>
           {/* Banner de boas-vindas como overlay */}

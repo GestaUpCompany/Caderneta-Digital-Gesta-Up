@@ -49,7 +49,7 @@ export default function FarmLogo({
       )}
       {middleText && (
         <div className="flex flex-col items-center justify-center gap-1">
-          <span className="text-xl font-bold text-white leading-none">Manj'Us</span>
+          <span className="text-xl font-bold text-white leading-none">Manej'Us</span>
           <span className="text-xl font-bold text-yellow-400 leading-none">360</span>
         </div>
       )}

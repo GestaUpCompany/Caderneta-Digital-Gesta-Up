@@ -274,6 +274,10 @@ function AppInner() {
             <Route path="/" element={
               shouldShowWelcome ? <WelcomePage /> : <Home />
             } />
+          </Routes>
+        </Suspense>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
 
