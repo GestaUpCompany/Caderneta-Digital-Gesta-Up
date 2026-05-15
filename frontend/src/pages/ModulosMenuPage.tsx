@@ -86,7 +86,8 @@ export default function ModulosMenuPage() {
             >
               VOLTAR
             </button>
-            <p className="text-white text-base font-semibold flex-1 text-center">Manej'Us 360</p>
+            <p className="text-white text-base font-semibold flex-1 text-center">CADERNETAS DIGITAIS
+            </p>
           </div>
         </div>
       </header>

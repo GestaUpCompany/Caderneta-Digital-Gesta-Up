@@ -38,7 +38,7 @@ export default function FarmLogo({
   const farmRadius = farmBorderRadius || (isSirio ? 'rounded-full' : borderRadius)
 
   return (
-    <div className={`flex items-center ${className}`}>
+    <div className={`flex items-center gap-12 ${className}`}>
       {type !== 'farm' && (
         <img
           src={LOGO_URL}
