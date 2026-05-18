@@ -278,8 +278,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
       // Status do intervalo
       if (registro.tempoDesdeLimpeza && registro.metaIntervaloLimpeza) {
-        const tempoDesde = parseInt(registro.tempoDesdeLimpeza) || 0
-        const meta = parseInt(registro.metaIntervaloLimpeza) || 0
+        const tempoDesde = parseInt(String(registro.tempoDesdeLimpeza)) || 0
+        const meta = parseInt(String(registro.metaIntervaloLimpeza)) || 0
         if (tempoDesde > meta) {
           texto += `STATUS INTERVALO: *Atrasado (${tempoDesde - meta} dias)*\n`
         } else {
