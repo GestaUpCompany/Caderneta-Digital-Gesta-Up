@@ -9,7 +9,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza } from '../../services/supabaseService'
+import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
@@ -109,6 +109,8 @@ export default function BebedourosPage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [bebedourosDisponiveis, setBebedourosDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [loadingFuncionarios, setLoadingFuncionarios] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -117,6 +119,30 @@ export default function BebedourosPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Carregar funcionários do Supabase
+  useEffect(() => {
+    const loadFuncionarios = async () => {
+      if (!fazendaId) {
+        setFuncionariosDisponiveis([])
+        setLoadingFuncionarios(false)
+        return
+      }
+
+      setLoadingFuncionarios(true)
+      try {
+        const funcionarios = await getFuncionarios(fazendaId)
+        setFuncionariosDisponiveis(funcionarios.map(f => f.nome))
+      } catch (error) {
+        console.error('Erro ao carregar funcionários:', error)
+        setFuncionariosDisponiveis([])
+      } finally {
+        setLoadingFuncionarios(false)
+      }
+    }
+
+    loadFuncionarios()
+  }, [fazendaId])
 
   // Carregar pastos e lotes do cache global
   useEffect(() => {
@@ -316,14 +342,27 @@ export default function BebedourosPage() {
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
-          <Input
-            label="RESPONSÁVEL"
-            placeholder="Nome do responsável"
-            value={form.responsavel}
-            onChange={setInput('responsavel')}
-            error={getError('responsavel')}
-            readOnly
-          />
+          {funcionariosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="RESPONSÁVEL"
+              value={form.responsavel}
+              onChange={set('responsavel')}
+              error={getError('responsavel')}
+              options={funcionariosDisponiveis}
+              placeholder="Buscar funcionário..."
+              disabled={loadingFuncionarios}
+              id="responsavel"
+              name="responsavel"
+            />
+          ) : (
+            <Input
+              label="RESPONSÁVEL"
+              placeholder={loadingFuncionarios ? 'Carregando funcionários...' : 'Nome do responsável'}
+              value={form.responsavel}
+              onChange={setInput('responsavel')}
+              error={getError('responsavel')}
+            />
+          )}
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
               <SearchableModal
