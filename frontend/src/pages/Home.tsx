@@ -131,46 +131,52 @@ export default function Home() {
       {/* Header */}
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
         <div className="flex flex-col items-center gap-3 px-4">
-          <div className="flex items-center justify-between w-full">
+          {/* Título Manej'Us 360 */}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl font-bold text-white leading-none">Manej'Us</span>
+            <span className="text-2xl font-bold text-yellow-400 leading-none">360</span>
+          </div>
+          {/* Logos */}
+          <div className="flex items-center justify-center w-full mt-4">
             <FarmLogo
               farmName={configurado ? fazenda : undefined}
               logoUrl={logoUrl}
               type="both"
               size="medium"
-              className="justify-between w-full"
-              middleText="Manej'Us 360"
+              gap="gap-4"
+              className="justify-center"
             />
           </div>
-          {/* Banner de boas-vindas como overlay */}
-          {configurado && usuario && (
-            <div className="mt-4 p-4 rounded-xl shadow-lg animate-fade-in w-full" style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.05))', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0">
-                  {greetingIcon}
-                </div>
-                <div className="flex-1">
-                  <p className="text-base font-bold text-white">
-                    {greeting}, {usuario}!
-                  </p>
-                  {fazenda && (
-                    <p className="text-xs text-gray-200 mt-1">
-                      {fazenda.toUpperCase()} • {currentDate}
-                    </p>
-                  )}
-                  {!fazenda && (
-                    <p className="text-xs text-gray-200 mt-1">
-                      {currentDate}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
       {/* Menu de Módulos - 2 botões grandes */}
       <main className="flex-1 p-4">
+        {/* Banner de boas-vindas */}
+        {configurado && usuario && (
+          <div className="mb-6 p-4 rounded-xl shadow-lg animate-fade-in w-full bg-[#1a3a2a]" style={{ border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                {greetingIcon}
+              </div>
+              <div className="flex-1">
+                <p className="text-base font-bold text-white">
+                  {greeting}, {usuario}!
+                </p>
+                {fazenda && (
+                  <p className="text-xs text-gray-200 mt-1">
+                    {fazenda.toUpperCase()} • {currentDate}
+                  </p>
+                )}
+                {!fazenda && (
+                  <p className="text-xs text-gray-200 mt-1">
+                    {currentDate}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Botão de ação rápida - última caderneta acessada */}
         {configurado && fazenda && ultimaCaderneta && (
           <button

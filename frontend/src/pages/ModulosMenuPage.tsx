@@ -77,7 +77,13 @@ export default function ModulosMenuPage() {
             />
           </div>
           {fazenda && (
-            <h1 className="text-2xl font-bold text-white">{fazenda.toUpperCase()}</h1>
+            <h1 className="text-2xl font-bold text-white">
+              {fazenda
+                .replace(/fazenda/gi, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toUpperCase()}
+            </h1>
           )}
           <div className="flex items-center gap-3 w-full relative">
             <button
