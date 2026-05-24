@@ -67,7 +67,7 @@ export function getFarmLogo(farmName: string): string {
 
 export const CADERNETAS = [
   { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', sheetName: 'Maternidade Cria', disponivel: true },
-  { id: 'pastagens', label: 'MANEJO DE PASTAGENS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', sheetName: 'Troca de Pastos', disponivel: true },
+  { id: 'pastagens', label: 'MANEJO PASTAGENS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', sheetName: 'Troca de Pastos', disponivel: true },
   { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: `${BASE}cadernetas/rodeio.png`, color: '#78AB46', sheetName: 'Rodeio Gado', disponivel: true },
   { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', sheetName: 'Suplementação', disponivel: true },
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', sheetName: 'Bebedouros', disponivel: true },

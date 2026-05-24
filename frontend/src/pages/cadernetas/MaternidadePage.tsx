@@ -45,11 +45,18 @@ const SEXO = [
 ]
 
 const RACAS = [
-  { value: 'Nelore', label: 'NELORE' },
-  { value: 'Angus', label: 'ANGUS' },
-  { value: 'Leiteiro', label: 'LEITEIRO' },
+  { value: 'Aberdeen', label: 'ABERDEEN' },
   { value: 'Anelorado', label: 'ANELORADO' },
+  { value: 'Angus', label: 'ANGUS' },
+  { value: 'Charolês', label: 'CHAROLÊS' },
+  { value: 'Girolando', label: 'GIROLANDO' },
+  { value: 'Guzerá', label: 'GUZERÁ' },
+  { value: 'Leiteiro', label: 'LEITEIRO' },
+  { value: 'Nelore', label: 'NELORE' },
+  { value: 'Red Angus', label: 'RED ANGUS' },
+  { value: 'Senepol', label: 'SENEPOL' },
   { value: 'SRD', label: 'SRD' },
+  { value: 'Wagyu', label: 'WAGYU' },
   { value: 'Outros', label: 'OUTROS' },
 ]
 
@@ -85,7 +92,6 @@ function processarCategorias(categorias: string): string[] {
 
 interface FormState {
   data: string
-  pasto: string
   lote: string
   pesoCria: string
   idProvisorioCria: string
@@ -105,7 +111,6 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  pasto: '',
   lote: '',
   pesoCria: '',
   idProvisorioCria: '',
@@ -133,7 +138,6 @@ export default function MaternidadePage() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
@@ -161,11 +165,10 @@ export default function MaternidadePage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Carregar pastos e lotes do cache global
+  // Carregar lotes do cache global
   useEffect(() => {
     const cache = getCachedCadastroData()
     if (cache) {
-      setPastosDisponiveis(cache.pastos || [])
       setLotesDisponiveis(cache.lotes || [])
     }
   }, [])
@@ -175,7 +178,6 @@ export default function MaternidadePage() {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[MaternidadePage] Cache atualizado, recarregando dados')
       if (data) {
-        setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
       }
     })
@@ -216,9 +218,10 @@ export default function MaternidadePage() {
 
     const tratamentoFinal = tratamentosFinais.join(', ')
     const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
+    const pastoNome = detalhesLote?.pastos?.nome || null
     const result = await salvarRegistro('maternidade', {
       data: form.data,
-      pasto: form.pasto,
+      pasto: pastoNome,
       lote: form.lote,
       pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
       idProvisorioCria: form.idProvisorioCria,
@@ -317,53 +320,28 @@ export default function MaternidadePage() {
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
-          <div className="grid grid-cols-2 gap-3">
-            {pastosDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="PASTO"
-                value={form.pasto}
-                onChange={set('pasto')}
-                error={getError('pasto')}
-                options={pastosDisponiveis}
-                placeholder="Buscar pasto..."
-                id="pasto"
-                name="pasto"
-              />
-            ) : (
-              <Input
-                label="PASTO"
-                placeholder="Carregando..."
-                value={form.pasto}
-                onChange={setInputEvent('pasto')}
-                error={getError('pasto')}
-                inputMode="text"
-                disabled
-                id="pasto"
-              />
-            )}
-            {lotesDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="LOTE"
-                value={form.lote}
-                onChange={set('lote')}
-                error={getError('lote')}
-                options={lotesDisponiveis}
-                placeholder="Buscar lote..."
-                id="lote"
-                name="lote"
-              />
-            ) : (
-              <Input
-                label="LOTE"
-                placeholder="Carregando..."
-                value={form.lote}
-                onChange={setInputEvent('lote')}
-                error={getError('lote')}
-                inputMode="text"
-                disabled
-              />
-            )}
-          </div>
+          {lotesDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="LOTE"
+              value={form.lote}
+              onChange={set('lote')}
+              error={getError('lote')}
+              options={lotesDisponiveis}
+              placeholder="Buscar lote..."
+              id="lote"
+              name="lote"
+            />
+          ) : (
+            <Input
+              label="LOTE"
+              placeholder="Carregando..."
+              value={form.lote}
+              onChange={setInputEvent('lote')}
+              error={getError('lote')}
+              inputMode="text"
+              disabled
+            />
+          )}
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
@@ -520,7 +498,7 @@ export default function MaternidadePage() {
           {form.raca === 'Outros' && (
             <Input
               label="QUAL RAÇA?"
-              placeholder="Ex: Brahman, Hereford, Simmental..."
+              placeholder="Ex: Brahman, Hereford, Simental..."
               value={form.racaOutros}
               onChange={setInputEvent('racaOutros')}
               error={getError('racaOutros')}

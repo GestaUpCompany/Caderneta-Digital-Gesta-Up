@@ -1083,18 +1083,38 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `Avaliação entrada: *${registro.avaliacaoEntrada || '—'}*\n`
       texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
 
-      // Seção LOTE E CATEGORIAS
-      texto += `LOTE: *${registro.numeroLote || '—'}*\n`
+      // Seção LOTE
+      texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
 
-      // Adicionar categorias com valor > 0
-      const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
-      categorias.forEach(key => {
-        const value = Number(registro[key]) || 0
-        if (value > 0) {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          texto += `${label}: *${value}*\n`
-        }
-      })
+      // Seção QUANTIDADE DE ANIMAIS
+      texto += `QUANTIDADE DE ANIMAIS\n`
+      
+      // Mostrar se o gado foi contado
+      if (registro.gadoContado) {
+        texto += `GADO FOI CONTADO?: *${registro.gadoContado}*\n`
+      }
+
+      // Se foi contado, mostrar categorias individuais
+      if (registro.gadoContado === 'Sim') {
+        const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
+        categorias.forEach(key => {
+          const value = Number(registro[key]) || 0
+          if (value > 0) {
+            let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+            texto += `${label}: *${value}*\n`
+          }
+        })
+      } else if (registro.gadoContado === 'Não') {
+        // Se não foi contado, mostrar total do lote
+        const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
+        texto += `CABEÇAS MANEJADAS: *${totalLote} animais*\n`
+      }
+
+      // Mostrar total sempre
+      if (registro.totalAnimais) {
+        texto += `TOTAL: *${registro.totalAnimais} animais*\n`
+      }
+      texto += `\n`
 
       // Escore do gado
       if (registro.escoreGado) {
@@ -1172,7 +1192,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         if (caderneta === 'pastagens' && [
           'pastoSaidaAreaUtil', 'pastoSaidaEspecie', 'pastoSaidaAlturaEntrada', 'pastoSaidaAlturaSaida',
           'pastoEntradaAreaUtil', 'pastoEntradaEspecie', 'pastoEntradaAlturaEntrada', 'pastoEntradaAlturaSaida',
-          'pasto', 'avaliacao', 'manejador', 'numeroLote' // campos já tratados na estrutura organizada
+          'pasto', 'avaliacao', 'manejador', 'numeroLote', 'gadoContado', 'totalAnimais', 'n_cabecas', 'qtd_bezerros' // campos já tratados na estrutura organizada
         ].includes(key)) {
           return // Não incluir detalhes dos pastos no texto compartilhável
         }

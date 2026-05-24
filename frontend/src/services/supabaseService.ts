@@ -191,7 +191,7 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
   const client = getSupabaseClient()
   const { data, error } = await client
     .from('lotes')
-    .select('*')
+    .select('*, pastos(nome)')
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)

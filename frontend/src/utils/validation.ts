@@ -72,7 +72,10 @@ function validateCategoriasNumericas(
   errorMessage?: string
 ): ValidationError | null {
   const algumPreenchido = categorias.some(
-    (c) => data[c] !== null && data[c] !== undefined && data[c] !== '' && Number(data[c]) > 0
+    (c) => {
+      const value = Number(data[c])
+      return !isNaN(value) && value > 0
+    }
   )
   if (!algumPreenchido) {
     return {
@@ -109,8 +112,6 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.pasto))
-    errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
   if (!isNonEmptyString(data.idProvisorioCria))
     errors.push({ field: 'idProvisorioCria', message: 'ID Provisório é obrigatório' })
   if (!isNonEmptyString(data.tratamento))
@@ -146,14 +147,19 @@ export function validatePastagens(data: Record<string, unknown>): ValidationResu
     errors.push({ field: 'pastoEntrada', message: 'Pasto de entrada é obrigatório' })
   if (!isScaleValue(data.avaliacaoEntrada, 1, 5, true))
     errors.push({ field: 'avaliacaoEntrada', message: 'Avaliação de entrada é obrigatória (1 a 5)' })
+  if (!isNonEmptyString(data.gadoContado))
+    errors.push({ field: 'gadoContado', message: 'Responda se o gado foi contado' })
 
-  const categoriasError = validateCategoriasNumericas(
-    data,
-    ['vaca', 'touro', 'bezerro', 'boiMagro', 'garrote', 'novilha'],
-    'categorias',
-    'Preencha ao menos uma categoria de animal'
-  )
-  if (categoriasError) errors.push(categoriasError)
+  // Only validate animal categories if gadoContado is "Sim"
+  if (data.gadoContado === 'Sim') {
+    const categoriasError = validateCategoriasNumericas(
+      data,
+      ['vaca', 'touro', 'bezerro', 'boiMagro', 'garrote', 'novilha'],
+      'categorias',
+      'Preencha ao menos uma categoria de animal'
+    )
+    if (categoriasError) errors.push(categoriasError)
+  }
 
   return { isValid: errors.length === 0, errors }
 }

@@ -53,6 +53,7 @@ interface FormState {
   pastoEntradaEspecie: string
   avaliacaoEntrada: string
   tempoVedacao: string
+  gadoContado: string
   vaca: string
   touro: string
   bezerro: string
@@ -79,6 +80,7 @@ const makeInitial = (usuario?: string): FormState => ({
   pastoEntradaEspecie: '',
   avaliacaoEntrada: '',
   tempoVedacao: '',
+  gadoContado: '',
   vaca: '',
   touro: '',
   bezerro: '',
@@ -300,6 +302,16 @@ export default function PastagensPage() {
       return
     }
 
+    // Calcular total de animais baseado na resposta de gadoContado
+    let totalAnimais = 0
+    if (form.gadoContado === 'Sim') {
+      totalAnimais = (Number(form.vaca) || 0) + (Number(form.touro) || 0) + (Number(form.bezerro) || 0) +
+                      (Number(form.boiGordo) || 0) + (Number(form.boiMagro) || 0) + (Number(form.garrote) || 0) +
+                      (Number(form.novilha) || 0) + (Number(form.tropa) || 0) + (Number(form.outros) || 0)
+    } else if (form.gadoContado === 'Não' && detalhesLote) {
+      totalAnimais = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+    }
+
     const result = await salvarRegistro('pastagens', {
       data: form.data,
       manejador: form.manejador,
@@ -314,6 +326,8 @@ export default function PastagensPage() {
       pastoEntradaEspecie: form.pastoEntradaEspecie,
       avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
       tempoVedacao: form.tempoVedacao,
+      gadoContado: form.gadoContado,
+      totalAnimais: totalAnimais,
       vaca: form.vaca ? Number(form.vaca) : 0,
       touro: form.touro ? Number(form.touro) : 0,
       boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
@@ -409,7 +423,7 @@ export default function PastagensPage() {
           </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="NÚMERO DO LOTE"
+              label="LOTE"
               value={form.numeroLote}
               onChange={set('numeroLote')}
               error={getError('numeroLote')}
@@ -479,7 +493,7 @@ export default function PastagensPage() {
           className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
         >
           <span className="text-xl">📄</span>
-          <span>POP MANEJO DE PASTAGENS</span>
+          <span>POP MANEJO PASTAGENS</span>
         </button>
 
         {/* Seção 3: Pasto de Entrada */}
@@ -524,30 +538,54 @@ export default function PastagensPage() {
         {/* Seção 4: Quantidade de Animais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. QUANTIDADE DE ANIMAIS</h2>
-          {getError('categorias') && (
-            <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
+          <Radio
+            name="gadoContado"
+            label="O GADO FOI CONTADO?"
+            options={[
+              { value: 'Sim', label: 'SIM' },
+              { value: 'Não', label: 'NÃO' }
+            ]}
+            value={form.gadoContado}
+            onChange={set('gadoContado')}
+            gridCols={2}
+            error={getError('gadoContado')}
+          />
+          {form.gadoContado === 'Sim' && (
+            <>
+              {getError('categorias') && (
+                <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
+              )}
+              <div className="grid grid-cols-2 gap-3 overflow-hidden">
+                {CATEGORIAS.map(({ campo, label }) => (
+                  <Input
+                    key={campo}
+                    label={label}
+                    placeholder="0"
+                    value={form[campo]}
+                    onChange={setInput(campo)}
+                    inputMode="numeric"
+                    type="number"
+                    min="0"
+                  />
+                ))}
+              </div>
+              {total > 0 && (
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 flex items-center justify-between">
+                  <span className="text-lg font-bold text-gray-700">TOTAL</span>
+                  <span className="text-2xl font-bold text-black">{total} animais</span>
+                </div>
+              )}
+            </>
           )}
-          <div className="grid grid-cols-2 gap-3 overflow-hidden">
-            {CATEGORIAS.map(({ campo, label }) => (
-              <Input
-                key={campo}
-                label={label}
-                placeholder="0"
-                value={form[campo]}
-                onChange={setInput(campo)}
-                inputMode="numeric"
-                type="number"
-                min="0"
-              />
-            ))}
-          </div>
-          {total > 0 && (
-            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 flex items-center justify-between">
-              <span className="text-lg font-bold text-gray-700">TOTAL</span>
-              <span className="text-2xl font-bold text-black">{total} animais</span>
+          {form.gadoContado === 'Não' && detalhesLote && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <p className="text-gray-500 font-semibold mb-2">CABEÇAS MANEJADAS</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {(detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)} animais
+              </p>
             </div>
           )}
-          {total > 0 && detalhesLote && (
+          {form.gadoContado === 'Sim' && total > 0 && detalhesLote && (
             (() => {
               const totalCabecasLote = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
               const diferenca = total - totalCabecasLote
@@ -615,7 +653,7 @@ export default function PastagensPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName="Manejo de Pastagens"
+        cadernetaName="Manejo Pastagens"
         registro={registroSalvo}
         caderneta="pastagens"
       />
