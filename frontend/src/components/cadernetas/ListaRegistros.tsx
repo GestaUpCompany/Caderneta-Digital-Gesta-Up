@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Registro } from '../../types/cadernetas'
@@ -10,12 +10,16 @@ import DatePickerIcon from '../ui/DatePickerIcon'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/shareUtils'
+import { CADERNETA_DISPLAY_CONFIG } from '../../config/cadernetas/index'
+import { GLOBAL_HIDDEN_FIELDS, FieldConfig } from '../../config/registroDisplayConfig'
+import { SPECIAL_COMPONENTS } from './registroSpecialComponents'
 
 interface Props {
   caderneta: CadernetaStore
-  titulo: ReactNode
+  titulo: React.ReactNode
   rotaForm: string
 }
+
 
 const statusLabel: Record<string, string> = {
   pending: '⏳',
@@ -364,14 +368,79 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                   <span className="text-xs text-gray-400 font-mono">{(registro.id as string).slice(0, 8)}</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
-                  {usuario && (
-                    <div className="col-span-2">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">USUÁRIO</p>
-                      <p className="text-base font-semibold text-gray-900">{usuario}</p>
-                    </div>
-                  )}
-                  {(() => {
+                {(() => {
+                    const config = CADERNETA_DISPLAY_CONFIG[caderneta]
+
+                    const renderFieldValue = (fieldConfig: FieldConfig, value: unknown): string => {
+                      if (fieldConfig.format) return fieldConfig.format(value, registro as any)
+                      const str = String(value)
+                      if (str === 'S') return 'Sim'
+                      if (str === 'N') return 'Não'
+                      if (Array.isArray(value)) return (value as string[]).join(', ')
+                      return str
+                    }
+
+                    if (config) {
+                      const allHidden = [...GLOBAL_HIDDEN_FIELDS, ...(config.hiddenFields || [])]
+                      return (
+                        <div className="mb-3">
+                          {usuario && (
+                            <div className="mb-2">
+                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">USUÁRIO</p>
+                              <p className="text-base font-semibold text-gray-900">{usuario}</p>
+                            </div>
+                          )}
+                          {config.sections
+                            .sort((a, b) => a.order - b.order)
+                            .map((section) => {
+                              const sectionFields = Object.values(config.fieldConfig)
+                                .filter(f => f.section === section.title)
+                                .filter(f => !f.condition || f.condition(registro as any))
+                                .sort((a, b) => (a.priority || 0) - (b.priority || 0))
+                                .filter(f => {
+                                  const v = registro[f.key]
+                                  return v !== null && v !== undefined && v !== ''
+                                })
+
+                              if (sectionFields.length === 0) return null
+
+                              return (
+                                <div key={section.title} className="mb-3">
+                                  <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-1">
+                                    {section.icon} {section.title}
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                    {sectionFields.map((field) => {
+                                      const value = registro[field.key]
+                                      const label = field.label || LABELS_BY_CADERNETA[caderneta]?.[field.key] || field.key.toUpperCase()
+                                      return (
+                                        <div key={field.key} className={field.colSpan === 2 ? 'col-span-2' : ''}>
+                                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</p>
+                                          <p className="text-base font-semibold text-gray-900 break-words whitespace-normal">
+                                            {renderFieldValue(field, value)}
+                                          </p>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          {(() => {
+                            const specials = SPECIAL_COMPONENTS[caderneta]
+                            if (!specials) return null
+                            return Object.entries(specials).map(([key, Component]) => {
+                              if (!allHidden.includes(key)) return null
+                              const node = Component(registro as any)
+                              if (!node) return null
+                              return <div key={key} className="col-span-2">{node}</div>
+                            })
+                          })()}
+                        </div>
+                      )
+                    }
+
+                    // Fallback: generic flat display for unconfigured cadernetas
                     const camposNormais: [string, unknown][] = []
                     const categoriasAnimais: string[] = []
 
@@ -665,21 +734,23 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                     }
 
                     return (
-                      <>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                        {usuario && (
+                          <div className="col-span-2">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">USUÁRIO</p>
+                            <p className="text-base font-semibold text-gray-900">{usuario}</p>
+                          </div>
+                        )}
                         {camposNormais.map(([key, value]) => {
-                          // Formatar label especial para animais tratados
                           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
                           if (key.match(/^animal\d+Id$/)) {
                             label = `animal ${String(value)}`
                           } else if (key.match(/^animal\d+Tratamentos$/)) {
                             label = 'Tratamentos'
                           }
-
                           return (
                             <div key={key}>
-                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                                {label}
-                              </p>
+                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</p>
                               <p className="text-base font-semibold text-gray-900 break-words whitespace-normal">
                                 {formatFieldValue(key, value)}
                               </p>
@@ -688,28 +759,19 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                         })}
                         {caderneta === 'movimentacao' && categoriasAnimais.length > 0 && (
                           <div className="col-span-2" key="categoriasAnimais">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                              CATEGORIAS DOS ANIMAIS
-                            </p>
-                            <p className="text-base font-semibold text-gray-900 break-words whitespace-normal">
-                              {categoriasAnimais.join(', ')}
-                            </p>
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">CATEGORIAS DOS ANIMAIS</p>
+                            <p className="text-base font-semibold text-gray-900 break-words whitespace-normal">{categoriasAnimais.join(', ')}</p>
                           </div>
                         )}
-                        {caderneta === 'movimentacao' && registro.causaObservacao && registro.causaObservacao !== '' && (
+                        {caderneta === 'movimentacao' && !!registro.causaObservacao && String(registro.causaObservacao) !== '' && (
                           <div className="col-span-2" key="causaObservacao">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                              {LABELS_BY_CADERNETA[caderneta]?.['causaObservacao'] || 'CAUSA/OBSERVAÇÃO'}
-                            </p>
-                            <p className="text-base font-semibold text-gray-900 break-words whitespace-normal">
-                              {formatFieldValue('causaObservacao', registro.causaObservacao)}
-                            </p>
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{LABELS_BY_CADERNETA[caderneta]?.['causaObservacao'] || 'CAUSA/OBSERVAÇÃO'}</p>
+                            <p className="text-base font-semibold text-gray-900 break-words whitespace-normal">{formatFieldValue('causaObservacao', registro.causaObservacao)}</p>
                           </div>
                         )}
-                      </>
+                      </div>
                     )
                   })()}
-                </div>
 
                 <div className="flex gap-2 border-t border-gray-100 pt-3">
                   <Button
