@@ -53,15 +53,15 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias }: Lote
         </div>
         <div>
           <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-          <p className="text-gray-900 font-bold">{detalhes.n_cabecas || '-'}</p>
+          <p className="text-gray-900 font-bold">{detalhes.n_cabecas !== undefined ? detalhes.n_cabecas : '-'}</p>
         </div>
         <div>
           <p className="text-gray-500 font-semibold">PESO VIVO ATUAL(kg)</p>
-          <p className="text-gray-900 font-bold">{detalhes.peso_vivo_kg || '-'}</p>
+          <p className="text-gray-900 font-bold">{detalhes.peso_vivo_kg !== undefined ? detalhes.peso_vivo_kg.toFixed(2) : '-'}</p>
         </div>
         <div>
           <p className="text-gray-500 font-semibold">QTD. BEZERROS(AS)</p>
-          <p className="text-gray-900 font-bold">{detalhes.qtd_bezerros || '-'}</p>
+          <p className="text-gray-900 font-bold">{detalhes.qtd_bezerros !== undefined ? detalhes.qtd_bezerros : '-'}</p>
         </div>
         <div>
           <p className="text-gray-500 font-semibold">TOTAL CABEÇAS</p>

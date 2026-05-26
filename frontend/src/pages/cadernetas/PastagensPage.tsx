@@ -12,7 +12,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida, getUltimoStatusPasto } from '../../services/supabaseService'
+import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida, getUltimoStatusPasto, getLoteDetalhesComCategorias } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -276,7 +276,17 @@ export default function PastagensPage() {
       try {
         const lote = await getLoteByNome(fazendaId, form.numeroLote)
         if (lote) {
-          setDetalhesLote(lote)
+          // Buscar detalhes de categorias do lote
+          const categoriasDetalhes = await getLoteDetalhesComCategorias(lote.id)
+          
+          // Combinar dados do lote com dados de categorias
+          setDetalhesLote({
+            ...lote,
+            categorias: categoriasDetalhes.categorias,
+            n_cabecas: categoriasDetalhes.quant_atual,
+            peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
+            qtd_bezerros: categoriasDetalhes.qtd_bezerros
+          })
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)

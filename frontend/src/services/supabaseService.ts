@@ -202,7 +202,8 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
 }
 
 export async function createLote(lote: TablesInsert<'lotes'>) {
-  const { data, error } = await supabase
+  const client = getSupabaseClient()
+  const { data, error } = await client
     .from('lotes')
     .insert(lote)
     .select()
@@ -210,6 +211,59 @@ export async function createLote(lote: TablesInsert<'lotes'>) {
 
   if (error) throw error
   return data
+}
+
+// ==================== LOTE CATEGORIAS ====================
+
+export async function getLoteCategorias(loteId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await (client as any)
+    .from('lote_categorias')
+    .select('*')
+    .eq('lote_id', loteId)
+    .eq('ativo', true)
+    .order('categoria')
+
+  if (error) throw error
+  return data as any[]
+}
+
+export async function getLoteDetalhesComCategorias(loteId: string) {
+  const categorias = await getLoteCategorias(loteId)
+  
+  if (!categorias || categorias.length === 0) {
+    return {
+      categorias: '-',
+      quant_atual: 0,
+      peso_vivo_kg: 0,
+      qtd_bezerros: 0,
+      total_cabeças: 0
+    }
+  }
+  
+  // Calcular agregações
+  const totalCabeças = categorias.reduce((sum, cat) => sum + (cat.quant_atual || 0), 0)
+  const totalBezerros = categorias.reduce((sum, cat) => sum + (cat.qtd_bezerros || 0), 0)
+  
+  // Calcular peso vivo médio ponderado
+  let pesoVivoTotal = 0
+  let pesoVivoPonderado = 0
+  categorias.forEach(cat => {
+    const quant = cat.quant_atual || 0
+    const peso = cat.peso_vivo_kg || 0
+    pesoVivoTotal += peso * quant
+  })
+  pesoVivoPonderado = totalCabeças > 0 ? pesoVivoTotal / totalCabeças : 0
+  
+  const categoriasNomes = categorias.map(cat => cat.categoria).join(', ')
+  
+  return {
+    categorias: categoriasNomes,
+    quant_atual: totalCabeças,
+    peso_vivo_kg: pesoVivoPonderado,
+    qtd_bezerros: totalBezerros,
+    total_cabeças: totalCabeças
+  }
 }
 
 export async function updateLote(id: string, lote: TablesUpdate<'lotes'>) {
