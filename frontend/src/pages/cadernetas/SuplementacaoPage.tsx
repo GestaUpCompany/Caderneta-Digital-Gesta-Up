@@ -218,7 +218,8 @@ export default function SuplementacaoPage() {
             categorias: categoriasDetalhes.categorias,
             n_cabecas: categoriasDetalhes.quant_atual,
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-            qtd_bezerros: categoriasDetalhes.qtd_bezerros
+            qtd_bezerros: categoriasDetalhes.qtd_bezerros,
+            categorias_raw: categoriasDetalhes.categorias_raw
           })
         }
       } catch (error) {
@@ -273,12 +274,19 @@ export default function SuplementacaoPage() {
           return
         }
 
-        const totalCabecas = detalhesLote.n_cabecas || 0
-        const qtdBezerros = detalhesLote.qtd_bezerros || 0
-        const cabecasAdultas = totalCabecas - qtdBezerros
+        // Filtrar categorias adultas (excluir bezerro, garrote, novilha)
+        const categoriasExcluidas = ['bezerro', 'garrote', 'novilha']
+        const categoriasRaw = detalhesLote.categorias_raw || []
+        const categoriasAdultas = categoriasRaw.filter(
+          (cat: any) => !categoriasExcluidas.includes(cat.categoria.toLowerCase())
+        )
+
+        const cabecasAdultas = categoriasAdultas.reduce((sum: number, cat: any) => sum + (cat.quant_atual || 0), 0)
 
         if (cabecasAdultas <= 0) {
-          setEspacamentoCochoDetalhes(null)
+          setEspacamentoCochoDetalhes({
+            erro: 'Não é possível calcular: não há gado adulto no lote'
+          })
           return
         }
 
@@ -583,30 +591,36 @@ export default function SuplementacaoPage() {
           {espacamentoCochoDetalhes && (
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
               <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO ESTÁ ADEQUADO?</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Espaçamento calculado:</span>
-                  <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
+              {espacamentoCochoDetalhes.erro ? (
+                <div className="text-base text-red-600 font-medium">
+                  {espacamentoCochoDetalhes.erro}
                 </div>
-                {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Espaçamento ideal:</span>
-                      <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Desvio:</span>
-                      <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
-                      </span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
-                  <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
-                  <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
+              ) : (
+                <div className="space-y-2 text-base">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Espaçamento calculado:</span>
+                    <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
+                  </div>
+                  {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Espaçamento ideal:</span>
+                        <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Desvio:</span>
+                        <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex flex-col gap-1 text-sm text-gray-500 pt-2 border-t border-gray-200">
+                    <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
+                    <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           

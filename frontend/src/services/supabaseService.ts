@@ -237,7 +237,8 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
       quant_atual: 0,
       peso_vivo_kg: 0,
       qtd_bezerros: 0,
-      total_cabeças: 0
+      total_cabeças: 0,
+      categorias_raw: []
     }
   }
   
@@ -262,7 +263,8 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
     quant_atual: totalCabeças,
     peso_vivo_kg: pesoVivoPonderado,
     qtd_bezerros: totalBezerros,
-    total_cabeças: totalCabeças
+    total_cabeças: totalCabeças,
+    categorias_raw: categorias
   }
 }
 
