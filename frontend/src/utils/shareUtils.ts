@@ -1175,7 +1175,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       // Seção: PARTO
       texto += `PARTO\n`
       if (registro.tipoParto) {
-        texto += `TIPO DE PARTO: *${registro.tipoParto}*\n`
+        const tipoPartoFormatted = Array.isArray(registro.tipoParto) 
+          ? registro.tipoParto.join(', ') 
+          : registro.tipoParto
+        texto += `TIPO DE PARTO: *${tipoPartoFormatted}*\n`
+      }
+      if (registro.observacaoParto) {
+        texto += `OBSERVAÇÃO PARTO: *${registro.observacaoParto}*\n`
       }
       if (registro.tratamento) {
         texto += `TRATAMENTO: *${registro.tratamento}*\n`

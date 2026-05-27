@@ -886,6 +886,28 @@ export async function deleteRegistroMaternidade(id: string) {
   if (error) throw error
 }
 
+export async function getContagemPartosVaca(fazendaId: string, idBrincoMae?: string, idChipMae?: string): Promise<number> {
+  const client = getSupabaseClient()
+  
+  let query = client
+    .from('registros_maternidade')
+    .select('id')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+
+  if (idBrincoMae) {
+    query = (query as any).eq('id_brinco_mae', idBrincoMae)
+  } else if (idChipMae) {
+    query = (query as any).eq('id_chip_mae', idChipMae)
+  } else {
+    return 0
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data?.length || 0
+}
+
 // ==================== REGISTROS PASTAGENS ====================
 
 export async function getRegistrosPastagens(fazendaId: string, dataInicio?: string, dataFim?: string) {

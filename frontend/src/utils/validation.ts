@@ -116,8 +116,16 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
     errors.push({ field: 'idProvisorioCria', message: 'ID Provisório é obrigatório' })
   if (!isNonEmptyString(data.tratamento))
     errors.push({ field: 'tratamento', message: 'Tratamento é obrigatório' })
-  if (!isNonEmptyString(data.tipoParto))
+  
+  // Validate tipoParto - can be array (new) or string (old for compatibility)
+  const tipoParto = data.tipoParto
+  if (Array.isArray(tipoParto)) {
+    if (tipoParto.length === 0)
+      errors.push({ field: 'tipoParto', message: 'Tipo de parto é obrigatório' })
+  } else if (!isNonEmptyString(tipoParto)) {
     errors.push({ field: 'tipoParto', message: 'Tipo de parto é obrigatório' })
+  }
+  
   if (!isNonEmptyString(data.sexo))
     errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
   if (!isNonEmptyString(data.raca))

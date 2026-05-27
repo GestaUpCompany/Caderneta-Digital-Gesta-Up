@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -37,6 +37,11 @@ const TIPOS_PARTO = [
   { value: 'Auxiliado', label: 'AUXILIADO', icon: '🤝' },
   { value: 'Cesárea', label: 'CESÁREA', icon: '🏥' },
   { value: 'Aborto', label: 'ABORTO', icon: '❌' },
+  { value: 'Natimorto', label: 'NATIMORTO', icon: '💀' },
+  { value: 'Distócico', label: 'DISTÓCICO', icon: '⚠️' },
+  { value: 'Gêmeos', label: 'GÊMEOS', icon: '👯' },
+  { value: 'Deficiência Física', label: 'DEFICIÊNCIA FÍSICA', icon: '♿' },
+  { value: 'Retenção de Placenta', label: 'RETENÇÃO DE PLACENTA', icon: '🩸' },
 ]
 
 const SEXO = [
@@ -99,7 +104,8 @@ interface FormState {
   idChipCria: string
   tratamentos: string[]
   tratamentoOutros: string
-  tipoParto: string
+  tipoParto: string[]
+  observacaoParto: string
   sexo: string
   raca: string
   racaOutros: string
@@ -119,7 +125,8 @@ const makeInitial = (): FormState => ({
   idChipCria: '',
   tratamentos: [],
   tratamentoOutros: '',
-  tipoParto: '',
+  tipoParto: [],
+  observacaoParto: '',
   sexo: '',
   raca: '',
   racaOutros: '',
@@ -139,6 +146,7 @@ export default function MaternidadePage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
+  const [partosCount, setPartosCount] = useState<number>(0)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
@@ -163,6 +171,13 @@ export default function MaternidadePage() {
         tratamentos: newTratamentos
       }))
     }
+  }
+
+  const handleTipoPartoChange = (newTipoParto: string[]) => {
+    setForm(prev => ({
+      ...prev,
+      tipoParto: newTipoParto
+    }))
   }
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
@@ -219,6 +234,26 @@ export default function MaternidadePage() {
     carregarDetalhesLote()
   }, [form.lote, fazendaId])
 
+  // Buscar contagem de partos quando idBrincoMae ou idChipMae mudar
+  useEffect(() => {
+    async function carregarContagemPartos() {
+      if (!fazendaId) {
+        setPartosCount(0)
+        return
+      }
+
+      try {
+        const count = await getContagemPartosVaca(fazendaId, form.idBrincoMae, form.idChipMae)
+        setPartosCount(count)
+      } catch (error) {
+        console.error('Erro ao carregar contagem de partos:', error)
+        setPartosCount(0)
+      }
+    }
+
+    carregarContagemPartos()
+  }, [form.idBrincoMae, form.idChipMae, fazendaId])
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
@@ -241,6 +276,7 @@ export default function MaternidadePage() {
       idChipCria: form.idChipCria,
       tratamento: tratamentoFinal,
       tipoParto: form.tipoParto,
+      observacaoParto: form.observacaoParto,
       sexo: form.sexo,
       raca: racaFinal,
       idBrincoMae: form.idBrincoMae,
@@ -411,12 +447,8 @@ export default function MaternidadePage() {
               ))}
             </div>
           </div>
-        </div>
-
-        {/* Seção 3: Docilidade da Matriz */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DOCILIDADE DA MATRIZ</h2>
-          <div>
+          <div className="pt-4 border-t border-gray-100">
+            <h3 className="text-base font-bold text-gray-900 mb-4">DOCILIDADE DA MATRIZ</h3>
             <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">AVALIAÇÃO DE DOCILIDADE</label>
             <p className="text-sm text-gray-600 mb-3">1 - Mais dócil | 3 - Mais brava</p>
             <div className="grid grid-cols-3 gap-2">
@@ -455,11 +487,27 @@ export default function MaternidadePage() {
               </label>
             </div>
           </div>
+          <div className="pt-4 border-t border-gray-100">
+            <h3 className="text-base font-bold text-gray-900 mb-2">HISTÓRICO DE PRENHEZ</h3>
+            {!form.idBrincoMae && !form.idChipMae ? (
+              <p className="text-lg font-semibold text-gray-700">
+                Digite um ID brinco e/ou chip válidos primeiro
+              </p>
+            ) : partosCount > 0 ? (
+              <p className="text-lg font-semibold text-gray-700">
+                {partosCount}ª cria
+              </p>
+            ) : (
+              <p className="text-lg font-semibold text-gray-700">
+                Nenhum registro encontrado
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Seção 4: Identificação */}
+        {/* Seção 3: Identificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. IDENTIFICAÇÃO DA CRIA</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. IDENTIFICAÇÃO DA CRIA</h2>
           <Input
             label="ID PROVISÓRIO"
             placeholder="Ex: 2023-145"
@@ -493,9 +541,9 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 5: Tratamento */}
+        {/* Seção 4: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TRATAMENTOS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTOS</h2>
           <CheckboxGroup
             label=""
             options={TRATAMENTOS}
@@ -518,22 +566,31 @@ export default function MaternidadePage() {
           )}
         </div>
 
-        {/* Seção 6: Parto */}
+        {/* Seção 5: Parto */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. TIPO DE PARTO</h2>
-          <Radio
-            name="tipoParto"
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TIPO DE PARTO</h2>
+          <CheckboxGroup
+            label=""
             options={TIPOS_PARTO}
-            value={form.tipoParto}
-            onChange={set('tipoParto')}
+            selectedValues={form.tipoParto}
+            onChange={handleTipoPartoChange}
             error={getError('tipoParto')}
             gridCols={2}
+            hideCheckbox={true}
+            id="tipoParto"
+            dataField="tipoParto"
+          />
+          <Input
+            label="OBSERVAÇÃO (OPCIONAL)"
+            placeholder="Observações sobre o parto..."
+            value={form.observacaoParto}
+            onChange={setInputEvent('observacaoParto')}
           />
         </div>
 
-        {/* Seção 7: Sexo e Raça */}
+        {/* Seção 6: Sexo e Raça */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. SEXO E RAÇA</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. SEXO E RAÇA</h2>
           <Radio
             name="sexo"
             label="SEXO"
