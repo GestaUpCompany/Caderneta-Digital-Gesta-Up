@@ -41,8 +41,6 @@ interface FormState {
   operadorMotorista: string
   maquinaVeiculo: string
   placa: string
-  hidrometroInicial: string
-  hidrometroFinal: string
   totalAbastecido: string
   combustivel: string
   odometro: string
@@ -57,8 +55,6 @@ const makeInitial = (): FormState => ({
   operadorMotorista: '',
   maquinaVeiculo: '',
   placa: '',
-  hidrometroInicial: '',
-  hidrometroFinal: '',
   totalAbastecido: '',
   combustivel: '',
   odometro: '',
@@ -76,16 +72,6 @@ export default function AbastecimentoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
 
-  // Calcular total abastecido automaticamente
-  useEffect(() => {
-    if (form.hidrometroInicial && form.hidrometroFinal) {
-      const inicial = parseFloat(form.hidrometroInicial)
-      const final = parseFloat(form.hidrometroFinal)
-      if (!isNaN(inicial) && !isNaN(final) && final >= inicial) {
-        setForm((prev) => ({ ...prev, totalAbastecido: String(final - inicial) }))
-      }
-    }
-  }, [form.hidrometroInicial, form.hidrometroFinal])
 
   // Carregar funcionários do cache
   useEffect(() => {
@@ -113,8 +99,6 @@ export default function AbastecimentoPage() {
       operadorMotorista: form.operadorMotorista,
       maquinaVeiculo: form.maquinaVeiculo,
       placa: form.placa,
-      hidrometroInicial: form.hidrometroInicial,
-      hidrometroFinal: form.hidrometroFinal,
       totalAbastecido: form.totalAbastecido,
       combustivel: form.combustivel,
       odometro: form.odometro,
@@ -197,9 +181,7 @@ export default function AbastecimentoPage() {
         </>
         <Input label="MÁQUINA/VEÍCULO?" placeholder="Modelo da máquina/veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
         <Input label="PLACA?" placeholder="Placa do veículo" value={form.placa} onChange={setInput('placa')} error={getError('placa')} />
-        <Input label="HIDRÔMETRO INICIAL?" placeholder="Leitura inicial" value={form.hidrometroInicial} onChange={setInput('hidrometroInicial')} error={getError('hidrometroInicial')} />
-        <Input label="HIDRÔMETRO FINAL?" placeholder="Leitura final" value={form.hidrometroFinal} onChange={setInput('hidrometroFinal')} error={getError('hidrometroFinal')} />
-        <Input label="TOTAL ABASTECIDO (L)" placeholder="Calculado automaticamente" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} readOnly />
+        <Input label="TOTAL ABASTECIDO (L)" placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />
       </div>
 
       {/* Seção 2: Combustível e Operação */}

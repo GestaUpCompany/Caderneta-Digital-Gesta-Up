@@ -298,12 +298,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `QUEM ABASTECEU: *${registro.quemAbasteceu || '—'}*\n`
     texto += `OPERADOR MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
     texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
-    texto += `PLACA: *${registro.placa || '—'}*\n\n`
-    
-    // Seção: Hidrômetro
-    texto += `HIDRÔMETRO\n`
-    texto += `INICIAL: *${registro.hidrometroInicial || '—'} L*\n`
-    texto += `FINAL: *${registro.hidrometroFinal || '—'} L*\n`
+    texto += `PLACA: *${registro.placa || '—'}*\n`
     texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'} L*\n\n`
     
     // Seção: Combustível
