@@ -904,6 +904,7 @@ export type Database = {
           id: string
           nome: string
           updated_at: string | null
+          possui_deposito: boolean | null
         }
         Insert: {
           altura_entrada_cm?: number | null
@@ -916,6 +917,7 @@ export type Database = {
           id?: string
           nome: string
           updated_at?: string | null
+          possui_deposito?: boolean | null
         }
         Update: {
           altura_entrada_cm?: number | null
@@ -928,6 +930,7 @@ export type Database = {
           id?: string
           nome?: string
           updated_at?: string | null
+          possui_deposito?: boolean | null
         }
         Relationships: [
           {
@@ -2295,6 +2298,7 @@ export type Database = {
           aterro_acesso_ideal_obs: string | null
           espacamento_cocho_cm_cab: number | null
           espacamento_cocho_obs: string | null
+          espacamento_cocho_detalhes: any | null
           espacamento_cocho_ideal: boolean | null
           deposito_condicoes: boolean | null
           deposito_condicoes_obs: string | null
@@ -2338,6 +2342,7 @@ export type Database = {
           aterro_acesso_ideal_obs?: string | null
           espacamento_cocho_cm_cab?: number | null
           espacamento_cocho_obs?: string | null
+          espacamento_cocho_detalhes?: any | null
           espacamento_cocho_ideal?: boolean | null
           deposito_condicoes?: boolean | null
           deposito_condicoes_obs?: string | null
@@ -2381,6 +2386,7 @@ export type Database = {
           aterro_acesso_ideal_obs?: string | null
           espacamento_cocho_cm_cab?: number | null
           espacamento_cocho_obs?: string | null
+          espacamento_cocho_detalhes?: any | null
           espacamento_cocho_ideal?: boolean | null
           deposito_condicoes?: boolean | null
           deposito_condicoes_obs?: string | null

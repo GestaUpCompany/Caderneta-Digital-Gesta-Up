@@ -395,6 +395,41 @@ export async function updateInsumo(id: string, insumo: TablesUpdate<'insumos'>) 
   return data
 }
 
+export async function getInsumoByNome(fazendaId: string, nome: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('insumos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function getEspacamentoIdealCocho(fazendaId: string, produtoTipo: string, produtoNome: string): Promise<number | null> {
+  let produto: any
+  switch (produtoTipo) {
+    case 'Mineral':
+      produto = await getMineralByNome(fazendaId, produtoNome)
+      break
+    case 'Proteinado':
+      produto = await getProteinadoByNome(fazendaId, produtoNome)
+      break
+    case 'Ração':
+      produto = await getRacaoByNome(fazendaId, produtoNome)
+      break
+    case 'Insumos':
+      produto = await getInsumoByNome(fazendaId, produtoNome)
+      break
+    default:
+      return null
+  }
+  return produto?.espacamento_ideal_cocho || null
+}
+
 export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insumos_itens'>) {
   const { data, error } = await supabase
     .from('entrada_insumos_itens')
@@ -457,6 +492,20 @@ export async function createMineral(mineral: any) {
   return data
 }
 
+export async function getMineralByNome(fazendaId: string, nome: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('mineral')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== PROTEINADO ====================
 
 export async function getProteinado(fazendaId: string) {
@@ -496,6 +545,20 @@ export async function createProteinado(proteinado: any) {
   return data
 }
 
+export async function getProteinadoByNome(fazendaId: string, nome: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('proteinado')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 // ==================== RACAO ====================
 
 export async function getRacao(fazendaId: string) {
@@ -529,6 +592,20 @@ export async function createRacao(racao: any) {
     .from('racao')
     .insert(racao)
     .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function getRacaoByNome(fazendaId: string, nome: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('racao')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
     .single()
 
   if (error) throw error

@@ -398,7 +398,7 @@ export default function BebedourosPage() {
             )}
             {lotesDisponiveis.length > 0 ? (
               <SearchableModal
-                label="NÚMERO LOTE"
+                label="LOTE"
                 value={form.numeroLote}
                 onChange={set('numeroLote')}
                 error={getError('numeroLote')}

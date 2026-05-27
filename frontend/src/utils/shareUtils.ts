@@ -521,6 +521,19 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `ESCORE FEZES: *${registro.escoreFezes}*\n`
     }
     
+    // Seção: Espaçamento do Cocho
+    if (registro.espacamentoCochoDetalhes) {
+      const detalhes = registro.espacamentoCochoDetalhes as any
+      texto += `\nESPAÇAMENTO DO COCHO\n`
+      texto += `Espaçamento calculado: *${detalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab*\n`
+      if (detalhes.espacamento_ideal_m_cab) {
+        texto += `Espaçamento ideal: *${detalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab*\n`
+        texto += `Desvio: *${detalhes.desvio_percentual?.toFixed(1)}%*\n`
+      }
+      texto += `Metragem cocho: *${detalhes.metragem_cocho_m}m*\n`
+      texto += `Cabeças adultas: *${detalhes.cabecas_adultas}*\n`
+    }
+    
     // Seção: Checklist Cochos - sempre exibir todas as perguntas
     const checklistCochos = [
       { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },

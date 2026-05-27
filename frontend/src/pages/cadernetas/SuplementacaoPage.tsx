@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -135,6 +135,9 @@ export default function SuplementacaoPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
+  const [dadosPasto, setDadosPasto] = useState<any>(null)
+  const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
 
   // Carregar todos os suplementos ao abrir a página
   useEffect(() => {
@@ -227,6 +230,90 @@ export default function SuplementacaoPage() {
     carregarDetalhesLote()
   }, [form.numeroLote, fazendaId])
 
+  // Buscar dados do pasto quando selecionado para verificar possui_deposito
+  useEffect(() => {
+    async function carregarDadosPasto() {
+      if (!form.pasto || !fazendaId) {
+        setPossuiDeposito(false)
+        setDadosPasto(null)
+        return
+      }
+
+      try {
+        const pasto = await getPastoByNome(fazendaId, form.pasto)
+        if (pasto) {
+          setPossuiDeposito(pasto.possui_deposito || false)
+          setDadosPasto(pasto)
+        } else {
+          setPossuiDeposito(false)
+          setDadosPasto(null)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados do pasto:', error)
+        setPossuiDeposito(false)
+        setDadosPasto(null)
+      }
+    }
+
+    carregarDadosPasto()
+  }, [form.pasto, fazendaId])
+
+  // Calcular espacamento do cocho quando dados mudarem
+  useEffect(() => {
+    async function calcularEspacamentoCocho() {
+      if (!dadosPasto || !detalhesLote || !form.produto || !suplemento || !fazendaId) {
+        setEspacamentoCochoDetalhes(null)
+        return
+      }
+
+      try {
+        const metragemCochoM = dadosPasto.metragem_cocho_m
+        if (!metragemCochoM) {
+          setEspacamentoCochoDetalhes(null)
+          return
+        }
+
+        const totalCabecas = detalhesLote.n_cabecas || 0
+        const qtdBezerros = detalhesLote.qtd_bezerros || 0
+        const cabecasAdultas = totalCabecas - qtdBezerros
+
+        if (cabecasAdultas <= 0) {
+          setEspacamentoCochoDetalhes(null)
+          return
+        }
+
+        const espacamentoCalculado = metragemCochoM / cabecasAdultas
+        const espacamentoIdeal = await getEspacamentoIdealCocho(fazendaId, form.produto, suplemento)
+
+        if (!espacamentoIdeal) {
+          setEspacamentoCochoDetalhes({
+            espacamento_calculado_m_cab: espacamentoCalculado,
+            espacamento_ideal_m_cab: null,
+            desvio_percentual: null,
+            metragem_cocho_m: metragemCochoM,
+            cabecas_adultas: cabecasAdultas
+          })
+          return
+        }
+
+        const desvioPercentual = ((espacamentoCalculado - espacamentoIdeal) / espacamentoIdeal) * 100
+
+        setEspacamentoCochoDetalhes({
+          espacamento_calculado_m_cab: espacamentoCalculado,
+          espacamento_ideal_m_cab: espacamentoIdeal,
+          desvio_percentual: desvioPercentual,
+          metragem_cocho_m: metragemCochoM,
+          cabecas_adultas: cabecasAdultas
+        })
+      } catch (error) {
+        console.error('Erro ao calcular espacamento do cocho:', error)
+        setEspacamentoCochoDetalhes(null)
+      }
+    }
+
+    calcularEspacamentoCocho()
+  }, [dadosPasto, detalhesLote, form.produto, suplemento, fazendaId])
+
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
 
@@ -261,6 +348,7 @@ export default function SuplementacaoPage() {
       categorias: categoriasArray,
       categoriasString: categoriasString,
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
+      espacamentoCochoDetalhes: espacamentoCochoDetalhes,
       // Checklist fields
       limpezaCocho: form.limpezaCocho === 'Sim',
       limpezaCochoObs: form.limpezaCochoObs || '',
@@ -377,7 +465,7 @@ export default function SuplementacaoPage() {
             )}
             {lotesDisponiveis.length > 0 ? (
               <SearchableModal
-                label="NÚMERO LOTE"
+                label="LOTE"
                 value={form.numeroLote}
                 onChange={set('numeroLote')}
                 error={getError('numeroLote')}
@@ -449,18 +537,18 @@ export default function SuplementacaoPage() {
             error={getError('leitura')}
             gridCols={5}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Total Suplementado no Cocho (kg)"
+            placeholder="0"
+            value={form.kgCocho}
+            onChange={setInput('kgCocho')}
+            inputMode="decimal"
+            type="number"
+            min="0"
+          />
+          {possuiDeposito && (
             <Input
-              label="Kg no cocho"
-              placeholder="0"
-              value={form.kgCocho}
-              onChange={setInput('kgCocho')}
-              inputMode="decimal"
-              type="number"
-              min="0"
-            />
-            <Input
-              label="Kg no depósito"
+              label="Total Suplementado no Depósito (kg)"
               placeholder="0"
               value={kgDeposito}
               onChange={(e) => setKgDeposito(e.target.value)}
@@ -468,7 +556,7 @@ export default function SuplementacaoPage() {
               type="number"
               min="0"
             />
-          </div>
+          )}
           <button
             onClick={() => setShowFezesModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -490,9 +578,41 @@ export default function SuplementacaoPage() {
         {/* Seção 4: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST</h2>
+          
+          {/* Espaçamento do cocho - display calculado */}
+          {espacamentoCochoDetalhes && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO ESTÁ ADEQUADO?</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Espaçamento calculado:</span>
+                  <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
+                </div>
+                {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Espaçamento ideal:</span>
+                      <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Desvio:</span>
+                      <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+                  <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
+                  <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {CHECKLIST_PERGUNTAS
             .filter(({ campo }) => 
-              (campo !== 'estoqueDepositio' && campo !== 'depositoCondicoes') || kgDeposito.trim() !== ''
+              (campo !== 'estoqueDepositio' && campo !== 'depositoCondicoes') || possuiDeposito
             )
             .map(({ campo, label }) => (
             <div key={campo}>
@@ -505,7 +625,7 @@ export default function SuplementacaoPage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              {(form as any)[campo] === 'Sim' && (
+              {(form as any)[campo] === 'Não' && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={(form as any)[`${campo}Obs`] || ''}
