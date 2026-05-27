@@ -12,6 +12,7 @@ const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
   { value: 'Gasolina', label: 'GASOLINA' },
   { value: 'Diesel S10', label: 'DIESEL S10' },
+  { value: 'Diesel S500', label: 'DIESEL S500' },
   { value: 'Diesel Comum', label: 'DIESEL COMUM' },
 ]
 
@@ -38,7 +39,7 @@ interface FormState {
   data: string
   quemAbasteceu: string
   operadorMotorista: string
-  veiculoTrator: string
+  maquinaVeiculo: string
   placa: string
   hidrometroInicial: string
   hidrometroFinal: string
@@ -54,7 +55,7 @@ const makeInitial = (): FormState => ({
   data: todayBR(),
   quemAbasteceu: '',
   operadorMotorista: '',
-  veiculoTrator: '',
+  maquinaVeiculo: '',
   placa: '',
   hidrometroInicial: '',
   hidrometroFinal: '',
@@ -110,7 +111,7 @@ export default function AbastecimentoPage() {
       data: form.data,
       quemAbasteceu: form.quemAbasteceu,
       operadorMotorista: form.operadorMotorista,
-      veiculoTrator: form.veiculoTrator,
+      maquinaVeiculo: form.maquinaVeiculo,
       placa: form.placa,
       hidrometroInicial: form.hidrometroInicial,
       hidrometroFinal: form.hidrometroFinal,
@@ -194,7 +195,7 @@ export default function AbastecimentoPage() {
             />
           )}
         </>
-        <Input label="TRATOR/VEÍCULO?" placeholder="Modelo do veículo/trator" value={form.veiculoTrator} onChange={setInput('veiculoTrator')} error={getError('veiculoTrator')} />
+        <Input label="MÁQUINA/VEÍCULO?" placeholder="Modelo da máquina/veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
         <Input label="PLACA?" placeholder="Placa do veículo" value={form.placa} onChange={setInput('placa')} error={getError('placa')} />
         <Input label="HIDRÔMETRO INICIAL?" placeholder="Leitura inicial" value={form.hidrometroInicial} onChange={setInput('hidrometroInicial')} error={getError('hidrometroInicial')} />
         <Input label="HIDRÔMETRO FINAL?" placeholder="Leitura final" value={form.hidrometroFinal} onChange={setInput('hidrometroFinal')} error={getError('hidrometroFinal')} />
@@ -213,7 +214,7 @@ export default function AbastecimentoPage() {
           error={getError('combustivel')}
           gridCols={2}
         />
-        <Input label="ODÔMETRO?" placeholder="Leitura do odômetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} />
+        <Input label="ODÔMETRO/HORÍMETRO?" placeholder="Leitura do odômetro/horímetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} />
         <Radio
           name="tipoOperacao"
           label="TIPO DE OPERAÇÃO?"

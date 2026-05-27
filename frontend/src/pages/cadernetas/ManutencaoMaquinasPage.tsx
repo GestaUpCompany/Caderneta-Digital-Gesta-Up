@@ -36,7 +36,7 @@ interface FormState {
   data: string
   responsavelChecklist: string
   operadorMotorista: string
-  veiculoTrator: string
+  maquinaVeiculo: string
   placa: string
   odometro: string
   checklist: {
@@ -52,7 +52,7 @@ const makeInitial = (): FormState => ({
   data: todayBR(),
   responsavelChecklist: '',
   operadorMotorista: '',
-  veiculoTrator: '',
+  maquinaVeiculo: '',
   placa: '',
   odometro: '',
   checklist: CHECKLIST_PERGUNTAS.reduce((acc, { campo }) => {
@@ -107,7 +107,7 @@ export default function ManutencaoMaquinasPage() {
       data: form.data,
       responsavelChecklist: form.responsavelChecklist,
       operadorMotorista: form.operadorMotorista,
-      veiculoTrator: form.veiculoTrator,
+      maquinaVeiculo: form.maquinaVeiculo,
       placa: form.placa,
       odometro: form.odometro,
       checklist: form.checklist,
@@ -235,11 +235,11 @@ export default function ManutencaoMaquinasPage() {
             )}
           </div>
           <Input
-            label="VEÍCULO/TRATOR"
-            placeholder="Informe o veículo ou trator"
-            value={form.veiculoTrator}
-            onChange={setInput('veiculoTrator')}
-            error={getError('veiculoTrator')}
+            label="MÁQUINA/VEÍCULO"
+            placeholder="Informe a máquina ou veículo"
+            value={form.maquinaVeiculo}
+            onChange={setInput('maquinaVeiculo')}
+            error={getError('maquinaVeiculo')}
           />
           <Input
             label="PLACA"
@@ -249,8 +249,8 @@ export default function ManutencaoMaquinasPage() {
             error={getError('placa')}
           />
           <Input
-            label="ODÔMETRO (km)"
-            placeholder="Informe a quilometragem"
+            label="ODÔMETRO/HORÍMETRO (km)"
+            placeholder="Informe a quilometragem/horímetro"
             value={form.odometro}
             onChange={setInput('odometro')}
             error={getError('odometro')}

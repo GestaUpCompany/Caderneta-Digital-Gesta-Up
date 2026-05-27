@@ -8,7 +8,7 @@ export const operacoesMaquinasConfig: CadernetaDisplayConfig = {
     { title: 'AVALIAÇÃO', order: 4, icon: '✅' },
   ],
   fieldConfig: {
-    veiculoTrator: { key: 'veiculoTrator', section: 'DADOS DA OPERAÇÃO', priority: 1 },
+    maquinaVeiculo: { key: 'maquinaVeiculo', section: 'DADOS DA OPERAÇÃO', priority: 1 },
     implementoUtilizado: { key: 'implementoUtilizado', section: 'DADOS DA OPERAÇÃO', priority: 2 },
     horaInicial: { key: 'horaInicial', section: 'DADOS DA OPERAÇÃO', priority: 3 },
     horaFinal: { key: 'horaFinal', section: 'DADOS DA OPERAÇÃO', priority: 4 },

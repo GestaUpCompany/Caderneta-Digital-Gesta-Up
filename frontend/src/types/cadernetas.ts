@@ -214,7 +214,7 @@ export interface RegistroProblemas extends Registro {
 export interface RegistroManutencaoMaquinas extends Registro {
   responsavelChecklist: string
   operadorMotorista: string
-  veiculoTrator: string
+  maquinaVeiculo: string
   placa: string
   odometro: string
   abastecimentoRealizado: boolean

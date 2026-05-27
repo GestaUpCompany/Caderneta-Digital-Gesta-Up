@@ -2416,7 +2416,7 @@ export type Database = {
           hidrometro_inicial: string | null
           id: string
           google_row_id: number | null
-          odometro: string | null
+          odometro_horimetro: string | null
           observacao: string | null
           operador_motorista: string | null
           placa: string | null
@@ -2425,7 +2425,7 @@ export type Database = {
           total_abastecido: string | null
           tipo_operacao: string | null
           updated_at: string | null
-          veiculo_trator: string | null
+          maquina_veiculo: string | null
           version: number | null
         }
         Insert: {
@@ -2439,7 +2439,7 @@ export type Database = {
           hidrometro_inicial?: string | null
           id?: string
           google_row_id?: number | null
-          odometro?: string | null
+          odometro_horimetro?: string | null
           observacao?: string | null
           operador_motorista?: string | null
           placa?: string | null
@@ -2448,7 +2448,7 @@ export type Database = {
           total_abastecido?: string | null
           tipo_operacao?: string | null
           updated_at?: string | null
-          veiculo_trator?: string | null
+          maquina_veiculo?: string | null
           version?: number | null
         }
         Update: {
@@ -2462,7 +2462,7 @@ export type Database = {
           hidrometro_inicial?: string | null
           id?: string
           google_row_id?: number | null
-          odometro?: string | null
+          odometro_horimetro?: string | null
           observacao?: string | null
           operador_motorista?: string | null
           placa?: string | null
@@ -2471,7 +2471,7 @@ export type Database = {
           total_abastecido?: string | null
           tipo_operacao?: string | null
           updated_at?: string | null
-          veiculo_trator?: string | null
+          maquina_veiculo?: string | null
           version?: number | null
         }
         Relationships: [
@@ -2675,7 +2675,7 @@ export type Database = {
           total_odometro: string | null
           updated_at: string
           version: number
-          veiculo_trator: string
+          maquina_veiculo: string
         }
         Insert: {
           area_trabalhada?: string | null
@@ -2704,7 +2704,7 @@ export type Database = {
           total_odometro?: string | null
           updated_at?: string
           version?: number
-          veiculo_trator: string
+          maquina_veiculo: string
         }
         Update: {
           area_trabalhada?: string | null
@@ -2733,7 +2733,7 @@ export type Database = {
           total_odometro?: string | null
           updated_at?: string
           version?: number
-          veiculo_trator?: string
+          maquina_veiculo?: string
         }
         Relationships: [
           {

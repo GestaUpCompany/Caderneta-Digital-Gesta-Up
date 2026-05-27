@@ -32,7 +32,7 @@ const SN_OPTIONS = [
 
 interface FormState {
   data: string
-  veiculoTrator: string
+  maquinaVeiculo: string
   implementoUtilizado: string
   horaInicial: string
   horaFinal: string
@@ -53,7 +53,7 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  veiculoTrator: '',
+  maquinaVeiculo: '',
   implementoUtilizado: '',
   horaInicial: '',
   horaFinal: '',
@@ -107,7 +107,7 @@ export default function OperacoesMaquinasPage() {
 
     const result = await salvarRegistro('operacoes-maquinas', {
       data: form.data,
-      veiculoTrator: form.veiculoTrator,
+      maquinaVeiculo: form.maquinaVeiculo,
       implementoUtilizado: form.implementoUtilizado,
       horaInicial: form.horaInicial,
       horaFinal: form.horaFinal,
@@ -160,7 +160,7 @@ export default function OperacoesMaquinasPage() {
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA OPERAÇÃO</h2>
         <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
-        <Input label="VEÍCULO TRATOR?" placeholder="Veículo/Trator" value={form.veiculoTrator} onChange={setInput('veiculoTrator')} error={getError('veiculoTrator')} />
+        <Input label="MÁQUINA/VEÍCULO?" placeholder="Máquina/Veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
         <Input label="IMPLEMENTO UTILIZADO?" placeholder="Implemento utilizado" value={form.implementoUtilizado} onChange={setInput('implementoUtilizado')} error={getError('implementoUtilizado')} />
         <Input label="HORA INICIAL?" type="time" value={form.horaInicial} onChange={setInput('horaInicial')} error={getError('horaInicial')} />
         <Input label="HORA FINAL?" type="time" value={form.horaFinal} onChange={setInput('horaFinal')} error={getError('horaFinal')} />

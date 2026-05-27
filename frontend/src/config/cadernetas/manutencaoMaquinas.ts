@@ -8,7 +8,7 @@ export const manutencaoMaquinasConfig: CadernetaDisplayConfig = {
   fieldConfig: {
     responsavelChecklist: { key: 'responsavelChecklist', section: 'DADOS PRINCIPAIS', priority: 1 },
     operadorMotorista: { key: 'operadorMotorista', section: 'DADOS PRINCIPAIS', priority: 2 },
-    veiculoTrator: { key: 'veiculoTrator', section: 'DADOS PRINCIPAIS', priority: 3 },
+    maquinaVeiculo: { key: 'maquinaVeiculo', section: 'DADOS PRINCIPAIS', priority: 3 },
     placa: { key: 'placa', section: 'DADOS PRINCIPAIS', priority: 4 },
     odometro: { key: 'odometro', section: 'DADOS PRINCIPAIS', priority: 5 },
     observacao: { key: 'observacao', section: 'DADOS PRINCIPAIS', priority: 6, colSpan: 2 },

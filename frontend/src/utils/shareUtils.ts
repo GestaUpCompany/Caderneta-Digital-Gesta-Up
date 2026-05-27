@@ -297,7 +297,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `DADOS DO ABASTECIMENTO\n`
     texto += `QUEM ABASTECEU: *${registro.quemAbasteceu || '—'}*\n`
     texto += `OPERADOR MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
-    texto += `VEÍCULO TRATOR: *${registro.veiculoTrator || '—'}*\n`
+    texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
     texto += `PLACA: *${registro.placa || '—'}*\n\n`
     
     // Seção: Hidrômetro
@@ -309,7 +309,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Combustível
     texto += `COMBUSTÍVEL\n`
     texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
-    texto += `ODÔMETRO: *${registro.odometro || '—'} km*\n`
+    texto += `ODÔMETRO/HORÍMETRO: *${registro.odometro || '—'} km*\n`
     texto += `TIPO DE OPERAÇÃO: *${registro.tipoOperacao || '—'}*\n`
     if (registro.tipoOperacao === 'Outros' && registro.tipoOperacaoOutros) {
       texto += `ESPECIFICAR: *${registro.tipoOperacaoOutros}*\n`
@@ -444,7 +444,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
   } else if (caderneta === 'operacoes-maquinas') {
     // Seção: Dados da Operação
     texto += `DADOS DA OPERAÇÃO\n`
-    texto += `VEÍCULO TRATOR: *${registro.veiculoTrator || '—'}*\n`
+    texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
     texto += `IMPLEMENTO UTILIZADO: *${registro.implementoUtilizado || '—'}*\n`
     
     if (registro.horaInicial && registro.horaFinal) {
@@ -1005,9 +1005,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Dados Principais
     texto += `RESPONSÁVEL CHECKLIST: *${registro.responsavelChecklist || '—'}*\n`
     texto += `OPERADOR/MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
-    texto += `VEÍCULO/TRATOR: *${registro.veiculoTrator || '—'}*\n`
+    texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
     texto += `PLACA: *${registro.placa || '—'}*\n`
-    texto += `ODÔMETRO: *${registro.odometro || '—'}*\n\n`
+    texto += `ODÔMETRO/HORÍMETRO: *${registro.odometro || '—'}*\n\n`
 
     // Seção: Checklist
     const checklistPerguntas = [

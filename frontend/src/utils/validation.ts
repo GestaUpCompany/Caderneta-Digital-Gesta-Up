@@ -361,8 +361,8 @@ export function validateAbastecimento(data: Record<string, unknown>): Validation
     errors.push({ field: 'quemAbasteceu', message: 'Quem abasteceu é obrigatório' })
   if (!isNonEmptyString(data.operadorMotorista))
     errors.push({ field: 'operadorMotorista', message: 'Operador motorista é obrigatório' })
-  if (!isNonEmptyString(data.veiculoTrator))
-    errors.push({ field: 'veiculoTrator', message: 'Veículo trator é obrigatório' })
+  if (!isNonEmptyString(data.maquinaVeiculo))
+    errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
   if (!isNonEmptyString(data.placa))
     errors.push({ field: 'placa', message: 'Placa é obrigatória' })
   if (!isNonEmptyString(data.hidrometroInicial))
@@ -374,7 +374,7 @@ export function validateAbastecimento(data: Record<string, unknown>): Validation
   if (!isNonEmptyString(data.combustivel))
     errors.push({ field: 'combustivel', message: 'Combustível é obrigatório' })
   if (!isNonEmptyString(data.odometro))
-    errors.push({ field: 'odometro', message: 'Odômetro é obrigatório' })
+    errors.push({ field: 'odometro', message: 'Odômetro/horímetro é obrigatório' })
   if (!isNonEmptyString(data.tipoOperacao))
     errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
 
@@ -436,8 +436,8 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.veiculoTrator))
-    errors.push({ field: 'veiculoTrator', message: 'Veículo/Trator é obrigatório' })
+  if (!isNonEmptyString(data.maquinaVeiculo))
+    errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
   if (!isNonEmptyString(data.implementoUtilizado))
     errors.push({ field: 'implementoUtilizado', message: 'Implemento utilizado é obrigatório' })
   
@@ -539,8 +539,8 @@ export function validateManutencaoMaquinas(data: Record<string, unknown>): Valid
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.responsavelChecklist))
     errors.push({ field: 'responsavelChecklist', message: 'Responsável checklist é obrigatório' })
-  if (!isNonEmptyString(data.veiculoTrator))
-    errors.push({ field: 'veiculoTrator', message: 'Veículo/Trator é obrigatório' })
+  if (!isNonEmptyString(data.maquinaVeiculo))
+    errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
 
   const checklistPerguntas = [
     'abastecimentoRealizado',

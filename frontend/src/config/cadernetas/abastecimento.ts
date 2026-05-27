@@ -9,7 +9,7 @@ export const abastecimentoConfig: CadernetaDisplayConfig = {
   fieldConfig: {
     quemAbasteceu: { key: 'quemAbasteceu', section: 'DADOS DO ABASTECIMENTO', priority: 1 },
     operadorMotorista: { key: 'operadorMotorista', section: 'DADOS DO ABASTECIMENTO', priority: 2 },
-    veiculoTrator: { key: 'veiculoTrator', section: 'DADOS DO ABASTECIMENTO', priority: 3 },
+    maquinaVeiculo: { key: 'maquinaVeiculo', section: 'DADOS DO ABASTECIMENTO', priority: 3 },
     placa: { key: 'placa', section: 'DADOS DO ABASTECIMENTO', priority: 4 },
 
     hidrometroInicial: { key: 'hidrometroInicial', section: 'HIDRÔMETRO', priority: 1, format: (v) => `${v} L` },
