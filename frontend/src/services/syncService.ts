@@ -41,6 +41,7 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'chipMae' },
       { field: 'categoriaMae' },
       { field: 'escoreMatriz' },
+      { field: 'docilidadeMatriz' },
     ],
   },
   pastagens: {
@@ -425,6 +426,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         id_chip_mae: registro.idChipMae || null,
         categoria_mae: registro.categoriaMae || null,
         escore_matriz: registro.escoreMatriz ? Number(registro.escoreMatriz) : null,
+        docilidade_matriz: registro.docilidadeMatriz ? Number(registro.docilidadeMatriz) : null,
       }
     case 'pastagens':
       return {

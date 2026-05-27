@@ -107,6 +107,7 @@ interface FormState {
   idChipMae: string
   categoriaMae: string
   escoreMatriz: string
+  docilidadeMatriz: string
 }
 
 const makeInitial = (): FormState => ({
@@ -126,6 +127,7 @@ const makeInitial = (): FormState => ({
   idChipMae: '',
   categoriaMae: '',
   escoreMatriz: '',
+  docilidadeMatriz: '',
 })
 
 export default function MaternidadePage() {
@@ -245,6 +247,7 @@ export default function MaternidadePage() {
       idChipMae: form.idChipMae,
       categoriaMae: form.categoriaMae,
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
+      docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
     })
 
     setSalvando(false)
@@ -410,9 +413,53 @@ export default function MaternidadePage() {
           </div>
         </div>
 
-        {/* Seção 3: Identificação */}
+        {/* Seção 3: Docilidade da Matriz */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. IDENTIFICAÇÃO DA CRIA</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DOCILIDADE DA MATRIZ</h2>
+          <div>
+            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">AVALIAÇÃO DE DOCILIDADE</label>
+            <p className="text-sm text-gray-600 mb-3">1 - Mais dócil | 3 - Mais brava</p>
+            <div className="grid grid-cols-3 gap-2">
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.docilidadeMatriz === '1' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="docilidadeMatriz" className="sr-only" value="1" checked={form.docilidadeMatriz === '1'} onChange={() => set('docilidadeMatriz')('1')} />
+                <span className="text-2xl sm:text-3xl">🟢</span>
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">1</span>
+              </label>
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.docilidadeMatriz === '2' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="docilidadeMatriz" className="sr-only" value="2" checked={form.docilidadeMatriz === '2'} onChange={() => set('docilidadeMatriz')('2')} />
+                <span className="text-2xl sm:text-3xl">🟡</span>
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">2</span>
+              </label>
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.docilidadeMatriz === '3' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="docilidadeMatriz" className="sr-only" value="3" checked={form.docilidadeMatriz === '3'} onChange={() => set('docilidadeMatriz')('3')} />
+                <span className="text-2xl sm:text-3xl">🔴</span>
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">3</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Seção 4: Identificação */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. IDENTIFICAÇÃO DA CRIA</h2>
           <Input
             label="ID PROVISÓRIO"
             placeholder="Ex: 2023-145"
@@ -446,9 +493,9 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 4: Tratamento */}
+        {/* Seção 5: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTOS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TRATAMENTOS</h2>
           <CheckboxGroup
             label=""
             options={TRATAMENTOS}
@@ -471,9 +518,9 @@ export default function MaternidadePage() {
           )}
         </div>
 
-        {/* Seção 5: Parto */}
+        {/* Seção 6: Parto */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TIPO DE PARTO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. TIPO DE PARTO</h2>
           <Radio
             name="tipoParto"
             options={TIPOS_PARTO}
@@ -484,9 +531,9 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 6: Sexo e Raça */}
+        {/* Seção 7: Sexo e Raça */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. SEXO E RAÇA</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. SEXO E RAÇA</h2>
           <Radio
             name="sexo"
             label="SEXO"

@@ -1145,6 +1145,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (registro.escoreMatriz) {
         texto += `ESCORE MATRIZ: *${registro.escoreMatriz}*\n`
       }
+      if (registro.docilidadeMatriz) {
+        texto += `DOCILIDADE MATRIZ: *${registro.docilidadeMatriz}*\n`
+      }
       texto += `\n`
 
       // Seção: IDENTIFICAÇÃO DA CRIA

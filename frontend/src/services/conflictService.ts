@@ -34,7 +34,7 @@ function buildRegistroFromRow(
   }
 
   const fieldsByCaderneta: Record<CadernetaStore, string[]> = {
-    maternidade: ['data', 'pasto', 'pesoCria', 'idCria', 'tratamento', 'tipoParto', 'sexo', 'raca', 'brincoMae', 'chipMae', 'categoriaMae'],
+    maternidade: ['data', 'pasto', 'pesoCria', 'idCria', 'tratamento', 'tipoParto', 'sexo', 'raca', 'brincoMae', 'chipMae', 'categoriaMae', 'docilidadeMatriz'],
     pastagens: ['data', 'manejador', 'numeroLote', 'pastoSaida', 'avaliacaoSaida', 'pastoEntrada', 'avaliacaoEntrada', 'vaca', 'touro', 'bezerro', 'boiMagro', 'garrote', 'novilha', 'totalAnimais'],
     rodeio: [
       'data', 'pasto', 'numeroLote', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha',
