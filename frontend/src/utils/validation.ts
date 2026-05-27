@@ -181,14 +181,19 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
   if (!isNonEmptyString(data.numeroLote))
     errors.push({ field: 'numeroLote', message: 'Número do lote é obrigatório' })
+  if (!isNonEmptyString(data.gadoContado))
+    errors.push({ field: 'gadoContado', message: 'Responda se o gado foi contado' })
 
-  const categoriasError = validateCategoriasNumericas(
-    data,
-    ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'],
-    'categorias',
-    'Preencha ao menos uma categoria de animal'
-  )
-  if (categoriasError) errors.push(categoriasError)
+  // Only validate categorias if gado was counted
+  if (data.gadoContado === 'Sim') {
+    const categoriasError = validateCategoriasNumericas(
+      data,
+      ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'],
+      'categorias',
+      'Preencha ao menos uma categoria de animal'
+    )
+    if (categoriasError) errors.push(categoriasError)
+  }
 
   const avaliacoesSN: Record<string, string> = {
     bebedourosCochos: 'Bebedouros / Cochos',

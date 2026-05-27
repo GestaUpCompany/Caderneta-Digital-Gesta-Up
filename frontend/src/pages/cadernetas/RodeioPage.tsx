@@ -82,6 +82,7 @@ interface FormState {
   data: string
   pasto: string
   numeroLote: string
+  gadoContado: string
   vaca: string
   touro: string
   boiGordo: string
@@ -93,6 +94,7 @@ interface FormState {
   outros: string
   escoreFezes: string
   equipe: string
+  equipeNomes: string[]
   escoreGado: string
   diagnosticos: {
     [key: string]: {
@@ -106,9 +108,11 @@ const makeInitial = (): FormState => ({
   data: todayBR(),
   pasto: '',
   numeroLote: '',
+  gadoContado: '',
   vaca: '', touro: '', boiGordo: '', boiMagro: '', garrote: '', bezerro: '', novilha: '', tropa: '', outros: '',
   escoreFezes: '',
   equipe: '',
+  equipeNomes: [],
   escoreGado: '',
   diagnosticos: DIAGNOSTICOS.reduce((acc, { campo }) => {
     acc[campo] = { valor: '', observacao: '' }
@@ -223,10 +227,21 @@ export default function RodeioPage() {
     setSalvando(true)
     setErrors([])
 
+    // Calcular total de animais baseado na resposta de gadoContado
+    let totalAnimais = 0
+    if (form.gadoContado === 'Sim') {
+      totalAnimais = (Number(form.vaca) || 0) + (Number(form.touro) || 0) + (Number(form.bezerro) || 0) +
+                      (Number(form.boiGordo) || 0) + (Number(form.boiMagro) || 0) + (Number(form.garrote) || 0) +
+                      (Number(form.novilha) || 0) + (Number(form.tropa) || 0) + (Number(form.outros) || 0)
+    } else if (form.gadoContado === 'Não' && detalhesLote) {
+      totalAnimais = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+    }
+
     const result = await salvarRegistro('rodeio', {
       data: form.data,
       pasto: form.pasto,
       numeroLote: form.numeroLote,
+      gadoContado: form.gadoContado,
       vaca: form.vaca ? Number(form.vaca) : 0,
       touro: form.touro ? Number(form.touro) : 0,
       boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
@@ -236,10 +251,11 @@ export default function RodeioPage() {
       novilha: form.novilha ? Number(form.novilha) : 0,
       tropa: form.tropa ? Number(form.tropa) : 0,
       outros: form.outros ? Number(form.outros) : 0,
-      totalCabecas: total,
+      totalCabecas: totalAnimais,
       diagnosticos: form.diagnosticos,
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       equipe: form.equipe ? Number(form.equipe) : null,
+      equipeNomes: form.equipeNomes,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : null,
       // Campos de divergência
       n_cabecas: detalhesLote?.n_cabecas || 0,
@@ -305,14 +321,14 @@ export default function RodeioPage() {
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          {usuario && (
-            <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-              <span className="text-xl">👤</span>
-              <p className="text-gray-700 font-semibold">{usuario}</p>
-            </div>
-          )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
+          <Input
+            label="MANEJADOR"
+            placeholder="Nome do responsável"
+            value={usuario || ''}
+            readOnly
+          />
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
               <SearchableModal
@@ -338,7 +354,7 @@ export default function RodeioPage() {
             )}
             {lotesDisponiveis.length > 0 ? (
               <SearchableModal
-                label="NÚMERO LOTE"
+                label="LOTE"
                 value={form.numeroLote}
                 onChange={set('numeroLote')}
                 error={getError('numeroLote')}
@@ -367,36 +383,71 @@ export default function RodeioPage() {
         {/* Seção 2: Quantidade por Categoria */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIDADE DE ANIMAIS</h2>
-          {getError('categorias') && (
-            <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            {CATEGORIAS_ANIMAIS.map(({ campo, label }) => (
-              <Input
-                key={campo}
-                label={label}
-                placeholder="0"
-                value={form[campo as keyof FormState] as string}
-                onChange={setInput(campo as keyof FormState)}
-                inputMode="numeric"
-                type="number"
-                min="0"
-              />
-            ))}
+          <div>
+            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">O GADO FOI CONTADO?</label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className={`
+                cursor-pointer rounded-xl border-2
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.gadoContado === 'Sim' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="gadoContado" className="sr-only" value="Sim" checked={form.gadoContado === 'Sim'} onChange={() => set('gadoContado')('Sim')} />
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">SIM</span>
+              </label>
+              <label className={`
+                cursor-pointer rounded-xl border-2
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.gadoContado === 'Não' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="gadoContado" className="sr-only" value="Não" checked={form.gadoContado === 'Não'} onChange={() => set('gadoContado')('Não')} />
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">NÃO</span>
+              </label>
+            </div>
           </div>
-          {total > 0 && (
-            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 flex items-center justify-between">
-              <span className="text-lg font-bold text-gray-700">TOTAL</span>
-              <span className="text-2xl font-bold text-black">{total} cabeças</span>
+          {form.gadoContado === 'Sim' && (
+            <>
+              {getError('categorias') && (
+                <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                {CATEGORIAS_ANIMAIS.map(({ campo, label }) => (
+                  <Input
+                    key={campo}
+                    label={label}
+                    placeholder="0"
+                    value={form[campo as keyof FormState] as string}
+                    onChange={setInput(campo as keyof FormState)}
+                    inputMode="numeric"
+                    type="number"
+                    min="0"
+                  />
+                ))}
+              </div>
+              {total > 0 && (
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 flex items-center justify-between">
+                  <span className="text-lg font-bold text-gray-700">TOTAL</span>
+                  <span className="text-2xl font-bold text-black">{total} cabeças</span>
+                </div>
+              )}
+            </>
+          )}
+          {form.gadoContado === 'Não' && detalhesLote && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <p className="text-gray-500 font-semibold mb-2">CABEÇAS MANEJADAS</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {(detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)} animais
+              </p>
             </div>
           )}
-          
-          {/* Aviso de divergência de cabeças */}
-          {total > 0 && detalhesLote && (
+          {form.gadoContado === 'Sim' && total > 0 && detalhesLote && (
             (() => {
               const totalLote = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
-              if (total !== totalLote) {
-                const diferenca = total - totalLote
+              const diferenca = total - totalLote
+              if (diferenca !== 0) {
                 return (
                   <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
                     <p className="text-base font-semibold text-orange-800 text-justify">
@@ -430,7 +481,7 @@ export default function RodeioPage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              {form.diagnosticos[campo]?.valor === 'S' && (
+              {form.diagnosticos[campo]?.valor === 'N' && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={form.diagnosticos[campo]?.observacao || ''}
@@ -442,39 +493,11 @@ export default function RodeioPage() {
           ))}
         </div>
 
-        {/* Seção 4: Tratamento e Avaliação */}
+        {/* Seção 4: Avaliação do Gado e Equipe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTO E AVALIAÇÃO</h2>
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP ESCORE DE FEZES</span>
-          </button>
-          <Radio
-            name="escoreFezes"
-            label="ESCORE DE FEZES (1 a 5)"
-            options={ESCALA_5}
-            value={form.escoreFezes}
-            onChange={set('escoreFezes')}
-            error={getError('escoreFezes')}
-            gridCols={5}
-          />
-          <Radio
-            name="equipe"
-            label="EQUIPE (1 a 5)"
-            options={ESCALA_EQUIPE}
-            value={form.equipe}
-            onChange={set('equipe')}
-            error={getError('equipe')}
-            gridCols={5}
-          />
-        </div>
-
-        {/* Seção 5: Escore do Gado */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. ESCORE DO GADO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. AVALIAÇÃO DO GADO E EQUIPE</h2>
+          
+          {/* Escore do Gado - moved from Seção 5 */}
           <button
             onClick={() => setShowEscoreModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -495,6 +518,60 @@ export default function RodeioPage() {
               </button>
             ))}
           </div>
+
+          {/* Escore de Fezes */}
+          <button
+            onClick={() => setShowPdfModal(true)}
+            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          >
+            <span className="text-xl">📄</span>
+            <span>POP ESCORE DE FEZES</span>
+          </button>
+          <Radio
+            name="escoreFezes"
+            label="ESCORE DE FEZES"
+            options={ESCALA_5}
+            value={form.escoreFezes}
+            onChange={set('escoreFezes')}
+            error={getError('escoreFezes')}
+            gridCols={5}
+          />
+          
+          {/* Equipe */}
+          <Radio
+            name="equipe"
+            label="N° PESSOAS NO MANEJO"
+            options={ESCALA_EQUIPE}
+            value={form.equipe}
+            onChange={(value) => {
+              set('equipe')(value)
+              // Reset equipeNomes when number changes
+              const numPessoas = Number(value) || 0
+              setForm(prev => ({
+                ...prev,
+                equipeNomes: Array(numPessoas).fill('')
+              }))
+            }}
+            error={getError('equipe')}
+            gridCols={5}
+          />
+          {form.equipe && Number(form.equipe) > 0 && (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: Number(form.equipe) }).map((_, index) => (
+                <Input
+                  key={index}
+                  label={`Nome da ${index + 1}ª pessoa`}
+                  placeholder="Nome"
+                  value={form.equipeNomes[index] || ''}
+                  onChange={(e) => {
+                    const newNomes = [...form.equipeNomes]
+                    newNomes[index] = e.target.value
+                    setForm(prev => ({ ...prev, equipeNomes: newNomes }))
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Seção 5: Procedimentos - OCULTO (PODERÁ SER REUTILIZADO NA ENFERMARIA) */}

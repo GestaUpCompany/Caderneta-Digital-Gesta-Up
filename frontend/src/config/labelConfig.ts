@@ -55,6 +55,7 @@ const PASTAGENS_LABELS = {
 const RODEIO_LABELS = {
   ...COMMON_LABELS,
   numeroLote: 'NÚMERO LOTE',
+  gadoContado: 'GADO FOI CONTADO?',
   vaca: 'VACA',
   touro: 'TOURO',
   boiGordo: 'BOI GORDO',
@@ -82,7 +83,7 @@ const RODEIO_LABELS = {
   animalMorto: 'ANIMAL MORTO',
   animalMortoObs: 'Observação',
   escoreFezes: 'ESCORE FEZES',
-  equipe: 'EQUIPE',
+  equipe: 'N° PESSOAS NO MANEJO',
   escoreGado: 'ESCORE GADO',
 }
 

@@ -75,6 +75,7 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'data' },
       { field: 'pasto' },
       { field: 'numeroLote' },
+      { field: 'gadoContado' },
       { field: 'vaca', transform: (v) => v || '' },
       { field: 'touro', transform: (v) => v || '' },
       { field: 'boiGordo', transform: (v) => v || '' },
@@ -460,6 +461,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         lote: registro.numeroLote || null,
+        gado_contado: registro.gadoContado || null,
         vaca: Number(registro.vaca) || 0,
         touro: Number(registro.touro) || 0,
         bezerro: Number(registro.bezerro) || 0,
@@ -470,6 +472,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         diagnosticos: registro.diagnosticos || {},
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         equipe: registro.equipe ? Number(registro.equipe) : null,
+        equipe_nomes: registro.equipeNomes || null,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
       }
     case 'suplementacao': {

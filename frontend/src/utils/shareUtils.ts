@@ -830,6 +830,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     const ordemRodeio = [
       'pasto',
       'numeroLote',
+      'gadoContado',
       'vaca',
       'touro',
       'boiGordo',
@@ -847,22 +848,59 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     ordemRodeio.forEach(key => {
       const value = registro[key]
-      // Para campos numéricos (categorias), não incluir se for 0
+      
+      // Handle gadoContado field
+      if (key === 'gadoContado') {
+        if (value && value !== '') {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const valorFormatado = value === 'Sim' ? 'Sim' : 'Não'
+          texto += `${label}: *${valorFormatado}*\n`
+        }
+        return
+      }
+      
+      // Para campos numéricos (categorias), não incluir se for 0 ou se gadoContado !== 'Sim'
       if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
-        if (value !== null && value !== undefined && value !== '' && Number(value) > 0) {
+        // Only show categories if gadoContado is 'Sim'
+        if (registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '' && Number(value) > 0) {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = formatFieldValue(key, value)
           texto += `${label}: *${valorFormatado}*\n`
+        }
+      } else if (key === 'totalCabecas') {
+        // Show totalCabecas based on gadoContado
+        if (registro.gadoContado === 'Não') {
+          // Show batch total when gado was not counted
+          const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
+          if (totalLote > 0) {
+            texto += `TOTAL: *${totalLote} animais*\n`
+          }
+        } else if (registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '') {
+          // Show counted total when gado was counted
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const valorFormatado = formatFieldValue(key, value)
+          texto += `${label}: *${valorFormatado}*\n`
+        }
+        texto += `\n`
+      } else if (key === 'equipe') {
+        // Show equipe number and names
+        if (value !== null && value !== undefined && value !== '') {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const valorFormatado = formatFieldValue(key, value)
+          texto += `${label}: *${valorFormatado}*\n`
+          
+          // Show team member names if available
+          if (registro.equipeNomes && Array.isArray(registro.equipeNomes) && registro.equipeNomes.length > 0) {
+            const nomesComValor = registro.equipeNomes.filter((n: string) => n && n.trim() !== '')
+            if (nomesComValor.length > 0) {
+              texto += `EQUIPE: *${nomesComValor.join(', ')}*\n`
+            }
+          }
         }
       } else if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
-        
-        // Adicionar quebra de linha após totalCabecas
-        if (key === 'totalCabecas') {
-          texto += `\n`
-        }
       }
     })
 
@@ -886,7 +924,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
         texto += `${label}: *${valorFormatado}*\n`
         
-        if (data.observacao && data.observacao !== '') {
+        // Only show observation when answer is 'N' (NÃO)
+        if (data.observacao && data.observacao !== '' && data.valor === 'N') {
           texto += `OBSERVAÇÃO: *${data.observacao}*\n`
         }
       }
