@@ -14,136 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      bebedouros: {
-        Row: {
-          ativo: boolean | null
-          capacidade: number | null
-          created_at: string | null
-          data_ultima_limpeza: string | null
-          fazenda_id: string
-          id: string
-          meta_intervalo_limpeza: number | null
-          nome: string
-          updated_at: string | null
-        }
-        Insert: {
-          ativo?: boolean | null
-          capacidade?: number | null
-          created_at?: string | null
-          data_ultima_limpeza?: string | null
-          fazenda_id: string
-          id?: string
-          meta_intervalo_limpeza?: number | null
-          nome: string
-          updated_at?: string | null
-        }
-        Update: {
-          ativo?: boolean | null
-          capacidade?: number | null
-          created_at?: string | null
-          data_ultima_limpeza?: string | null
-          fazenda_id?: string
-          id?: string
-          meta_intervalo_limpeza?: number | null
-          nome?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bebedouros_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pluviometros: {
-        Row: {
-          ativo: boolean | null
-          created_at: string | null
-          fazenda_id: string
-          id: string
-          localizacao: string
-          nome: string
-          updated_at: string | null
-        }
-        Insert: {
-          ativo?: boolean | null
-          created_at?: string | null
-          fazenda_id: string
-          id?: string
-          localizacao: string
-          nome: string
-          updated_at?: string | null
-        }
-        Update: {
-          ativo?: boolean | null
-          created_at?: string | null
-          fazenda_id?: string
-          id?: string
-          localizacao?: string
-          nome?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pluviometros_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      historico_limpezas_bebedouros: {
-        Row: {
-          bebedouro_id: string
-          created_at: string | null
-          data_limpeza: string
-          fazenda_id: string
-          id: string
-          observacao: string | null
-          responsavel: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          bebedouro_id: string
-          created_at?: string | null
-          data_limpeza: string
-          fazenda_id: string
-          id?: string
-          observacao?: string | null
-          responsavel?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          bebedouro_id?: string
-          created_at?: string | null
-          data_limpeza?: string
-          fazenda_id?: string
-          id?: string
-          observacao?: string | null
-          responsavel?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "historico_limpezas_bebedouros_bebedouro_id_fkey"
-            columns: ["bebedouro_id"]
-            isOneToOne: false
-            referencedRelation: "bebedouros"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "historico_limpezas_bebedouros_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       audit_log: {
         Row: {
           acao: string
@@ -201,6 +71,50 @@ export type Database = {
           },
         ]
       }
+      bebedouros: {
+        Row: {
+          ativo: boolean | null
+          capacidade: number | null
+          created_at: string | null
+          data_ultima_limpeza: string | null
+          fazenda_id: string
+          id: string
+          meta_intervalo_limpeza: number | null
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          capacidade?: number | null
+          created_at?: string | null
+          data_ultima_limpeza?: string | null
+          fazenda_id: string
+          id?: string
+          meta_intervalo_limpeza?: number | null
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          capacidade?: number | null
+          created_at?: string | null
+          data_ultima_limpeza?: string | null
+          fazenda_id?: string
+          id?: string
+          meta_intervalo_limpeza?: number | null
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bebedouros_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categorias: {
         Row: {
           ativo: boolean | null
@@ -232,6 +146,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "categorias_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      causas_morte: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          fazenda_id: string
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          fazenda_id: string
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          fazenda_id?: string
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "causas_morte_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -385,6 +337,51 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entrada_insumos_itens: {
+        Row: {
+          entrada_id: string
+          id: string
+          insumo_id: string
+          produto: string | null
+          quantidade: number
+          valor_total: number | null
+          valor_unitario: number | null
+        }
+        Insert: {
+          entrada_id: string
+          id?: string
+          insumo_id: string
+          produto?: string | null
+          quantidade: number
+          valor_total?: number | null
+          valor_unitario?: number | null
+        }
+        Update: {
+          entrada_id?: string
+          id?: string
+          insumo_id?: string
+          produto?: string | null
+          quantidade?: number
+          valor_total?: number | null
+          valor_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrada_insumos_itens_entrada_id_fkey"
+            columns: ["entrada_id"]
+            isOneToOne: false
+            referencedRelation: "registros_entrada_insumos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrada_insumos_itens_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos"
             referencedColumns: ["id"]
           },
         ]
@@ -596,22 +593,68 @@ export type Database = {
           },
         ]
       }
+      historico_limpezas_bebedouros: {
+        Row: {
+          bebedouro_id: string
+          created_at: string | null
+          data_limpeza: string
+          fazenda_id: string
+          id: string
+          observacao: string | null
+          responsavel: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bebedouro_id: string
+          created_at?: string | null
+          data_limpeza: string
+          fazenda_id: string
+          id?: string
+          observacao?: string | null
+          responsavel?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bebedouro_id?: string
+          created_at?: string | null
+          data_limpeza?: string
+          fazenda_id?: string
+          id?: string
+          observacao?: string | null
+          responsavel?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_limpezas_bebedouros_bebedouro_id_fkey"
+            columns: ["bebedouro_id"]
+            isOneToOne: false
+            referencedRelation: "bebedouros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_limpezas_bebedouros_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insumos: {
         Row: {
           ativo: boolean | null
           created_at: string | null
-          custo_saco: number | null
           custo_total_estoque: number | null
           custo_unitario: number | null
+          espacamento_ideal_cocho: number | null
           estoque_atual: number | null
-          estoque_minimo: number | null
           fabricante: string | null
           fazenda_id: string
           fornecedor: string | null
           id: string
           marca: string | null
           nome: string
-          peso_saco: number | null
           tipo: string | null
           unidade: string | null
           updated_at: string | null
@@ -619,18 +662,16 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           created_at?: string | null
-          custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
-          estoque_minimo?: number | null
           fabricante?: string | null
           fazenda_id: string
           fornecedor?: string | null
           id?: string
           marca?: string | null
           nome: string
-          peso_saco?: number | null
           tipo?: string | null
           unidade?: string | null
           updated_at?: string | null
@@ -638,18 +679,16 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           created_at?: string | null
-          custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
-          estoque_minimo?: number | null
           fabricante?: string | null
           fazenda_id?: string
           fornecedor?: string | null
           id?: string
           marca?: string | null
           nome?: string
-          peso_saco?: number | null
           tipo?: string | null
           unidade?: string | null
           updated_at?: string | null
@@ -664,47 +703,292 @@ export type Database = {
           },
         ]
       }
+      lote_categorias: {
+        Row: {
+          abate: number | null
+          ativo: boolean | null
+          categoria: string
+          consumo: number | null
+          created_at: string | null
+          custo_operacional: number | null
+          data_meta: string | null
+          data_pesagem: string | null
+          dias_restantes_meta: number | null
+          estrategia_nutricional: string | null
+          gmd: string | null
+          id: string
+          idade: number | null
+          lote_id: string
+          morte: number | null
+          periodo: number | null
+          peso_entrada: number | null
+          peso_entrada_arrobas: number | null
+          peso_vivo_kg: number | null
+          peso_vivo_meta_kg: number | null
+          preco_animal_cab: number | null
+          preco_animal_kg: number | null
+          qtd_bezerros: number | null
+          quant_atual: number | null
+          quant_inicial: number | null
+          raca: string | null
+          rc_inicial: number | null
+          sexo: string | null
+          transf_entrada: number | null
+          transf_saida: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          abate?: number | null
+          ativo?: boolean | null
+          categoria: string
+          consumo?: number | null
+          created_at?: string | null
+          custo_operacional?: number | null
+          data_meta?: string | null
+          data_pesagem?: string | null
+          dias_restantes_meta?: number | null
+          estrategia_nutricional?: string | null
+          gmd?: string | null
+          id?: string
+          idade?: number | null
+          lote_id: string
+          morte?: number | null
+          periodo?: number | null
+          peso_entrada?: number | null
+          peso_entrada_arrobas?: number | null
+          peso_vivo_kg?: number | null
+          peso_vivo_meta_kg?: number | null
+          preco_animal_cab?: number | null
+          preco_animal_kg?: number | null
+          qtd_bezerros?: number | null
+          quant_atual?: number | null
+          quant_inicial?: number | null
+          raca?: string | null
+          rc_inicial?: number | null
+          sexo?: string | null
+          transf_entrada?: number | null
+          transf_saida?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          abate?: number | null
+          ativo?: boolean | null
+          categoria?: string
+          consumo?: number | null
+          created_at?: string | null
+          custo_operacional?: number | null
+          data_meta?: string | null
+          data_pesagem?: string | null
+          dias_restantes_meta?: number | null
+          estrategia_nutricional?: string | null
+          gmd?: string | null
+          id?: string
+          idade?: number | null
+          lote_id?: string
+          morte?: number | null
+          periodo?: number | null
+          peso_entrada?: number | null
+          peso_entrada_arrobas?: number | null
+          peso_vivo_kg?: number | null
+          peso_vivo_meta_kg?: number | null
+          preco_animal_cab?: number | null
+          preco_animal_kg?: number | null
+          qtd_bezerros?: number | null
+          quant_atual?: number | null
+          quant_inicial?: number | null
+          raca?: string | null
+          rc_inicial?: number | null
+          sexo?: string | null
+          transf_entrada?: number | null
+          transf_saida?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lote_categorias_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lote_pasto_historico: {
+        Row: {
+          created_at: string | null
+          data_final: string | null
+          data_inicial: string
+          id: string
+          lote_id: string | null
+          pasto_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_final?: string | null
+          data_inicial?: string
+          id?: string
+          lote_id?: string | null
+          pasto_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_final?: string | null
+          data_inicial?: string
+          id?: string
+          lote_id?: string | null
+          pasto_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lote_pasto_historico_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lote_pasto_historico_pasto_id_fkey"
+            columns: ["pasto_id"]
+            isOneToOne: false
+            referencedRelation: "pastos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lotes: {
         Row: {
           ativo: boolean | null
           categorias: string | null
           created_at: string | null
+          custo_operacional: number | null
+          data_embarque_prevista: string | null
+          data_embarque_previsto: string | null
+          data_liberacao_sisbov: string | null
+          data_meta: string | null
+          data_pesagem: string | null
+          dias_restantes_meta: number | null
+          estrategia_nutricional: string | null
           fazenda_id: string
+          gmd: string | null
           id: string
+          idade: number | null
+          idade_meses: number | null
+          mes_competencia: string | null
           n_cabecas: number | null
           nome: string
           numero_cabecas: number | null
+          numero_contrato: string | null
+          pasto_id: string | null
+          periodo: number | null
+          periodo_liberacao_sisbov: string | null
+          peso_entrada: number | null
+          peso_entrada_kg: number | null
           peso_vivo_kg: number | null
+          peso_vivo_meta_kg: number | null
+          preco_animal_cab: number | null
+          preco_animal_kg: number | null
+          preco_cab: number | null
+          preco_kg: number | null
+          produtor_rural: string | null
+          propriedade_origem: string | null
           qtd_bezerros: number | null
+          quant_inicial: number | null
           quantidade_bezerros: number | null
+          raca: string | null
+          rc_inicial: number | null
+          sexo: string | null
+          sistema_producao: string | null
           updated_at: string | null
         }
         Insert: {
           ativo?: boolean | null
           categorias?: string | null
           created_at?: string | null
+          custo_operacional?: number | null
+          data_embarque_prevista?: string | null
+          data_embarque_previsto?: string | null
+          data_liberacao_sisbov?: string | null
+          data_meta?: string | null
+          data_pesagem?: string | null
+          dias_restantes_meta?: number | null
+          estrategia_nutricional?: string | null
           fazenda_id: string
+          gmd?: string | null
           id?: string
+          idade?: number | null
+          idade_meses?: number | null
+          mes_competencia?: string | null
           n_cabecas?: number | null
           nome: string
           numero_cabecas?: number | null
+          numero_contrato?: string | null
+          pasto_id?: string | null
+          periodo?: number | null
+          periodo_liberacao_sisbov?: string | null
+          peso_entrada?: number | null
+          peso_entrada_kg?: number | null
           peso_vivo_kg?: number | null
+          peso_vivo_meta_kg?: number | null
+          preco_animal_cab?: number | null
+          preco_animal_kg?: number | null
+          preco_cab?: number | null
+          preco_kg?: number | null
+          produtor_rural?: string | null
+          propriedade_origem?: string | null
           qtd_bezerros?: number | null
+          quant_inicial?: number | null
           quantidade_bezerros?: number | null
+          raca?: string | null
+          rc_inicial?: number | null
+          sexo?: string | null
+          sistema_producao?: string | null
           updated_at?: string | null
         }
         Update: {
           ativo?: boolean | null
           categorias?: string | null
           created_at?: string | null
+          custo_operacional?: number | null
+          data_embarque_prevista?: string | null
+          data_embarque_previsto?: string | null
+          data_liberacao_sisbov?: string | null
+          data_meta?: string | null
+          data_pesagem?: string | null
+          dias_restantes_meta?: number | null
+          estrategia_nutricional?: string | null
           fazenda_id?: string
+          gmd?: string | null
           id?: string
+          idade?: number | null
+          idade_meses?: number | null
+          mes_competencia?: string | null
           n_cabecas?: number | null
           nome?: string
           numero_cabecas?: number | null
+          numero_contrato?: string | null
+          pasto_id?: string | null
+          periodo?: number | null
+          periodo_liberacao_sisbov?: string | null
+          peso_entrada?: number | null
+          peso_entrada_kg?: number | null
           peso_vivo_kg?: number | null
+          peso_vivo_meta_kg?: number | null
+          preco_animal_cab?: number | null
+          preco_animal_kg?: number | null
+          preco_cab?: number | null
+          preco_kg?: number | null
+          produtor_rural?: string | null
+          propriedade_origem?: string | null
           qtd_bezerros?: number | null
+          quant_inicial?: number | null
           quantidade_bezerros?: number | null
+          raca?: string | null
+          rc_inicial?: number | null
+          sexo?: string | null
+          sistema_producao?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -715,36 +999,190 @@ export type Database = {
             referencedRelation: "fazendas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lotes_pasto_id_fkey"
+            columns: ["pasto_id"]
+            isOneToOne: false
+            referencedRelation: "pastos"
+            referencedColumns: ["id"]
+          },
         ]
       }
-      causas_morte: {
+      lotes_backup_20260526: {
+        Row: {
+          ativo: boolean | null
+          categorias: string | null
+          created_at: string | null
+          custo_operacional: number | null
+          data_embarque_prevista: string | null
+          data_embarque_previsto: string | null
+          data_liberacao_sisbov: string | null
+          data_meta: string | null
+          data_pesagem: string | null
+          dias_restantes_meta: number | null
+          estrategia_nutricional: string | null
+          fazenda_id: string | null
+          gmd: number | null
+          id: string | null
+          idade: number | null
+          idade_meses: number | null
+          mes_competencia: string | null
+          n_cabecas: number | null
+          nome: string | null
+          numero_cabecas: number | null
+          numero_contrato: string | null
+          pasto_id: string | null
+          periodo: number | null
+          periodo_liberacao_sisbov: string | null
+          peso_entrada: number | null
+          peso_entrada_kg: number | null
+          peso_vivo_kg: number | null
+          peso_vivo_meta_kg: number | null
+          preco_animal_cab: number | null
+          preco_animal_kg: number | null
+          preco_cab: number | null
+          preco_kg: number | null
+          produtor_rural: string | null
+          propriedade_origem: string | null
+          qtd_bezerros: number | null
+          quant_inicial: number | null
+          quantidade_bezerros: number | null
+          raca: string | null
+          rc_inicial: number | null
+          sexo: string | null
+          sistema_producao: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          categorias?: string | null
+          created_at?: string | null
+          custo_operacional?: number | null
+          data_embarque_prevista?: string | null
+          data_embarque_previsto?: string | null
+          data_liberacao_sisbov?: string | null
+          data_meta?: string | null
+          data_pesagem?: string | null
+          dias_restantes_meta?: number | null
+          estrategia_nutricional?: string | null
+          fazenda_id?: string | null
+          gmd?: number | null
+          id?: string | null
+          idade?: number | null
+          idade_meses?: number | null
+          mes_competencia?: string | null
+          n_cabecas?: number | null
+          nome?: string | null
+          numero_cabecas?: number | null
+          numero_contrato?: string | null
+          pasto_id?: string | null
+          periodo?: number | null
+          periodo_liberacao_sisbov?: string | null
+          peso_entrada?: number | null
+          peso_entrada_kg?: number | null
+          peso_vivo_kg?: number | null
+          peso_vivo_meta_kg?: number | null
+          preco_animal_cab?: number | null
+          preco_animal_kg?: number | null
+          preco_cab?: number | null
+          preco_kg?: number | null
+          produtor_rural?: string | null
+          propriedade_origem?: string | null
+          qtd_bezerros?: number | null
+          quant_inicial?: number | null
+          quantidade_bezerros?: number | null
+          raca?: string | null
+          rc_inicial?: number | null
+          sexo?: string | null
+          sistema_producao?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          categorias?: string | null
+          created_at?: string | null
+          custo_operacional?: number | null
+          data_embarque_prevista?: string | null
+          data_embarque_previsto?: string | null
+          data_liberacao_sisbov?: string | null
+          data_meta?: string | null
+          data_pesagem?: string | null
+          dias_restantes_meta?: number | null
+          estrategia_nutricional?: string | null
+          fazenda_id?: string | null
+          gmd?: number | null
+          id?: string | null
+          idade?: number | null
+          idade_meses?: number | null
+          mes_competencia?: string | null
+          n_cabecas?: number | null
+          nome?: string | null
+          numero_cabecas?: number | null
+          numero_contrato?: string | null
+          pasto_id?: string | null
+          periodo?: number | null
+          periodo_liberacao_sisbov?: string | null
+          peso_entrada?: number | null
+          peso_entrada_kg?: number | null
+          peso_vivo_kg?: number | null
+          peso_vivo_meta_kg?: number | null
+          preco_animal_cab?: number | null
+          preco_animal_kg?: number | null
+          preco_cab?: number | null
+          preco_kg?: number | null
+          produtor_rural?: string | null
+          propriedade_origem?: string | null
+          qtd_bezerros?: number | null
+          quant_inicial?: number | null
+          quantidade_bezerros?: number | null
+          raca?: string | null
+          rc_inicial?: number | null
+          sexo?: string | null
+          sistema_producao?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      medicamentos: {
         Row: {
           ativo: boolean | null
           created_at: string | null
+          deleted_at: string | null
+          dose_recomendada: string | null
           fazenda_id: string
           id: string
-          nome: string
+          nome_comercial: string
+          principio_ativo: string
+          tipo: string
           updated_at: string | null
         }
         Insert: {
           ativo?: boolean | null
           created_at?: string | null
+          deleted_at?: string | null
+          dose_recomendada?: string | null
           fazenda_id: string
           id?: string
-          nome: string
+          nome_comercial: string
+          principio_ativo: string
+          tipo: string
           updated_at?: string | null
         }
         Update: {
           ativo?: boolean | null
           created_at?: string | null
+          deleted_at?: string | null
+          dose_recomendada?: string | null
           fazenda_id?: string
           id?: string
-          nome?: string
+          nome_comercial?: string
+          principio_ativo?: string
+          tipo?: string
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "causas_morte_fazenda_id_fkey"
+            foreignKeyName: "medicamentos_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -760,6 +1198,7 @@ export type Database = {
           custo_saco: number | null
           custo_total_estoque: number | null
           custo_unitario: number | null
+          espacamento_ideal_cocho: number | null
           estoque_atual: number | null
           estoque_minimo: number | null
           fabricante: string | null
@@ -780,6 +1219,7 @@ export type Database = {
           custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
           estoque_minimo?: number | null
           fabricante?: string | null
@@ -800,6 +1240,7 @@ export type Database = {
           custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
           estoque_minimo?: number | null
           fabricante?: string | null
@@ -892,45 +1333,123 @@ export type Database = {
           },
         ]
       }
+      notificacoes: {
+        Row: {
+          acao_label: string | null
+          acao_url: string | null
+          created_at: string | null
+          deleted_at: string | null
+          fazenda_id: string
+          id: string
+          lida: boolean | null
+          mensagem: string
+          tipo: string
+          titulo: string
+          updated_at: string | null
+          usuario_id: string
+        }
+        Insert: {
+          acao_label?: string | null
+          acao_url?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          fazenda_id: string
+          id?: string
+          lida?: boolean | null
+          mensagem: string
+          tipo: string
+          titulo: string
+          updated_at?: string | null
+          usuario_id: string
+        }
+        Update: {
+          acao_label?: string | null
+          acao_url?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          fazenda_id?: string
+          id?: string
+          lida?: boolean | null
+          mensagem?: string
+          tipo?: string
+          titulo?: string
+          updated_at?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pastos: {
         Row: {
           altura_entrada_cm: number | null
           altura_saida_cm: number | null
           area_util_ha: number | null
+          area_util_porcentagem: number | null
           ativo: boolean | null
           created_at: string | null
           especie: string | null
           fazenda_id: string
           id: string
+          kg_deposito: number | null
+          metragem_cocho_m: number | null
+          nivel_degradacao: number | null
           nome: string
-          updated_at: string | null
           possui_deposito: boolean | null
+          setor: string | null
+          tipo: string | null
+          updated_at: string | null
         }
         Insert: {
           altura_entrada_cm?: number | null
           altura_saida_cm?: number | null
           area_util_ha?: number | null
+          area_util_porcentagem?: number | null
           ativo?: boolean | null
           created_at?: string | null
           especie?: string | null
           fazenda_id: string
           id?: string
+          kg_deposito?: number | null
+          metragem_cocho_m?: number | null
+          nivel_degradacao?: number | null
           nome: string
-          updated_at?: string | null
           possui_deposito?: boolean | null
+          setor?: string | null
+          tipo?: string | null
+          updated_at?: string | null
         }
         Update: {
           altura_entrada_cm?: number | null
           altura_saida_cm?: number | null
           area_util_ha?: number | null
+          area_util_porcentagem?: number | null
           ativo?: boolean | null
           created_at?: string | null
           especie?: string | null
           fazenda_id?: string
           id?: string
+          kg_deposito?: number | null
+          metragem_cocho_m?: number | null
+          nivel_degradacao?: number | null
           nome?: string
-          updated_at?: string | null
           possui_deposito?: boolean | null
+          setor?: string | null
+          tipo?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -969,6 +1488,44 @@ export type Database = {
         }
         Relationships: []
       }
+      pluviometros: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          fazenda_id: string
+          id: string
+          localizacao: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id: string
+          id?: string
+          localizacao: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id?: string
+          id?: string
+          localizacao?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pluviometros_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proteinado: {
         Row: {
           ativo: boolean | null
@@ -977,6 +1534,7 @@ export type Database = {
           custo_saco: number | null
           custo_total_estoque: number | null
           custo_unitario: number | null
+          espacamento_ideal_cocho: number | null
           estoque_atual: number | null
           estoque_minimo: number | null
           fabricante: string | null
@@ -998,6 +1556,7 @@ export type Database = {
           custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
           estoque_minimo?: number | null
           fabricante?: string | null
@@ -1019,6 +1578,7 @@ export type Database = {
           custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
           estoque_minimo?: number | null
           fabricante?: string | null
@@ -1051,6 +1611,7 @@ export type Database = {
           custo_saco: number | null
           custo_total_estoque: number | null
           custo_unitario: number | null
+          espacamento_ideal_cocho: number | null
           estoque_atual: number | null
           estoque_minimo: number | null
           fabricante: string | null
@@ -1071,6 +1632,7 @@ export type Database = {
           custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
           estoque_minimo?: number | null
           fabricante?: string | null
@@ -1091,6 +1653,7 @@ export type Database = {
           custo_saco?: number | null
           custo_total_estoque?: number | null
           custo_unitario?: number | null
+          espacamento_ideal_cocho?: number | null
           estoque_atual?: number | null
           estoque_minimo?: number | null
           fabricante?: string | null
@@ -1114,16 +1677,163 @@ export type Database = {
           },
         ]
       }
-      registros_bebedouros: {
+      registros_abastecimento: {
         Row: {
-          categoria: string | null
+          combustivel: string
+          created_at: string
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          id: string
+          maquina_veiculo: string
+          nome_usuario: string | null
+          observacao: string | null
+          odometro_horimetro: string
+          operador_motorista: string
+          placa: string
+          quem_abasteceu: string
+          sync_status: string
+          tipo_operacao: string
+          tipo_operacao_outros: string | null
+          total_abastecido: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          combustivel: string
+          created_at?: string
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          id?: string
+          maquina_veiculo: string
+          nome_usuario?: string | null
+          observacao?: string | null
+          odometro_horimetro: string
+          operador_motorista: string
+          placa: string
+          quem_abasteceu: string
+          sync_status?: string
+          tipo_operacao: string
+          tipo_operacao_outros?: string | null
+          total_abastecido: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          combustivel?: string
+          created_at?: string
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          id?: string
+          maquina_veiculo?: string
+          nome_usuario?: string | null
+          observacao?: string | null
+          odometro_horimetro?: string
+          operador_motorista?: string
+          placa?: string
+          quem_abasteceu?: string
+          sync_status?: string
+          tipo_operacao?: string
+          tipo_operacao_outros?: string | null
+          total_abastecido?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_abastecimento_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_abastecimento_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_almoxarifado: {
+        Row: {
           created_at: string | null
           data: string
           deleted_at: string | null
           dispositivo_id: string | null
           fazenda_id: string
-          gado: string | null
           google_row_id: number | null
+          id: string
+          itens: Json | null
+          nome_usuario: string | null
+          observacao: string | null
+          quem_entregou: string | null
+          quem_pegou: string | null
+          setor: string | null
+          sync_status: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          google_row_id?: number | null
+          id?: string
+          itens?: Json | null
+          nome_usuario?: string | null
+          observacao?: string | null
+          quem_entregou?: string | null
+          quem_pegou?: string | null
+          setor?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          google_row_id?: number | null
+          id?: string
+          itens?: Json | null
+          nome_usuario?: string | null
+          observacao?: string | null
+          quem_entregou?: string | null
+          quem_pegou?: string | null
+          setor?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      registros_bebedouros: {
+        Row: {
+          agua_suficiente: boolean | null
+          agua_suficiente_obs: string | null
+          aterro_acesso_bebedouro_ideal: boolean | null
+          aterro_acesso_bebedouro_ideal_obs: string | null
+          boia_protecao_boas_condicoes: boolean | null
+          boia_protecao_boas_condicoes_obs: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          espacamento_bebedouro_ideal: boolean | null
+          espacamento_bebedouro_ideal_obs: string | null
+          fazenda_id: string
+          gado: string | null
           id: string
           leitura_bebedouro: number | null
           lote: string | null
@@ -1134,26 +1844,25 @@ export type Database = {
           responsavel: string | null
           sync_status: string | null
           updated_at: string | null
-          version: number | null
-          // Checklist fields
-          agua_suficiente: boolean | null
-          agua_suficiente_obs: string | null
           vazao_bebedouro_ideal: boolean | null
           vazao_bebedouro_ideal_obs: string | null
-          aterro_acesso_bebedouro_ideal: boolean | null
-          aterro_acesso_bebedouro_ideal_obs: string | null
-          espacamento_bebedouro_ideal: boolean | null
-          espacamento_bebedouro_ideal_obs: string | null
+          version: number | null
         }
         Insert: {
-          categoria?: string | null
+          agua_suficiente?: boolean | null
+          agua_suficiente_obs?: string | null
+          aterro_acesso_bebedouro_ideal?: boolean | null
+          aterro_acesso_bebedouro_ideal_obs?: string | null
+          boia_protecao_boas_condicoes?: boolean | null
+          boia_protecao_boas_condicoes_obs?: string | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          espacamento_bebedouro_ideal?: boolean | null
+          espacamento_bebedouro_ideal_obs?: string | null
           fazenda_id: string
           gado?: string | null
-          google_row_id?: number | null
           id?: string
           leitura_bebedouro?: number | null
           lote?: string | null
@@ -1164,26 +1873,25 @@ export type Database = {
           responsavel?: string | null
           sync_status?: string | null
           updated_at?: string | null
-          version?: number | null
-          // Checklist fields
-          agua_suficiente?: boolean | null
-          agua_suficiente_obs?: string | null
           vazao_bebedouro_ideal?: boolean | null
           vazao_bebedouro_ideal_obs?: string | null
-          aterro_acesso_bebedouro_ideal?: boolean | null
-          aterro_acesso_bebedouro_ideal_obs?: string | null
-          espacamento_bebedouro_ideal?: boolean | null
-          espacamento_bebedouro_ideal_obs?: string | null
+          version?: number | null
         }
         Update: {
-          categoria?: string | null
+          agua_suficiente?: boolean | null
+          agua_suficiente_obs?: string | null
+          aterro_acesso_bebedouro_ideal?: boolean | null
+          aterro_acesso_bebedouro_ideal_obs?: string | null
+          boia_protecao_boas_condicoes?: boolean | null
+          boia_protecao_boas_condicoes_obs?: string | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          espacamento_bebedouro_ideal?: boolean | null
+          espacamento_bebedouro_ideal_obs?: string | null
           fazenda_id?: string
           gado?: string | null
-          google_row_id?: number | null
           id?: string
           leitura_bebedouro?: number | null
           lote?: string | null
@@ -1194,16 +1902,9 @@ export type Database = {
           responsavel?: string | null
           sync_status?: string | null
           updated_at?: string | null
-          version?: number | null
-          // Checklist fields
-          agua_suficiente?: boolean | null
-          agua_suficiente_obs?: string | null
           vazao_bebedouro_ideal?: boolean | null
           vazao_bebedouro_ideal_obs?: string | null
-          aterro_acesso_bebedouro_ideal?: boolean | null
-          aterro_acesso_bebedouro_ideal_obs?: string | null
-          espacamento_bebedouro_ideal?: boolean | null
-          espacamento_bebedouro_ideal_obs?: string | null
+          version?: number | null
         }
         Relationships: [
           {
@@ -1222,130 +1923,220 @@ export type Database = {
           },
         ]
       }
-      registros_enfermaria: {
+      registros_cantina: {
         Row: {
-          andar_cambaleante: boolean | null
-          andar_cambaleante_obs: string | null
-          brinco: string | null
-          categoria: string | null
-          cegueira: boolean | null
-          cegueira_obs: string | null
-          chip: string | null
           created_at: string | null
           data: string
           deleted_at: string | null
-          desordens_digestivas: boolean | null
-          desordens_digestivas_obs: string | null
           dispositivo_id: string | null
-          fazenda_id: string
-          febre_alta: boolean | null
-          febre_alta_obs: string | null
-          fraturas: boolean | null
-          fraturas_obs: string | null
-          google_row_id: number | null
+          fazenda_id: string | null
           id: string
-          incoordenacao_tremores: boolean | null
-          incoordenacao_tremores_obs: string | null
-          lote: string | null
+          itens: Json | null
+          nome_outros: string | null
           nome_usuario: string | null
-          pasto: string | null
-          picado_cobra: boolean | null
-          picado_cobra_obs: string | null
-          presenca_sangue: boolean | null
-          presenca_sangue_obs: string | null
-          problema_casco: boolean | null
-          problema_casco_obs: string | null
-          sintomas_pneumonia: boolean | null
-          sintomas_pneumonia_obs: string | null
+          numero_cafe_manha: number | null
+          numero_cozinheiras: number | null
+          numero_lanches: number | null
+          numero_refeicoes_almoco: number | null
+          numero_refeicoes_jantar: number | null
+          observacao: string | null
+          quantidade_outros: string | null
+          quem_ajudou: string | null
+          quem_cozinhou: string | null
           sync_status: string | null
-          tratamento: string | null
-          tratamento_obs: string | null
-          tratamento_outros: string | null
-          medicamentos: Json | null
+          unidade_outros: string | null
           updated_at: string | null
           version: number | null
         }
         Insert: {
-          andar_cambaleante?: boolean | null
-          andar_cambaleante_obs?: string | null
-          brinco?: string | null
-          categoria?: string | null
-          cegueira?: boolean | null
-          cegueira_obs?: string | null
-          chip?: string | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
-          desordens_digestivas?: boolean | null
-          desordens_digestivas_obs?: string | null
           dispositivo_id?: string | null
-          fazenda_id: string
-          febre_alta?: boolean | null
-          febre_alta_obs?: string | null
-          fraturas?: boolean | null
-          fraturas_obs?: string | null
-          google_row_id?: number | null
+          fazenda_id?: string | null
           id?: string
-          incoordenacao_tremores?: boolean | null
-          incoordenacao_tremores_obs?: string | null
-          lote?: string | null
+          itens?: Json | null
+          nome_outros?: string | null
           nome_usuario?: string | null
-          pasto?: string | null
-          picado_cobra?: boolean | null
-          picado_cobra_obs?: string | null
-          presenca_sangue?: boolean | null
-          presenca_sangue_obs?: string | null
-          problema_casco?: boolean | null
-          problema_casco_obs?: string | null
-          sintomas_pneumonia?: boolean | null
-          sintomas_pneumonia_obs?: string | null
+          numero_cafe_manha?: number | null
+          numero_cozinheiras?: number | null
+          numero_lanches?: number | null
+          numero_refeicoes_almoco?: number | null
+          numero_refeicoes_jantar?: number | null
+          observacao?: string | null
+          quantidade_outros?: string | null
+          quem_ajudou?: string | null
+          quem_cozinhou?: string | null
           sync_status?: string | null
-          tratamento?: string | null
-          tratamento_obs?: string | null
-          tratamento_outros?: string | null
-          medicamentos?: Json | null
+          unidade_outros?: string | null
           updated_at?: string | null
           version?: number | null
         }
         Update: {
-          andar_cambaleante?: boolean | null
-          andar_cambaleante_obs?: string | null
-          brinco?: string | null
-          categoria?: string | null
-          cegueira?: boolean | null
-          cegueira_obs?: string | null
-          chip?: string | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null
-          desordens_digestivas?: boolean | null
-          desordens_digestivas_obs?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string | null
+          id?: string
+          itens?: Json | null
+          nome_outros?: string | null
+          nome_usuario?: string | null
+          numero_cafe_manha?: number | null
+          numero_cozinheiras?: number | null
+          numero_lanches?: number | null
+          numero_refeicoes_almoco?: number | null
+          numero_refeicoes_jantar?: number | null
+          observacao?: string | null
+          quantidade_outros?: string | null
+          quem_ajudou?: string | null
+          quem_cozinhou?: string | null
+          sync_status?: string | null
+          unidade_outros?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      registros_clima: {
+        Row: {
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          id: string
+          medicoes: Json | null
+          nome_usuario: string | null
+          observacao: string | null
+          responsavel: string
+          sync_status: string | null
+          temperatura_media: number | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          id?: string
+          medicoes?: Json | null
+          nome_usuario?: string | null
+          observacao?: string | null
+          responsavel: string
+          sync_status?: string | null
+          temperatura_media?: number | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
           dispositivo_id?: string | null
           fazenda_id?: string
-          febre_alta?: boolean | null
-          febre_alta_obs?: string | null
-          fraturas?: boolean | null
-          fraturas_obs?: string | null
-          google_row_id?: number | null
           id?: string
-          incoordenacao_tremores?: boolean | null
-          incoordenacao_tremores_obs?: string | null
+          medicoes?: Json | null
+          nome_usuario?: string | null
+          observacao?: string | null
+          responsavel?: string
+          sync_status?: string | null
+          temperatura_media?: number | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_clima_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_clima_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_enfermaria: {
+        Row: {
+          brinco: string | null
+          categoria: string | null
+          chip: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          diagnosticos: Json | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          id: string
+          idade: string | null
+          lote: string | null
+          medicamentos: Json | null
+          nome_usuario: string | null
+          pasto: string | null
+          raca: string | null
+          sexo: string | null
+          sync_status: string | null
+          tratamento: string | null
+          tratamento_obs: string | null
+          tratamento_outros: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          brinco?: string | null
+          categoria?: string | null
+          chip?: string | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          diagnosticos?: Json | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          id?: string
+          idade?: string | null
           lote?: string | null
+          medicamentos?: Json | null
           nome_usuario?: string | null
           pasto?: string | null
-          picado_cobra?: boolean | null
-          picado_cobra_obs?: string | null
-          presenca_sangue?: boolean | null
-          presenca_sangue_obs?: string | null
-          problema_casco?: boolean | null
-          problema_casco_obs?: string | null
-          sintomas_pneumonia?: boolean | null
-          sintomas_pneumonia_obs?: string | null
+          raca?: string | null
+          sexo?: string | null
           sync_status?: string | null
           tratamento?: string | null
           tratamento_obs?: string | null
           tratamento_outros?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          brinco?: string | null
+          categoria?: string | null
+          chip?: string | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          diagnosticos?: Json | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          id?: string
+          idade?: string | null
+          lote?: string | null
           medicamentos?: Json | null
+          nome_usuario?: string | null
+          pasto?: string | null
+          raca?: string | null
+          sexo?: string | null
+          sync_status?: string | null
+          tratamento?: string | null
+          tratamento_obs?: string | null
+          tratamento_outros?: string | null
           updated_at?: string | null
           version?: number | null
         }
@@ -1366,201 +2157,6 @@ export type Database = {
           },
         ]
       }
-      registros_morte: {
-        Row: {
-          id: string
-          fazenda_id: string
-          dispositivo_id: string | null
-          nome_usuario: string | null
-          data: string
-          pasto: string | null
-          lote: string | null
-          brinco: string | null
-          chip: string | null
-          categoria: string | null
-          categoria_outros: string | null
-          sexo: string | null
-          raca: string | null
-          idade: string | null
-          peso_vivo: number | null
-          causa_morte: string | null
-          secrecao_orificios: boolean
-          secrecao_orificios_obs: string | null
-          sintomas_pneumonia: boolean
-          sintomas_pneumonia_obs: string | null
-          inchaco: boolean
-          inchaco_obs: string | null
-          incoordenacao_tremores: boolean
-          incoordenacao_tremores_obs: string | null
-          apatia_fraqueza: boolean
-          apatia_fraqueza_obs: string | null
-          presenca_sangue: boolean
-          presenca_sangue_obs: string | null
-          desordens_digestivas: boolean
-          desordens_digestivas_obs: string | null
-          sync_status: string | null
-          version: number | null
-          created_at: string | null
-          updated_at: string | null
-          deleted_at: string | null
-        }
-        Insert: {
-          id?: string
-          fazenda_id: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data: string
-          pasto?: string | null
-          lote?: string | null
-          brinco?: string | null
-          chip?: string | null
-          categoria?: string | null
-          categoria_outros?: string | null
-          sexo?: string | null
-          raca?: string | null
-          idade?: string | null
-          peso_vivo?: number | null
-          causa_morte?: string | null
-          secrecao_orificios?: boolean
-          secrecao_orificios_obs?: string | null
-          sintomas_pneumonia?: boolean
-          sintomas_pneumonia_obs?: string | null
-          inchaco?: boolean
-          inchaco_obs?: string | null
-          incoordenacao_tremores?: boolean
-          incoordenacao_tremores_obs?: string | null
-          apatia_fraqueza?: boolean
-          apatia_fraqueza_obs?: string | null
-          presenca_sangue?: boolean
-          presenca_sangue_obs?: string | null
-          desordens_digestivas?: boolean
-          desordens_digestivas_obs?: string | null
-          sync_status?: string | null
-          version?: number | null
-          created_at?: string | null
-          updated_at?: string | null
-          deleted_at?: string | null
-        }
-        Update: {
-          id?: string
-          fazenda_id?: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data?: string
-          pasto?: string | null
-          lote?: string | null
-          brinco?: string | null
-          chip?: string | null
-          categoria?: string | null
-          categoria_outros?: string | null
-          sexo?: string | null
-          raca?: string | null
-          idade?: string | null
-          peso_vivo?: number | null
-          causa_morte?: string | null
-          secrecao_orificios?: boolean
-          secrecao_orificios_obs?: string | null
-          sintomas_pneumonia?: boolean
-          sintomas_pneumonia_obs?: string | null
-          inchaco?: boolean
-          inchaco_obs?: string | null
-          incoordenacao_tremores?: boolean
-          incoordenacao_tremores_obs?: string | null
-          apatia_fraqueza?: boolean
-          apatia_fraqueza_obs?: string | null
-          presenca_sangue?: boolean
-          presenca_sangue_obs?: string | null
-          desordens_digestivas?: boolean
-          desordens_digestivas_obs?: string | null
-          sync_status?: string | null
-          version?: number | null
-          created_at?: string | null
-          updated_at?: string | null
-          deleted_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_morte_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_morte_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_clima: {
-        Row: {
-          id: string
-          fazenda_id: string
-          dispositivo_id: string | null
-          nome_usuario: string | null
-          data: string
-          responsavel: string
-          temperatura_media: number | null
-          observacao: string | null
-          medicoes: Json
-          sync_status: string | null
-          version: number | null
-          created_at: string | null
-          updated_at: string | null
-          deleted_at: string | null
-        }
-        Insert: {
-          id?: string
-          fazenda_id: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data: string
-          responsavel: string
-          temperatura_media?: number | null
-          observacao?: string | null
-          medicoes?: Json
-          sync_status?: string | null
-          version?: number | null
-          created_at?: string | null
-          updated_at?: string | null
-          deleted_at?: string | null
-        }
-        Update: {
-          id?: string
-          fazenda_id?: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data?: string
-          responsavel?: string
-          temperatura_media?: number | null
-          observacao?: string | null
-          medicoes?: Json
-          sync_status?: string | null
-          version?: number | null
-          created_at?: string | null
-          updated_at?: string | null
-          deleted_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_clima_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_clima_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       registros_entrada_insumos: {
         Row: {
           created_at: string | null
@@ -1569,7 +2165,6 @@ export type Database = {
           dispositivo_id: string | null
           fazenda_id: string
           fornecedor: string | null
-          google_row_id: number | null
           horario: string | null
           id: string
           insumo_id: string | null
@@ -1593,7 +2188,6 @@ export type Database = {
           dispositivo_id?: string | null
           fazenda_id: string
           fornecedor?: string | null
-          google_row_id?: number | null
           horario?: string | null
           id?: string
           insumo_id?: string | null
@@ -1617,7 +2211,6 @@ export type Database = {
           dispositivo_id?: string | null
           fazenda_id?: string
           fornecedor?: string | null
-          google_row_id?: number | null
           horario?: string | null
           id?: string
           insumo_id?: string | null
@@ -1649,931 +2242,11 @@ export type Database = {
             referencedRelation: "fazendas"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      registros_maternidade: {
-        Row: {
-          categoria_mae: string | null
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          escore_matriz: number | null
-          fazenda_id: string
-          google_row_id: number | null
-          id: string
-          lote: string | null
-          nome_usuario: string | null
-          numero_cria: string | null
-          numero_mae: string | null
-          pasto: string | null
-          peso_cria_kg: number | null
-          raca: string | null
-          sexo: string | null
-          sync_status: string | null
-          tipo_parto: string | null
-          tratamento: string | null
-          updated_at: string | null
-          version: number | null
-        }
-        Insert: {
-          categoria_mae?: string | null
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          escore_matriz?: number | null
-          fazenda_id: string
-          google_row_id?: number | null
-          id?: string
-          lote?: string | null
-          nome_usuario?: string | null
-          numero_cria?: string | null
-          numero_mae?: string | null
-          pasto?: string | null
-          peso_cria_kg?: number | null
-          raca?: string | null
-          sexo?: string | null
-          sync_status?: string | null
-          tipo_parto?: string | null
-          tratamento?: string | null
-          updated_at?: string | null
-          version?: number | null
-        }
-        Update: {
-          categoria_mae?: string | null
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          escore_matriz?: number | null
-          fazenda_id?: string
-          google_row_id?: number | null
-          id?: string
-          lote?: string | null
-          nome_usuario?: string | null
-          numero_cria?: string | null
-          numero_mae?: string | null
-          pasto?: string | null
-          peso_cria_kg?: number | null
-          raca?: string | null
-          sexo?: string | null
-          sync_status?: string | null
-          tipo_parto?: string | null
-          tratamento?: string | null
-          updated_at?: string | null
-          version?: number | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "registros_maternidade_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_maternidade_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_movimentacao: {
-        Row: {
-          bezerro: boolean | null
-          boi_gordo: boolean | null
-          boi_magro: boolean | null
-          brinco: string | null
-          causa_observacao: string | null
-          chip: string | null
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          fazenda_id: string
-          garrote: boolean | null
-          google_row_id: number | null
-          id: string
-          lote_destino: string | null
-          lote_origem: string | null
-          motivo_movimentacao: string | null
-          nome_usuario: string | null
-          novilha: boolean | null
-          numero_cabecas: number | null
-          outros: boolean | null
-          peso_medio_kg: number | null
-          sync_status: string | null
-          tipo_entrada: string | null
-          tipo_saida: string | null
-          touro: boolean | null
-          tropa: boolean | null
-          updated_at: string | null
-          vaca: boolean | null
-          version: number | null
-        }
-        Insert: {
-          bezerro?: boolean | null
-          boi_gordo?: boolean | null
-          boi_magro?: boolean | null
-          brinco?: string | null
-          causa_observacao?: string | null
-          chip?: string | null
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id: string
-          garrote?: boolean | null
-          google_row_id?: number | null
-          id?: string
-          lote_destino?: string | null
-          lote_origem?: string | null
-          motivo_movimentacao?: string | null
-          nome_usuario?: string | null
-          novilha?: boolean | null
-          numero_cabecas?: number | null
-          outros?: boolean | null
-          peso_medio_kg?: number | null
-          sync_status?: string | null
-          tipo_entrada?: string | null
-          tipo_saida?: string | null
-          touro?: boolean | null
-          tropa?: boolean | null
-          updated_at?: string | null
-          vaca?: boolean | null
-          version?: number | null
-        }
-        Update: {
-          bezerro?: boolean | null
-          boi_gordo?: boolean | null
-          boi_magro?: boolean | null
-          brinco?: string | null
-          causa_observacao?: string | null
-          chip?: string | null
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id?: string
-          garrote?: boolean | null
-          google_row_id?: number | null
-          id?: string
-          lote_destino?: string | null
-          lote_origem?: string | null
-          motivo_movimentacao?: string | null
-          nome_usuario?: string | null
-          novilha?: boolean | null
-          numero_cabecas?: number | null
-          outros?: boolean | null
-          peso_medio_kg?: number | null
-          sync_status?: string | null
-          tipo_entrada?: string | null
-          tipo_saida?: string | null
-          touro?: boolean | null
-          tropa?: boolean | null
-          updated_at?: string | null
-          vaca?: boolean | null
-          version?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_movimentacao_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_movimentacao_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_pastagens: {
-        Row: {
-          avaliacao_entrada: number | null
-          avaliacao_saida: number | null
-          bezerro: number | null
-          boi_magro: number | null
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          escore_gado: number | null
-          fazenda_id: string
-          garrote: number | null
-          google_row_id: number | null
-          id: string
-          lote: string | null
-          manejador: string | null
-          nome_usuario: string | null
-          novilha: number | null
-          pasto_entrada: string | null
-          pasto_entrada_area_util: string | null
-          pasto_entrada_especie: string | null
-          pasto_saida: string | null
-          pasto_saida_area_util: string | null
-          pasto_saida_especie: string | null
-          sync_status: string | null
-          touro: number | null
-          updated_at: string | null
-          vaca: number | null
-          version: number | null
-        }
-        Insert: {
-          avaliacao_entrada?: number | null
-          avaliacao_saida?: number | null
-          bezerro?: number | null
-          boi_magro?: number | null
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          escore_gado?: number | null
-          fazenda_id: string
-          garrote?: number | null
-          google_row_id?: number | null
-          id?: string
-          lote?: string | null
-          manejador?: string | null
-          nome_usuario?: string | null
-          novilha?: number | null
-          pasto_entrada?: string | null
-          pasto_entrada_area_util?: string | null
-          pasto_entrada_especie?: string | null
-          pasto_saida?: string | null
-          pasto_saida_area_util?: string | null
-          pasto_saida_especie?: string | null
-          sync_status?: string | null
-          touro?: number | null
-          updated_at?: string | null
-          vaca?: number | null
-          version?: number | null
-        }
-        Update: {
-          avaliacao_entrada?: number | null
-          avaliacao_saida?: number | null
-          bezerro?: number | null
-          boi_magro?: number | null
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          escore_gado?: number | null
-          fazenda_id?: string
-          garrote?: number | null
-          google_row_id?: number | null
-          id?: string
-          lote?: string | null
-          manejador?: string | null
-          nome_usuario?: string | null
-          novilha?: number | null
-          pasto_entrada?: string | null
-          pasto_entrada_area_util?: string | null
-          pasto_entrada_especie?: string | null
-          pasto_saida?: string | null
-          pasto_saida_area_util?: string | null
-          pasto_saida_especie?: string | null
-          sync_status?: string | null
-          touro?: number | null
-          updated_at?: string | null
-          vaca?: number | null
-          version?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_pastagens_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_pastagens_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_rodeio: {
-        Row: {
-          agua_boa_bebedouro: boolean | null
-          agua_boa_bebedouro_obs: string | null
-          animais_doentes_bichados: boolean | null
-          animais_doentes_obs: string | null
-          animais_entrevero: boolean | null
-          animais_entrevero_obs: string | null
-          animais_tratados: number | null
-          animal_morto: boolean | null
-          animal_morto_obs: string | null
-          bezerro: number | null
-          boi: number | null
-          carrapatos_moscas: boolean | null
-          carrapatos_moscas_obs: string | null
-          cercas_cochos: boolean | null
-          cercas_cochos_obs: string | null
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          equipe: number | null
-          escore_fezes: number | null
-          escore_gado: number | null
-          escore_gado_ideal: boolean | null
-          escore_gado_ideal_obs: string | null
-          fazenda_id: string
-          garrote: number | null
-          google_row_id: number | null
-          id: string
-          lote: string | null
-          nome_usuario: string | null
-          novilha: number | null
-          pastagem_adequada: boolean | null
-          pastagem_adequada_obs: string | null
-          pasto: string | null
-          procedimentos: string[] | null
-          sync_status: string | null
-          total_cabecas: number | null
-          touro: number | null
-          updated_at: string | null
-          vaca: number | null
-          version: number | null
-        }
-        Insert: {
-          agua_boa_bebedouro?: boolean | null
-          agua_boa_bebedouro_obs?: string | null
-          animais_doentes_bichados?: boolean | null
-          animais_doentes_obs?: string | null
-          animais_entrevero?: boolean | null
-          animais_entrevero_obs?: string | null
-          animais_tratados?: number | null
-          animal_morto?: boolean | null
-          animal_morto_obs?: string | null
-          bezerro?: number | null
-          boi?: number | null
-          carrapatos_moscas?: boolean | null
-          carrapatos_moscas_obs?: string | null
-          cercas_cochos?: boolean | null
-          cercas_cochos_obs?: string | null
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          equipe?: number | null
-          escore_fezes?: number | null
-          escore_gado?: number | null
-          escore_gado_ideal?: boolean | null
-          escore_gado_ideal_obs?: string | null
-          fazenda_id: string
-          garrote?: number | null
-          google_row_id?: number | null
-          id?: string
-          lote?: string | null
-          nome_usuario?: string | null
-          novilha?: number | null
-          pastagem_adequada?: boolean | null
-          pastagem_adequada_obs?: string | null
-          pasto?: string | null
-          procedimentos?: string[] | null
-          sync_status?: string | null
-          total_cabecas?: number | null
-          touro?: number | null
-          updated_at?: string | null
-          vaca?: number | null
-          version?: number | null
-        }
-        Update: {
-          agua_boa_bebedouro?: boolean | null
-          agua_boa_bebedouro_obs?: string | null
-          animais_doentes_bichados?: boolean | null
-          animais_doentes_obs?: string | null
-          animais_entrevero?: boolean | null
-          animais_entrevero_obs?: string | null
-          animais_tratados?: number | null
-          animal_morto?: boolean | null
-          animal_morto_obs?: string | null
-          bezerro?: number | null
-          boi?: number | null
-          carrapatos_moscas?: boolean | null
-          carrapatos_moscas_obs?: string | null
-          cercas_cochos?: boolean | null
-          cercas_cochos_obs?: string | null
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          equipe?: number | null
-          escore_fezes?: number | null
-          escore_gado?: number | null
-          escore_gado_ideal?: boolean | null
-          escore_gado_ideal_obs?: string | null
-          fazenda_id?: string
-          garrote?: number | null
-          google_row_id?: number | null
-          id?: string
-          lote?: string | null
-          nome_usuario?: string | null
-          novilha?: number | null
-          pastagem_adequada?: boolean | null
-          pastagem_adequada_obs?: string | null
-          pasto?: string | null
-          procedimentos?: string[] | null
-          sync_status?: string | null
-          total_cabecas?: number | null
-          touro?: number | null
-          updated_at?: string | null
-          vaca?: number | null
-          version?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_rodeio_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_rodeio_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_saida_insumos: {
-        Row: {
-          created_at: string | null
-          data_producao: string
-          deleted_at: string | null
-          destino_producao: string | null
-          dieta_produzida: string | null
-          dispositivo_id: string | null
-          fazenda_id: string
-          google_row_id: number | null
-          id: string
-          insumo_id: string | null
-          insumos_quantidades: Json | null
-          nome_usuario: string | null
-          sync_status: string | null
-          total_produzido: number | null
-          updated_at: string | null
-          version: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          data_producao: string
-          deleted_at?: string | null
-          destino_producao?: string | null
-          dieta_produzida?: string | null
-          dispositivo_id?: string | null
-          fazenda_id: string
-          google_row_id?: number | null
-          id?: string
-          insumo_id?: string | null
-          insumos_quantidades?: Json | null
-          nome_usuario?: string | null
-          sync_status?: string | null
-          total_produzido?: number | null
-          updated_at?: string | null
-          version?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          data_producao?: string
-          deleted_at?: string | null
-          destino_producao?: string | null
-          dieta_produzida?: string | null
-          dispositivo_id?: string | null
-          fazenda_id?: string
-          google_row_id?: number | null
-          id?: string
-          insumo_id?: string | null
-          insumos_quantidades?: Json | null
-          nome_usuario?: string | null
-          sync_status?: string | null
-          total_produzido?: number | null
-          updated_at?: string | null
-          version?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_saida_insumos_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_saida_insumos_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      entrada_insumos_itens: {
-        Row: {
-          id: string
-          entrada_id: string
-          insumo_id: string
-          quantidade: number
-          valor_unitario: number | null
-          valor_total: number | null
-        }
-        Insert: {
-          id?: string
-          entrada_id: string
-          insumo_id: string
-          quantidade: number
-          valor_unitario?: number | null
-          valor_total?: number | null
-        }
-        Update: {
-          id?: string
-          entrada_id?: string
-          insumo_id?: string
-          quantidade?: number
-          valor_unitario?: number | null
-          valor_total?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entrada_insumos_itens_entrada_id_fkey"
-            columns: ["entrada_id"]
-            isOneToOne: false
-            referencedRelation: "registros_entrada_insumos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entrada_insumos_itens_insumo_id_fkey"
+            foreignKeyName: "registros_entrada_insumos_insumo_id_fkey"
             columns: ["insumo_id"]
             isOneToOne: false
             referencedRelation: "insumos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      saida_insumos_itens: {
-        Row: {
-          id: string
-          insumo_id: string
-          quantidade: number
-          saida_id: string
-        }
-        Insert: {
-          id?: string
-          insumo_id: string
-          quantidade: number
-          saida_id: string
-        }
-        Update: {
-          id?: string
-          insumo_id?: string
-          quantidade?: number
-          saida_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "saida_insumos_itens_saida_id_fkey"
-            columns: ["saida_id"]
-            isOneToOne: false
-            referencedRelation: "registros_saida_insumos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "saida_insumos_itens_insumo_id_fkey"
-            columns: ["insumo_id"]
-            isOneToOne: false
-            referencedRelation: "insumos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_suplementacao: {
-        Row: {
-          bezerro: boolean | null
-          boi: boolean | null
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          escore_fezes: number | null
-          fazenda_id: string
-          gado: string | null
-          garrote: boolean | null
-          google_row_id: number | null
-          id: string
-          kg_cocho: number | null
-          kg_deposito: number | null
-          leitura: number | null
-          lote: string | null
-          nome_usuario: string | null
-          novilha: boolean | null
-          pasto: string | null
-          produto: string | null
-          sacos: number | null
-          sync_status: string | null
-          touro: boolean | null
-          tratador: string | null
-          updated_at: string | null
-          vaca: boolean | null
-          version: number | null
-          // Checklist fields
-          limpeza_cocho: boolean | null
-          limpeza_cocho_obs: string | null
-          cochos_condicoes: boolean | null
-          cochos_condicoes_obs: string | null
-          aterro_acesso_ideal: boolean | null
-          aterro_acesso_ideal_obs: string | null
-          espacamento_cocho_cm_cab: number | null
-          espacamento_cocho_obs: string | null
-          espacamento_cocho_detalhes: any | null
-          espacamento_cocho_ideal: boolean | null
-          deposito_condicoes: boolean | null
-          deposito_condicoes_obs: string | null
-          estoque_deposito: boolean | null
-          estoque_deposito_obs: string | null
-        }
-        Insert: {
-          bezerro?: boolean | null
-          boi?: boolean | null
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          escore_fezes?: number | null
-          fazenda_id: string
-          gado?: string | null
-          garrote?: boolean | null
-          google_row_id?: number | null
-          id?: string
-          kg_cocho?: number | null
-          kg_deposito?: number | null
-          leitura?: number | null
-          lote?: string | null
-          nome_usuario?: string | null
-          novilha?: boolean | null
-          pasto?: string | null
-          produto?: string | null
-          sacos?: number | null
-          sync_status?: string | null
-          touro?: boolean | null
-          tratador?: string | null
-          updated_at?: string | null
-          vaca?: boolean | null
-          version?: number | null
-          // Checklist fields
-          limpeza_cocho?: boolean | null
-          limpeza_cocho_obs?: string | null
-          cochos_condicoes?: boolean | null
-          cochos_condicoes_obs?: string | null
-          aterro_acesso_ideal?: boolean | null
-          aterro_acesso_ideal_obs?: string | null
-          espacamento_cocho_cm_cab?: number | null
-          espacamento_cocho_obs?: string | null
-          espacamento_cocho_detalhes?: any | null
-          espacamento_cocho_ideal?: boolean | null
-          deposito_condicoes?: boolean | null
-          deposito_condicoes_obs?: string | null
-          estoque_deposito?: boolean | null
-          estoque_deposito_obs?: string | null
-        }
-        Update: {
-          bezerro?: boolean | null
-          boi?: boolean | null
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          escore_fezes?: number | null
-          fazenda_id?: string
-          gado?: string | null
-          garrote?: boolean | null
-          google_row_id?: number | null
-          id?: string
-          kg_cocho?: number | null
-          kg_deposito?: number | null
-          leitura?: number | null
-          lote?: string | null
-          nome_usuario?: string | null
-          novilha?: boolean | null
-          pasto?: string | null
-          produto?: string | null
-          sacos?: number | null
-          sync_status?: string | null
-          touro?: boolean | null
-          tratador?: string | null
-          updated_at?: string | null
-          vaca?: boolean | null
-          version?: number | null
-          // Checklist fields
-          limpeza_cocho?: boolean | null
-          limpeza_cocho_obs?: string | null
-          cochos_condicoes?: boolean | null
-          cochos_condicoes_obs?: string | null
-          aterro_acesso_ideal?: boolean | null
-          aterro_acesso_ideal_obs?: string | null
-          espacamento_cocho_cm_cab?: number | null
-          espacamento_cocho_obs?: string | null
-          espacamento_cocho_detalhes?: any | null
-          espacamento_cocho_ideal?: boolean | null
-          deposito_condicoes?: boolean | null
-          deposito_condicoes_obs?: string | null
-          estoque_deposito?: boolean | null
-          estoque_deposito_obs?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_suplementacao_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_suplementacao_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_abastecimento: {
-        Row: {
-          combustivel: string
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          fazenda_id: string
-          hidrometro_final: string | null
-          hidrometro_inicial: string | null
-          id: string
-          google_row_id: number | null
-          odometro_horimetro: string | null
-          observacao: string | null
-          operador_motorista: string | null
-          placa: string | null
-          quem_abasteceu: string | null
-          sync_status: string | null
-          total_abastecido: string | null
-          tipo_operacao: string | null
-          updated_at: string | null
-          maquina_veiculo: string | null
-          version: number | null
-        }
-        Insert: {
-          combustivel: string
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id: string
-          hidrometro_final?: string | null
-          hidrometro_inicial?: string | null
-          id?: string
-          google_row_id?: number | null
-          odometro_horimetro?: string | null
-          observacao?: string | null
-          operador_motorista?: string | null
-          placa?: string | null
-          quem_abasteceu?: string | null
-          sync_status?: string | null
-          total_abastecido?: string | null
-          tipo_operacao?: string | null
-          updated_at?: string | null
-          maquina_veiculo?: string | null
-          version?: number | null
-        }
-        Update: {
-          combustivel?: string
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id?: string
-          hidrometro_final?: string | null
-          hidrometro_inicial?: string | null
-          id?: string
-          google_row_id?: number | null
-          odometro_horimetro?: string | null
-          observacao?: string | null
-          operador_motorista?: string | null
-          placa?: string | null
-          quem_abasteceu?: string | null
-          sync_status?: string | null
-          total_abastecido?: string | null
-          tipo_operacao?: string | null
-          updated_at?: string | null
-          maquina_veiculo?: string | null
-          version?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_abastecimento_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_abastecimento_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      registros_cantina: {
-        Row: {
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          fazenda_id: string
-          google_row_id: number | null
-          id: string
-          itens: Json | null
-          numero_cafe_manha: number | null
-          numero_cozinheiras: number
-          numero_lanches: number | null
-          numero_refeicoes_almoco: number | null
-          numero_refeicoes_jantar: number | null
-          observacao: string | null
-          quem_ajudou: string | null
-          quem_cozinhou: string
-          sync_status: string | null
-          updated_at: string | null
-          version: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id: string
-          google_row_id?: number | null
-          id?: string
-          itens?: Json | null
-          numero_cafe_manha?: number | null
-          numero_cozinheiras: number
-          numero_lanches?: number | null
-          numero_refeicoes_almoco?: number | null
-          numero_refeicoes_jantar?: number | null
-          observacao?: string | null
-          quem_ajudou?: string | null
-          quem_cozinhou: string
-          sync_status?: string | null
-          updated_at?: string | null
-          version?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id?: string
-          google_row_id?: number | null
-          id?: string
-          itens?: Json | null
-          numero_cafe_manha?: number | null
-          numero_cozinheiras?: number
-          numero_lanches?: number | null
-          numero_refeicoes_almoco?: number | null
-          numero_refeicoes_jantar?: number | null
-          observacao?: string | null
-          quem_ajudou?: string | null
-          quem_cozinhou?: string
-          sync_status?: string | null
-          updated_at?: string | null
-          version?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "registros_cantina_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registros_cantina_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
             referencedColumns: ["id"]
           },
         ]
@@ -2653,11 +2326,385 @@ export type Database = {
           },
         ]
       }
+      registros_manutencao_maquinas: {
+        Row: {
+          checklist: Json | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          id: number
+          nome_usuario: string | null
+          observacao: string | null
+          odometro_horimetro: string | null
+          operador_motorista: string | null
+          placa: string | null
+          responsavel_checklist: string | null
+          sync_status: string | null
+          updated_at: string | null
+          veiculo_trator: string | null
+          version: number | null
+        }
+        Insert: {
+          checklist?: Json | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          id?: number
+          nome_usuario?: string | null
+          observacao?: string | null
+          odometro_horimetro?: string | null
+          operador_motorista?: string | null
+          placa?: string | null
+          responsavel_checklist?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          veiculo_trator?: string | null
+          version?: number | null
+        }
+        Update: {
+          checklist?: Json | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          id?: number
+          nome_usuario?: string | null
+          observacao?: string | null
+          odometro_horimetro?: string | null
+          operador_motorista?: string | null
+          placa?: string | null
+          responsavel_checklist?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          veiculo_trator?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      registros_maternidade: {
+        Row: {
+          categoria_mae: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          docilidade_matriz: number | null
+          escore_matriz: string | null
+          fazenda_id: string
+          id: string
+          id_brinco_cria: string | null
+          id_brinco_mae: string | null
+          id_chip_cria: string | null
+          id_chip_mae: string | null
+          id_provisorio_cria: string | null
+          lote: string | null
+          nome_usuario: string | null
+          observacao_parto: string | null
+          pasto: string | null
+          peso_cria_kg: number | null
+          raca: string | null
+          sexo: string | null
+          sync_status: string | null
+          tipo_parto: Json | null
+          tratamento: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          categoria_mae?: string | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          docilidade_matriz?: number | null
+          escore_matriz?: string | null
+          fazenda_id: string
+          id?: string
+          id_brinco_cria?: string | null
+          id_brinco_mae?: string | null
+          id_chip_cria?: string | null
+          id_chip_mae?: string | null
+          id_provisorio_cria?: string | null
+          lote?: string | null
+          nome_usuario?: string | null
+          observacao_parto?: string | null
+          pasto?: string | null
+          peso_cria_kg?: number | null
+          raca?: string | null
+          sexo?: string | null
+          sync_status?: string | null
+          tipo_parto?: Json | null
+          tratamento?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          categoria_mae?: string | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          docilidade_matriz?: number | null
+          escore_matriz?: string | null
+          fazenda_id?: string
+          id?: string
+          id_brinco_cria?: string | null
+          id_brinco_mae?: string | null
+          id_chip_cria?: string | null
+          id_chip_mae?: string | null
+          id_provisorio_cria?: string | null
+          lote?: string | null
+          nome_usuario?: string | null
+          observacao_parto?: string | null
+          pasto?: string | null
+          peso_cria_kg?: number | null
+          raca?: string | null
+          sexo?: string | null
+          sync_status?: string | null
+          tipo_parto?: Json | null
+          tratamento?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_maternidade_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_maternidade_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_morte: {
+        Row: {
+          brinco: string | null
+          categoria: string | null
+          categoria_outros: string | null
+          causa_morte: string | null
+          chip: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          diagnosticos: Json | null
+          dispositivo_id: string | null
+          escore: number | null
+          fazenda_id: string
+          id: string
+          idade: string | null
+          lote: string | null
+          nome_usuario: string | null
+          nutricao_anterior: string | null
+          nutricao_atual: string | null
+          pasto: string | null
+          peso_vivo: number | null
+          raca: string | null
+          sexo: string | null
+          sync_status: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          brinco?: string | null
+          categoria?: string | null
+          categoria_outros?: string | null
+          causa_morte?: string | null
+          chip?: string | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          diagnosticos?: Json | null
+          dispositivo_id?: string | null
+          escore?: number | null
+          fazenda_id: string
+          id?: string
+          idade?: string | null
+          lote?: string | null
+          nome_usuario?: string | null
+          nutricao_anterior?: string | null
+          nutricao_atual?: string | null
+          pasto?: string | null
+          peso_vivo?: number | null
+          raca?: string | null
+          sexo?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          brinco?: string | null
+          categoria?: string | null
+          categoria_outros?: string | null
+          causa_morte?: string | null
+          chip?: string | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          diagnosticos?: Json | null
+          dispositivo_id?: string | null
+          escore?: number | null
+          fazenda_id?: string
+          id?: string
+          idade?: string | null
+          lote?: string | null
+          nome_usuario?: string | null
+          nutricao_anterior?: string | null
+          nutricao_atual?: string | null
+          pasto?: string | null
+          peso_vivo?: number | null
+          raca?: string | null
+          sexo?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      registros_movimentacao: {
+        Row: {
+          brinco: string | null
+          categoria: string | null
+          causa_observacao: string | null
+          chip: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          destino: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
+          id: string
+          lote_destino_id: string | null
+          lote_origem: string | null
+          lote_origem_id: string | null
+          motivo_movimentacao:
+            | Database["public"]["Enums"]["tipo_movimentacao_motivo"]
+            | null
+          nome_usuario: string | null
+          numero_cabecas: number | null
+          peso_medio_kg: number | null
+          sync_status: string | null
+          tipo_destino: string | null
+          tipo_entrada:
+            | Database["public"]["Enums"]["tipo_movimentacao_entrada"]
+            | null
+          tipo_saida:
+            | Database["public"]["Enums"]["tipo_movimentacao_saida"]
+            | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          brinco?: string | null
+          categoria?: string | null
+          causa_observacao?: string | null
+          chip?: string | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          destino?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
+          id?: string
+          lote_destino_id?: string | null
+          lote_origem?: string | null
+          lote_origem_id?: string | null
+          motivo_movimentacao?:
+            | Database["public"]["Enums"]["tipo_movimentacao_motivo"]
+            | null
+          nome_usuario?: string | null
+          numero_cabecas?: number | null
+          peso_medio_kg?: number | null
+          sync_status?: string | null
+          tipo_destino?: string | null
+          tipo_entrada?:
+            | Database["public"]["Enums"]["tipo_movimentacao_entrada"]
+            | null
+          tipo_saida?:
+            | Database["public"]["Enums"]["tipo_movimentacao_saida"]
+            | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          brinco?: string | null
+          categoria?: string | null
+          causa_observacao?: string | null
+          chip?: string | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          destino?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          id?: string
+          lote_destino_id?: string | null
+          lote_origem?: string | null
+          lote_origem_id?: string | null
+          motivo_movimentacao?:
+            | Database["public"]["Enums"]["tipo_movimentacao_motivo"]
+            | null
+          nome_usuario?: string | null
+          numero_cabecas?: number | null
+          peso_medio_kg?: number | null
+          sync_status?: string | null
+          tipo_destino?: string | null
+          tipo_entrada?:
+            | Database["public"]["Enums"]["tipo_movimentacao_entrada"]
+            | null
+          tipo_saida?:
+            | Database["public"]["Enums"]["tipo_movimentacao_saida"]
+            | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_movimentacao_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_movimentacao_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_movimentacao_lote_destino_id_fkey"
+            columns: ["lote_destino_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_movimentacao_lote_origem_id_fkey"
+            columns: ["lote_origem_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       registros_operacoes_maquinas: {
         Row: {
-          area_trabalhada: string | null
           algum_imprevisto: string | null
           algum_imprevisto_obs: string | null
+          area_trabalhada: string | null
           created_at: string
           data: string
           deleted_at: string | null
@@ -2680,13 +2727,13 @@ export type Database = {
           tipo_operacao: string
           total_odometro: string | null
           updated_at: string
+          veiculo_trator: string
           version: number
-          maquina_veiculo: string
         }
         Insert: {
-          area_trabalhada?: string | null
           algum_imprevisto?: string | null
           algum_imprevisto_obs?: string | null
+          area_trabalhada?: string | null
           created_at?: string
           data: string
           deleted_at?: string | null
@@ -2709,13 +2756,13 @@ export type Database = {
           tipo_operacao: string
           total_odometro?: string | null
           updated_at?: string
+          veiculo_trator: string
           version?: number
-          maquina_veiculo: string
         }
         Update: {
-          area_trabalhada?: string | null
           algum_imprevisto?: string | null
           algum_imprevisto_obs?: string | null
+          area_trabalhada?: string | null
           created_at?: string
           data?: string
           deleted_at?: string | null
@@ -2738,17 +2785,10 @@ export type Database = {
           tipo_operacao?: string
           total_odometro?: string | null
           updated_at?: string
+          veiculo_trator?: string
           version?: number
-          maquina_veiculo?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "registros_operacoes_maquinas_fazenda_id_fkey"
-            columns: ["fazenda_id"]
-            isOneToOne: false
-            referencedRelation: "fazendas"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "registros_operacoes_maquinas_dispositivo_id_fkey"
             columns: ["dispositivo_id"]
@@ -2756,92 +2796,210 @@ export type Database = {
             referencedRelation: "dispositivos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "registros_operacoes_maquinas_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_pastagens: {
+        Row: {
+          avaliacao_entrada: number | null
+          avaliacao_saida: number | null
+          bezerro: number | null
+          boi_magro: number | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          escore_gado: number | null
+          fazenda_id: string
+          gado_contado: string | null
+          garrote: number | null
+          id: string
+          lote: string | null
+          manejador: string | null
+          nome_usuario: string | null
+          novilha: number | null
+          pasto_entrada: string | null
+          pasto_entrada_area_util: string | null
+          pasto_entrada_especie: string | null
+          pasto_saida: string | null
+          pasto_saida_area_util: string | null
+          pasto_saida_especie: string | null
+          sync_status: string | null
+          total_animais: number | null
+          touro: number | null
+          updated_at: string | null
+          vaca: number | null
+          version: number | null
+        }
+        Insert: {
+          avaliacao_entrada?: number | null
+          avaliacao_saida?: number | null
+          bezerro?: number | null
+          boi_magro?: number | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          escore_gado?: number | null
+          fazenda_id: string
+          gado_contado?: string | null
+          garrote?: number | null
+          id?: string
+          lote?: string | null
+          manejador?: string | null
+          nome_usuario?: string | null
+          novilha?: number | null
+          pasto_entrada?: string | null
+          pasto_entrada_area_util?: string | null
+          pasto_entrada_especie?: string | null
+          pasto_saida?: string | null
+          pasto_saida_area_util?: string | null
+          pasto_saida_especie?: string | null
+          sync_status?: string | null
+          total_animais?: number | null
+          touro?: number | null
+          updated_at?: string | null
+          vaca?: number | null
+          version?: number | null
+        }
+        Update: {
+          avaliacao_entrada?: number | null
+          avaliacao_saida?: number | null
+          bezerro?: number | null
+          boi_magro?: number | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          escore_gado?: number | null
+          fazenda_id?: string
+          gado_contado?: string | null
+          garrote?: number | null
+          id?: string
+          lote?: string | null
+          manejador?: string | null
+          nome_usuario?: string | null
+          novilha?: number | null
+          pasto_entrada?: string | null
+          pasto_entrada_area_util?: string | null
+          pasto_entrada_especie?: string | null
+          pasto_saida?: string | null
+          pasto_saida_area_util?: string | null
+          pasto_saida_especie?: string | null
+          sync_status?: string | null
+          total_animais?: number | null
+          touro?: number | null
+          updated_at?: string | null
+          vaca?: number | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_pastagens_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_pastagens_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       registros_problemas: {
         Row: {
-          id: string
-          fazenda_id: string
-          dispositivo_id: string | null
-          nome_usuario: string | null
-          data: string
-          setor: string | null
-          local: string | null
-          descricao_problema: string | null
-          causa_identificada: boolean
-          causa_identificada_obs: string | null
-          acao_corretiva_realizada: boolean
+          acao_corretiva_realizada: boolean | null
           acao_corretiva_realizada_obs: string | null
-          tipo_ocorrencia: string | null
-          tipo_ocorrencia_obs: string | null
-          causa_raiz_identificada: boolean
+          causa_identificada: boolean | null
+          causa_identificada_obs: string | null
+          causa_raiz_identificada: boolean | null
           causa_raiz_identificada_obs: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          descricao_problema: string | null
+          dispositivo_id: string | null
+          fazenda_id: string
           gravidade_impacto: string | null
           gravidade_impacto_obs: string | null
+          id: string
+          local: string | null
+          nome_usuario: string | null
+          prioridade: string | null
+          setor: string | null
+          sync_status: string | null
+          tipo_ocorrencia: string | null
+          tipo_ocorrencia_obs: string | null
           tipo_problema: string | null
           tipo_problema_obs: string | null
-          prioridade: string | null
-          sync_status: string | null
-          version: number | null
-          created_at: string | null
           updated_at: string | null
-          deleted_at: string | null
+          version: number | null
         }
         Insert: {
-          id?: string
-          fazenda_id: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data: string
-          setor?: string | null
-          local?: string | null
-          descricao_problema?: string | null
-          causa_identificada?: boolean
-          causa_identificada_obs?: string | null
-          acao_corretiva_realizada?: boolean
+          acao_corretiva_realizada?: boolean | null
           acao_corretiva_realizada_obs?: string | null
-          tipo_ocorrencia?: string | null
-          tipo_ocorrencia_obs?: string | null
-          causa_raiz_identificada?: boolean
+          causa_identificada?: boolean | null
+          causa_identificada_obs?: string | null
+          causa_raiz_identificada?: boolean | null
           causa_raiz_identificada_obs?: string | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          descricao_problema?: string | null
+          dispositivo_id?: string | null
+          fazenda_id: string
           gravidade_impacto?: string | null
           gravidade_impacto_obs?: string | null
+          id?: string
+          local?: string | null
+          nome_usuario?: string | null
+          prioridade?: string | null
+          setor?: string | null
+          sync_status?: string | null
+          tipo_ocorrencia?: string | null
+          tipo_ocorrencia_obs?: string | null
           tipo_problema?: string | null
           tipo_problema_obs?: string | null
-          prioridade?: string | null
-          sync_status?: string | null
-          version?: number | null
-          created_at?: string | null
           updated_at?: string | null
-          deleted_at?: string | null
+          version?: number | null
         }
         Update: {
-          id?: string
-          fazenda_id?: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data?: string
-          setor?: string | null
-          local?: string | null
-          descricao_problema?: string | null
-          causa_identificada?: boolean
-          causa_identificada_obs?: string | null
-          acao_corretiva_realizada?: boolean
+          acao_corretiva_realizada?: boolean | null
           acao_corretiva_realizada_obs?: string | null
-          tipo_ocorrencia?: string | null
-          tipo_ocorrencia_obs?: string | null
-          causa_raiz_identificada?: boolean
+          causa_identificada?: boolean | null
+          causa_identificada_obs?: string | null
+          causa_raiz_identificada?: boolean | null
           causa_raiz_identificada_obs?: string | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          descricao_problema?: string | null
+          dispositivo_id?: string | null
+          fazenda_id?: string
           gravidade_impacto?: string | null
           gravidade_impacto_obs?: string | null
+          id?: string
+          local?: string | null
+          nome_usuario?: string | null
+          prioridade?: string | null
+          setor?: string | null
+          sync_status?: string | null
+          tipo_ocorrencia?: string | null
+          tipo_ocorrencia_obs?: string | null
           tipo_problema?: string | null
           tipo_problema_obs?: string | null
-          prioridade?: string | null
-          sync_status?: string | null
-          version?: number | null
-          created_at?: string | null
           updated_at?: string | null
-          deleted_at?: string | null
+          version?: number | null
         }
         Relationships: [
           {
@@ -2860,65 +3018,98 @@ export type Database = {
           },
         ]
       }
-      registros_almoxarifado: {
+      registros_rodeio: {
         Row: {
-          id: string
-          fazenda_id: string
-          dispositivo_id: string | null
-          nome_usuario: string | null
-          data: string
-          quem_entregou: string | null
-          quem_pegou: string | null
-          itens: Json | null
-          observacao: string | null
-          sync_status: string | null
-          version: number | null
+          bezerro: number | null
+          boi: number | null
           created_at: string | null
-          updated_at: string | null
+          data: string
           deleted_at: string | null
+          diagnosticos: Json | null
+          dispositivo_id: string | null
+          equipe: number | null
+          equipe_nomes: Json | null
+          escore_fezes: number | null
+          escore_gado: number | null
+          fazenda_id: string
+          gado_contado: string | null
+          garrote: number | null
+          id: string
+          lote: string | null
+          nome_usuario: string | null
+          novilha: number | null
+          pasto: string | null
+          sync_status: string | null
+          total_cabecas: number | null
+          touro: number | null
+          updated_at: string | null
+          vaca: number | null
+          version: number | null
         }
         Insert: {
-          id?: string
-          fazenda_id: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data: string
-          quem_entregou?: string | null
-          quem_pegou?: string | null
-          itens?: Json | null
-          observacao?: string | null
-          sync_status?: string | null
-          version?: number | null
+          bezerro?: number | null
+          boi?: number | null
           created_at?: string | null
-          updated_at?: string | null
+          data: string
           deleted_at?: string | null
+          diagnosticos?: Json | null
+          dispositivo_id?: string | null
+          equipe?: number | null
+          equipe_nomes?: Json | null
+          escore_fezes?: number | null
+          escore_gado?: number | null
+          fazenda_id: string
+          gado_contado?: string | null
+          garrote?: number | null
+          id?: string
+          lote?: string | null
+          nome_usuario?: string | null
+          novilha?: number | null
+          pasto?: string | null
+          sync_status?: string | null
+          total_cabecas?: number | null
+          touro?: number | null
+          updated_at?: string | null
+          vaca?: number | null
+          version?: number | null
         }
         Update: {
-          id?: string
-          fazenda_id?: string
-          dispositivo_id?: string | null
-          nome_usuario?: string | null
-          data?: string
-          quem_entregou?: string | null
-          quem_pegou?: string | null
-          itens?: Json | null
-          observacao?: string | null
-          sync_status?: string | null
-          version?: number | null
+          bezerro?: number | null
+          boi?: number | null
           created_at?: string | null
-          updated_at?: string | null
+          data?: string
           deleted_at?: string | null
+          diagnosticos?: Json | null
+          dispositivo_id?: string | null
+          equipe?: number | null
+          equipe_nomes?: Json | null
+          escore_fezes?: number | null
+          escore_gado?: number | null
+          fazenda_id?: string
+          gado_contado?: string | null
+          garrote?: number | null
+          id?: string
+          lote?: string | null
+          nome_usuario?: string | null
+          novilha?: number | null
+          pasto?: string | null
+          sync_status?: string | null
+          total_cabecas?: number | null
+          touro?: number | null
+          updated_at?: string | null
+          vaca?: number | null
+          version?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "registros_almoxarifado_dispositivo_id_fkey"
+            foreignKeyName: "registros_rodeio_dispositivo_id_fkey"
             columns: ["dispositivo_id"]
             isOneToOne: false
             referencedRelation: "dispositivos"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "registros_almoxarifado_fazenda_id_fkey"
+            foreignKeyName: "registros_rodeio_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -2926,43 +3117,204 @@ export type Database = {
           },
         ]
       }
-      medicamentos: {
+      registros_saida_insumos: {
         Row: {
-          ativo: boolean | null
           created_at: string | null
-          dose_recomendada: string | null
+          data_producao: string
+          deleted_at: string | null
+          destino_producao: string | null
+          dieta_produzida: string | null
+          dispositivo_id: string | null
           fazenda_id: string
           id: string
-          nome_comercial: string
-          principio_ativo: string | null
-          tipo: string
+          insumo_id: string | null
+          insumos_quantidades: Json | null
+          nome_usuario: string | null
+          sync_status: string | null
+          total_produzido: number | null
           updated_at: string | null
+          version: number | null
         }
         Insert: {
-          ativo?: boolean | null
           created_at?: string | null
-          dose_recomendada?: string | null
+          data_producao: string
+          deleted_at?: string | null
+          destino_producao?: string | null
+          dieta_produzida?: string | null
+          dispositivo_id?: string | null
           fazenda_id: string
           id?: string
-          nome_comercial: string
-          principio_ativo?: string | null
-          tipo: string
+          insumo_id?: string | null
+          insumos_quantidades?: Json | null
+          nome_usuario?: string | null
+          sync_status?: string | null
+          total_produzido?: number | null
           updated_at?: string | null
+          version?: number | null
         }
         Update: {
-          ativo?: boolean | null
           created_at?: string | null
-          dose_recomendada?: string | null
+          data_producao?: string
+          deleted_at?: string | null
+          destino_producao?: string | null
+          dieta_produzida?: string | null
+          dispositivo_id?: string | null
           fazenda_id?: string
           id?: string
-          nome_comercial?: string
-          principio_ativo?: string | null
-          tipo?: string
+          insumo_id?: string | null
+          insumos_quantidades?: Json | null
+          nome_usuario?: string | null
+          sync_status?: string | null
+          total_produzido?: number | null
           updated_at?: string | null
+          version?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "medicamentos_fazenda_id_fkey"
+            foreignKeyName: "registros_saida_insumos_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_saida_insumos_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_saida_insumos_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_suplementacao: {
+        Row: {
+          aterro_acesso_ideal: boolean | null
+          aterro_acesso_ideal_obs: string | null
+          categorias: string | null
+          cochos_condicoes: boolean | null
+          cochos_condicoes_obs: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          deposito_condicoes: boolean | null
+          deposito_condicoes_obs: string | null
+          dispositivo_id: string | null
+          escore_fezes: number | null
+          espacamento_cocho_cm_cab: number | null
+          espacamento_cocho_detalhes: Json | null
+          espacamento_cocho_ideal: boolean | null
+          espacamento_cocho_ideal_obs: string | null
+          espacamento_cocho_obs: string | null
+          estoque_deposito: boolean | null
+          estoque_deposito_obs: string | null
+          fazenda_id: string
+          id: string
+          kg_cocho: number | null
+          kg_deposito: number | null
+          leitura: number | null
+          limpeza_cocho: boolean | null
+          limpeza_cocho_obs: string | null
+          lote: string | null
+          nome_usuario: string | null
+          pasto: string | null
+          produto: string | null
+          sacos: number | null
+          sync_status: string | null
+          tratador: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          aterro_acesso_ideal?: boolean | null
+          aterro_acesso_ideal_obs?: string | null
+          categorias?: string | null
+          cochos_condicoes?: boolean | null
+          cochos_condicoes_obs?: string | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          deposito_condicoes?: boolean | null
+          deposito_condicoes_obs?: string | null
+          dispositivo_id?: string | null
+          escore_fezes?: number | null
+          espacamento_cocho_cm_cab?: number | null
+          espacamento_cocho_detalhes?: Json | null
+          espacamento_cocho_ideal?: boolean | null
+          espacamento_cocho_ideal_obs?: string | null
+          espacamento_cocho_obs?: string | null
+          estoque_deposito?: boolean | null
+          estoque_deposito_obs?: string | null
+          fazenda_id: string
+          id?: string
+          kg_cocho?: number | null
+          kg_deposito?: number | null
+          leitura?: number | null
+          limpeza_cocho?: boolean | null
+          limpeza_cocho_obs?: string | null
+          lote?: string | null
+          nome_usuario?: string | null
+          pasto?: string | null
+          produto?: string | null
+          sacos?: number | null
+          sync_status?: string | null
+          tratador?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          aterro_acesso_ideal?: boolean | null
+          aterro_acesso_ideal_obs?: string | null
+          categorias?: string | null
+          cochos_condicoes?: boolean | null
+          cochos_condicoes_obs?: string | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          deposito_condicoes?: boolean | null
+          deposito_condicoes_obs?: string | null
+          dispositivo_id?: string | null
+          escore_fezes?: number | null
+          espacamento_cocho_cm_cab?: number | null
+          espacamento_cocho_detalhes?: Json | null
+          espacamento_cocho_ideal?: boolean | null
+          espacamento_cocho_ideal_obs?: string | null
+          espacamento_cocho_obs?: string | null
+          estoque_deposito?: boolean | null
+          estoque_deposito_obs?: string | null
+          fazenda_id?: string
+          id?: string
+          kg_cocho?: number | null
+          kg_deposito?: number | null
+          leitura?: number | null
+          limpeza_cocho?: boolean | null
+          limpeza_cocho_obs?: string | null
+          lote?: string | null
+          nome_usuario?: string | null
+          pasto?: string | null
+          produto?: string | null
+          sacos?: number | null
+          sync_status?: string | null
+          tratador?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_suplementacao_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_suplementacao_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -2970,74 +3322,79 @@ export type Database = {
           },
         ]
       }
-      registros_leitura_cocho: {
+      saida_insumos_itens: {
         Row: {
-          created_at: string | null
-          data: string
-          deleted_at: string | null
-          dispositivo_id: string | null
-          fazenda_id: string
-          google_row_id: number | null
           id: string
-          leitura_cocho: number | null
-          media_ms: number | null
-          nome_usuario: string | null
-          numero_lote: string | null
-          observacao: string | null
-          pasto_curral: string | null
-          quantidade_cabecas: number | null
-          sync_status: string | null
-          updated_at: string | null
-          version: number | null
+          insumo_id: string
+          quantidade: number
+          saida_id: string
         }
         Insert: {
-          created_at?: string | null
-          data: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id: string
-          google_row_id?: number | null
           id?: string
-          leitura_cocho?: number | null
-          media_ms?: number | null
-          nome_usuario?: string | null
-          numero_lote?: string | null
-          observacao?: string | null
-          pasto_curral?: string | null
-          quantidade_cabecas?: number | null
-          sync_status?: string | null
-          updated_at?: string | null
-          version?: number | null
+          insumo_id: string
+          quantidade: number
+          saida_id: string
         }
         Update: {
-          created_at?: string | null
-          data?: string
-          deleted_at?: string | null
-          dispositivo_id?: string | null
-          fazenda_id?: string
-          google_row_id?: number | null
           id?: string
-          leitura_cocho?: number | null
-          media_ms?: number | null
-          nome_usuario?: string | null
-          numero_lote?: string | null
-          observacao?: string | null
-          pasto_curral?: string | null
-          quantidade_cabecas?: number | null
-          sync_status?: string | null
-          updated_at?: string | null
-          version?: number | null
+          insumo_id?: string
+          quantidade?: number
+          saida_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "registros_leitura_cocho_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
+            foreignKeyName: "saida_insumos_itens_insumo_id_fkey"
+            columns: ["insumo_id"]
             isOneToOne: false
-            referencedRelation: "dispositivos"
+            referencedRelation: "insumos"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "registros_leitura_cocho_fazenda_id_fkey"
+            foreignKeyName: "saida_insumos_itens_saida_id_fkey"
+            columns: ["saida_id"]
+            isOneToOne: false
+            referencedRelation: "registros_saida_insumos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_filters: {
+        Row: {
+          created_at: string | null
+          fazenda_id: string | null
+          filtros: Json
+          id: string
+          is_preset: boolean | null
+          nome: string
+          tela: string
+          updated_at: string | null
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          fazenda_id?: string | null
+          filtros: Json
+          id?: string
+          is_preset?: boolean | null
+          nome: string
+          tela: string
+          updated_at?: string | null
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          fazenda_id?: string | null
+          filtros?: Json
+          id?: string
+          is_preset?: boolean | null
+          nome?: string
+          tela?: string
+          updated_at?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_filters_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -3185,10 +3542,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_dados_lotes: { Args: never; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      tipo_movimentacao_entrada: "Compras" | "ApartaÃ§Ã£o" | "TransferÃªncia"
+      tipo_movimentacao_motivo:
+        | "Consumo"
+        | "Abate"
+        | "SaÃ­da"
+        | "Entrada"
+        | "Entrevero"
+        | "DoaÃ§Ã£o"
+      tipo_movimentacao_saida: "Venda" | "ApartaÃ§Ã£o" | "TransferÃªncia"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3315,7 +3680,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      tipo_movimentacao_entrada: ["Compras", "ApartaÃ§Ã£o", "TransferÃªncia"],
+      tipo_movimentacao_motivo: [
+        "Consumo",
+        "Abate",
+        "SaÃ­da",
+        "Entrada",
+        "Entrevero",
+        "DoaÃ§Ã£o",
+      ],
+      tipo_movimentacao_saida: ["Venda", "ApartaÃ§Ã£o", "TransferÃªncia"],
+    },
   },
 } as const
 

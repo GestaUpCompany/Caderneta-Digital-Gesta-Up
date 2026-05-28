@@ -60,7 +60,9 @@ function processarCategorias(categorias: string): string[] {
 interface FormState {
   data: string
   loteOrigem: string
+  loteOrigemId: string
   loteDestino: string
+  loteDestinoId: string
   destinoCustomizado: string
   numeroCabecas: string
   pesoMedio: string
@@ -77,7 +79,9 @@ interface FormState {
 const makeInitial = (): FormState => ({
   data: todayBR(),
   loteOrigem: '',
+  loteOrigemId: '',
   loteDestino: '',
+  loteDestinoId: '',
   destinoCustomizado: '',
   numeroCabecas: '',
   pesoMedio: '',
@@ -175,6 +179,7 @@ export default function MovimentacaoPage() {
     async function carregarDetalhesLoteOrigem() {
       if (!form.loteOrigem || !fazendaId) {
         setDetalhesLoteOrigem(null)
+        setForm(prev => ({ ...prev, loteOrigemId: '' }))
         return
       }
 
@@ -192,15 +197,49 @@ export default function MovimentacaoPage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
+          // Armazenar o ID do lote origem
+          setForm(prev => ({ ...prev, loteOrigemId: lote.id }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote origem:', error)
         setDetalhesLoteOrigem(null)
+        setForm(prev => ({ ...prev, loteOrigemId: '' }))
       }
     }
 
     carregarDetalhesLoteOrigem()
   }, [form.loteOrigem, fazendaId])
+
+  // Buscar ID do lote destino quando selecionado (se for um lote)
+  useEffect(() => {
+    async function carregarLoteDestinoId() {
+      if (!form.loteDestino || !fazendaId) {
+        setForm(prev => ({ ...prev, loteDestinoId: '' }))
+        return
+      }
+
+      // Verificar se o destino é um lote (está na lista de lotes disponíveis)
+      const isLote = lotesDisponiveis.includes(form.loteDestino)
+      
+      if (!isLote) {
+        // Não é um lote (pode ser Cantina, frigorifico, fornecedor, etc.)
+        setForm(prev => ({ ...prev, loteDestinoId: '' }))
+        return
+      }
+
+      try {
+        const lote = await getLoteByNome(fazendaId, form.loteDestino)
+        if (lote) {
+          setForm(prev => ({ ...prev, loteDestinoId: lote.id }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar ID do lote destino:', error)
+        setForm(prev => ({ ...prev, loteDestinoId: '' }))
+      }
+    }
+
+    carregarLoteDestinoId()
+  }, [form.loteDestino, fazendaId, lotesDisponiveis])
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -252,7 +291,9 @@ export default function MovimentacaoPage() {
     const result = await salvarRegistro('movimentacao', {
       data: form.data,
       loteOrigem: form.loteOrigem,
+      loteOrigemId: form.loteOrigemId,
       loteDestino: destinoFinal,
+      loteDestinoId: form.loteDestinoId,
       numeroCabecas: form.numeroCabecas ? Number(form.numeroCabecas) : 0,
       pesoMedio: form.pesoMedio ? Number(form.pesoMedio) : null,
       categorias: form.categorias,
