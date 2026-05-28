@@ -405,27 +405,25 @@ export default function MovimentacaoPage() {
         {/* Seção 2: Quantificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="N° CABEÇAS"
-              placeholder="Ex: 25"
-              value={form.numeroCabecas}
-              onChange={setInput('numeroCabecas')}
-              error={getError('numeroCabecas')}
-              inputMode="numeric"
-              type="number"
-              min="0"
-            />
-            <Input
-              label="PESO MÉDIO (kg)"
-              placeholder="Ex: 450"
-              value={form.pesoMedio}
-              onChange={setInput('pesoMedio')}
-              inputMode="decimal"
-              type="number"
-              min="0"
-            />
-          </div>
+          <Input
+            label="N° CABEÇAS"
+            placeholder="Ex: 25"
+            value={form.numeroCabecas}
+            onChange={setInput('numeroCabecas')}
+            error={getError('numeroCabecas')}
+            inputMode="numeric"
+            type="number"
+            min="0"
+          />
+          <Input
+            label="PESO MÉDIO (kg)"
+            placeholder="Ex: 450"
+            value={form.pesoMedio}
+            onChange={setInput('pesoMedio')}
+            inputMode="decimal"
+            type="number"
+            min="0"
+          />
           {/* Identificação - apenas se for 1 cabeça */}
           {form.numeroCabecas === '1' && (
             <>
