@@ -2403,6 +2403,7 @@ export type Database = {
           id_chip_mae: string | null
           id_provisorio_cria: string | null
           lote: string | null
+          lote_id: string | null
           nome_usuario: string | null
           observacao_parto: string | null
           pasto: string | null
@@ -2431,6 +2432,7 @@ export type Database = {
           id_chip_mae?: string | null
           id_provisorio_cria?: string | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           observacao_parto?: string | null
           pasto?: string | null
@@ -2459,6 +2461,7 @@ export type Database = {
           id_chip_mae?: string | null
           id_provisorio_cria?: string | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           observacao_parto?: string | null
           pasto?: string | null
@@ -2484,6 +2487,13 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_maternidade_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
             referencedColumns: ["id"]
           },
         ]

@@ -98,6 +98,7 @@ function processarCategorias(categorias: string): string[] {
 interface FormState {
   data: string
   lote: string
+  loteId: string
   pesoCria: string
   idProvisorioCria: string
   idBrincoCria: string
@@ -119,6 +120,7 @@ interface FormState {
 const makeInitial = (): FormState => ({
   data: todayBR(),
   lote: '',
+  loteId: '',
   pesoCria: '',
   idProvisorioCria: '',
   idBrincoCria: '',
@@ -207,6 +209,7 @@ export default function MaternidadePage() {
     async function carregarDetalhesLote() {
       if (!form.lote || !fazendaId) {
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, loteId: '' }))
         return
       }
 
@@ -224,10 +227,13 @@ export default function MaternidadePage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
+          // Armazenar o ID do lote
+          setForm(prev => ({ ...prev, loteId: lote.id }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, loteId: '' }))
       }
     }
 
@@ -270,6 +276,7 @@ export default function MaternidadePage() {
       data: form.data,
       pasto: pastoNome,
       lote: form.lote,
+      loteId: form.loteId,
       pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
       idProvisorioCria: form.idProvisorioCria,
       idBrincoCria: form.idBrincoCria,

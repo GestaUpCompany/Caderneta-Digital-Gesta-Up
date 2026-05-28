@@ -414,6 +414,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         lote: registro.lote || null,
+        lote_id: registro.loteId || null,
         peso_cria_kg: registro.pesoCria ? Number(registro.pesoCria) : null,
         id_provisorio_cria: registro.idProvisorioCria || null,
         id_brinco_cria: registro.idBrincoCria || null,
