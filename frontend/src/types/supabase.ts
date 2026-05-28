@@ -2515,6 +2515,7 @@ export type Database = {
           id: string
           idade: string | null
           lote: string | null
+          lote_id: string | null
           nome_usuario: string | null
           nutricao_anterior: string | null
           nutricao_atual: string | null
@@ -2542,6 +2543,7 @@ export type Database = {
           id?: string
           idade?: string | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           nutricao_anterior?: string | null
           nutricao_atual?: string | null
@@ -2569,6 +2571,7 @@ export type Database = {
           id?: string
           idade?: string | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           nutricao_anterior?: string | null
           nutricao_atual?: string | null
@@ -2580,7 +2583,15 @@ export type Database = {
           updated_at?: string | null
           version?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "registros_morte_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       registros_movimentacao: {
         Row: {

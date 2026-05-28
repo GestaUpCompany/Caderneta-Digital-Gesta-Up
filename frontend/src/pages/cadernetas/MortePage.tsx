@@ -92,6 +92,7 @@ interface FormState {
   data: string
   pasto: string
   lote: string
+  loteId: string
   brinco: string
   chip: string
   categoria: string
@@ -118,6 +119,7 @@ const makeInitial = (): FormState => ({
   data: todayBR(),
   pasto: '',
   lote: '',
+  loteId: '',
   brinco: '',
   chip: '',
   categoria: '',
@@ -203,6 +205,7 @@ export default function MortePage() {
     async function carregarDetalhesLote() {
       if (!form.lote || !fazendaId) {
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, loteId: '' }))
         return
       }
 
@@ -220,10 +223,13 @@ export default function MortePage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
+          // Armazenar o ID do lote
+          setForm(prev => ({ ...prev, loteId: lote.id }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, loteId: '' }))
       }
     }
 
@@ -307,6 +313,7 @@ export default function MortePage() {
       data: form.data,
       pasto: form.pasto,
       lote: form.lote,
+      loteId: form.loteId,
       brinco: form.brinco,
       chip: form.chip,
       categoria: form.categoria,
