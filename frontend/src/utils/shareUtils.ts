@@ -38,7 +38,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
 
   // Separar campos normais, animais tratados e categorias
   const camposNormais: [string, unknown][] = []
-  const camposAposPesoMedio: [string, unknown][] = []
+  const camposAposPesoVivoAtual: [string, unknown][] = []
   const camposMovimentacaoEspeciais: [string, unknown][] = []
   const animaisTratados: Map<number, { id: string; tratamentos: string }> = new Map()
   const categoriasAnimais: string[] = []
@@ -186,8 +186,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.numeroCabecas) {
       texto += `NÚMERO CABEÇAS: *${registro.numeroCabecas}*\n`
     }
-    if (registro.pesoMedio) {
-      texto += `PESO MÉDIO (KG): *${registro.pesoMedio}*\n`
+    if (registro.pesoVivoAtual) {
+      texto += `PESO VIVO ATUAL (KG): *${registro.pesoVivoAtual}*\n`
     }
     if (registro.categoria) {
       texto += `CATEGORIA: *${registro.categoria}*\n`
@@ -1281,8 +1281,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     }
   }
 
-  // Adicionar campos após peso médio (movimentação)
-  camposAposPesoMedio.forEach(([key, value]) => {
+  // Adicionar campos após peso vivo atual (movimentação)
+  camposAposPesoVivoAtual.forEach(([key, value]) => {
     let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
     const valorFormatado = formatFieldValue(key, value)
     texto += `${label}: *${valorFormatado}*\n`

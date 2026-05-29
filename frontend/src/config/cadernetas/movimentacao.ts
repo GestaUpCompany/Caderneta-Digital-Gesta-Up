@@ -11,7 +11,7 @@ export const movimentacaoConfig: CadernetaDisplayConfig = {
     brincoChip: { key: 'brincoChip', section: 'ORIGEM', priority: 2 },
 
     numeroCabecas: { key: 'numeroCabecas', section: 'QUANTIFICAÇÃO', priority: 1 },
-    pesoMedio: { key: 'pesoMedio', section: 'QUANTIFICAÇÃO', priority: 2, format: (v) => `${v} kg` },
+    pesoVivoAtual: { key: 'pesoVivoAtual', section: 'QUANTIFICAÇÃO', priority: 2, format: (v) => `${v} kg` },
     categoria: { key: 'categoria', section: 'QUANTIFICAÇÃO', priority: 3 },
 
     motivoMovimentacao: { key: 'motivoMovimentacao', section: 'MOVIMENTAÇÃO', priority: 1 },

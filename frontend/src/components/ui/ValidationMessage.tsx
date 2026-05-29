@@ -54,7 +54,7 @@ const FIELD_NAMES: Record<string, string> = {
   creep: 'Creep',
   numeroBebedouro: 'Nº Bebedouro',
   observacao: 'Observação',
-  pesoMedio: 'Peso Médio',
+  pesoVivoAtual: 'Peso Vivo Atual',
   brinco: 'Brinco',
   chip: 'Chip',
   brincoChip: 'Brinco/Chip',

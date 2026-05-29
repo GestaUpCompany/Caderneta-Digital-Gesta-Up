@@ -158,7 +158,7 @@ const MOVIMENTACAO_LABELS = {
   loteOrigem: 'LOTE ORIGEM',
   loteDestino: 'DESTINO',
   numeroCabecas: 'NÚMERO CABEÇAS',
-  pesoMedio: 'PESO MÉDIO (KG)',
+  pesoVivoAtual: 'PESO VIVO ATUAL (KG)',
   motivoMovimentacao: 'MOTIVO',
   brinco: 'BRINCO',
   chip: 'CHIP',

@@ -450,7 +450,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                         'loteOrigem',
                         'brincoChip',
                         'numeroCabecas',
-                        'pesoMedio',
+                        'pesoVivoAtual',
                         'categoria',
                         'motivoMovimentacao',
                         'causaObservacao',

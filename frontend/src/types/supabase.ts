@@ -2614,7 +2614,8 @@ export type Database = {
             | null
           nome_usuario: string | null
           numero_cabecas: number | null
-          peso_medio_kg: number | null
+          peso_vivo_atual_kg: number | null
+          responsavel: string | null
           sync_status: string | null
           tipo_destino: string | null
           tipo_entrada:
@@ -2646,7 +2647,8 @@ export type Database = {
             | null
           nome_usuario?: string | null
           numero_cabecas?: number | null
-          peso_medio_kg?: number | null
+          peso_vivo_atual_kg?: number | null
+          responsavel?: string | null
           sync_status?: string | null
           tipo_destino?: string | null
           tipo_entrada?:
@@ -2678,7 +2680,8 @@ export type Database = {
             | null
           nome_usuario?: string | null
           numero_cabecas?: number | null
-          peso_medio_kg?: number | null
+          peso_vivo_atual_kg?: number | null
+          responsavel?: string | null
           sync_status?: string | null
           tipo_destino?: string | null
           tipo_entrada?:
@@ -3563,6 +3566,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_quant_atual: {
+        Args: { p_categoria: string; p_lote_id: string }
+        Returns: number
+      }
+      recalculate_all_quant_atual: { Args: never; Returns: undefined }
       update_dados_lotes: { Args: never; Returns: undefined }
     }
     Enums: {

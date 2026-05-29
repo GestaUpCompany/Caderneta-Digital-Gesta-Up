@@ -49,7 +49,7 @@ function buildRegistroFromRow(
     ],
     suplementacao: ['data', 'tratador', 'pasto', 'numeroLote', 'produto', 'gado', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha', 'leitura', 'sacos', 'kgCocho', 'kgDeposito'],
     bebedouros: ['data', 'responsavel', 'pasto', 'numeroLote', 'leituraBebedouro', 'numeroBebedouro', 'observacao'],
-    movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'pesoMedio', 'categoria', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
+    movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'pesoVivoAtual', 'categoria', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
     enfermaria: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'tratamento', 'tratamentoOutros', 'diagnosticos', 'observacaoTratamento'],
     morte: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'categoriaOutros', 'sexo', 'raca', 'racaOutros', 'idade', 'pesoVivo', 'causaMorte', 'causaMorteOutros', 'diagnosticos'],
     abastecimento: ['data', 'quemAbasteceu', 'operadorMotorista', 'maquinaVeiculo', 'placa', 'combustivel', 'tipoOperacao'],

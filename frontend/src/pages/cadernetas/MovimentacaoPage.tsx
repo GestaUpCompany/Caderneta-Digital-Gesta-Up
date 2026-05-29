@@ -59,13 +59,14 @@ function processarCategorias(categorias: string): string[] {
 
 interface FormState {
   data: string
+  responsavel: string
   loteOrigem: string
   loteOrigemId: string
   loteDestino: string
   loteDestinoId: string
   destinoCustomizado: string
   numeroCabecas: string
-  pesoMedio: string
+  pesoVivoAtual: string
   motivoMovimentacao: string
   tipoSaida: string // Venda, Apartação, Transferência
   tipoEntrada: string // Compras, Apartação, Transferência
@@ -78,13 +79,14 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
+  responsavel: '',
   loteOrigem: '',
   loteOrigemId: '',
   loteDestino: '',
   loteDestinoId: '',
   destinoCustomizado: '',
   numeroCabecas: '',
-  pesoMedio: '',
+  pesoVivoAtual: '',
   motivoMovimentacao: '',
   tipoSaida: '',
   tipoEntrada: '',
@@ -158,6 +160,13 @@ export default function MovimentacaoPage() {
       setFornecedoresDisponiveis(cache.fornecedores || [])
     }
   }, [])
+
+  // Atualizar responsavel quando usuario mudar
+  useEffect(() => {
+    if (usuario) {
+      setForm(prev => ({ ...prev, responsavel: usuario }))
+    }
+  }, [usuario])
 
 
   // Escutar atualizações do cache de cadastro
@@ -290,12 +299,13 @@ export default function MovimentacaoPage() {
 
     const result = await salvarRegistro('movimentacao', {
       data: form.data,
+      responsavel: form.responsavel,
       loteOrigem: form.loteOrigem,
       loteOrigemId: form.loteOrigemId,
       loteDestino: destinoFinal,
       loteDestinoId: form.loteDestinoId,
       numeroCabecas: form.numeroCabecas ? Number(form.numeroCabecas) : 0,
-      pesoMedio: form.pesoMedio ? Number(form.pesoMedio) : null,
+      pesoVivoAtual: form.pesoVivoAtual ? Number(form.pesoVivoAtual) : null,
       categorias: form.categorias,
       categoria: categoriasString,
       motivoMovimentacao: form.motivoMovimentacao,
@@ -374,9 +384,15 @@ export default function MovimentacaoPage() {
             </div>
           )}
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
+          <Input
+            label="RESPONSÁVEL"
+            placeholder="Nome do responsável"
+            value={usuario || ''}
+            disabled
+          />
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOTE ORIGEM"
+              label="LOTE"
               value={form.loteOrigem}
               onChange={(val) => setForm((p) => ({ ...p, loteOrigem: val }))}
               error={getError('loteOrigem')}
@@ -387,7 +403,7 @@ export default function MovimentacaoPage() {
             />
           ) : (
             <Input
-              label="LOTE ORIGEM"
+              label="LOTE"
               placeholder="Carregando..."
               value={form.loteOrigem}
               onChange={setInput('loteOrigem')}
@@ -416,10 +432,10 @@ export default function MovimentacaoPage() {
             min="0"
           />
           <Input
-            label="PESO MÉDIO (kg)"
+            label="PESO VIVO ATUAL (kg)"
             placeholder="Ex: 450"
-            value={form.pesoMedio}
-            onChange={setInput('pesoMedio')}
+            value={form.pesoVivoAtual}
+            onChange={setInput('pesoVivoAtual')}
             inputMode="decimal"
             type="number"
             min="0"
@@ -702,7 +718,7 @@ export default function MovimentacaoPage() {
 
         {/* Seção 4: Categorias */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CATEGORIA DOS ANIMAIS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. IDENTIFICAÇÃO DOS ANIMAIS</h2>
           {getError('categorias') && (
             <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
           )}

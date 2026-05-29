@@ -196,10 +196,11 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
   movimentacao: {
     columns: [
       { field: 'data' },
+      { field: 'responsavel' },
       { field: 'loteOrigem' },
       { field: 'loteDestino' },
       { field: 'numeroCabecas' },
-      { field: 'pesoMedio' },
+      { field: 'pesoVivoAtual' },
       { field: 'categoria' },
       { field: 'motivoMovimentacao' },
       { field: 'brincoChip' },
@@ -530,12 +531,13 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
+        responsavel: registro.responsavel || null,
         lote_origem: registro.loteOrigem || null,
         lote_origem_id: registro.loteOrigemId || null,
         destino: registro.loteDestino || null,
         lote_destino_id: registro.loteDestinoId || null,
         numero_cabecas: registro.numeroCabecas ? Number(registro.numeroCabecas) : null,
-        peso_medio_kg: registro.pesoMedio ? Number(registro.pesoMedio) : null,
+        peso_vivo_atual_kg: registro.pesoVivoAtual ? Number(registro.pesoVivoAtual) : null,
         categoria: registro.categoria || null,
         motivo_movimentacao: registro.motivoMovimentacao || null,
         tipo_saida: registro.tipoSaida || null,
