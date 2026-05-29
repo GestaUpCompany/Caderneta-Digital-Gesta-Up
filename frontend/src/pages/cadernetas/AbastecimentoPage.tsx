@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -7,6 +8,8 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { getMaquinasVeiculos, getMaquinaVeiculoByNome } from '../../services/supabaseService'
+import { RootState } from '../../store/store'
 
 const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
@@ -40,6 +43,7 @@ interface FormState {
   quemAbasteceu: string
   operadorMotorista: string
   maquinaVeiculo: string
+  maquinaVeiculoId: string
   placa: string
   totalAbastecido: string
   combustivel: string
@@ -54,6 +58,7 @@ const makeInitial = (): FormState => ({
   quemAbasteceu: '',
   operadorMotorista: '',
   maquinaVeiculo: '',
+  maquinaVeiculoId: '',
   placa: '',
   totalAbastecido: '',
   combustivel: '',
@@ -65,12 +70,15 @@ const makeInitial = (): FormState => ({
 
 export default function AbastecimentoPage() {
   const navigate = useNavigate()
+  const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
+  const [maquinaVeiculoSelecionada, setMaquinaVeiculoSelecionada] = useState<any>(null)
 
 
   // Carregar funcionários do cache
@@ -80,6 +88,43 @@ export default function AbastecimentoPage() {
       setFuncionariosDisponiveis(cachedData.funcionarios)
     }
   }, [])
+
+  // Carregar máquinas/veículos
+  useEffect(() => {
+    async function carregarMaquinasVeiculos() {
+      if (!fazendaId) return
+      try {
+        const maquinas = await getMaquinasVeiculos(fazendaId)
+        setMaquinasVeiculosDisponiveis(maquinas || [])
+      } catch (error) {
+        console.error('Erro ao carregar máquinas/veículos:', error)
+      }
+    }
+    carregarMaquinasVeiculos()
+  }, [fazendaId])
+
+  // Buscar detalhes da máquina/veículo quando selecionada
+  useEffect(() => {
+    async function carregarDetalhesMaquinaVeiculo() {
+      if (!form.maquinaVeiculo || !fazendaId) {
+        setMaquinaVeiculoSelecionada(null)
+        setForm(prev => ({ ...prev, maquinaVeiculoId: '', placa: '' }))
+        return
+      }
+      try {
+        const maquina = await getMaquinaVeiculoByNome(fazendaId, form.maquinaVeiculo)
+        if (maquina) {
+          setMaquinaVeiculoSelecionada(maquina)
+          setForm(prev => ({ ...prev, maquinaVeiculoId: maquina.id, placa: maquina.placa || '' }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes da máquina/veículo:', error)
+        setMaquinaVeiculoSelecionada(null)
+        setForm(prev => ({ ...prev, maquinaVeiculoId: '', placa: '' }))
+      }
+    }
+    carregarDetalhesMaquinaVeiculo()
+  }, [form.maquinaVeiculo, fazendaId])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -98,6 +143,7 @@ export default function AbastecimentoPage() {
       quemAbasteceu: form.quemAbasteceu,
       operadorMotorista: form.operadorMotorista,
       maquinaVeiculo: form.maquinaVeiculo,
+      maquinaVeiculoId: form.maquinaVeiculoId,
       placa: form.placa,
       totalAbastecido: form.totalAbastecido,
       combustivel: form.combustivel,
@@ -179,8 +225,38 @@ export default function AbastecimentoPage() {
             />
           )}
         </>
-        <Input label="MÁQUINA/VEÍCULO?" placeholder="Modelo da máquina/veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
-        <Input label="PLACA?" placeholder="Placa do veículo" value={form.placa} onChange={setInput('placa')} error={getError('placa')} />
+        <>
+          {maquinasVeiculosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="MÁQUINA/VEÍCULO?"
+              value={form.maquinaVeiculo}
+              onChange={set('maquinaVeiculo')}
+              error={getError('maquinaVeiculo')}
+              options={maquinasVeiculosDisponiveis.map(m => m.nome)}
+              placeholder="Buscar máquina/veículo..."
+              id="maquinaVeiculo"
+              name="maquinaVeiculo"
+            />
+          ) : (
+            <Input
+              label="MÁQUINA/VEÍCULO?"
+              placeholder="Modelo da máquina/veículo"
+              value={form.maquinaVeiculo}
+              onChange={setInput('maquinaVeiculo')}
+              error={getError('maquinaVeiculo')}
+            />
+          )}
+        </>
+        {maquinaVeiculoSelecionada?.placa && (
+          <Input
+            label="PLACA"
+            placeholder="Placa do veículo"
+            value={form.placa}
+            onChange={setInput('placa')}
+            error={getError('placa')}
+            disabled
+          />
+        )}
         <Input label="TOTAL ABASTECIDO (L)" placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />
       </div>
 

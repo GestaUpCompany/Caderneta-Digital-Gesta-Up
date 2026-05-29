@@ -1143,6 +1143,92 @@ export type Database = {
         }
         Relationships: []
       }
+      maquinas_veiculos: {
+        Row: {
+          ano: number | null
+          ativo: boolean | null
+          capacidade: number | null
+          categoria: string
+          created_at: string | null
+          custo_hora: number | null
+          custo_km: number | null
+          data_proxima_manutencao: string | null
+          data_ultima_manutencao: string | null
+          deleted_at: string | null
+          fazenda_id: string
+          horimetro: number | null
+          id: string
+          modelo: string | null
+          nome: string
+          observacoes: string | null
+          operador_padrao: string | null
+          placa: string | null
+          quilometragem: number | null
+          status: string
+          tipo: string
+          tipo_combustivel: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ano?: number | null
+          ativo?: boolean | null
+          capacidade?: number | null
+          categoria: string
+          created_at?: string | null
+          custo_hora?: number | null
+          custo_km?: number | null
+          data_proxima_manutencao?: string | null
+          data_ultima_manutencao?: string | null
+          deleted_at?: string | null
+          fazenda_id: string
+          horimetro?: number | null
+          id?: string
+          modelo?: string | null
+          nome: string
+          observacoes?: string | null
+          operador_padrao?: string | null
+          placa?: string | null
+          quilometragem?: number | null
+          status?: string
+          tipo: string
+          tipo_combustivel?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ano?: number | null
+          ativo?: boolean | null
+          capacidade?: number | null
+          categoria?: string
+          created_at?: string | null
+          custo_hora?: number | null
+          custo_km?: number | null
+          data_proxima_manutencao?: string | null
+          data_ultima_manutencao?: string | null
+          deleted_at?: string | null
+          fazenda_id?: string
+          horimetro?: number | null
+          id?: string
+          modelo?: string | null
+          nome?: string
+          observacoes?: string | null
+          operador_padrao?: string | null
+          placa?: string | null
+          quilometragem?: number | null
+          status?: string
+          tipo?: string
+          tipo_combustivel?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquinas_veiculos_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medicamentos: {
         Row: {
           ativo: boolean | null
@@ -1687,11 +1773,12 @@ export type Database = {
           fazenda_id: string
           id: string
           maquina_veiculo: string
+          maquina_veiculo_id: string | null
           nome_usuario: string | null
           observacao: string | null
           odometro_horimetro: string
           operador_motorista: string
-          placa: string
+          placa: string | null
           quem_abasteceu: string
           sync_status: string
           tipo_operacao: string
@@ -1709,11 +1796,12 @@ export type Database = {
           fazenda_id: string
           id?: string
           maquina_veiculo: string
+          maquina_veiculo_id?: string | null
           nome_usuario?: string | null
           observacao?: string | null
           odometro_horimetro: string
           operador_motorista: string
-          placa: string
+          placa?: string | null
           quem_abasteceu: string
           sync_status?: string
           tipo_operacao: string
@@ -1731,11 +1819,12 @@ export type Database = {
           fazenda_id?: string
           id?: string
           maquina_veiculo?: string
+          maquina_veiculo_id?: string | null
           nome_usuario?: string | null
           observacao?: string | null
           odometro_horimetro?: string
           operador_motorista?: string
-          placa?: string
+          placa?: string | null
           quem_abasteceu?: string
           sync_status?: string
           tipo_operacao?: string
