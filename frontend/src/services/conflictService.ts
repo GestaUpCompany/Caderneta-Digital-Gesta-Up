@@ -51,7 +51,7 @@ function buildRegistroFromRow(
     bebedouros: ['data', 'responsavel', 'pasto', 'numeroLote', 'leituraBebedouro', 'numeroBebedouro', 'observacao'],
     movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'pesoVivoAtual', 'categoria', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
     enfermaria: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'tratamento', 'tratamentoOutros', 'diagnosticos', 'observacaoTratamento'],
-    morte: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'categoriaOutros', 'sexo', 'raca', 'racaOutros', 'idade', 'pesoVivo', 'causaMorte', 'causaMorteOutros', 'diagnosticos'],
+    morte: ['responsavel', 'data', 'pasto', 'lote', 'brincoChip', 'categoria', 'categoriaOutros', 'sexo', 'raca', 'racaOutros', 'idade', 'pesoVivo', 'causaMorte', 'causaMorteOutros', 'diagnosticos'],
     abastecimento: ['data', 'quemAbasteceu', 'operadorMotorista', 'maquinaVeiculo', 'placa', 'combustivel', 'tipoOperacao'],
     cantina: ['data', 'numeroCozinheiras', 'quemCozinhou', 'quemAjudou', 'numeroCafeManha', 'numeroLanches', 'numeroRefeicoesAlmoco', 'numeroRefeicoesJantar', 'observacao'],
     limpeza: ['data', 'numeroEquipe', 'setor', 'local', 'horaInicio', 'horaFinal', 'limpezaRealizada', 'observacao'],

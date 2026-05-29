@@ -223,6 +223,7 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
   },
   morte: {
     columns: [
+      { field: 'responsavel' },
       { field: 'data' },
       { field: 'pasto' },
       { field: 'lote' },
@@ -569,6 +570,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'morte':
       return {
         ...baseData,
+        nome_usuario: registro.responsavel || null,
         data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         lote: registro.lote || null,

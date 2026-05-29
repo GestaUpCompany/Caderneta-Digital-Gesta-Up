@@ -13,7 +13,7 @@ import { getLoteByNome, getLoteDetalhesComCategorias } from '../../services/supa
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
-import { supabase } from '../../services/supabaseClient'
+import { supabase, getSupabaseClient } from '../../services/supabaseClient'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -275,7 +275,8 @@ export default function MortePage() {
       if (!fazendaId) return
 
       try {
-        const { data, error } = await supabase
+        const client = getSupabaseClient()
+        const { data, error } = await client
           .from('dietas')
           .select('nome')
           .eq('fazenda_id', fazendaId)
@@ -310,6 +311,7 @@ export default function MortePage() {
     const causaMorteFinal = form.causaMorte === 'Outros' ? form.causaMorteOutros : form.causaMorte
 
     const result = await salvarRegistro('morte', {
+      responsavel: usuario,
       data: form.data,
       pasto: form.pasto,
       lote: form.lote,
@@ -396,6 +398,17 @@ export default function MortePage() {
           )}
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
+          <div className="w-full">
+            <label className="block text-lg font-bold text-gray-900 mb-2">RESPONSÁVEL</label>
+            <div className="relative">
+              <input
+                className="min-h-[60px] text-lg sm:text-xl px-3 sm:px-4 py-3 bg-white border-2 rounded-xl focus:outline-none transition-colors w-full border-gray-400 focus:border-black"
+                placeholder="Nome do responsável"
+                value={usuario || ''}
+                readOnly
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
               <SearchableModal
@@ -594,7 +607,7 @@ export default function MortePage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              {form.diagnosticos[campo]?.valor === 'S' && (
+              {form.diagnosticos[campo]?.valor === 'N' && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={form.diagnosticos[campo]?.observacao || ''}
