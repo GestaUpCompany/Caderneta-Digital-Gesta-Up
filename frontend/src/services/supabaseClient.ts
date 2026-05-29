@@ -73,6 +73,47 @@ export function getSupabaseClient() {
   return createSupabaseClientWithToken(token)
 }
 
+// Iniciar refresh automático do token a cada 30 minutos
+let refreshInterval: number | null = null
+
+export function startTokenRefresh() {
+  if (refreshInterval) return // Já está rodando
+  
+  refreshInterval = window.setInterval(async () => {
+    const token = localStorage.getItem('supabase_token')
+    if (!token) {
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+        refreshInterval = null
+      }
+      return
+    }
+
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const now = Math.floor(Date.now() / 1000)
+      
+      // Se o token vai expirar em menos de 30 minutos, fazer refresh
+      if (payload.exp && payload.exp - now < 1800) {
+        console.log('[SupabaseClient] Token expirando, fazendo refresh automático')
+        const newToken = await refreshAccessToken()
+        if (!newToken) {
+          console.error('[SupabaseClient] Falha ao refresh token')
+        }
+      }
+    } catch (error) {
+      console.error('[SupabaseClient] Erro ao verificar expiração do token:', error)
+    }
+  }, 5 * 60 * 1000) // Verificar a cada 5 minutos
+}
+
+export function stopTokenRefresh() {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+    refreshInterval = null
+  }
+}
+
 // Criar cliente Supabase com auto-refresh de token
 export async function getSupabaseClientWithRefresh() {
   let token = localStorage.getItem('supabase_token')
