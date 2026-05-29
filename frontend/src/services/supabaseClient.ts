@@ -63,8 +63,14 @@ async function refreshAccessToken(): Promise<string | null> {
 
 // Criar cliente Supabase com token do localStorage (se disponível)
 export function getSupabaseClient() {
-  // Sempre usar cliente anon para evitar problemas de token expirado
-  return supabase
+  const token = localStorage.getItem('supabase_token')
+  
+  if (!token) {
+    return supabase
+  }
+
+  // Criar cliente com token para autenticação
+  return createSupabaseClientWithToken(token)
 }
 
 // Criar cliente Supabase com auto-refresh de token
