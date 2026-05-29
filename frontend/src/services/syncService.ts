@@ -184,7 +184,8 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
   'operacoes-maquinas': {
     columns: [
       { field: 'data' },
-      { field: 'veiculoTrator' },
+      { field: 'maquinaVeiculo' },
+      { field: 'maquinaVeiculoId' },
       { field: 'implementoUtilizado' },
       { field: 'horaInicial' },
       { field: 'horaFinal' },
@@ -648,6 +649,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data: brWithTimeToIso(registro.data),
         maquina_veiculo: registro.maquinaVeiculo || null,
+        maquina_veiculo_id: registro.maquinaVeiculoId || null,
         implemento_utilizado: registro.implementoUtilizado || null,
         hora_inicial: registro.horaInicial || null,
         hora_final: registro.horaFinal || null,
@@ -655,7 +657,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         odometro_final: registro.odometroFinal || null,
         total_odometro: registro.totalOdometro || null,
         tipo_operacao: registro.tipoOperacao || null,
-        produto_aplicado: registro.produtoAplicado || null,
+        insumo_aplicado: registro.insumoAplicado || null,
         quantidade_total_aplicada: registro.quantidadeTotalAplicada || null,
         area_trabalhada: registro.areaTrabalhada || null,
         dose_aplicada: registro.doseAplicada || null,

@@ -2828,13 +2828,14 @@ export type Database = {
           hora_inicial: string | null
           id: string
           implemento_utilizado: string
+          insumo_aplicado: string | null
+          maquina_veiculo_id: string | null
           meta_diaria_batida: string | null
           meta_diaria_batida_obs: string | null
           nome_usuario: string | null
           observacao: string | null
           odometro_final: string
           odometro_inicial: string
-          produto_aplicado: string | null
           quantidade_total_aplicada: string | null
           sync_status: string
           tipo_operacao: string
@@ -2857,13 +2858,14 @@ export type Database = {
           hora_inicial?: string | null
           id?: string
           implemento_utilizado: string
+          insumo_aplicado?: string | null
+          maquina_veiculo_id?: string | null
           meta_diaria_batida?: string | null
           meta_diaria_batida_obs?: string | null
           nome_usuario?: string | null
           observacao?: string | null
           odometro_final: string
           odometro_inicial: string
-          produto_aplicado?: string | null
           quantidade_total_aplicada?: string | null
           sync_status?: string
           tipo_operacao: string
@@ -2886,13 +2888,14 @@ export type Database = {
           hora_inicial?: string | null
           id?: string
           implemento_utilizado?: string
+          insumo_aplicado?: string | null
+          maquina_veiculo_id?: string | null
           meta_diaria_batida?: string | null
           meta_diaria_batida_obs?: string | null
           nome_usuario?: string | null
           observacao?: string | null
           odometro_final?: string
           odometro_inicial?: string
-          produto_aplicado?: string | null
           quantidade_total_aplicada?: string | null
           sync_status?: string
           tipo_operacao?: string

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, DatePicker, ValidationMessage, Radio } from '../../components/ui'
+import { useSelector } from 'react-redux'
+import { Button, Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { getMaquinasVeiculos, getMaquinaVeiculoByNome } from '../../services/supabaseService'
+import { RootState } from '../../store/store'
 
 const TIPO_OPERACAO_OPTIONS = [
   { value: 'nutricao', label: 'Nutrição' },
@@ -33,14 +36,16 @@ const SN_OPTIONS = [
 interface FormState {
   data: string
   maquinaVeiculo: string
+  maquinaVeiculoId: string
   implementoUtilizado: string
   horaInicial: string
   horaFinal: string
+  totalHorasTrabalhadas: string
   odometroInicial: string
   odometroFinal: string
   totalOdometro: string
   tipoOperacao: string
-  produtoAplicado: string
+  insumoAplicado: string
   quantidadeTotalAplicada: string
   areaTrabalhada: string
   doseAplicada: string
@@ -54,14 +59,16 @@ interface FormState {
 const makeInitial = (): FormState => ({
   data: todayBR(),
   maquinaVeiculo: '',
+  maquinaVeiculoId: '',
   implementoUtilizado: '',
   horaInicial: '',
   horaFinal: '',
+  totalHorasTrabalhadas: '',
   odometroInicial: '',
   odometroFinal: '',
   totalOdometro: '',
   tipoOperacao: '',
-  produtoAplicado: '',
+  insumoAplicado: '',
   quantidadeTotalAplicada: '',
   areaTrabalhada: '',
   doseAplicada: '',
@@ -74,11 +81,13 @@ const makeInitial = (): FormState => ({
 
 export default function OperacoesMaquinasPage() {
   const navigate = useNavigate()
+  const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
 
   // Calcular total odometro automaticamente
   useEffect(() => {
@@ -90,6 +99,83 @@ export default function OperacoesMaquinasPage() {
       }
     }
   }, [form.odometroInicial, form.odometroFinal])
+
+  // Calcular total de horas trabalhadas automaticamente
+  useEffect(() => {
+    if (form.horaInicial && form.horaFinal) {
+      const [horaInicial, minInicial] = form.horaInicial.split(':').map(Number)
+      const [horaFinal, minFinal] = form.horaFinal.split(':').map(Number)
+      
+      if (!isNaN(horaInicial) && !isNaN(minInicial) && !isNaN(horaFinal) && !isNaN(minFinal)) {
+        const dataInicial = new Date(2000, 0, 1, horaInicial, minInicial)
+        const dataFinal = new Date(2000, 0, 1, horaFinal, minFinal)
+        
+        let diffMs = dataFinal.getTime() - dataInicial.getTime()
+        
+        // Se a diferença for negativa, assume que passou para o dia seguinte
+        if (diffMs < 0) {
+          diffMs += 24 * 60 * 60 * 1000 // Adiciona 24 horas
+        }
+        
+        const diffMinutos = Math.floor(diffMs / (1000 * 60))
+        const horas = Math.floor(diffMinutos / 60)
+        const minutos = diffMinutos % 60
+        
+        setForm((prev) => ({ ...prev, totalHorasTrabalhadas: `${horas}h ${minutos}min` }))
+      }
+    } else {
+      setForm((prev) => ({ ...prev, totalHorasTrabalhadas: '' }))
+    }
+  }, [form.horaInicial, form.horaFinal])
+
+  // Calcular dose aplicada automaticamente
+  useEffect(() => {
+    if (form.quantidadeTotalAplicada && form.areaTrabalhada) {
+      const quantidade = parseFloat(form.quantidadeTotalAplicada)
+      const area = parseFloat(form.areaTrabalhada)
+      
+      if (!isNaN(quantidade) && !isNaN(area) && area > 0) {
+        const dose = quantidade / area
+        setForm((prev) => ({ ...prev, doseAplicada: dose.toFixed(2) }))
+      }
+    } else {
+      setForm((prev) => ({ ...prev, doseAplicada: '' }))
+    }
+  }, [form.quantidadeTotalAplicada, form.areaTrabalhada])
+
+  // Carregar máquinas/veículos
+  useEffect(() => {
+    async function carregarMaquinasVeiculos() {
+      if (!fazendaId) return
+      try {
+        const maquinas = await getMaquinasVeiculos(fazendaId)
+        setMaquinasVeiculosDisponiveis(maquinas || [])
+      } catch (error) {
+        console.error('Erro ao carregar máquinas/veículos:', error)
+      }
+    }
+    carregarMaquinasVeiculos()
+  }, [fazendaId])
+
+  // Buscar detalhes da máquina/veículo quando selecionada
+  useEffect(() => {
+    async function carregarDetalhesMaquinaVeiculo() {
+      if (!form.maquinaVeiculo || !fazendaId) {
+        setForm(prev => ({ ...prev, maquinaVeiculoId: '' }))
+        return
+      }
+      try {
+        const maquina = await getMaquinaVeiculoByNome(fazendaId, form.maquinaVeiculo)
+        if (maquina) {
+          setForm(prev => ({ ...prev, maquinaVeiculoId: maquina.id }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes da máquina/veículo:', error)
+        setForm(prev => ({ ...prev, maquinaVeiculoId: '' }))
+      }
+    }
+    carregarDetalhesMaquinaVeiculo()
+  }, [form.maquinaVeiculo, fazendaId])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -108,6 +194,7 @@ export default function OperacoesMaquinasPage() {
     const result = await salvarRegistro('operacoes-maquinas', {
       data: form.data,
       maquinaVeiculo: form.maquinaVeiculo,
+      maquinaVeiculoId: form.maquinaVeiculoId,
       implementoUtilizado: form.implementoUtilizado,
       horaInicial: form.horaInicial,
       horaFinal: form.horaFinal,
@@ -115,7 +202,7 @@ export default function OperacoesMaquinasPage() {
       odometroFinal: form.odometroFinal,
       totalOdometro: form.totalOdometro,
       tipoOperacao: form.tipoOperacao,
-      produtoAplicado: form.produtoAplicado,
+      insumoAplicado: form.insumoAplicado,
       quantidadeTotalAplicada: form.quantidadeTotalAplicada,
       areaTrabalhada: form.areaTrabalhada,
       doseAplicada: form.doseAplicada,
@@ -160,10 +247,30 @@ export default function OperacoesMaquinasPage() {
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA OPERAÇÃO</h2>
         <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
-        <Input label="MÁQUINA/VEÍCULO?" placeholder="Máquina/Veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
+        {maquinasVeiculosDisponiveis.length > 0 ? (
+          <SearchableModal
+            label="MÁQUINA/VEÍCULO?"
+            value={form.maquinaVeiculo}
+            onChange={set('maquinaVeiculo')}
+            error={getError('maquinaVeiculo')}
+            options={maquinasVeiculosDisponiveis.map(m => m.nome)}
+            placeholder="Buscar máquina/veículo..."
+            id="maquinaVeiculo"
+            name="maquinaVeiculo"
+          />
+        ) : (
+          <Input label="MÁQUINA/VEÍCULO?" placeholder="Máquina/Veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
+        )}
         <Input label="IMPLEMENTO UTILIZADO?" placeholder="Implemento utilizado" value={form.implementoUtilizado} onChange={setInput('implementoUtilizado')} error={getError('implementoUtilizado')} />
         <Input label="HORA INICIAL?" type="time" value={form.horaInicial} onChange={setInput('horaInicial')} error={getError('horaInicial')} />
         <Input label="HORA FINAL?" type="time" value={form.horaFinal} onChange={setInput('horaFinal')} error={getError('horaFinal')} />
+        <Input 
+          label="TOTAL HORAS TRABALHADAS" 
+          placeholder="" 
+          value={form.totalHorasTrabalhadas} 
+          readOnly 
+          helper="Calculado automaticamente a partir das horas inicial e final"
+        />
         <Input label="ODÔMETRO INICIAL (km)" type="number" placeholder="Odômetro inicial" value={form.odometroInicial} onChange={setInput('odometroInicial')} error={getError('odometroInicial')} />
         <Input label="ODÔMETRO FINAL (km)" type="number" placeholder="Odômetro final" value={form.odometroFinal} onChange={setInput('odometroFinal')} error={getError('odometroFinal')} />
         <Input 
@@ -193,10 +300,10 @@ export default function OperacoesMaquinasPage() {
       {/* Seção 3: Detalhes da Aplicação */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DETALHES DA APLICAÇÃO</h2>
-        <Input label="PRODUTO APLICADO?" placeholder="Produto aplicado" value={form.produtoAplicado} onChange={setInput('produtoAplicado')} error={getError('produtoAplicado')} />
+        <Input label="INSUMO APLICADO?" placeholder="Insumo aplicado" value={form.insumoAplicado} onChange={setInput('insumoAplicado')} error={getError('insumoAplicado')} />
         <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} error={getError('quantidadeTotalAplicada')} />
         <Input label="ÁREA TRABALHADA?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} error={getError('areaTrabalhada')} />
-        <Input label="DOSE APLICADA/ha?" placeholder="Dose aplicada" value={form.doseAplicada} onChange={setInput('doseAplicada')} error={getError('doseAplicada')} />
+        <Input label="DOSE APLICADA/ha?" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" />
       </div>
 
       {/* Seção 4: Avaliação */}
@@ -212,7 +319,7 @@ export default function OperacoesMaquinasPage() {
               error={getError('metaDiariaBatida')}
               gridCols={2}
             />
-            {form.metaDiariaBatida === 'S' && (
+            {form.metaDiariaBatida === 'N' && (
               <Input
                 placeholder="Adicionar observação (opcional)"
                 value={form.metaDiariaBatidaObs}
@@ -231,7 +338,7 @@ export default function OperacoesMaquinasPage() {
             error={getError('algumImprevisto')}
             gridCols={2}
           />
-          {form.algumImprevisto === 'S' && (
+          {form.algumImprevisto === 'N' && (
             <Input
               placeholder="Adicionar observação (opcional)"
               value={form.algumImprevistoObs}
