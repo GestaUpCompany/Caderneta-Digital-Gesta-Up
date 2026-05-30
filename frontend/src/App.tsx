@@ -19,6 +19,7 @@ import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
 import { initializeCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
+import { reauthenticateFarm, isTokenValid } from './services/authService'
 import ScrollToTop from './components/ScrollToTop'
 
 // Componente wrapper para PWAUpdateModal com hook
@@ -96,7 +97,7 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
-  const { cadastroSheetUrl, fazendaId } = useSelector((state: RootState) => state.config)
+  const { cadastroSheetUrl, fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
   
   // Hooks de analytics (desativados temporariamente)
   // const sessionTime = useSessionTimer()
@@ -139,6 +140,26 @@ function AppInner() {
       stopCadastroCachePolling()
     }
   }, [cadastroSheetUrl, fazendaId])
+
+  // Re-authenticate automatically if config exists but token is invalid
+  useEffect(() => {
+    const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
+    if (!useSupabase || !acessoId || !configurado) return
+
+    const checkAndReauth = async () => {
+      if (!isTokenValid()) {
+        console.log('[App] Token inválido, tentando re-autenticação automática')
+        const result = await reauthenticateFarm(acessoId)
+        if (result.sucesso) {
+          console.log('[App] Re-autenticação bem-sucedida')
+        } else {
+          console.warn('[App] Re-autenticação falhou, usuário precisará reconfigurar')
+        }
+      }
+    }
+
+    checkAndReauth()
+  }, [acessoId, configurado])
 
   useEffect(() => {
     if (syncStatus === 'conflict') {
