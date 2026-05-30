@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca, getLotes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -184,13 +184,23 @@ export default function MaternidadePage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Carregar lotes do cache global
+  // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
-    const cache = getCachedCadastroData()
-    if (cache) {
-      setLotesDisponiveis(cache.lotes || [])
+    const loadData = async () => {
+      const cache = getCachedCadastroData()
+      if (cache && cache.lotes && cache.lotes.length > 0) {
+        setLotesDisponiveis(cache.lotes || [])
+      } else if (fazendaId) {
+        try {
+          const lotesData = await getLotes(fazendaId)
+          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar dados do Supabase:', error)
+        }
+      }
     }
-  }, [])
+    loadData()
+  }, [fazendaId])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {

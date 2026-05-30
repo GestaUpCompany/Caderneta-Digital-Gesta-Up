@@ -9,7 +9,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza, getFuncionarios, getLoteDetalhesComCategorias } from '../../services/supabaseService'
+import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza, getFuncionarios, getLoteDetalhesComCategorias, getPastos, getLotes, getBebedouros } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
@@ -144,15 +144,32 @@ export default function BebedourosPage() {
     loadFuncionarios()
   }, [fazendaId])
 
-  // Carregar pastos e lotes do cache global
+  // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
-    const cache = getCachedCadastroData()
-    if (cache) {
-      setPastosDisponiveis(cache.pastos || [])
-      setLotesDisponiveis(cache.lotes || [])
-      setBebedourosDisponiveis(cache.bebedouros || [])
+    const loadData = async () => {
+      const cache = getCachedCadastroData()
+      if (cache && cache.pastos && cache.pastos.length > 0) {
+        setPastosDisponiveis(cache.pastos || [])
+        setLotesDisponiveis(cache.lotes || [])
+        setBebedourosDisponiveis(cache.bebedouros || [])
+      } else if (fazendaId) {
+        // Fallback: carregar do Supabase se cache estiver vazio
+        try {
+          const [pastosData, lotesData, bebedourosData] = await Promise.all([
+            getPastos(fazendaId),
+            getLotes(fazendaId),
+            getBebedouros(fazendaId)
+          ])
+          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
+          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          setBebedourosDisponiveis(bebedourosData?.map((b: any) => b.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar dados do Supabase:', error)
+        }
+      }
     }
-  }, [])
+    loadData()
+  }, [fazendaId])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {

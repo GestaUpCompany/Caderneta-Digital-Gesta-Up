@@ -8,7 +8,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getLotes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -151,15 +151,31 @@ export default function MovimentacaoPage() {
     }
   }, [form.motivoMovimentacao])
 
-  // Carregar pastos e lotes do cache global
+  // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
-    const cache = getCachedCadastroData()
-    if (cache) {
-      setLotesDisponiveis(cache.lotes || [])
-      setFrigorificosDisponiveis(cache.frigorificos || [])
-      setFornecedoresDisponiveis(cache.fornecedores || [])
+    const loadData = async () => {
+      const cache = getCachedCadastroData()
+      if (cache && cache.lotes && cache.lotes.length > 0) {
+        setLotesDisponiveis(cache.lotes || [])
+        setFrigorificosDisponiveis(cache.frigorificos || [])
+        setFornecedoresDisponiveis(cache.fornecedores || [])
+      } else if (fazendaId) {
+        try {
+          const [lotesData, frigorificosData, fornecedoresData] = await Promise.all([
+            getLotes(fazendaId),
+            Promise.resolve([]), // getFrigorificos not available
+            Promise.resolve([])  // getFornecedores not available
+          ])
+          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          setFrigorificosDisponiveis(frigorificosData || [])
+          setFornecedoresDisponiveis(fornecedoresData || [])
+        } catch (error) {
+          console.error('Erro ao carregar dados do Supabase:', error)
+        }
+      }
     }
-  }, [])
+    loadData()
+  }, [fazendaId])
 
   // Atualizar responsavel quando usuario mudar
   useEffect(() => {
