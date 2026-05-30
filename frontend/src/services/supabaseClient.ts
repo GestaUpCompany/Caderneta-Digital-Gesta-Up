@@ -45,6 +45,10 @@ async function refreshAccessToken(): Promise<string | null> {
 
     if (!response.ok) {
       console.error('Erro ao refresh token:', await response.text())
+      // Clear invalid tokens
+      localStorage.removeItem('supabase_token')
+      localStorage.removeItem('supabase_refresh_token')
+      stopTokenRefresh()
       return null
     }
 
