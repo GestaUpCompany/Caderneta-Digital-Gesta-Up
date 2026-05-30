@@ -9,7 +9,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getPastos, getLotes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -68,14 +68,28 @@ export default function LeituraCochoPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Carregar pastos e lotes do cache global
+  // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
-    const cache = getCachedCadastroData()
-    if (cache) {
-      setPastosDisponiveis(cache.pastos || [])
-      setLotesDisponiveis(cache.lotes || [])
+    const loadData = async () => {
+      const cache = getCachedCadastroData()
+      if (cache && cache.pastos && cache.pastos.length > 0) {
+        setPastosDisponiveis(cache.pastos || [])
+        setLotesDisponiveis(cache.lotes || [])
+      } else if (fazendaId) {
+        try {
+          const [pastosData, lotesData] = await Promise.all([
+            getPastos(fazendaId),
+            getLotes(fazendaId)
+          ])
+          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
+          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar dados do Supabase:', error)
+        }
+      }
     }
-  }, [])
+    loadData()
+  }, [fazendaId])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {

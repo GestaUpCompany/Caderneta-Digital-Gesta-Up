@@ -9,6 +9,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
+import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
 const SN_OPTIONS = [
@@ -66,6 +67,7 @@ export default function ManutencaoMaquinasPage() {
   const navigate = useNavigate()
   const usuario = useSelector((state: RootState) => state.config.usuario)
   const fazenda = useSelector((state: RootState) => state.config.fazenda)
+  const fazendaId = useSelector((state: RootState) => state.config.fazendaId)
   const logoUrl = useSelector((state: RootState) => state.config.logoUrl)
   const configurado = useSelector((state: RootState) => state.config.configurado)
 
@@ -135,13 +137,20 @@ export default function ManutencaoMaquinasPage() {
   // Carregar funcionários do cache
   useEffect(() => {
     const loadData = async () => {
-      const cadastroData = await getCachedCadastroData()
-      if (cadastroData?.funcionarios) {
-        setFuncionariosDisponiveis(cadastroData.funcionarios)
+      const cache = getCachedCadastroData()
+      if (cache && cache.funcionarios && cache.funcionarios.length > 0) {
+        setFuncionariosDisponiveis(cache.funcionarios)
+      } else if (fazendaId) {
+        try {
+          const funcionariosData = await getFuncionarios(fazendaId)
+          setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar funcionários do Supabase:', error)
+        }
       }
     }
     loadData()
-  }, [])
+  }, [fazendaId])
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">

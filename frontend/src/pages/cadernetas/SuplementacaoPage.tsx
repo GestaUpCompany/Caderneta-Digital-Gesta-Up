@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho, getPastos, getLotes } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho, getPastos, getLotes, getMineral, getProteinado, getRacao, getInsumos } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -139,18 +139,36 @@ export default function SuplementacaoPage() {
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
 
-  // Carregar todos os suplementos ao abrir a página
+  // Carregar todos os suplementos ao abrir a página, com fallback para Supabase
   useEffect(() => {
-    const cache = getCachedCadastroData()
-    if (cache) {
-      setMineralDisponiveis(cache.mineral || [])
-      setProteinadoDisponiveis(cache.proteinado || [])
-      setRacaoDisponiveis(cache.racao || [])
-      setInsumosDisponiveis(cache.insumos || [])
-      setPastosDisponiveis(cache.pastos || [])
-      setLotesDisponiveis(cache.lotes || [])
+    const loadData = async () => {
+      const cache = getCachedCadastroData()
+      if (cache && cache.mineral && cache.mineral.length > 0) {
+        setMineralDisponiveis(cache.mineral || [])
+        setProteinadoDisponiveis(cache.proteinado || [])
+        setRacaoDisponiveis(cache.racao || [])
+        setInsumosDisponiveis(cache.insumos || [])
+        setPastosDisponiveis(cache.pastos || [])
+        setLotesDisponiveis(cache.lotes || [])
+      } else if (fazendaId) {
+        try {
+          const [mineralData, proteinadoData, racaoData, insumosData] = await Promise.all([
+            getMineral(fazendaId),
+            getProteinado(fazendaId),
+            getRacao(fazendaId),
+            getInsumos(fazendaId)
+          ])
+          setMineralDisponiveis(mineralData?.map((m: any) => m.nome) || [])
+          setProteinadoDisponiveis(proteinadoData?.map((p: any) => p.nome) || [])
+          setRacaoDisponiveis(racaoData?.map((r: any) => r.nome) || [])
+          setInsumosDisponiveis(insumosData?.map((i: any) => i.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar suplementos do Supabase:', error)
+        }
+      }
     }
-  }, [])
+    loadData()
+  }, [fazendaId])
 
   useEffect(() => {
     setSuplemento('')
