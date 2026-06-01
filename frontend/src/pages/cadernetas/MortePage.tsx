@@ -74,6 +74,8 @@ const DIAGNOSTICOS = [
   { campo: 'carrapatosMoscas', label: 'PRESENÇA DE CARRAPATOS / MOSCAS?' },
   { campo: 'encontradoVivo', label: 'ANIMAL FOI ENCONTRADO VIVO?' },
   { campo: 'medicado', label: 'ANIMAL CHEGOU A SER MEDICADO?' },
+  { campo: 'animalInchado', label: 'ANIMAL ESTAVA INCHADO?' },
+  { campo: 'animalBicheira', label: 'ANIMAL COM BICHEIRA?' },
 ]
 
 const ESCORES = [
@@ -256,7 +258,8 @@ export default function MortePage() {
       if (!fazendaId) return
 
       try {
-        const { data, error } = await supabase
+        const client = getSupabaseClient()
+        const { data, error } = await client
           .from('causas_morte')
           .select('nome')
           .eq('fazenda_id', fazendaId)

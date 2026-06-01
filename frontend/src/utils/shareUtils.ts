@@ -721,6 +721,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'carrapatosMoscas',
       'encontradoVivo',
       'medicado',
+      'animalInchado',
+      'animalBicheira',
     ]
 
     texto += 'DIAGNÓSTICOS:\n'
