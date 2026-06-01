@@ -397,42 +397,35 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Tipos de Limpeza
     if (registro.limpezaRealizada && Array.isArray(registro.limpezaRealizada) && registro.limpezaRealizada.length > 0) {
       texto += `Tipos de Limpeza: *`
-      
+
       // Mapear valores para labels
       const labelMap: Record<string, string> = {
         capina: 'Capina',
         grama: 'Grama',
         herbicida: 'Herbicida',
-        veiculo: 'Veículo',
-        moto: 'Moto',
-        trator: 'Trator',
-        implemento: 'Implemento',
-        barracao: 'Barracão',
-        curral: 'Curral',
-        banheiros: 'Banheiros',
-        sede: 'Sede',
-        alojamento: 'Alojamento',
-        pocilga: 'Pocilga',
-        galinheiro: 'Galinheiro',
-        aprisco: 'Aprisco',
-        baias: 'Baias',
-        tanque: 'Tanque',
-        jardins: 'Jardins',
-        oficina: 'Oficina',
-        corredores: 'Corredores',
         aceiros: 'Aceiros',
-        entrada: 'Entrada',
-        pista: 'Pista',
-        reservatorio: 'Reservatório',
         poda_arvores: 'Poda Árvores',
         lixo_recolhido: 'Lixo Recolhido',
-        patio: 'Pátio',
         rocada: 'Roçada',
-        horta: 'Horta',
+        lavagem: 'Lavagem',
+        organizacao: 'Organização',
+        polimento: 'Polimento',
       }
-      
+
       const labels = registro.limpezaRealizada.map(valor => labelMap[valor] || valor)
       texto += `${labels.join(', ')}*\n`
+
+      // Seção: Tarefas Realizadas
+      if (registro.tarefas && typeof registro.tarefas === 'object') {
+        texto += `\nTAREFAS REALIZADAS\n`
+        registro.limpezaRealizada.forEach((limpeza: string) => {
+          const tarefa = (registro.tarefas as any)[limpeza]
+          const label = labelMap[limpeza] || limpeza
+          if (tarefa && tarefa.trim() !== '') {
+            texto += `${label}: *${tarefa}*\n`
+          }
+        })
+      }
     }
     
     // Observação

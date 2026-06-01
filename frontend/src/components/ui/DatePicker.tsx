@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ReactNode } from 'react'
 import { todayBR } from '../../utils/formatDate'
 
 const MONTH_NAMES = [
@@ -19,7 +20,7 @@ const MONTH_NAMES = [
 const WEEK_DAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
 interface DatePickerProps {
-  label?: string
+  label?: string | ReactNode
   value?: string
   onChange: (value: string) => void
   error?: string

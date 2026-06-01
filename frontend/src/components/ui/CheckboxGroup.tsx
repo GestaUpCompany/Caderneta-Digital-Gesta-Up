@@ -1,4 +1,6 @@
 
+import { ReactNode } from 'react'
+
 interface CheckboxOption {
   value: string
   label: string
@@ -6,7 +8,7 @@ interface CheckboxOption {
 }
 
 interface CheckboxGroupProps {
-  label?: string
+  label?: string | ReactNode
   options: CheckboxOption[]
   selectedValues: string[]
   onChange: (values: string[]) => void

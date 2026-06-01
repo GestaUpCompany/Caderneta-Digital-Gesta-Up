@@ -1,27 +1,29 @@
-import { InputHTMLAttributes, ReactNode } from 'react'
+import { TextareaHTMLAttributes, ReactNode } from 'react'
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string | ReactNode
   error?: string
   helper?: string
   icon?: ReactNode
   fullWidth?: boolean
   textSize?: 'sm' | 'base' | 'lg' | 'xl'
+  rows?: number
 }
 
-export default function Input({
+export default function TextArea({
   label,
   error,
   helper,
   icon,
   fullWidth = true,
   textSize,
+  rows = 4,
   className = '',
   id,
   ...props
-}: InputProps) {
+}: TextAreaProps) {
   const textSizeStyles = textSize === 'sm' ? 'text-sm' : textSize === 'base' ? 'text-base' : textSize === 'lg' ? 'text-lg' : 'text-lg sm:text-xl'
-  const baseStyles = `min-h-[60px] ${textSizeStyles} px-3 sm:px-4 py-3 bg-white border-2 rounded-xl focus:outline-none transition-colors w-full`
+  const baseStyles = `min-h-[60px] ${textSizeStyles} px-3 sm:px-4 py-3 bg-white border-2 rounded-xl focus:outline-none transition-colors w-full resize-y`
   const stateStyles = error
     ? 'border-red-500 focus:border-red-700'
     : 'border-gray-400 focus:border-black'
@@ -36,12 +38,13 @@ export default function Input({
       )}
       <div className="relative">
         {icon && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-500 pointer-events-none">
+          <span className="absolute left-4 top-4 text-2xl text-gray-500 pointer-events-none">
             {icon}
           </span>
         )}
-        <input
+        <textarea
           id={id}
+          rows={rows}
           className={`${baseStyles} ${stateStyles} ${icon ? 'pl-12 sm:pl-14' : ''}`}
           {...props}
         />
