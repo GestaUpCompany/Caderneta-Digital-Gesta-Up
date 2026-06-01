@@ -13,7 +13,7 @@ import { getLoteByNome, getLoteDetalhesComCategorias, getPastos, getLotes } from
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
-import { supabase, getSupabaseClient } from '../../services/supabaseClient'
+import { getSupabaseClient } from '../../services/supabaseClient'
 
 const BASE = import.meta.env.BASE_URL
 
