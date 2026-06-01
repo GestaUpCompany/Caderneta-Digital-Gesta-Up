@@ -595,6 +595,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         data: brWithTimeToIso(registro.data),
         responsavel: registro.responsavel,
         temperatura_media: registro.temperaturaMedia ? Number(registro.temperaturaMedia) : null,
+        umidade_relativa: registro.umidadeRelativa ? Number(registro.umidadeRelativa) : null,
         observacao: registro.observacao || null,
         medicoes: registro.medicoes || [],
       }

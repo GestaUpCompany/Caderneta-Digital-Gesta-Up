@@ -266,6 +266,7 @@ const CLIMA_LABELS = {
   ...COMMON_LABELS,
   responsavel: 'RESPONSÁVEL',
   temperaturaMedia: 'TEMPERATURA MÉDIA (°C)',
+  umidadeRelativa: 'UMIDADE RELATIVA DO AR (%)',
   observacao: 'OBSERVAÇÃO',
 }
 

@@ -187,6 +187,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
     responsavel: Joi.string().required(),
     temperaturaMedia: Joi.number().min(-50).max(60).allow(null),
+    umidadeRelativa: Joi.number().min(0).max(100).allow(null),
     observacao: Joi.string().allow(''),
     medicoes: Joi.array().items(Joi.object({
       pluviometro_id: Joi.string().required(),

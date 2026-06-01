@@ -741,7 +741,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     })
   } else if (caderneta === 'clima') {
     // Para clima, usar ordem específica
-    const ordemClima = ['responsavel', 'temperaturaMedia']
+    const ordemClima = ['responsavel', 'temperaturaMedia', 'umidadeRelativa']
     
     ordemClima.forEach(key => {
       const value = registro[key]
@@ -754,7 +754,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
 
     // Adicionar medições de pluviômetros
     if (registro.medicoes && Array.isArray(registro.medicoes)) {
-      texto += `\n`
+      texto += `\nPLUVIÔMETROS\n`
       registro.medicoes.forEach((m: any) => {
         if (m.medicao !== null && m.medicao !== undefined && m.medicao !== '') {
           const nome = m.pluviometro_nome || m.pluviometroNome || 'Pluviômetro'

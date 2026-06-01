@@ -28,6 +28,7 @@ interface FormState {
   data: string
   responsavel: string
   temperaturaMedia: string
+  umidadeRelativa: string
   observacao: string
   medicoes: MedicaoPluviometro[]
 }
@@ -36,6 +37,7 @@ const makeInitial = (usuario?: string): FormState => ({
   data: todayBR(),
   responsavel: usuario || '',
   temperaturaMedia: '',
+  umidadeRelativa: '',
   observacao: '',
   medicoes: [],
 })
@@ -123,6 +125,7 @@ export default function ClimaPage() {
       data: form.data,
       responsavel: form.responsavel,
       temperaturaMedia: form.temperaturaMedia ? Number(form.temperaturaMedia) : null,
+      umidadeRelativa: form.umidadeRelativa ? Number(form.umidadeRelativa) : null,
       observacao: form.observacao,
       medicoes: medicoesParaSalvar,
     })
@@ -177,6 +180,15 @@ export default function ClimaPage() {
             value={form.temperaturaMedia}
             onChange={setInput('temperaturaMedia')}
             error={getError('temperaturaMedia')}
+            type="number"
+            step="0.1"
+          />
+          <Input
+            label="UMIDADE RELATIVA DO AR (%)"
+            placeholder="Ex: 75"
+            value={form.umidadeRelativa}
+            onChange={setInput('umidadeRelativa')}
+            error={getError('umidadeRelativa')}
             type="number"
             step="0.1"
           />
