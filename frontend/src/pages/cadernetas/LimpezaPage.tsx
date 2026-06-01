@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea } from '../../components/ui'
+import { useSelector } from 'react-redux'
+import { Button, Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { RootState } from '../../store/store'
+import { getSetores, getLocais } from '../../services/supabaseService'
 
 const LIMPEZA_OPTIONS = [
   { value: 'capina', label: 'Capina' },
@@ -47,11 +50,33 @@ const makeInitial = (): FormState => ({
 
 export default function LimpezaPage() {
   const navigate = useNavigate()
+  const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
+  const [locaisDisponiveis, setLocaisDisponiveis] = useState<string[]>([])
+
+  // Carregar setores e locais do Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      if (fazendaId) {
+        try {
+          const [setoresData, locaisData] = await Promise.all([
+            getSetores(fazendaId),
+            getLocais(fazendaId)
+          ])
+          setSetoresDisponiveis(setoresData?.map((s: any) => s.nome) || [])
+          setLocaisDisponiveis(locaisData?.map((l: any) => l.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar dados:', error)
+        }
+      }
+    }
+    loadData()
+  }, [fazendaId])
 
   // Validation rules
   const validationRules: any = {
@@ -175,10 +200,53 @@ export default function LimpezaPage() {
             ))}
           </div>
         </div>
-        <Input label={<span>QUAL SETOR? <span className="text-red-500">*</span></span>} placeholder="Setor" value={form.setor} onChange={setInput('setor')} error={getError('setor')} />
-        <Input label={<span>QUAL LOCAL? <span className="text-red-500">*</span></span>} placeholder="Local" value={form.local} onChange={setInput('local')} error={getError('local')} />
+        {setoresDisponiveis.length > 0 ? (
+          <SearchableModal
+            label={<span>QUAL SETOR? <span className="text-red-500">*</span></span>}
+            value={form.setor}
+            onChange={(val) => setForm((prev) => ({ ...prev, setor: val }))}
+            error={getError('setor')}
+            options={setoresDisponiveis}
+            placeholder="Buscar setor..."
+            id="setor"
+            name="setor"
+          />
+        ) : (
+          <Input label={<span>QUAL SETOR? <span className="text-red-500">*</span></span>} placeholder="Carregando..." value={form.setor} onChange={setInput('setor')} error={getError('setor')} disabled />
+        )}
+        {locaisDisponiveis.length > 0 ? (
+          <SearchableModal
+            label={<span>QUAL LOCAL? <span className="text-red-500">*</span></span>}
+            value={form.local}
+            onChange={(val) => setForm((prev) => ({ ...prev, local: val }))}
+            error={getError('local')}
+            options={locaisDisponiveis}
+            placeholder="Buscar local..."
+            id="local"
+            name="local"
+          />
+        ) : (
+          <Input label={<span>QUAL LOCAL? <span className="text-red-500">*</span></span>} placeholder="Carregando..." value={form.local} onChange={setInput('local')} error={getError('local')} disabled />
+        )}
         <Input label={<span>HORA DE INÍCIO? <span className="text-red-500">*</span></span>} type="time" value={form.horaInicio} onChange={setInput('horaInicio')} error={getError('horaInicio')} />
         <Input label={<span>HORA FINAL? <span className="text-red-500">*</span></span>} type="time" value={form.horaFinal} onChange={setInput('horaFinal')} error={getError('horaFinal')} />
+        {form.horaInicio && form.horaFinal && (
+          <Input
+            label="TEMPO TOTAL"
+            value={(() => {
+              const [startH, startM] = form.horaInicio.split(':').map(Number)
+              const [endH, endM] = form.horaFinal.split(':').map(Number)
+              const startMinutes = startH * 60 + startM
+              const endMinutes = endH * 60 + endM
+              const diffMinutes = endMinutes - startMinutes
+              if (diffMinutes < 0) return 'Horas inválidas'
+              const hours = Math.floor(diffMinutes / 60)
+              const minutes = diffMinutes % 60
+              return `${hours}h${minutes.toString().padStart(2, '0')}`
+            })()}
+            readOnly
+          />
+        )}
       </div>
 
       {/* Seção 2: Limpeza Realizada */}

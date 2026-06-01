@@ -392,6 +392,19 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (registro.horaFinal) {
         texto += `Hora Final: *${registro.horaFinal}*\n`
       }
+      // Calcular e exibir tempo total
+      if (registro.horaInicio && registro.horaFinal) {
+        const [startH, startM] = registro.horaInicio.split(':').map(Number)
+        const [endH, endM] = registro.horaFinal.split(':').map(Number)
+        const startMinutes = startH * 60 + startM
+        const endMinutes = endH * 60 + endM
+        const diffMinutes = endMinutes - startMinutes
+        if (diffMinutes >= 0) {
+          const hours = Math.floor(diffMinutes / 60)
+          const minutes = diffMinutes % 60
+          texto += `Tempo total: *${hours}h${minutes.toString().padStart(2, '0')}*\n`
+        }
+      }
     }
     
     // Seção: Tipos de Limpeza

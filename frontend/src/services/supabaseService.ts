@@ -187,6 +187,36 @@ export async function getLotes(fazendaId: string) {
   return data
 }
 
+// ==================== SETORES ====================
+
+export async function getSetores(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('setores')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
+// ==================== LOCAIS ====================
+
+export async function getLocais(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('locais')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 export async function getLoteByNome(fazendaId: string, nome: string) {
   const client = getSupabaseClient()
   const { data, error } = await client

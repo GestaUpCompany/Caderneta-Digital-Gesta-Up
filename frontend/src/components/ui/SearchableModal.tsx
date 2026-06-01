@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
+import { ReactNode } from 'react'
 
 interface SearchableModalProps {
-  label: string
+  label?: string | ReactNode
   options: string[]
   value: string
   onChange: (value: string) => void
