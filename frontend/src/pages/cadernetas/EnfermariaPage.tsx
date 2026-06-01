@@ -14,7 +14,7 @@ import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const DIAGNOSTICOS = [
-  { campo: 'pododermiteCascos', label: 'PODODERMITE DOS CASCOS?' },
+  { campo: 'feridaCascos', label: 'FERIDA NOS CASCOS?' },
   { campo: 'sintomasPneumonia', label: 'SINTOMAS DE PNEUMONIA?' },
   { campo: 'picadoCobra', label: 'PICADO POR COBRA?' },
   { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO E TREMORES MUSCULARES?' },
@@ -25,6 +25,7 @@ const DIAGNOSTICOS = [
   { campo: 'cegueira', label: 'CEGUEIRA?' },
   { campo: 'andarCambaleante', label: 'ANDAR CAMBALEANTE?' },
   { campo: 'bicheira', label: 'TEM BICHEIRA?' },
+  { campo: 'animalInchado', label: 'ANIMAL COM INCHAÇO?' },
 ]
 
 const SN_OPTIONS = [
@@ -315,6 +316,13 @@ export default function EnfermariaPage() {
     setSalvando(true)
     setErrors([])
 
+    // Validar que pelo menos um medicamento foi adicionado
+    if (form.medicamentos.length === 0) {
+      setErrors([{ field: 'medicamentos', message: 'Adicione pelo menos um medicamento' }])
+      setSalvando(false)
+      return
+    }
+
     // Montar categorias como string separada por vírgula
     let categoriasArray = form.categorias.filter(c => c !== 'Outros')
     
@@ -411,6 +419,12 @@ export default function EnfermariaPage() {
           )}
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
+          <Input
+            label="RESPONSÁVEL"
+            placeholder="Nome do responsável"
+            value={usuario || ''}
+            readOnly
+          />
           <div className="grid grid-cols-2 gap-3">
             {pastosDisponiveis.length > 0 ? (
               <SearchableModal
@@ -506,13 +520,61 @@ export default function EnfermariaPage() {
               error={getError('racaOutros')}
             />
           )}
-          <Input
-            label="IDADE"
-            placeholder="Ex: 2 anos, 6 meses..."
-            value={form.idade}
-            onChange={setInput('idade')}
-            error={getError('idade')}
-          />
+          <div>
+            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">IDADE</label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.idade === '0 a 4 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="idade" className="sr-only" value="0 a 4 meses" checked={form.idade === '0 a 4 meses'} onChange={(e) => setInput('idade')(e)} />
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">0 A 4 MESES</span>
+              </label>
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.idade === '5 a 12 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="idade" className="sr-only" value="5 a 12 meses" checked={form.idade === '5 a 12 meses'} onChange={(e) => setInput('idade')(e)} />
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">5 A 12 MESES</span>
+              </label>
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.idade === '13 a 24 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="idade" className="sr-only" value="13 a 24 meses" checked={form.idade === '13 a 24 meses'} onChange={(e) => setInput('idade')(e)} />
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">13 A 24 MESES</span>
+              </label>
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.idade === '25 a 36 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="idade" className="sr-only" value="25 a 36 meses" checked={form.idade === '25 a 36 meses'} onChange={(e) => setInput('idade')(e)} />
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">25 A 36 MESES</span>
+              </label>
+              <label className={`
+                cursor-pointer rounded-xl border-2 
+                transition-all active:scale-95
+                flex flex-col items-center justify-center gap-1
+                p-2 min-h-[70px]
+                ${form.idade === 'Acima de 36 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input type="radio" name="idade" className="sr-only" value="Acima de 36 meses" checked={form.idade === 'Acima de 36 meses'} onChange={(e) => setInput('idade')(e)} />
+                <span className="text-base sm:text-lg font-bold text-center leading-tight">ACIMA DE 36 MESES</span>
+              </label>
+            </div>
+          </div>
           <CheckboxGroup
             label="CATEGORIAS:"
             options={CATEGORIAS}
@@ -549,7 +611,7 @@ export default function EnfermariaPage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              {form.diagnosticos[campo]?.valor === 'S' && (
+              {form.diagnosticos[campo]?.valor === 'N' && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={form.diagnosticos[campo]?.observacao || ''}

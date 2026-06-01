@@ -179,8 +179,8 @@ const ENFERMARIA_LABELS = {
   sexo: 'SEXO',
   raca: 'RAÇA',
   idade: 'IDADE',
-  pododermiteCascos: 'PODODERMITE DOS CASCOS',
-  pododermiteCascosObs: 'OBSERVAÇÃO',
+  feridaCascos: 'FERIDA NOS CASCOS',
+  feridaCascosObs: 'OBSERVAÇÃO',
   sintomasPneumonia: 'SINTOMAS DE PNEUMONIA',
   sintomasPneumoniaObs: 'OBSERVAÇÃO',
   picadoCobra: 'PICADO POR COBRA',
@@ -201,6 +201,8 @@ const ENFERMARIA_LABELS = {
   andarCambaleanteObs: 'OBSERVAÇÃO',
   bicheira: 'TEM BICHEIRA',
   bicheiraObs: 'OBSERVAÇÃO',
+  animalInchado: 'ANIMAL COM INCHAÇO',
+  animalInchadoObs: 'OBSERVAÇÃO',
 }
 
 const MORTE_LABELS = {

@@ -608,24 +608,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
     })
 
-    // MEDICAMENTOS
-    if (registro.medicamentos && Array.isArray(registro.medicamentos) && registro.medicamentos.length > 0) {
-      texto += '\nMEDICAMENTOS\n'
-      registro.medicamentos.forEach((med: any, index: number) => {
-        texto += `${index + 1}. ${med.tipo} - ${med.nomeComercial}\n`
-        if (med.doseRecomendada) {
-          texto += `   Dose recomendada: ${med.doseRecomendada}\n`
-        }
-        if (med.doseAplicada) {
-          texto += `   Dose aplicada: ${med.doseAplicada}\n`
-        }
-        texto += '\n'
-      })
-    }
-
     // DIAGNÓSTICOS
     const ordemDiagnosticos = [
-      'pododermiteCascos',
+      'feridaCascos',
       'sintomasPneumonia',
       'picadoCobra',
       'incoordenacaoTremores',
@@ -635,23 +620,68 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'desordensDigestivas',
       'cegueira',
       'andarCambaleante',
-      'bicheira'
+      'bicheira',
+      'animalInchado'
     ]
 
-    texto += 'DIAGNÓSTICOS:\n'
-    
+    // Separar diagnósticos positivos e negativos
+    const diagnosticosPositivos: Array<{ key: string; label: string; valor: string; observacao?: string }> = []
+    const diagnosticosNegativos: Array<{ key: string; label: string; valor: string; observacao?: string }> = []
+
     ordemDiagnosticos.forEach(key => {
       const data = (registro.diagnosticos as any)?.[key]
       if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
-        texto += `${label}: *${valorFormatado}*\n`
-        
-        if (data.observacao && data.observacao !== '') {
-          texto += `OBSERVAÇÃO: *${data.observacao}*\n`
+        const diagnostico = { key, label, valor: valorFormatado, observacao: data.observacao }
+
+        if (data.valor === 'S' || data.valor === true) {
+          diagnosticosPositivos.push(diagnostico)
+        } else {
+          diagnosticosNegativos.push(diagnostico)
         }
       }
     })
+
+    // Mostrar diagnósticos positivos
+    if (diagnosticosPositivos.length > 0) {
+      texto += '\nDIAGNÓSTICOS POSITIVOS:\n'
+      diagnosticosPositivos.forEach(d => {
+        texto += `${d.label}: *${d.valor}*\n`
+        if (d.observacao && d.observacao !== '') {
+          texto += `OBSERVAÇÃO: *${d.observacao}*\n`
+        }
+      })
+    }
+
+    // Mostrar diagnósticos negativos
+    if (diagnosticosNegativos.length > 0) {
+      texto += '\nDIAGNÓSTICOS NEGATIVOS:\n'
+      diagnosticosNegativos.forEach(d => {
+        texto += `${d.label}: *${d.valor}*\n`
+        if (d.observacao && d.observacao !== '') {
+          texto += `OBSERVAÇÃO: *${d.observacao}*\n`
+        }
+      })
+    }
+
+    // MEDICAMENTOS
+    if (registro.medicamentos && Array.isArray(registro.medicamentos) && registro.medicamentos.length > 0) {
+      texto += '\nMEDICAMENTOS\n'
+      registro.medicamentos.forEach((med: any, index: number) => {
+        texto += `${index + 1}. ${med.tipo} -\n`
+        if (med.principioAtivo) {
+          texto += `   Princípio ativo: ${med.principioAtivo}\n`
+        }
+        if (med.doseRecomendada) {
+          texto += `   Dose recomendada: ${med.doseRecomendada}\n`
+        }
+        if (med.doseAplicada) {
+          texto += `   Dose aplicada: ${med.doseAplicada}\n`
+        }
+        texto += '\n'
+      })
+    }
 
     // OBSERVAÇÃO GERAL
     if (registro.observacaoTratamento && registro.observacaoTratamento !== '') {

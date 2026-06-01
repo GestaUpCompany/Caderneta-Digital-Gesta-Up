@@ -65,7 +65,7 @@ export default function ValidationMessage({ errors, showSummary = true }: Valida
   if (errors.length === 0) return null
 
   return (
-    <div className="bg-red-50 border-2 border-red-500 rounded-xl p-4">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-red-50 border-2 border-red-500 rounded-b-xl p-4 shadow-lg">
       {showSummary && (
         <div className="flex items-center gap-3 mb-3 pb-3 border-b border-red-200">
           <span className="text-3xl">⚠️</span>

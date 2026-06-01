@@ -124,6 +124,16 @@ const schemas: Record<string, Joi.ObjectSchema> = {
         observacao: Joi.string().allow('', null)
       })
     ).default({}),
+    medicamentos: Joi.array().items(
+      Joi.object({
+        medicamentoId: Joi.string().allow(''),
+        tipo: Joi.string().allow(''),
+        nomeComercial: Joi.string().allow(''),
+        principioAtivo: Joi.string().allow(''),
+        doseRecomendada: Joi.string().allow(''),
+        doseAplicada: Joi.string().allow(''),
+      })
+    ).default([]),
   }),
 
   movimentacao: Joi.object({
