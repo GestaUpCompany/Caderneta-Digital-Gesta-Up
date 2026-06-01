@@ -1,68 +1,39 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, DatePicker, ValidationMessage, Radio, Checkbox } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { getSupabaseClient } from '../../services/supabaseClient'
+import { useSelector } from 'react-redux'
+import { RootState } from '../../store/store'
 
-// Mapeamento: label exibido -> valor armazenado no Supabase
-const ITEM_LABELS: Record<string, string> = {
-  'Arroz': 'Arroz',
-  'Feijão': 'Feijão',
-  'Macarrão': 'Macarrão',
-  'Traseiro': 'Traseiro',
-  'Dianteiro': 'Dianteiro',
-  'Ponta Ag.': 'Ponta Agulha',
-  'Suíno': 'Suíno',
-  'Frango': 'Frango',
-  'Ovo': 'Ovo',
-  'Carneiro': 'Carneiro',
-  'Peixe': 'Peixe',
-  'Gás Cozinha': 'Gás Cozinha',
-  'Outros': 'Outros',
+interface ItemSupermercado {
+  id: string
+  nome: string
+  unidade_medida: string
 }
 
-// Mapeamento de unidades de medida para cada item
-const ITEM_UNITS: Record<string, string> = {
-  'Arroz': 'kg',
-  'Feijão': 'kg',
-  'Macarrão': 'pacote',
-  'Traseiro': 'kg',
-  'Dianteiro': 'kg',
-  'Ponta Ag.': 'kg',
-  'Suíno': 'kg',
-  'Frango': 'kg',
-  'Ovo': 'unid.',
-  'Carneiro': 'kg',
-  'Peixe': 'kg',
-  'Gás Cozinha': 'unid.',
-  'Outros': '',
-}
-
-const UNIDADES_OPTIONS = [
-  { value: 'kg', label: 'KG' },
-  { value: 'unid.', label: 'UNID.' },
-  { value: 'pct', label: 'PCT' },
+const COZINHEIRAS_OPTIONS = [
+  { value: '1', label: '1' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3' },
+  { value: '4', label: '4' },
+  { value: '5', label: '5' },
 ]
-
-const ITENS_OPTIONS = Object.keys(ITEM_LABELS).filter(item => item !== 'Outros')
 
 interface FormState {
   data: string
   numeroCozinheiras: string
   quemCozinhou: string
-  quemAjudou: string
+  quemAjudou: string[]
   numeroCafeManha: string
   numeroLanches: string
   numeroRefeicoesAlmoco: string
   numeroRefeicoesJantar: string
   itens: Record<string, string>
-  outrosHabilitado: boolean
-  nomeOutros: string
-  quantidadeOutros: string
-  unidadeOutros: string
   observacao: string
 }
 
@@ -70,26 +41,25 @@ const makeInitial = (): FormState => ({
   data: todayBR(),
   numeroCozinheiras: '',
   quemCozinhou: '',
-  quemAjudou: '',
+  quemAjudou: [],
   numeroCafeManha: '',
   numeroLanches: '',
   numeroRefeicoesAlmoco: '',
   numeroRefeicoesJantar: '',
-  itens: ITENS_OPTIONS.reduce((acc, item) => ({ ...acc, [item]: '' }), {} as Record<string, string>),
-  outrosHabilitado: false,
-  nomeOutros: '',
-  quantidadeOutros: '',
-  unidadeOutros: '',
+  itens: {},
   observacao: '',
 })
 
 export default function CantinaPage() {
   const navigate = useNavigate()
+  const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [itensSupermercadoDisponiveis, setItensSupermercadoDisponiveis] = useState<ItemSupermercado[]>([])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -97,32 +67,128 @@ export default function CantinaPage() {
   const setItem = (item: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, itens: { ...prev.itens, [item]: e.target.value } }))
 
+  const setQuemAjudou = (index: number, value: string) =>
+    setForm((prev) => {
+      const newQuemAjudou = [...prev.quemAjudou]
+      newQuemAjudou[index] = value
+      return { ...prev, quemAjudou: newQuemAjudou }
+    })
+
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Buscar funcionários do Supabase
+  useEffect(() => {
+    async function carregarFuncionarios() {
+      if (!fazendaId) return
+
+      try {
+        const client = getSupabaseClient()
+        const { data, error } = await client
+          .from('funcionarios')
+          .select('nome')
+          .eq('fazenda_id', fazendaId)
+          .eq('ativo', true)
+          .order('nome')
+
+        if (error) {
+          console.error('Erro ao buscar funcionários:', error)
+          return
+        }
+
+        if (data) {
+          const funcionariosList = data.map(f => f.nome)
+          setFuncionariosDisponiveis(funcionariosList)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar funcionários:', error)
+      }
+    }
+
+    carregarFuncionarios()
+  }, [fazendaId])
+
+  // Buscar itens de supermercado do Supabase
+  useEffect(() => {
+    async function carregarItensSupermercado() {
+      if (!fazendaId) return
+
+      try {
+        const client = getSupabaseClient()
+        const { data, error } = await (client as any)
+          .from('itens_supermercado')
+          .select('*')
+          .eq('fazenda_id', fazendaId)
+          .eq('ativo', true)
+          .order('nome')
+
+        if (error) {
+          console.error('Erro ao buscar itens de supermercado:', error)
+          return
+        }
+
+        if (data) {
+          setItensSupermercadoDisponiveis(data as ItemSupermercado[])
+          // Inicializar itens no form
+          setForm(prev => ({
+            ...prev,
+            itens: (data as ItemSupermercado[]).reduce((acc, item) => ({ ...acc, [item.id]: '' }), {} as Record<string, string>)
+          }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar itens de supermercado:', error)
+      }
+    }
+
+    carregarItensSupermercado()
+  }, [fazendaId])
+
+  // Atualizar array de quem ajudou quando numeroCozinheiras muda
+  useEffect(() => {
+    const numCozinheiras = parseInt(form.numeroCozinheiras) || 0
+    const numAjudou = Math.max(0, numCozinheiras - 1)
+    
+    setForm(prev => {
+      const currentLength = prev.quemAjudou.length
+      if (currentLength < numAjudou) {
+        // Adicionar novos campos vazios
+        return {
+          ...prev,
+          quemAjudou: [...prev.quemAjudou, ...Array(numAjudou - currentLength).fill('')]
+        }
+      } else if (currentLength > numAjudou) {
+        // Remover campos extras
+        return {
+          ...prev,
+          quemAjudou: prev.quemAjudou.slice(0, numAjudou)
+        }
+      }
+      return prev
+    })
+  }, [form.numeroCozinheiras])
 
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
 
-    // Converter labels de exibição para valores de armazenamento
+    // Converter IDs de itens para nomes com unidade para armazenamento
     const itensStorage: Record<string, string> = {}
-    Object.entries(form.itens).forEach(([displayLabel, value]) => {
-      const storageKey = ITEM_LABELS[displayLabel] || displayLabel
-      itensStorage[storageKey] = value
+    Object.entries(form.itens).forEach(([itemId, value]) => {
+      const item = itensSupermercadoDisponiveis.find(i => i.id === itemId)
+      if (item && value) {
+        itensStorage[`${item.nome} (${item.unidade_medida})`] = value
+      }
     })
 
     const result = await salvarRegistro('cantina', {
       data: form.data,
       numeroCozinheiras: form.numeroCozinheiras,
       quemCozinhou: form.quemCozinhou,
-      quemAjudou: form.quemAjudou,
+      quemAjudou: form.quemAjudou.join(', '),
       numeroCafeManha: form.numeroCafeManha,
       numeroLanches: form.numeroLanches,
       numeroRefeicoesAlmoco: form.numeroRefeicoesAlmoco,
       numeroRefeicoesJantar: form.numeroRefeicoesJantar,
       itens: itensStorage,
-      nomeOutros: form.nomeOutros,
-      quantidadeOutros: form.quantidadeOutros,
-      unidadeOutros: form.unidadeOutros,
       observacao: form.observacao,
     })
 
@@ -160,9 +226,36 @@ export default function CantinaPage() {
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA CANTINA</h2>
         <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
-        <Input label="N° COZINHEIRAS" type="number" placeholder="Número de cozinheiras" value={form.numeroCozinheiras} onChange={setInput('numeroCozinheiras')} error={getError('numeroCozinheiras')} />
-        <Input label="QUEM COZINHOU?" placeholder="Nome de quem cozinhou" value={form.quemCozinhou} onChange={setInput('quemCozinhou')} error={getError('quemCozinhou')} />
-        <Input label="QUEM AJUDOU?" placeholder="Nome de quem ajudou" value={form.quemAjudou} onChange={setInput('quemAjudou')} error={getError('quemAjudou')} />
+        <Radio
+          name="numeroCozinheiras"
+          label="N° COZINHEIRAS"
+          options={COZINHEIRAS_OPTIONS}
+          value={form.numeroCozinheiras}
+          onChange={(val) => setForm((p) => ({ ...p, numeroCozinheiras: val }))}
+          error={getError('numeroCozinheiras')}
+          gridCols={5}
+        />
+        <SearchableModal
+          label="QUEM COZINHOU?"
+          value={form.quemCozinhou}
+          onChange={(val) => setForm((p) => ({ ...p, quemCozinhou: val }))}
+          error={getError('quemCozinhou')}
+          options={funcionariosDisponiveis}
+          placeholder="Buscar funcionário..."
+          id="quemCozinhou"
+        />
+        {form.quemAjudou.map((ajudou, index) => (
+          <SearchableModal
+            key={index}
+            label={`${index + 1}ª AJUDANTE`}
+            value={ajudou}
+            onChange={(val) => setQuemAjudou(index, val)}
+            error={getError(`quemAjudou.${index}`)}
+            options={funcionariosDisponiveis}
+            placeholder="Buscar funcionário..."
+            id={`quemAjudou-${index}`}
+          />
+        ))}
       </div>
 
       {/* Seção 2: Refeições */}
@@ -177,58 +270,21 @@ export default function CantinaPage() {
       {/* Seção 3: Itens */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO DE ITENS</h2>
-        <div className="grid grid-cols-2 gap-4 items-stretch">
-          {ITENS_OPTIONS.map((item) => (
-            <Input 
-              key={item} 
-              label={item.toUpperCase()} 
-              type="number" 
-              placeholder={ITEM_UNITS[item] || 'Quantidade'} 
-              value={form.itens[item] || ''} 
-              onChange={setItem(item)} 
-              error={getError(`itens.${item}`)} 
-            />
-          ))}
-        </div>
-        <Checkbox
-          label="Adicionar item não listado"
-          checked={form.outrosHabilitado}
-          onChange={(e) => {
-            setForm((p) => ({ ...p, outrosHabilitado: e.target.checked }))
-            if (!e.target.checked) {
-              setForm((p) => ({ ...p, nomeOutros: '', quantidadeOutros: '', unidadeOutros: '' }))
-            }
-          }}
-          className="[&_div]:w-8 [&_div]:h-8 [&_div]:min-w-[32px] [&_div]:min-h-[32px] [&_svg]:w-5 [&_svg]:h-5"
-        />
-        {form.outrosHabilitado && (
-          <div className="grid grid-cols-1 gap-4 items-stretch mt-2">
-            <Input 
-              label="NOME DO ITEM" 
-              placeholder="Especifique o item" 
-              value={form.nomeOutros} 
-              onChange={setInput('nomeOutros')} 
-              error={getError('nomeOutros')} 
-            />
-            <div className="grid grid-cols-2 gap-4 items-stretch">
+        {itensSupermercadoDisponiveis.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">Nenhum item cadastrado no sistema</p>
+        ) : (
+          <div className="flex flex-col gap-4 items-stretch">
+            {itensSupermercadoDisponiveis.map((item) => (
               <Input 
-                label="QUANTIDADE" 
-                type="number"
-                placeholder="Quantidade" 
-                value={form.quantidadeOutros} 
-                onChange={setInput('quantidadeOutros')} 
-                error={getError('quantidadeOutros')} 
+                key={item.id} 
+                label={`${item.nome.toUpperCase()} (${item.unidade_medida})`}
+                type="number" 
+                placeholder="Quantidade"
+                value={form.itens[item.id] || ''} 
+                onChange={setItem(item.id)} 
+                error={getError(`itens.${item.id}`)} 
               />
-              <Radio
-                name="unidadeOutros"
-                label="UNIDADE"
-                options={UNIDADES_OPTIONS}
-                value={form.unidadeOutros}
-                onChange={(val) => setForm((p) => ({ ...p, unidadeOutros: val }))}
-                error={getError('unidadeOutros')}
-                gridCols={3}
-              />
-            </div>
+            ))}
           </div>
         )}
       </div>

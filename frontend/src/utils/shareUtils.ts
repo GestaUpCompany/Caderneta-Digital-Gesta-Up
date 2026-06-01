@@ -317,7 +317,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `DADOS DA CANTINA\n`
     texto += `N° COZINHEIRAS: *${registro.numeroCozinheiras || '—'}*\n`
     texto += `QUEM COZINHOU: *${registro.quemCozinhou || '—'}*\n`
-    texto += `QUEM AJUDOU: *${registro.quemAjudou || '—'}*\n\n`
+    if (registro.quemAjudou && typeof registro.quemAjudou === 'string' && registro.quemAjudou.trim() !== '' && registro.quemAjudou !== '—') {
+      texto += `QUEM AJUDOU: *${registro.quemAjudou}*\n`
+    }
+    texto += `\n`
     
     // Seção: QUANTIDADES
     texto += `QUANTIDADES\n`
