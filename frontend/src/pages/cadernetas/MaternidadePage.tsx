@@ -14,6 +14,7 @@ import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca, get
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { useFormValidation, ValidationRules } from '../../hooks/useFormValidation'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -137,6 +138,53 @@ export default function MaternidadePage() {
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [tratamentosDisponiveis, setTratamentosDisponiveis] = useState<any[]>([])
 
+  const validationRules: ValidationRules = {
+    // Form 1: Dados Gerais
+    data: { required: true },
+    lote: { required: true },
+    
+    // Form 2: Identificação da Mãe (at least one of idBrincoMae or idChipMae required)
+    // Only validate on idBrincoMae to avoid duplicate error messages
+    idBrincoMae: { 
+      custom: (value: string) => {
+        const hasBrinco = value && value.trim() !== ''
+        const hasChip = form.idChipMae && form.idChipMae.trim() !== ''
+        if (!hasBrinco && !hasChip) return 'Preencha o ID Brinco ou ID Chip'
+        return null
+      }
+    },
+    
+    // Form 3: Dados da Cria (only idProvisorioCria and pesoCria required)
+    // REMOVED: idBrincoCria and idChipCria are now optional
+    idProvisorioCria: { required: true },
+    pesoCria: { required: true },
+    
+    // Form 4: Tratamentos (at least one required)
+    tratamentos: { 
+      custom: (value: string[]) => {
+        if (!value || value.length === 0) return 'Pelo menos um tratamento é obrigatório'
+        return null
+      }
+    },
+    
+    // Form 5: Tipo de Parto (at least one required, observacaoParto not required)
+    tipoParto: { 
+      custom: (value: string[]) => {
+        if (!value || value.length === 0) return 'Pelo menos um tipo de parto é obrigatório'
+        return null
+      }
+    },
+    
+    // Other required fields
+    sexo: { required: true },
+    raca: { required: true },
+    categoriaMae: { required: true },
+    escoreMatriz: { required: true },
+    docilidadeMatriz: { required: true },
+  }
+
+  const { isValid, errors: validationErrors } = useFormValidation(form, validationRules)
+
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
 
@@ -157,7 +205,11 @@ export default function MaternidadePage() {
     }))
   }
 
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+  const getError = (field: string) => {
+    // Only return manual errors (from API validation), not validation errors from the hook
+    // Validation errors are shown via asterisks, not red borders
+    return errors.find((e) => e.field === field)?.message
+  }
 
   // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
@@ -258,6 +310,18 @@ export default function MaternidadePage() {
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
+
+    // Validate form using the validation hook
+    if (!isValid) {
+      const errorArray = Object.entries(validationErrors).map(([field, message]) => ({
+        field,
+        message
+      }))
+      setErrors(errorArray)
+      setSalvando(false)
+      scrollToFirstError(errorArray)
+      return
+    }
 
     // Construir string final de tratamentos
     const tratamentoFinal = form.tratamentos.join(', ')
@@ -366,10 +430,10 @@ export default function MaternidadePage() {
             </div>
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} />
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOTE"
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
               value={form.lote}
               onChange={set('lote')}
               error={getError('lote')}
@@ -380,7 +444,7 @@ export default function MaternidadePage() {
             />
           ) : (
             <Input
-              label="LOTE"
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.lote}
               onChange={setInputEvent('lote')}
@@ -399,14 +463,14 @@ export default function MaternidadePage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO DA MÃE</h2>
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="ID BRINCO"
+              label={<span>ID BRINCO <span className="text-red-500">*</span></span>}
               placeholder="Ex: 2021-089"
               value={form.idBrincoMae}
               onChange={setInputEvent('idBrincoMae')}
               error={getError('idBrincoMae')}
             />
             <Input
-              label="ID CHIP"
+              label={<span>ID CHIP <span className="text-red-500">*</span></span>}
               placeholder="Número do chip"
               value={form.idChipMae}
               onChange={setInputEvent('idChipMae')}
@@ -415,7 +479,7 @@ export default function MaternidadePage() {
           </div>
           <Radio
             name="categoriaMae"
-            label="CATEGORIA DA MÃE"
+            label={<span>CATEGORIA DA MÃE <span className="text-red-500">*</span></span>}
             options={CATEGORIAS_MAE}
             value={form.categoriaMae}
             onChange={set('categoriaMae')}
@@ -423,7 +487,7 @@ export default function MaternidadePage() {
             gridCols={2}
           />
           <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-base font-bold text-gray-900 mb-4">ESCORE DA MATRIZ</h3>
+            <h3 className="text-base font-bold text-gray-900 mb-4">ESCORE DA MATRIZ <span className="text-red-500">*</span></h3>
             <button
               onClick={() => setShowEscoreModal(true)}
               className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors mb-4"
@@ -446,7 +510,7 @@ export default function MaternidadePage() {
             </div>
           </div>
           <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-base font-bold text-gray-900 mb-4">DOCILIDADE DA MATRIZ</h3>
+            <h3 className="text-base font-bold text-gray-900 mb-4">DOCILIDADE DA MATRIZ <span className="text-red-500">*</span></h3>
             <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">AVALIAÇÃO DE DOCILIDADE</label>
             <p className="text-sm text-gray-600 mb-3">1 - Mais dócil | 3 - Mais brava</p>
             <div className="grid grid-cols-3 gap-2">
@@ -507,7 +571,7 @@ export default function MaternidadePage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. IDENTIFICAÇÃO DA CRIA</h2>
           <Input
-            label="ID PROVISÓRIO"
+            label={<span>ID PROVISÓRIO <span className="text-red-500">*</span></span>}
             placeholder="Ex: 2023-145"
             value={form.idProvisorioCria}
             onChange={setInputEvent('idProvisorioCria')}
@@ -530,7 +594,7 @@ export default function MaternidadePage() {
             />
           </div>
           <Input
-            label="PESO DA CRIA (kg)"
+            label={<span>PESO DA CRIA (kg) <span className="text-red-500">*</span></span>}
             placeholder="Ex: 32"
             value={form.pesoCria}
             onChange={setInputEvent('pesoCria')}
@@ -541,7 +605,7 @@ export default function MaternidadePage() {
 
         {/* Seção 4: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTOS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTOS <span className="text-red-500">*</span></h2>
           <CheckboxGroup
             label=""
             options={tratamentosDisponiveis.map(t => ({ value: t.nome, label: t.nome.toUpperCase() }))}
@@ -557,7 +621,7 @@ export default function MaternidadePage() {
 
         {/* Seção 5: Parto */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TIPO DE PARTO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TIPO DE PARTO <span className="text-red-500">*</span></h2>
           <CheckboxGroup
             label=""
             options={TIPOS_PARTO}
@@ -582,7 +646,7 @@ export default function MaternidadePage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">6. SEXO E RAÇA</h2>
           <Radio
             name="sexo"
-            label="SEXO"
+            label={<span>SEXO <span className="text-red-500">*</span></span>}
             options={SEXO}
             value={form.sexo}
             onChange={set('sexo')}
@@ -591,7 +655,7 @@ export default function MaternidadePage() {
           />
           <Radio
             name="raca"
-            label="RAÇA"
+            label={<span>RAÇA <span className="text-red-500">*</span></span>}
             options={RACAS}
             value={form.raca}
             onChange={set('raca')}
@@ -611,13 +675,18 @@ export default function MaternidadePage() {
 
         {/* Ações */}
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth>
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={handleLimpar} variant="secondary" icon="🧹" fullWidth>
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal
