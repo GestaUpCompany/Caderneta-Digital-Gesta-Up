@@ -60,7 +60,7 @@ function buildRegistroFromRow(
     'saida-insumos': ['dataProducao', 'dietaProduzida', 'destinoProducao', 'totalProduzido', 'insumosQuantidades'],
     'insumos-por-saida': ['idSaida', 'dataProducao', 'dietaProduzida', 'insumo', 'quantidade'],
     clima: ['data', 'responsavel', 'temperaturaMedia', 'observacao'],
-    'operacoes-maquinas': ['data', 'maquinaVeiculo', 'implementoUtilizado', 'horaInicial', 'horaFinal', 'odometroHorimetroInicial', 'odometroFinal', 'totalOdometro', 'tipoOperacao', 'produtoAplicado', 'quantidadeTotalAplicada', 'areaTrabalhada', 'doseAplicada', 'metaDiariaBatida', 'metaDiariaBatidaObs', 'algumImprevisto', 'algumImprevistoObs', 'observacao'],
+    'operacoes-maquinas': ['data', 'maquinaVeiculo', 'implementoUtilizado', 'horaInicial', 'horaFinal', 'odometroHorimetroInicial', 'odometroHorimetroFinal', 'totalOdometro', 'tipoOperacao', 'produtoAplicado', 'quantidadeTotalAplicada', 'areaTrabalhada', 'doseAplicada', 'metaDiariaBatida', 'metaDiariaBatidaObs', 'algumImprevisto', 'algumImprevistoObs', 'observacao'],
     'manutencao-maquinas': ['data', 'responsavelChecklist', 'operadorMotorista', 'maquinaVeiculo', 'placa', 'odometro', 'checklist', 'observacao'],
     problemas: ['data', 'setor', 'local', 'descricaoProblema', 'causaIdentificada', 'causaIdentificadaObs', 'acaoCorretivaRealizada', 'acaoCorretivaRealizadaObs', 'tipoOcorrencia', 'tipoOcorrenciaObs', 'causaRaizIdentificada', 'causaRaizIdentificadaObs', 'gravidadeImpacto', 'gravidadeImpactoObs', 'tipoProblema', 'tipoProblemaObs', 'prioridade'],
     almoxarifado: ['data', 'quemEntregou', 'quemPegou', 'itens', 'observacao'],

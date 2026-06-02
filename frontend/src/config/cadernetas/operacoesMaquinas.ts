@@ -13,7 +13,7 @@ export const operacoesMaquinasConfig: CadernetaDisplayConfig = {
     horaInicial: { key: 'horaInicial', section: 'DADOS DA OPERAÇÃO', priority: 3 },
     horaFinal: { key: 'horaFinal', section: 'DADOS DA OPERAÇÃO', priority: 4 },
     odometroHorimetroInicial: { key: 'odometroHorimetroInicial', section: 'DADOS DA OPERAÇÃO', priority: 5, format: (v) => `${v} km` },
-    odometroFinal: { key: 'odometroFinal', section: 'DADOS DA OPERAÇÃO', priority: 6, format: (v) => `${v} km` },
+    odometroHorimetroFinal: { key: 'odometroHorimetroFinal', section: 'DADOS DA OPERAÇÃO', priority: 6, format: (v) => `${v} km` },
     totalOdometro: { key: 'totalOdometro', section: 'DADOS DA OPERAÇÃO', priority: 7, format: (v) => `${v} km` },
 
     tipoOperacao: { key: 'tipoOperacao', section: 'TIPO DE OPERAÇÃO', priority: 1, colSpan: 2 },
