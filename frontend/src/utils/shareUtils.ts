@@ -1149,6 +1149,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.prioridade) {
       texto += `PRIORIDADE: *${registro.prioridade}*\n`
     }
+    if (registro.setorResolve) {
+      texto += `SETOR QUE RESOLVE: *${registro.setorResolve}*\n`
+    }
   } else {
     // Para pastagens, usar estrutura organizada
     if (caderneta === 'pastagens') {

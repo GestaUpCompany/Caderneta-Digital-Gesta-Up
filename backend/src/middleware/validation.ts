@@ -286,6 +286,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     tipoProblema: Joi.string().valid('Estrutural', 'Máquinas', 'Processos', 'Rebanho').required(),
     tipoProblemaObs: Joi.string().allow(''),
     prioridade: Joi.string().valid('baixa', 'média', 'alta').required(),
+    setorResolve: Joi.string().allow(''),
   }),
 }
 

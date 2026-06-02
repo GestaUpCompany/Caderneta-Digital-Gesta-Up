@@ -307,6 +307,7 @@ const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = 
       { field: 'tipoProblema' },
       { field: 'tipoProblemaObs', defaultValue: '' },
       { field: 'prioridade' },
+      { field: 'setorResolve', defaultValue: '' },
     ],
   },
   'manutencao-maquinas': {
@@ -730,6 +731,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo_problema: registro.tipoProblema || null,
         tipo_problema_obs: registro.tipoProblemaObs || null,
         prioridade: registro.prioridade || null,
+        setor_resolve: registro.setorResolve || null,
       }
     case 'almoxarifado':
       return {

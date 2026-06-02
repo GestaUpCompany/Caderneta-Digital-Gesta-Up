@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { getSetores, getLocais } from '../../services/supabaseService'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const SETOR_OPTIONS = [
   { value: 'Gado', label: 'GADO' },
@@ -59,6 +61,7 @@ interface FormState {
   tipoProblema: string
   tipoProblemaObs: string
   prioridade: string
+  setorResolve: string
 }
 
 const makeInitial = (): FormState => ({
@@ -79,16 +82,37 @@ const makeInitial = (): FormState => ({
   tipoProblema: '',
   tipoProblemaObs: '',
   prioridade: '',
+  setorResolve: '',
 })
 
 export default function ProblemasPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, logoUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
-  const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
+  const [locaisDisponiveis, setLocaisDisponiveis] = useState<string[]>([])
+
+  // Carregar setores e locais do Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      if (fazendaId) {
+        try {
+          const [setoresData, locaisData] = await Promise.all([
+            getSetores(fazendaId),
+            getLocais(fazendaId)
+          ])
+          setSetoresDisponiveis(setoresData?.map((s: any) => s.nome) || [])
+          setLocaisDisponiveis(locaisData?.map((l: any) => l.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar dados:', error)
+        }
+      }
+    }
+    loadData()
+  }, [fazendaId])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -96,11 +120,28 @@ export default function ProblemasPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    setor: { required: true },
+    local: { required: true },
+    descricaoProblema: { required: true },
+    causaIdentificada: { required: true },
+    acaoCorretivaRealizada: { required: true },
+    tipoOcorrencia: { required: true },
+    causaRaizIdentificada: { required: true },
+    gravidadeImpacto: { required: true },
+    tipoProblema: { required: true },
+    prioridade: { required: true },
+    setorResolve: { required: true },
+  }
+
+  const { isValid, errors: validationErrors } = useFormValidation(form, validationRules)
+
+  const getError = (field: string) => validationErrors[field]
 
   const handleSalvar = async () => {
     setSalvando(true)
-    setErrors([])
 
     const result = await salvarRegistro('problemas', {
       data: form.data,
@@ -120,12 +161,13 @@ export default function ProblemasPage() {
       tipoProblema: form.tipoProblema,
       tipoProblemaObs: form.tipoProblemaObs || '',
       prioridade: form.prioridade,
+      setorResolve: form.setorResolve,
     })
 
     setSalvando(false)
     if (!result.success && result.errors) {
-      setErrors(result.errors)
-      scrollToFirstError(result.errors)
+      const apiErrors = result.errors.map((e: any) => ({ field: e.field, message: e.message }))
+      scrollToFirstError(apiErrors)
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
@@ -177,8 +219,6 @@ export default function ProblemasPage() {
       </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
-        {errors.length > 0 && <ValidationMessage errors={errors} />}
-
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           {usuario && (
@@ -189,22 +229,48 @@ export default function ProblemasPage() {
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
-          <Radio
-            name="setor"
-            label="EM QUAL SETOR HOUVE PROBLEMA?"
-            options={SETOR_OPTIONS}
-            value={form.setor}
-            onChange={set('setor')}
-            error={getError('setor')}
-            gridCols={2}
-          />
-          <Input
-            label="LOCAL?"
-            placeholder="Informe o local..."
-            value={form.local}
-            onChange={setInput('local')}
-            error={getError('local')}
-          />
+          {setoresDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="EM QUAL SETOR HOUVE PROBLEMA?"
+              value={form.setor}
+              onChange={set('setor')}
+              error={getError('setor')}
+              options={setoresDisponiveis}
+              placeholder="Buscar setor..."
+              id="setor"
+              name="setor"
+            />
+          ) : (
+            <Radio
+              name="setor"
+              label="EM QUAL SETOR HOUVE PROBLEMA?"
+              options={SETOR_OPTIONS}
+              value={form.setor}
+              onChange={set('setor')}
+              error={getError('setor')}
+              gridCols={2}
+            />
+          )}
+          {locaisDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="LOCAL?"
+              value={form.local}
+              onChange={set('local')}
+              error={getError('local')}
+              options={locaisDisponiveis}
+              placeholder="Buscar local..."
+              id="local"
+              name="local"
+            />
+          ) : (
+            <Input
+              label="LOCAL?"
+              placeholder="Informe o local..."
+              value={form.local}
+              onChange={setInput('local')}
+              error={getError('local')}
+            />
+          )}
           <Input
             label="DESCRIÇÃO DO PROBLEMA?"
             placeholder="Descreva o problema..."
@@ -228,14 +294,12 @@ export default function ProblemasPage() {
               error={getError('causaIdentificada')}
               gridCols={2}
             />
-            {form.causaIdentificada === 'S' && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.causaIdentificadaObs}
-                onChange={setInput('causaIdentificadaObs')}
-                className="mt-2"
-              />
-            )}
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.causaIdentificadaObs}
+              onChange={setInput('causaIdentificadaObs')}
+              className="mt-2"
+            />
           </div>
 
           <div>
@@ -248,14 +312,12 @@ export default function ProblemasPage() {
               error={getError('acaoCorretivaRealizada')}
               gridCols={2}
             />
-            {form.acaoCorretivaRealizada === 'S' && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.acaoCorretivaRealizadaObs}
-                onChange={setInput('acaoCorretivaRealizadaObs')}
-                className="mt-2"
-              />
-            )}
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.acaoCorretivaRealizadaObs}
+              onChange={setInput('acaoCorretivaRealizadaObs')}
+              className="mt-2"
+            />
           </div>
 
           <div>
@@ -286,14 +348,12 @@ export default function ProblemasPage() {
               error={getError('causaRaizIdentificada')}
               gridCols={2}
             />
-            {form.causaRaizIdentificada === 'S' && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.causaRaizIdentificadaObs}
-                onChange={setInput('causaRaizIdentificadaObs')}
-                className="mt-2"
-              />
-            )}
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.causaRaizIdentificadaObs}
+              onChange={setInput('causaRaizIdentificadaObs')}
+              className="mt-2"
+            />
           </div>
         </div>
 
@@ -346,16 +406,42 @@ export default function ProblemasPage() {
             error={getError('prioridade')}
             gridCols={3}
           />
+          {setoresDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="QUAL SETOR RESOLVE?"
+              value={form.setorResolve}
+              onChange={set('setorResolve')}
+              error={getError('setorResolve')}
+              options={setoresDisponiveis}
+              placeholder="Buscar setor..."
+              id="setorResolve"
+              name="setorResolve"
+            />
+          ) : (
+            <Input
+              label="QUAL SETOR RESOLVE?"
+              placeholder="Informe o setor..."
+              value={form.setorResolve}
+              onChange={setInput('setorResolve')}
+              error={getError('setorResolve')}
+            />
+          )}
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
+
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal
