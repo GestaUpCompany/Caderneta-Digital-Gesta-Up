@@ -816,44 +816,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `QUEM ENTREGOU: *${registro.quemEntregou || '—'}*\n`
     texto += `QUEM PEGOU: *${registro.quemPegou || '—'}*\n\n`
 
-    // Mapear tipos de itens para labels legíveis
-    const tipoItemLabelMap: Record<string, string> = {
-      ferramenta: 'FERRAMENTA',
-      medicamento: 'MEDICAMENTO',
-      parafusos: 'PARAFUSOS',
-      porcas: 'PORCAS',
-      'barra rosca': 'BARRA ROSCA',
-      inseticida: 'INSETICIDA',
-      herbicida: 'HERBICIDA',
-      fungicida: 'FUNGICIDA',
-      vermífugo: 'VERMÍFUGO',
-      filtro: 'FILTRO',
-      'óleo lubrificante': 'ÓLEO LUBRIFICANTE',
-      eletrodo: 'ELETRODO',
-      cruzeta: 'CRUZETA',
-      mancal: 'MANCAL',
-      rolamento: 'ROLAMENTO',
-      mangueira: 'MANGUEIRA',
-      detergente: 'DETERGENTE',
-      conexões: 'CONEXÕES',
-      pregos: 'PREGOS',
-      torneira: 'TORNEIRA',
-      lâmpada: 'LÂMPADA',
-      fios: 'FIOS',
-      epi: 'EPI',
-      calçados: 'CALÇADOS',
-    }
-
     // Exibir itens
     if (registro.itens && Array.isArray(registro.itens) && registro.itens.length > 0) {
       texto += 'ITENS\n'
       registro.itens.forEach((item: any, index: number) => {
-        const tipoLabel = tipoItemLabelMap[item.tipo] || item.tipo?.toUpperCase() || '—'
-        texto += `${index + 1}. ${tipoLabel} - *${item.quantidade || '—'}*\n`
+        texto += `${index + 1}. *${item.nome || '—'}* - *${item.quantidade || '—'}*\n`
 
         // Classificação (se preenchida)
-        if (item.tipoClassificacao && item.tipoClassificacao !== '') {
-          texto += `   Classificação: *${item.tipoClassificacao}*\n`
+        if (item.classificacao && item.classificacao !== '') {
+          texto += `   Classificação: *${item.classificacao}*\n`
         }
 
         // Setor

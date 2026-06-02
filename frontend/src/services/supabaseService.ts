@@ -735,6 +735,43 @@ export async function createFuncionario(funcionario: TablesInsert<'funcionarios'
   return data
 }
 
+// ==================== ITENS ALMOXARIFADO ====================
+
+export async function getItensAlmoxarifado(fazendaId: string, classificacao?: string) {
+  const client = getSupabaseClient()
+  let query = client
+    .from('itens_almoxarifado')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+
+  if (classificacao) {
+    query = query.eq('classificacao', classificacao)
+  }
+
+  query = query.order('nome')
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data
+}
+
+export async function getClassificacoesAlmoxarifado(fazendaId: string): Promise<string[]> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('itens_almoxarifado')
+    .select('classificacao')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+
+  if (error) throw error
+
+  // Get unique classificacoes
+  const classificacoes = [...new Set(data?.map((item: any) => item.classificacao))]
+  return classificacoes
+}
+
 // ==================== FRIGORIFICOS ====================
 
 export async function getFrigorificos(fazendaId: string) {

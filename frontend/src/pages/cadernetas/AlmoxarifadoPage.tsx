@@ -9,7 +9,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getFuncionarios } from '../../services/supabaseService'
+import { getFuncionarios, getItensAlmoxarifado, getClassificacoesAlmoxarifado, getSetores } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
 const SN_OPTIONS = [
@@ -17,37 +17,10 @@ const SN_OPTIONS = [
   { value: 'N', label: 'NÃO', icon: '❌' },
 ]
 
-const ITEM_TIPOS = [
-  { value: 'ferramenta', label: 'FERRAMENTA' },
-  { value: 'medicamento', label: 'MEDICAMENTO' },
-  { value: 'parafusos', label: 'PARAFUSOS' },
-  { value: 'porcas', label: 'PORCAS' },
-  { value: 'barra rosca', label: 'BARRA ROSCA' },
-  { value: 'inseticida', label: 'INSETICIDA' },
-  { value: 'herbicida', label: 'HERBICIDA' },
-  { value: 'fungicida', label: 'FUNGICIDA' },
-  { value: 'vermífugo', label: 'VERMÍFUGO' },
-  { value: 'filtro', label: 'FILTRO' },
-  { value: 'óleo lubrificante', label: 'ÓLEO LUBRIFICANTE' },
-  { value: 'eletrodo', label: 'ELETRODO' },
-  { value: 'cruzeta', label: 'CRUZETA' },
-  { value: 'mancal', label: 'MANCAL' },
-  { value: 'rolamento', label: 'ROLAMENTO' },
-  { value: 'mangueira', label: 'MANGUEIRA' },
-  { value: 'detergente', label: 'DETERGENTE' },
-  { value: 'conexões', label: 'CONEXÕES' },
-  { value: 'pregos', label: 'PREGOS' },
-  { value: 'torneira', label: 'TORNEIRA' },
-  { value: 'lâmpada', label: 'LÂMPADA' },
-  { value: 'fios', label: 'FIOS' },
-  { value: 'EPI', label: 'EPI' },
-  { value: 'calçados', label: 'CALÇADOS' },
-]
-
 interface ItemAlmoxarifado {
-  tipo: string
+  classificacao: string
+  nome: string
   quantidade: string
-  tipoClassificacao: string
   necessitaDevolucao: string
   prazoDevolucao: string
   setor: string
@@ -71,9 +44,9 @@ const makeInitial = (): FormState => ({
 })
 
 const makeInitialItem = (): ItemAlmoxarifado => ({
-  tipo: '',
+  classificacao: '',
+  nome: '',
   quantidade: '',
-  tipoClassificacao: '',
   necessitaDevolucao: 'N',
   prazoDevolucao: '',
   setor: '',
@@ -98,6 +71,9 @@ export default function AlmoxarifadoPage() {
   const [itemEditando, setItemEditando] = useState<ItemAlmoxarifado | null>(null)
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
   const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
+  const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
+  const [itensDisponiveis, setItensDisponiveis] = useState<string[]>([])
+  const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
 
   const set = (key: keyof FormState) => (value: string) => setForm(prev => ({ ...prev, [key]: value }))
   const setInput = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [key]: e.target.value }))
@@ -125,9 +101,12 @@ export default function AlmoxarifadoPage() {
 
     // Validação básica do item
     const errors = new Set<string>()
-    
-    if (!itemEditando.tipo) {
-      errors.add('tipo')
+
+    if (!itemEditando.classificacao) {
+      errors.add('classificacao')
+    }
+    if (!itemEditando.nome) {
+      errors.add('nome')
     }
     if (!itemEditando.quantidade) {
       errors.add('quantidade')
@@ -208,7 +187,7 @@ export default function AlmoxarifadoPage() {
     }, 100)
   }
 
-  // Carregar funcionários do cache, com fallback para Supabase
+  // Carregar funcionários e classificacoes do cache, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
       const cache = getCachedCadastroData()
@@ -222,9 +201,44 @@ export default function AlmoxarifadoPage() {
           console.error('Erro ao carregar funcionários do Supabase:', error)
         }
       }
+
+      // Carregar classificacoes do almoxarifado
+      if (fazendaId) {
+        try {
+          const classificacoesData = await getClassificacoesAlmoxarifado(fazendaId)
+          setClassificacoesDisponiveis(classificacoesData || [])
+        } catch (error) {
+          console.error('Erro ao carregar classificacoes do Supabase:', error)
+        }
+
+        // Carregar setores
+        try {
+          const setoresData = await getSetores(fazendaId)
+          setSetoresDisponiveis(setoresData?.map((s: any) => s.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar setores do Supabase:', error)
+        }
+      }
     }
     loadData()
   }, [fazendaId])
+
+  // Carregar itens quando classificacao é selecionada
+  useEffect(() => {
+    const loadItens = async () => {
+      if (itemEditando?.classificacao && fazendaId) {
+        try {
+          const itensData = await getItensAlmoxarifado(fazendaId, itemEditando.classificacao)
+          setItensDisponiveis(itensData?.map((item: any) => item.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar itens do Supabase:', error)
+        }
+      } else {
+        setItensDisponiveis([])
+      }
+    }
+    loadItens()
+  }, [itemEditando?.classificacao, fazendaId])
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -328,9 +342,9 @@ export default function AlmoxarifadoPage() {
                 <div key={index} className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <p className="text-lg font-bold text-gray-800 uppercase">{item.tipo}</p>
+                      <p className="text-lg font-bold text-gray-800 uppercase">{item.nome}</p>
                       <p className="text-lg text-gray-900">Quantidade: {item.quantidade}</p>
-                      <p className="text-base text-gray-600">Tipo: {item.tipoClassificacao || '-'}</p>
+                      <p className="text-base text-gray-600">Classificação: {item.classificacao || '-'}</p>
                       <p className="text-base text-gray-600">Setor: {item.setor}</p>
                       {item.necessitaDevolucao === 'S' ? (
                         <p className="text-base text-gray-600">Data Devolução: {item.prazoDevolucao}</p>
@@ -379,35 +393,71 @@ export default function AlmoxarifadoPage() {
               <h3 className="text-base font-bold text-gray-900">
                 {itemEditandoIndex !== null ? 'EDITAR ITEM' : 'NOVO ITEM'}
               </h3>
-              
+
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">O QUE FOI ENTREGUE?</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {ITEM_TIPOS.map((item) => (
+                  {classificacoesDisponiveis.map((classificacao) => (
                     <button
-                      key={item.value}
+                      key={classificacao}
                       type="button"
                       onClick={() => {
-                        setItemEditando(prev => prev ? { ...prev, tipo: item.value } : null)
+                        setItemEditando(prev => prev ? { ...prev, classificacao, nome: '' } : null)
                         setItemErrors(prev => {
                           const newErrors = new Set(prev)
-                          newErrors.delete('tipo')
+                          newErrors.delete('classificacao')
+                          newErrors.delete('nome')
                           return newErrors
                         })
                       }}
                       className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                        itemEditando?.tipo === item.value
+                        itemEditando?.classificacao === classificacao
                           ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                          : itemErrors.has('tipo')
+                          : itemErrors.has('classificacao')
                           ? 'border-red-500 bg-red-50 text-red-700'
                           : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                       }`}
                     >
-                      {item.label}
+                      {classificacao}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {itemEditando?.classificacao && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {itensDisponiveis.length > 0 ? (
+                      itensDisponiveis.map((nome) => (
+                        <button
+                          key={nome}
+                          type="button"
+                          onClick={() => {
+                            setItemEditando(prev => prev ? { ...prev, nome } : null)
+                            setItemErrors(prev => {
+                              const newErrors = new Set(prev)
+                              newErrors.delete('nome')
+                              return newErrors
+                            })
+                          }}
+                          className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                            itemEditando?.nome === nome
+                              ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                              : itemErrors.has('nome')
+                              ? 'border-red-500 bg-red-50 text-red-700'
+                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          {nome}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 col-span-2">Nenhum item encontrado para esta classificação</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Input
                 label="QUANTIDADE RETIRADA?"
@@ -423,13 +473,6 @@ export default function AlmoxarifadoPage() {
                   })
                 }}
                 error={itemErrors.has('quantidade') ? 'Campo obrigatório' : undefined}
-              />
-
-              <Input
-                label="TIPO CLASSIFICAÇÃO"
-                placeholder="Ex: elétrica, hidráulica, etc."
-                value={itemEditando?.tipoClassificacao || ''}
-                onChange={(e) => setItemEditando(prev => prev ? { ...prev, tipoClassificacao: e.target.value } : null)}
               />
 
               <Radio
@@ -457,20 +500,40 @@ export default function AlmoxarifadoPage() {
                 />
               )}
 
-              <Input
-                label="QUAL SETOR?"
-                placeholder="Informe o setor"
-                value={itemEditando?.setor || ''}
-                onChange={(e) => {
-                  setItemEditando(prev => prev ? { ...prev, setor: e.target.value } : null)
-                  setItemErrors(prev => {
-                    const newErrors = new Set(prev)
-                    newErrors.delete('setor')
-                    return newErrors
-                  })
-                }}
-                error={itemErrors.has('setor') ? 'Campo obrigatório' : undefined}
-              />
+              {setoresDisponiveis.length > 0 ? (
+                <SearchableModal
+                  label="QUAL SETOR?"
+                  value={itemEditando?.setor || ''}
+                  onChange={(value) => {
+                    setItemEditando(prev => prev ? { ...prev, setor: value } : null)
+                    setItemErrors(prev => {
+                      const newErrors = new Set(prev)
+                      newErrors.delete('setor')
+                      return newErrors
+                    })
+                  }}
+                  error={itemErrors.has('setor') ? 'Campo obrigatório' : undefined}
+                  options={setoresDisponiveis}
+                  placeholder="Buscar setor..."
+                  id="setor"
+                  name="setor"
+                />
+              ) : (
+                <Input
+                  label="QUAL SETOR?"
+                  placeholder="Informe o setor"
+                  value={itemEditando?.setor || ''}
+                  onChange={(e) => {
+                    setItemEditando(prev => prev ? { ...prev, setor: e.target.value } : null)
+                    setItemErrors(prev => {
+                      const newErrors = new Set(prev)
+                      newErrors.delete('setor')
+                      return newErrors
+                    })
+                  }}
+                  error={itemErrors.has('setor') ? 'Campo obrigatório' : undefined}
+                />
+              )}
 
               <Input
                 label="OBSERVAÇÃO (OPCIONAL)"
