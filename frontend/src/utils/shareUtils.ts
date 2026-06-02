@@ -104,6 +104,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (caderneta === 'rodeio' && key.endsWith('Obs')) {
         return // Não incluir campos de observação separadamente
       }
+      // Filtrar campos de observação nas pastagens (serão agrupados com o campo principal)
+      if (caderneta === 'pastagens' && key.endsWith('Obs')) {
+        return // Não incluir campos de observação separadamente
+      }
       if (caderneta === 'movimentacao') {
         // Campos de categoria individual
         if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa'].includes(key)) {
@@ -1211,6 +1215,74 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (registro.escoreGado) {
         texto += `ESCORE DO GADO: *${registro.escoreGado}*\n`
       }
+      // Escore de fezes
+      if (registro.escoreFezes) {
+        texto += `ESCORE DE FEZES: *${registro.escoreFezes}*\n`
+      }
+      // N° pessoas no manejo
+      if (registro.numeroPessoasManejo) {
+        texto += `N° PESSOAS NO MANEJO: *${registro.numeroPessoasManejo}*\n`
+        const equipeNomes = registro.equipe_nomes as any
+        // Handle both JSONB string (after sync) and array (before sync)
+        let nomesArray: string[] = []
+        if (equipeNomes) {
+          if (typeof equipeNomes === 'string') {
+            try {
+              nomesArray = JSON.parse(equipeNomes)
+            } catch {
+              nomesArray = []
+            }
+          } else if (Array.isArray(equipeNomes)) {
+            nomesArray = equipeNomes
+          }
+        }
+        if (nomesArray && nomesArray.length > 0) {
+          const nomesPreenchidos = nomesArray.filter((nome) => nome && nome.trim() !== '')
+          if (nomesPreenchidos.length > 0) {
+            texto += `Nome das pessoas: *${nomesPreenchidos.join('*, *')}*\n`
+          }
+        }
+      }
+      texto += `\n`
+
+      // Avaliação Geral
+      texto += `AVALIAÇÃO GERAL\n`
+      const avaliacaoGeral = registro.avaliacao_geral as any
+      const avaliacaoGeralFields = [
+        { key: 'bebedourosCochos', label: 'BEBEDOUROS / COCHOS OK?' },
+        { key: 'pastagensTaxaLotacao', label: 'PASTAGENS / TAXA DE LOTAÇÃO ADEQUADA?' },
+        { key: 'animaisMachucadosDoentesBichados', label: 'ANIMAIS MACHUCADOS / DOENTES / BICHADOS?' },
+        { key: 'cercasCochosPorteiras', label: 'CERCAS / COCHOS / PORTEIRAS OK?' },
+        { key: 'carrapatosMoscas', label: 'CARRAPATOS / MOSCAS?' },
+        { key: 'animaisEntreverados', label: 'ANIMAIS ENTREVERADOS?' },
+        { key: 'animalMorto', label: 'ANIMAL MORTO?' },
+      ]
+      avaliacaoGeralFields.forEach(({ key, label }) => {
+        let valor = null
+        let observacao = null
+
+        // Try to get from nested JSONB structure (after sync)
+        if (avaliacaoGeral?.[key]) {
+          valor = avaliacaoGeral[key].valor
+          observacao = avaliacaoGeral[key].observacao
+        }
+        // Fallback to flat structure (before sync)
+        else if (registro[key]) {
+          valor = registro[key]
+          observacao = registro[`${key}Obs`]
+        }
+
+        if (valor && valor !== '') {
+          const valorFormatado = valor === 'S' ? 'Sim' : 'Não'
+          texto += `${label}: *${valorFormatado}*\n`
+          // Show observation if answer is 'N' and there's an observation
+          if (valor === 'N' && observacao && observacao !== '') {
+            texto += `OBSERVAÇÃO: *${observacao}*\n`
+          }
+        } else {
+          texto += `${label}: *—*\n`
+        }
+      })
     } else if (caderneta === 'maternidade') {
       // Seção: INFORMAÇÕES BÁSICAS
       texto += `INFORMAÇÕES BÁSICAS\n`

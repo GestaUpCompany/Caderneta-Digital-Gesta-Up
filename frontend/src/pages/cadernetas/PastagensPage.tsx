@@ -16,6 +16,7 @@ import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaData
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -64,6 +65,23 @@ interface FormState {
   tropa: string
   outros: string
   escoreGado: string
+  bebedourosCochos: string
+  bebedourosCochosObs: string
+  pastagensTaxaLotacao: string
+  pastagensTaxaLotacaoObs: string
+  animaisMachucadosDoentesBichados: string
+  animaisMachucadosDoentesBichadosObs: string
+  cercasCochosPorteiras: string
+  cercasCochosPorteirasObs: string
+  carrapatosMoscas: string
+  carrapatosMoscasObs: string
+  animaisEntreverados: string
+  animaisEntreveradosObs: string
+  animalMorto: string
+  animalMortoObs: string
+  escoreFezes: string
+  numeroPessoasManejo: string
+  equipeNomes: string[]
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -91,6 +109,23 @@ const makeInitial = (usuario?: string): FormState => ({
   tropa: '',
   outros: '',
   escoreGado: '',
+  bebedourosCochos: '',
+  bebedourosCochosObs: '',
+  pastagensTaxaLotacao: '',
+  pastagensTaxaLotacaoObs: '',
+  animaisMachucadosDoentesBichados: '',
+  animaisMachucadosDoentesBichadosObs: '',
+  cercasCochosPorteiras: '',
+  cercasCochosPorteirasObs: '',
+  carrapatosMoscas: '',
+  carrapatosMoscasObs: '',
+  animaisEntreverados: '',
+  animaisEntreveradosObs: '',
+  animalMorto: '',
+  animalMortoObs: '',
+  escoreFezes: '',
+  numeroPessoasManejo: '',
+  equipeNomes: [],
 })
 
 const CATEGORIAS: { campo: keyof FormState; label: string }[] = [
@@ -129,6 +164,7 @@ export default function PastagensPage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
+  const [showFezesModal, setShowFezesModal] = useState(false)
   const [detalhesPastoSaida, setDetalhesPastoSaida] = useState<any>(null)
   const [detalhesPastoEntrada, setDetalhesPastoEntrada] = useState<any>(null)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
@@ -316,6 +352,57 @@ export default function PastagensPage() {
     (acc, c) => acc + (Number(form[c as keyof FormState]) || 0), 0
   )
 
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    manejador: { required: true },
+    numeroLote: { required: true },
+    pastoSaida: { required: true },
+    avaliacaoSaida: { required: true },
+    pastoEntrada: { required: true },
+    avaliacaoEntrada: { required: true },
+    gadoContado: { required: true },
+    escoreGado: { required: true },
+    bebedourosCochos: { required: true },
+    pastagensTaxaLotacao: { required: true },
+    animaisMachucadosDoentesBichados: { required: true },
+    cercasCochosPorteiras: { required: true },
+    carrapatosMoscas: { required: true },
+    animaisEntreverados: { required: true },
+    animalMorto: { required: true },
+    escoreFezes: { required: true },
+    numeroPessoasManejo: { required: true },
+  }
+
+  // Add dynamic validation for animal categories when gadoContado is 'Sim'
+  if (form.gadoContado === 'Sim') {
+    validationRules.categorias = {
+      custom: () => {
+        const hasAnyValue = ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'].some(
+          (campo) => Number(form[campo as keyof FormState]) > 0
+        )
+        if (!hasAnyValue) return 'Preencha pelo menos uma categoria de animais'
+        return null
+      }
+    }
+  }
+
+  // Add dynamic validation for equipeNomes when numeroPessoasManejo is selected
+  if (form.numeroPessoasManejo && Number(form.numeroPessoasManejo) > 0) {
+    validationRules.equipeNomes = {
+      custom: () => {
+        const numPessoas = Number(form.numeroPessoasManejo)
+        const nomesPreenchidos = form.equipeNomes.filter((nome) => nome && nome.trim() !== '').length
+        if (nomesPreenchidos < numPessoas) {
+          return `Preencha o nome de todas as ${numPessoas} pessoas`
+        }
+        return null
+      }
+    }
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
@@ -363,6 +450,23 @@ export default function PastagensPage() {
       tropa: form.tropa ? Number(form.tropa) : 0,
       outros: form.outros ? Number(form.outros) : 0,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
+      bebedourosCochos: form.bebedourosCochos,
+      bebedourosCochosObs: form.bebedourosCochosObs,
+      pastagensTaxaLotacao: form.pastagensTaxaLotacao,
+      pastagensTaxaLotacaoObs: form.pastagensTaxaLotacaoObs,
+      animaisMachucadosDoentesBichados: form.animaisMachucadosDoentesBichados,
+      animaisMachucadosDoentesBichadosObs: form.animaisMachucadosDoentesBichadosObs,
+      cercasCochosPorteiras: form.cercasCochosPorteiras,
+      cercasCochosPorteirasObs: form.cercasCochosPorteirasObs,
+      carrapatosMoscas: form.carrapatosMoscas,
+      carrapatosMoscasObs: form.carrapatosMoscasObs,
+      animaisEntreverados: form.animaisEntreverados,
+      animaisEntreveradosObs: form.animaisEntreveradosObs,
+      animalMorto: form.animalMorto,
+      animalMortoObs: form.animalMortoObs,
+      escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : 0,
+      numeroPessoasManejo: form.numeroPessoasManejo ? Number(form.numeroPessoasManejo) : 0,
+      equipe_nomes: form.equipeNomes || null,
       // Campos de divergência
       n_cabecas: detalhesLote?.n_cabecas || 0,
       qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
@@ -435,9 +539,9 @@ export default function PastagensPage() {
             </div>
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} />
           <div>
-            <label className="block text-base font-bold text-gray-700 mb-2">MANEJADOR</label>
+            <label className="block text-base font-bold text-gray-700 mb-2">MANEJADOR <span className="text-red-500">*</span></label>
             <Input
               placeholder="Nome do responsável"
               value={form.manejador}
@@ -448,7 +552,7 @@ export default function PastagensPage() {
           </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOTE"
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
               value={form.numeroLote}
               onChange={set('numeroLote')}
               error={getError('numeroLote')}
@@ -459,7 +563,7 @@ export default function PastagensPage() {
             />
           ) : (
             <Input
-              label="NÚMERO DO LOTE"
+              label={<span>NÚMERO DO LOTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.numeroLote}
               onChange={setInput('numeroLote')}
@@ -479,7 +583,7 @@ export default function PastagensPage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PASTO DE SAÍDA</h2>
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
-              label=""
+              label={<span>PASTO DE SAÍDA <span className="text-red-500">*</span></span>}
               value={form.pastoSaida}
               onChange={set('pastoSaida')}
               error={getError('pastoSaida')}
@@ -490,7 +594,7 @@ export default function PastagensPage() {
             />
           ) : (
             <Input
-              label="PASTO DE SAÍDA"
+              label={<span>PASTO DE SAÍDA <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.pastoSaida}
               onChange={setInput('pastoSaida')}
@@ -503,7 +607,7 @@ export default function PastagensPage() {
           )}
           <Radio
             name="avaliacaoSaida"
-            label="AVALIAÇÃO DO PASTO DE SAÍDA"
+            label={<span>AVALIAÇÃO DO PASTO DE SAÍDA <span className="text-red-500">*</span></span>}
             options={AVALIACOES}
             value={form.avaliacaoSaida}
             onChange={set('avaliacaoSaida')}
@@ -526,7 +630,7 @@ export default function PastagensPage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. PASTO DE ENTRADA</h2>
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
-              label=""
+              label={<span>PASTO DE ENTRADA <span className="text-red-500">*</span></span>}
               value={form.pastoEntrada}
               onChange={set('pastoEntrada')}
               error={getError('pastoEntrada')}
@@ -537,7 +641,7 @@ export default function PastagensPage() {
             />
           ) : (
             <Input
-              label="PASTO DE ENTRADA"
+              label={<span>PASTO DE ENTRADA <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.pastoEntrada}
               onChange={setInput('pastoEntrada')}
@@ -551,7 +655,7 @@ export default function PastagensPage() {
           )}
           <Radio
             name="avaliacaoEntrada"
-            label="AVALIAÇÃO DO PASTO DE ENTRADA"
+            label={<span>AVALIAÇÃO DO PASTO DE ENTRADA <span className="text-red-500">*</span></span>}
             options={AVALIACOES}
             value={form.avaliacaoEntrada}
             onChange={set('avaliacaoEntrada')}
@@ -565,7 +669,7 @@ export default function PastagensPage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. QUANTIDADE DE ANIMAIS</h2>
           <Radio
             name="gadoContado"
-            label="O GADO FOI CONTADO?"
+            label={<span>O GADO FOI CONTADO? <span className="text-red-500">*</span></span>}
             options={[
               { value: 'Sim', label: 'SIM' },
               { value: 'Não', label: 'NÃO' }
@@ -634,43 +738,280 @@ export default function PastagensPage() {
           )}
         </div>
 
-        {/* Seção 5: Escore do Gado */}
+        {/* Seção 5: Avaliação do Gado e Equipe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. ESCORE DO GADO</h2>
-          <button
-            onClick={() => setShowEscoreModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP ESCORE CORPORAL</span>
-          </button>
-          <div className="grid grid-cols-3 gap-2">
-            {ESCORES.map((escore) => (
-              <button
-                key={escore.value}
-                type="button"
-                onClick={() => set('escoreGado')(escore.value)}
-                className={`
-                  py-3 px-2 rounded-xl font-bold text-black text-base
-                  transition-all duration-200
-                  ${form.escoreGado === escore.value ? escore.color : 'bg-gray-200 text-gray-700'}
-                  hover:opacity-80
-                `}
-              >
-                {escore.label}
-              </button>
-            ))}
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. AVALIAÇÃO DO GADO E EQUIPE</h2>
+          <div>
+            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">ESCORE DO GADO <span className="text-red-500">*</span></label>
+            <button
+              onClick={() => setShowEscoreModal(true)}
+              className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors mb-3"
+            >
+              <span className="text-xl">📄</span>
+              <span>POP ESCORE CORPORAL</span>
+            </button>
+            <div className="grid grid-cols-3 gap-2">
+              {ESCORES.map((escore) => (
+                <button
+                  key={escore.value}
+                  type="button"
+                  onClick={() => set('escoreGado')(escore.value)}
+                  className={`
+                    py-3 px-2 rounded-xl font-bold text-black text-base
+                    transition-all duration-200
+                    ${form.escoreGado === escore.value ? escore.color : 'bg-gray-200 text-gray-700'}
+                    hover:opacity-80
+                  `}
+                >
+                  {escore.label}
+                </button>
+              ))}
+            </div>
+            {getError('escoreGado') && (
+              <p className="text-base font-semibold text-red-700 mt-2">⚠️ {getError('escoreGado')}</p>
+            )}
+          </div>
+          <div>
+            <button
+              onClick={() => setShowFezesModal(true)}
+              className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+            >
+              <span className="text-xl">📄</span>
+              <span>POP ESCORE DE FEZES</span>
+            </button>
+            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap mt-3">ESCORE DE FEZES <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { value: '1', icon: '🔴' },
+                { value: '2', icon: '🟡' },
+                { value: '3', icon: '🟢' },
+                { value: '4', icon: '🟡' },
+                { value: '5', icon: '🔴' },
+              ].map((escore) => (
+                <label
+                  key={escore.value}
+                  className={`
+                    cursor-pointer rounded-xl border-2
+                    transition-all active:scale-95
+                    flex flex-col items-center justify-center gap-1
+                    p-2 min-h-[70px]
+                    ${form.escoreFezes === escore.value ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+                  `}
+                >
+                  <input type="radio" name="escoreFezes" className="sr-only" value={escore.value} checked={form.escoreFezes === escore.value} onChange={(e) => setInput('escoreFezes')(e)} />
+                  <span className="text-2xl sm:text-3xl">{escore.icon}</span>
+                  <span className="text-base sm:text-lg font-bold text-center leading-tight">{escore.value}</span>
+                </label>
+              ))}
+            </div>
+            {getError('escoreFezes') && (
+              <p className="text-base font-semibold text-red-700 mt-2">⚠️ {getError('escoreFezes')}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">N° PESSOAS NO MANEJO <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-5 gap-2">
+              {[1, 2, 3, 4, 5].map((num) => (
+                <label
+                  key={num}
+                  className={`
+                    cursor-pointer rounded-xl border-2
+                    transition-all active:scale-95
+                    flex flex-col items-center justify-center gap-1
+                    p-2 min-h-[70px]
+                    ${form.numeroPessoasManejo === String(num) ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+                  `}
+                >
+                  <input type="radio" name="numeroPessoasManejo" className="sr-only" value={num} checked={form.numeroPessoasManejo === String(num)} onChange={(e) => {
+                    setInput('numeroPessoasManejo')(e)
+                    // Reset equipeNomes when number changes
+                    const numPessoas = Number(e.target.value) || 0
+                    setForm(prev => ({
+                      ...prev,
+                      equipeNomes: Array(numPessoas).fill('')
+                    }))
+                  }} />
+                  <span className="text-base sm:text-lg font-bold text-center leading-tight">{num}</span>
+                </label>
+              ))}
+            </div>
+            {form.numeroPessoasManejo && Number(form.numeroPessoasManejo) > 0 && (
+              <div className="flex flex-col gap-3 mt-3">
+                {getError('equipeNomes') && (
+                  <p className="text-base font-semibold text-red-700">⚠️ {getError('equipeNomes')}</p>
+                )}
+                {Array.from({ length: Number(form.numeroPessoasManejo) }).map((_, index) => (
+                  <Input
+                    key={index}
+                    label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
+                    placeholder="Nome"
+                    value={form.equipeNomes[index] || ''}
+                    onChange={(e) => {
+                      const newNomes = [...form.equipeNomes]
+                      newNomes[index] = e.target.value
+                      setForm(prev => ({ ...prev, equipeNomes: newNomes }))
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            {getError('numeroPessoasManejo') && (
+              <p className="text-base font-semibold text-red-700 mt-2">⚠️ {getError('numeroPessoasManejo')}</p>
+            )}
           </div>
         </div>
 
+        {/* Seção 6: Avaliação Geral */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. AVALIAÇÃO GERAL</h2>
+          <Radio
+            name="bebedourosCochos"
+            label={<span>BEBEDOUROS / COCHOS OK? <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'S', label: 'SIM', icon: '✅' },
+              { value: 'N', label: 'NÃO', icon: '❌' }
+            ]}
+            value={form.bebedourosCochos}
+            onChange={set('bebedourosCochos')}
+            gridCols={2}
+            error={getError('bebedourosCochos')}
+          />
+          {form.bebedourosCochos === 'N' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.bebedourosCochosObs}
+              onChange={setInput('bebedourosCochosObs')}
+            />
+          )}
+          <Radio
+            name="pastagensTaxaLotacao"
+            label={<span>PASTAGENS / TAXA DE LOTAÇÃO ADEQUADA? <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'S', label: 'SIM', icon: '✅' },
+              { value: 'N', label: 'NÃO', icon: '❌' }
+            ]}
+            value={form.pastagensTaxaLotacao}
+            onChange={set('pastagensTaxaLotacao')}
+            gridCols={2}
+            error={getError('pastagensTaxaLotacao')}
+          />
+          {form.pastagensTaxaLotacao === 'N' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.pastagensTaxaLotacaoObs}
+              onChange={setInput('pastagensTaxaLotacaoObs')}
+            />
+          )}
+          <Radio
+            name="animaisMachucadosDoentesBichados"
+            label={<span>ANIMAIS MACHUCADOS / DOENTES / BICHADOS? <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'S', label: 'SIM', icon: '✅' },
+              { value: 'N', label: 'NÃO', icon: '❌' }
+            ]}
+            value={form.animaisMachucadosDoentesBichados}
+            onChange={set('animaisMachucadosDoentesBichados')}
+            gridCols={2}
+            error={getError('animaisMachucadosDoentesBichados')}
+          />
+          {form.animaisMachucadosDoentesBichados === 'N' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.animaisMachucadosDoentesBichadosObs}
+              onChange={setInput('animaisMachucadosDoentesBichadosObs')}
+            />
+          )}
+          <Radio
+            name="cercasCochosPorteiras"
+            label={<span>CERCAS / COCHOS / PORTEIRAS OK? <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'S', label: 'SIM', icon: '✅' },
+              { value: 'N', label: 'NÃO', icon: '❌' }
+            ]}
+            value={form.cercasCochosPorteiras}
+            onChange={set('cercasCochosPorteiras')}
+            gridCols={2}
+            error={getError('cercasCochosPorteiras')}
+          />
+          {form.cercasCochosPorteiras === 'N' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.cercasCochosPorteirasObs}
+              onChange={setInput('cercasCochosPorteirasObs')}
+            />
+          )}
+          <Radio
+            name="carrapatosMoscas"
+            label={<span>CARRAPATOS / MOSCAS? <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'S', label: 'SIM', icon: '✅' },
+              { value: 'N', label: 'NÃO', icon: '❌' }
+            ]}
+            value={form.carrapatosMoscas}
+            onChange={set('carrapatosMoscas')}
+            gridCols={2}
+            error={getError('carrapatosMoscas')}
+          />
+          {form.carrapatosMoscas === 'N' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.carrapatosMoscasObs}
+              onChange={setInput('carrapatosMoscasObs')}
+            />
+          )}
+          <Radio
+            name="animaisEntreverados"
+            label={<span>ANIMAIS ENTREVERADOS? <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'S', label: 'SIM', icon: '✅' },
+              { value: 'N', label: 'NÃO', icon: '❌' }
+            ]}
+            value={form.animaisEntreverados}
+            onChange={set('animaisEntreverados')}
+            gridCols={2}
+            error={getError('animaisEntreverados')}
+          />
+          {form.animaisEntreverados === 'N' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.animaisEntreveradosObs}
+              onChange={setInput('animaisEntreveradosObs')}
+            />
+          )}
+          <Radio
+            name="animalMorto"
+            label={<span>ANIMAL MORTO? <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'S', label: 'SIM', icon: '✅' },
+              { value: 'N', label: 'NÃO', icon: '❌' }
+            ]}
+            value={form.animalMorto}
+            onChange={set('animalMorto')}
+            gridCols={2}
+            error={getError('animalMorto')}
+          />
+          {form.animalMorto === 'N' && (
+            <Input
+              placeholder="Adicionar observação (opcional)"
+              value={form.animalMortoObs}
+              onChange={setInput('animalMortoObs')}
+            />
+          )}
+        </div>
+
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => { setForm(makeInitial()); setErrors([]) }} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal
@@ -698,6 +1039,14 @@ export default function PastagensPage() {
         onClose={() => setShowEscoreModal(false)}
         images={[
           `${BASE}docs/ECC/POP_ECC.jpeg`
+        ]}
+      />
+
+      <PdfModal
+        isOpen={showFezesModal}
+        onClose={() => setShowFezesModal(false)}
+        images={[
+          `${BASE}docs/fezes/POP_Fezes_01.jpg`
         ]}
       />
     </div>

@@ -113,6 +113,39 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         garrote: Number(registro.garrote) || 0,
         novilha: Number(registro.novilha) || 0,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
+        avaliacao_geral: {
+          bebedourosCochos: {
+            valor: registro.bebedourosCochos || null,
+            observacao: registro.bebedourosCochosObs || null,
+          },
+          pastagensTaxaLotacao: {
+            valor: registro.pastagensTaxaLotacao || null,
+            observacao: registro.pastagensTaxaLotacaoObs || null,
+          },
+          animaisMachucadosDoentesBichados: {
+            valor: registro.animaisMachucadosDoentesBichados || null,
+            observacao: registro.animaisMachucadosDoentesBichadosObs || null,
+          },
+          cercasCochosPorteiras: {
+            valor: registro.cercasCochosPorteiras || null,
+            observacao: registro.cercasCochosPorteirasObs || null,
+          },
+          carrapatosMoscas: {
+            valor: registro.carrapatosMoscas || null,
+            observacao: registro.carrapatosMoscasObs || null,
+          },
+          animaisEntreverados: {
+            valor: registro.animaisEntreverados || null,
+            observacao: registro.animaisEntreveradosObs || null,
+          },
+          animalMorto: {
+            valor: registro.animalMorto || null,
+            observacao: registro.animalMortoObs || null,
+          },
+        },
+        escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
+        numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
+        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? JSON.stringify(registro.equipeNomes) : null,
       }
     case 'rodeio':
       return {
