@@ -461,8 +461,8 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
     errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
 
   // Validar que total odometro foi calculado (deve ser positivo quando ambos odômetros estão preenchidos)
-  if (data.odometroHorimetroInicial && data.odometroHorimetroFinal && !isPositiveNumber(data.totalOdometro)) {
-    errors.push({ field: 'totalOdometro', message: 'Odômetro final deve ser maior que o inicial' })
+  if (data.odometroHorimetroInicial && data.odometroHorimetroFinal && !isPositiveNumber(data.totalOdometroHorimetro)) {
+    errors.push({ field: 'totalOdometroHorimetro', message: 'Odômetro final deve ser maior que o inicial' })
   }
 
   // Validar valores positivos em campos numéricos

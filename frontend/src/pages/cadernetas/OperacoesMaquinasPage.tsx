@@ -43,7 +43,7 @@ interface FormState {
   totalHorasTrabalhadas: string
   odometroHorimetroInicial: string
   odometroHorimetroFinal: string
-  totalOdometro: string
+  totalOdometroHorimetro: string
   tipoOperacao: string
   insumoAplicado: string
   quantidadeTotalAplicada: string
@@ -66,7 +66,7 @@ const makeInitial = (): FormState => ({
   totalHorasTrabalhadas: '',
   odometroHorimetroInicial: '',
   odometroHorimetroFinal: '',
-  totalOdometro: '',
+  totalOdometroHorimetro: '',
   tipoOperacao: '',
   insumoAplicado: '',
   quantidadeTotalAplicada: '',
@@ -96,7 +96,7 @@ export default function OperacoesMaquinasPage() {
       const inicial = parseFloat(form.odometroHorimetroInicial)
       const final = parseFloat(form.odometroHorimetroFinal)
       if (!isNaN(inicial) && !isNaN(final) && final >= inicial) {
-        setForm((prev) => ({ ...prev, totalOdometro: String(final - inicial) }))
+        setForm((prev) => ({ ...prev, totalOdometroHorimetro: String(final - inicial) }))
       }
     }
   }, [form.odometroHorimetroInicial, form.odometroHorimetroFinal])
@@ -215,7 +215,7 @@ export default function OperacoesMaquinasPage() {
       horaFinal: form.horaFinal,
       odometroHorimetroInicial: form.odometroHorimetroInicial,
       odometroHorimetroFinal: form.odometroHorimetroFinal,
-      totalOdometro: form.totalOdometro,
+      totalOdometroHorimetro: form.totalOdometroHorimetro,
       tipoOperacao: form.tipoOperacao,
       insumoAplicado: form.insumoAplicado,
       quantidadeTotalAplicada: form.quantidadeTotalAplicada,
@@ -302,12 +302,12 @@ export default function OperacoesMaquinasPage() {
         <Input label="ODÔMETRO/HORÍMETRO INICIAL" type="number" placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={setInput('odometroHorimetroInicial')} error={getError('odometroHorimetroInicial')} />
         <Input label="ODÔMETRO/HORÍMETRO FINAL" type="number" placeholder="Odômetro/horímetro final" value={form.odometroHorimetroFinal} onChange={setInput('odometroHorimetroFinal')} error={getError('odometroHorimetroFinal')} />
         <Input 
-          label="TOTAL ODÔMETRO (km)" 
+          label="TOTAL ODÔMETRO/HORÍMETRO" 
           type="number" 
           placeholder="" 
-          value={form.totalOdometro} 
+          value={form.totalOdometroHorimetro} 
           readOnly 
-          helper="Calculado automaticamente a partir dos odômetros inicial e final"
+          helper="Calculado automaticamente a partir dos odômetros/horímetros inicial e final"
         />
       </div>
 

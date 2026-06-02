@@ -350,7 +350,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         hora_final: registro.horaFinal || null,
         odometro_horimetro_inicial: registro.odometroHorimetroInicial || null,
         odometro_horimetro_final: registro.odometroHorimetroFinal || null,
-        total_odometro: registro.totalOdometro || null,
+        total_odometro_horimetro: registro.totalOdometroHorimetro || null,
         tipo_operacao: registro.tipoOperacao || null,
         insumo_aplicado: registro.insumoAplicado || null,
         quantidade_total_aplicada: registro.quantidadeTotalAplicada || null,
