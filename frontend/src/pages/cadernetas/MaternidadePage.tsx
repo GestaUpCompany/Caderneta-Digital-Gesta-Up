@@ -10,27 +10,12 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca, getLotes } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca, getLotes, getTratamentos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
-
-const TRATAMENTOS = [
-  { value: 'Colostro', label: 'COLOSTRO'},
-  { value: 'Cura Umbigo', label: 'CURA UMBIGO'},
-  { value: 'Tatuagem', label: 'TATUAGEM'},
-  { value: 'Furo Orelhas', label: 'FURO ORELHAS'},
-  { value: 'Unguento', label: 'UNGUENTO'},
-  { value: 'Repelente', label: 'REPELENTE'},
-  { value: 'Vermífugo', label: 'VERMÍFUGO'},
-  { value: 'Antibiótico', label: 'ANTIBIÓTICO'},
-  { value: 'Probiótico', label: 'PROBIÓTICO'},
-  { value: 'Soro', label: 'SORO'},
-  { value: 'Pesagem', label: 'PESAGEM' },
-  { value: 'Outros', label: 'OUTROS'},
-]
 
 const TIPOS_PARTO = [
   { value: 'Normal', label: 'NORMAL', icon: '✅' },
@@ -104,7 +89,6 @@ interface FormState {
   idBrincoCria: string
   idChipCria: string
   tratamentos: string[]
-  tratamentoOutros: string
   tipoParto: string[]
   observacaoParto: string
   sexo: string
@@ -126,7 +110,6 @@ const makeInitial = (): FormState => ({
   idBrincoCria: '',
   idChipCria: '',
   tratamentos: [],
-  tratamentoOutros: '',
   tipoParto: [],
   observacaoParto: '',
   sexo: '',
@@ -152,6 +135,7 @@ export default function MaternidadePage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [tratamentosDisponiveis, setTratamentosDisponiveis] = useState<any[]>([])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -160,19 +144,10 @@ export default function MaternidadePage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const handleTratamentosChange = (newTratamentos: string[]) => {
-    // Se "Outros" foi deselecionado, limpa o campo de texto
-    if (!newTratamentos.includes('Outros')) {
-      setForm(prev => ({
-        ...prev,
-        tratamentos: newTratamentos,
-        tratamentoOutros: ''
-      }))
-    } else {
-      setForm(prev => ({
-        ...prev,
-        tratamentos: newTratamentos
-      }))
-    }
+    setForm(prev => ({
+      ...prev,
+      tratamentos: newTratamentos
+    }))
   }
 
   const handleTipoPartoChange = (newTipoParto: string[]) => {
@@ -196,6 +171,16 @@ export default function MaternidadePage() {
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
+        }
+      }
+
+      // Carregar tratamentos
+      if (fazendaId) {
+        try {
+          const tratamentosData = await getTratamentos(fazendaId)
+          setTratamentosDisponiveis(tratamentosData || [])
+        } catch (error) {
+          console.error('Erro ao carregar tratamentos do Supabase:', error)
         }
       }
     }
@@ -275,11 +260,7 @@ export default function MaternidadePage() {
     setErrors([])
 
     // Construir string final de tratamentos
-    const tratamentosFinais = form.tratamentos.map(t => 
-      t === 'Outros' ? form.tratamentoOutros : t
-    ).filter(Boolean) // remove strings vazias
-
-    const tratamentoFinal = tratamentosFinais.join(', ')
+    const tratamentoFinal = form.tratamentos.join(', ')
     const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
     const pastoNome = detalhesLote?.pastos?.nome || null
     const result = await salvarRegistro('maternidade', {
@@ -563,7 +544,7 @@ export default function MaternidadePage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTOS</h2>
           <CheckboxGroup
             label=""
-            options={TRATAMENTOS}
+            options={tratamentosDisponiveis.map(t => ({ value: t.nome, label: t.nome.toUpperCase() }))}
             selectedValues={form.tratamentos}
             onChange={handleTratamentosChange}
             error={getError('tratamentos')}
@@ -572,15 +553,6 @@ export default function MaternidadePage() {
             id="tratamentos"
             dataField="tratamentos"
           />
-          {form.tratamentos.includes('Outros') && (
-            <Input
-              label="DESCREVA O TRATAMENTO"
-              placeholder="Ex: Anti-inflamatório..."
-              value={form.tratamentoOutros}
-              onChange={setInputEvent('tratamentoOutros')}
-              error={getError('tratamentoOutros')}
-            />
-          )}
         </div>
 
         {/* Seção 5: Parto */}
