@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -136,9 +136,7 @@ export default function ProblemasPage() {
     setorResolve: { required: true },
   }
 
-  const { isValid, errors: validationErrors } = useFormValidation(form, validationRules)
-
-  const getError = (field: string) => validationErrors[field]
+  const { isValid } = useFormValidation(form, validationRules)
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -228,13 +226,12 @@ export default function ProblemasPage() {
             </div>
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} />
           {setoresDisponiveis.length > 0 ? (
             <SearchableModal
-              label="EM QUAL SETOR HOUVE PROBLEMA?"
+              label={<span>EM QUAL SETOR HOUVE PROBLEMA? <span className="text-red-500">*</span></span>}
               value={form.setor}
               onChange={set('setor')}
-              error={getError('setor')}
               options={setoresDisponiveis}
               placeholder="Buscar setor..."
               id="setor"
@@ -243,20 +240,18 @@ export default function ProblemasPage() {
           ) : (
             <Radio
               name="setor"
-              label="EM QUAL SETOR HOUVE PROBLEMA?"
+              label={<span>EM QUAL SETOR HOUVE PROBLEMA? <span className="text-red-500">*</span></span>}
               options={SETOR_OPTIONS}
               value={form.setor}
               onChange={set('setor')}
-              error={getError('setor')}
               gridCols={2}
             />
           )}
           {locaisDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOCAL?"
+              label={<span>LOCAL? <span className="text-red-500">*</span></span>}
               value={form.local}
               onChange={set('local')}
-              error={getError('local')}
               options={locaisDisponiveis}
               placeholder="Buscar local..."
               id="local"
@@ -264,19 +259,17 @@ export default function ProblemasPage() {
             />
           ) : (
             <Input
-              label="LOCAL?"
+              label={<span>LOCAL? <span className="text-red-500">*</span></span>}
               placeholder="Informe o local..."
               value={form.local}
               onChange={setInput('local')}
-              error={getError('local')}
             />
           )}
           <Input
-            label="DESCRIÇÃO DO PROBLEMA?"
+            label={<span>DESCRIÇÃO DO PROBLEMA? <span className="text-red-500">*</span></span>}
             placeholder="Descreva o problema..."
             value={form.descricaoProblema}
             onChange={setInput('descricaoProblema')}
-            error={getError('descricaoProblema')}
           />
         </div>
 
@@ -287,11 +280,10 @@ export default function ProblemasPage() {
           <div>
             <Radio
               name="causaIdentificada"
-              label="CAUSA IDENTIFICADA?"
+              label={<span>CAUSA IDENTIFICADA? <span className="text-red-500">*</span></span>}
               options={SN_OPTIONS}
               value={form.causaIdentificada}
               onChange={set('causaIdentificada')}
-              error={getError('causaIdentificada')}
               gridCols={2}
             />
             <Input
@@ -305,11 +297,10 @@ export default function ProblemasPage() {
           <div>
             <Radio
               name="acaoCorretivaRealizada"
-              label="AÇÃO CORRETIVA REALIZADA?"
+              label={<span>AÇÃO CORRETIVA REALIZADA? <span className="text-red-500">*</span></span>}
               options={SN_OPTIONS}
               value={form.acaoCorretivaRealizada}
               onChange={set('acaoCorretivaRealizada')}
-              error={getError('acaoCorretivaRealizada')}
               gridCols={2}
             />
             <Input
@@ -323,11 +314,10 @@ export default function ProblemasPage() {
           <div>
             <Radio
               name="tipoOcorrencia"
-              label="TIPO DE OCORRÊNCIA?"
+              label={<span>TIPO DE OCORRÊNCIA? <span className="text-red-500">*</span></span>}
               options={TIPO_OCORRENCIA_OPTIONS}
               value={form.tipoOcorrencia}
               onChange={set('tipoOcorrencia')}
-              error={getError('tipoOcorrencia')}
               gridCols={2}
             />
             <Input
@@ -341,11 +331,10 @@ export default function ProblemasPage() {
           <div>
             <Radio
               name="causaRaizIdentificada"
-              label="CAUSA RAIZ IDENTIFICADA?"
+              label={<span>CAUSA RAIZ IDENTIFICADA? <span className="text-red-500">*</span></span>}
               options={SN_OPTIONS}
               value={form.causaRaizIdentificada}
               onChange={set('causaRaizIdentificada')}
-              error={getError('causaRaizIdentificada')}
               gridCols={2}
             />
             <Input
@@ -364,11 +353,10 @@ export default function ProblemasPage() {
           <div>
             <Radio
               name="gravidadeImpacto"
-              label="GRAVIDADE OU IMPACTO?"
+              label={<span>GRAVIDADE OU IMPACTO? <span className="text-red-500">*</span></span>}
               options={GRAVIDADE_OPTIONS}
               value={form.gravidadeImpacto}
               onChange={set('gravidadeImpacto')}
-              error={getError('gravidadeImpacto')}
               gridCols={3}
             />
             <Input
@@ -382,11 +370,10 @@ export default function ProblemasPage() {
           <div>
             <Radio
               name="tipoProblema"
-              label="TIPO DE PROBLEMA?"
+              label={<span>TIPO DE PROBLEMA? <span className="text-red-500">*</span></span>}
               options={TIPO_PROBLEMA_OPTIONS}
               value={form.tipoProblema}
               onChange={set('tipoProblema')}
-              error={getError('tipoProblema')}
               gridCols={2}
             />
             <Input
@@ -399,19 +386,17 @@ export default function ProblemasPage() {
 
           <Radio
             name="prioridade"
-            label="PRIORIDADE?"
+            label={<span>PRIORIDADE? <span className="text-red-500">*</span></span>}
             options={GRAVIDADE_OPTIONS}
             value={form.prioridade}
             onChange={set('prioridade')}
-            error={getError('prioridade')}
             gridCols={3}
           />
           {setoresDisponiveis.length > 0 ? (
             <SearchableModal
-              label="QUAL SETOR RESOLVE?"
+              label={<span>QUAL SETOR RESOLVE? <span className="text-red-500">*</span></span>}
               value={form.setorResolve}
               onChange={set('setorResolve')}
-              error={getError('setorResolve')}
               options={setoresDisponiveis}
               placeholder="Buscar setor..."
               id="setorResolve"
@@ -419,11 +404,10 @@ export default function ProblemasPage() {
             />
           ) : (
             <Input
-              label="QUAL SETOR RESOLVE?"
+              label={<span>QUAL SETOR RESOLVE? <span className="text-red-500">*</span></span>}
               placeholder="Informe o setor..."
               value={form.setorResolve}
               onChange={setInput('setorResolve')}
-              error={getError('setorResolve')}
             />
           )}
         </div>

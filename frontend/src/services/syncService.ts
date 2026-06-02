@@ -9,354 +9,11 @@ import {
   SyncQueueItem,
   CadernetaStore,
 } from './indexedDB'
-import { BACKEND_URL, MAX_RETRY_COUNT } from '../utils/constants'
+import { MAX_RETRY_COUNT } from '../utils/constants'
 import { generateId } from '../utils/generateId'
 import { Registro } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
 import { brWithTimeToIso } from '../utils/formatDate'
-
-interface ColumnMapping {
-  field: keyof Registro
-  defaultValue?: string | number | object
-  transform?: (value: any) => string | number | null | object
-}
-
-interface CadernetaColumnConfig {
-  columns: ColumnMapping[]
-}
-
-const CADERNETA_COLUMNS_CONFIG: Record<CadernetaStore, CadernetaColumnConfig> = {
-  maternidade: {
-    columns: [
-      { field: 'data' },
-      { field: 'pasto' },
-      { field: 'lote' },
-      { field: 'pesoCria' },
-      { field: 'idCria' },
-      { field: 'tratamento' },
-      { field: 'tipoParto' },
-      { field: 'observacaoParto' },
-      { field: 'sexo' },
-      { field: 'raca' },
-      { field: 'brincoMae' },
-      { field: 'chipMae' },
-      { field: 'categoriaMae' },
-      { field: 'escoreMatriz' },
-      { field: 'docilidadeMatriz' },
-    ],
-  },
-  pastagens: {
-    columns: [
-      { field: 'data' },
-      { field: 'manejador' },
-      { field: 'numeroLote' },
-      { field: 'pastoSaida' },
-      { field: 'avaliacaoSaida' },
-      { field: 'tempoOcupacao', defaultValue: '' },
-      { field: 'pastoEntrada' },
-      { field: 'avaliacaoEntrada' },
-      { field: 'tempoVedacao', defaultValue: '' },
-      { field: 'gadoContado' },
-      { field: 'totalAnimais' },
-      { field: 'vaca' },
-      { field: 'touro' },
-      { field: 'boiGordo' },
-      { field: 'boiMagro' },
-      { field: 'garrote' },
-      { field: 'bezerro' },
-      { field: 'novilha' },
-      { field: 'tropa' },
-      { field: 'outros' },
-      { field: 'escoreGado', defaultValue: 0 },
-    ],
-  },
-  rodeio: {
-    columns: [
-      { field: 'data' },
-      { field: 'pasto' },
-      { field: 'numeroLote' },
-      { field: 'gadoContado' },
-      { field: 'vaca', transform: (v) => v || '' },
-      { field: 'touro', transform: (v) => v || '' },
-      { field: 'boiGordo', transform: (v) => v || '' },
-      { field: 'boiMagro', transform: (v) => v || '' },
-      { field: 'garrote', transform: (v) => v || '' },
-      { field: 'bezerro', transform: (v) => v || '' },
-      { field: 'novilha', transform: (v) => v || '' },
-      { field: 'tropa', transform: (v) => v || '' },
-      { field: 'outros', transform: (v) => v || '' },
-      { field: 'totalCabecas' },
-      { field: 'escoreGadoIdeal' },
-      { field: 'escoreGadoIdealObs', defaultValue: '' },
-      { field: 'bebedourosCochos' },
-      { field: 'bebedourosCochosObs', defaultValue: '' },
-      { field: 'pastagensTaxaLotacao' },
-      { field: 'pastagensTaxaLotacaoObs', defaultValue: '' },
-      { field: 'animaisMachucadosDoentesBichados' },
-      { field: 'animaisMachucadosDoentesBichadosObs', defaultValue: '' },
-      { field: 'cercasCochosPorteiras' },
-      { field: 'cercasCochosPorteirasObs', defaultValue: '' },
-      { field: 'carrapatosMoscas' },
-      { field: 'carrapatosMoscasObs', defaultValue: '' },
-      { field: 'animaisEntrevero' },
-      { field: 'animaisEntreveroObs', defaultValue: '' },
-      { field: 'animalMorto' },
-      { field: 'animalMortoObs', defaultValue: '' },
-      { field: 'escoreFezes' },
-      { field: 'equipe' },
-      { field: 'escoreGado' },
-    ],
-  },
-  suplementacao: {
-    columns: [
-      { field: 'data' },
-      { field: 'tratador' },
-      { field: 'pasto' },
-      { field: 'numeroLote' },
-      { field: 'produto' },
-      { field: 'leituraCocho' },
-      { field: 'kgCocho' },
-      { field: 'kgDeposito' },
-      { field: 'categoriasString' },
-      { field: 'escoreFezes' },
-    ],
-  },
-  bebedouros: {
-    columns: [
-      { field: 'data' },
-      { field: 'responsavel' },
-      { field: 'pasto' },
-      { field: 'numeroLote' },
-      { field: 'leituraBebedouro' },
-      { field: 'numeroBebedouro' },
-      { field: 'observacao' },
-      { field: 'aguaSuficiente' },
-      { field: 'aguaSuficienteObs' },
-      { field: 'vazaoBebedouroIdeal' },
-      { field: 'vazaoBebedouroIdealObs' },
-      { field: 'aterroAcessoBebedouroIdeal' },
-      { field: 'aterroAcessoBebedouroIdealObs' },
-      { field: 'espacamentoBebedouroIdeal' },
-      { field: 'espacamentoBebedouroIdealObs' },
-      { field: 'boiaProtecaoBoasCondicoes' },
-      { field: 'boiaProtecaoBoasCondicoesObs' },
-    ],
-  },
-  abastecimento: {
-    columns: [
-      { field: 'data' },
-      { field: 'quemAbasteceu' },
-      { field: 'operadorMotorista' },
-      { field: 'maquinaVeiculo' },
-      { field: 'maquinaVeiculoId' },
-      { field: 'placa' },
-      { field: 'totalAbastecido' },
-      { field: 'combustivel' },
-      { field: 'odometro' },
-      { field: 'tipoOperacao' },
-      { field: 'observacao' },
-    ],
-  },
-  cantina: {
-    columns: [
-      { field: 'data' },
-      { field: 'numeroCozinheiras' },
-      { field: 'quemCozinhou' },
-      { field: 'quemAjudou' },
-      { field: 'numeroCafeManha' },
-      { field: 'numeroLanches' },
-      { field: 'numeroRefeicoesAlmoco' },
-      { field: 'numeroRefeicoesJantar' },
-      { field: 'observacao' },
-    ],
-  },
-  limpeza: {
-    columns: [
-      { field: 'data' },
-      { field: 'numeroEquipe' },
-      { field: 'setor' },
-      { field: 'local' },
-      { field: 'horaInicio' },
-      { field: 'horaFinal' },
-      { field: 'observacao' },
-    ],
-  },
-  'operacoes-maquinas': {
-    columns: [
-      { field: 'data' },
-      { field: 'maquinaVeiculo' },
-      { field: 'maquinaVeiculoId' },
-      { field: 'implementoUtilizado' },
-      { field: 'horaInicial' },
-      { field: 'horaFinal' },
-      { field: 'odometroInicial' },
-      { field: 'odometroFinal' },
-      { field: 'tipoOperacao' },
-      { field: 'observacao' },
-    ],
-  },
-  movimentacao: {
-    columns: [
-      { field: 'data' },
-      { field: 'responsavel' },
-      { field: 'loteOrigem' },
-      { field: 'loteDestino' },
-      { field: 'numeroCabecas' },
-      { field: 'pesoVivoAtual' },
-      { field: 'categoria' },
-      { field: 'motivoMovimentacao' },
-      { field: 'brincoChip' },
-      { field: 'causaObservacao' },
-    ],
-  },
-  enfermaria: {
-    columns: [
-      { field: 'data' },
-      { field: 'pasto' },
-      { field: 'lote' },
-      { field: 'brincoChip' },
-      { field: 'categoria' },
-      { field: 'diagnosticos', defaultValue: {} },
-      { field: 'tratamento' },
-      { field: 'observacaoTratamento', defaultValue: '' },
-    ],
-  },
-  morte: {
-    columns: [
-      { field: 'responsavel' },
-      { field: 'data' },
-      { field: 'pasto' },
-      { field: 'lote' },
-      { field: 'brincoChip' },
-      { field: 'categoria' },
-      { field: 'categoriaOutros' },
-      { field: 'sexo' },
-      { field: 'raca' },
-      { field: 'racaOutros' },
-      { field: 'idade' },
-      { field: 'pesoVivo' },
-      { field: 'causaMorte' },
-      { field: 'causaMorteOutros' },
-      { field: 'diagnosticos', defaultValue: {} },
-    ],
-  },
-  'entrada-insumos': {
-    columns: [
-      { field: 'dataEntrada' },
-      { field: 'horario' },
-      { field: 'notaFiscal' },
-      { field: 'fornecedor' },
-      { field: 'placa' },
-      { field: 'motorista' },
-      { field: 'responsavelRecebimento' },
-      { field: 'itens' }, // Array de itens para processamento
-      { field: 'valorTotalEntrada' },
-    ],
-  },
-  'entrada-insumos-itens': {
-    columns: [
-      { field: 'entradaId' }, // ID do registro pai
-      { field: 'insumoId' },
-      { field: 'produto' },
-      { field: 'quantidade' },
-      { field: 'valorUnitario' },
-      { field: 'valorTotal' },
-    ],
-  },
-  'saida-insumos': {
-    columns: [
-      { field: 'dataProducao' },
-      { field: 'dietaProduzida' },
-      { field: 'destinoProducao' },
-      { field: 'totalProduzido' },
-    ],
-  },
-  'insumos-por-saida': {
-    columns: [
-      { field: 'idSaida' },
-      { field: 'dataProducao' },
-      { field: 'dietaProduzida' },
-      { field: 'insumo' },
-      { field: 'quantidade' },
-    ],
-  },
-  clima: {
-    columns: [
-      { field: 'data' },
-      { field: 'responsavel' },
-      { field: 'temperaturaMedia' },
-      { field: 'observacao' },
-    ],
-  },
-  problemas: {
-    columns: [
-      { field: 'data' },
-      { field: 'setor' },
-      { field: 'local' },
-      { field: 'descricaoProblema' },
-      { field: 'causaIdentificada' },
-      { field: 'causaIdentificadaObs', defaultValue: '' },
-      { field: 'acaoCorretivaRealizada' },
-      { field: 'acaoCorretivaRealizadaObs', defaultValue: '' },
-      { field: 'tipoOcorrencia' },
-      { field: 'tipoOcorrenciaObs', defaultValue: '' },
-      { field: 'causaRaizIdentificada' },
-      { field: 'causaRaizIdentificadaObs', defaultValue: '' },
-      { field: 'gravidadeImpacto' },
-      { field: 'gravidadeImpactoObs', defaultValue: '' },
-      { field: 'tipoProblema' },
-      { field: 'tipoProblemaObs', defaultValue: '' },
-      { field: 'prioridade' },
-      { field: 'setorResolve', defaultValue: '' },
-    ],
-  },
-  'manutencao-maquinas': {
-    columns: [
-      { field: 'data' },
-      { field: 'responsavelChecklist' },
-      { field: 'operadorMotorista' },
-      { field: 'veiculoTrator' },
-      { field: 'placa' },
-      { field: 'odometro' },
-      { field: 'checklist' },
-      { field: 'observacao', defaultValue: '' },
-    ],
-  },
-  almoxarifado: {
-    columns: [
-      { field: 'data' },
-      { field: 'quemEntregou' },
-      { field: 'quemPegou' },
-      { field: 'itens', defaultValue: [] },
-      { field: 'observacao', defaultValue: '' },
-    ],
-  },
-  'leitura-cocho': {
-    columns: [
-      { field: 'data' },
-      { field: 'pastoCurral' },
-      { field: 'numeroLote' },
-      { field: 'quantidadeCabecas' },
-      { field: 'mediaMS' },
-      { field: 'leituraCocho' },
-      { field: 'observacao' },
-    ],
-  },
-}
-
-function getColumnValues(store: CadernetaStore, registro: Registro): (string | number | null | object)[] {
-  const config = CADERNETA_COLUMNS_CONFIG[store]
-  return config.columns.map((mapping) => {
-    const value = registro[mapping.field]
-    if (mapping.transform) {
-      return mapping.transform(value)
-    }
-    if (value === undefined || value === null || value === '') {
-      return mapping.defaultValue ?? ''
-    }
-    return value as string | number | object
-  })
-}
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -374,8 +31,6 @@ export async function enqueueRegistro(
   }
   await addToSyncQueue(item)
 }
-
-const USE_SUPABASE = import.meta.env.VITE_USE_SUPABASE === 'true'
 
 // Mapeamento de CadernetaStore para tabelas do Supabase
 const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
@@ -645,7 +300,10 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         local: registro.local || null,
         hora_inicio: registro.horaInicio || null,
         hora_final: registro.horaFinal || null,
-        limpeza_realizada: registro.limpezaRealizada || null,
+        limpeza_realizada: {
+          limpezaRealizada: registro.limpezaRealizada || null,
+          tarefas: registro.tarefas || null,
+        },
         observacao: registro.observacao || null,
       }
     case 'operacoes-maquinas':
@@ -909,7 +567,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
   }
 }
 
-export async function processQueue(planilhaUrl: string, fazendaId?: string): Promise<{ synced: number; failed: number }> {
+export async function processQueue(fazendaId?: string): Promise<{ synced: number; failed: number }> {
   const queue = await getSyncQueue()
   let synced = 0
   let failed = 0
@@ -929,37 +587,11 @@ export async function processQueue(planilhaUrl: string, fazendaId?: string): Pro
     }
 
     try {
-      // Se usando Supabase com fazendaId, gravar direto no Supabase
-      if (USE_SUPABASE && fazendaId) {
+      // Gravar no Supabase
+      if (fazendaId) {
         await syncToSupabase(item.store, registro, fazendaId, item.operation)
         await updateSyncStatus(item.store, item.registroId, 'synced')
         console.log(`[SUPABASE] Registro sincronizado com sucesso: ${item.store}/${item.registroId}`)
-      }
-
-      // Se tem planilhaUrl, gravar no Google Sheets
-      if (planilhaUrl) {
-        const values = getColumnValues(item.store, registro)
-
-        if (item.operation === 'create') {
-          const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ planilhaUrl, values, id: registro.id }),
-          })
-
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          const json = await res.json() as { rowNumber: number }
-          await updateSyncStatus(item.store, item.registroId, 'synced', json.rowNumber)
-
-        } else if (item.operation === 'update' && registro.googleRowId) {
-          const res = await fetch(`${BACKEND_URL}/api/sheets/${item.store}/${registro.googleRowId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ planilhaUrl, values }),
-          })
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-          await updateSyncStatus(item.store, item.registroId, 'synced')
-        }
       }
 
       await removeFromSyncQueue(item.id)
@@ -973,18 +605,4 @@ export async function processQueue(planilhaUrl: string, fazendaId?: string): Pro
   }
 
   return { synced, failed }
-}
-
-export async function validatePlanilha(planilhaUrl: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/sheets/validate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ planilhaUrl }),
-    })
-    const json = await res.json() as { success: boolean }
-    return json.success === true
-  } catch {
-    return false
-  }
 }

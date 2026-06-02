@@ -14,7 +14,7 @@ import { SYNC_INTERVAL_MS } from '../utils/constants'
 
 export function useSync() {
   const dispatch = useDispatch()
-  const { planilhaUrl, fazendaId, configurado } = useSelector((state: RootState) => state.config)
+  const { fazendaId, configurado } = useSelector((state: RootState) => state.config)
   const isRunning = useRef(false)
 
   const updatePendingCount = useCallback(async () => {
@@ -23,7 +23,7 @@ export function useSync() {
   }, [dispatch])
 
   const runSync = useCallback(async () => {
-    if (!configurado || (!planilhaUrl && !fazendaId) || isRunning.current) {
+    if (!configurado || !fazendaId || isRunning.current) {
       return
     }
 
@@ -43,7 +43,7 @@ export function useSync() {
         return
       }
 
-      const { synced, failed } = await processQueue(planilhaUrl, fazendaId)
+      const { synced, failed } = await processQueue(fazendaId)
 
       if (failed > 0) {
         dispatch(setError(`${failed} registro(s) não sincronizados. Tentando novamente...`))
@@ -62,7 +62,7 @@ export function useSync() {
     } finally {
       isRunning.current = false
     }
-  }, [configurado, planilhaUrl, fazendaId, dispatch, updatePendingCount])
+  }, [configurado, fazendaId, dispatch, updatePendingCount])
 
   useEffect(() => {
     const handleOnline = () => {
@@ -90,12 +90,12 @@ export function useSync() {
   }, [dispatch, runSync])
 
   useEffect(() => {
-    if (!configurado || (!planilhaUrl && !fazendaId)) return
+    if (!configurado || !fazendaId) return
     const interval = setInterval(() => {
       if (navigator.onLine) runSync()
     }, SYNC_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, [configurado, planilhaUrl, fazendaId, runSync])
+  }, [configurado, fazendaId, runSync])
 
   useEffect(() => {
     updatePendingCount()

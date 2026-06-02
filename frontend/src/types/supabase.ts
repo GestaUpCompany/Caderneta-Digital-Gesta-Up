@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -696,6 +696,82 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "insumos_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itens_supermercado: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          fazenda_id: string
+          id: string
+          nome: string
+          unidade_medida: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id: string
+          id?: string
+          nome: string
+          unidade_medida: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          fazenda_id?: string
+          id?: string
+          nome?: string
+          unidade_medida?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_supermercado_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locais: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          deleted_at: string | null
+          fazenda_id: string
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          deleted_at?: string | null
+          fazenda_id: string
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          deleted_at?: string | null
+          fazenda_id?: string
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locais_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -2101,6 +2177,7 @@ export type Database = {
           responsavel: string
           sync_status: string | null
           temperatura_media: number | null
+          umidade_relativa: number | null
           updated_at: string | null
           version: number | null
         }
@@ -2117,6 +2194,7 @@ export type Database = {
           responsavel: string
           sync_status?: string | null
           temperatura_media?: number | null
+          umidade_relativa?: number | null
           updated_at?: string | null
           version?: number | null
         }
@@ -2133,6 +2211,7 @@ export type Database = {
           responsavel?: string
           sync_status?: string | null
           temperatura_media?: number | null
+          umidade_relativa?: number | null
           updated_at?: string | null
           version?: number | null
         }
@@ -2173,7 +2252,6 @@ export type Database = {
           raca: string | null
           sexo: string | null
           sync_status: string | null
-          tratamento: string | null
           tratamento_obs: string | null
           tratamento_outros: string | null
           updated_at: string | null
@@ -2198,7 +2276,6 @@ export type Database = {
           raca?: string | null
           sexo?: string | null
           sync_status?: string | null
-          tratamento?: string | null
           tratamento_obs?: string | null
           tratamento_outros?: string | null
           updated_at?: string | null
@@ -2223,7 +2300,6 @@ export type Database = {
           raca?: string | null
           sexo?: string | null
           sync_status?: string | null
-          tratamento?: string | null
           tratamento_obs?: string | null
           tratamento_outros?: string | null
           updated_at?: string | null
@@ -3053,6 +3129,7 @@ export type Database = {
           nome_usuario: string | null
           prioridade: string | null
           setor: string | null
+          setor_resolve: string | null
           sync_status: string | null
           tipo_ocorrencia: string | null
           tipo_ocorrencia_obs: string | null
@@ -3081,6 +3158,7 @@ export type Database = {
           nome_usuario?: string | null
           prioridade?: string | null
           setor?: string | null
+          setor_resolve?: string | null
           sync_status?: string | null
           tipo_ocorrencia?: string | null
           tipo_ocorrencia_obs?: string | null
@@ -3109,6 +3187,7 @@ export type Database = {
           nome_usuario?: string | null
           prioridade?: string | null
           setor?: string | null
+          setor_resolve?: string | null
           sync_status?: string | null
           tipo_ocorrencia?: string | null
           tipo_ocorrencia_obs?: string | null
@@ -3518,6 +3597,36 @@ export type Database = {
           },
         ]
       }
+      setores: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          deleted_at: string | null
+          fazenda_id: string
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          deleted_at?: string | null
+          fazenda_id: string
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          deleted_at?: string | null
+          fazenda_id?: string
+          id?: string
+          nome?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sync_queue: {
         Row: {
           created_at: string | null
@@ -3582,6 +3691,7 @@ export type Database = {
           fazenda_id: string
           id: string
           papel: string
+          updated_at: string | null
           usuario_id: string
         }
         Insert: {
@@ -3590,6 +3700,7 @@ export type Database = {
           fazenda_id: string
           id?: string
           papel: string
+          updated_at?: string | null
           usuario_id: string
         }
         Update: {
@@ -3598,6 +3709,7 @@ export type Database = {
           fazenda_id?: string
           id?: string
           papel?: string
+          updated_at?: string | null
           usuario_id?: string
         }
         Relationships: [
@@ -3666,15 +3778,15 @@ export type Database = {
       update_dados_lotes: { Args: never; Returns: undefined }
     }
     Enums: {
-      tipo_movimentacao_entrada: "Compras" | "ApartaÃ§Ã£o" | "TransferÃªncia"
+      tipo_movimentacao_entrada: "Compras" | "Apartação" | "Transferência"
       tipo_movimentacao_motivo:
         | "Consumo"
         | "Abate"
-        | "SaÃ­da"
+        | "Saída"
         | "Entrada"
         | "Entrevero"
-        | "DoaÃ§Ã£o"
-      tipo_movimentacao_saida: "Venda" | "ApartaÃ§Ã£o" | "TransferÃªncia"
+        | "Doação"
+      tipo_movimentacao_saida: "Venda" | "Apartação" | "Transferência"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3802,17 +3914,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      tipo_movimentacao_entrada: ["Compras", "ApartaÃ§Ã£o", "TransferÃªncia"],
+      tipo_movimentacao_entrada: ["Compras", "Apartação", "Transferência"],
       tipo_movimentacao_motivo: [
         "Consumo",
         "Abate",
-        "SaÃ­da",
+        "Saída",
         "Entrada",
         "Entrevero",
-        "DoaÃ§Ã£o",
+        "Doação",
       ],
-      tipo_movimentacao_saida: ["Venda", "ApartaÃ§Ã£o", "TransferÃªncia"],
+      tipo_movimentacao_saida: ["Venda", "Apartação", "Transferência"],
     },
   },
 } as const
-

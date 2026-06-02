@@ -4,9 +4,6 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { Input, Select, DatePicker, Button } from '../../components/ui'
-import { loadCadastroData } from '../../services/cadastroData'
-import { BACKEND_URL } from '../../utils/constants'
-import { DATABASE_URL } from '../../utils/constants'
 
 // Mapeamento dieta → insumos (será definido na planilha base)
 // Por enquanto, usando um mapeamento estático como exemplo
@@ -25,13 +22,12 @@ interface FormData {
 
 export default function ProducaoPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   // const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
   const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
 
   const [form, setForm] = useState<FormData>({
     dataProducao: new Date().toLocaleDateString('pt-BR'),
@@ -45,56 +41,23 @@ export default function ProducaoPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!cadastroSheetUrl) {
-        setError('URL da planilha de cadastro não configurada')
-        setLoading(false)
-        return
-      }
-
-      try {
-        await loadCadastroData(cadastroSheetUrl)
-        setLoading(false)
-      } catch (err) {
-        setError('Erro ao carregar dados de cadastro')
-        setLoading(false)
-      }
+      // TODO: Load data from Supabase instead of Google Sheets
+      setError('Funcionalidade em migração para Supabase')
+      setLoading(false)
     }
 
     loadData()
-  }, [cadastroSheetUrl])
+  }, [fazendaId])
 
   // Carregar dados de suplementação (insumos e dietas)
   useEffect(() => {
     async function carregarSuplementacaoData() {
-      if (!cadastroSheetUrl) {
-        setSuplementacaoData(null)
-        return
-      }
-
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setSuplementacaoData(data)
-
-          // Inicializar quantidades de insumos como vazio
-          const insumosQuantidades: Record<string, string> = {}
-          data.insumos.forEach((insumo: string) => {
-            insumosQuantidades[insumo] = ''
-          })
-          setForm(prev => ({ ...prev, insumosQuantidades }))
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados de suplementação:', error)
-      }
+      // TODO: Load data from Supabase instead of Google Sheets
+      setSuplementacaoData(null)
     }
 
     carregarSuplementacaoData()
-  }, [cadastroSheetUrl])
+  }, [])
 
   useEffect(() => {
     // Calcular total produzido (soma das quantidades de insumos)
@@ -127,72 +90,10 @@ export default function ProducaoPage() {
     setError(null)
 
     try {
-      const validateRes = await fetch(`${BACKEND_URL}/api/sheets/validate-farm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planilhaUrl: DATABASE_URL, farmId: fazendaId || fazenda, linkPosition: 2 }),
-      })
-
-      const validateData = await validateRes.json()
-      if (!validateData.success || !validateData.farmSheetUrl) {
-        setError('Não foi possível obter a URL da planilha de insumos')
-        setSaving(false)
-        return
-      }
-
-      // Salvar registro principal na página Saída (sem os insumos individuais)
-      const mainValues = [
-        form.dataProducao,
-        form.dietaProduzida,
-        form.destinoProducao,
-        form.totalProduzido,
-      ]
-
-      // Identificar insumos usados
-      const insumosUsados = suplementacaoData!.insumos.filter(
-        (insumo: string) => form.insumosQuantidades[insumo] && parseFloat(form.insumosQuantidades[insumo]) > 0
-      )
-
-      const saveRes = await fetch(`${BACKEND_URL}/api/insumos/producao`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          insumosSheetUrl: validateData.farmSheetUrl,
-          values: mainValues,
-          insumosUsados,
-        }),
-      })
-
-      const saveData = await saveRes.json()
-      if (!saveData.success || !saveData.id) {
-        setError('Erro ao salvar produção')
-        setSaving(false)
-        return
-      }
-
-      const saidaId = saveData.id
-
-      // Salvar cada insumo na página Dieta Insumos
-      for (const insumo of suplementacaoData!.insumos) {
-        const quantidade = form.insumosQuantidades[insumo]
-        if (quantidade && parseFloat(quantidade) > 0) {
-          const dietaInsumoValues = [saidaId, form.dataProducao, form.dietaProduzida, insumo, quantidade]
-          await fetch(`${BACKEND_URL}/api/insumos/dieta-insumos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              insumosSheetUrl: validateData.farmSheetUrl,
-              values: dietaInsumoValues,
-            }),
-          })
-        }
-      }
-
-      setSuccess(true)
+      // TODO: Save to Supabase instead of Google Sheets
+      setError('Funcionalidade em migração para Supabase')
       setSaving(false)
-      setTimeout(() => {
-        navigate('/modulos/insumos')
-      }, 2000)
+      return
     } catch (err) {
       setError('Erro ao salvar produção')
       setSaving(false)
@@ -238,12 +139,6 @@ export default function ProducaoPage() {
           <div className="bg-red-50 border-2 border-red-400 rounded-2xl p-6 text-center">
             <p className="text-xl font-bold text-red-800 mb-4">ERRO</p>
             <p className="text-lg text-gray-700">{error}</p>
-          </div>
-        ) : success ? (
-          <div className="bg-green-50 border-2 border-green-400 rounded-2xl p-6 text-center">
-            <p className="text-xl font-bold text-green-800 mb-4">SUCESSO</p>
-            <p className="text-lg text-gray-700">Produção salva com sucesso!</p>
-            <p className="text-sm text-gray-600 mt-2">Redirecionando...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-5 pb-8">

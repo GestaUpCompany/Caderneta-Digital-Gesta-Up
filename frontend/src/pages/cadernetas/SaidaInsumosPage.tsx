@@ -4,10 +4,8 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, Button, SearchableModal, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
-import { loadCadastroData } from '../../services/cadastroData'
-import { BACKEND_URL } from '../../utils/constants'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { getDietasNomes } from '../../services/supabaseService'
@@ -30,7 +28,7 @@ const makeInitial = (): FormState => ({
 
 export default function SaidaInsumosPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -76,60 +74,23 @@ export default function SaidaInsumosPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!cadastroSheetUrl) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        await loadCadastroData(cadastroSheetUrl)
-        // setCadastroData(data)
-        setLoading(false)
-      } catch (err) {
-        console.error('Erro ao carregar dados de cadastro:', err)
-        setLoading(false)
-      }
+      // TODO: Load data from Supabase instead of Google Sheets
+      setLoading(false)
     }
 
     loadData()
-  }, [cadastroSheetUrl])
+  }, [])
 
   // Carregar dados de suplementação (insumos e dietas)
   useEffect(() => {
     async function carregarSuplementacaoData() {
-      if (!cadastroSheetUrl) {
-        setSuplementacaoData(null)
-        setLoadingSuplementacao(false)
-        return
-      }
-
-      setLoadingSuplementacao(true)
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setSuplementacaoData(data)
-
-          // Inicializar quantidades de insumos como vazio
-          const insumosQuantidades: Record<string, string> = {}
-          data.insumos.forEach((insumo: string) => {
-            insumosQuantidades[insumo] = ''
-          })
-          setForm(prev => ({ ...prev, insumosQuantidades }))
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados de suplementação:', error)
-      } finally {
-        setLoadingSuplementacao(false)
-      }
+      // TODO: Load data from Supabase instead of Google Sheets
+      setSuplementacaoData(null)
+      setLoadingSuplementacao(false)
     }
 
     carregarSuplementacaoData()
-  }, [cadastroSheetUrl])
+  }, [])
 
   useEffect(() => {
     // Calcular total produzido (soma das quantidades de insumos)

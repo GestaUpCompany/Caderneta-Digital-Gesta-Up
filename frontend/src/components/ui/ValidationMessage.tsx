@@ -47,7 +47,6 @@ const FIELD_NAMES: Record<string, string> = {
   escoreFezes: 'Escore de Fezes',
   equipe: 'Avaliação Equipe',
   codigo: 'Código de Alteração',
-  planilhaUrl: 'Link da Planilha',
   usuario: 'Seu Nome',
   fazenda: 'Nome da Fazenda',
   sacos: 'Sacos',

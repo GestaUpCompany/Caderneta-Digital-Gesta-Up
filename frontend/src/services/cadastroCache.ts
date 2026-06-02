@@ -127,10 +127,8 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
  * Usa endpoints batch para reduzir número de requisições
  */
 async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): Promise<CadastroCacheData> {
-  const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
-  
   try {
-    if (useSupabase && fazendaId) {
+    if (fazendaId) {
       // Buscar do Supabase
       console.log('[CadastroCache] Buscando dados do Supabase para fazenda:', fazendaId)
       

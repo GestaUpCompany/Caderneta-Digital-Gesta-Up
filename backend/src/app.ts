@@ -2,12 +2,6 @@ import express from 'express'
 import cors from 'cors'
 import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
-import { sheetsRouter } from './controllers/sheetsController'
-import { syncRouter } from './controllers/syncController'
-import { suplementacaoRouter } from './controllers/suplementacaoController'
-import { insumosRouter } from './controllers/insumosController'
-import { devicesRouter } from './controllers/devicesController'
-import { pastagensRouter } from './controllers/pastagensController'
 import { authRouter } from './controllers/authController'
 import versionRouter from './controllers/versionController'
 import { securityHeaders, requestLogger, errorHandler } from './middleware/security'
@@ -66,12 +60,6 @@ const strictLimiter = rateLimit({
 })
 
 app.use('/api', standardLimiter)
-app.use('/api/sheets', sheetsRouter)
-app.use('/api/sync', strictLimiter, syncRouter)
-app.use('/api/suplementacao', suplementacaoRouter)
-app.use('/api/insumos', insumosRouter)
-app.use('/api/devices', devicesRouter)
-app.use('/api/pastagens', pastagensRouter)
 app.use('/api/auth', authRouter)
 app.use('/api', versionRouter)
 
@@ -89,8 +77,6 @@ app.use(errorHandler)
 app.listen(PORT, () => {
   logger.info(`🚀 Backend Cadernetas Digitais rodando na porta ${PORT}`)
   logger.info(`📊 Health check: http://localhost:${PORT}/api/health`)
-  logger.info(`🔗 Sheets API: http://localhost:${PORT}/api/sheets`)
-  logger.info(`🔄 Sync API: http://localhost:${PORT}/api/sync`)
 })
 
 export default app

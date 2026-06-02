@@ -1,4 +1,5 @@
 // Radio component for selecting one option from multiple choices
+import { ReactNode } from 'react'
 
 interface RadioOption {
   value: string
@@ -11,7 +12,7 @@ interface RadioProps {
   options: RadioOption[]
   value: string
   onChange: (value: string) => void
-  label?: string
+  label?: ReactNode
   error?: string
   direction?: 'horizontal' | 'vertical'
   gridCols?: number

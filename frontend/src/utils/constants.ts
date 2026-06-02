@@ -8,14 +8,6 @@ const BASE = import.meta.env.BASE_URL
 
 export const LOGO_URL = `${BASE}manejus360.png`
 
-export const DATABASE_URL = isDev
-  ? (import.meta.env.VITE_DATABASE_URL || 'https://docs.google.com/spreadsheets/d/1HSq-3ihaSnVGIEPBCMdhYjCmFfwyWAQM7zFrkCuGxts/edit')
-  : 'https://docs.google.com/spreadsheets/d/1HSq-3ihaSnVGIEPBCMdhYjCmFfwyWAQM7zFrkCuGxts/edit'
-
-export const DEVICE_SHEET_URL = isDev
-  ? (import.meta.env.VITE_DEVICE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/1i5zNHrN56caDV7vqmk9i8p1hm94_X8nOk5DpgTmqzIQ/edit')
-  : 'https://docs.google.com/spreadsheets/d/1i5zNHrN56caDV7vqmk9i8p1hm94_X8nOk5DpgTmqzIQ/edit'
-
 export function getFarmLogo(farmName: string): string {
   // Lógica condicional simples para logo baseada no nome da fazenda
   // Pode ser expandida conforme necessário

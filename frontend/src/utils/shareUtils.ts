@@ -393,7 +393,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         texto += `Hora Final: *${registro.horaFinal}*\n`
       }
       // Calcular e exibir tempo total
-      if (registro.horaInicio && registro.horaFinal) {
+      if (registro.horaInicio && registro.horaFinal && typeof registro.horaInicio === 'string' && typeof registro.horaFinal === 'string') {
         const [startH, startM] = registro.horaInicio.split(':').map(Number)
         const [endH, endM] = registro.horaFinal.split(':').map(Number)
         const startMinutes = startH * 60 + startM

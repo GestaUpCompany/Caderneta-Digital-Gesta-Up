@@ -9,7 +9,7 @@ const CURRENT_VERSION = {
   changelog: [
     'Versão inicial do aplicativo',
     'Funcionalidades completas de cadernetas',
-    'Sincronização com Google Sheets',
+    'Sincronização com Supabase',
     'Suporte offline'
   ],
   mandatory: false,

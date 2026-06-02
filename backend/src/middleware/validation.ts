@@ -311,24 +311,3 @@ export function validateCaderneta(caderneta: string) {
     next()
   }
 }
-
-export function validateSyncRequest(req: Request, res: Response, next: NextFunction) {
-  const schema = Joi.object({
-    planilhaUrl: Joi.string().uri().required(),
-    registros: Joi.array().items(Joi.object({
-      id: Joi.string().required(),
-      caderneta: Joi.string().valid('maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'morte', 'clima', 'abastecimento', 'cantina', 'problemas', 'enfermaria', 'manutencao-maquinas').required(),
-      operacao: Joi.string().valid('create', 'update', 'delete').required(),
-      dados: Joi.object().required(),
-    })).min(1).required(),
-  })
-
-  const { error } = schema.validate(req.body)
-
-  if (error) {
-    logger.warn(`Validação de sync falhou: ${error.message}`)
-    return res.status(400).json({ error: 'Requisição de sincronização inválida' })
-  }
-
-  next()
-}

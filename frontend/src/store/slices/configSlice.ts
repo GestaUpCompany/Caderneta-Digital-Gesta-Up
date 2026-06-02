@@ -5,8 +5,6 @@ interface ConfigState {
   fazendaId: string
   acessoId: string
   usuario: string
-  planilhaUrl: string
-  cadastroSheetUrl: string
   logoUrl: string
   configurado: boolean
 }
@@ -16,8 +14,6 @@ const initialState: ConfigState = {
   fazendaId: '',
   acessoId: '',
   usuario: '',
-  planilhaUrl: '',
-  cadastroSheetUrl: '',
   logoUrl: '',
   configurado: false,
 }

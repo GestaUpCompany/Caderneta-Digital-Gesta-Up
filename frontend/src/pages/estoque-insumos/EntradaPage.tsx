@@ -4,9 +4,6 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { Input, Select, DatePicker, Button } from '../../components/ui'
-import { loadCadastroData, CadastroData } from '../../services/cadastroData'
-import { BACKEND_URL } from '../../utils/constants'
-import { DATABASE_URL } from '../../utils/constants'
 
 interface FormData {
   dataEntrada: string
@@ -24,9 +21,7 @@ interface FormData {
 
 export default function EntradaPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
-  const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
-  const [suplementacaoData, setSuplementacaoData] = useState<any>(null)
+  const { fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,50 +44,14 @@ export default function EntradaPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!cadastroSheetUrl) {
-        setError('URL da planilha de cadastro não configurada')
-        setLoading(false)
-        return
-      }
-
-      try {
-        const data = await loadCadastroData(cadastroSheetUrl, fazendaId)
-        setCadastroData(data)
-        setLoading(false)
-      } catch (err) {
-        setError('Erro ao carregar dados de cadastro')
-        setLoading(false)
-      }
+      // TODO: Load data from Supabase instead of Google Sheets
+      setError('Funcionalidade em migração para Supabase')
+      setLoading(false)
     }
 
     loadData()
-  }, [cadastroSheetUrl, fazendaId])
+  }, [fazendaId])
 
-  // Carregar dados de suplementação (insumos)
-  useEffect(() => {
-    async function carregarSuplementacaoData() {
-      if (!cadastroSheetUrl) {
-        setSuplementacaoData(null)
-        return
-      }
-
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/insumos/suplementacao`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ insumosSheetUrl: cadastroSheetUrl }),
-        })
-        const data = await res.json()
-        if (data.success) {
-          setSuplementacaoData(data)
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados de suplementação:', error)
-      }
-    }
-
-    carregarSuplementacaoData()
-  }, [cadastroSheetUrl])
 
   useEffect(() => {
     const quantidade = parseFloat(form.quantidade) || 0
@@ -132,48 +91,10 @@ export default function EntradaPage() {
     setError(null)
 
     try {
-      const validateRes = await fetch(`${BACKEND_URL}/api/sheets/validate-farm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planilhaUrl: DATABASE_URL, farmId: fazendaId || fazenda, linkPosition: 2 }),
-      })
-
-      const validateData = await validateRes.json()
-      if (!validateData.success || !validateData.farmSheetUrl) {
-        setError('Não foi possível obter a URL da planilha de insumos')
-        setSaving(false)
-        return
-      }
-
-      const values = [
-        form.dataEntrada,
-        form.horario,
-        form.produto,
-        form.quantidade,
-        form.valorUnitario,
-        form.valorTotal,
-        form.notaFiscal,
-        form.fornecedor,
-        form.placa,
-        form.motorista,
-        form.responsavelRecebimento,
-      ]
-
-      const saveRes = await fetch(`${BACKEND_URL}/api/insumos/entrada`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          insumosSheetUrl: validateData.farmSheetUrl,
-          values,
-        }),
-      })
-
-      const saveData = await saveRes.json()
-      if (!saveData.success) {
-        setError('Erro ao salvar entrada de insumos')
-        setSaving(false)
-        return
-      }
+      // TODO: Implement Supabase integration for inventory management
+      setError('Funcionalidade em migração para Supabase')
+      setSaving(false)
+      return
 
       setSuccess(true)
       setSaving(false)
@@ -268,7 +189,7 @@ export default function EntradaPage() {
                 label="PRODUTO *"
                 value={form.produto}
                 onChange={(e) => setForm({ ...form, produto: e.target.value })}
-                options={[{ value: '', label: 'Selecione um insumo' }, ...(suplementacaoData?.insumos.map((i: string) => ({ value: i, label: i })) || [])]}
+                options={[{ value: '', label: 'Selecione um insumo' }]}
               />
               <Input
                 label="QUANTIDADE (kg) *"
@@ -307,7 +228,7 @@ export default function EntradaPage() {
                 label="FORNECEDOR *"
                 value={form.fornecedor}
                 onChange={(e) => setForm({ ...form, fornecedor: e.target.value })}
-                options={[{ value: '', label: 'Selecione um fornecedor' }, ...(cadastroData?.fornecedores.map(f => ({ value: f, label: f })) || [])]}
+                options={[{ value: '', label: 'Selecione um fornecedor' }]}
               />
             </div>
 
@@ -328,7 +249,7 @@ export default function EntradaPage() {
                 label="RESPONSÁVEL RECEBIMENTO *"
                 value={form.responsavelRecebimento}
                 onChange={(e) => setForm({ ...form, responsavelRecebimento: e.target.value })}
-                options={[{ value: '', label: 'Selecione um funcionário' }, ...(cadastroData?.funcionarios.map(f => ({ value: f, label: f })) || [])]}
+                options={[{ value: '', label: 'Selecione um funcionário' }]}
               />
             </div>
 

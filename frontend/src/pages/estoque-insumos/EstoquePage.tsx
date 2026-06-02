@@ -4,9 +4,6 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { Button } from '../../components/ui'
-import { loadCadastroData, CadastroData } from '../../services/cadastroData'
-import { BACKEND_URL } from '../../utils/constants'
-import { DATABASE_URL } from '../../utils/constants'
 
 interface EstoqueRow {
   dataInicial: string
@@ -20,12 +17,11 @@ interface EstoqueRow {
 
 export default function EstoquePage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, cadastroSheetUrl, logoUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl } = useSelector((state: RootState) => state.config)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [estoqueData, setEstoqueData] = useState<EstoqueRow[]>([])
-  const [cadastroData, setCadastroData] = useState<CadastroData | null>(null)
+  const [estoqueData] = useState<EstoqueRow[]>([])
   const [showInicializar, setShowInicializar] = useState(false)
   // const [estoquesIniciais, setEstoquesIniciais] = useState<Record<string, string>>({})
   const [atualizando, setAtualizando] = useState(false)
@@ -39,41 +35,8 @@ export default function EstoquePage() {
       setLoading(true)
       setError(null)
 
-      if (!cadastroSheetUrl && !fazendaId) {
-        throw new Error('URL da planilha de cadastro não configurada')
-      }
-
-      // Carregar dados de cadastro
-      const cadastro = await loadCadastroData(cadastroSheetUrl, fazendaId)
-      setCadastroData(cadastro)
-
-      // Carregar dados de estoque
-      const validateRes = await fetch(`${BACKEND_URL}/api/sheets/validate-farm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planilhaUrl: DATABASE_URL, farmId: fazendaId || fazenda, linkPosition: 2 }),
-      })
-
-      const validateData = await validateRes.json()
-      if (!validateData.success || !validateData.farmSheetUrl) {
-        throw new Error('Não foi possível obter a URL da planilha de insumos')
-      }
-
-      const estoqueRes = await fetch(`${BACKEND_URL}/api/insumos/estoque?insumosSheetUrl=${validateData.farmSheetUrl}`)
-      const estoqueData = await estoqueRes.json()
-
-      if (estoqueData.success && estoqueData.rows) {
-        const rows = estoqueData.rows.map((row: any) => ({
-          dataInicial: row[0],
-          dataFinal: row[1],
-          insumo: row[2],
-          qtdEntrada: parseFloat(row[3]) || 0,
-          qtdSaida: parseFloat(row[4]) || 0,
-          estoque: parseFloat(row[5]) || 0,
-          previsao: parseFloat(row[6]) || 0,
-        }))
-        setEstoqueData(rows)
-      }
+      // TODO: Load data from Supabase instead of Google Sheets
+      throw new Error('Funcionalidade em migração para Supabase')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados de estoque')
     } finally {
@@ -84,33 +47,10 @@ export default function EstoquePage() {
   const handleAtualizarTodos = async () => {
     try {
       setAtualizando(true)
-      const validateRes = await fetch(`${BACKEND_URL}/api/sheets/validate-farm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planilhaUrl: DATABASE_URL, farmId: fazendaId || fazenda, linkPosition: 2 }),
-      })
-
-      const validateData = await validateRes.json()
-      if (!validateData.success || !validateData.farmSheetUrl) {
-        setError('Não foi possível obter a URL da planilha de insumos')
-        return
-      }
-
-      // Atualizar cada insumo
-      for (const row of estoqueData) {
-        await fetch(`${BACKEND_URL}/api/insumos/estoque/atualizar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            insumosSheetUrl: validateData.farmSheetUrl,
-            insumoName: row.insumo,
-          }),
-        })
-      }
-
-      await loadData()
+      // TODO: Implement Supabase integration for inventory management
+      setError('Funcionalidade em migração para Supabase')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar estoques')
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar estoque')
     } finally {
       setAtualizando(false)
     }
@@ -184,7 +124,7 @@ export default function EstoquePage() {
             </div>
 
             {/* Modal de inicialização */}
-            {showInicializar && cadastroData && (
+            {showInicializar && (
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">DEFINIR ESTOQUE INICIAL</h2>
                 <p className="text-gray-500 italic">Insumos agora devem ser gerenciados na aba Suplementação da planilha</p>

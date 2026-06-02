@@ -97,7 +97,7 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
-  const { cadastroSheetUrl, fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
+  const { fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
   
   // Hooks de analytics (desativados temporariamente)
   // const sessionTime = useSessionTimer()
@@ -132,19 +132,18 @@ function AppInner() {
 
   // Inicializar cache de dados de cadastro
   useEffect(() => {
-    if (cadastroSheetUrl || fazendaId) {
-      initializeCadastroCache(cadastroSheetUrl, fazendaId)
-      startCadastroCachePolling(cadastroSheetUrl, fazendaId)
+    if (fazendaId) {
+      initializeCadastroCache(fazendaId)
+      startCadastroCachePolling(fazendaId)
     }
     return () => {
       stopCadastroCachePolling()
     }
-  }, [cadastroSheetUrl, fazendaId])
+  }, [fazendaId])
 
   // Re-authenticate automatically if config exists but token is invalid
   useEffect(() => {
-    const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
-    if (!useSupabase || !acessoId || !configurado) return
+    if (!acessoId || !configurado) return
 
     const checkAndReauth = async () => {
       if (!isTokenValid()) {

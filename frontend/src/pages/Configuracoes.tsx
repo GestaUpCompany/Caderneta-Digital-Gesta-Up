@@ -5,8 +5,6 @@ import { setConfig, setConfigurado } from '../store/slices/configSlice'
 import { RootState } from '../store/store'
 import { Button, Input } from '../components/ui'
 import ValidationModal from '../components/ValidationModal'
-import { BACKEND_URL, DATABASE_URL, DEVICE_SHEET_URL } from '../utils/constants'
-import { getDeviceId } from '../utils/deviceId'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 
 export default function Configuracoes() {
@@ -33,23 +31,6 @@ export default function Configuracoes() {
     }
     setErrors(newErrors)
     return newErrors.length === 0
-  }
-
-  const validarFazendaNaBase = async (id: string, linkPosition: number = 1): Promise<{ sucesso: boolean; nome?: string; link?: string }> => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/sheets/validate-farm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planilhaUrl: DATABASE_URL, farmId: id, linkPosition }),
-      })
-      if (res.ok) {
-        const json = await res.json() as { success: boolean; farmName?: string; farmSheetUrl?: string }
-        return { sucesso: json.success, nome: json.farmName, link: json.farmSheetUrl }
-      }
-    } catch (error) {
-      console.error('Erro ao validar fazenda:', error)
-    }
-    return { sucesso: false }
   }
 
   const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string }> => {
@@ -126,113 +107,41 @@ export default function Configuracoes() {
     setShowValidationModal(true)
     setValidationStatus('validating')
 
-    // Verificar se está usando apenas Supabase (sem planilha)
-    const useSupabase = import.meta.env.VITE_USE_SUPABASE === 'true'
-
-    let validacaoCaderneta = { sucesso: false, nome: '', link: '' }
-    let validacaoCadastro = { sucesso: false, nome: '', link: '' }
-    let validacaoSupabase = { sucesso: false, fazendaId: '', nome: '', acessoId: '', logoUrl: undefined as string | undefined }
-
-    if (!useSupabase) {
-      // Validar com posição 1 para obter URL da planilha da caderneta
-      const resultCaderneta = await validarFazendaNaBase(fazenda.trim(), 1)
-      validacaoCaderneta = { sucesso: resultCaderneta.sucesso, nome: resultCaderneta.nome || '', link: resultCaderneta.link || '' }
-
-      // Validar com posição 3 para obter URL da planilha de cadastro
-      const resultCadastro = await validarFazendaNaBase(fazenda.trim(), 3)
-      validacaoCadastro = { sucesso: resultCadastro.sucesso, nome: resultCadastro.nome || '', link: resultCadastro.link || '' }
-    } else {
-      // Validar no Supabase para obter fazendaId (UUID)
-      const resultSupabase = await validarFazendaNoSupabase(fazenda.trim())
-      validacaoSupabase = { sucesso: resultSupabase.sucesso, fazendaId: resultSupabase.fazendaId || '', nome: resultSupabase.nome || '', acessoId: resultSupabase.acessoId || '', logoUrl: resultSupabase.logoUrl }
-    }
+    // Validar no Supabase para obter fazendaId (UUID)
+    const resultSupabase = await validarFazendaNoSupabase(fazenda.trim())
+    const validacaoSupabase = { sucesso: resultSupabase.sucesso, fazendaId: resultSupabase.fazendaId || '', nome: resultSupabase.nome || '', acessoId: resultSupabase.acessoId || '', logoUrl: resultSupabase.logoUrl }
 
     setValidandoFazenda(false)
 
-    if (!useSupabase && !validacaoCaderneta.sucesso) {
+    if (!validacaoSupabase.sucesso) {
       setShowValidationModal(false)
-      setErrors([{ field: 'fazenda', message: 'Verifique o ID digitado ou contate o administrador' }])
+      setErrors([{ field: 'fazenda', message: 'ID não encontrado no Supabase. Contate o administrador.' }])
       return
     }
 
-    // Se Supabase estiver habilitado, validar também no Supabase
-    let supabaseFazendaId = ''
-    let supabaseAcessoId = ''
-    if (useSupabase) {
-      if (!validacaoSupabase.sucesso) {
-        setShowValidationModal(false)
-        setErrors([{ field: 'fazenda', message: 'ID não encontrado no Supabase. Contate o administrador.' }])
-        return
-      }
-      supabaseFazendaId = validacaoSupabase.fazendaId || ''
-      supabaseAcessoId = validacaoSupabase.acessoId || ''
-    }
+    const supabaseFazendaId = validacaoSupabase.fazendaId || ''
+    const supabaseAcessoId = validacaoSupabase.acessoId || ''
 
     setValidationStatus('success')
 
-    // Se validou com sucesso, usa o nome e link retornados
-    let nomeFazenda = ''
-    let linkPlanilha = ''
-    let linkCadastro = ''
-
-    if (useSupabase) {
-      nomeFazenda = validacaoSupabase.nome || fazenda.trim()
-    } else {
-      nomeFazenda = validacaoCaderneta.nome || fazenda.trim()
-      linkPlanilha = validacaoCaderneta.link
-      linkCadastro = validacaoCadastro.link
-    }
-
-    if (!useSupabase && !linkPlanilha) {
-      setShowValidationModal(false)
-      setErrors([{ field: 'fazenda', message: 'Link da planilha não encontrado na base de dados. Contate o administrador.' }])
-      return
-    }
-
-    // Aviso se link de cadastro não for encontrado (não é obrigatório)
-    if (!useSupabase && !linkCadastro) {
-      console.warn('Link de cadastro não encontrado na base de dados. Funcionalidades de cadastro podem não funcionar corretamente.')
-    }
-
+    const nomeFazenda = validacaoSupabase.nome || fazenda.trim()
     setFazendaNome(nomeFazenda)
     
-    // Atualizar o campo do ID da fazenda para mostrar o acesso_id (caso esteja usando Supabase)
-    if (useSupabase && supabaseAcessoId) {
+    // Atualizar o campo do ID da fazenda para mostrar o acesso_id
+    if (supabaseAcessoId) {
       setFazenda(supabaseAcessoId)
     }
     
     const configData = {
       fazenda: nomeFazenda,
-      fazendaId: useSupabase ? supabaseFazendaId : fazenda.trim(),
-      acessoId: useSupabase ? supabaseAcessoId : fazenda.trim(),
+      fazendaId: supabaseFazendaId,
+      acessoId: supabaseAcessoId,
       usuario: usuario.trim(),
-      planilhaUrl: linkPlanilha,
-      cadastroSheetUrl: linkCadastro || '',
-      logoUrl: useSupabase ? validacaoSupabase.logoUrl : ''
+      logoUrl: validacaoSupabase.logoUrl
     }
 
     dispatch(setConfig(configData))
     dispatch(setConfigurado(true))
-    
-    // Salvar data de configuração da fazenda no analytics (apenas se usar planilha)
-    if (!useSupabase) {
-      const farmConfigDate = new Date().toLocaleDateString('pt-BR')
-      try {
-        const deviceId = getDeviceId()
-        await fetch(`${BACKEND_URL}/api/devices/update`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            deviceSheetUrl: DEVICE_SHEET_URL,
-            uuid: deviceId,
-            fazenda: fazenda || '',
-            farmConfigDate,
-          }),
-        })
-      } catch (error) {
-        console.error('Erro ao salvar data de configuração:', error)
-      }
-    }
     
     setTimeout(() => {
       setShowValidationModal(false)
