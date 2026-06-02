@@ -9,7 +9,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getFuncionarios } from '../../services/supabaseService'
+import { getFuncionarios, getMaquinasVeiculos, getMaquinaVeiculoByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 
 const SN_OPTIONS = [
@@ -77,6 +77,7 @@ export default function ManutencaoMaquinasPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
 
   const set = (key: keyof FormState) => (value: string) => setForm(prev => ({ ...prev, [key]: value }))
   const setInput = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [key]: e.target.value }))
@@ -151,6 +152,61 @@ export default function ManutencaoMaquinasPage() {
     }
     loadData()
   }, [fazendaId])
+
+  // Carregar máquinas/veículos do Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      if (fazendaId) {
+        try {
+          const maquinasData = await getMaquinasVeiculos(fazendaId)
+          const filtered = (maquinasData || []).filter(m => m.status?.toLowerCase() === 'ativo')
+          setMaquinasVeiculosDisponiveis(filtered)
+        } catch (error) {
+          console.error('Erro ao carregar máquinas/veículos do Supabase:', error)
+        }
+      }
+    }
+    loadData()
+  }, [fazendaId])
+
+  // Reload data when component gains focus (user navigates back)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (fazendaId) {
+        getMaquinasVeiculos(fazendaId)
+          .then(maquinasData => {
+            const filtered = (maquinasData || []).filter(m => m.status?.toLowerCase() === 'ativo')
+            setMaquinasVeiculosDisponiveis(filtered)
+          })
+          .catch(error => {
+            console.error('Erro ao recarregar máquinas/veículos:', error)
+          })
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [fazendaId])
+
+  // Buscar detalhes da máquina/veículo quando selecionada
+  useEffect(() => {
+    async function carregarDetalhesMaquinaVeiculo() {
+      if (!form.maquinaVeiculo || !fazendaId) {
+        setForm(prev => ({ ...prev, placa: '' }))
+        return
+      }
+      try {
+        const maquina = await getMaquinaVeiculoByNome(fazendaId, form.maquinaVeiculo)
+        if (maquina) {
+          setForm(prev => ({ ...prev, placa: maquina.placa || '' }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes da máquina/veículo:', error)
+        setForm(prev => ({ ...prev, placa: '' }))
+      }
+    }
+    carregarDetalhesMaquinaVeiculo()
+  }, [form.maquinaVeiculo, fazendaId])
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -243,20 +299,37 @@ export default function ManutencaoMaquinasPage() {
               />
             )}
           </div>
-          <Input
-            label="MÁQUINA/VEÍCULO"
-            placeholder="Informe a máquina ou veículo"
-            value={form.maquinaVeiculo}
-            onChange={setInput('maquinaVeiculo')}
-            error={getError('maquinaVeiculo')}
-          />
-          <Input
-            label="PLACA"
-            placeholder="Informe a placa"
-            value={form.placa}
-            onChange={setInput('placa')}
-            error={getError('placa')}
-          />
+          {maquinasVeiculosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="MÁQUINA/VEÍCULO"
+              value={form.maquinaVeiculo}
+              onChange={set('maquinaVeiculo')}
+              error={getError('maquinaVeiculo')}
+              options={maquinasVeiculosDisponiveis.map(m => m.nome)}
+              placeholder="Buscar máquina/veículo..."
+              id="maquinaVeiculo"
+              name="maquinaVeiculo"
+            />
+          ) : (
+            <Input
+              label="MÁQUINA/VEÍCULO"
+              placeholder="Carregando..."
+              value={form.maquinaVeiculo}
+              onChange={setInput('maquinaVeiculo')}
+              error={getError('maquinaVeiculo')}
+              disabled
+            />
+          )}
+          {form.placa && (
+            <Input
+              label="PLACA"
+              placeholder="Informe a placa"
+              value={form.placa}
+              onChange={setInput('placa')}
+              error={getError('placa')}
+              readOnly
+            />
+          )}
           <Input
             label="ODÔMETRO/HORÍMETRO (km)"
             placeholder="Informe a quilometragem/horímetro"
@@ -281,7 +354,7 @@ export default function ManutencaoMaquinasPage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              {form.checklist[campo]?.valor === 'S' && (
+              {form.checklist[campo]?.valor === 'N' && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={form.checklist[campo]?.observacao || ''}

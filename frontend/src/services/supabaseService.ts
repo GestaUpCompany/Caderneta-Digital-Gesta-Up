@@ -237,7 +237,6 @@ export async function getMaquinasVeiculos(fazendaId: string) {
     .from('maquinas_veiculos')
     .select('id, nome, tipo, categoria, modelo, placa, ano, tipo_combustivel, capacidade, horimetro, quilometragem, custo_hora, custo_km, operador_padrao, status')
     .eq('fazenda_id', fazendaId)
-    .eq('ativo', true)
     .order('nome')
 
   if (error) throw error
