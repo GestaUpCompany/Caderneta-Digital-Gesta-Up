@@ -202,6 +202,19 @@ export async function getSetores(fazendaId: string) {
   return data
 }
 
+export async function getImplementos(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('implementos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 // ==================== LOCAIS ====================
 
 export async function getLocais(fazendaId: string) {

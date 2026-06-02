@@ -453,15 +453,15 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
     errors.push({ field: 'horaFinal', message: 'Hora final deve ser maior que hora inicial' })
   }
   
-  if (!isNonEmptyString(data.odometroInicial))
-    errors.push({ field: 'odometroInicial', message: 'Odômetro inicial é obrigatório' })
+  if (!isNonEmptyString(data.odometroHorimetroInicial))
+    errors.push({ field: 'odometroHorimetroInicial', message: 'Odômetro inicial é obrigatório' })
   if (!isNonEmptyString(data.odometroFinal))
     errors.push({ field: 'odometroFinal', message: 'Odômetro final é obrigatório' })
   if (!isNonEmptyString(data.tipoOperacao))
     errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
 
   // Validar que total odometro foi calculado (deve ser positivo quando ambos odômetros estão preenchidos)
-  if (data.odometroInicial && data.odometroFinal && !isPositiveNumber(data.totalOdometro)) {
+  if (data.odometroHorimetroInicial && data.odometroFinal && !isPositiveNumber(data.totalOdometro)) {
     errors.push({ field: 'totalOdometro', message: 'Odômetro final deve ser maior que o inicial' })
   }
 

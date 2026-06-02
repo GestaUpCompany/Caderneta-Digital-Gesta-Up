@@ -7,7 +7,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getMaquinasVeiculos, getMaquinaVeiculoByNome } from '../../services/supabaseService'
+import { getMaquinasVeiculos, getMaquinaVeiculoByNome, getImplementos } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 
 const TIPO_OPERACAO_OPTIONS = [
@@ -41,7 +41,7 @@ interface FormState {
   horaInicial: string
   horaFinal: string
   totalHorasTrabalhadas: string
-  odometroInicial: string
+  odometroHorimetroInicial: string
   odometroFinal: string
   totalOdometro: string
   tipoOperacao: string
@@ -64,7 +64,7 @@ const makeInitial = (): FormState => ({
   horaInicial: '',
   horaFinal: '',
   totalHorasTrabalhadas: '',
-  odometroInicial: '',
+  odometroHorimetroInicial: '',
   odometroFinal: '',
   totalOdometro: '',
   tipoOperacao: '',
@@ -88,17 +88,18 @@ export default function OperacoesMaquinasPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
+  const [implementosDisponiveis, setImplementosDisponiveis] = useState<string[]>([])
 
   // Calcular total odometro automaticamente
   useEffect(() => {
-    if (form.odometroInicial && form.odometroFinal) {
-      const inicial = parseFloat(form.odometroInicial)
+    if (form.odometroHorimetroInicial && form.odometroFinal) {
+      const inicial = parseFloat(form.odometroHorimetroInicial)
       const final = parseFloat(form.odometroFinal)
       if (!isNaN(inicial) && !isNaN(final) && final >= inicial) {
         setForm((prev) => ({ ...prev, totalOdometro: String(final - inicial) }))
       }
     }
-  }, [form.odometroInicial, form.odometroFinal])
+  }, [form.odometroHorimetroInicial, form.odometroFinal])
 
   // Calcular total de horas trabalhadas automaticamente
   useEffect(() => {
@@ -157,6 +158,20 @@ export default function OperacoesMaquinasPage() {
     carregarMaquinasVeiculos()
   }, [fazendaId])
 
+  // Carregar implementos
+  useEffect(() => {
+    async function carregarImplementos() {
+      if (!fazendaId) return
+      try {
+        const implementos = await getImplementos(fazendaId)
+        setImplementosDisponiveis(implementos?.map((i: any) => i.nome) || [])
+      } catch (error) {
+        console.error('Erro ao carregar implementos:', error)
+      }
+    }
+    carregarImplementos()
+  }, [fazendaId])
+
   // Buscar detalhes da máquina/veículo quando selecionada
   useEffect(() => {
     async function carregarDetalhesMaquinaVeiculo() {
@@ -198,7 +213,7 @@ export default function OperacoesMaquinasPage() {
       implementoUtilizado: form.implementoUtilizado,
       horaInicial: form.horaInicial,
       horaFinal: form.horaFinal,
-      odometroInicial: form.odometroInicial,
+      odometroHorimetroInicial: form.odometroHorimetroInicial,
       odometroFinal: form.odometroFinal,
       totalOdometro: form.totalOdometro,
       tipoOperacao: form.tipoOperacao,
@@ -261,7 +276,20 @@ export default function OperacoesMaquinasPage() {
         ) : (
           <Input label="MÁQUINA/VEÍCULO?" placeholder="Máquina/Veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
         )}
-        <Input label="IMPLEMENTO UTILIZADO?" placeholder="Implemento utilizado" value={form.implementoUtilizado} onChange={setInput('implementoUtilizado')} error={getError('implementoUtilizado')} />
+        {implementosDisponiveis.length > 0 ? (
+          <SearchableModal
+            label="IMPLEMENTO UTILIZADO?"
+            value={form.implementoUtilizado}
+            onChange={set('implementoUtilizado')}
+            error={getError('implementoUtilizado')}
+            options={implementosDisponiveis}
+            placeholder="Buscar implemento..."
+            id="implementoUtilizado"
+            name="implementoUtilizado"
+          />
+        ) : (
+          <Input label="IMPLEMENTO UTILIZADO?" placeholder="Implemento utilizado" value={form.implementoUtilizado} onChange={setInput('implementoUtilizado')} error={getError('implementoUtilizado')} />
+        )}
         <Input label="HORA INICIAL?" type="time" value={form.horaInicial} onChange={setInput('horaInicial')} error={getError('horaInicial')} />
         <Input label="HORA FINAL?" type="time" value={form.horaFinal} onChange={setInput('horaFinal')} error={getError('horaFinal')} />
         <Input 
@@ -271,7 +299,7 @@ export default function OperacoesMaquinasPage() {
           readOnly 
           helper="Calculado automaticamente a partir das horas inicial e final"
         />
-        <Input label="ODÔMETRO INICIAL (km)" type="number" placeholder="Odômetro inicial" value={form.odometroInicial} onChange={setInput('odometroInicial')} error={getError('odometroInicial')} />
+        <Input label="ODÔMETRO/HORÍMETRO INICIAL" type="number" placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={setInput('odometroHorimetroInicial')} error={getError('odometroHorimetroInicial')} />
         <Input label="ODÔMETRO FINAL (km)" type="number" placeholder="Odômetro final" value={form.odometroFinal} onChange={setInput('odometroFinal')} error={getError('odometroFinal')} />
         <Input 
           label="TOTAL ODÔMETRO (km)" 

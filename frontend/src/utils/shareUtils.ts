@@ -459,9 +459,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `HORÁRIO: *${registro.horaInicial} → ${registro.horaFinal}*\n`
     }
     
-    if (registro.odometroInicial && registro.odometroFinal) {
+    if (registro.odometroHorimetroInicial && registro.odometroFinal) {
       const total = registro.totalOdometro || '—'
-      texto += `ODÔMETRO: *${registro.odometroInicial} km → ${registro.odometroFinal} km*\n`
+      texto += `ODÔMETRO: *${registro.odometroHorimetroInicial} km → ${registro.odometroFinal} km*\n`
       texto += `TOTAL ODÔMETRO: *${total} km*\n`
     }
     
