@@ -322,12 +322,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Verificar se há algum campo do checklist preenchido
     const temChecklistBebedouros = checklistBebedouros.some(({ campo }) => {
       // Check JSONB structure
-      if (registro.checklist && registro.checklist[campo]) {
-        return registro.checklist[campo].valor === true || registro.checklist[campo].valor === false
+      if (registro.checklist && (registro.checklist as any)[campo]) {
+        return (registro.checklist as any)[campo].valor === true || (registro.checklist as any)[campo].valor === false
       }
       // Check flat structure
-      const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
-      return registro[flatCampo] === true || registro[flatCampo] === false
+      const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
+      return (registro as any)[flatCampo] === true || (registro as any)[flatCampo] === false
     })
     
     if (temChecklistBebedouros) {
@@ -336,15 +336,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         // Try to get from JSONB checklist structure (after sync)
         let valor = null
         let observacao = null
-        if (registro.checklist && registro.checklist[campo]) {
-          valor = registro.checklist[campo].valor
-          observacao = registro.checklist[campo].observacao
+        if (registro.checklist && (registro.checklist as any)[campo]) {
+          valor = (registro.checklist as any)[campo].valor
+          observacao = (registro.checklist as any)[campo].observacao
         }
         // Fallback to flat structure (before sync)
         else {
-          const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
-          valor = registro[flatCampo]
-          observacao = registro[`${flatCampo}Obs`]
+          const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
+          valor = (registro as any)[flatCampo]
+          observacao = (registro as any)[`${flatCampo}Obs`]
         }
         
         if (valor === true || valor === false) {
@@ -656,15 +656,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       // Try to get from JSONB checklist structure (after sync)
       let valor = null
       let observacao = null
-      if (registro.checklist && registro.checklist[campo]) {
-        valor = registro.checklist[campo].valor
-        observacao = registro.checklist[campo].observacao
+      if (registro.checklist && (registro.checklist as any)[campo]) {
+        valor = (registro.checklist as any)[campo].valor
+        observacao = (registro.checklist as any)[campo].observacao
       }
       // Fallback to flat structure (before sync)
       else {
-        const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
-        valor = registro[flatCampo]
-        observacao = registro[`${flatCampo}Obs`]
+        const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
+        valor = (registro as any)[flatCampo]
+        observacao = (registro as any)[`${flatCampo}Obs`]
       }
       
       if (valor === true || valor === false) {
@@ -692,15 +692,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       // Try to get from JSONB checklist structure (after sync)
       let valor = null
       let observacao = null
-      if (registro.checklist && registro.checklist[campo]) {
-        valor = registro.checklist[campo].valor
-        observacao = registro.checklist[campo].observacao
+      if (registro.checklist && (registro.checklist as any)[campo]) {
+        valor = (registro.checklist as any)[campo].valor
+        observacao = (registro.checklist as any)[campo].observacao
       }
       // Fallback to flat structure (before sync)
       else {
-        const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
-        valor = registro[flatCampo]
-        observacao = registro[`${flatCampo}Obs`]
+        const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
+        valor = (registro as any)[flatCampo]
+        observacao = (registro as any)[`${flatCampo}Obs`]
       }
       
       if (valor === true || valor === false) {
