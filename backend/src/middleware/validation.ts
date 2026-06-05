@@ -280,10 +280,12 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     odometroHorimetroFinal: Joi.string().allow('', null),
     totalOdometroHorimetro: Joi.string().allow('', null),
     tipoOperacao: Joi.string().allow('', null),
-    insumoAplicado: Joi.string().allow('', null),
-    quantidadeTotalAplicada: Joi.string().allow('', null),
-    areaTrabalhada: Joi.string().allow('', null),
-    doseAplicada: Joi.string().allow('', null),
+    aplicacoes: Joi.array().items(Joi.object({
+      insumo_aplicado: Joi.string().allow('', null),
+      quantidade_total_aplicada: Joi.string().allow('', null),
+      area_trabalhada: Joi.string().allow('', null),
+      dose_aplicada: Joi.string().allow('', null)
+    })).allow(null),
     checklist: Joi.object({
       meta_diaria_batida: Joi.object({
         valor: Joi.string().valid('S', 'N').allow('', null),

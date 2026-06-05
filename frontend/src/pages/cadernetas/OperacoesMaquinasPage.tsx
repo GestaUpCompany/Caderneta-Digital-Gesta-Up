@@ -65,6 +65,12 @@ interface FormState {
       observacao: string
     }
   }
+  aplicacoes?: Array<{
+    insumo_aplicado: string
+    quantidade_total_aplicada: string
+    area_trabalhada: string
+    dose_aplicada: string
+  }>
 }
 
 const makeInitial = (): FormState => ({
@@ -88,6 +94,7 @@ const makeInitial = (): FormState => ({
   algumImprevisto: '',
   algumImprevistoObs: '',
   observacao: '',
+  aplicacoes: [],
 })
 
 export default function OperacoesMaquinasPage() {
@@ -246,10 +253,7 @@ export default function OperacoesMaquinasPage() {
       odometroHorimetroFinal: form.odometroHorimetroFinal,
       totalOdometroHorimetro: form.totalOdometroHorimetro,
       tipoOperacao: form.tipoOperacao,
-      insumoAplicado: form.insumoAplicado,
-      quantidadeTotalAplicada: form.quantidadeTotalAplicada,
-      areaTrabalhada: form.areaTrabalhada,
-      doseAplicada: form.doseAplicada,
+      aplicacoes: form.aplicacoes && form.aplicacoes.length > 0 ? form.aplicacoes : null,
       checklist: {
         meta_diaria_batida: {
           valor: form.metaDiariaBatida,
@@ -361,10 +365,77 @@ export default function OperacoesMaquinasPage() {
       {/* Seção 3: Detalhes da Aplicação */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DETALHES DA APLICAÇÃO</h2>
-        <Input label="INSUMO APLICADO?" placeholder="Insumo aplicado" value={form.insumoAplicado} onChange={setInput('insumoAplicado')} />
-        <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} />
-        <Input label="ÁREA TRABALHADA (ha)?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} />
-        <Input label="DOSE APLICADA/ha" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" />
+        
+        {form.aplicacoes && form.aplicacoes.length > 0 && (
+          <div className="space-y-3">
+            {form.aplicacoes.map((aplicacao, index) => (
+              <div key={index} className="bg-gray-50 rounded-xl p-4 border border-gray-200 relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const novasAplicacoes = form.aplicacoes?.filter((_, i) => i !== index) || []
+                    setForm((prev) => ({ ...prev, aplicacoes: novasAplicacoes }))
+                  }}
+                  className="absolute top-2 right-2 text-red-500 hover:text-red-700 text-sm font-semibold"
+                >
+                  Remover
+                </button>
+                <div className="space-y-2 pr-16">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-600">INSUMO APLICADO</p>
+                    <p className="text-gray-900 font-bold">{aplicacao.insumo_aplicado || '-'}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-600">QTD. TOTAL</p>
+                      <p className="text-gray-900 font-bold">{aplicacao.quantidade_total_aplicada || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-600">ÁREA (ha)</p>
+                      <p className="text-gray-900 font-bold">{aplicacao.area_trabalhada || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-600">DOSE/ha</p>
+                      <p className="text-gray-900 font-bold">{aplicacao.dose_aplicada || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="border-t border-gray-200 pt-4">
+          <Input label="INSUMO APLICADO?" placeholder="Insumo aplicado" value={form.insumoAplicado} onChange={setInput('insumoAplicado')} />
+          <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} />
+          <Input label="ÁREA TRABALHADA (ha)?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} />
+          <Input label="DOSE APLICADA/ha" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" />
+          
+          <button
+            type="button"
+            onClick={() => {
+              if (form.insumoAplicado || form.quantidadeTotalAplicada || form.areaTrabalhada) {
+                const novaAplicacao = {
+                  insumo_aplicado: form.insumoAplicado,
+                  quantidade_total_aplicada: form.quantidadeTotalAplicada,
+                  area_trabalhada: form.areaTrabalhada,
+                  dose_aplicada: form.doseAplicada
+                }
+                setForm((prev) => ({
+                  ...prev,
+                  aplicacoes: [...(prev.aplicacoes || []), novaAplicacao],
+                  insumoAplicado: '',
+                  quantidadeTotalAplicada: '',
+                  areaTrabalhada: '',
+                  doseAplicada: ''
+                }))
+              }
+            }}
+            className="w-full bg-[#3b82f6] text-white font-bold py-3 rounded-xl hover:bg-[#2563eb] transition-colors"
+          >
+            + ADICIONAR APLICAÇÃO
+          </button>
+        </div>
       </div>
 
       {/* Seção 4: Avaliação */}
