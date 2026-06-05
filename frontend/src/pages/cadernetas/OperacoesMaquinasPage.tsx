@@ -337,8 +337,8 @@ export default function OperacoesMaquinasPage() {
           readOnly 
           helper="Calculado automaticamente a partir das horas inicial e final"
         />
-        <Input label={<span>ODÔMETRO/HORÍMETRO INICIAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={setInput('odometroHorimetroInicial')} error={getError('odometroHorimetroInicial')} />
-        <Input label={<span>ODÔMETRO/HORÍMETRO FINAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro final" value={form.odometroHorimetroFinal} onChange={setInput('odometroHorimetroFinal')} error={getError('odometroHorimetroFinal')} />
+        <Input label={<span>ODÔMETRO/HORÍMETRO<br /> INICIAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={setInput('odometroHorimetroInicial')} error={getError('odometroHorimetroInicial')} />
+        <Input label={<span>ODÔMETRO/HORÍMETRO<br />FINAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro final" value={form.odometroHorimetroFinal} onChange={setInput('odometroHorimetroFinal')} error={getError('odometroHorimetroFinal')} />
         <Input 
           label="TOTAL ODÔMETRO/HORÍMETRO" 
           type="number" 
