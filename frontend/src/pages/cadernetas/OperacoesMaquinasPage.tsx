@@ -407,9 +407,9 @@ export default function OperacoesMaquinasPage() {
 
         <div className="border-t border-gray-200 pt-4">
           <Input label="INSUMO APLICADO?" placeholder="Insumo aplicado" value={form.insumoAplicado} onChange={setInput('insumoAplicado')} />
-          <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} />
-          <Input label="ÁREA TRABALHADA (ha)?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} />
-          <Input label="DOSE APLICADA/ha" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" />
+          <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} className="mt-3" />
+          <Input label="ÁREA TRABALHADA (ha)?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} className="mt-3" />
+          <Input label="DOSE APLICADA/ha" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" className="mt-3" />
           
           <button
             type="button"
@@ -431,7 +431,7 @@ export default function OperacoesMaquinasPage() {
                 }))
               }
             }}
-            className="w-full bg-[#3b82f6] text-white font-bold py-3 rounded-xl hover:bg-[#2563eb] transition-colors"
+            className="w-full bg-green-700 text-white font-bold py-3 rounded-xl hover:bg-green-800 transition-colors mt-4"
           >
             + ADICIONAR APLICAÇÃO
           </button>
