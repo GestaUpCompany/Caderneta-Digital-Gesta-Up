@@ -207,17 +207,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         leitura_bebedouro: registro.leituraBebedouro ? Number(registro.leituraBebedouro) : null,
         numero_bebedouro: registro.numeroBebedouro || null,
         observacao: registro.observacao || null,
-        // Checklist fields
-        agua_suficiente: registro.aguaSuficiente,
-        agua_suficiente_obs: registro.aguaSuficienteObs || null,
-        vazao_bebedouro_ideal: registro.vazaoBebedouroIdeal,
-        vazao_bebedouro_ideal_obs: registro.vazaoBebedouroIdealObs || null,
-        aterro_acesso_bebedouro_ideal: registro.aterroAcessoBebedouroIdeal,
-        aterro_acesso_bebedouro_ideal_obs: registro.aterroAcessoBebedouroIdealObs || null,
-        espacamento_bebedouro_ideal: registro.espacamentoBebedouroIdeal,
-        espacamento_bebedouro_ideal_obs: registro.espacamentoBebedouroIdealObs || null,
-        boia_protecao_boas_condicoes: registro.boiaProtecaoBoasCondicoes,
-        boia_protecao_boas_condicoes_obs: registro.boiaProtecaoBoasCondicoesObs || null,
+        checklist: registro.checklist || null,
       }
     case 'movimentacao': {
       return {

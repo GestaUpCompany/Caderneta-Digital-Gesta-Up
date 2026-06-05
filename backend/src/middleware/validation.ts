@@ -92,17 +92,28 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     leituraBebedouro: Joi.number().integer().min(1).max(3).required(),
     numeroBebedouro: Joi.string().allow(''),
     observacao: Joi.string().allow(''),
-    // Checklist fields
-    aguaSuficiente: Joi.boolean().allow(null),
-    aguaSuficienteObs: Joi.string().allow(''),
-    vazaoBebedouroIdeal: Joi.boolean().allow(null),
-    vazaoBebedouroIdealObs: Joi.string().allow(''),
-    aterroAcessoBebedouroIdeal: Joi.boolean().allow(null),
-    aterroAcessoBebedouroIdealObs: Joi.string().allow(''),
-    espacamentoBebedouroIdeal: Joi.boolean().allow(null),
-    espacamentoBebedouroIdealObs: Joi.string().allow(''),
-    boiaProtecaoBoasCondicoes: Joi.boolean().allow(null),
-    boiaProtecaoBoasCondicoesObs: Joi.string().allow(''),
+    checklist: Joi.object({
+      agua_suficiente: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      vazao_bebedouro_ideal: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      aterro_acesso_bebedouro_ideal: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      espacamento_bebedouro_ideal: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      boia_protecao_boas_condicoes: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      })
+    }).allow(null),
   }),
 
   enfermaria: Joi.object({

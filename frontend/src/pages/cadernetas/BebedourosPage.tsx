@@ -54,7 +54,7 @@ interface FormState {
   leituraBebedouro: string
   numeroBebedouro: string
   observacao: string
-  // Checklist fields
+  // Checklist fields (for UI)
   aguaSuficiente: string
   aguaSuficienteObs: string
   vazaoBebedouroIdeal: string
@@ -65,6 +65,28 @@ interface FormState {
   espacamentoBebedouroIdealObs: string
   boiaProtecaoBoasCondicoes: string
   boiaProtecaoBoasCondicoesObs: string
+  checklist?: {
+    agua_suficiente: {
+      valor: boolean
+      observacao: string
+    }
+    vazao_bebedouro_ideal: {
+      valor: boolean
+      observacao: string
+    }
+    aterro_acesso_bebedouro_ideal: {
+      valor: boolean
+      observacao: string
+    }
+    espacamento_bebedouro_ideal: {
+      valor: boolean
+      observacao: string
+    }
+    boia_protecao_boas_condicoes: {
+      valor: boolean
+      observacao: string
+    }
+  }
   // Limpeza info fields (read-only)
   tempoDesdeLimpeza: string
   intervaloMedioLimpezas: string
@@ -292,17 +314,28 @@ export default function BebedourosPage() {
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
       observacao: form.observacao,
-      // Checklist fields
-      aguaSuficiente: form.aguaSuficiente === 'Sim',
-      aguaSuficienteObs: form.aguaSuficienteObs || '',
-      vazaoBebedouroIdeal: form.vazaoBebedouroIdeal === 'Sim',
-      vazaoBebedouroIdealObs: form.vazaoBebedouroIdealObs || '',
-      aterroAcessoBebedouroIdeal: form.aterroAcessoBebedouroIdeal === 'Sim',
-      aterroAcessoBebedouroIdealObs: form.aterroAcessoBebedouroIdealObs || '',
-      espacamentoBebedouroIdeal: form.espacamentoBebedouroIdeal === 'Sim',
-      espacamentoBebedouroIdealObs: form.espacamentoBebedouroIdealObs || '',
-      boiaProtecaoBoasCondicoes: form.boiaProtecaoBoasCondicoes === 'Sim',
-      boiaProtecaoBoasCondicoesObs: form.boiaProtecaoBoasCondicoesObs || '',
+      checklist: {
+        agua_suficiente: {
+          valor: form.aguaSuficiente === 'Sim',
+          observacao: form.aguaSuficienteObs || ''
+        },
+        vazao_bebedouro_ideal: {
+          valor: form.vazaoBebedouroIdeal === 'Sim',
+          observacao: form.vazaoBebedouroIdealObs || ''
+        },
+        aterro_acesso_bebedouro_ideal: {
+          valor: form.aterroAcessoBebedouroIdeal === 'Sim',
+          observacao: form.aterroAcessoBebedouroIdealObs || ''
+        },
+        espacamento_bebedouro_ideal: {
+          valor: form.espacamentoBebedouroIdeal === 'Sim',
+          observacao: form.espacamentoBebedouroIdealObs || ''
+        },
+        boia_protecao_boas_condicoes: {
+          valor: form.boiaProtecaoBoasCondicoes === 'Sim',
+          observacao: form.boiaProtecaoBoasCondicoesObs || ''
+        }
+      },
       // Limpeza info fields
       tempoDesdeLimpeza: form.tempoDesdeLimpeza,
       intervaloMedioLimpezas: form.intervaloMedioLimpezas,
