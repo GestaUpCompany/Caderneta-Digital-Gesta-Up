@@ -331,7 +331,7 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
   let pesoVivoPonderado = 0
   categorias.forEach(cat => {
     const quant = cat.quant_atual || 0
-    const peso = cat.peso_vivo_kg || 0
+    const peso = cat.peso_vivo_atual_kg_cab || 0
     pesoVivoTotal += peso * quant
   })
   pesoVivoPonderado = totalCabeças > 0 ? pesoVivoTotal / totalCabeças : 0
