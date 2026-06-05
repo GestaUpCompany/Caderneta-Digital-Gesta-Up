@@ -11,6 +11,7 @@ import { RootState } from '../../store/store'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza, getFuncionarios, getLoteDetalhesComCategorias, getPastos, getLotes, getBebedouros } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { useFormValidation } from '../../hooks/useFormValidation'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -302,9 +303,31 @@ export default function BebedourosPage() {
     carregarDadosLimpeza()
   }, [form.numeroBebedouro, fazendaId])
 
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    responsavel: { required: true },
+    pasto: { required: true },
+    numeroLote: { required: true },
+    leituraBebedouro: { required: true },
+    aguaSuficiente: { required: true },
+    vazaoBebedouroIdeal: { required: true },
+    aterroAcessoBebedouroIdeal: { required: true },
+    espacamentoBebedouroIdeal: { required: true },
+    boiaProtecaoBoasCondicoes: { required: true },
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
+
+    // Validate form using the validation hook
+    if (!isValid) {
+      setSalvando(false)
+      return
+    }
 
     const result = await salvarRegistro('bebedouros', {
       data: form.data,
@@ -400,7 +423,7 @@ export default function BebedourosPage() {
               <p className="text-gray-700 font-semibold">{usuario}</p>
             </div>
           )}
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS <span className="text-red-500">*</span></h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
           {funcionariosDisponiveis.length > 0 ? (
             <SearchableModal
@@ -476,7 +499,7 @@ export default function BebedourosPage() {
 
         {/* Seção 2: Bebedouro */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. BEBEDOURO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. BEBEDOURO <span className="text-red-500">*</span></h2>
           {bebedourosDisponiveis.length > 0 ? (
             <SearchableModal
               label=""
@@ -506,7 +529,7 @@ export default function BebedourosPage() {
           )}
           <Radio
             name="leituraBebedouro"
-            label={"LEITURA DE BEBEDOURO" + "\n" + "(1 a 3)"}
+            label="LEITURA DE BEBEDOURO (1 a 3)"
             options={LEITURAS_BEBEDOURO}
             value={form.leituraBebedouro}
             onChange={set('leituraBebedouro')}
@@ -524,7 +547,7 @@ export default function BebedourosPage() {
 
         {/* Seção 3: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST <span className="text-red-500">*</span></h2>
           {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
             <div key={campo}>
               <Radio
@@ -559,13 +582,18 @@ export default function BebedourosPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹" fullWidth>
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </CadernetaLayout>
 
       <SuccessModal
