@@ -14,6 +14,7 @@ import { getLoteByNome, getLoteDetalhesComCategorias, getPastoByNome, getEspacam
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { useFormValidation } from '../../hooks/useFormValidation'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
@@ -76,7 +77,7 @@ interface FormState {
   kgCocho: string
   kgDeposito: string
   escoreFezes: string
-  // Checklist fields
+  // Checklist fields (for UI)
   limpezaCocho: string
   limpezaCochoObs: string
   cochosCondicoes: string
@@ -89,6 +90,28 @@ interface FormState {
   depositoCondicoesObs: string
   estoqueDepositio: string
   estoqueDepositioObs: string
+  checklist?: {
+    limpeza_cocho: {
+      valor: boolean
+      observacao: string
+    }
+    cochos_condicoes: {
+      valor: boolean
+      observacao: string
+    }
+    aterro_acesso_ideal: {
+      valor: boolean
+      observacao: string
+    }
+    deposito_condicoes: {
+      valor: boolean
+      observacao: string
+    }
+    estoque_deposito: {
+      valor: boolean
+      observacao: string
+    }
+  }
 }
 
 const makeInitial = (usuario?: string): FormState => ({
@@ -362,9 +385,32 @@ export default function SuplementacaoPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    tratador: { required: true },
+    pasto: { required: true },
+    numeroLote: { required: true },
+    produto: { required: true },
+    leitura: { required: true },
+    limpezaCocho: { required: true },
+    cochosCondicoes: { required: true },
+    aterroAcessoIdeal: { required: true },
+    depositoCondicoes: { required: true },
+    estoqueDepositio: { required: true },
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
+
+    // Validate form using the validation hook
+    if (!isValid) {
+      setSalvando(false)
+      return
+    }
 
     const produtoFinal = suplemento
     
@@ -389,19 +435,30 @@ export default function SuplementacaoPage() {
       categoriasString: categoriasString,
       escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
       espacamentoCochoDetalhes: espacamentoCochoDetalhes,
-      // Checklist fields
-      limpezaCocho: form.limpezaCocho === 'Sim',
-      limpezaCochoObs: form.limpezaCochoObs || '',
-      cochosCondicoes: form.cochosCondicoes === 'Sim',
-      cochosCondicoesObs: form.cochosCondicoesObs || '',
-      aterroAcessoIdeal: form.aterroAcessoIdeal === 'Sim',
-      aterroAcessoIdealObs: form.aterroAcessoIdealObs || '',
-      // espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null, // Temporariamente desabilitado
-      // espacamentoCochoObs: form.espacamentoCochoObs || '', // Temporariamente desabilitado
-      depositoCondicoes: form.depositoCondicoes === 'Sim',
-      depositoCondicoesObs: form.depositoCondicoesObs || '',
-      estoqueDepositio: form.estoqueDepositio === 'Sim',
-      estoqueDepositioObs: form.estoqueDepositioObs || '',
+      espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
+      espacamentoCochoObs: form.espacamentoCochoObs || '',
+      checklist: {
+        limpeza_cocho: {
+          valor: form.limpezaCocho === 'Sim',
+          observacao: form.limpezaCochoObs || ''
+        },
+        cochos_condicoes: {
+          valor: form.cochosCondicoes === 'Sim',
+          observacao: form.cochosCondicoesObs || ''
+        },
+        aterro_acesso_ideal: {
+          valor: form.aterroAcessoIdeal === 'Sim',
+          observacao: form.aterroAcessoIdealObs || ''
+        },
+        deposito_condicoes: {
+          valor: form.depositoCondicoes === 'Sim',
+          observacao: form.depositoCondicoesObs || ''
+        },
+        estoque_deposito: {
+          valor: form.estoqueDepositio === 'Sim',
+          observacao: form.estoqueDepositioObs || ''
+        }
+      },
     })
 
     setSalvando(false)
@@ -465,7 +522,7 @@ export default function SuplementacaoPage() {
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS <span className="text-red-500">*</span></h2>
           {usuario && (
             <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
               <span className="text-xl">👤</span>
@@ -533,7 +590,7 @@ export default function SuplementacaoPage() {
 
         {/* Seção 2: Tipo de Suplementação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. TIPO DE SUPLEMENTAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. TIPO DE SUPLEMENTAÇÃO <span className="text-red-500">*</span></h2>
           <Radio
             name="produto"
             label="PRODUTO"
@@ -560,7 +617,7 @@ export default function SuplementacaoPage() {
 
         {/* Seção 3: Leitura e Quantidade */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. LEITURA E QUANTIDADE</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. LEITURA E QUANTIDADE <span className="text-red-500">*</span></h2>
           <button
             onClick={() => setShowPdfModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -617,7 +674,7 @@ export default function SuplementacaoPage() {
 
         {/* Seção 4: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST <span className="text-red-500">*</span></h2>
           
           {/* Espaçamento do cocho - display calculado */}
           {espacamentoCochoDetalhes && (
@@ -684,13 +741,18 @@ export default function SuplementacaoPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹" fullWidth>
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal

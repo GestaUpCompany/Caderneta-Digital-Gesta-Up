@@ -69,19 +69,31 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     leituraCocho: Joi.number().integer().min(-1).max(3).required(),
     kgCocho: Joi.number().min(0).default(0),
     kgDeposito: Joi.number().min(0).default(0),
-    // Checklist fields
-    limpezaCocho: Joi.boolean().allow(null),
-    limpezaCochoObs: Joi.string().allow(''),
-    cochosCondicoes: Joi.boolean().allow(null),
-    cochosCondicoesObs: Joi.string().allow(''),
-    aterroAcessoIdeal: Joi.boolean().allow(null),
-    aterroAcessoIdealObs: Joi.string().allow(''),
     espacamentoCochoCmCab: Joi.number().min(0).allow(null),
     espacamentoCochoObs: Joi.string().allow(''),
-    depositoCondicoes: Joi.boolean().allow(null),
-    depositoCondicoesObs: Joi.string().allow(''),
-    estoqueDepositio: Joi.boolean().allow(null),
-    estoqueDepositioObs: Joi.string().allow(''),
+    espacamento_cocho_ideal: Joi.object().allow(null), // Temporary field for migration
+    checklist: Joi.object({
+      limpeza_cocho: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      cochos_condicoes: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      aterro_acesso_ideal: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      deposito_condicoes: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      }),
+      estoque_deposito: Joi.object({
+        valor: Joi.boolean().allow(null),
+        observacao: Joi.string().allow('')
+      })
+    }).allow(null),
   }),
 
   bebedouros: Joi.object({

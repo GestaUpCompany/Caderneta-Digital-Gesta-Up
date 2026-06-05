@@ -168,6 +168,12 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
       }
     case 'suplementacao': {
+      // Remove espacamento_cocho_ideal from checklist if it exists (migrated field)
+      let cleanedChecklist = registro.checklist ? { ...registro.checklist } as any : null
+      if (cleanedChecklist && cleanedChecklist.espacamento_cocho_ideal) {
+        delete cleanedChecklist.espacamento_cocho_ideal
+      }
+
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
@@ -182,19 +188,10 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         kg_deposito: registro.kgDeposito ? Number(registro.kgDeposito) : 0,
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         espacamento_cocho_detalhes: registro.espacamentoCochoDetalhes || null,
-        // Checklist fields
-        limpeza_cocho: registro.limpezaCocho || null,
-        limpeza_cocho_obs: registro.limpezaCochoObs || null,
-        cochos_condicoes: registro.cochosCondicoes || null,
-        cochos_condicoes_obs: registro.cochosCondicoesObs || null,
-        aterro_acesso_ideal: registro.aterroAcessoIdeal || null,
-        aterro_acesso_ideal_obs: registro.aterroAcessoIdealObs || null,
-        // espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null, // Temporariamente desabilitado
-        // espacamento_cocho_obs: registro.espacamentoCochoObs || null, // Temporariamente desabilitado
-        deposito_condicoes: registro.depositoCondicoes || null,
-        deposito_condicoes_obs: registro.depositoCondicoesObs || null,
-        estoque_deposito: registro.estoqueDepositio || null,
-        estoque_deposito_obs: registro.estoqueDepositioObs || null,
+        espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null,
+        espacamento_cocho_obs: registro.espacamentoCochoObs || null,
+        espacamento_cocho_ideal: null, // Temporary field for migration
+        checklist: cleanedChecklist || null,
       }
     }
     case 'bebedouros':
