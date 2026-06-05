@@ -4,7 +4,7 @@ import { logger } from '../utils/logger'
 
 const schemas: Record<string, Joi.ObjectSchema> = {
   maternidade: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     pasto: Joi.string().required(),
     pesoCria: Joi.number().min(0).max(100).allow(null),
     idProvisorioCria: Joi.string().required(),
@@ -20,7 +20,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   pastagens: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     manejador: Joi.string().required(),
     numeroLote: Joi.string().required(),
     pastoSaida: Joi.string().required(),
@@ -42,7 +42,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   rodeio: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     pasto: Joi.string().required(),
     numeroLote: Joi.string().required(),
     vaca: Joi.number().min(0).default(0),
@@ -61,7 +61,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   suplementacao: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     tratador: Joi.string().required(),
     pasto: Joi.string().required(),
     numeroLote: Joi.string().required(),
@@ -85,7 +85,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   bebedouros: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     responsavel: Joi.string().required(),
     pasto: Joi.string().required(),
     numeroLote: Joi.string().required(),
@@ -106,7 +106,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   enfermaria: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     pasto: Joi.string().required(),
     lote: Joi.string().required(),
     brinco: Joi.string().allow(''),
@@ -137,7 +137,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   movimentacao: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     loteOrigem: Joi.string().when('motivoMovimentacao', {
       is: 'Doação',
       then: Joi.string().allow('', null),
@@ -168,7 +168,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   morte: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     pasto: Joi.string().required(),
     lote: Joi.string().allow(''),
     brinco: Joi.string().allow(''),
@@ -194,7 +194,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     ).default({}),
   }),
   clima: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     responsavel: Joi.string().required(),
     temperaturaMedia: Joi.number().min(-50).max(60).allow(null),
     umidadeRelativa: Joi.number().min(0).max(100).allow(null),
@@ -208,7 +208,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   abastecimento: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     quemAbasteceu: Joi.string().required(),
     operadorMotorista: Joi.string().required(),
     veiculoTrator: Joi.string().required(),
@@ -224,7 +224,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   cantina: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     numeroCozinheiras: Joi.number().min(0).required(),
     quemCozinhou: Joi.string().required(),
     quemAjudou: Joi.string().allow(''),
@@ -252,7 +252,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   }),
 
   'manutencao-maquinas': Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     responsavelChecklist: Joi.string().required(),
     operadorMotorista: Joi.string().allow(''),
     veiculoTrator: Joi.string().required(),
@@ -268,8 +268,31 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     observacao: Joi.string().allow(''),
   }),
 
+  'operacoes-maquinas': Joi.object({
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
+    maquinaVeiculo: Joi.string().allow('', null),
+    maquinaVeiculoId: Joi.string().allow('', null),
+    implementoUtilizado: Joi.string().allow('', null),
+    horaInicial: Joi.string().allow('', null),
+    horaFinal: Joi.string().allow('', null),
+    totalHorasTrabalhadas: Joi.string().allow('', null),
+    odometroHorimetroInicial: Joi.string().allow('', null),
+    odometroHorimetroFinal: Joi.string().allow('', null),
+    totalOdometroHorimetro: Joi.string().allow('', null),
+    tipoOperacao: Joi.string().allow('', null),
+    insumoAplicado: Joi.string().allow('', null),
+    quantidadeTotalAplicada: Joi.string().allow('', null),
+    areaTrabalhada: Joi.string().allow('', null),
+    doseAplicada: Joi.string().allow('', null),
+    metaDiariaBatida: Joi.string().allow('', null),
+    metaDiariaBatidaObs: Joi.string().allow('', null),
+    algumImprevisto: Joi.string().allow('', null),
+    algumImprevistoObs: Joi.string().allow('', null),
+    observacao: Joi.string().allow('', null),
+  }),
+
   problemas: Joi.object({
-    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     setor: Joi.string().valid('Gado', 'Máquinas', 'ADM', 'Fábrica', 'Manutenção', 'Terceirizado').required(),
     local: Joi.string().required(),
     descricaoProblema: Joi.string().required(),

@@ -434,38 +434,32 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.maquinaVeiculo))
     errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
-  if (!isNonEmptyString(data.implementoUtilizado))
-    errors.push({ field: 'implementoUtilizado', message: 'Implemento utilizado é obrigatório' })
   
-  // Validar formato de horas
-  if (!isNonEmptyString(data.horaInicial))
-    errors.push({ field: 'horaInicial', message: 'Hora inicial é obrigatória' })
-  else if (!isValidTime(data.horaInicial))
+  // implementoUtilizado is now optional
+  // horaInicial and horaFinal are now optional
+  
+  // Validar formato de horas only if provided
+  if (data.horaInicial && !isValidTime(data.horaInicial))
     errors.push({ field: 'horaInicial', message: 'Hora inicial inválida. Use formato HH:MM' })
   
-  if (!isNonEmptyString(data.horaFinal))
-    errors.push({ field: 'horaFinal', message: 'Hora final é obrigatória' })
-  else if (!isValidTime(data.horaFinal))
+  if (data.horaFinal && !isValidTime(data.horaFinal))
     errors.push({ field: 'horaFinal', message: 'Hora final inválida. Use formato HH:MM' })
   
-  // Validar que hora final é maior que hora inicial
+  // Validar que hora final é maior que hora inicial only if both provided
   if (isValidTime(data.horaInicial) && isValidTime(data.horaFinal) && !isTimeAfter(data.horaInicial, data.horaFinal)) {
     errors.push({ field: 'horaFinal', message: 'Hora final deve ser maior que hora inicial' })
   }
   
-  if (!isNonEmptyString(data.odometroHorimetroInicial))
-    errors.push({ field: 'odometroHorimetroInicial', message: 'Odômetro inicial é obrigatório' })
-  if (!isNonEmptyString(data.odometroHorimetroFinal))
-    errors.push({ field: 'odometroHorimetroFinal', message: 'Odômetro final é obrigatório' })
-  if (!isNonEmptyString(data.tipoOperacao))
-    errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
-
+  // odometroHorimetroInicial and odometroHorimetroFinal are now optional
+  
   // Validar que total odometro foi calculado (deve ser positivo quando ambos odômetros estão preenchidos)
   if (data.odometroHorimetroInicial && data.odometroHorimetroFinal && !isPositiveNumber(data.totalOdometroHorimetro)) {
     errors.push({ field: 'totalOdometroHorimetro', message: 'Odômetro final deve ser maior que o inicial' })
   }
 
-  // Validar valores positivos em campos numéricos
+  // tipoOperacao is now optional
+
+  // Validar valores positivos em campos numéricos only if provided
   if (data.quantidadeTotalAplicada && !isPositiveNumber(data.quantidadeTotalAplicada))
     errors.push({ field: 'quantidadeTotalAplicada', message: 'Quantidade total aplicada deve ser positiva' })
   if (data.areaTrabalhada && !isPositiveNumber(data.areaTrabalhada))
@@ -473,10 +467,10 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
   if (data.doseAplicada && !isPositiveNumber(data.doseAplicada))
     errors.push({ field: 'doseAplicada', message: 'Dose aplicada deve ser positiva' })
 
-  // Validar perguntas S/N
-  if (!isSnBoolean(data.metaDiariaBatida))
+  // Validar perguntas S/N only if provided
+  if (data.metaDiariaBatida && !isSnBoolean(data.metaDiariaBatida))
     errors.push({ field: 'metaDiariaBatida', message: 'Meta diária batida: selecione SIM ou NÃO' })
-  if (!isSnBoolean(data.algumImprevisto))
+  if (data.algumImprevisto && !isSnBoolean(data.algumImprevisto))
     errors.push({ field: 'algumImprevisto', message: 'Algum imprevisto: selecione SIM ou NÃO' })
 
   return { isValid: errors.length === 0, errors }

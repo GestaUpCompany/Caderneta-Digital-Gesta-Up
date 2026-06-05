@@ -622,7 +622,7 @@ export default function SuplementacaoPage() {
           {/* Espaçamento do cocho - display calculado */}
           {espacamentoCochoDetalhes && (
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO ESTÁ ADEQUADO?</h3>
+              <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO</h3>
               {espacamentoCochoDetalhes.erro ? (
                 <div className="text-base text-red-600 font-medium">
                   {espacamentoCochoDetalhes.erro}
@@ -641,7 +641,7 @@ export default function SuplementacaoPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Desvio:</span>
-                        <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual < 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
                         </span>
                       </div>

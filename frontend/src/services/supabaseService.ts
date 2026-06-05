@@ -208,7 +208,6 @@ export async function getImplementos(fazendaId: string) {
     .from('implementos')
     .select('*')
     .eq('fazenda_id', fazendaId)
-    .eq('ativo', true)
     .order('nome')
 
   if (error) throw error
@@ -276,7 +275,6 @@ export async function getMaquinaVeiculoByNome(fazendaId: string, nome: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
-    .eq('ativo', true)
     .single()
 
   if (error) throw error

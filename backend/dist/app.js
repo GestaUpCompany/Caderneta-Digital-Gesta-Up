@@ -7,12 +7,6 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
-const sheetsController_1 = require("./controllers/sheetsController");
-const syncController_1 = require("./controllers/syncController");
-const suplementacaoController_1 = require("./controllers/suplementacaoController");
-const insumosController_1 = require("./controllers/insumosController");
-const devicesController_1 = require("./controllers/devicesController");
-const pastagensController_1 = require("./controllers/pastagensController");
 const authController_1 = require("./controllers/authController");
 const versionController_1 = __importDefault(require("./controllers/versionController"));
 const security_1 = require("./middleware/security");
@@ -64,12 +58,6 @@ const strictLimiter = (0, express_rate_limit_1.default)({
     message: { error: 'Limite de sincronização excedido. Aguarde 5 minutos.' },
 });
 app.use('/api', standardLimiter);
-app.use('/api/sheets', sheetsController_1.sheetsRouter);
-app.use('/api/sync', strictLimiter, syncController_1.syncRouter);
-app.use('/api/suplementacao', suplementacaoController_1.suplementacaoRouter);
-app.use('/api/insumos', insumosController_1.insumosRouter);
-app.use('/api/devices', devicesController_1.devicesRouter);
-app.use('/api/pastagens', pastagensController_1.pastagensRouter);
 app.use('/api/auth', authController_1.authRouter);
 app.use('/api', versionController_1.default);
 app.get('/api/health', (_req, res) => {
@@ -84,7 +72,5 @@ app.use(security_1.errorHandler);
 app.listen(PORT, () => {
     logger_1.logger.info(`🚀 Backend Cadernetas Digitais rodando na porta ${PORT}`);
     logger_1.logger.info(`📊 Health check: http://localhost:${PORT}/api/health`);
-    logger_1.logger.info(`🔗 Sheets API: http://localhost:${PORT}/api/sheets`);
-    logger_1.logger.info(`🔄 Sync API: http://localhost:${PORT}/api/sync`);
 });
 exports.default = app;

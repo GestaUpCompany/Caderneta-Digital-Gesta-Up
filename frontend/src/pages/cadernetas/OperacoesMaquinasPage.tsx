@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
@@ -7,6 +7,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { useFormValidation } from '../../hooks/useFormValidation'
 import { getMaquinasVeiculos, getMaquinaVeiculoByNome, getImplementos } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 
@@ -192,11 +193,23 @@ export default function OperacoesMaquinasPage() {
     carregarDetalhesMaquinaVeiculo()
   }, [form.maquinaVeiculo, fazendaId])
 
+  // Validation rules - memoized to prevent recreation on every render
+  const validationRules = useMemo(() => ({
+    data: { required: true },
+    maquinaVeiculo: { required: true },
+    odometroHorimetroInicial: { required: true },
+    odometroHorimetroFinal: { required: true },
+    tipoOperacao: { required: true },
+    metaDiariaBatida: { required: true },
+    algumImprevisto: { required: true },
+    // Optional fields: implementoUtilizado, horaInicial, horaFinal, observacao
+    // Form 3 (Detalhes da Aplicação) fields are now optional: insumoAplicado, quantidadeTotalAplicada, areaTrabalhada
+  }), [])
+
+  const { isValid } = useFormValidation(form, validationRules)
+
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-  const set = (field: keyof FormState) => (val: string) =>
-    setForm((prev) => ({ ...prev, [field]: val }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
@@ -205,6 +218,12 @@ export default function OperacoesMaquinasPage() {
     
     setSalvando(true)
     setErrors([])
+
+    // Validate form using the validation hook
+    if (!isValid) {
+      setSalvando(false)
+      return
+    }
 
     const result = await salvarRegistro('operacoes-maquinas', {
       data: form.data,
@@ -261,12 +280,12 @@ export default function OperacoesMaquinasPage() {
       {/* Seção 1: Dados da Operação */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA OPERAÇÃO</h2>
-        <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
+        <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} />
         {maquinasVeiculosDisponiveis.length > 0 ? (
           <SearchableModal
-            label="MÁQUINA/VEÍCULO?"
+            label={<span>MÁQUINA/VEÍCULO? <span className="text-red-500">*</span></span>}
             value={form.maquinaVeiculo}
-            onChange={set('maquinaVeiculo')}
+            onChange={(val) => setForm((prev) => ({ ...prev, maquinaVeiculo: val }))}
             error={getError('maquinaVeiculo')}
             options={maquinasVeiculosDisponiveis.map(m => m.nome)}
             placeholder="Buscar máquina/veículo..."
@@ -274,24 +293,23 @@ export default function OperacoesMaquinasPage() {
             name="maquinaVeiculo"
           />
         ) : (
-          <Input label="MÁQUINA/VEÍCULO?" placeholder="Máquina/Veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} />
+          <Input label={<span>MÁQUINA/VEÍCULO? <span className="text-red-500">*</span></span>} placeholder="Máquina/Veículo" value={form.maquinaVeiculo} onChange={setInput('maquinaVeiculo')} error={getError('maquinaVeiculo')} disabled />
         )}
         {implementosDisponiveis.length > 0 ? (
           <SearchableModal
             label="IMPLEMENTO UTILIZADO?"
             value={form.implementoUtilizado}
-            onChange={set('implementoUtilizado')}
-            error={getError('implementoUtilizado')}
+            onChange={(val) => setForm((prev) => ({ ...prev, implementoUtilizado: val }))}
             options={implementosDisponiveis}
             placeholder="Buscar implemento..."
             id="implementoUtilizado"
             name="implementoUtilizado"
           />
         ) : (
-          <Input label="IMPLEMENTO UTILIZADO?" placeholder="Implemento utilizado" value={form.implementoUtilizado} onChange={setInput('implementoUtilizado')} error={getError('implementoUtilizado')} />
+          <Input label="IMPLEMENTO UTILIZADO?" placeholder="Implemento utilizado" value={form.implementoUtilizado} onChange={setInput('implementoUtilizado')} />
         )}
-        <Input label="HORA INICIAL?" type="time" value={form.horaInicial} onChange={setInput('horaInicial')} error={getError('horaInicial')} />
-        <Input label="HORA FINAL?" type="time" value={form.horaFinal} onChange={setInput('horaFinal')} error={getError('horaFinal')} />
+        <Input label="HORA INICIAL?" type="time" value={form.horaInicial} onChange={setInput('horaInicial')} />
+        <Input label="HORA FINAL?" type="time" value={form.horaFinal} onChange={setInput('horaFinal')} />
         <Input 
           label="TOTAL HORAS TRABALHADAS" 
           placeholder="" 
@@ -299,8 +317,8 @@ export default function OperacoesMaquinasPage() {
           readOnly 
           helper="Calculado automaticamente a partir das horas inicial e final"
         />
-        <Input label="ODÔMETRO/HORÍMETRO INICIAL" type="number" placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={setInput('odometroHorimetroInicial')} error={getError('odometroHorimetroInicial')} />
-        <Input label="ODÔMETRO/HORÍMETRO FINAL" type="number" placeholder="Odômetro/horímetro final" value={form.odometroHorimetroFinal} onChange={setInput('odometroHorimetroFinal')} error={getError('odometroHorimetroFinal')} />
+        <Input label={<span>ODÔMETRO/HORÍMETRO INICIAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={setInput('odometroHorimetroInicial')} error={getError('odometroHorimetroInicial')} />
+        <Input label={<span>ODÔMETRO/HORÍMETRO FINAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro final" value={form.odometroHorimetroFinal} onChange={setInput('odometroHorimetroFinal')} error={getError('odometroHorimetroFinal')} />
         <Input 
           label="TOTAL ODÔMETRO/HORÍMETRO" 
           type="number" 
@@ -316,11 +334,10 @@ export default function OperacoesMaquinasPage() {
         <h2 className="text-lg font-black text-gray-900 tracking-tight">2. TIPO DE OPERAÇÃO</h2>
         <Radio
           name="tipoOperacao"
-          label="Tipo de Operação?"
+          label={<span>Tipo de Operação? <span className="text-red-500">*</span></span>}
           options={TIPO_OPERACAO_OPTIONS}
           value={form.tipoOperacao}
-          onChange={set('tipoOperacao')}
-          error={getError('tipoOperacao')}
+          onChange={(val) => setForm((prev) => ({ ...prev, tipoOperacao: val }))}
           gridCols={2}
         />
       </div>
@@ -328,10 +345,10 @@ export default function OperacoesMaquinasPage() {
       {/* Seção 3: Detalhes da Aplicação */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DETALHES DA APLICAÇÃO</h2>
-        <Input label="INSUMO APLICADO?" placeholder="Insumo aplicado" value={form.insumoAplicado} onChange={setInput('insumoAplicado')} error={getError('insumoAplicado')} />
-        <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} error={getError('quantidadeTotalAplicada')} />
-        <Input label="ÁREA TRABALHADA?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} error={getError('areaTrabalhada')} />
-        <Input label="DOSE APLICADA/ha?" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" />
+        <Input label="INSUMO APLICADO?" placeholder="Insumo aplicado" value={form.insumoAplicado} onChange={setInput('insumoAplicado')} />
+        <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} />
+        <Input label="ÁREA TRABALHADA (ha)?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} />
+        <Input label="DOSE APLICADA/ha" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" />
       </div>
 
       {/* Seção 4: Avaliação */}
@@ -340,11 +357,10 @@ export default function OperacoesMaquinasPage() {
         <div>
             <Radio
               name="metaDiariaBatida"
-              label="Meta diária batida?"
+              label={<span>Meta diária batida? <span className="text-red-500">*</span></span>}
               options={SN_OPTIONS}
               value={form.metaDiariaBatida}
-              onChange={set('metaDiariaBatida')}
-              error={getError('metaDiariaBatida')}
+              onChange={(val) => setForm((prev) => ({ ...prev, metaDiariaBatida: val }))}
               gridCols={2}
             />
             {form.metaDiariaBatida === 'N' && (
@@ -359,11 +375,10 @@ export default function OperacoesMaquinasPage() {
         <div>
           <Radio
             name="algumImprevisto"
-            label="Algum imprevisto?"
+            label={<span>Algum imprevisto? <span className="text-red-500">*</span></span>}
             options={SN_OPTIONS}
             value={form.algumImprevisto}
-            onChange={set('algumImprevisto')}
-            error={getError('algumImprevisto')}
+            onChange={(val) => setForm((prev) => ({ ...prev, algumImprevisto: val }))}
             gridCols={2}
           />
           {form.algumImprevisto === 'N' && (
@@ -380,18 +395,23 @@ export default function OperacoesMaquinasPage() {
       {/* Seção 5: Observações */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">5. OBSERVAÇÕES</h2>
-        <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
+        <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} />
       </div>
 
       {/* Ações */}
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
-        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth>
+        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth disabled={!isValid}>
           SALVAR
         </Button>
         <Button onClick={handleLimpar} variant="secondary" icon="🧹" fullWidth>
           LIMPAR
         </Button>
       </div>
+      {!isValid && (
+        <p className="text-base text-gray-600 text-center">
+          <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+        </p>
+      )}
 
       <SuccessModal
         isOpen={showSuccessModal}

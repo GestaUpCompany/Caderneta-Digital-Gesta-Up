@@ -20,13 +20,15 @@ router.post('/login-peao', async (req, res) => {
         if (!acesso_id) {
             return res.status(400).json({ error: 'acesso_id é obrigatório' });
         }
+        // Converter acesso_id para minúsculas para validação case-insensitive
+        const acessoIdLower = acesso_id.toLowerCase();
         // Criar cliente Supabase com service role key
         const supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceRoleKey);
-        // Buscar peão pelo acesso_id da fazenda
+        // Buscar peão pelo acesso_id da fazenda (case-insensitive)
         const { data: peao, error: peaoError } = await supabase
             .from('peoes')
             .select('*')
-            .eq('fazenda_id', acesso_id)
+            .ilike('fazenda_id', acessoIdLower)
             .eq('ativo', true)
             .single();
         if (peaoError || !peao) {
