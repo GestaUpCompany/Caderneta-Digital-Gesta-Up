@@ -1,6 +1,76 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
 
+// Fields where "Não" should have a warning icon (negative when false)
+const WARNING_FIELDS: Record<string, string[]> = {
+  bebedouros: [
+    'agua_suficiente',
+    'vazao_bebedouro_ideal',
+    'aterro_acesso_bebedouro_ideal',
+    'espacamento_bebedouro_ideal',
+    'boia_protecao_boas_condicoes',
+  ],
+  suplementacao: [
+    'limpeza_cocho',
+    'cochos_condicoes',
+    'aterro_acesso_ideal',
+    'deposito_condicoes',
+    'estoque_deposito',
+  ],
+}
+
+// Fields where "Sim" should have a warning icon (negative when true)
+const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
+  pastagens: [
+    'animaisMachucadosDoentesBichados',
+    'carrapatosMoscas',
+    'animaisEnteverados',
+    'animalMorto',
+  ],
+  rodeio: [
+    'animaisMachucadosDoentesBichados',
+    'carrapatosMoscas',
+    'animaisEnteverados',
+    'animalMorto',
+  ],
+  enfermaria: [
+    'feridaCascos',
+    'sintomasPneumonia',
+    'picadoCobra',
+    'incoordenacaoTremores',
+    'febreAlta',
+    'presencaSangue',
+    'fraturas',
+    'desordensDigestivas',
+    'cegueira',
+    'andarCambaleante',
+    'bicheira',
+    'animalInchado',
+  ],
+  morte: [
+    'secrecaoOrificios',
+    'sintomasPneumonia',
+    'inchaco',
+    'incoordenacaoTremores',
+    'apatiaFraqueza',
+    'desordensDigestivas',
+    'fraturas',
+    'decomposicao',
+    'doencasPrevias',
+    'medicamentosRecentes',
+    'morteSubita',
+    'animalSozinho',
+    'salivacaoExcessiva',
+    'sinaisIntoxicacao',
+    'carrapatosMoscas',
+    'encontradoVivo',
+    'medicado',
+    'animalInchado',
+    'animalBicheira',
+  ],
+  'operacoes-maquinas': ['algumImprevisto'],
+}
+
 export interface Registro {
   id: string
   data: string
@@ -16,8 +86,12 @@ const formatFieldValue = (key: string, value: unknown): string => {
     return `${String(value)} kg`
   }
   const valueStr = String(value)
-  if (valueStr === 'S') return 'Sim'
-  if (valueStr === 'N') return 'Não'
+  if (valueStr === 'S') {
+    return 'Sim'
+  }
+  if (valueStr === 'N') {
+    return 'Não'
+  }
   if (key === 'categorias' && Array.isArray(value)) {
     return value.join(', ')
   }
@@ -238,32 +312,51 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Checklist fields
     const checklistBebedouros = [
-      { campo: 'aguaSuficiente', label: 'QUANTIDADE DE ÁGUA ESTÁ ADEQUADA?' },
-      { campo: 'vazaoBebedouroIdeal', label: 'VAZÃO DA BÓIA ESTÁ IDEAL?' },
-      { campo: 'aterroAcessoBebedouroIdeal', label: 'ATERRO / ACESSO AO BEBEDOURO ESTÁ ADEQUADO?' },
-      { campo: 'espacamentoBebedouroIdeal', label: 'ESPAÇAMENTO BEBEDOURO IDEAL' },
-      { campo: 'boiaProtecaoBoasCondicoes', label: 'BÓIA E PROTEÇÃO DA BÓIA ESTÃO EM BOAS CONDIÇÕES?' },
+      { campo: 'agua_suficiente', label: 'QUANTIDADE DE ÁGUA ESTÁ ADEQUADA?' },
+      { campo: 'vazao_bebedouro_ideal', label: 'VAZÃO DA BÓIA ESTÁ IDEAL?' },
+      { campo: 'aterro_acesso_bebedouro_ideal', label: 'ATERRO / ACESSO AO BEBEDOURO ESTÁ ADEQUADO?' },
+      { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO BEBEDOURO IDEAL' },
+      { campo: 'boia_protecao_boas_condicoes', label: 'BÓIA E PROTEÇÃO DA BÓIA ESTÃO EM BOAS CONDIÇÕES?' },
     ]
     
     // Verificar se há algum campo do checklist preenchido
     const temChecklistBebedouros = checklistBebedouros.some(({ campo }) => {
-      return registro[campo] === true || registro[campo] === false
+      // Check JSONB structure
+      if (registro.checklist && registro.checklist[campo]) {
+        return registro.checklist[campo].valor === true || registro.checklist[campo].valor === false
+      }
+      // Check flat structure
+      const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
+      return registro[flatCampo] === true || registro[flatCampo] === false
     })
     
     if (temChecklistBebedouros) {
       texto += `\nCHECKLIST\n`
       checklistBebedouros.forEach(({ campo, label }) => {
-        const valor = registro[campo]
+        // Try to get from JSONB checklist structure (after sync)
+        let valor = null
+        let observacao = null
+        if (registro.checklist && registro.checklist[campo]) {
+          valor = registro.checklist[campo].valor
+          observacao = registro.checklist[campo].observacao
+        }
+        // Fallback to flat structure (before sync)
+        else {
+          const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
+          valor = registro[flatCampo]
+          observacao = registro[`${flatCampo}Obs`]
+        }
+        
         if (valor === true || valor === false) {
           const valorFormatado = valor ? 'Sim' : 'Não'
-          texto += `${label}: *${valorFormatado}*\n`
+          // Add warning icon for "Não" in checklist fields
+          const hasWarning = !valor && WARNING_FIELDS.bebedouros?.includes(campo)
+          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
         }
         
         // Adicionar observação
-        const obsField = `${campo}Obs`
-        const obsValue = registro[obsField]
-        if (obsValue && obsValue !== '') {
-          texto += `OBSERVAÇÃO: *${obsValue}*\n`
+        if (observacao && observacao !== '') {
+          texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
       })
     }
@@ -494,8 +587,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       
       if (registro.algumImprevisto) {
         const imprevistoLabel = registro.algumImprevisto === 'S' || registro.algumImprevisto === 'Sim' ? 'Sim' : 'Não'
+        // Add warning icon for inverted field (Sim = bad)
+        const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
+        const hasWarning = (registro.algumImprevisto === 'S' || registro.algumImprevisto === 'Sim') && invertedWarningFields.includes('algumImprevisto')
         const imprevistoObs = registro.algumImprevistoObs ? ` (${registro.algumImprevistoObs})` : ''
-        texto += `ALGUM IMPREVISTO: *${imprevistoLabel}${imprevistoObs}*\n`
+        texto += `ALGUM IMPREVISTO: ${hasWarning ? '⚠️ ' : ''}*${imprevistoLabel}${imprevistoObs}*\n`
       }
       
       texto += `\n`
@@ -549,49 +645,74 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Seção: Checklist Cochos - sempre exibir todas as perguntas
     const checklistCochos = [
-      { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
-      { campo: 'cochosCondicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
-      { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO' },
-      // { campo: 'espacamentoCochoCmCab', label: 'ESPAÇAMENTO DO COCHO' }, // Temporariamente desabilitado
+      { campo: 'limpeza_cocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
+      { campo: 'cochos_condicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
+      { campo: 'aterro_acesso_ideal', label: 'ATERRO / ACESSO DE COCHO' },
     ]
     
     texto += `\nCHECKLIST COCHOS\n`
     
     checklistCochos.forEach(({ campo, label }) => {
-      const valor = registro[campo]
+      // Try to get from JSONB checklist structure (after sync)
+      let valor = null
+      let observacao = null
+      if (registro.checklist && registro.checklist[campo]) {
+        valor = registro.checklist[campo].valor
+        observacao = registro.checklist[campo].observacao
+      }
+      // Fallback to flat structure (before sync)
+      else {
+        const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
+        valor = registro[flatCampo]
+        observacao = registro[`${flatCampo}Obs`]
+      }
+      
       if (valor === true || valor === false) {
         const valorFormatado = valor ? 'Sim' : 'Não'
-        texto += `${label}: *${valorFormatado}*\n`
+        // Add warning icon for "Não" in checklist fields
+        const hasWarning = !valor && WARNING_FIELDS.suplementacao?.includes(campo)
+        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
       }
       
       // Adicionar observação
-      const obsField = `${campo}Obs`
-      const obsValue = registro[obsField]
-      if (obsValue && obsValue !== '') {
-        texto += `OBSERVAÇÃO: *${obsValue}*\n`
+      if (observacao && observacao !== '') {
+        texto += `OBSERVAÇÃO: *${observacao}*\n`
       }
     })
     
     // Seção: Checklist Depósito - sempre exibir todas as perguntas
     const checklistDeposito = [
-      { campo: 'depositoCondicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
-      { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO' },
+      { campo: 'deposito_condicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
+      { campo: 'estoque_deposito', label: 'TEM ESTOQUE NO DEPÓSITO' },
     ]
     
     texto += `\nCHECKLIST DEPÓSITO\n`
     
     checklistDeposito.forEach(({ campo, label }) => {
-      const valor = registro[campo]
+      // Try to get from JSONB checklist structure (after sync)
+      let valor = null
+      let observacao = null
+      if (registro.checklist && registro.checklist[campo]) {
+        valor = registro.checklist[campo].valor
+        observacao = registro.checklist[campo].observacao
+      }
+      // Fallback to flat structure (before sync)
+      else {
+        const flatCampo = campo.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase())
+        valor = registro[flatCampo]
+        observacao = registro[`${flatCampo}Obs`]
+      }
+      
       if (valor === true || valor === false) {
         const valorFormatado = valor ? 'Sim' : 'Não'
-        texto += `${label}: *${valorFormatado}*\n`
+        // Add warning icon for "Não" in checklist fields
+        const hasWarning = !valor && WARNING_FIELDS.suplementacao?.includes(campo)
+        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
       }
       
       // Adicionar observação
-      const obsField = `${campo}Obs`
-      const obsValue = registro[obsField]
-      if (obsValue && obsValue !== '') {
-        texto += `OBSERVAÇÃO: *${obsValue}*\n`
+      if (observacao && observacao !== '') {
+        texto += `OBSERVAÇÃO: *${observacao}*\n`
       }
     })
   } else if (caderneta === 'enfermaria') {
@@ -643,6 +764,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
+        // Add warning icon for inverted fields (Sim = bad)
+        const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
+        const hasWarning = (data.valor === 'S' || data.valor === true) && invertedWarningFields.includes(key)
+        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
         const diagnostico = { key, label, valor: valorFormatado, observacao: data.observacao }
 
         if (data.valor === 'S' || data.valor === true) {
@@ -775,7 +900,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
-        texto += `${label}: *${valorFormatado}*\n`
+        // Add warning icon for inverted fields (Sim = bad)
+        const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
+        const hasWarning = (data.valor === 'S' || data.valor === true) && invertedWarningFields.includes(key)
+        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
         
         if (data.observacao && data.observacao !== '') {
           texto += `OBSERVAÇÃO: *${data.observacao}*\n`
@@ -946,7 +1074,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
-        texto += `${label}: *${valorFormatado}*\n`
+        // Add warning icon for inverted fields (Sim = bad)
+        const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
+        const hasWarning = (data.valor === 'S' || data.valor === true) && invertedWarningFields.includes(key)
+        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
         
         // Only show observation when answer is 'N' (NÃO)
         if (data.observacao && data.observacao !== '' && data.valor === 'N') {
@@ -1245,7 +1376,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
 
         if (valor && valor !== '') {
           const valorFormatado = valor === 'S' ? 'Sim' : 'Não'
-          texto += `${label}: *${valorFormatado}*\n`
+          // Add warning icon for inverted fields (Sim = bad)
+          const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
+          const hasWarning = valor === 'S' && invertedWarningFields.includes(key)
+          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
           // Show observation if answer is 'N' and there's an observation
           if (valor === 'N' && observacao && observacao !== '') {
             texto += `OBSERVAÇÃO: *${observacao}*\n`
