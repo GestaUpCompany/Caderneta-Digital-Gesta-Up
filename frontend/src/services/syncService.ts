@@ -356,10 +356,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         quantidade_total_aplicada: registro.quantidadeTotalAplicada || null,
         area_trabalhada: registro.areaTrabalhada || null,
         dose_aplicada: registro.doseAplicada || null,
-        meta_diaria_batida: registro.metaDiariaBatida || '',
-        algum_imprevisto: registro.algumImprevisto || '',
-        meta_diaria_batida_obs: registro.metaDiariaBatidaObs || null,
-        algum_imprevisto_obs: registro.algumImprevistoObs || null,
+        checklist: registro.checklist || null,
         observacao: registro.observacao || null,
       }
     case 'entrada-insumos':

@@ -15,15 +15,13 @@ import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const MOTIVOS = [
   { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
-  { value: 'Abate', label: 'ABATE', icon: '🥩' },
   { value: 'Saída', label: 'SAÍDA', icon: '📤' },
-  { value: 'Entrada', label: 'ENTRADA', icon: '📥' },
   { value: 'Entrevero', label: 'ENTREVERO', icon: '🔀' },
   { value: 'Doação', label: 'DOAÇÃO', icon: '🎁' },
 ]
 
 const TIPO_SAIDA = [
-  { value: 'Venda', label: 'VENDA', icon: '' },
+  { value: 'Enfermaria', label: 'ENFERM.', icon: '' },
   { value: 'Apartação', label: 'APART.', icon: '' },
   { value: 'Transferência', label: 'TRANSF.', icon: '' },
 ]
@@ -296,9 +294,15 @@ export default function MovimentacaoPage() {
     } else if (form.motivoMovimentacao === 'Abate') {
       tipoDestino = 'frigorifico'
     } else if (form.motivoMovimentacao === 'Saída') {
-      if (form.tipoSaida === 'Apartação') {
+      if (form.tipoSaida === 'Enfermaria') {
+        tipoDestino = 'enfermaria'
+        // Garantir que loteDestino seja 'Enfermaria' quando for enfermaria
+        if (!destinoFinal || destinoFinal === '') {
+          destinoFinal = 'Enfermaria'
+        }
+      } else if (form.tipoSaida === 'Apartação') {
         tipoDestino = 'lote'
-      } else if (form.tipoSaida === 'Venda' || form.tipoSaida === 'Transferência') {
+      } else if (form.tipoSaida === 'Transferência') {
         tipoDestino = 'fornecedor'
       }
     } else if (form.motivoMovimentacao === 'Entrada') {
@@ -541,7 +545,7 @@ export default function MovimentacaoPage() {
                     error={getError('tipoSaida')}
                     gridCols={3}
                   />
-                  {form.tipoSaida === 'Venda' || form.tipoSaida === 'Transferência' ? (
+                  {form.tipoSaida === 'Transferência' ? (
                     <>
                       {fornecedoresDisponiveis.length > 0 ? (
                         <SearchableModal

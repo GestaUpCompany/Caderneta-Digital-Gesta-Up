@@ -55,6 +55,16 @@ interface FormState {
   algumImprevisto: string
   algumImprevistoObs: string
   observacao: string
+  checklist?: {
+    meta_diaria_batida: {
+      valor: string
+      observacao: string
+    }
+    algum_imprevisto: {
+      valor: string
+      observacao: string
+    }
+  }
 }
 
 const makeInitial = (): FormState => ({
@@ -240,10 +250,16 @@ export default function OperacoesMaquinasPage() {
       quantidadeTotalAplicada: form.quantidadeTotalAplicada,
       areaTrabalhada: form.areaTrabalhada,
       doseAplicada: form.doseAplicada,
-      metaDiariaBatida: form.metaDiariaBatida,
-      metaDiariaBatidaObs: form.metaDiariaBatidaObs,
-      algumImprevisto: form.algumImprevisto,
-      algumImprevistoObs: form.algumImprevistoObs,
+      checklist: {
+        meta_diaria_batida: {
+          valor: form.metaDiariaBatida,
+          observacao: form.metaDiariaBatidaObs
+        },
+        algum_imprevisto: {
+          valor: form.algumImprevisto,
+          observacao: form.algumImprevistoObs
+        }
+      },
       observacao: form.observacao,
     })
 

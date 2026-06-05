@@ -284,10 +284,16 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     quantidadeTotalAplicada: Joi.string().allow('', null),
     areaTrabalhada: Joi.string().allow('', null),
     doseAplicada: Joi.string().allow('', null),
-    metaDiariaBatida: Joi.string().allow('', null),
-    metaDiariaBatidaObs: Joi.string().allow('', null),
-    algumImprevisto: Joi.string().allow('', null),
-    algumImprevistoObs: Joi.string().allow('', null),
+    checklist: Joi.object({
+      meta_diaria_batida: Joi.object({
+        valor: Joi.string().valid('S', 'N').allow('', null),
+        observacao: Joi.string().allow('', null)
+      }),
+      algum_imprevisto: Joi.object({
+        valor: Joi.string().valid('S', 'N').allow('', null),
+        observacao: Joi.string().allow('', null)
+      })
+    }).allow(null),
     observacao: Joi.string().allow('', null),
   }),
 
