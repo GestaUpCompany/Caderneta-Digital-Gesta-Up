@@ -14,6 +14,7 @@ import { getLoteByNome, getLoteDetalhesComCategorias, getLotes } from '../../ser
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -232,6 +233,20 @@ export default function RodeioPage() {
       }
     }))
 
+  const validationRules = {
+    data: { required: true },
+    numeroLote: { required: true },
+    gadoContado: { required: true },
+    ...DIAGNOSTICOS.reduce((acc, { campo }) => {
+      acc[campo] = { required: true }
+      return acc
+    }, {} as Record<string, { required: boolean }>),
+    escoreFezes: { required: true },
+    equipe: { required: true },
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
+
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const total = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].reduce(
@@ -241,6 +256,12 @@ export default function RodeioPage() {
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
+
+    // Validate form using the validation hook
+    if (!isValid) {
+      setSalvando(false)
+      return
+    }
 
     // Calcular total de animais baseado na resposta de gadoContado
     let totalAnimais = 0
@@ -290,8 +311,15 @@ export default function RodeioPage() {
     }
   }
 
+  const handleLimpar = () => {
+    setForm(makeInitial())
+    setErrors([])
+  }
+
   const handleNewRecord = () => {
     setShowSuccessModal(false)
+    setForm(makeInitial())
+    setErrors([])
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -405,9 +433,6 @@ export default function RodeioPage() {
           </div>
           {form.gadoContado === 'Sim' && (
             <>
-              {getError('categorias') && (
-                <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
-              )}
               <div className="grid grid-cols-2 gap-3">
                 {CATEGORIAS_ANIMAIS.map(({ campo, label }) => (
                   <Input
@@ -648,13 +673,18 @@ export default function RodeioPage() {
         </div>*/}
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          <Button onClick={handleLimpar} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal

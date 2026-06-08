@@ -177,8 +177,6 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.pasto))
-    errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
   if (!isNonEmptyString(data.numeroLote))
     errors.push({ field: 'numeroLote', message: 'Número do lote é obrigatório' })
   if (!isNonEmptyString(data.gadoContado))

@@ -1,5 +1,16 @@
 import { useMemo } from 'react'
 
+// Diagnosticos fields that use nested structure (form.diagnosticos[field].valor)
+const DIAGNOSTICOS_FIELDS = [
+  'bebedourosCochos',
+  'pastagensTaxaLotacao',
+  'animaisMachucadosDoentesBichados',
+  'cercasCochosPorteiras',
+  'carrapatosMoscas',
+  'animaisEntreverados',
+  'animalMorto',
+]
+
 export interface ValidationRule {
   required?: boolean
   minLength?: number
@@ -33,6 +44,9 @@ export function useFormValidation<T extends Record<string, any>>(
       if (field.startsWith('tarefa_')) {
         const limpezaKey = field.replace('tarefa_', '')
         value = (form as any).tarefas?.[limpezaKey]
+      } else if (DIAGNOSTICOS_FIELDS.includes(field)) {
+        // Handle diagnosticos nested structure (e.g., bebedourosCochos -> form.diagnosticos.bebedourosCochos.valor)
+        value = (form as any).diagnosticos?.[field]?.valor
       } else {
         value = form[field]
       }
