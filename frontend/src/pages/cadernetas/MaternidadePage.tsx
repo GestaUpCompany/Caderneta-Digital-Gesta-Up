@@ -36,19 +36,25 @@ const SEXO = [
 ]
 
 const RACAS = [
-  { value: 'Aberdeen', label: 'ABERDEEN' },
+  { value: 'Aberdeen Angus', label: 'ABERDEEN ANGUS' },
   { value: 'Anelorado', label: 'ANELORADO' },
   { value: 'Angus', label: 'ANGUS' },
+  { value: 'Blonde', label: 'BLONDE' },
+  { value: 'Brangus', label: 'BRANGUS' },
+  { value: 'Caracu', label: 'CARACU' },
   { value: 'Charolês', label: 'CHAROLÊS' },
+  { value: 'Gir', label: 'GIR' },
   { value: 'Girolando', label: 'GIROLANDO' },
   { value: 'Guzerá', label: 'GUZERÁ' },
   { value: 'Leiteiro', label: 'LEITEIRO' },
+  { value: 'Limousin', label: 'LIMOUSIN' },
   { value: 'Nelore', label: 'NELORE' },
   { value: 'Red Angus', label: 'RED ANGUS' },
   { value: 'Senepol', label: 'SENEPOL' },
+  { value: 'Simental', label: 'SIMENTAL' },
   { value: 'SRD', label: 'SRD' },
+  { value: 'Tabapuã', label: 'TABAPUÃ' },
   { value: 'Wagyu', label: 'WAGYU' },
-  { value: 'Outros', label: 'OUTROS' },
 ]
 
 const CATEGORIAS_MAE = [
@@ -95,7 +101,6 @@ interface FormState {
   observacaoParto: string
   sexo: string
   raca: string
-  racaOutros: string
   idBrincoMae: string
   idChipMae: string
   categoriaMae: string
@@ -117,7 +122,6 @@ const makeInitial = (): FormState => ({
   observacaoParto: '',
   sexo: '',
   raca: '',
-  racaOutros: '',
   idBrincoMae: '',
   idChipMae: '',
   categoriaMae: '',
@@ -327,7 +331,6 @@ export default function MaternidadePage() {
 
     // Construir string final de tratamentos
     const tratamentoFinal = form.tratamentos.join(', ')
-    const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
     const pastoNome = detalhesLote?.pastos?.nome || null
     const result = await salvarRegistro('maternidade', {
       data: form.data,
@@ -343,7 +346,7 @@ export default function MaternidadePage() {
       tipoParto: form.tipoParto,
       observacaoParto: form.observacaoParto,
       sexo: form.sexo,
-      raca: racaFinal,
+      raca: form.raca,
       idBrincoMae: form.idBrincoMae,
       idChipMae: form.idChipMae,
       categoriaMae: form.categoriaMae,
@@ -665,15 +668,6 @@ export default function MaternidadePage() {
             error={getError('raca')}
             gridCols={2}
           />
-          {form.raca === 'Outros' && (
-            <Input
-              label="QUAL RAÇA?"
-              placeholder="Ex: Brahman, Hereford, Simental..."
-              value={form.racaOutros}
-              onChange={setInputEvent('racaOutros')}
-              error={getError('racaOutros')}
-            />
-          )}
         </div>
 
         {/* Ações */}
