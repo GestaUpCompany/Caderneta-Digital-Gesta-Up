@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getPastos, getLotes } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getLotes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -81,7 +81,9 @@ function processarCategorias(categorias: string): string[] {
 interface FormState {
   data: string
   pasto: string
+  pastoId: string
   numeroLote: string
+  loteId: string
   gadoContado: string
   vaca: string
   touro: string
@@ -107,7 +109,9 @@ interface FormState {
 const makeInitial = (): FormState => ({
   data: todayBR(),
   pasto: '',
+  pastoId: '',
   numeroLote: '',
+  loteId: '',
   gadoContado: '',
   vaca: '', touro: '', boiGordo: '', boiMagro: '', garrote: '', bezerro: '', novilha: '', tropa: '', outros: '',
   escoreFezes: '',
@@ -135,24 +139,18 @@ export default function RodeioPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
-  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
-  // Carregar pastos e lotes do cache global, com fallback para Supabase
+  // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
       const cache = getCachedCadastroData()
-      if (cache && cache.pastos && cache.pastos.length > 0) {
-        setPastosDisponiveis(cache.pastos || [])
+      if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
       } else if (fazendaId) {
         try {
-          const [pastosData, lotesData] = await Promise.all([
-            getPastos(fazendaId),
-            getLotes(fazendaId)
-          ])
-          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
+          const lotesData = await getLotes(fazendaId)
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
@@ -167,7 +165,6 @@ export default function RodeioPage() {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[RodeioPage] Cache atualizado, recarregando dados')
       if (data) {
-        setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
       }
     })
@@ -180,6 +177,7 @@ export default function RodeioPage() {
     async function carregarDetalhesLote() {
       if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
         return
       }
 
@@ -197,10 +195,13 @@ export default function RodeioPage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
+          // Armazenar o ID do lote e o pasto_id
+          setForm(prev => ({ ...prev, loteId: lote.id, pastoId: lote.pasto_id || '' }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
       }
     }
 
@@ -254,7 +255,9 @@ export default function RodeioPage() {
     const result = await salvarRegistro('rodeio', {
       data: form.data,
       pasto: form.pasto,
+      pastoId: form.pastoId,
       numeroLote: form.numeroLote,
+      loteId: form.loteId,
       gadoContado: form.gadoContado,
       vaca: form.vaca ? Number(form.vaca) : 0,
       touro: form.touro ? Number(form.touro) : 0,
@@ -343,29 +346,7 @@ export default function RodeioPage() {
             value={usuario || ''}
             readOnly
           />
-          <div className="grid grid-cols-2 gap-3">
-            {pastosDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="PASTO"
-                value={form.pasto}
-                onChange={set('pasto')}
-                error={getError('pasto')}
-                options={pastosDisponiveis}
-                placeholder="Buscar pasto..."
-                id="pasto"
-                name="pasto"
-              />
-            ) : (
-              <Input
-                label="PASTO"
-                placeholder="Carregando..."
-                value={form.pasto}
-                onChange={setInput('pasto')}
-                error={getError('pasto')}
-                disabled
-                id="pasto"
-              />
-            )}
+          <div className="grid grid-cols-1 gap-3">
             {lotesDisponiveis.length > 0 ? (
               <SearchableModal
                 label="LOTE"
