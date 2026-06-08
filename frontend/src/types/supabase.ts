@@ -3344,8 +3344,10 @@ export type Database = {
           gado_contado: string | null
           garrote: number | null
           id: string
+          lote_id: string | null
           lote: string | null
           nome_usuario: string | null
+          pasto_id: string | null
           novilha: number | null
           pasto: string | null
           sync_status: string | null
@@ -3371,9 +3373,11 @@ export type Database = {
           gado_contado?: string | null
           garrote?: number | null
           id?: string
+          lote_id?: string | null
           lote?: string | null
           nome_usuario?: string | null
           novilha?: number | null
+          pasto_id?: string | null
           pasto?: string | null
           sync_status?: string | null
           total_cabecas?: number | null
@@ -3398,9 +3402,11 @@ export type Database = {
           gado_contado?: string | null
           garrote?: number | null
           id?: string
+          lote_id?: string | null
           lote?: string | null
           nome_usuario?: string | null
           novilha?: number | null
+          pasto_id?: string | null
           pasto?: string | null
           sync_status?: string | null
           total_cabecas?: number | null
@@ -3422,6 +3428,20 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_rodeio_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_rodeio_pasto_id_fkey"
+            columns: ["pasto_id"]
+            isOneToOne: false
+            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
