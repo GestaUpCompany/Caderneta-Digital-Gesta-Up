@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getLotes } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getLotes, getLastRodeioDate } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -142,6 +142,7 @@ export default function RodeioPage() {
   const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [metaRodeioInfo, setMetaRodeioInfo] = useState<{ metaDias: number; diasDesdeUltimo: number; diasAteProximo: number; isDentroMeta: boolean; hasRecord: boolean } | null>(null)
 
   // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
@@ -187,7 +188,27 @@ export default function RodeioPage() {
         if (lote) {
           // Buscar detalhes de categorias do lote
           const categoriasDetalhes = await getLoteDetalhesComCategorias(lote.id)
-          
+
+          // Buscar último rodeio e calcular meta
+          const lastRodeioDate = await getLastRodeioDate(lote.id)
+          const metaDias = lote.meta_intervalo_rodeio_dias || 0
+          const hasRecord = !!lastRodeioDate
+          let diasDesdeUltimo = 0
+          if (lastRodeioDate) {
+            const now = Date.now()
+            const last = new Date(lastRodeioDate).getTime()
+            const diffMs = now - last
+            diasDesdeUltimo = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+          }
+          const diasAteProximo = metaDias - diasDesdeUltimo
+          setMetaRodeioInfo({
+            metaDias,
+            diasDesdeUltimo,
+            diasAteProximo,
+            isDentroMeta: metaDias > 0 ? diasDesdeUltimo <= metaDias : true,
+            hasRecord
+          })
+
           // Combinar dados do lote com dados de categorias
           setDetalhesLote({
             ...lote,
@@ -202,6 +223,7 @@ export default function RodeioPage() {
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
+        setMetaRodeioInfo(null)
         setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
       }
     }
@@ -305,7 +327,7 @@ export default function RodeioPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      setRegistroSalvo(result.registro)
+      setRegistroSalvo({ ...result.registro, metaRodeio: metaRodeioInfo })
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
@@ -399,7 +421,7 @@ export default function RodeioPage() {
             )}
           </div>
           {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} metaRodeio={metaRodeioInfo} />
           )}
         </div>
 

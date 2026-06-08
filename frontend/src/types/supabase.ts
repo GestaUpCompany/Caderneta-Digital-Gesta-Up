@@ -1061,7 +1061,9 @@ export type Database = {
           idade: number | null
           idade_meses: number | null
           mes_competencia: string | null
+          meta_intervalo_rodeio_dias: number | null
           n_cabecas: number | null
+          data_proximo_rodeio: string | null
           nome: string
           numero_cabecas: number | null
           numero_contrato: string | null
@@ -1105,7 +1107,9 @@ export type Database = {
           idade?: number | null
           idade_meses?: number | null
           mes_competencia?: string | null
+          meta_intervalo_rodeio_dias?: number | null
           n_cabecas?: number | null
+          data_proximo_rodeio?: string | null
           nome: string
           numero_cabecas?: number | null
           numero_contrato?: string | null
@@ -1149,7 +1153,9 @@ export type Database = {
           idade?: number | null
           idade_meses?: number | null
           mes_competencia?: string | null
+          meta_intervalo_rodeio_dias?: number | null
           n_cabecas?: number | null
+          data_proximo_rodeio?: string | null
           nome?: string
           numero_cabecas?: number | null
           numero_contrato?: string | null

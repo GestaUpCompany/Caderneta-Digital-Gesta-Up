@@ -246,7 +246,7 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
   const client = getSupabaseClient()
   const { data, error } = await client
     .from('lotes')
-    .select('*, pastos(nome)')
+    .select('*, pastos(nome), meta_intervalo_rodeio_dias, data_proximo_rodeio')
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
@@ -254,6 +254,21 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
 
   if (error) throw error
   return data
+}
+
+export async function getLastRodeioDate(loteId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('registros_rodeio')
+    .select('data')
+    .eq('lote_id', loteId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error
+  return data?.data || null
 }
 
 export async function getMaquinasVeiculos(fazendaId: string) {

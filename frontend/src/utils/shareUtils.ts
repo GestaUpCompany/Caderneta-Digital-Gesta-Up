@@ -1085,6 +1085,25 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         }
       }
     })
+
+    // Adicionar info de meta rodeio se disponível
+    const metaRodeio = (registro as any).metaRodeio
+    if (metaRodeio && metaRodeio.metaDias > 0) {
+      const plural = (n: number) => n > 1 ? 's' : ''
+      let metaTexto = ''
+      if (!metaRodeio.hasRecord) {
+        metaTexto = `ℹ️ Primeiro rodeio · Meta: ${metaRodeio.metaDias} dia${plural(metaRodeio.metaDias)}`
+      } else if (metaRodeio.isDentroMeta) {
+        if (metaRodeio.diasAteProximo === 0) {
+          metaTexto = `✅ Em dia · Próximo rodeio: HOJE`
+        } else {
+          metaTexto = `✅ Em dia · Próximo rodeio em ${metaRodeio.diasAteProximo} dia${plural(metaRodeio.diasAteProximo)}`
+        }
+      } else {
+        metaTexto = `⚠️ Atrasado há ${Math.abs(metaRodeio.diasAteProximo)} dia${plural(Math.abs(metaRodeio.diasAteProximo))} · Último há ${metaRodeio.diasDesdeUltimo} dia${plural(metaRodeio.diasDesdeUltimo)}`
+      }
+      texto += `\nMETA RODEIO: ${metaTexto}\n`
+    }
   } else if (caderneta === 'entrada-insumos') {
     // Para entrada de insumos, usar ordem específica dos formulários
     const ordemEntradaInsumos = [
