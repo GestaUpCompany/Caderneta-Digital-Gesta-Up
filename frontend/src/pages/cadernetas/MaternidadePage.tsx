@@ -85,6 +85,7 @@ interface FormState {
   data: string
   lote: string
   loteId: string
+  pastoId: string
   pesoCria: string
   idProvisorioCria: string
   idBrincoCria: string
@@ -106,6 +107,7 @@ const makeInitial = (): FormState => ({
   data: todayBR(),
   lote: '',
   loteId: '',
+  pastoId: '',
   pesoCria: '',
   idProvisorioCria: '',
   idBrincoCria: '',
@@ -256,7 +258,7 @@ export default function MaternidadePage() {
     async function carregarDetalhesLote() {
       if (!form.lote || !fazendaId) {
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, loteId: '' }))
+        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
         return
       }
 
@@ -274,13 +276,13 @@ export default function MaternidadePage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
-          // Armazenar o ID do lote
-          setForm(prev => ({ ...prev, loteId: lote.id }))
+          // Armazenar o ID do lote e o pasto_id
+          setForm(prev => ({ ...prev, loteId: lote.id, pastoId: lote.pasto_id || '' }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, loteId: '' }))
+        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
       }
     }
 
@@ -330,6 +332,7 @@ export default function MaternidadePage() {
     const result = await salvarRegistro('maternidade', {
       data: form.data,
       pasto: pastoNome,
+      pastoId: form.pastoId,
       lote: form.lote,
       loteId: form.loteId,
       pesoCria: form.pesoCria ? Number(form.pesoCria) : null,

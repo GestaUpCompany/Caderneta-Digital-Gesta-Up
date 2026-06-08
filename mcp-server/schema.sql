@@ -109,6 +109,7 @@ CREATE TABLE lotes (
   categorias TEXT,
   peso_vivo_kg NUMERIC(10,2),
   qtd_bezerros INTEGER,
+  pasto_id UUID REFERENCES pastos(id) ON DELETE SET NULL,
   ativo BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
