@@ -680,14 +680,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
     })
     
-    // Seção: Checklist Depósito - sempre exibir todas as perguntas
+    // Seção: Checklist Depósito - só exibir se o pasto tiver depósito
     const checklistDeposito = [
       { campo: 'deposito_condicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
       { campo: 'estoque_deposito', label: 'TEM ESTOQUE NO DEPÓSITO' },
     ]
-    
-    texto += `\nCHECKLIST DEPÓSITO\n`
-    
+
+    const depositoLines: string[] = []
     checklistDeposito.forEach(({ campo, label }) => {
       // Try to get from JSONB checklist structure (after sync)
       let valor = null
@@ -702,19 +701,21 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      
+
       if (valor === true || valor === false) {
         const valorFormatado = valor ? 'Sim' : 'Não'
-        // Add warning icon for "Não" in checklist fields
         const hasWarning = !valor && WARNING_FIELDS.suplementacao?.includes(campo)
-        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
-      }
-      
-      // Adicionar observação
-      if (observacao && observacao !== '') {
-        texto += `OBSERVAÇÃO: *${observacao}*\n`
+        depositoLines.push(`${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`)
+        if (observacao && observacao !== '') {
+          depositoLines.push(`OBSERVAÇÃO: *${observacao}*\n`)
+        }
       }
     })
+
+    if (depositoLines.length > 0) {
+      texto += `\nCHECKLIST DEPÓSITO\n`
+      depositoLines.forEach(line => { texto += line })
+    }
   } else if (caderneta === 'enfermaria') {
     // DADOS DO ANIMAL
     texto += 'DADOS DO ANIMAL:\n'

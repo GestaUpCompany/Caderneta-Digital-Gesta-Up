@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
@@ -385,20 +385,25 @@ export default function SuplementacaoPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Validation rules
-  const validationRules: any = {
-    data: { required: true },
-    tratador: { required: true },
-    pasto: { required: true },
-    numeroLote: { required: true },
-    produto: { required: true },
-    leitura: { required: true },
-    limpezaCocho: { required: true },
-    cochosCondicoes: { required: true },
-    aterroAcessoIdeal: { required: true },
-    depositoCondicoes: { required: true },
-    estoqueDepositio: { required: true },
-  }
+  // Validation rules (dynamic: skip deposito fields when pasto has no deposito)
+  const validationRules = useMemo(() => {
+    const base: any = {
+      data: { required: true },
+      tratador: { required: true },
+      pasto: { required: true },
+      numeroLote: { required: true },
+      produto: { required: true },
+      leitura: { required: true },
+      limpezaCocho: { required: true },
+      cochosCondicoes: { required: true },
+      aterroAcessoIdeal: { required: true },
+    }
+    if (possuiDeposito) {
+      base.depositoCondicoes = { required: true }
+      base.estoqueDepositio = { required: true }
+    }
+    return base
+  }, [possuiDeposito])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -450,14 +455,16 @@ export default function SuplementacaoPage() {
           valor: form.aterroAcessoIdeal === 'Sim',
           observacao: form.aterroAcessoIdealObs || ''
         },
-        deposito_condicoes: {
-          valor: form.depositoCondicoes === 'Sim',
-          observacao: form.depositoCondicoesObs || ''
-        },
-        estoque_deposito: {
-          valor: form.estoqueDepositio === 'Sim',
-          observacao: form.estoqueDepositioObs || ''
-        }
+        ...(possuiDeposito ? {
+          deposito_condicoes: {
+            valor: form.depositoCondicoes === 'Sim',
+            observacao: form.depositoCondicoesObs || ''
+          },
+          estoque_deposito: {
+            valor: form.estoqueDepositio === 'Sim',
+            observacao: form.estoqueDepositioObs || ''
+          }
+        } : {})
       },
     })
 
