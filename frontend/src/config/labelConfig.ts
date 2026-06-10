@@ -1,7 +1,7 @@
 // Labels comuns compartilhados entre cadernetas
 const COMMON_LABELS = {
   data: 'DATA',
-  pasto: 'PASTO',
+  pasto: 'PASTO/CURRAL',
   lote: 'LOTE',
   totalAnimais: 'TOTAL ANIMAIS',
   totalCabecas: 'TOTAL CABEÇAS',
@@ -25,15 +25,15 @@ const MATERNIDADE_LABELS = {
 const PASTAGENS_LABELS = {
   ...COMMON_LABELS,
   manejador: 'MANEJADOR',
-  numeroLote: 'NÚMERO LOTE',
-  pastoSaida: 'PASTO SAÍDA',
+  numeroLote: 'LOTE',
+  pastoSaida: 'PASTO/CURRAL SAÍDA',
   avaliacaoSaida: 'AVALIAÇÃO SAÍDA',
   tempoOcupacao: 'TEMPO OCUPAÇÃO',
   pastoSaidaAreaUtil: 'ÁREA ÚTIL (SAÍDA)',
   pastoSaidaEspecie: 'ESPÉCIE (SAÍDA)',
   pastoSaidaAlturaEntrada: 'ALTURA ENTRADA (SAÍDA)',
   pastoSaidaAlturaSaida: 'ALTURA SAÍDA (SAÍDA)',
-  pastoEntrada: 'PASTO ENTRADA',
+  pastoEntrada: 'PASTO/CURRAL ENTRADA',
   avaliacaoEntrada: 'AVALIAÇÃO ENTRADA',
   tempoVedacao: 'TEMPO VEDAÇÃO',
   pastoEntradaAreaUtil: 'ÁREA ÚTIL (ENTRADA)',
@@ -54,7 +54,7 @@ const PASTAGENS_LABELS = {
 
 const RODEIO_LABELS = {
   ...COMMON_LABELS,
-  numeroLote: 'NÚMERO LOTE',
+  numeroLote: 'LOTE',
   gadoContado: 'GADO FOI CONTADO?',
   vaca: 'VACA',
   touro: 'TOURO',
@@ -90,7 +90,7 @@ const RODEIO_LABELS = {
 const SUPLEMENTACAO_LABELS = {
   ...COMMON_LABELS,
   tratador: 'TRATADOR',
-  numeroLote: 'N° LOTE',
+  numeroLote: 'LOTE',
   produto: 'SUPLEMENTO',
   gado: 'TIPO DE GADO',
   leitura: 'LEITURA DO COCHO',
@@ -108,7 +108,7 @@ const SUPLEMENTACAO_LABELS = {
 const BEBEDOUROS_LABELS = {
   ...COMMON_LABELS,
   responsavel: 'RESPONSÁVEL',
-  numeroLote: 'NÚMERO LOTE',
+  numeroLote: 'LOTE',
   leituraBebedouro: 'LEITURA BEBEDOURO',
   numeroBebedouro: 'NÚMERO BEBEDOURO',
   categoria: 'CATEGORIA',
@@ -168,7 +168,7 @@ const MOVIMENTACAO_LABELS = {
 
 const ENFERMARIA_LABELS = {
   ...COMMON_LABELS,
-  pasto: 'PASTO',
+  pasto: 'PASTO/CURRAL',
   lote: 'LOTE',
   brinco: 'ID. BRINCO',
   chip: 'ID. CHIP',
@@ -207,7 +207,7 @@ const ENFERMARIA_LABELS = {
 
 const MORTE_LABELS = {
   ...COMMON_LABELS,
-  pasto: 'PASTO',
+  pasto: 'PASTO/CURRAL',
   lote: 'LOTE',
   brinco: 'ID. BRINCO',
   chip: 'ID. CHIP',

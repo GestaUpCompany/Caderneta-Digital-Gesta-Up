@@ -72,6 +72,8 @@ interface FormState {
   tratador: string
   pasto: string
   numeroLote: string
+  loteId: string
+  pastoId: string
   produto: string
   leitura: string
   kgCocho: string
@@ -119,6 +121,8 @@ const makeInitial = (usuario?: string): FormState => ({
   tratador: usuario || '',
   pasto: '',
   numeroLote: '',
+  loteId: '',
+  pastoId: '',
   produto: '',
   leitura: '',
   kgCocho: '',
@@ -253,11 +257,12 @@ export default function SuplementacaoPage() {
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado
+  // Buscar detalhes do lote quando selecionado e auto-derivar pasto
   useEffect(() => {
     async function carregarDetalhesLote() {
       if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
         return
       }
 
@@ -276,10 +281,20 @@ export default function SuplementacaoPage() {
             qtd_bezerros: categoriasDetalhes.qtd_bezerros,
             categorias_raw: categoriasDetalhes.categorias_raw
           })
+          
+          // Auto-derivar pasto do lote
+          const pastoNome = (lote as any).pastos?.nome || ''
+          setForm(prev => ({
+            ...prev,
+            pasto: pastoNome,
+            loteId: lote.id,
+            pastoId: (lote as any).pasto_id || ''
+          }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
       }
     }
 
@@ -390,7 +405,6 @@ export default function SuplementacaoPage() {
     const base: any = {
       data: { required: true },
       tratador: { required: true },
-      pasto: { required: true },
       numeroLote: { required: true },
       produto: { required: true },
       leitura: { required: true },
@@ -431,7 +445,9 @@ export default function SuplementacaoPage() {
       data: form.data,
       tratador: form.tratador,
       pasto: form.pasto,
+      pastoId: form.pastoId,
       numeroLote: form.numeroLote,
+      loteId: form.loteId,
       produto: produtoFinal,
       leituraCocho: form.leitura ? Number(form.leitura) : null,
       kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
@@ -544,52 +560,28 @@ export default function SuplementacaoPage() {
             onChange={setInput('tratador')}
             error={getError('tratador')}
           />
-          <div className="grid grid-cols-2 gap-3">
-            {pastosDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="PASTO"
-                value={form.pasto}
-                onChange={set('pasto')}
-                error={getError('pasto')}
-                options={pastosDisponiveis}
-                placeholder="Buscar pasto..."
-                id="pasto"
-                name="pasto"
-              />
-            ) : (
-              <Input
-                label="PASTO"
-                placeholder="Carregando..."
-                value={form.pasto}
-                onChange={setInput('pasto')}
-                error={getError('pasto')}
-                disabled
-                id="pasto"
-              />
-            )}
-            {lotesDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="LOTE"
-                value={form.numeroLote}
-                onChange={set('numeroLote')}
-                error={getError('numeroLote')}
-                options={lotesDisponiveis}
-                placeholder="Buscar lote..."
-                id="numeroLote"
-                name="numeroLote"
-              />
-            ) : (
-              <Input
-                label="NÚMERO LOTE"
-                placeholder="Carregando..."
-                value={form.numeroLote}
-                onChange={setInput('numeroLote')}
-                error={getError('numeroLote')}
-                inputMode="numeric"
-                disabled
-              />
-            )}
-          </div>
+          {lotesDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="LOTE"
+              value={form.numeroLote}
+              onChange={set('numeroLote')}
+              error={getError('numeroLote')}
+              options={lotesDisponiveis}
+              placeholder="Buscar lote..."
+              id="numeroLote"
+              name="numeroLote"
+            />
+          ) : (
+            <Input
+              label="NÚMERO LOTE"
+              placeholder="Carregando..."
+              value={form.numeroLote}
+              onChange={setInput('numeroLote')}
+              error={getError('numeroLote')}
+              inputMode="numeric"
+              disabled
+            />
+          )}
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}

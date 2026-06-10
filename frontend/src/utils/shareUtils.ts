@@ -295,8 +295,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Seção: Informações Básicas
     texto += `RESPONSÁVEL: *${registro.responsavel || '—'}*\n`
-    texto += `PASTO: *${registro.pasto || '—'}*\n`
-    texto += `NÚMERO LOTE: *${registro.numeroLote || '—'}*\n\n`
+    texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
+    texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
     
     // Seção: Inspeção Atual
     if (registro.numeroBebedouro) {
@@ -607,8 +607,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Seção: Informações Básicas
     texto += `TRATADOR: *${registro.tratador || '—'}*\n`
-    texto += `PASTO: *${registro.pasto || '—'}*\n`
-    texto += `N° LOTE: *${registro.numeroLote || '—'}*\n`
+    texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
+    texto += `LOTE: *${registro.numeroLote || '—'}*\n`
     texto += `SUPLEMENTO: *${registro.produto || '—'}*\n\n`
     
     // Seção: Categorias
@@ -717,21 +717,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       depositoLines.forEach(line => { texto += line })
     }
   } else if (caderneta === 'enfermaria') {
-    // DADOS DO ANIMAL
-    texto += 'DADOS DO ANIMAL:\n'
-    
-    const ordemDadosAnimal = [
-      'pasto',
-      'lote',
-      'brinco',
-      'chip',
-      'sexo',
-      'raca',
-      'idade',
-      'categoria',
-    ]
-    
-    ordemDadosAnimal.forEach(key => {
+    // Seção: INFORMAÇÕES BÁSICAS
+    const ordemBasicos = ['pasto', 'lote']
+    ordemBasicos.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
@@ -740,7 +728,26 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
     })
 
-    // DIAGNÓSTICOS
+    // Seção: IDENTIFICAÇÃO DO ANIMAL
+    texto += '\nIDENTIFICAÇÃO DO ANIMAL\n'
+    const ordemIdentificacao = [
+      'brinco',
+      'chip',
+      'sexo',
+      'raca',
+      'idade',
+      'categoria',
+    ]
+    ordemIdentificacao.forEach(key => {
+      const value = registro[key]
+      if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `${label}: *${valorFormatado}*\n`
+      }
+    })
+
+    // Seção: DIAGNÓSTICOS
     const ordemDiagnosticos = [
       'feridaCascos',
       'sintomasPneumonia',
@@ -756,56 +763,34 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'animalInchado'
     ]
 
-    // Separar diagnósticos positivos e negativos
-    const diagnosticosPositivos: Array<{ key: string; label: string; valor: string; observacao?: string }> = []
-    const diagnosticosNegativos: Array<{ key: string; label: string; valor: string; observacao?: string }> = []
-
-    ordemDiagnosticos.forEach(key => {
+    // Check if any diagnostic has data
+    const hasDiagnosticos = ordemDiagnosticos.some(key => {
       const data = (registro.diagnosticos as any)?.[key]
-      if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
-        // Add warning icon for inverted fields (Sim = bad)
-        const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
-        const hasWarning = (data.valor === 'S' || data.valor === true) && invertedWarningFields.includes(key)
-        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
-        const diagnostico = { key, label, valor: valorFormatado, observacao: data.observacao }
-
-        if (data.valor === 'S' || data.valor === true) {
-          diagnosticosPositivos.push(diagnostico)
-        } else {
-          diagnosticosNegativos.push(diagnostico)
-        }
-      }
+      return data && data.valor !== null && data.valor !== undefined && data.valor !== ''
     })
 
-    // Mostrar diagnósticos positivos
-    if (diagnosticosPositivos.length > 0) {
-      texto += '\nDIAGNÓSTICOS POSITIVOS:\n'
-      diagnosticosPositivos.forEach(d => {
-        texto += `${d.label}: *${d.valor}*\n`
-        if (d.observacao && d.observacao !== '') {
-          texto += `OBSERVAÇÃO: *${d.observacao}*\n`
+    if (hasDiagnosticos) {
+      texto += '\nDIAGNÓSTICOS\n'
+      ordemDiagnosticos.forEach(key => {
+        const data = (registro.diagnosticos as any)?.[key]
+        if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const isSim = data.valor === 'S' || data.valor === true
+          const valorFormatado = isSim ? 'Sim' : 'Não'
+          const hasWarning = isSim && (INVERTED_WARNING_FIELDS[caderneta] || []).includes(key)
+          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
+          if (data.observacao && data.observacao !== '') {
+            texto += `  OBS: *${data.observacao}*\n`
+          }
         }
       })
     }
 
-    // Mostrar diagnósticos negativos
-    if (diagnosticosNegativos.length > 0) {
-      texto += '\nDIAGNÓSTICOS NEGATIVOS:\n'
-      diagnosticosNegativos.forEach(d => {
-        texto += `${d.label}: *${d.valor}*\n`
-        if (d.observacao && d.observacao !== '') {
-          texto += `OBSERVAÇÃO: *${d.observacao}*\n`
-        }
-      })
-    }
-
-    // MEDICAMENTOS
+    // Seção: MEDICAMENTOS
     if (registro.medicamentos && Array.isArray(registro.medicamentos) && registro.medicamentos.length > 0) {
       texto += '\nMEDICAMENTOS\n'
       registro.medicamentos.forEach((med: any, index: number) => {
-        texto += `${index + 1}. ${med.tipo} -\n`
+        texto += `${index + 1}. ${med.tipo} - ${med.nomeComercial || ''}\n`
         if (med.principioAtivo) {
           texto += `   Princípio ativo: ${med.principioAtivo}\n`
         }
@@ -815,11 +800,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         if (med.doseAplicada) {
           texto += `   Dose aplicada: ${med.doseAplicada}\n`
         }
-        texto += '\n'
       })
     }
 
-    // OBSERVAÇÃO GERAL
+    // Seção: OBSERVAÇÃO
     if (registro.observacaoTratamento && registro.observacaoTratamento !== '') {
       texto += `\nOBSERVAÇÃO: *${registro.observacaoTratamento}*\n`
     }
@@ -1285,7 +1269,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `MANEJADOR: *${registro.manejador || '—'}*\n\n`
 
       // Seção PASTO SAÍDA
-      texto += `PASTO SAÍDA\n`
+      texto += `PASTO/CURRAL SAÍDA\n`
       texto += `Nome: *${registro.pastoSaida || '—'}*\n`
       texto += `Área útil: *${registro.pastoSaidaAreaUtil || '—'}* ha\n`
       texto += `Espécie: *${registro.pastoSaidaEspecie || '—'}*\n`
@@ -1293,7 +1277,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `Tempo de ocupação: *${registro.tempoOcupacao || '—'}*\n\n`
 
       // Seção PASTO ENTRADA
-      texto += `PASTO ENTRADA\n`
+      texto += `PASTO/CURRAL ENTRADA\n`
       texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
       texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
       texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
@@ -1412,7 +1396,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       // Seção: INFORMAÇÕES BÁSICAS
       texto += `INFORMAÇÕES BÁSICAS\n`
       if (registro.pasto) {
-        texto += `PASTO: *${registro.pasto}*\n`
+        texto += `PASTO/CURRAL: *${registro.pasto}*\n`
       }
       if (registro.lote) {
         texto += `LOTE: *${registro.lote}*\n`

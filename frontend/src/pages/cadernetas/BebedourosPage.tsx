@@ -9,7 +9,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza, getFuncionarios, getLoteDetalhesComCategorias, getPastos, getLotes, getBebedouros } from '../../services/supabaseService'
+import { getLoteByNome, getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza, getFuncionarios, getLoteDetalhesComCategorias, getLotes, getBebedouros } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
@@ -52,6 +52,8 @@ interface FormState {
   responsavel: string
   pasto: string
   numeroLote: string
+  loteId: string
+  pastoId: string
   leituraBebedouro: string
   numeroBebedouro: string
   observacao: string
@@ -99,6 +101,8 @@ const makeInitial = (usuario?: string): FormState => ({
   responsavel: usuario || '',
   pasto: '',
   numeroLote: '',
+  loteId: '',
+  pastoId: '',
   leituraBebedouro: '',
   numeroBebedouro: '',
   observacao: '',
@@ -128,7 +132,6 @@ export default function BebedourosPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
-  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [bebedourosDisponiveis, setBebedourosDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
@@ -172,18 +175,15 @@ export default function BebedourosPage() {
     const loadData = async () => {
       const cache = getCachedCadastroData()
       if (cache && cache.pastos && cache.pastos.length > 0) {
-        setPastosDisponiveis(cache.pastos || [])
         setLotesDisponiveis(cache.lotes || [])
         setBebedourosDisponiveis(cache.bebedouros || [])
       } else if (fazendaId) {
         // Fallback: carregar do Supabase se cache estiver vazio
         try {
-          const [pastosData, lotesData, bebedourosData] = await Promise.all([
-            getPastos(fazendaId),
+          const [lotesData, bebedourosData] = await Promise.all([
             getLotes(fazendaId),
             getBebedouros(fazendaId)
           ])
-          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
           setBebedourosDisponiveis(bebedourosData?.map((b: any) => b.nome) || [])
         } catch (error) {
@@ -199,7 +199,6 @@ export default function BebedourosPage() {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[BebedourosPage] Cache atualizado, recarregando dados')
       if (data) {
-        setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
         setBebedourosDisponiveis(data.bebedouros || [])
       }
@@ -208,11 +207,12 @@ export default function BebedourosPage() {
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado
+  // Buscar detalhes do lote quando selecionado e auto-derivar pasto
   useEffect(() => {
     async function carregarDetalhesLote() {
       if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
         return
       }
 
@@ -230,10 +230,20 @@ export default function BebedourosPage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
+          
+          // Auto-derivar pasto do lote
+          const pastoNome = (lote as any).pastos?.nome || ''
+          setForm(prev => ({
+            ...prev,
+            pasto: pastoNome,
+            loteId: lote.id,
+            pastoId: (lote as any).pasto_id || ''
+          }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
+        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
       }
     }
 
@@ -307,7 +317,6 @@ export default function BebedourosPage() {
   const validationRules: any = {
     data: { required: true },
     responsavel: { required: true },
-    pasto: { required: true },
     numeroLote: { required: true },
     leituraBebedouro: { required: true },
     aguaSuficiente: { required: true },
@@ -333,7 +342,9 @@ export default function BebedourosPage() {
       data: form.data,
       responsavel: form.responsavel,
       pasto: form.pasto,
+      pastoId: form.pastoId,
       numeroLote: form.numeroLote,
+      loteId: form.loteId,
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
       observacao: form.observacao,
@@ -446,52 +457,28 @@ export default function BebedourosPage() {
               error={getError('responsavel')}
             />
           )}
-          <div className="grid grid-cols-2 gap-3">
-            {pastosDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="PASTO"
-                value={form.pasto}
-                onChange={set('pasto')}
-                error={getError('pasto')}
-                options={pastosDisponiveis}
-                placeholder="Buscar pasto..."
-                id="pasto"
-                name="pasto"
-              />
-            ) : (
-              <Input
-                label="PASTO"
-                placeholder="Carregando..."
-                value={form.pasto}
-                onChange={setInput('pasto')}
-                error={getError('pasto')}
-                disabled
-                id="pasto"
-              />
-            )}
-            {lotesDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="LOTE"
-                value={form.numeroLote}
-                onChange={set('numeroLote')}
-                error={getError('numeroLote')}
-                options={lotesDisponiveis}
-                placeholder="Buscar lote..."
-                id="numeroLote"
-                name="numeroLote"
-              />
-            ) : (
-              <Input
-                label="NÚMERO LOTE"
-                placeholder="Carregando..."
-                value={form.numeroLote}
-                onChange={setInput('numeroLote')}
-                error={getError('numeroLote')}
-                inputMode="numeric"
-                disabled
-              />
-            )}
-          </div>
+          {lotesDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="LOTE"
+              value={form.numeroLote}
+              onChange={set('numeroLote')}
+              error={getError('numeroLote')}
+              options={lotesDisponiveis}
+              placeholder="Buscar lote..."
+              id="numeroLote"
+              name="numeroLote"
+            />
+          ) : (
+            <Input
+              label="NÚMERO LOTE"
+              placeholder="Carregando..."
+              value={form.numeroLote}
+              onChange={setInput('numeroLote')}
+              error={getError('numeroLote')}
+              inputMode="numeric"
+              disabled
+            />
+          )}
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}

@@ -2116,10 +2116,12 @@ export type Database = {
           id: string
           leitura_bebedouro: number | null
           lote: string | null
+          lote_id: string | null
           nome_usuario: string | null
           numero_bebedouro: string | null
           observacao: string | null
           pasto: string | null
+          pasto_id: string | null
           responsavel: string | null
           sync_status: string | null
           updated_at: string | null
@@ -2145,10 +2147,12 @@ export type Database = {
           id?: string
           leitura_bebedouro?: number | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           numero_bebedouro?: string | null
           observacao?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           responsavel?: string | null
           sync_status?: string | null
           updated_at?: string | null
@@ -2174,10 +2178,12 @@ export type Database = {
           id?: string
           leitura_bebedouro?: number | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           numero_bebedouro?: string | null
           observacao?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           responsavel?: string | null
           sync_status?: string | null
           updated_at?: string | null
@@ -2198,6 +2204,20 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_bebedouros_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_bebedouros_pasto_id_fkey"
+            columns: ["pasto_id"]
+            isOneToOne: false
+            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
@@ -2360,9 +2380,11 @@ export type Database = {
           id: string
           idade: string | null
           lote: string | null
+          lote_id: string | null
           medicamentos: Json | null
           nome_usuario: string | null
           pasto: string | null
+          pasto_id: string | null
           raca: string | null
           sexo: string | null
           sync_status: string | null
@@ -2384,9 +2406,11 @@ export type Database = {
           id?: string
           idade?: string | null
           lote?: string | null
+          lote_id?: string | null
           medicamentos?: Json | null
           nome_usuario?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           raca?: string | null
           sexo?: string | null
           sync_status?: string | null
@@ -2408,9 +2432,11 @@ export type Database = {
           id?: string
           idade?: string | null
           lote?: string | null
+          lote_id?: string | null
           medicamentos?: Json | null
           nome_usuario?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           raca?: string | null
           sexo?: string | null
           sync_status?: string | null
@@ -2432,6 +2458,20 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_enfermaria_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_enfermaria_pasto_id_fkey"
+            columns: ["pasto_id"]
+            isOneToOne: false
+            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
@@ -3551,8 +3591,10 @@ export type Database = {
           limpeza_cocho: boolean | null
           limpeza_cocho_obs: string | null
           lote: string | null
+          lote_id: string | null
           nome_usuario: string | null
           pasto: string | null
+          pasto_id: string | null
           produto: string | null
           sacos: number | null
           sync_status: string | null
@@ -3588,8 +3630,10 @@ export type Database = {
           limpeza_cocho?: boolean | null
           limpeza_cocho_obs?: string | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           produto?: string | null
           sacos?: number | null
           sync_status?: string | null
@@ -3625,8 +3669,10 @@ export type Database = {
           limpeza_cocho?: boolean | null
           limpeza_cocho_obs?: string | null
           lote?: string | null
+          lote_id?: string | null
           nome_usuario?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           produto?: string | null
           sacos?: number | null
           sync_status?: string | null
@@ -3647,6 +3693,20 @@ export type Database = {
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_suplementacao_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_suplementacao_pasto_id_fkey"
+            columns: ["pasto_id"]
+            isOneToOne: false
+            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]
