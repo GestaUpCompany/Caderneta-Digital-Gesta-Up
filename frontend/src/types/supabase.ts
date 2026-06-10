@@ -2839,6 +2839,7 @@ export type Database = {
           nutricao_anterior: string | null
           nutricao_atual: string | null
           pasto: string | null
+          pasto_id: string | null
           peso_vivo: number | null
           raca: string | null
           sexo: string | null
@@ -2867,6 +2868,7 @@ export type Database = {
           nutricao_anterior?: string | null
           nutricao_atual?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           peso_vivo?: number | null
           raca?: string | null
           sexo?: string | null
@@ -2895,6 +2897,7 @@ export type Database = {
           nutricao_anterior?: string | null
           nutricao_atual?: string | null
           pasto?: string | null
+          pasto_id?: string | null
           peso_vivo?: number | null
           raca?: string | null
           sexo?: string | null
@@ -2908,6 +2911,13 @@ export type Database = {
             columns: ["lote_id"]
             isOneToOne: false
             referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_morte_pasto_id_fkey"
+            columns: ["pasto_id"]
+            isOneToOne: false
+            referencedRelation: "pastos"
             referencedColumns: ["id"]
           },
         ]

@@ -808,54 +808,89 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `\nOBSERVAÇÃO: *${registro.observacaoTratamento}*\n`
     }
   } else if (caderneta === 'morte') {
-    // Para morte, usar ordem específica dos formulários
-    const ordemMorte = [
-      'pasto',
-      'lote',
-      'brinco',
-      'chip',
-      'categoria',
-      'categoriaOutros',
-      'sexo',
-      'raca',
-      'idade',
-      'pesoVivo',
-      'causaMorte',
-      'escore',
-      'nutricaoAtual',
-      'nutricaoAnterior',
-    ]
-    
-    ordemMorte.forEach(key => {
+    // Seção: INFORMAÇÕES BÁSICAS
+    const ordemBasicos = ['pasto', 'lote']
+    ordemBasicos.forEach(key => {
       const value = registro[key]
-      
-      // Tratar categoriaOutros apenas se categoria for Outros
-      if (key === 'categoriaOutros') {
-        if (registro.categoria === 'Outros' && value !== null && value !== undefined && value !== '') {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          texto += `${label}: *${value}*\n`
-        }
-        return
-      }
-      
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
-        
-        // Adicionar quebra de linha após chip e categoria
-        if (key === 'chip' || key === 'categoria') {
-          texto += `\n`
-        }
-        
-        // Adicionar quebra de linha após causa da morte
-        if (key === 'causaMorte') {
-          texto += `\n`
-        }
       }
     })
 
-    // Iterar sobre diagnosticos na ordem específica
+    // Seção: IDENTIFICAÇÃO DO ANIMAL
+    texto += '\nIDENTIFICAÇÃO DO ANIMAL\n'
+    const ordemIdentificacao = ['brinco', 'chip']
+    ordemIdentificacao.forEach(key => {
+      const value = registro[key]
+      if (value !== null && value !== undefined && value !== '') {
+        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const valorFormatado = formatFieldValue(key, value)
+        texto += `${label}: *${valorFormatado}*\n`
+      }
+    })
+
+    // Seção: CLASSIFICAÇÃO
+    const hasClassificacao = registro.categoria || registro.sexo || registro.raca || registro.idade
+    if (hasClassificacao) {
+      texto += '\nCLASSIFICAÇÃO\n'
+      if (registro.categoria) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['categoria'] || 'CATEGORIA'
+        texto += `${label}: *${registro.categoria}*\n`
+      }
+      if (registro.categoria === 'Outros' && registro.categoriaOutros) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['categoriaOutros'] || 'CATEGORIA OUTROS'
+        texto += `${label}: *${registro.categoriaOutros}*\n`
+      }
+      if (registro.sexo) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['sexo'] || 'SEXO'
+        texto += `${label}: *${registro.sexo}*\n`
+      }
+      if (registro.raca) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['raca'] || 'RAÇA'
+        const valor = registro.raca === 'Outros' ? registro.racaOutros : registro.raca
+        if (valor) texto += `${label}: *${valor}*\n`
+      }
+      if (registro.idade) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['idade'] || 'IDADE'
+        texto += `${label}: *${registro.idade}*\n`
+      }
+      if (registro.pesoVivo) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['pesoVivo'] || 'PESO VIVO (KG)'
+        texto += `${label}: *${registro.pesoVivo}*\n`
+      }
+    }
+
+    // Seção: DADOS DA MORTE
+    const hasMorte = registro.causaMorte || registro.escore
+    if (hasMorte) {
+      texto += '\nDADOS DA MORTE\n'
+      if (registro.causaMorte) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['causaMorte'] || 'CAUSA DA MORTE'
+        texto += `${label}: *${registro.causaMorte}*\n`
+      }
+      if (registro.escore) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['escore'] || 'ESCORE CORPORAL'
+        texto += `${label}: *${registro.escore}*\n`
+      }
+    }
+
+    // Seção: NUTRIÇÃO
+    const hasNutricao = registro.nutricaoAtual || registro.nutricaoAnterior
+    if (hasNutricao) {
+      texto += '\nNUTRIÇÃO\n'
+      if (registro.nutricaoAtual) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['nutricaoAtual'] || 'NUTRIÇÃO ATUAL'
+        texto += `${label}: *${registro.nutricaoAtual}*\n`
+      }
+      if (registro.nutricaoAnterior) {
+        const label = LABELS_BY_CADERNETA[caderneta]?.['nutricaoAnterior'] || 'NUTRIÇÃO ANTERIOR'
+        texto += `${label}: *${registro.nutricaoAnterior}*\n`
+      }
+    }
+
+    // Seção: DIAGNÓSTICOS
     const ordemDiagnosticos = [
       'secrecaoOrificios',
       'sintomasPneumonia',
@@ -878,23 +913,27 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'animalBicheira',
     ]
 
-    texto += 'DIAGNÓSTICOS:\n'
-    
-    ordemDiagnosticos.forEach(key => {
+    const hasDiagnosticos = ordemDiagnosticos.some(key => {
       const data = (registro.diagnosticos as any)?.[key]
-      if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
-        // Add warning icon for inverted fields (Sim = bad)
-        const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
-        const hasWarning = (data.valor === 'S' || data.valor === true) && invertedWarningFields.includes(key)
-        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
-        
-        if (data.observacao && data.observacao !== '') {
-          texto += `OBSERVAÇÃO: *${data.observacao}*\n`
-        }
-      }
+      return data && data.valor !== null && data.valor !== undefined && data.valor !== ''
     })
+
+    if (hasDiagnosticos) {
+      texto += '\nDIAGNÓSTICOS\n'
+      ordemDiagnosticos.forEach(key => {
+        const data = (registro.diagnosticos as any)?.[key]
+        if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const isSim = data.valor === 'S' || data.valor === true
+          const valorFormatado = isSim ? 'Sim' : 'Não'
+          const hasWarning = isSim && (INVERTED_WARNING_FIELDS[caderneta] || []).includes(key)
+          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
+          if (data.observacao && data.observacao !== '') {
+            texto += `  OBS: *${data.observacao}*\n`
+          }
+        }
+      })
+    }
   } else if (caderneta === 'clima') {
     // Para clima, usar ordem específica
     const ordemClima = ['responsavel', 'temperaturaMedia', 'umidadeRelativa']

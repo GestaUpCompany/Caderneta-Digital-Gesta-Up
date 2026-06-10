@@ -9,7 +9,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getPastos, getLotes } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getLotes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -95,6 +95,7 @@ interface FormState {
   pasto: string
   lote: string
   loteId: string
+  pastoId: string
   brinco: string
   chip: string
   categoria: string
@@ -122,6 +123,7 @@ const makeInitial = (): FormState => ({
   pasto: '',
   lote: '',
   loteId: '',
+  pastoId: '',
   brinco: '',
   chip: '',
   categoria: '',
@@ -151,7 +153,6 @@ export default function MortePage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [causasMorte, setCausasMorte] = useState<{ value: string; label: string }[]>([])
@@ -180,20 +181,15 @@ export default function MortePage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Carregar pastos e lotes do cache global, com fallback para Supabase
+  // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
       const cache = getCachedCadastroData()
-      if (cache && cache.pastos && cache.pastos.length > 0) {
-        setPastosDisponiveis(cache.pastos || [])
+      if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
       } else if (fazendaId) {
         try {
-          const [pastosData, lotesData] = await Promise.all([
-            getPastos(fazendaId),
-            getLotes(fazendaId)
-          ])
-          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
+          const lotesData = await getLotes(fazendaId)
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
@@ -208,7 +204,6 @@ export default function MortePage() {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[MortePage] Cache atualizado, recarregando dados')
       if (data) {
-        setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
       }
     })
@@ -216,12 +211,12 @@ export default function MortePage() {
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado
+  // Buscar detalhes do lote quando selecionado e auto-derivar pasto
   useEffect(() => {
     async function carregarDetalhesLote() {
       if (!form.lote || !fazendaId) {
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, loteId: '' }))
+        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
         return
       }
 
@@ -239,13 +234,20 @@ export default function MortePage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
-          // Armazenar o ID do lote
-          setForm(prev => ({ ...prev, loteId: lote.id }))
+
+          // Auto-derivar pasto do lote
+          const pastoNome = (lote as any).pastos?.nome || ''
+          setForm(prev => ({
+            ...prev,
+            pasto: pastoNome,
+            loteId: lote.id,
+            pastoId: (lote as any).pasto_id || ''
+          }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, loteId: '' }))
+        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
       }
     }
 
@@ -331,6 +333,7 @@ export default function MortePage() {
       responsavel: usuario,
       data: form.data,
       pasto: form.pasto,
+      pastoId: form.pastoId,
       lote: form.lote,
       loteId: form.loteId,
       brinco: form.brinco,
@@ -426,52 +429,28 @@ export default function MortePage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {pastosDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="PASTO"
-                value={form.pasto}
-                onChange={(val) => setForm((p) => ({ ...p, pasto: val }))}
-                error={getError('pasto')}
-                options={pastosDisponiveis}
-                placeholder="Buscar pasto..."
-                id="pasto"
-                name="pasto"
-              />
-            ) : (
-              <Input
-                label="PASTO"
-                placeholder="Carregando..."
-                value={form.pasto}
-                onChange={setInput('pasto')}
-                error={getError('pasto')}
-                disabled
-                id="pasto"
-              />
-            )}
-            {lotesDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="LOTE"
-                value={form.lote}
-                onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
-                error={getError('lote')}
-                options={lotesDisponiveis}
-                placeholder="Buscar lote..."
-                id="lote"
-                name="lote"
-              />
-            ) : (
-              <Input
-                label="LOTE"
-                placeholder="Carregando..."
-                value={form.lote}
-                onChange={setInput('lote')}
-                error={getError('lote')}
-                disabled
-                id="lote"
-              />
-            )}
-          </div>
+          {lotesDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="LOTE"
+              value={form.lote}
+              onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
+              error={getError('lote')}
+              options={lotesDisponiveis}
+              placeholder="Buscar lote..."
+              id="lote"
+              name="lote"
+            />
+          ) : (
+            <Input
+              label="LOTE"
+              placeholder="Carregando..."
+              value={form.lote}
+              onChange={setInput('lote')}
+              error={getError('lote')}
+              disabled
+              id="lote"
+            />
+          )}
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={() => []} />
           )}
