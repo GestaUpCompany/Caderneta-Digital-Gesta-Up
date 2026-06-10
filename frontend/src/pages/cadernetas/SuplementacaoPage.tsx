@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho, getPastos, getLotes, getMineral, getProteinado, getRacao, getInsumos } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho, getLotes, getMineral, getProteinado, getRacao, getInsumos } from '../../services/supabaseService'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -159,7 +159,6 @@ export default function SuplementacaoPage() {
   const [insumosDisponiveis, setInsumosDisponiveis] = useState<string[]>([])
   const [suplemento, setSuplemento] = useState('')
   const [kgDeposito, setKgDeposito] = useState('')
-  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
@@ -175,7 +174,6 @@ export default function SuplementacaoPage() {
         setProteinadoDisponiveis(cache.proteinado || [])
         setRacaoDisponiveis(cache.racao || [])
         setInsumosDisponiveis(cache.insumos || [])
-        setPastosDisponiveis(cache.pastos || [])
         setLotesDisponiveis(cache.lotes || [])
       } else if (fazendaId) {
         try {
@@ -221,16 +219,11 @@ export default function SuplementacaoPage() {
   useEffect(() => {
     const loadData = async () => {
       const cache = getCachedCadastroData()
-      if (cache && cache.pastos && cache.pastos.length > 0) {
-        setPastosDisponiveis(cache.pastos || [])
+      if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
       } else if (fazendaId) {
         try {
-          const [pastosData, lotesData] = await Promise.all([
-            getPastos(fazendaId),
-            getLotes(fazendaId)
-          ])
-          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
+          const lotesData = await getLotes(fazendaId)
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
@@ -249,7 +242,6 @@ export default function SuplementacaoPage() {
         setProteinadoDisponiveis(data.proteinado || [])
         setRacaoDisponiveis(data.racao || [])
         setInsumosDisponiveis(data.insumos || [])
-        setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
       }
     })
