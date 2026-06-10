@@ -12,7 +12,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida, getUltimoStatusPasto, getLoteDetalhesComCategorias, getPastos, getLotes } from '../../services/supabaseService'
+import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida, getUltimoStatusPasto, getLoteDetalhesComCategorias, getPastos, getLotes, getFuncionarios } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -158,10 +158,10 @@ export default function PastagensPage() {
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [editandoManejador, setEditandoManejador] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [showFezesModal, setShowFezesModal] = useState(false)
@@ -184,15 +184,18 @@ export default function PastagensPage() {
       if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
         setLotesDisponiveis(cache.lotes || [])
+        setFuncionariosDisponiveis(cache.funcionarios || [])
       } else if (fazendaId) {
         // Fallback: carregar do Supabase se cache estiver vazio
         try {
-          const [pastosData, lotesData] = await Promise.all([
+          const [pastosData, lotesData, funcionariosData] = await Promise.all([
             getPastos(fazendaId),
-            getLotes(fazendaId)
+            getLotes(fazendaId),
+            getFuncionarios(fazendaId)
           ])
           setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
         }
@@ -208,6 +211,7 @@ export default function PastagensPage() {
       if (data) {
         setPastosDisponiveis(data.pastos || [])
         setLotesDisponiveis(data.lotes || [])
+        setFuncionariosDisponiveis(data.funcionarios || [])
       }
     })
 
@@ -480,7 +484,6 @@ export default function PastagensPage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
-      setEditandoManejador(false)
     }
   }
 
@@ -540,16 +543,28 @@ export default function PastagensPage() {
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} />
-          <div>
-            <label className="block text-base font-bold text-gray-700 mb-2">MANEJADOR <span className="text-red-500">*</span></label>
+          {funcionariosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label={<span>MANEJADOR <span className="text-red-500">*</span></span>}
+              value={form.manejador}
+              onChange={set('manejador')}
+              error={getError('manejador')}
+              options={funcionariosDisponiveis}
+              placeholder="Buscar manejador..."
+              id="manejador"
+              name="manejador"
+            />
+          ) : (
             <Input
-              placeholder="Nome do responsável"
+              label={<span>MANEJADOR <span className="text-red-500">*</span></span>}
+              placeholder="Carregando..."
               value={form.manejador}
               onChange={setInput('manejador')}
               error={getError('manejador')}
-              readOnly={!editandoManejador}
+              disabled
+              id="manejador"
             />
-          </div>
+          )}
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>LOTE <span className="text-red-500">*</span></span>}
@@ -841,17 +856,35 @@ export default function PastagensPage() {
                   <p className="text-base font-semibold text-red-700">⚠️ {getError('equipeNomes')}</p>
                 )}
                 {Array.from({ length: Number(form.numeroPessoasManejo) }).map((_, index) => (
-                  <Input
-                    key={index}
-                    label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
-                    placeholder="Nome"
-                    value={form.equipeNomes[index] || ''}
-                    onChange={(e) => {
-                      const newNomes = [...form.equipeNomes]
-                      newNomes[index] = e.target.value
-                      setForm(prev => ({ ...prev, equipeNomes: newNomes }))
-                    }}
-                  />
+                  funcionariosDisponiveis.length > 0 ? (
+                    <SearchableModal
+                      key={index}
+                      label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
+                      value={form.equipeNomes[index] || ''}
+                      onChange={(val) => {
+                        const newNomes = [...form.equipeNomes]
+                        newNomes[index] = val
+                        setForm(prev => ({ ...prev, equipeNomes: newNomes }))
+                      }}
+                      options={funcionariosDisponiveis}
+                      placeholder="Buscar funcionário..."
+                      id={`equipeNome-${index}`}
+                      name={`equipeNome-${index}`}
+                    />
+                  ) : (
+                    <Input
+                      key={index}
+                      label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
+                      placeholder="Carregando..."
+                      value={form.equipeNomes[index] || ''}
+                      onChange={(e) => {
+                        const newNomes = [...form.equipeNomes]
+                        newNomes[index] = e.target.value
+                        setForm(prev => ({ ...prev, equipeNomes: newNomes }))
+                      }}
+                      disabled
+                    />
+                  )
                 ))}
               </div>
             )}
