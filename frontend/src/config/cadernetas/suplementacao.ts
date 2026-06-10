@@ -22,11 +22,11 @@ export const suplementacaoConfig: CadernetaDisplayConfig = {
     escoreFezes: { key: 'escoreFezes', section: 'LEITURAS E QUANTIDADES', priority: 4 },
 
     limpezaCocho: { key: 'limpezaCocho', section: 'CHECKLIST COCHOS', priority: 1, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
-    cochosCondicoes: { key: 'cochosCondicoes', section: 'CHECKLIST COCHOS', priority: 2, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
-    aterroAcessoIdeal: { key: 'aterroAcessoIdeal', section: 'CHECKLIST COCHOS', priority: 3, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
+    espacamentoCochoAdequado: { key: 'espacamentoCochoAdequado', section: 'CHECKLIST COCHOS', priority: 2, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
+    cochosCondicoes: { key: 'cochosCondicoes', section: 'CHECKLIST COCHOS', priority: 3, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
+    aterroAcessoIdeal: { key: 'aterroAcessoIdeal', section: 'CHECKLIST COCHOS', priority: 4, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
 
     depositoCondicoes: { key: 'depositoCondicoes', section: 'CHECKLIST DEPÓSITO', priority: 1, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
-    estoqueDepositio: { key: 'estoqueDepositio', section: 'CHECKLIST DEPÓSITO', priority: 2, format: (v) => v === true || v === 'S' ? 'Sim' : 'Não' },
   },
   hiddenFields: [],
 }

@@ -12,10 +12,10 @@ const WARNING_FIELDS: Record<string, string[]> = {
   ],
   suplementacao: [
     'limpeza_cocho',
+    'espacamento_cocho_adequado',
     'cochos_condicoes',
     'aterro_acesso_ideal',
     'deposito_condicoes',
-    'estoque_deposito',
   ],
 }
 
@@ -643,6 +643,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Checklist Cochos - sempre exibir todas as perguntas
     const checklistCochos = [
       { campo: 'limpeza_cocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
+      { campo: 'espacamento_cocho_adequado', label: 'ESPAÇAMENTO DE COCHO ESTÁ ADEQUADO?' },
       { campo: 'cochos_condicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
       { campo: 'aterro_acesso_ideal', label: 'ATERRO / ACESSO DE COCHO' },
     ]
@@ -680,7 +681,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Checklist Depósito - só exibir se o pasto tiver depósito
     const checklistDeposito = [
       { campo: 'deposito_condicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
-      { campo: 'estoque_deposito', label: 'TEM ESTOQUE NO DEPÓSITO' },
     ]
 
     const depositoLines: string[] = []

@@ -504,8 +504,8 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                         'cochosCondicoes',
                         'aterroAcessoIdeal',
                         'espacamentoCochoCmCab',
-                        'depositoCondicoes',
-                        'estoqueDepositio'
+                        'espacamentoCochoAdequado',
+                        'depositoCondicoes'
                       ]
                       
                       ordemSuplementacao.forEach(key => {

@@ -187,6 +187,20 @@ export async function getLotes(fazendaId: string) {
   return data
 }
 
+export async function getLotesByPastoId(fazendaId: string, pastoId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('lotes')
+    .select('*, pastos(nome), meta_intervalo_rodeio_dias, data_proximo_rodeio')
+    .eq('fazenda_id', fazendaId)
+    .eq('pasto_id', pastoId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 // ==================== SETORES ====================
 
 export async function getSetores(fazendaId: string) {
@@ -500,7 +514,7 @@ export async function getInsumoByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
   return data
@@ -597,7 +611,7 @@ export async function getMineralByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
   return data
@@ -650,7 +664,7 @@ export async function getProteinadoByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
   return data
@@ -703,7 +717,7 @@ export async function getRacaoByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
   return data

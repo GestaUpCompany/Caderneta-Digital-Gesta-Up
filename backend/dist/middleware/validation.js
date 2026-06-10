@@ -79,10 +79,10 @@ const schemas = {
         aterroAcessoIdealObs: joi_1.default.string().allow(''),
         espacamentoCochoCmCab: joi_1.default.number().min(0).allow(null),
         espacamentoCochoObs: joi_1.default.string().allow(''),
+        espacamentoCochoAdequado: joi_1.default.boolean().allow(null),
+        espacamentoCochoAdequadoObs: joi_1.default.string().allow(''),
         depositoCondicoes: joi_1.default.boolean().allow(null),
         depositoCondicoesObs: joi_1.default.string().allow(''),
-        estoqueDepositio: joi_1.default.boolean().allow(null),
-        estoqueDepositioObs: joi_1.default.string().allow(''),
     }),
     bebedouros: joi_1.default.object({
         data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),

@@ -85,11 +85,11 @@ const schemas: Record<string, Joi.ObjectSchema> = {
         valor: Joi.boolean().allow(null),
         observacao: Joi.string().allow('')
       }),
-      deposito_condicoes: Joi.object({
+      espacamento_cocho_adequado: Joi.object({
         valor: Joi.boolean().allow(null),
         observacao: Joi.string().allow('')
       }),
-      estoque_deposito: Joi.object({
+      deposito_condicoes: Joi.object({
         valor: Joi.boolean().allow(null),
         observacao: Joi.string().allow('')
       })

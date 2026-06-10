@@ -10,8 +10,8 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho, getLotes, getMineral, getProteinado, getRacao, getInsumos } from '../../services/supabaseService'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import { getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho, getPastos, getLotesByPastoId, getMineral, getProteinado, getRacao, getInsumos } from '../../services/supabaseService'
+import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -60,11 +60,11 @@ const SN_OPTIONS = [
 
 const CHECKLIST_PERGUNTAS = [
   { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
+  { campo: 'espacamentoCochoAdequado', label: 'ESPAÇAMENTO DE COCHO ESTÁ ADEQUADO?' },
   { campo: 'cochosCondicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
   { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
   // { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO (cm/cab):' }, // Temporariamente desabilitado
   { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
-  { campo: 'estoqueDepositio', label: 'TEM ESTOQUE NO DEPÓSITO?' },
 ]
 
 interface FormState {
@@ -90,8 +90,8 @@ interface FormState {
   espacamentoCochoObs: string
   depositoCondicoes: string
   depositoCondicoesObs: string
-  estoqueDepositio: string
-  estoqueDepositioObs: string
+  espacamentoCochoAdequado: string
+  espacamentoCochoAdequadoObs: string
   checklist?: {
     limpeza_cocho: {
       valor: boolean
@@ -109,7 +109,7 @@ interface FormState {
       valor: boolean
       observacao: string
     }
-    estoque_deposito: {
+    espacamento_cocho_adequado: {
       valor: boolean
       observacao: string
     }
@@ -139,8 +139,8 @@ const makeInitial = (usuario?: string): FormState => ({
   espacamentoCochoObs: '',
   depositoCondicoes: '',
   depositoCondicoesObs: '',
-  estoqueDepositio: '',
-  estoqueDepositioObs: '',
+  espacamentoCochoAdequado: '',
+  espacamentoCochoAdequadoObs: '',
 })
 
 export default function SuplementacaoPage() {
@@ -159,7 +159,8 @@ export default function SuplementacaoPage() {
   const [insumosDisponiveis, setInsumosDisponiveis] = useState<string[]>([])
   const [suplemento, setSuplemento] = useState('')
   const [kgDeposito, setKgDeposito] = useState('')
-  const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
+  const [lotesNoPasto, setLotesNoPasto] = useState<any[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
@@ -174,7 +175,7 @@ export default function SuplementacaoPage() {
         setProteinadoDisponiveis(cache.proteinado || [])
         setRacaoDisponiveis(cache.racao || [])
         setInsumosDisponiveis(cache.insumos || [])
-        setLotesDisponiveis(cache.lotes || [])
+        setPastosDisponiveis(cache.pastos || [])
       } else if (fazendaId) {
         try {
           const [mineralData, proteinadoData, racaoData, insumosData] = await Promise.all([
@@ -215,18 +216,18 @@ export default function SuplementacaoPage() {
     }
   }
 
-  // Carregar pastos e lotes do cache global, com fallback para Supabase
+  // Carregar pastos do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
       const cache = getCachedCadastroData()
-      if (cache && cache.lotes && cache.lotes.length > 0) {
-        setLotesDisponiveis(cache.lotes || [])
+      if (cache && cache.pastos && cache.pastos.length > 0) {
+        setPastosDisponiveis(cache.pastos || [])
       } else if (fazendaId) {
         try {
-          const lotesData = await getLotes(fazendaId)
-          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          const pastosData = await getPastos(fazendaId)
+          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
         } catch (error) {
-          console.error('Erro ao carregar dados do Supabase:', error)
+          console.error('Erro ao carregar pastos do Supabase:', error)
         }
       }
     }
@@ -242,56 +243,78 @@ export default function SuplementacaoPage() {
         setProteinadoDisponiveis(data.proteinado || [])
         setRacaoDisponiveis(data.racao || [])
         setInsumosDisponiveis(data.insumos || [])
-        setLotesDisponiveis(data.lotes || [])
+        setPastosDisponiveis(data.pastos || [])
       }
     })
 
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado e auto-derivar pasto
+  // Buscar lotes e detalhes quando pasto é selecionado
   useEffect(() => {
-    async function carregarDetalhesLote() {
-      if (!form.numeroLote || !fazendaId) {
+    async function carregarLotesDoPasto() {
+      if (!form.pasto || !fazendaId) {
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
+        setLotesNoPasto([])
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
         return
       }
 
       try {
-        const lote = await getLoteByNome(fazendaId, form.numeroLote)
-        if (lote) {
-          // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategorias(lote.id)
-          
-          // Combinar dados do lote com dados de categorias
-          setDetalhesLote({
-            ...lote,
-            categorias: categoriasDetalhes.categorias,
-            n_cabecas: categoriasDetalhes.quant_atual,
-            peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-            qtd_bezerros: categoriasDetalhes.qtd_bezerros,
-            categorias_raw: categoriasDetalhes.categorias_raw
-          })
-          
-          // Auto-derivar pasto do lote
-          const pastoNome = (lote as any).pastos?.nome || ''
-          setForm(prev => ({
-            ...prev,
-            pasto: pastoNome,
-            loteId: lote.id,
-            pastoId: (lote as any).pasto_id || ''
-          }))
+        // Buscar o pasto pelo nome para obter o ID
+        const pasto = await getPastoByNome(fazendaId, form.pasto)
+        if (!pasto) {
+          setDetalhesLote(null)
+          setLotesNoPasto([])
+          setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
+          return
         }
+
+        const pastoId = pasto.id
+        setForm(prev => ({ ...prev, pastoId }))
+
+        // Buscar lotes que ocupam esse pasto
+        const lotes = await getLotesByPastoId(fazendaId, pastoId)
+        setLotesNoPasto(lotes || [])
+
+        if (!lotes || lotes.length === 0) {
+          setDetalhesLote(null)
+          setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+          return
+        }
+
+        // Se houver 1+ lote(s), usar o primeiro como padrão
+        // Se houver >1, o usuário poderá selecionar posteriormente (futuro)
+        const lotePrincipal = lotes[0]
+
+        // Buscar detalhes de categorias do lote
+        const categoriasDetalhes = await getLoteDetalhesComCategorias(lotePrincipal.id)
+
+        // Combinar dados do lote com dados de categorias
+        setDetalhesLote({
+          ...lotePrincipal,
+          categorias: categoriasDetalhes.categorias,
+          n_cabecas: categoriasDetalhes.quant_atual,
+          peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
+          qtd_bezerros: categoriasDetalhes.qtd_bezerros,
+          categorias_raw: categoriasDetalhes.categorias_raw
+        })
+
+        setForm(prev => ({
+          ...prev,
+          numeroLote: lotePrincipal.nome || '',
+          loteId: lotePrincipal.id
+        }))
       } catch (error) {
-        console.error('Erro ao carregar detalhes do lote:', error)
+        console.error('Erro ao carregar lotes do pasto:', error)
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
+        setLotesNoPasto([])
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
       }
     }
 
-    carregarDetalhesLote()
-  }, [form.numeroLote, fazendaId])
+    carregarLotesDoPasto()
+  }, [form.pasto, fazendaId])
 
   // Buscar dados do pasto quando selecionado para verificar possui_deposito
   useEffect(() => {
@@ -397,16 +420,16 @@ export default function SuplementacaoPage() {
     const base: any = {
       data: { required: true },
       tratador: { required: true },
-      numeroLote: { required: true },
+      pasto: { required: true },
       produto: { required: true },
       leitura: { required: true },
       limpezaCocho: { required: true },
+      espacamentoCochoAdequado: { required: true },
       cochosCondicoes: { required: true },
       aterroAcessoIdeal: { required: true },
     }
     if (possuiDeposito) {
       base.depositoCondicoes = { required: true }
-      base.estoqueDepositio = { required: true }
     }
     return base
   }, [possuiDeposito])
@@ -463,14 +486,14 @@ export default function SuplementacaoPage() {
           valor: form.aterroAcessoIdeal === 'Sim',
           observacao: form.aterroAcessoIdealObs || ''
         },
+        espacamento_cocho_adequado: {
+          valor: form.espacamentoCochoAdequado === 'Sim',
+          observacao: form.espacamentoCochoAdequadoObs || ''
+        },
         ...(possuiDeposito ? {
           deposito_condicoes: {
             valor: form.depositoCondicoes === 'Sim',
             observacao: form.depositoCondicoesObs || ''
-          },
-          estoque_deposito: {
-            valor: form.estoqueDepositio === 'Sim',
-            observacao: form.estoqueDepositioObs || ''
           }
         } : {})
       },
@@ -552,30 +575,47 @@ export default function SuplementacaoPage() {
             onChange={setInput('tratador')}
             error={getError('tratador')}
           />
-          {lotesDisponiveis.length > 0 ? (
+          {pastosDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOTE"
-              value={form.numeroLote}
-              onChange={set('numeroLote')}
-              error={getError('numeroLote')}
-              options={lotesDisponiveis}
-              placeholder="Buscar lote..."
-              id="numeroLote"
-              name="numeroLote"
+              label="PASTO"
+              value={form.pasto}
+              onChange={set('pasto')}
+              error={getError('pasto')}
+              options={pastosDisponiveis}
+              placeholder="Buscar pasto..."
+              id="pasto"
+              name="pasto"
             />
           ) : (
             <Input
-              label="NÚMERO LOTE"
+              label="PASTO"
               placeholder="Carregando..."
-              value={form.numeroLote}
-              onChange={setInput('numeroLote')}
-              error={getError('numeroLote')}
-              inputMode="numeric"
+              value={form.pasto}
+              onChange={setInput('pasto')}
+              error={getError('pasto')}
               disabled
             />
           )}
+          {lotesNoPasto.length > 1 && (
+            <p className="text-sm text-amber-600 font-medium">
+              ⚠️ Este pasto contém {lotesNoPasto.length} lotes ativos. O primeiro foi selecionado automaticamente.
+            </p>
+          )}
+          {lotesNoPasto.length === 0 && form.pasto && (
+            <p className="text-sm text-red-600 font-medium">
+              ⚠️ Nenhum lote ativo ocupando este pasto.
+            </p>
+          )}
           {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
+            <LoteOcupandoPastoCard
+              detalhes={{
+                nome: detalhesLote.nome || form.numeroLote,
+                categorias: detalhesLote.categorias,
+                n_cabecas: detalhesLote.n_cabecas,
+                peso_vivo_kg: detalhesLote.peso_vivo_kg,
+              }}
+              processarCategorias={processarCategorias}
+            />
           )}
         </div>
 
@@ -666,48 +706,9 @@ export default function SuplementacaoPage() {
         {/* Seção 4: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST <span className="text-red-500">*</span></h2>
-          
-          {/* Espaçamento do cocho - display calculado */}
-          {espacamentoCochoDetalhes && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO</h3>
-              {espacamentoCochoDetalhes.erro ? (
-                <div className="text-base text-red-600 font-medium">
-                  {espacamentoCochoDetalhes.erro}
-                </div>
-              ) : (
-                <div className="space-y-2 text-base">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Espaçamento calculado:</span>
-                    <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
-                  </div>
-                  {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Espaçamento ideal:</span>
-                        <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Desvio:</span>
-                        <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex flex-col gap-1 text-sm text-gray-500 pt-2 border-t border-gray-200">
-                    <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
-                    <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          
+
           {CHECKLIST_PERGUNTAS
-            .filter(({ campo }) => 
-              (campo !== 'estoqueDepositio' && campo !== 'depositoCondicoes') || possuiDeposito
-            )
+            .filter(({ campo }) => campo !== 'depositoCondicoes' || possuiDeposito)
             .map(({ campo, label }) => (
             <div key={campo}>
               <Radio
@@ -726,6 +727,41 @@ export default function SuplementacaoPage() {
                   onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
                   className="mt-2"
                 />
+              )}
+              {campo === 'espacamentoCochoAdequado' && espacamentoCochoDetalhes && (
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mt-2">
+                  <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO</h3>
+                  {espacamentoCochoDetalhes.erro ? (
+                    <div className="text-base text-red-600 font-medium">
+                      {espacamentoCochoDetalhes.erro}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-base">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Espaçamento calculado:</span>
+                        <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
+                      </div>
+                      {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Espaçamento ideal:</span>
+                            <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Desvio:</span>
+                            <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
+                            </span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex flex-col gap-1 text-sm text-gray-500 pt-2 border-t border-gray-200">
+                        <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
+                        <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           ))}

@@ -3579,8 +3579,8 @@ export type Database = {
           espacamento_cocho_ideal: boolean | null
           espacamento_cocho_ideal_obs: string | null
           espacamento_cocho_obs: string | null
-          estoque_deposito: boolean | null
-          estoque_deposito_obs: string | null
+          espacamento_cocho_adequado: boolean | null
+          espacamento_cocho_adequado_obs: string | null
           fazenda_id: string
           id: string
           kg_cocho: number | null
@@ -3618,8 +3618,8 @@ export type Database = {
           espacamento_cocho_ideal?: boolean | null
           espacamento_cocho_ideal_obs?: string | null
           espacamento_cocho_obs?: string | null
-          estoque_deposito?: boolean | null
-          estoque_deposito_obs?: string | null
+          espacamento_cocho_adequado?: boolean | null
+          espacamento_cocho_adequado_obs?: string | null
           fazenda_id: string
           id?: string
           kg_cocho?: number | null
@@ -3657,8 +3657,8 @@ export type Database = {
           espacamento_cocho_ideal?: boolean | null
           espacamento_cocho_ideal_obs?: string | null
           espacamento_cocho_obs?: string | null
-          estoque_deposito?: boolean | null
-          estoque_deposito_obs?: string | null
+          espacamento_cocho_adequado?: boolean | null
+          espacamento_cocho_adequado_obs?: string | null
           fazenda_id?: string
           id?: string
           kg_cocho?: number | null
@@ -3970,7 +3970,7 @@ export type Database = {
       update_dados_lotes: { Args: never; Returns: undefined }
     }
     Enums: {
-      tipo_movimentacao_subtipo: "Enfermaria" | "Apartação" | "Transferência" | "Compras"
+      tipo_movimentacao_subtipo: "Enfermaria" | "Apartação" | "Refugo de Cocho" | "Compras"
       tipo_movimentacao_motivo:
         | "Consumo"
         | "Abate"
@@ -4105,7 +4105,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      tipo_movimentacao_subtipo: ["Enfermaria", "Apartação", "Transferência", "Compras"],
+      tipo_movimentacao_subtipo: ["Enfermaria", "Apartação", "Refugo de Cocho", "Compras"],
       tipo_movimentacao_motivo: [
         "Consumo",
         "Abate",

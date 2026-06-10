@@ -23,13 +23,13 @@ const MOTIVOS = [
 const TIPO_SAIDA = [
   { value: 'Enfermaria', label: 'Enfermaria', icon: '' },
   { value: 'Apartação', label: 'Apartação', icon: '' },
-  { value: 'Transferência', label: 'Transferência', icon: '' },
+  { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
 ]
 
 const TIPO_ENTRADA = [
   { value: 'Compras', label: 'Compras', icon: '' },
   { value: 'Apartação', label: 'Apartação', icon: '' },
-  { value: 'Transferência', label: 'Transferência', icon: '' },
+  { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
 ]
 
 const CATEGORIAS = [
@@ -66,7 +66,7 @@ interface FormState {
   numeroCabecas: string
   pesoVivoAtual: string
   motivoMovimentacao: string
-  subtipo: string // Enfermaria, Apartação, Transferência, Compras
+  subtipo: string // Enfermaria, Apartação, Refugo de Cocho, Compras
   brinco: string
   chip: string
   causaObservacao: string
@@ -520,38 +520,7 @@ export default function MovimentacaoPage() {
                     error={getError('subtipo')}
                     direction="vertical"
                   />
-                  {form.subtipo === 'Transferência' ? (
-                    <>
-                      {fornecedoresDisponiveis.length > 0 ? (
-                        <SearchableModal
-                          label="SELECIONE O DESTINO:"
-                          value={form.loteDestino}
-                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
-                          error={getError('loteDestino')}
-                          options={fornecedoresDisponiveis}
-                          placeholder="Buscar destino..."
-                          id="loteDestino"
-                          name="loteDestino"
-                        />
-                      ) : (
-                        <Input
-                          label="SELECIONE O DESTINO:"
-                          placeholder="Carregando..."
-                          value={form.loteDestino}
-                          onChange={setInput('loteDestino')}
-                          error={getError('loteDestino')}
-                          disabled
-                          id="loteDestino"
-                        />
-                      )}
-                      <Input
-                        label="CAUSA / OBSERVAÇÃO:"
-                        placeholder="Descreva detalhes da movimentação"
-                        value={form.causaObservacao}
-                        onChange={setInput('causaObservacao')}
-                      />
-                    </>
-                  ) : form.subtipo === 'Apartação' ? (
+                  {form.subtipo === 'Apartação' || form.subtipo === 'Refugo de Cocho' ? (
                     <>
                       {lotesDisponiveis.length > 0 ? (
                         <SearchableModal
@@ -625,7 +594,7 @@ export default function MovimentacaoPage() {
                         onChange={setInput('causaObservacao')}
                       />
                     </>
-                  ) : form.subtipo === 'Apartação' || form.subtipo === 'Transferência' ? (
+                  ) : form.subtipo === 'Apartação' || form.subtipo === 'Refugo de Cocho' ? (
                     <>
                       {lotesDisponiveis.length > 0 ? (
                         <SearchableModal
