@@ -2949,13 +2949,6 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_movimentacao_subtipo"]
             | null
           sync_status: string | null
-          tipo_destino: string | null
-          tipo_entrada:
-            | Database["public"]["Enums"]["tipo_movimentacao_entrada"]
-            | null
-          tipo_saida:
-            | Database["public"]["Enums"]["tipo_movimentacao_saida"]
-            | null
           updated_at: string | null
           version: number | null
         }
@@ -2985,13 +2978,6 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_movimentacao_subtipo"]
             | null
           sync_status?: string | null
-          tipo_destino?: string | null
-          tipo_entrada?:
-            | Database["public"]["Enums"]["tipo_movimentacao_entrada"]
-            | null
-          tipo_saida?:
-            | Database["public"]["Enums"]["tipo_movimentacao_saida"]
-            | null
           updated_at?: string | null
           version?: number | null
         }
@@ -3021,13 +3007,6 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_movimentacao_subtipo"]
             | null
           sync_status?: string | null
-          tipo_destino?: string | null
-          tipo_entrada?:
-            | Database["public"]["Enums"]["tipo_movimentacao_entrada"]
-            | null
-          tipo_saida?:
-            | Database["public"]["Enums"]["tipo_movimentacao_saida"]
-            | null
           updated_at?: string | null
           version?: number | null
         }
@@ -3991,7 +3970,6 @@ export type Database = {
       update_dados_lotes: { Args: never; Returns: undefined }
     }
     Enums: {
-      tipo_movimentacao_entrada: "Compras" | "Apartação" | "Transferência"
       tipo_movimentacao_subtipo: "Enfermaria" | "Apartação" | "Transferência" | "Compras"
       tipo_movimentacao_motivo:
         | "Consumo"
@@ -4000,7 +3978,6 @@ export type Database = {
         | "Entrada"
         | "Entrevero"
         | "Doação"
-      tipo_movimentacao_saida: "Venda" | "Apartação" | "Transferência"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4128,7 +4105,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      tipo_movimentacao_entrada: ["Compras", "Apartação", "Transferência"],
       tipo_movimentacao_subtipo: ["Enfermaria", "Apartação", "Transferência", "Compras"],
       tipo_movimentacao_motivo: [
         "Consumo",
@@ -4138,7 +4114,6 @@ export const Constants = {
         "Entrevero",
         "Doação",
       ],
-      tipo_movimentacao_saida: ["Venda", "Apartação", "Transferência"],
     },
   },
 } as const

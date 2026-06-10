@@ -46,7 +46,8 @@ export function useFormValidation<T extends Record<string, any>>(
         value = (form as any).tarefas?.[limpezaKey]
       } else if (DIAGNOSTICOS_FIELDS.includes(field)) {
         // Handle diagnosticos nested structure (e.g., bebedourosCochos -> form.diagnosticos.bebedourosCochos.valor)
-        value = (form as any).diagnosticos?.[field]?.valor
+        // Fallback to flat form field if nested structure doesn't exist (PastagensPage, etc.)
+        value = (form as any).diagnosticos?.[field]?.valor ?? form[field]
       } else {
         value = form[field]
       }
