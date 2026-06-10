@@ -160,6 +160,7 @@ const MOVIMENTACAO_LABELS = {
   numeroCabecas: 'NÚMERO CABEÇAS',
   pesoVivoAtual: 'PESO VIVO ATUAL (KG)',
   motivoMovimentacao: 'MOTIVO',
+  subtipo: 'TIPO',
   brinco: 'BRINCO',
   chip: 'CHIP',
   brincoChip: 'BRINCO/CHIP',

@@ -2945,6 +2945,9 @@ export type Database = {
           numero_cabecas: number | null
           peso_vivo_atual_kg: number | null
           responsavel: string | null
+          subtipo:
+            | Database["public"]["Enums"]["tipo_movimentacao_subtipo"]
+            | null
           sync_status: string | null
           tipo_destino: string | null
           tipo_entrada:
@@ -2978,6 +2981,9 @@ export type Database = {
           numero_cabecas?: number | null
           peso_vivo_atual_kg?: number | null
           responsavel?: string | null
+          subtipo?:
+            | Database["public"]["Enums"]["tipo_movimentacao_subtipo"]
+            | null
           sync_status?: string | null
           tipo_destino?: string | null
           tipo_entrada?:
@@ -3011,6 +3017,9 @@ export type Database = {
           numero_cabecas?: number | null
           peso_vivo_atual_kg?: number | null
           responsavel?: string | null
+          subtipo?:
+            | Database["public"]["Enums"]["tipo_movimentacao_subtipo"]
+            | null
           sync_status?: string | null
           tipo_destino?: string | null
           tipo_entrada?:
@@ -3983,6 +3992,7 @@ export type Database = {
     }
     Enums: {
       tipo_movimentacao_entrada: "Compras" | "Apartação" | "Transferência"
+      tipo_movimentacao_subtipo: "Enfermaria" | "Apartação" | "Transferência" | "Compras"
       tipo_movimentacao_motivo:
         | "Consumo"
         | "Abate"
@@ -4119,6 +4129,7 @@ export const Constants = {
   public: {
     Enums: {
       tipo_movimentacao_entrada: ["Compras", "Apartação", "Transferência"],
+      tipo_movimentacao_subtipo: ["Enfermaria", "Apartação", "Transferência", "Compras"],
       tipo_movimentacao_motivo: [
         "Consumo",
         "Abate",

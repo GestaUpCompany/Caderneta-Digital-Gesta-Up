@@ -21,15 +21,15 @@ const MOTIVOS = [
 ]
 
 const TIPO_SAIDA = [
-  { value: 'Enfermaria', label: 'ENFERM.', icon: '' },
-  { value: 'Apartação', label: 'APART.', icon: '' },
-  { value: 'Transferência', label: 'TRANSF.', icon: '' },
+  { value: 'Enfermaria', label: 'Enfermaria', icon: '' },
+  { value: 'Apartação', label: 'Apartação', icon: '' },
+  { value: 'Transferência', label: 'Transferência', icon: '' },
 ]
 
 const TIPO_ENTRADA = [
-  { value: 'Compras', label: 'COMPRAS', icon: '' },
-  { value: 'Apartação', label: 'APART.', icon: '' },
-  { value: 'Transferência', label: 'TRANSF.', icon: '' },
+  { value: 'Compras', label: 'Compras', icon: '' },
+  { value: 'Apartação', label: 'Apartação', icon: '' },
+  { value: 'Transferência', label: 'Transferência', icon: '' },
 ]
 
 const CATEGORIAS = [
@@ -66,8 +66,7 @@ interface FormState {
   numeroCabecas: string
   pesoVivoAtual: string
   motivoMovimentacao: string
-  tipoSaida: string // Venda, Apartação, Transferência
-  tipoEntrada: string // Compras, Apartação, Transferência
+  subtipo: string // Enfermaria, Apartação, Transferência, Compras
   brinco: string
   chip: string
   causaObservacao: string
@@ -86,8 +85,7 @@ const makeInitial = (): FormState => ({
   numeroCabecas: '',
   pesoVivoAtual: '',
   motivoMovimentacao: '',
-  tipoSaida: '',
-  tipoEntrada: '',
+  subtipo: '',
   brinco: '',
   chip: '',
   causaObservacao: '',
@@ -122,27 +120,27 @@ export default function MovimentacaoPage() {
   // Lógica para definir destino automaticamente baseado no motivo
   useEffect(() => {
     if (!form.motivoMovimentacao) {
-      setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
+      setForm((p) => ({ ...p, loteDestino: '', subtipo: '' }))
       return
     }
 
     switch (form.motivoMovimentacao) {
       case 'Consumo':
-        setForm((p) => ({ ...p, loteDestino: 'Cantina', tipoSaida: '', tipoEntrada: '' }))
+        setForm((p) => ({ ...p, loteDestino: 'Cantina', subtipo: '' }))
         break
       case 'Saída':
-        // Limpar destino e tipo de saída para que o usuário selecione
-        setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
+        // Limpar destino e subtipo para que o usuário selecione
+        setForm((p) => ({ ...p, loteDestino: '', subtipo: '' }))
         break
       case 'Entrada':
-        // Limpar destino e tipo de entrada para que o usuário selecione
-        setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
+        // Limpar destino e subtipo para que o usuário selecione
+        setForm((p) => ({ ...p, loteDestino: '', subtipo: '' }))
         break
       case 'Abate':
       case 'Entrevero':
       case 'Doação':
         // Para esses casos, limpar o destino para que o usuário selecione
-        setForm((p) => ({ ...p, loteDestino: '', tipoSaida: '', tipoEntrada: '' }))
+        setForm((p) => ({ ...p, loteDestino: '', subtipo: '' }))
         break
       default:
         break
@@ -283,38 +281,17 @@ export default function MovimentacaoPage() {
     // Se destino customizado for preenchido, usar em vez de loteDestino
     let destinoFinal = form.destinoCustomizado.trim() ? form.destinoCustomizado.trim() : form.loteDestino
 
-    // Determinar tipo_destino baseado no motivo
-    let tipoDestino = null
+    // Ajustar destino padrão baseado no motivo/subtipo
     if (form.motivoMovimentacao === 'Consumo') {
-      tipoDestino = 'cantina'
-      // Garantir que loteDestino seja 'Cantina' quando for consumo
       if (!destinoFinal || destinoFinal === '') {
         destinoFinal = 'Cantina'
       }
-    } else if (form.motivoMovimentacao === 'Abate') {
-      tipoDestino = 'frigorifico'
     } else if (form.motivoMovimentacao === 'Saída') {
-      if (form.tipoSaida === 'Enfermaria') {
-        tipoDestino = 'enfermaria'
-        // Garantir que loteDestino seja 'Enfermaria' quando for enfermaria
+      if (form.subtipo === 'Enfermaria') {
         if (!destinoFinal || destinoFinal === '') {
           destinoFinal = 'Enfermaria'
         }
-      } else if (form.tipoSaida === 'Apartação') {
-        tipoDestino = 'lote'
-      } else if (form.tipoSaida === 'Transferência') {
-        tipoDestino = 'fornecedor'
       }
-    } else if (form.motivoMovimentacao === 'Entrada') {
-      if (form.tipoEntrada === 'Compras') {
-        tipoDestino = 'fornecedor'
-      } else if (form.tipoEntrada === 'Apartação' || form.tipoEntrada === 'Transferência') {
-        tipoDestino = 'lote'
-      }
-    } else if (form.motivoMovimentacao === 'Entrevero') {
-      tipoDestino = form.destinoCustomizado.trim() ? 'customizado' : 'lote'
-    } else if (form.motivoMovimentacao === 'Doação') {
-      tipoDestino = 'customizado'
     }
 
     const result = await salvarRegistro('movimentacao', {
@@ -329,9 +306,7 @@ export default function MovimentacaoPage() {
       categorias: form.categorias,
       categoria: categoriasString,
       motivoMovimentacao: form.motivoMovimentacao,
-      tipoSaida: form.tipoSaida || null,
-      tipoEntrada: form.tipoEntrada || null,
-      tipoDestino: tipoDestino,
+      subtipo: form.subtipo || null,
       brinco: form.brinco,
       chip: form.chip,
       causaObservacao: form.causaObservacao,
@@ -538,14 +513,14 @@ export default function MovimentacaoPage() {
               ) : form.motivoMovimentacao === 'Saída' ? (
                 <>
                   <Radio
-                    name="tipoSaida"
+                    name="subtipo"
                     options={TIPO_SAIDA}
-                    value={form.tipoSaida}
-                    onChange={(val) => setForm((p) => ({ ...p, tipoSaida: val, loteDestino: '' }))}
-                    error={getError('tipoSaida')}
-                    gridCols={3}
+                    value={form.subtipo}
+                    onChange={(val) => setForm((p) => ({ ...p, subtipo: val, loteDestino: '' }))}
+                    error={getError('subtipo')}
+                    direction="vertical"
                   />
-                  {form.tipoSaida === 'Transferência' ? (
+                  {form.subtipo === 'Transferência' ? (
                     <>
                       {fornecedoresDisponiveis.length > 0 ? (
                         <SearchableModal
@@ -576,7 +551,7 @@ export default function MovimentacaoPage() {
                         onChange={setInput('causaObservacao')}
                       />
                     </>
-                  ) : form.tipoSaida === 'Apartação' ? (
+                  ) : form.subtipo === 'Apartação' ? (
                     <>
                       {lotesDisponiveis.length > 0 ? (
                         <SearchableModal
@@ -612,14 +587,14 @@ export default function MovimentacaoPage() {
               ) : form.motivoMovimentacao === 'Entrada' ? (
                 <>
                   <Radio
-                    name="tipoEntrada"
+                    name="subtipo"
                     options={TIPO_ENTRADA}
-                    value={form.tipoEntrada}
-                    onChange={(val) => setForm((p) => ({ ...p, tipoEntrada: val, loteDestino: '' }))}
-                    error={getError('tipoEntrada')}
+                    value={form.subtipo}
+                    onChange={(val) => setForm((p) => ({ ...p, subtipo: val, loteDestino: '' }))}
+                    error={getError('subtipo')}
                     gridCols={3}
                   />
-                  {form.tipoEntrada === 'Compras' ? (
+                  {form.subtipo === 'Compras' ? (
                     <>
                       {fornecedoresDisponiveis.length > 0 ? (
                         <SearchableModal
@@ -650,7 +625,7 @@ export default function MovimentacaoPage() {
                         onChange={setInput('causaObservacao')}
                       />
                     </>
-                  ) : form.tipoEntrada === 'Apartação' || form.tipoEntrada === 'Transferência' ? (
+                  ) : form.subtipo === 'Apartação' || form.subtipo === 'Transferência' ? (
                     <>
                       {lotesDisponiveis.length > 0 ? (
                         <SearchableModal
