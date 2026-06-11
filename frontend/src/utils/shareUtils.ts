@@ -375,9 +375,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         const tempoDesde = parseInt(String(registro.tempoDesdeLimpeza)) || 0
         const meta = parseInt(String(registro.metaIntervaloLimpeza)) || 0
         if (tempoDesde > meta) {
-          texto += `STATUS INTERVALO: *Atrasado (${tempoDesde - meta} dias)*\n`
+          const diasAtraso = tempoDesde - meta
+          texto += `STATUS INTERVALO: *Atrasado há ${diasAtraso} dia${diasAtraso > 1 ? 's' : ''}*\n`
         } else {
-          texto += `STATUS INTERVALO: *Dentro da meta*\n`
+          texto += `STATUS INTERVALO: *✅ Adequado*\n`
         }
       }
     }
