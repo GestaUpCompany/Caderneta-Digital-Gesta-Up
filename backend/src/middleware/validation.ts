@@ -11,13 +11,18 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     idBrincoCria: Joi.string().allow('', null),
     idChipCria: Joi.string().allow('', null),
     tratamento: Joi.string().required(),
-    tipoParto: Joi.string().valid('Normal', 'Auxiliado', 'Cesárea', 'Aborto').required(),
+    tipoParto: Joi.array().items(
+      Joi.string().valid('Normal', 'Auxiliado', 'Cesárea', 'Aborto', 'Natimorto', 'Distócico', 'Gêmeos', 'Deficiência Física', 'Retenção de Placenta')
+    ).required(),
     sexo: Joi.string().valid('Macho', 'Fêmea').required(),
-    raca: Joi.string().valid('Nelore', 'Angus', 'Leiteiro', 'Outros').required(),
-    idBrincoMae: Joi.string().required(),
+    raca: Joi.string().valid('Aberdeen Angus', 'Anelorado', 'Angus', 'Blonde', 'Brangus', 'Caracu', 'Charolês', 'Gir', 'Girolando', 'Guzerá', 'Leiteiro', 'Limousin', 'Nelore', 'Red Angus', 'Senepol', 'Simental', 'SRD', 'Tabapuã', 'Wagyu').required(),
+    idManejoMae: Joi.string().allow('', null),
+    idBrincoMae: Joi.string().allow('', null),
     idChipMae: Joi.string().allow('', null),
+    individuoIdMae: Joi.string().uuid().allow('', null),
+    individuoIdCria: Joi.string().uuid().allow('', null),
     categoriaMae: Joi.string().valid('Nulípara', 'Primípara', 'Secundípara', 'Multípara').required(),
-  }),
+  }).or('idManejoMae', 'idBrincoMae', 'idChipMae'),
 
   pastagens: Joi.object({
     data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),

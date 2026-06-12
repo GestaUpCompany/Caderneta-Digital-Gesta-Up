@@ -85,8 +85,11 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         observacao_parto: registro.observacaoParto || null,
         sexo: registro.sexo || null,
         raca: registro.raca || null,
+        id_manejo_mae: registro.idManejoMae || null,
         id_brinco_mae: registro.idBrincoMae || null,
         id_chip_mae: registro.idChipMae || null,
+        individuo_id_mae: registro.individuoIdMae || null,
+        individuo_id_cria: registro.individuoIdCria || null,
         categoria_mae: registro.categoriaMae || null,
         escore_matriz: registro.escoreMatriz ? Number(registro.escoreMatriz) : null,
         docilidade_matriz: registro.docilidadeMatriz ? Number(registro.docilidadeMatriz) : null,
@@ -443,6 +446,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
   try {
     const tableName = CADERNETA_TO_SUPABASE_TABLE[store]
     const data = registroToSupabase(store, registro, fazendaId)
+    if (store === 'maternidade') {
+      console.log('[SYNC DEBUG] Payload maternidade:', JSON.stringify(data, null, 2))
+    }
 
     if (operation === 'create') {
       switch (tableName) {

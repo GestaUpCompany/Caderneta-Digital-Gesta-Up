@@ -424,6 +424,64 @@ export async function createCategoria(categoria: TablesInsert<'categorias'>) {
   return data
 }
 
+// ==================== INDIVIDUOS ====================
+
+export async function getIndividuos(fazendaId: string, limit = 100) {
+  const client = getSupabaseClient() as any
+  const { data, error } = await client
+    .from('individuos')
+    .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status')
+    .eq('fazenda_id', fazendaId)
+    .eq('status', 'Vivo')
+    .order('id_manejo')
+    .limit(limit)
+
+  if (error) throw error
+  return data
+}
+
+export async function getIndividuoPorCampo(
+  fazendaId: string,
+  campo: 'id_manejo' | 'id_brinco' | 'id_chip',
+  valor: string
+) {
+  const client = getSupabaseClient() as any
+  const { data, error } = await client
+    .from('individuos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq(campo, valor)
+    .limit(1)
+
+  if (error) throw error
+  return data?.[0] || null
+}
+
+export async function buscarIndividuoPorIdGenerico(fazendaId: string, idDigitado: string) {
+  const client = getSupabaseClient() as any
+  const { data, error } = await client
+    .from('individuos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .or(`id_manejo.eq.${idDigitado},id_brinco.eq.${idDigitado},id_chip.eq.${idDigitado}`)
+    .limit(1)
+
+  if (error) throw error
+  return data?.[0] || null
+}
+
+export async function createIndividuo(individuo: any) {
+  const client = getSupabaseClient() as any
+  const { data, error } = await client
+    .from('individuos')
+    .insert(individuo)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as any
+}
+
 // ==================== CAUSAS DE MORTE ====================
 
 export async function getCausasMorte(fazendaId: string) {
@@ -1079,15 +1137,15 @@ export async function getRegistrosMaternidade(fazendaId: string, dataInicio?: st
   return data
 }
 
-export async function createRegistroMaternidade(registro: TablesInsert<'registros_maternidade'>) {
+export async function createRegistroMaternidade(registro: any) {
   const { data, error } = await supabase
     .from('registros_maternidade')
-    .insert(registro)
+    .insert(registro as any)
     .select()
     .single()
 
   if (error) throw error
-  return data
+  return data as any
 }
 
 export async function updateRegistroMaternidade(id: string, registro: TablesUpdate<'registros_maternidade'>) {
@@ -1111,9 +1169,9 @@ export async function deleteRegistroMaternidade(id: string) {
   if (error) throw error
 }
 
-export async function getContagemPartosVaca(fazendaId: string, idBrincoMae?: string, idChipMae?: string): Promise<number> {
+export async function getContagemPartosVaca(fazendaId: string, idBrincoMae?: string, idChipMae?: string, idManejoMae?: string): Promise<number> {
   const client = getSupabaseClient()
-  
+
   let query = client
     .from('registros_maternidade')
     .select('id')
@@ -1124,6 +1182,8 @@ export async function getContagemPartosVaca(fazendaId: string, idBrincoMae?: str
     query = (query as any).eq('id_brinco_mae', idBrincoMae)
   } else if (idChipMae) {
     query = (query as any).eq('id_chip_mae', idChipMae)
+  } else if (idManejoMae) {
+    query = (query as any).eq('id_manejo_mae', idManejoMae)
   } else {
     return 0
   }

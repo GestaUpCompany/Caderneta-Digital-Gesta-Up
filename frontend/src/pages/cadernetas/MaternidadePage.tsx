@@ -6,11 +6,12 @@ import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
-import { todayBR } from '../../utils/formatDate'
+import { todayBR, brToIso } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca, getLotes, getTratamentos } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca, getLotes, getTratamentos, createIndividuo } from '../../services/supabaseService'
+import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -96,13 +97,16 @@ interface FormState {
   idProvisorioCria: string
   idBrincoCria: string
   idChipCria: string
+  individuoIdCria: string
   tratamentos: string[]
   tipoParto: string[]
   observacaoParto: string
   sexo: string
   raca: string
+  idManejoMae: string
   idBrincoMae: string
   idChipMae: string
+  individuoIdMae: string
   categoriaMae: string
   escoreMatriz: string
   docilidadeMatriz: string
@@ -117,13 +121,16 @@ const makeInitial = (): FormState => ({
   idProvisorioCria: '',
   idBrincoCria: '',
   idChipCria: '',
+  individuoIdCria: '',
   tratamentos: [],
   tipoParto: [],
   observacaoParto: '',
   sexo: '',
   raca: '',
+  idManejoMae: '',
   idBrincoMae: '',
   idChipMae: '',
+  individuoIdMae: '',
   categoriaMae: '',
   escoreMatriz: '',
   docilidadeMatriz: '',
@@ -149,13 +156,13 @@ export default function MaternidadePage() {
     data: { required: true },
     lote: { required: true },
     
-    // Form 2: Identificação da Mãe (at least one of idBrincoMae or idChipMae required)
-    // Only validate on idBrincoMae to avoid duplicate error messages
-    idBrincoMae: { 
+    // Form 2: Identificação da Mãe (at least one ID required)
+    idManejoMae: { 
       custom: (value: string) => {
-        const hasBrinco = value && value.trim() !== ''
+        const hasManejo = value && value.trim() !== ''
+        const hasBrinco = form.idBrincoMae && form.idBrincoMae.trim() !== ''
         const hasChip = form.idChipMae && form.idChipMae.trim() !== ''
-        if (!hasBrinco && !hasChip) return 'Preencha o ID Brinco ou ID Chip'
+        if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip'
         return null
       }
     },
@@ -293,7 +300,7 @@ export default function MaternidadePage() {
     carregarDetalhesLote()
   }, [form.lote, fazendaId])
 
-  // Buscar contagem de partos quando idBrincoMae ou idChipMae mudar
+  // Buscar contagem de partos quando qualquer ID da mãe mudar
   useEffect(() => {
     async function carregarContagemPartos() {
       if (!fazendaId) {
@@ -301,8 +308,17 @@ export default function MaternidadePage() {
         return
       }
 
+      const idManejo = form.idManejoMae?.trim()
+      const idBrinco = form.idBrincoMae?.trim()
+      const idChip = form.idChipMae?.trim()
+
+      if (!idManejo && !idBrinco && !idChip) {
+        setPartosCount(0)
+        return
+      }
+
       try {
-        const count = await getContagemPartosVaca(fazendaId, form.idBrincoMae, form.idChipMae)
+        const count = await getContagemPartosVaca(fazendaId, idBrinco, idChip, idManejo)
         setPartosCount(count)
       } catch (error) {
         console.error('Erro ao carregar contagem de partos:', error)
@@ -311,7 +327,7 @@ export default function MaternidadePage() {
     }
 
     carregarContagemPartos()
-  }, [form.idBrincoMae, form.idChipMae, fazendaId])
+  }, [form.idManejoMae, form.idBrincoMae, form.idChipMae, fazendaId])
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -327,6 +343,42 @@ export default function MaternidadePage() {
       setSalvando(false)
       scrollToFirstError(errorArray)
       return
+    }
+
+    let individuoIdCria = ''
+
+    // Criar registro do bezerro na tabela individuos (se ainda não existir)
+    try {
+      const categoriaCria = form.sexo === 'Macho' ? 'Bezerro ao Pé' : 'Bezerra ao Pé'
+      const dataNascimentoIso = brToIso(form.data)
+
+      const novoIndividuo = await createIndividuo({
+        fazenda_id: fazendaId,
+        id_provisorio_cria: form.idProvisorioCria || null,
+        id_brinco: form.idBrincoCria || null,
+        id_chip: form.idChipCria || null,
+        sexo: form.sexo,
+        raca: form.raca,
+        categoria: categoriaCria,
+        data_nascimento: dataNascimentoIso || null,
+        peso_nascimento_kg: form.pesoCria ? Number(form.pesoCria) : null,
+        parto: form.tipoParto,
+        origem: 'Nascimento',
+        data_entrada_fazenda: dataNascimentoIso || null,
+        mae: form.individuoIdMae || null,
+        id_brinco_mae: form.idBrincoMae || null,
+        id_chip_mae: form.idChipMae || null,
+        lote_atual: form.loteId || null,
+        pasto_atual: form.pastoId || null,
+        status: 'Vivo',
+        idade_atual_dias: 0,
+        idade_atual_meses: 0,
+      })
+
+      individuoIdCria = novoIndividuo?.id || ''
+    } catch (err) {
+      console.error('Erro ao criar individuo do bezerro:', err)
+      // Continuar mesmo sem criar o individuo — não bloquear o registro de maternidade
     }
 
     // Construir string final de tratamentos
@@ -347,8 +399,11 @@ export default function MaternidadePage() {
       observacaoParto: form.observacaoParto,
       sexo: form.sexo,
       raca: form.raca,
+      idManejoMae: form.idManejoMae,
       idBrincoMae: form.idBrincoMae,
       idChipMae: form.idChipMae,
+      individuoIdMae: form.individuoIdMae,
+      individuoIdCria,
       categoriaMae: form.categoriaMae,
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
       docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
@@ -467,22 +522,28 @@ export default function MaternidadePage() {
         {/* Seção 2: Dados da Mãe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO DA MÃE</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label={<span>ID BRINCO <span className="text-red-500">*</span></span>}
-              placeholder="Ex: 2021-089"
-              value={form.idBrincoMae}
-              onChange={setInputEvent('idBrincoMae')}
-              error={getError('idBrincoMae')}
-            />
-            <Input
-              label={<span>ID CHIP <span className="text-red-500">*</span></span>}
-              placeholder="Número do chip"
-              value={form.idChipMae}
-              onChange={setInputEvent('idChipMae')}
-              error={getError('idChipMae')}
-            />
-          </div>
+          <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
+            💡 <strong>Não encontrou a mãe?</strong> Clique em qualquer um dos 3 campos de busca abaixo, vá em <strong>NOVO</strong> no final da tela que se abrir e informe o ID Manejo, Brinco e/ou Chip para cadastrá-la automaticamente.
+          </p>
+          <AnimalIdentifier
+            fazendaId={fazendaId}
+            valueManejo={form.idManejoMae}
+            valueBrinco={form.idBrincoMae}
+            valueChip={form.idChipMae}
+            onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
+              setForm(prev => ({
+                ...prev,
+                idManejoMae: idManejo,
+                idBrincoMae: idBrinco,
+                idChipMae: idChip,
+                individuoIdMae: individuoId || '',
+                // Auto-populate from individuo data if available
+                categoriaMae: animalData?.classificacao_matriz || prev.categoriaMae,
+              }))
+            }}
+            required={true}
+            showAnimalCard={true}
+          />
           <Radio
             name="categoriaMae"
             label={<span>CATEGORIA DA MÃE <span className="text-red-500">*</span></span>}
@@ -491,6 +552,7 @@ export default function MaternidadePage() {
             onChange={set('categoriaMae')}
             error={getError('categoriaMae')}
             gridCols={2}
+            disabled={!!form.individuoIdMae}
           />
           <div className="pt-4 border-t border-gray-100">
             <h3 className="text-base font-bold text-gray-900 mb-4">ESCORE DA MATRIZ <span className="text-red-500">*</span></h3>
@@ -557,13 +619,13 @@ export default function MaternidadePage() {
           </div>
           <div className="pt-4 border-t border-gray-100">
             <h3 className="text-base font-bold text-gray-900 mb-2">HISTÓRICO DE PRENHEZ</h3>
-            {!form.idBrincoMae && !form.idChipMae ? (
+            {!form.idManejoMae && !form.idBrincoMae && !form.idChipMae ? (
               <p className="text-lg font-semibold text-gray-700">
-                Digite um ID brinco e/ou chip válidos primeiro
+                Preencha o ID manejo, brinco e/ou chip da mãe primeiro
               </p>
             ) : partosCount > 0 ? (
               <p className="text-lg font-semibold text-gray-700">
-                {partosCount}ª cria
+                {partosCount + 1}ª cria
               </p>
             ) : (
               <p className="text-lg font-semibold text-gray-700">

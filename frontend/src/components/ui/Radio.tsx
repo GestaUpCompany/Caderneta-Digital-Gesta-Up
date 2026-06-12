@@ -16,6 +16,7 @@ interface RadioProps {
   error?: string
   direction?: 'horizontal' | 'vertical'
   gridCols?: number
+  disabled?: boolean
 }
 
 export default function Radio({
@@ -27,6 +28,7 @@ export default function Radio({
   error,
   direction = 'horizontal',
   gridCols,
+  disabled = false,
 }: RadioProps) {
   const containerStyles = direction === 'horizontal'
     ? gridCols
@@ -49,15 +51,18 @@ export default function Radio({
             <label
               key={option.value}
               className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
+                rounded-xl border-2 
+                transition-all
                 flex flex-col items-center justify-center gap-1
                 ${isCompact ? 'p-2 min-h-[70px]' : 'p-3 sm:p-4 min-h-[70px] sm:min-h-[80px]'}
                 ${isSelected
                   ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
-                  : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'
+                  : disabled
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400 cursor-pointer active:scale-95'
                 }
                 ${error && !isSelected ? 'border-red-300' : ''}
+                ${disabled && !isSelected ? 'opacity-60' : ''}
               `}
             >
               <input
@@ -65,7 +70,8 @@ export default function Radio({
                 name={name}
                 value={option.value}
                 checked={isSelected}
-                onChange={() => onChange(option.value)}
+                onChange={() => !disabled && onChange(option.value)}
+                disabled={disabled}
                 className="sr-only"
               />
               {option.icon && (
