@@ -12,7 +12,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getPastoByNome, getLoteByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida, getUltimoStatusPasto, getLoteDetalhesComCategorias, getPastos, getLotes, getFuncionarios } from '../../services/supabaseService'
+import { getPastoByNome, getUltimaDataPastoEntrada, getUltimaDataPastoSaida, getUltimoStatusPasto, getLoteDetalhesComCategorias, getPastos, getFuncionarios, getLotesByPastoId } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -44,6 +44,7 @@ interface FormState {
   data: string
   manejador: string
   numeroLote: string
+  loteId: string
   pastoSaida: string
   pastoSaidaAreaUtil: string
   pastoSaidaEspecie: string
@@ -88,6 +89,7 @@ const makeInitial = (usuario?: string): FormState => ({
   data: todayBR(),
   manejador: usuario || '',
   numeroLote: '',
+  loteId: '',
   pastoSaida: '',
   pastoSaidaAreaUtil: '',
   pastoSaidaEspecie: '',
@@ -160,7 +162,6 @@ export default function PastagensPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
-  const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
@@ -183,18 +184,15 @@ export default function PastagensPage() {
       const cache = getCachedCadastroData()
       if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
-        setLotesDisponiveis(cache.lotes || [])
         setFuncionariosDisponiveis(cache.funcionarios || [])
       } else if (fazendaId) {
         // Fallback: carregar do Supabase se cache estiver vazio
         try {
-          const [pastosData, lotesData, funcionariosData] = await Promise.all([
+          const [pastosData, funcionariosData] = await Promise.all([
             getPastos(fazendaId),
-            getLotes(fazendaId),
             getFuncionarios(fazendaId)
           ])
           setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
-          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
           setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
@@ -210,7 +208,6 @@ export default function PastagensPage() {
       console.log('[PastagensPage] Cache atualizado, recarregando dados')
       if (data) {
         setPastosDisponiveis(data.pastos || [])
-        setLotesDisponiveis(data.lotes || [])
         setFuncionariosDisponiveis(data.funcionarios || [])
       }
     })
@@ -223,46 +220,69 @@ export default function PastagensPage() {
     async function carregarDetalhesPastoSaida() {
       if (!form.pastoSaida || !fazendaId) {
         setDetalhesPastoSaida(null)
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+        setDetalhesLote(null)
         return
       }
 
       try {
-        // Verificar o último status do pasto para validar seleção
-        const ultimoStatus = await getUltimoStatusPasto(fazendaId, form.pastoSaida)
-        
-        // Se o último status foi saída, impedir seleção (pasto está vazio)
-        if (ultimoStatus === 'saida') {
-          setDetalhesPastoSaida(null)
-          setErrors([{ field: 'pastoSaida', message: 'Este pasto está vazio (último registro foi saída). Selecione outro pasto.' }])
+        // Buscar detalhes do pasto
+        const pasto = await getPastoByNome(fazendaId, form.pastoSaida)
+        if (!pasto) {
+          setErrors([{ field: 'pastoSaida', message: 'Pasto não encontrado. Selecione outro pasto.' }])
           set('pastoSaida')('')
           return
         }
 
-        // Buscar detalhes do pasto
-        const pasto = await getPastoByNome(fazendaId, form.pastoSaida)
-        
+        // Verificar se há um lote no pasto de saída (fonte de verdade: tabela lotes)
+        const lotes = await getLotesByPastoId(fazendaId, pasto.id)
+        if (!lotes || lotes.length === 0) {
+          setDetalhesPastoSaida(null)
+          setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+          setDetalhesLote(null)
+          setErrors([{ field: 'pastoSaida', message: 'Este pasto está vazio (não possui lote). Selecione outro pasto.' }])
+          set('pastoSaida')('')
+          return
+        }
+
         // Buscar última data de entrada para calcular tempo de ocupação
         const ultimaDataEntrada = await getUltimaDataPastoEntrada(fazendaId, form.pastoSaida)
         const tempoOcupacao = ultimaDataEntrada ? calcularDiferencaTempo(ultimaDataEntrada) : 'Primeiro uso'
-        
-        if (pasto) {
-          setDetalhesPastoSaida({
-            areaUtil: pasto.area_util_ha?.toString() || '',
-            especie: pasto.especie || '',
-            alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
-            alturaSaida: pasto.altura_saida_cm?.toString() || '',
-          })
-          // Atualizar o campo tempoOcupação no formulário
-          set('tempoOcupacao')(tempoOcupacao)
-          // Atualizar campos de detalhes do pasto no formulário
-          set('pastoSaidaAreaUtil')(pasto.area_util_ha?.toString() || '')
-          set('pastoSaidaEspecie')(pasto.especie || '')
-          // Remover erro se existia
-          setErrors(prev => prev.filter(e => e.field !== 'pastoSaida'))
-        }
+
+        setDetalhesPastoSaida({
+          areaUtil: pasto.area_util_ha?.toString() || '',
+          especie: pasto.especie || '',
+          alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
+          alturaSaida: pasto.altura_saida_cm?.toString() || '',
+        })
+        // Atualizar o campo tempoOcupação no formulário
+        set('tempoOcupacao')(tempoOcupacao)
+        // Atualizar campos de detalhes do pasto no formulário
+        set('pastoSaidaAreaUtil')(pasto.area_util_ha?.toString() || '')
+        set('pastoSaidaEspecie')(pasto.especie || '')
+        // Remover erro se existia
+        setErrors(prev => prev.filter(e => e.field !== 'pastoSaida'))
+
+        // Auto-popular com o primeiro lote (único permitido)
+        const lotePrincipal = lotes[0]
+        const categoriasDetalhes = await getLoteDetalhesComCategorias(lotePrincipal.id)
+        setDetalhesLote({
+          ...lotePrincipal,
+          categorias: categoriasDetalhes.categorias,
+          n_cabecas: categoriasDetalhes.quant_atual,
+          peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
+          qtd_bezerros: categoriasDetalhes.qtd_bezerros
+        })
+        setForm(prev => ({
+          ...prev,
+          numeroLote: lotePrincipal.nome || '',
+          loteId: lotePrincipal.id
+        }))
       } catch (error) {
         console.error('Erro ao carregar detalhes do pasto de saída:', error)
         setDetalhesPastoSaida(null)
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+        setDetalhesLote(null)
       }
     }
 
@@ -278,6 +298,24 @@ export default function PastagensPage() {
       }
 
       try {
+        // Buscar o pasto pelo nome para obter o ID
+        const pasto = await getPastoByNome(fazendaId, form.pastoEntrada)
+        if (!pasto) {
+          setDetalhesPastoEntrada(null)
+          setErrors([{ field: 'pastoEntrada', message: 'Pasto não encontrado. Selecione outro pasto.' }])
+          set('pastoEntrada')('')
+          return
+        }
+
+        // Verificar se o pasto de entrada já possui um lote (bloquear se sim)
+        const lotesEntrada = await getLotesByPastoId(fazendaId, pasto.id)
+        if (lotesEntrada && lotesEntrada.length > 0) {
+          setDetalhesPastoEntrada(null)
+          setErrors([{ field: 'pastoEntrada', message: `Este pasto já possui o lote ${lotesEntrada[0].nome}.` }])
+          set('pastoEntrada')('')
+          return
+        }
+
         // Verificar o último status do pasto para validar seleção
         const ultimoStatus = await getUltimoStatusPasto(fazendaId, form.pastoEntrada)
         
@@ -288,29 +326,24 @@ export default function PastagensPage() {
           set('pastoEntrada')('')
           return
         }
-
-        // Buscar detalhes do pasto
-        const pasto = await getPastoByNome(fazendaId, form.pastoEntrada)
         
         // Buscar última data de saída para calcular tempo de vedação
         const ultimaDataSaida = await getUltimaDataPastoSaida(fazendaId, form.pastoEntrada)
         const tempoVedacao = ultimaDataSaida ? calcularDiferencaTempo(ultimaDataSaida) : 'Primeiro uso'
         
-        if (pasto) {
-          setDetalhesPastoEntrada({
-            areaUtil: pasto.area_util_ha?.toString() || '',
-            especie: pasto.especie || '',
-            alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
-            alturaSaida: pasto.altura_saida_cm?.toString() || '',
-          })
-          // Atualizar o campo tempoVedação no formulário
-          set('tempoVedacao')(tempoVedacao)
-          // Atualizar campos de detalhes do pasto no formulário
-          set('pastoEntradaAreaUtil')(pasto.area_util_ha?.toString() || '')
-          set('pastoEntradaEspecie')(pasto.especie || '')
-          // Remover erro se existia
-          setErrors(prev => prev.filter(e => e.field !== 'pastoEntrada'))
-        }
+        setDetalhesPastoEntrada({
+          areaUtil: pasto.area_util_ha?.toString() || '',
+          especie: pasto.especie || '',
+          alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
+          alturaSaida: pasto.altura_saida_cm?.toString() || '',
+        })
+        // Atualizar o campo tempoVedação no formulário
+        set('tempoVedacao')(tempoVedacao)
+        // Atualizar campos de detalhes do pasto no formulário
+        set('pastoEntradaAreaUtil')(pasto.area_util_ha?.toString() || '')
+        set('pastoEntradaEspecie')(pasto.especie || '')
+        // Remover erro se existia
+        setErrors(prev => prev.filter(e => e.field !== 'pastoEntrada'))
       } catch (error) {
         console.error('Erro ao carregar detalhes do pasto de entrada:', error)
         setDetalhesPastoEntrada(null)
@@ -320,37 +353,6 @@ export default function PastagensPage() {
     carregarDetalhesPastoEntrada()
   }, [form.pastoEntrada, fazendaId])
 
-  // Buscar detalhes do lote quando selecionado
-  useEffect(() => {
-    async function carregarDetalhesLote() {
-      if (!form.numeroLote || !fazendaId) {
-        setDetalhesLote(null)
-        return
-      }
-
-      try {
-        const lote = await getLoteByNome(fazendaId, form.numeroLote)
-        if (lote) {
-          // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategorias(lote.id)
-          
-          // Combinar dados do lote com dados de categorias
-          setDetalhesLote({
-            ...lote,
-            categorias: categoriasDetalhes.categorias,
-            n_cabecas: categoriasDetalhes.quant_atual,
-            peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-            qtd_bezerros: categoriasDetalhes.qtd_bezerros
-          })
-        }
-      } catch (error) {
-        console.error('Erro ao carregar detalhes do lote:', error)
-        setDetalhesLote(null)
-      }
-    }
-
-    carregarDetalhesLote()
-  }, [form.numeroLote, fazendaId])
 
   const total = ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'].reduce(
     (acc, c) => acc + (Number(form[c as keyof FormState]) || 0), 0
@@ -432,6 +434,7 @@ export default function PastagensPage() {
       data: form.data,
       manejador: form.manejador,
       numeroLote: form.numeroLote,
+      loteId: form.loteId,
       pastoSaida: form.pastoSaida,
       pastoSaidaAreaUtil: form.pastoSaidaAreaUtil,
       pastoSaidaEspecie: form.pastoSaidaEspecie,
@@ -565,32 +568,6 @@ export default function PastagensPage() {
               id="manejador"
             />
           )}
-          {lotesDisponiveis.length > 0 ? (
-            <SearchableModal
-              label={<span>LOTE <span className="text-red-500">*</span></span>}
-              value={form.numeroLote}
-              onChange={set('numeroLote')}
-              error={getError('numeroLote')}
-              options={lotesDisponiveis}
-              placeholder="Buscar lote..."
-              id="numeroLote"
-              name="numeroLote"
-            />
-          ) : (
-            <Input
-              label={<span>NÚMERO DO LOTE <span className="text-red-500">*</span></span>}
-              placeholder="Carregando..."
-              value={form.numeroLote}
-              onChange={setInput('numeroLote')}
-              error={getError('numeroLote')}
-              inputMode="numeric"
-              disabled
-              id="numeroLote"
-            />
-          )}
-          {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
-          )}
         </div>
 
         {/* Seção 2: Pasto de Saída */}
@@ -619,6 +596,9 @@ export default function PastagensPage() {
           )}
           {detalhesPastoSaida && (
             <PastoDetalhesCard detalhes={detalhesPastoSaida} tipo="saida" tempo={form.tempoOcupacao} />
+          )}
+          {detalhesLote && (
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
           <Radio
             name="avaliacaoSaida"

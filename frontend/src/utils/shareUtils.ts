@@ -1313,16 +1313,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `Avaliação saída: *${registro.avaliacaoSaida || '—'}*\n`
       texto += `Tempo de ocupação: *${registro.tempoOcupacao || '—'}*\n\n`
 
-      // Seção PASTO ENTRADA
-      texto += `PASTO/CURRAL ENTRADA\n`
-      texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
-      texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
-      texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
-      texto += `Avaliação entrada: *${registro.avaliacaoEntrada || '—'}*\n`
-      texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
-
-      // Seção LOTE
-      texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
+      // Seção LOTE SAÍDA
+      texto += `LOTE SAÍDA: *${registro.numeroLote || '—'}*\n\n`
 
       // Seção QUANTIDADE DE ANIMAIS
       texto += `QUANTIDADE DE ANIMAIS\n`
@@ -1353,6 +1345,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         texto += `TOTAL: *${registro.totalAnimais} animais*\n`
       }
       texto += `\n`
+
+      // Seção PASTO ENTRADA
+      texto += `PASTO/CURRAL ENTRADA\n`
+      texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
+      texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
+      texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
+      texto += `Avaliação entrada: *${registro.avaliacaoEntrada || '—'}*\n`
+      texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
 
       // Escore do gado
       if (registro.escoreGado) {
