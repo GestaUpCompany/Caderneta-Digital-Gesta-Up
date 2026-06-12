@@ -11,6 +11,7 @@ import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { getFornecedores, getFuncionarios, getInsumos, createInsumo } from '../../services/supabaseService'
+import FeatureLock from '../../components/FeatureLock'
 
 interface ItemEntrada {
   id: string // ID temporário para controle no frontend
@@ -347,6 +348,7 @@ export default function EntradaInsumosPage() {
   }
 
   return (
+    <FeatureLock feature="entrada-insumos" fazendaId={fazendaId}>
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header sticky com botões e título */}
       <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
@@ -633,5 +635,6 @@ export default function EntradaInsumosPage() {
         caderneta="entrada-insumos"
       />
     </div>
+    </FeatureLock>
   )
 }

@@ -146,6 +146,7 @@ export default function MaternidadePage() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [partosCount, setPartosCount] = useState<number>(0)
+  const [hasIndividuos, setHasIndividuos] = useState<boolean | null>(null)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
@@ -522,14 +523,17 @@ export default function MaternidadePage() {
         {/* Seção 2: Dados da Mãe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO DA MÃE</h2>
-          <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
-            💡 <strong>Não encontrou a mãe?</strong> Clique em qualquer um dos 3 campos de busca abaixo, vá em <strong>NOVO</strong> no final da tela que se abrir e informe o ID Manejo, Brinco e/ou Chip para cadastrá-la automaticamente.
-          </p>
+          {hasIndividuos === true && (
+            <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
+              💡 <strong>Não encontrou a mãe?</strong> Clique em qualquer um dos 3 campos de busca abaixo, vá em <strong>NOVO</strong> no final da tela que se abrir e informe o ID Manejo, Brinco e/ou Chip para cadastrá-la automaticamente.
+            </p>
+          )}
           <AnimalIdentifier
             fazendaId={fazendaId}
             valueManejo={form.idManejoMae}
             valueBrinco={form.idBrincoMae}
             valueChip={form.idChipMae}
+            onHasIndividuosChange={setHasIndividuos}
             onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
               setForm(prev => ({
                 ...prev,

@@ -30,6 +30,7 @@ interface AnimalIdentifierProps {
     individuoId: string | null
     animalData: AnimalData | null
   }) => void
+  onHasIndividuosChange?: (has: boolean | null) => void
   required?: boolean
   showAnimalCard?: boolean
   disabled?: boolean
@@ -42,6 +43,7 @@ export default function AnimalIdentifier({
   valueBrinco,
   valueChip,
   onChange,
+  onHasIndividuosChange,
   required = false,
   showAnimalCard = true,
   disabled = false,
@@ -50,6 +52,11 @@ export default function AnimalIdentifier({
   const [loading, setLoading] = useState(false)
   const [hasIndividuos, setHasIndividuos] = useState<boolean | null>(null)
   const [animalEncontrado, setAnimalEncontrado] = useState<AnimalData | null>(null)
+
+  // Notify parent when hasIndividuos changes
+  useEffect(() => {
+    onHasIndividuosChange?.(hasIndividuos)
+  }, [hasIndividuos, onHasIndividuosChange])
 
   // Check if there are any individuos for this fazenda
   useEffect(() => {

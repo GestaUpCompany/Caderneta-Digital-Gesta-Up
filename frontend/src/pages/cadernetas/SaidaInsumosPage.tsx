@@ -9,6 +9,7 @@ import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { getDietasNomes } from '../../services/supabaseService'
+import FeatureLock from '../../components/FeatureLock'
 
 interface FormState {
   dataProducao: string
@@ -161,6 +162,7 @@ export default function SaidaInsumosPage() {
   }
 
   return (
+    <FeatureLock feature="saida-insumos" fazendaId={fazendaId}>
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header sticky com botões e título */}
       <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
@@ -304,5 +306,6 @@ export default function SaidaInsumosPage() {
         caderneta="saida-insumos"
       />
     </div>
+    </FeatureLock>
   )
 }

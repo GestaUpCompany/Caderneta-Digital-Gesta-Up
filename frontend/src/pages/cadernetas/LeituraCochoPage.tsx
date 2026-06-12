@@ -13,6 +13,7 @@ import { getLoteByNome, getLoteDetalhesComCategorias, getPastos, getLotes } from
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import FeatureLock from '../../components/FeatureLock'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -191,6 +192,7 @@ export default function LeituraCochoPage() {
   }
 
   return (
+    <FeatureLock feature="leitura-cocho" fazendaId={fazendaId}>
     <>
       <CadernetaLayout title="LEITURA DE COCHO" cadernetaId="leitura-cocho">
         {/* Tarja de desenvolvimento */}
@@ -371,5 +373,6 @@ export default function LeituraCochoPage() {
         ]}
       />
     </>
+    </FeatureLock>
   )
 }
