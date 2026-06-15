@@ -10,7 +10,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getLotes, getLastRodeioDate } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getLotes, getLastRodeioDate, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -26,6 +26,14 @@ const DIAGNOSTICOS = [
   { campo: 'carrapatosMoscas', label: 'CARRAPATOS / MOSCAS?' },
   { campo: 'animaisEntreverados', label: 'ANIMAIS ENTREVERADOS?' },
   { campo: 'animalMorto', label: 'ANIMAL MORTO?' },
+]
+
+// Fields where "Sim" means a problem exists (observation should show on "Sim")
+const INVERTED_DIAGNOSTICOS = [
+  'animaisMachucadosDoentesBichados',
+  'carrapatosMoscas',
+  'animaisEntreverados',
+  'animalMorto',
 ]
 
 const ESCALA_5 = [
@@ -143,17 +151,23 @@ export default function RodeioPage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [metaRodeioInfo, setMetaRodeioInfo] = useState<{ metaDias: number; diasDesdeUltimo: number; diasAteProximo: number; isDentroMeta: boolean; hasRecord: boolean } | null>(null)
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
 
-  // Carregar lotes do cache global, com fallback para Supabase
+  // Carregar lotes e funcionários do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
       const cache = getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
+        setFuncionariosDisponiveis(cache.funcionarios || [])
       } else if (fazendaId) {
         try {
-          const lotesData = await getLotes(fazendaId)
+          const [lotesData, funcionariosData] = await Promise.all([
+            getLotes(fazendaId),
+            getFuncionarios(fazendaId)
+          ])
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
         }
@@ -168,6 +182,7 @@ export default function RodeioPage() {
       console.log('[RodeioPage] Cache atualizado, recarregando dados')
       if (data) {
         setLotesDisponiveis(data.lotes || [])
+        setFuncionariosDisponiveis(data.funcionarios || [])
       }
     })
 
@@ -195,9 +210,12 @@ export default function RodeioPage() {
           const hasRecord = !!lastRodeioDate
           let diasDesdeUltimo = 0
           if (lastRodeioDate) {
-            const now = Date.now()
-            const last = new Date(lastRodeioDate).getTime()
-            const diffMs = now - last
+            // Normalize both dates to midnight to avoid timezone issues
+            const hoje = new Date()
+            hoje.setHours(0, 0, 0, 0)
+            const ultimo = new Date(lastRodeioDate)
+            ultimo.setHours(0, 0, 0, 0)
+            const diffMs = hoje.getTime() - ultimo.getTime()
             diasDesdeUltimo = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
           }
           const diasAteProximo = metaDias - diasDesdeUltimo
@@ -523,7 +541,8 @@ export default function RodeioPage() {
                 error={getError(campo)}
                 gridCols={2}
               />
-              {form.diagnosticos[campo]?.valor === 'N' && (
+              {((form.diagnosticos[campo]?.valor === 'N' && !INVERTED_DIAGNOSTICOS.includes(campo)) ||
+                (form.diagnosticos[campo]?.valor === 'S' && INVERTED_DIAGNOSTICOS.includes(campo))) && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={form.diagnosticos[campo]?.observacao || ''}
@@ -600,17 +619,34 @@ export default function RodeioPage() {
           {form.equipe && Number(form.equipe) > 0 && (
             <div className="flex flex-col gap-3">
               {Array.from({ length: Number(form.equipe) }).map((_, index) => (
-                <Input
-                  key={index}
-                  label={`Nome da ${index + 1}ª pessoa`}
-                  placeholder="Nome"
-                  value={form.equipeNomes[index] || ''}
-                  onChange={(e) => {
-                    const newNomes = [...form.equipeNomes]
-                    newNomes[index] = e.target.value
-                    setForm(prev => ({ ...prev, equipeNomes: newNomes }))
-                  }}
-                />
+                funcionariosDisponiveis.length > 0 ? (
+                  <SearchableModal
+                    key={index}
+                    label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
+                    value={form.equipeNomes[index] || ''}
+                    onChange={(val) => {
+                      const newNomes = [...form.equipeNomes]
+                      newNomes[index] = val
+                      setForm(prev => ({ ...prev, equipeNomes: newNomes }))
+                    }}
+                    options={funcionariosDisponiveis}
+                    placeholder="Buscar funcionário..."
+                    id={`equipeNome-${index}`}
+                    name={`equipeNome-${index}`}
+                  />
+                ) : (
+                  <Input
+                    key={index}
+                    label={`Nome da ${index + 1}ª pessoa`}
+                    placeholder="Nome"
+                    value={form.equipeNomes[index] || ''}
+                    onChange={(e) => {
+                      const newNomes = [...form.equipeNomes]
+                      newNomes[index] = e.target.value
+                      setForm(prev => ({ ...prev, equipeNomes: newNomes }))
+                    }}
+                  />
+                )
               ))}
             </div>
           )}

@@ -46,6 +46,7 @@ const RACAS = [
   { value: 'Charolês', label: 'CHAROLÊS' },
   { value: 'Gir', label: 'GIR' },
   { value: 'Girolando', label: 'GIROLANDO' },
+  { value: 'Guacho', label: 'GUACHO' },
   { value: 'Guzerá', label: 'GUZERÁ' },
   { value: 'Leiteiro', label: 'LEITEIRO' },
   { value: 'Limousin', label: 'LIMOUSIN' },

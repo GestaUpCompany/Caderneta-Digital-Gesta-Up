@@ -1,5 +1,3 @@
-import { isoToBR } from '../utils/formatDate'
-
 interface MetaRodeioInfo {
   metaDias: number
   diasDesdeUltimo: number
@@ -60,7 +58,7 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias, metaRo
         )}
         <div className="col-span-2">
           <p className="text-gray-500 font-semibold">CATEGORIAS</p>
-          <p className="text-gray-900 font-bold break-words">{categoriasProcessadas}</p>
+          <p className="text-gray-900 font-bold break-words capitalize">{categoriasProcessadas}</p>
         </div>
         <div>
           <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
@@ -80,7 +78,15 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias, metaRo
             {(() => {
               const { hasRecord, isDentroMeta, diasAteProximo, diasDesdeUltimo, metaDias } = metaRodeio
               const plural = (n: number) => n > 1 ? 's' : ''
-              const dataProx = detalhes.data_proximo_rodeio ? isoToBR(detalhes.data_proximo_rodeio) : null
+              // Calculate next date dynamically from diasAteProximo to avoid stale DB values
+              const calcularDataProxima = (dias: number): string => {
+                const hoje = new Date()
+                hoje.setHours(0, 0, 0, 0)
+                const proxima = new Date(hoje)
+                proxima.setDate(hoje.getDate() + dias)
+                return proxima.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+              }
+              const dataProx = diasAteProximo >= 0 ? calcularDataProxima(diasAteProximo) : null
               if (!hasRecord) {
                 return (
                   <p className="font-bold text-blue-600">

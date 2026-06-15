@@ -27,6 +27,7 @@ const RACAS = [
   { value: 'Angus', label: 'ANGUS' },
   { value: 'Leiteiro', label: 'LEITEIRO' },
   { value: 'Anelorado', label: 'ANELORADO' },
+  { value: 'Guacho', label: 'GUACHO' },
   { value: 'SRD', label: 'SRD' },
   { value: 'Outros', label: 'OUTROS' },
 ]

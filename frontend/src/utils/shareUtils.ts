@@ -1056,6 +1056,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
           texto += `${label}: *${valorFormatado}*\n`
         }
         texto += `\n`
+      } else if (key === 'escoreFezes') {
+        if (value !== null && value !== undefined && value !== '') {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const valorFormatado = formatFieldValue(key, value)
+          texto += `${label}: *${valorFormatado}*\n\n`
+        }
       } else if (key === 'equipe') {
         // Show equipe number and names
         if (value !== null && value !== undefined && value !== '') {
@@ -1070,6 +1076,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
               texto += `EQUIPE: *${nomesComValor.join(', ')}*\n`
             }
           }
+        }
+        texto += `\n`
+      } else if (key === 'escoreGado') {
+        if (value !== null && value !== undefined && value !== '') {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const valorFormatado = formatFieldValue(key, value)
+          texto += `${label}: *${valorFormatado}*\n\n`
         }
       } else if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
@@ -1088,25 +1101,41 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'animaisEntreverados',
       'animalMorto',
     ]
+    const invertedDiagnosticos = [
+      'animaisMachucadosDoentesBichados',
+      'carrapatosMoscas',
+      'animaisEntreverados',
+      'animalMorto',
+    ]
 
-    texto += 'AVALIAÇÃO GERAL:\n'
-    
-    ordemDiagnosticos.forEach(key => {
+    const diagnosticosNegativos = ordemDiagnosticos.filter(key => {
       const data = (registro.diagnosticos as any)?.[key]
-      if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
+      if (!data || data.valor === null || data.valor === undefined || data.valor === '') return false
+      const isInverted = invertedDiagnosticos.includes(key)
+      const isSim = data.valor === 'S' || data.valor === true
+      // Show only when answer is problematic: 'N' for normal, 'S' for inverted
+      return isInverted ? isSim : !isSim
+    })
+
+    if (diagnosticosNegativos.length > 0) {
+      texto += 'AVALIAÇÃO GERAL:\n'
+      
+      diagnosticosNegativos.forEach(key => {
+        const data = (registro.diagnosticos as any)?.[key]
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
-        // Add warning icon for inverted fields (Sim = bad)
-        const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
-        const hasWarning = (data.valor === 'S' || data.valor === true) && invertedWarningFields.includes(key)
-        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
+        // All displayed diagnostics are negative — add warning icon to every one
+        texto += `⚠️ ${label}: *${valorFormatado}*\n`
         
-        // Only show observation when answer is 'N' (NÃO)
-        if (data.observacao && data.observacao !== '' && data.valor === 'N') {
+        // Show observation when answer is problematic (matches field context)
+        const isInverted = invertedDiagnosticos.includes(key)
+        const isSim = data.valor === 'S' || data.valor === true
+        const showObs = isInverted ? isSim : !isSim
+        if (data.observacao && data.observacao !== '' && showObs) {
           texto += `OBSERVAÇÃO: *${data.observacao}*\n`
         }
-      }
-    })
+      })
+    }
 
     // Adicionar info de meta rodeio se disponível
     const metaRodeio = (registro as any).metaRodeio
