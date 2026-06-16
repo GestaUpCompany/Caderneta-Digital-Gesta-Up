@@ -599,6 +599,49 @@ export async function getEspacamentoIdealCocho(fazendaId: string, produtoTipo: s
   return produto?.espacamento_ideal_cocho || null
 }
 
+export async function getEspacamentoIdealCochoPorFormulacao(fazendaId: string, formulacaoNome: string): Promise<number | null> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('formulacoes')
+    .select('espacamento_ideal_cocho')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', formulacaoNome)
+    .eq('ativo', true)
+    .maybeSingle()
+
+  if (error) throw error
+  return data?.espacamento_ideal_cocho || null
+}
+
+// ==================== FORMULAÇÕES ====================
+
+export async function getFormulacoes(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('formulacoes')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
+export async function getFormulacaoByNome(fazendaId: string, nome: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('formulacoes')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('nome', nome)
+    .eq('ativo', true)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insumos_itens'>) {
   const { data, error } = await supabase
     .from('entrada_insumos_itens')

@@ -8,6 +8,13 @@ interface LoteOcupandoPastoCardProps {
   processarCategorias?: (categorias: string) => string[]
 }
 
+function capitalizeWords(text: string): string {
+  return text
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 export default function LoteOcupandoPastoCard({ detalhes, processarCategorias }: LoteOcupandoPastoCardProps) {
   let categoriasTexto = detalhes.categorias || '-'
 
@@ -16,7 +23,7 @@ export default function LoteOcupandoPastoCard({ detalhes, processarCategorias }:
       const categoriasArray = JSON.parse(detalhes.categorias)
       if (Array.isArray(categoriasArray)) {
         categoriasTexto = categoriasArray
-          .map((cat: string) => cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase())
+          .map((cat: string) => capitalizeWords(cat))
           .join(', ')
       }
     }
@@ -25,8 +32,8 @@ export default function LoteOcupandoPastoCard({ detalhes, processarCategorias }:
   }
 
   const categoriasProcessadas = processarCategorias && categoriasTexto !== '-'
-    ? processarCategorias(categoriasTexto).join(', ')
-    : categoriasTexto
+    ? processarCategorias(categoriasTexto).map(capitalizeWords).join(', ')
+    : capitalizeWords(categoriasTexto)
 
   const totalCabecas = detalhes.n_cabecas || 0
 

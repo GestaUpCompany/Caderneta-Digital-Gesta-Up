@@ -1,24 +1,6 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
 
-// Fields where "Não" should have a warning icon (negative when false)
-const WARNING_FIELDS: Record<string, string[]> = {
-  bebedouros: [
-    'agua_suficiente',
-    'vazao_bebedouro_ideal',
-    'aterro_acesso_bebedouro_ideal',
-    'espacamento_bebedouro_ideal',
-    'boia_protecao_boas_condicoes',
-  ],
-  suplementacao: [
-    'limpeza_cocho',
-    'espacamento_cocho_adequado',
-    'cochos_condicoes',
-    'aterro_acesso_ideal',
-    'deposito_condicoes',
-  ],
-}
-
 // Fields where "Sim" should have a warning icon (negative when true)
 const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
   pastagens: [
@@ -575,12 +557,23 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Seção: Informações Básicas
     texto += `TRATADOR: *${registro.tratador || '—'}*\n`
     texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
-    texto += `LOTE: *${registro.numeroLote || '—'}*\n`
-    texto += `SUPLEMENTO: *${registro.produto || '—'}*\n\n`
+    texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
+    texto += `FORMULAÇÃO\n`
+    texto += `NOME: *${registro.produto || '—'}*\n`
+    if (registro.teorMs !== null && registro.teorMs !== undefined) {
+      texto += `TEOR MS (%): *${registro.teorMs}%*\n`
+    }
+    if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
+      texto += `META CONSUMO (%/PV): *${registro.metaConsumo}%*\n`
+    }
+    texto += `\n`
     
     // Seção: Categorias
     if (registro.categorias && Array.isArray(registro.categorias) && registro.categorias.length > 0) {
-      texto += `CATEGORIAS: *${registro.categorias.join(', ')}*\n\n`
+      const categoriasCapitalizadas = registro.categorias.map((cat: string) =>
+        cat.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+      )
+      texto += `CATEGORIAS: *${categoriasCapitalizadas.join(', ')}*\n\n`
     }
     
     // Seção: Leituras e Quantidades
@@ -610,78 +603,65 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `Cabeças adultas: *${detalhes.cabecas_adultas}*\n`
     }
     
-    // Seção: Checklist Cochos - sempre exibir todas as perguntas
+    // Seção: Checklist Cochos — only display problematic (false/Não) answers
     const checklistCochos = [
       { campo: 'limpeza_cocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
       { campo: 'espacamento_cocho_adequado', label: 'ESPAÇAMENTO DE COCHO ESTÁ ADEQUADO?' },
       { campo: 'cochos_condicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
-      { campo: 'aterro_acesso_ideal', label: 'ATERRO / ACESSO DE COCHO' },
+      { campo: 'aterro_acesso_ideal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' }
     ]
-    
-    texto += `\nCHECKLIST COCHOS\n`
-    
-    checklistCochos.forEach(({ campo, label }) => {
-      // Try to get from JSONB checklist structure (after sync)
+
+    const problematicosCochos = checklistCochos.map(({ campo, label }) => {
       let valor = null
       let observacao = null
       if (registro.checklist && (registro.checklist as any)[campo]) {
         valor = (registro.checklist as any)[campo].valor
         observacao = (registro.checklist as any)[campo].observacao
-      }
-      // Fallback to flat structure (before sync)
-      else {
+      } else {
         const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      
-      if (valor === true || valor === false) {
-        const valorFormatado = valor ? 'Sim' : 'Não'
-        // Add warning icon for "Não" in checklist fields
-        const hasWarning = !valor && WARNING_FIELDS.suplementacao?.includes(campo)
-        texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
-      }
-      
-      // Adicionar observação
-      if (observacao && observacao !== '') {
-        texto += `OBSERVAÇÃO: *${observacao}*\n`
-      }
-    })
-    
-    // Seção: Checklist Depósito - só exibir se o pasto tiver depósito
-    const checklistDeposito = [
-      { campo: 'deposito_condicoes', label: 'DEPÓSITO EM BOAS CONDIÇÕES' },
-    ]
+      return { label, valor, observacao }
+    }).filter(item => item.valor === false)
 
-    const depositoLines: string[] = []
-    checklistDeposito.forEach(({ campo, label }) => {
-      // Try to get from JSONB checklist structure (after sync)
-      let valor = null
-      let observacao = null
-      if (registro.checklist && (registro.checklist as any)[campo]) {
-        valor = (registro.checklist as any)[campo].valor
-        observacao = (registro.checklist as any)[campo].observacao
-      }
-      // Fallback to flat structure (before sync)
-      else {
-        const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
-        valor = (registro as any)[flatCampo]
-        observacao = (registro as any)[`${flatCampo}Obs`]
-      }
-
-      if (valor === true || valor === false) {
-        const valorFormatado = valor ? 'Sim' : 'Não'
-        const hasWarning = !valor && WARNING_FIELDS.suplementacao?.includes(campo)
-        depositoLines.push(`${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`)
+    if (problematicosCochos.length > 0) {
+      texto += `\nCHECKLIST COCHOS\n`
+      problematicosCochos.forEach(({ label, observacao }) => {
+        texto += `⚠️ ${label}: *Não*\n`
         if (observacao && observacao !== '') {
-          depositoLines.push(`OBSERVAÇÃO: *${observacao}*\n`)
+          texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
-      }
-    })
+      })
+    }
 
-    if (depositoLines.length > 0) {
+    // Seção: Checklist Depósito — only display problematic (false/Não) answers
+    const checklistDeposito = [
+      { campo: 'deposito_condicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' }
+    ]
+
+    const problematicosDeposito = checklistDeposito.map(({ campo, label }) => {
+      let valor = null
+      let observacao = null
+      if (registro.checklist && (registro.checklist as any)[campo]) {
+        valor = (registro.checklist as any)[campo].valor
+        observacao = (registro.checklist as any)[campo].observacao
+      } else {
+        const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
+        valor = (registro as any)[flatCampo]
+        observacao = (registro as any)[`${flatCampo}Obs`]
+      }
+      return { label, valor, observacao }
+    }).filter(item => item.valor === false)
+
+    if (problematicosDeposito.length > 0) {
       texto += `\nCHECKLIST DEPÓSITO\n`
-      depositoLines.forEach(line => { texto += line })
+      problematicosDeposito.forEach(({ label, observacao }) => {
+        texto += `⚠️ ${label}: *Não*\n`
+        if (observacao && observacao !== '') {
+          texto += `OBSERVAÇÃO: *${observacao}*\n`
+        }
+      })
     }
   } else if (caderneta === 'enfermaria') {
     // Seção: INFORMAÇÕES BÁSICAS

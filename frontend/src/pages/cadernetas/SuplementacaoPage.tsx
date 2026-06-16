@@ -10,8 +10,9 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCocho, getPastos, getLotesByPastoId, getMineral, getProteinado, getRacao, getInsumos } from '../../services/supabaseService'
+import { getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCochoPorFormulacao, getPastos, getLotesByPastoId, getFormulacoes, getFormulacaoByNome } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
+import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -30,12 +31,6 @@ function processarCategorias(categorias: string): string[] {
     .filter(c => c.length > 0)
 }
 
-const PRODUTOS = [
-  { value: 'Mineral', label: 'MINERAL', icon: '' },
-  { value: 'Proteinado', label: 'PROTEINADO', icon: '' },
-  { value: 'Ração', label: 'RAÇÃO', icon: '' },
-  { value: 'Insumos', label: 'INSUMOS', icon: '' },
-]
 
 const LEITURAS = [
   { value: '-1', label: '-1', icon: '🔴' },
@@ -74,7 +69,7 @@ interface FormState {
   numeroLote: string
   loteId: string
   pastoId: string
-  produto: string
+  formulacao: string
   leitura: string
   kgCocho: string
   kgDeposito: string
@@ -123,7 +118,7 @@ const makeInitial = (usuario?: string): FormState => ({
   numeroLote: '',
   loteId: '',
   pastoId: '',
-  produto: '',
+  formulacao: '',
   leitura: '',
   kgCocho: '',
   kgDeposito: '',
@@ -153,11 +148,8 @@ export default function SuplementacaoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showFezesModal, setShowFezesModal] = useState(false)
-  const [mineralDisponiveis, setMineralDisponiveis] = useState<string[]>([])
-  const [proteinadoDisponiveis, setProteinadoDisponiveis] = useState<string[]>([])
-  const [racaoDisponiveis, setRacaoDisponiveis] = useState<string[]>([])
-  const [insumosDisponiveis, setInsumosDisponiveis] = useState<string[]>([])
-  const [suplemento, setSuplemento] = useState('')
+  const [formulacoesDisponiveis, setFormulacoesDisponiveis] = useState<string[]>([])
+  const [loadingFormulacoes, setLoadingFormulacoes] = useState(false)
   const [kgDeposito, setKgDeposito] = useState('')
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesNoPasto, setLotesNoPasto] = useState<any[]>([])
@@ -165,56 +157,62 @@ export default function SuplementacaoPage() {
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
+  const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ nome: string; teorMs: number | null; metaConsumo: number | null } | null>(null)
 
-  // Carregar todos os suplementos ao abrir a página, com fallback para Supabase
+  // Buscar detalhes da formulação quando selecionada
+  useEffect(() => {
+    async function carregarDetalhesFormulacao() {
+      if (!form.formulacao || !fazendaId) {
+        setFormulacaoDetalhes(null)
+        return
+      }
+      try {
+        const formulacao = await getFormulacaoByNome(fazendaId, form.formulacao)
+        if (formulacao) {
+          setFormulacaoDetalhes({
+            nome: formulacao.nome,
+            teorMs: formulacao.teor_ms_dieta ?? null,
+            metaConsumo: formulacao.meta_consumo_ms_percent_pv ?? null,
+          })
+        } else {
+          setFormulacaoDetalhes(null)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar detalhes da formulação:', error)
+        setFormulacaoDetalhes(null)
+      }
+    }
+    carregarDetalhesFormulacao()
+  }, [form.formulacao, fazendaId])
+
+  // Carregar formulações e pastos ao abrir a página
   useEffect(() => {
     const loadData = async () => {
       const cache = getCachedCadastroData()
-      if (cache && cache.mineral && cache.mineral.length > 0) {
-        setMineralDisponiveis(cache.mineral || [])
-        setProteinadoDisponiveis(cache.proteinado || [])
-        setRacaoDisponiveis(cache.racao || [])
-        setInsumosDisponiveis(cache.insumos || [])
+      if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
-      } else if (fazendaId) {
-        try {
-          const [mineralData, proteinadoData, racaoData, insumosData] = await Promise.all([
-            getMineral(fazendaId),
-            getProteinado(fazendaId),
-            getRacao(fazendaId),
-            getInsumos(fazendaId)
-          ])
-          setMineralDisponiveis(mineralData?.map((m: any) => m.nome) || [])
-          setProteinadoDisponiveis(proteinadoData?.map((p: any) => p.nome) || [])
-          setRacaoDisponiveis(racaoData?.map((r: any) => r.nome) || [])
-          setInsumosDisponiveis(insumosData?.map((i: any) => i.nome) || [])
-        } catch (error) {
-          console.error('Erro ao carregar suplementos do Supabase:', error)
-        }
+      }
+
+      if (!fazendaId) {
+        setFormulacoesDisponiveis([])
+        return
+      }
+
+      setLoadingFormulacoes(true)
+      try {
+        const [formulacoesData] = await Promise.all([
+          getFormulacoes(fazendaId)
+        ])
+        setFormulacoesDisponiveis(formulacoesData?.map((f: any) => f.nome) || [])
+      } catch (error) {
+        console.error('Erro ao carregar formulações do Supabase:', error)
+        setFormulacoesDisponiveis([])
+      } finally {
+        setLoadingFormulacoes(false)
       }
     }
     loadData()
   }, [fazendaId])
-
-  useEffect(() => {
-    setSuplemento('')
-  }, [form.produto])
-
-  // Obter opções de suplemento baseado no produto selecionado
-  const getSuplementoOptions = (): string[] => {
-    switch (form.produto) {
-      case 'Mineral':
-        return mineralDisponiveis
-      case 'Proteinado':
-        return proteinadoDisponiveis
-      case 'Ração':
-        return racaoDisponiveis
-      case 'Insumos':
-        return insumosDisponiveis
-      default:
-        return []
-    }
-  }
 
   // Carregar pastos do cache global, com fallback para Supabase
   useEffect(() => {
@@ -239,10 +237,6 @@ export default function SuplementacaoPage() {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[SuplementacaoPage] Cache atualizado, recarregando dados')
       if (data) {
-        setMineralDisponiveis(data.mineral || [])
-        setProteinadoDisponiveis(data.proteinado || [])
-        setRacaoDisponiveis(data.racao || [])
-        setInsumosDisponiveis(data.insumos || [])
         setPastosDisponiveis(data.pastos || [])
       }
     })
@@ -347,7 +341,7 @@ export default function SuplementacaoPage() {
   // Calcular espacamento do cocho quando dados mudarem
   useEffect(() => {
     async function calcularEspacamentoCocho() {
-      if (!dadosPasto || !detalhesLote || !form.produto || !suplemento || !fazendaId) {
+      if (!dadosPasto || !detalhesLote || !form.formulacao || !fazendaId) {
         setEspacamentoCochoDetalhes(null)
         return
       }
@@ -376,7 +370,7 @@ export default function SuplementacaoPage() {
         }
 
         const espacamentoCalculado = metragemCochoM / cabecasAdultas
-        const espacamentoIdeal = await getEspacamentoIdealCocho(fazendaId, form.produto, suplemento)
+        const espacamentoIdeal = await getEspacamentoIdealCochoPorFormulacao(fazendaId, form.formulacao)
 
         if (!espacamentoIdeal) {
           setEspacamentoCochoDetalhes({
@@ -405,7 +399,7 @@ export default function SuplementacaoPage() {
     }
 
     calcularEspacamentoCocho()
-  }, [dadosPasto, detalhesLote, form.produto, suplemento, fazendaId])
+  }, [dadosPasto, detalhesLote, form.formulacao, fazendaId])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -421,7 +415,7 @@ export default function SuplementacaoPage() {
       data: { required: true },
       tratador: { required: true },
       pasto: { required: true },
-      produto: { required: true },
+      formulacao: { required: true },
       leitura: { required: true },
       limpezaCocho: { required: true },
       espacamentoCochoAdequado: { required: true },
@@ -446,8 +440,6 @@ export default function SuplementacaoPage() {
       return
     }
 
-    const produtoFinal = suplemento
-    
     // Buscar categorias do lote selecionado
     let categoriasString = ''
     let categoriasArray: string[] = []
@@ -463,7 +455,9 @@ export default function SuplementacaoPage() {
       pastoId: form.pastoId,
       numeroLote: form.numeroLote,
       loteId: form.loteId,
-      produto: produtoFinal,
+      produto: form.formulacao,
+      teorMs: formulacaoDetalhes?.teorMs ?? null,
+      metaConsumo: formulacaoDetalhes?.metaConsumo ?? null,
       leituraCocho: form.leitura ? Number(form.leitura) : null,
       kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
@@ -507,7 +501,6 @@ export default function SuplementacaoPage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
-      setSuplemento('')
       setKgDeposito('')
     }
   }
@@ -622,26 +615,23 @@ export default function SuplementacaoPage() {
         {/* Seção 2: Tipo de Suplementação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. TIPO DE SUPLEMENTAÇÃO <span className="text-red-500">*</span></h2>
-          <Radio
-            name="produto"
-            label="PRODUTO"
-            options={PRODUTOS}
-            value={form.produto}
-            onChange={set('produto')}
-            error={getError('produto')}
-            gridCols={2}
+          <SearchableModal
+            label="FORMULAÇÃO"
+            value={form.formulacao}
+            onChange={set('formulacao')}
+            error={getError('formulacao')}
+            options={formulacoesDisponiveis}
+            placeholder={loadingFormulacoes ? 'Carregando formulações...' : 'Buscar formulação...'}
+            disabled={loadingFormulacoes}
+            id="formulacao"
+            name="formulacao"
           />
-
-          {/* SearchableModal para suplemento (Mineral/Proteinado/Ração) */}
-          {form.produto && form.produto !== 'Creep' && (
-            <SearchableModal
-              label="SUPLEMENTO"
-              value={suplemento}
-              onChange={setSuplemento}
-              options={getSuplementoOptions()}
-              placeholder="Buscar suplemento..."
-              id="suplemento"
-              name="suplemento"
+          {formulacaoDetalhes && (
+            <FormulacaoDetalhesCard
+              detalhes={{
+                teorMs: formulacaoDetalhes.teorMs,
+                metaConsumo: formulacaoDetalhes.metaConsumo,
+              }}
             />
           )}
         </div>
