@@ -8,7 +8,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getMaquinasVeiculos, getMaquinaVeiculoByNome } from '../../services/supabaseService'
+import { getMaquinasVeiculos, getMaquinaVeiculoByNome, getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 
 const COMBUSTIVEL_OPTIONS = [
@@ -77,17 +77,36 @@ export default function AbastecimentoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [loadingFuncionarios, setLoadingFuncionarios] = useState(false)
   const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
   const [maquinaVeiculoSelecionada, setMaquinaVeiculoSelecionada] = useState<any>(null)
 
 
-  // Carregar funcionários do cache
+  // Carregar funcionários do cache, com fallback para Supabase
   useEffect(() => {
-    const cachedData = getCachedCadastroData()
-    if (cachedData?.funcionarios) {
-      setFuncionariosDisponiveis(cachedData.funcionarios)
+    const loadFuncionarios = async () => {
+      const cachedData = getCachedCadastroData()
+      if (cachedData?.funcionarios && cachedData.funcionarios.length > 0) {
+        setFuncionariosDisponiveis(cachedData.funcionarios)
+        return
+      }
+      if (!fazendaId) {
+        setFuncionariosDisponiveis([])
+        return
+      }
+      setLoadingFuncionarios(true)
+      try {
+        const funcionarios = await getFuncionarios(fazendaId)
+        setFuncionariosDisponiveis(funcionarios.map(f => f.nome))
+      } catch (error) {
+        console.error('Erro ao carregar funcionários:', error)
+        setFuncionariosDisponiveis([])
+      } finally {
+        setLoadingFuncionarios(false)
+      }
     }
-  }, [])
+    loadFuncionarios()
+  }, [fazendaId])
 
   // Carregar máquinas/veículos
   useEffect(() => {
@@ -182,48 +201,30 @@ export default function AbastecimentoPage() {
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
         <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
         <>
-          {funcionariosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label="QUEM ABASTECEU?"
-              value={form.quemAbasteceu}
-              onChange={set('quemAbasteceu')}
-              error={getError('quemAbasteceu')}
-              options={funcionariosDisponiveis}
-              placeholder="Buscar funcionário..."
-              id="quemAbasteceu"
-              name="quemAbasteceu"
-            />
-          ) : (
-            <Input
-              label="QUEM ABASTECEU?"
-              placeholder="Nome de quem abasteceu"
-              value={form.quemAbasteceu}
-              onChange={setInput('quemAbasteceu')}
-              error={getError('quemAbasteceu')}
-            />
-          )}
+          <SearchableModal
+            label="QUEM ABASTECEU?"
+            value={form.quemAbasteceu}
+            onChange={set('quemAbasteceu')}
+            error={getError('quemAbasteceu')}
+            options={funcionariosDisponiveis}
+            placeholder={loadingFuncionarios ? 'Carregando funcionários...' : 'Buscar funcionário...'}
+            disabled={loadingFuncionarios}
+            id="quemAbasteceu"
+            name="quemAbasteceu"
+          />
         </>
         <>
-          {funcionariosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label="OPERADOR/MOTORISTA?"
-              value={form.operadorMotorista}
-              onChange={set('operadorMotorista')}
-              error={getError('operadorMotorista')}
-              options={funcionariosDisponiveis}
-              placeholder="Buscar funcionário..."
-              id="operadorMotorista"
-              name="operadorMotorista"
-            />
-          ) : (
-            <Input
-              label="OPERADOR/MOTORISTA?"
-              placeholder="Nome do operador/motorista"
-              value={form.operadorMotorista}
-              onChange={setInput('operadorMotorista')}
-              error={getError('operadorMotorista')}
-            />
-          )}
+          <SearchableModal
+            label="OPERADOR/MOTORISTA?"
+            value={form.operadorMotorista}
+            onChange={set('operadorMotorista')}
+            error={getError('operadorMotorista')}
+            options={funcionariosDisponiveis}
+            placeholder={loadingFuncionarios ? 'Carregando funcionários...' : 'Buscar funcionário...'}
+            disabled={loadingFuncionarios}
+            id="operadorMotorista"
+            name="operadorMotorista"
+          />
         </>
         <>
           {maquinasVeiculosDisponiveis.length > 0 ? (
@@ -247,14 +248,14 @@ export default function AbastecimentoPage() {
             />
           )}
         </>
-        {maquinaVeiculoSelecionada?.placa && (
+        {form.maquinaVeiculo && (
           <Input
             label="PLACA"
             placeholder="Placa do veículo"
             value={form.placa}
             onChange={setInput('placa')}
             error={getError('placa')}
-            disabled
+            disabled={!!maquinaVeiculoSelecionada?.placa}
           />
         )}
         <Input label="TOTAL ABASTECIDO (L)" placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />

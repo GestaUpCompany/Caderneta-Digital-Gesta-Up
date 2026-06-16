@@ -367,8 +367,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `PLACA: *${registro.placa || '—'}*\n`
     texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'} L*\n\n`
     
-    // Seção: Combustível
-    texto += `COMBUSTÍVEL\n`
     texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
     texto += `ODÔMETRO/HORÍMETRO: *${registro.odometro || '—'} km*\n`
     texto += `TIPO DE OPERAÇÃO: *${registro.tipoOperacao || '—'}*\n`
