@@ -104,8 +104,6 @@ const schemas: Record<string, Joi.ObjectSchema> = {
   bebedouros: Joi.object({
     data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
     responsavel: Joi.string().required(),
-    pasto: Joi.string().required(),
-    numeroLote: Joi.string().required(),
     leituraBebedouro: Joi.number().integer().min(1).max(3).required(),
     numeroBebedouro: Joi.string().allow(''),
     observacao: Joi.string().allow(''),

@@ -291,14 +291,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     // Para bebedouros, usar estrutura organizada por seções
     
     // Seção: Informações Básicas
-    texto += `RESPONSÁVEL: *${registro.responsavel || '—'}*\n`
-    texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
-    texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
+    texto += `RESPONSÁVEL: *${registro.responsavel || '—'}*\n\n`
     
     // Seção: Inspeção Atual
     if (registro.numeroBebedouro) {
       texto += `INSPEÇÃO ATUAL\n`
-      texto += `NÚMERO BEBEDOURO: *${registro.numeroBebedouro}*\n`
+      texto += `BEBEDOURO: *${registro.numeroBebedouro}*\n`
     }
     if (registro.leituraBebedouro !== null && registro.leituraBebedouro !== undefined) {
       texto += `LEITURA BEBEDOURO: *${registro.leituraBebedouro}*\n`
@@ -307,7 +305,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `OBSERVAÇÃO: *${registro.observacao}*\n`
     }
     
-    // Checklist fields
+    // Checklist fields — only display problematic (false/Não) answers
     const checklistBebedouros = [
       { campo: 'agua_suficiente', label: 'QUANTIDADE DE ÁGUA ESTÁ ADEQUADA?' },
       { campo: 'vazao_bebedouro_ideal', label: 'VAZÃO DA BÓIA ESTÁ IDEAL?' },
@@ -315,43 +313,27 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO BEBEDOURO IDEAL' },
       { campo: 'boia_protecao_boas_condicoes', label: 'BÓIA E PROTEÇÃO DA BÓIA ESTÃO EM BOAS CONDIÇÕES?' },
     ]
-    
-    // Verificar se há algum campo do checklist preenchido
-    const temChecklistBebedouros = checklistBebedouros.some(({ campo }) => {
-      // Check JSONB structure
+
+    // Filter only problematic answers (Não = false)
+    const problematicos = checklistBebedouros.map(({ campo, label }) => {
+      let valor = null
+      let observacao = null
       if (registro.checklist && (registro.checklist as any)[campo]) {
-        return (registro.checklist as any)[campo].valor === true || (registro.checklist as any)[campo].valor === false
+        valor = (registro.checklist as any)[campo].valor
+        observacao = (registro.checklist as any)[campo].observacao
+      } else {
+        const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
+        valor = (registro as any)[flatCampo]
+        observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      // Check flat structure
-      const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
-      return (registro as any)[flatCampo] === true || (registro as any)[flatCampo] === false
-    })
-    
-    if (temChecklistBebedouros) {
+      return { label, valor, observacao }
+    }).filter(item => item.valor === false)
+
+    if (problematicos.length > 0) {
       texto += `\nCHECKLIST\n`
-      checklistBebedouros.forEach(({ campo, label }) => {
-        // Try to get from JSONB checklist structure (after sync)
-        let valor = null
-        let observacao = null
-        if (registro.checklist && (registro.checklist as any)[campo]) {
-          valor = (registro.checklist as any)[campo].valor
-          observacao = (registro.checklist as any)[campo].observacao
-        }
-        // Fallback to flat structure (before sync)
-        else {
-          const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
-          valor = (registro as any)[flatCampo]
-          observacao = (registro as any)[`${flatCampo}Obs`]
-        }
-        
-        if (valor === true || valor === false) {
-          const valorFormatado = valor ? 'Sim' : 'Não'
-          // Add warning icon for "Não" in checklist fields
-          const hasWarning = !valor && WARNING_FIELDS.bebedouros?.includes(campo)
-          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
-        }
-        
-        // Adicionar observação
+      problematicos.forEach(({ label, observacao }) => {
+        // All displayed answers are negative — add warning icon to every one
+        texto += `⚠️ ${label}: *Não*\n`
         if (observacao && observacao !== '') {
           texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
@@ -360,7 +342,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     
     // Seção: Histórico de Limpeza
     if (registro.tempoDesdeLimpeza || registro.intervaloMedioLimpezas || registro.metaIntervaloLimpeza) {
-      texto += `\nHISTÓRICO DE LIMPEZA\n`
+      texto += `\nHISTÓRICO\n`
       if (registro.tempoDesdeLimpeza) {
         texto += `TEMPO DESDE ÚLTIMA LIMPEZA: *${registro.tempoDesdeLimpeza}*\n`
       }
@@ -369,17 +351,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
       if (registro.metaIntervaloLimpeza) {
         texto += `META INTERVALO LIMPEZA: *${registro.metaIntervaloLimpeza}*\n`
-      }
-      // Status do intervalo
-      if (registro.tempoDesdeLimpeza && registro.metaIntervaloLimpeza) {
-        const tempoDesde = parseInt(String(registro.tempoDesdeLimpeza)) || 0
-        const meta = parseInt(String(registro.metaIntervaloLimpeza)) || 0
-        if (tempoDesde > meta) {
-          const diasAtraso = tempoDesde - meta
-          texto += `STATUS INTERVALO: *Atrasado há ${diasAtraso} dia${diasAtraso > 1 ? 's' : ''}*\n`
-        } else {
-          texto += `STATUS INTERVALO: *✅ Adequado*\n`
-        }
       }
     }
     

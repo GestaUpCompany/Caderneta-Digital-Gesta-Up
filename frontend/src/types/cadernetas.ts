@@ -85,8 +85,6 @@ export interface RegistroSuplementacao extends Registro {
 
 export interface RegistroBebedouros extends Registro {
   responsavel: string
-  pasto: string
-  numeroLote: string
   gado: string
   categoria: string
   leituraBebedouro: number | null
