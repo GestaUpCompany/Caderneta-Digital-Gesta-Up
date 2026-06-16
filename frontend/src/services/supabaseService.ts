@@ -601,7 +601,7 @@ export async function getEspacamentoIdealCocho(fazendaId: string, produtoTipo: s
 
 export async function getEspacamentoIdealCochoPorFormulacao(fazendaId: string, formulacaoNome: string): Promise<number | null> {
   const client = getSupabaseClient()
-  const { data, error } = await client
+  const { data, error } = await (client as any)
     .from('formulacoes')
     .select('espacamento_ideal_cocho')
     .eq('fazenda_id', fazendaId)
@@ -610,14 +610,14 @@ export async function getEspacamentoIdealCochoPorFormulacao(fazendaId: string, f
     .maybeSingle()
 
   if (error) throw error
-  return data?.espacamento_ideal_cocho || null
+  return (data as any)?.espacamento_ideal_cocho || null
 }
 
 // ==================== FORMULAÇÕES ====================
 
-export async function getFormulacoes(fazendaId: string) {
+export async function getFormulacoes(fazendaId: string): Promise<any[]> {
   const client = getSupabaseClient()
-  const { data, error } = await client
+  const { data, error } = await (client as any)
     .from('formulacoes')
     .select('*')
     .eq('fazenda_id', fazendaId)
@@ -625,12 +625,12 @@ export async function getFormulacoes(fazendaId: string) {
     .order('nome')
 
   if (error) throw error
-  return data
+  return (data as any[]) || []
 }
 
-export async function getFormulacaoByNome(fazendaId: string, nome: string) {
+export async function getFormulacaoByNome(fazendaId: string, nome: string): Promise<any | null> {
   const client = getSupabaseClient()
-  const { data, error } = await client
+  const { data, error } = await (client as any)
     .from('formulacoes')
     .select('*')
     .eq('fazenda_id', fazendaId)
@@ -639,7 +639,7 @@ export async function getFormulacaoByNome(fazendaId: string, nome: string) {
     .maybeSingle()
 
   if (error) throw error
-  return data
+  return (data as any) || null
 }
 
 export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insumos_itens'>) {
