@@ -6,13 +6,13 @@ const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
   pastagens: [
     'animaisMachucadosDoentesBichados',
     'carrapatosMoscas',
-    'animaisEnteverados',
+    'animaisEntreverados',
     'animalMorto',
   ],
   rodeio: [
     'animaisMachucadosDoentesBichados',
     'carrapatosMoscas',
-    'animaisEnteverados',
+    'animaisEntreverados',
     'animalMorto',
   ],
   enfermaria: [
@@ -30,25 +30,8 @@ const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
     'animalInchado',
   ],
   morte: [
-    'secrecaoOrificios',
-    'sintomasPneumonia',
-    'inchaco',
-    'incoordenacaoTremores',
-    'apatiaFraqueza',
-    'desordensDigestivas',
-    'fraturas',
-    'decomposicao',
-    'doencasPrevias',
-    'medicamentosRecentes',
-    'morteSubita',
     'animalSozinho',
-    'salivacaoExcessiva',
-    'sinaisIntoxicacao',
-    'carrapatosMoscas',
-    'encontradoVivo',
-    'medicado',
-    'animalInchado',
-    'animalBicheira',
+    'morteSubita',
   ],
   'operacoes-maquinas': ['algumImprevisto'],
 }
@@ -710,22 +693,22 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'animalInchado'
     ]
 
-    // Check if any diagnostic has data
+    // Check if any diagnostic has positive (problematic) response
     const hasDiagnosticos = ordemDiagnosticos.some(key => {
       const data = (registro.diagnosticos as any)?.[key]
-      return data && data.valor !== null && data.valor !== undefined && data.valor !== ''
+      const isSim = data && (data.valor === 'S' || data.valor === true)
+      return isSim
     })
 
     if (hasDiagnosticos) {
       texto += '\nDIAGNÓSTICOS\n'
       ordemDiagnosticos.forEach(key => {
         const data = (registro.diagnosticos as any)?.[key]
-        if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
+        const isSim = data && (data.valor === 'S' || data.valor === true)
+        // Only show positive (problematic) responses
+        if (isSim) {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          const isSim = data.valor === 'S' || data.valor === true
-          const valorFormatado = isSim ? 'Sim' : 'Não'
-          const hasWarning = isSim && (INVERTED_WARNING_FIELDS[caderneta] || []).includes(key)
-          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
+          texto += `⚠️ ${label}: *Sim*\n`
           if (data.observacao && data.observacao !== '') {
             texto += `  OBS: *${data.observacao}*\n`
           }
@@ -860,9 +843,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       'animalBicheira',
     ]
 
+    const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
+
+    // Check if any diagnostic has problematic response
     const hasDiagnosticos = ordemDiagnosticos.some(key => {
       const data = (registro.diagnosticos as any)?.[key]
-      return data && data.valor !== null && data.valor !== undefined && data.valor !== ''
+      if (!data || data.valor === null || data.valor === undefined || data.valor === '') return false
+      const isSim = data.valor === 'S' || data.valor === true
+      const isInverted = invertedWarningFields.includes(key)
+      return isInverted ? !isSim : isSim
     })
 
     if (hasDiagnosticos) {
@@ -870,13 +859,18 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       ordemDiagnosticos.forEach(key => {
         const data = (registro.diagnosticos as any)?.[key]
         if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const isSim = data.valor === 'S' || data.valor === true
-          const valorFormatado = isSim ? 'Sim' : 'Não'
-          const hasWarning = isSim && (INVERTED_WARNING_FIELDS[caderneta] || []).includes(key)
-          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
-          if (data.observacao && data.observacao !== '') {
-            texto += `  OBS: *${data.observacao}*\n`
+          const isInverted = invertedWarningFields.includes(key)
+          const isProblematic = isInverted ? !isSim : isSim
+          
+          // Only show problematic responses
+          if (isProblematic) {
+            let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+            const valorFormatado = isSim ? 'Sim' : 'Não'
+            texto += `⚠️ ${label}: *${valorFormatado}*\n`
+            if (data.observacao && data.observacao !== '') {
+              texto += `  OBS: *${data.observacao}*\n`
+            }
           }
         }
       })
@@ -1312,15 +1306,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
             texto += `${label}: *${value}*\n`
           }
         })
+        // Mostrar total quando foi contado
+        if (registro.totalAnimais) {
+          texto += `TOTAL: *${registro.totalAnimais} animais*\n`
+        }
       } else if (registro.gadoContado === 'Não') {
         // Se não foi contado, mostrar total do lote
         const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
         texto += `CABEÇAS MANEJADAS: *${totalLote} animais*\n`
-      }
-
-      // Mostrar total sempre
-      if (registro.totalAnimais) {
-        texto += `TOTAL: *${registro.totalAnimais} animais*\n`
       }
       texto += `\n`
 
@@ -1367,7 +1360,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `\n`
 
       // Avaliação Geral
-      texto += `AVALIAÇÃO GERAL\n`
       const avaliacaoGeral = registro.avaliacao_geral as any
       const avaliacaoGeralFields = [
         { key: 'bebedourosCochos', label: 'BEBEDOUROS / COCHOS OK?' },
@@ -1378,35 +1370,52 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         { key: 'animaisEntreverados', label: 'ANIMAIS ENTREVERADOS?' },
         { key: 'animalMorto', label: 'ANIMAL MORTO?' },
       ]
-      avaliacaoGeralFields.forEach(({ key, label }) => {
+      const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
+      const hasNegativeAnswers = avaliacaoGeralFields.some(({ key }) => {
         let valor = null
-        let observacao = null
-
-        // Try to get from nested JSONB structure (after sync)
         if (avaliacaoGeral?.[key]) {
           valor = avaliacaoGeral[key].valor
-          observacao = avaliacaoGeral[key].observacao
-        }
-        // Fallback to flat structure (before sync)
-        else if (registro[key]) {
+        } else if (registro[key]) {
           valor = registro[key]
-          observacao = registro[`${key}Obs`]
         }
-
-        if (valor && valor !== '') {
-          const valorFormatado = valor === 'S' ? 'Sim' : 'Não'
-          // Add warning icon for inverted fields (Sim = bad)
-          const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
-          const hasWarning = valor === 'S' && invertedWarningFields.includes(key)
-          texto += `${label}: ${hasWarning ? '⚠️ ' : ''}*${valorFormatado}*\n`
-          // Show observation if answer is 'N' and there's an observation
-          if (valor === 'N' && observacao && observacao !== '') {
-            texto += `OBSERVAÇÃO: *${observacao}*\n`
-          }
-        } else {
-          texto += `${label}: *—*\n`
-        }
+        if (!valor || valor === '') return false
+        const isInverted = invertedWarningFields.includes(key)
+        return isInverted ? valor === 'S' : valor === 'N'
       })
+
+      if (hasNegativeAnswers) {
+        texto += `AVALIAÇÃO GERAL\n`
+        avaliacaoGeralFields.forEach(({ key, label }) => {
+          let valor = null
+          let observacao = null
+
+          // Try to get from nested JSONB structure (after sync)
+          if (avaliacaoGeral?.[key]) {
+            valor = avaliacaoGeral[key].valor
+            observacao = avaliacaoGeral[key].observacao
+          }
+          // Fallback to flat structure (before sync)
+          else if (registro[key]) {
+            valor = registro[key]
+            observacao = registro[`${key}Obs`]
+          }
+
+          if (valor && valor !== '') {
+            const isInverted = invertedWarningFields.includes(key)
+            const isNegative = isInverted ? valor === 'S' : valor === 'N'
+
+            // Only show negative responses
+            if (isNegative) {
+              const valorFormatado = valor === 'S' ? 'Sim' : 'Não'
+              texto += `${label}: ⚠️ *${valorFormatado}*\n`
+              // Show observation if exists
+              if (observacao && observacao !== '') {
+                texto += `OBSERVAÇÃO: *${observacao}*\n`
+              }
+            }
+          }
+        })
+      }
     } else if (caderneta === 'maternidade') {
       // Seção: INFORMAÇÕES BÁSICAS
       texto += `INFORMAÇÕES BÁSICAS\n`

@@ -12,6 +12,7 @@ import { getLoteByNome, getMedicamentos, getLoteDetalhesComCategorias, getLotes 
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const DIAGNOSTICOS = [
   { campo: 'feridaCascos', label: 'FERIDA NOS CASCOS?' },
@@ -161,6 +162,30 @@ export default function EnfermariaPage() {
     }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    lote: { required: true },
+    brinco: { required: true },
+    sexo: { required: true },
+    raca: { required: true },
+    idade: { required: true },
+    categorias: { required: true },
+    ...Object.fromEntries(DIAGNOSTICOS.map(d => [d.campo, { required: true }])),
+  }
+
+  // Add validation for racaOutros when raca is 'Outros'
+  if (form.raca === 'Outros') {
+    validationRules.racaOutros = { required: true }
+  }
+
+  // Add validation for outrosTexto when categorias includes 'Outros'
+  if (form.categorias.includes('Outros')) {
+    validationRules.outrosTexto = { required: true }
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
 
   const handleCategoriasChange = (newCategorias: string[]) => {
     setForm((prev) => ({ ...prev, categorias: newCategorias }))
@@ -429,7 +454,7 @@ export default function EnfermariaPage() {
             </div>
           )}
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
           <Input
             label="RESPONSÁVEL"
             placeholder="Nome do responsável"
@@ -438,7 +463,7 @@ export default function EnfermariaPage() {
           />
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOTE"
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
               value={form.lote}
               onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
               error={getError('lote')}
@@ -449,7 +474,7 @@ export default function EnfermariaPage() {
             />
           ) : (
             <Input
-              label="LOTE"
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.lote}
               onChange={setInput('lote')}
@@ -467,14 +492,14 @@ export default function EnfermariaPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
           <Input
-            label="ID. BRINCO"
+            label={<span>ID. BRINCO <span className="text-red-500">*</span></span>}
             placeholder="Número do brinco"
             value={form.brinco}
             onChange={setInput('brinco')}
             error={getError('brinco')}
           />
           <Input
-            label="ID. CHIP"
+            label={<span>ID. CHIP</span>}
             placeholder="Número do chip"
             value={form.chip}
             onChange={setInput('chip')}
@@ -482,7 +507,7 @@ export default function EnfermariaPage() {
           />
           <Radio
             name="sexo"
-            label="SEXO"
+            label={<span>SEXO <span className="text-red-500">*</span></span>}
             options={SEXO_OPTIONS}
             value={form.sexo}
             onChange={(val) => setForm((p) => ({ ...p, sexo: val }))}
@@ -491,7 +516,7 @@ export default function EnfermariaPage() {
           />
           <Radio
             name="raca"
-            label="RAÇA"
+            label={<span>RAÇA <span className="text-red-500">*</span></span>}
             options={RACAS}
             value={form.raca}
             onChange={(val) => setForm((p) => ({ ...p, raca: val }))}
@@ -500,7 +525,7 @@ export default function EnfermariaPage() {
           />
           {form.raca === 'Outros' && (
             <Input
-              label="QUAL RAÇA?"
+              label={<span>QUAL RAÇA? <span className="text-red-500">*</span></span>}
               placeholder="Ex: Brahman, Hereford, Simmental..."
               value={form.racaOutros}
               onChange={setInput('racaOutros')}
@@ -508,7 +533,7 @@ export default function EnfermariaPage() {
             />
           )}
           <div>
-            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">IDADE</label>
+            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">IDADE <span className="text-red-500">*</span></label>
             <div className="grid grid-cols-2 gap-2">
               <label className={`
                 cursor-pointer rounded-xl border-2 
@@ -563,7 +588,7 @@ export default function EnfermariaPage() {
             </div>
           </div>
           <CheckboxGroup
-            label="CATEGORIAS:"
+            label={<span>CATEGORIAS: <span className="text-red-500">*</span></span>}
             options={CATEGORIAS}
             selectedValues={form.categorias}
             onChange={handleCategoriasChange}
@@ -575,7 +600,7 @@ export default function EnfermariaPage() {
           />
           {form.categorias.includes('Outros') && (
             <Input
-              label="ESPECIFICAR OUTROS:"
+              label={<span>ESPECIFICAR OUTROS: <span className="text-red-500">*</span></span>}
               placeholder="Descreva a categoria"
               value={form.outrosTexto}
               onChange={setInput('outrosTexto')}
@@ -591,14 +616,14 @@ export default function EnfermariaPage() {
             <div key={campo}>
               <Radio
                 name={campo}
-                label={label}
+                label={<span>{label} <span className="text-red-500">*</span></span>}
                 options={SN_OPTIONS}
                 value={form.diagnosticos[campo]?.valor || ''}
                 onChange={setDiagnosticoValor(campo)}
                 error={getError(campo)}
                 gridCols={2}
               />
-              {form.diagnosticos[campo]?.valor === 'N' && (
+              {form.diagnosticos[campo]?.valor === 'S' && (
                 <Input
                   placeholder="Adicionar observação (opcional)"
                   value={form.diagnosticos[campo]?.observacao || ''}
@@ -612,7 +637,7 @@ export default function EnfermariaPage() {
 
         {/* Seção 4: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. TRATAMENTO <span className="text-red-500">*</span></h2>
           
           {/* Lista de medicamentos adicionados */}
           {form.medicamentos.length > 0 && (
@@ -731,13 +756,18 @@ export default function EnfermariaPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid || form.medicamentos.length === 0}>
             SALVAR
           </Button>
           <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal

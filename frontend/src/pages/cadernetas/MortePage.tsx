@@ -9,11 +9,12 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getLotes } from '../../services/supabaseService'
+import { getLoteByNome, getLoteDetalhesComCategorias, getLotes, getFormulacoes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { getSupabaseClient } from '../../services/supabaseClient'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -77,6 +78,12 @@ const DIAGNOSTICOS = [
   { campo: 'medicado', label: 'ANIMAL CHEGOU A SER MEDICADO?' },
   { campo: 'animalInchado', label: 'ANIMAL ESTAVA INCHADO?' },
   { campo: 'animalBicheira', label: 'ANIMAL COM BICHEIRA?' },
+]
+
+// Fields where "Não" means a problem exists (observation should show on "Não")
+const INVERTED_DIAGNOSTICOS = [
+  'animalSozinho',
+  'morteSubita',
 ]
 
 const ESCORES = [
@@ -181,6 +188,39 @@ export default function MortePage() {
     }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    lote: { required: true },
+    brinco: { required: true },
+    sexo: { required: true },
+    raca: { required: true },
+    idade: { required: true },
+    pesoVivo: { required: true },
+    causaMorte: { required: true },
+    escore: { required: true },
+    nutricaoAtual: { required: true },
+    nutricaoAnterior: { required: true },
+    ...Object.fromEntries(DIAGNOSTICOS.map(d => [d.campo, { required: true }])),
+  }
+
+  // Add validation for racaOutros when raca is 'Outros'
+  if (form.raca === 'Outros') {
+    validationRules.racaOutros = { required: true }
+  }
+
+  // Add validation for categoriaOutros when categoria is 'Outros'
+  if (form.categoria === 'Outros') {
+    validationRules.categoriaOutros = { required: true }
+  }
+
+  // Add validation for causaMorteOutros when causaMorte is 'Outros'
+  if (form.causaMorte === 'Outros') {
+    validationRules.causaMorteOutros = { required: true }
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
 
   // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
@@ -289,38 +329,27 @@ export default function MortePage() {
     carregarCausasMorte()
   }, [fazendaId])
 
-  // Buscar dietas do Supabase
+  // Buscar formulacoes do Supabase
   useEffect(() => {
-    async function carregarDietas() {
+    async function carregarFormulacoes() {
       if (!fazendaId) return
 
       try {
-        const client = getSupabaseClient()
-        const { data, error } = await client
-          .from('dietas')
-          .select('nome')
-          .eq('fazenda_id', fazendaId)
-          .eq('ativo', true)
-          .order('nome')
-
-        if (error) {
-          console.error('Erro ao buscar dietas:', error)
-          return
-        }
+        const data = await getFormulacoes(fazendaId)
 
         if (data) {
-          const dietasList = data.map(d => ({
+          const formulacoesList = data.map(d => ({
             value: d.nome,
             label: d.nome.toUpperCase()
           }))
-          setDietas(dietasList)
+          setDietas(formulacoesList)
         }
       } catch (error) {
-        console.error('Erro ao carregar dietas:', error)
+        console.error('Erro ao carregar formulacoes:', error)
       }
     }
 
-    carregarDietas()
+    carregarFormulacoes()
   }, [fazendaId])
 
   const handleSalvar = async () => {
@@ -418,7 +447,7 @@ export default function MortePage() {
             </div>
           )}
           <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} />
           <div className="w-full">
             <label className="block text-lg font-bold text-gray-900 mb-2">RESPONSÁVEL</label>
             <div className="relative">
@@ -432,7 +461,7 @@ export default function MortePage() {
           </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOTE"
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
               value={form.lote}
               onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
               error={getError('lote')}
@@ -443,7 +472,7 @@ export default function MortePage() {
             />
           ) : (
             <Input
-              label="LOTE"
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.lote}
               onChange={setInput('lote')}
@@ -461,14 +490,14 @@ export default function MortePage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
           <Input
-            label="ID. BRINCO"
+            label={<span>ID. BRINCO <span className="text-red-500">*</span></span>}
             placeholder="Número do brinco"
             value={form.brinco}
             onChange={setInput('brinco')}
             error={getError('brinco')}
           />
           <Input
-            label="ID. CHIP"
+            label={<span>ID. CHIP</span>}
             placeholder="Número do chip"
             value={form.chip}
             onChange={setInput('chip')}
@@ -481,7 +510,7 @@ export default function MortePage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CLASSIFICAÇÃO DO GADO</h2>
           <Radio
             name="categoria"
-            label="CATEGORIA:"
+            label={<span>CATEGORIA: <span className="text-red-500">*</span></span>}
             options={CATEGORIAS}
             value={form.categoria}
             onChange={(val) => setForm((p) => ({ ...p, categoria: val }))}
@@ -490,7 +519,7 @@ export default function MortePage() {
           />
           {form.categoria === 'Outros' && (
             <Input
-              label="ESPECIFICAR OUTROS:"
+              label={<span>ESPECIFICAR OUTROS: <span className="text-red-500">*</span></span>}
               placeholder="Descreva a categoria"
               value={form.categoriaOutros}
               onChange={setInput('categoriaOutros')}
@@ -504,7 +533,7 @@ export default function MortePage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. SEXO E RAÇA</h2>
           <Radio
             name="sexo"
-            label="SEXO"
+            label={<span>SEXO <span className="text-red-500">*</span></span>}
             options={SEXO}
             value={form.sexo}
             onChange={(val) => setForm((p) => ({ ...p, sexo: val }))}
@@ -513,7 +542,7 @@ export default function MortePage() {
           />
           <Radio
             name="raca"
-            label="RAÇA"
+            label={<span>RAÇA <span className="text-red-500">*</span></span>}
             options={RACAS}
             value={form.raca}
             onChange={(val) => setForm((p) => ({ ...p, raca: val }))}
@@ -522,7 +551,7 @@ export default function MortePage() {
           />
           {form.raca === 'Outros' && (
             <Input
-              label="QUAL RAÇA?"
+              label={<span>QUAL RAÇA? <span className="text-red-500">*</span></span>}
               placeholder="Especifique a raça"
               value={form.racaOutros}
               onChange={setInput('racaOutros')}
@@ -536,7 +565,7 @@ export default function MortePage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">5. IDADE E PESO</h2>
           <Radio
             name="idade"
-            label="IDADE"
+            label={<span>IDADE <span className="text-red-500">*</span></span>}
             options={IDADES}
             value={form.idade}
             onChange={(val) => setForm((p) => ({ ...p, idade: val }))}
@@ -544,7 +573,7 @@ export default function MortePage() {
             gridCols={2}
           />
           <Input
-            label="PESO VIVO (kg)"
+            label={<span>PESO VIVO (kg) <span className="text-red-500">*</span></span>}
             placeholder="Ex: 450"
             value={form.pesoVivo}
             onChange={setInput('pesoVivo')}
@@ -559,7 +588,7 @@ export default function MortePage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">6. CAUSA DA MORTE</h2>
           {causasMorte.length > 0 ? (
             <SearchableModal
-              label="CAUSA DA MORTE"
+              label={<span>CAUSA DA MORTE <span className="text-red-500">*</span></span>}
               value={form.causaMorte}
               onChange={(val) => setForm((p) => ({ ...p, causaMorte: val }))}
               error={getError('causaMorte')}
@@ -570,7 +599,7 @@ export default function MortePage() {
             />
           ) : (
             <Input
-              label="CAUSA DA MORTE"
+              label={<span>CAUSA DA MORTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.causaMorte}
               onChange={setInput('causaMorte')}
@@ -581,7 +610,7 @@ export default function MortePage() {
           )}
           {form.causaMorte === 'Outros' && (
             <Input
-              label="ESPECIFIQUE A CAUSA"
+              label={<span>ESPECIFIQUE A CAUSA <span className="text-red-500">*</span></span>}
               placeholder="Descreva a causa da morte"
               value={form.causaMorteOutros}
               onChange={setInput('causaMorteOutros')}
@@ -592,33 +621,38 @@ export default function MortePage() {
 
         {/* Seção 7: Diagnóstico */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. DIAGNÓSTICO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. DIAGNÓSTICO <span className="text-red-500">*</span></h2>
           {DIAGNOSTICOS.map(({ campo, label }) => (
             <div key={campo}>
               <Radio
                 name={campo}
-                label={label}
+                label={<span>{label} <span className="text-red-500">*</span></span>}
                 options={SN_OPTIONS}
                 value={form.diagnosticos[campo]?.valor || ''}
                 onChange={setDiagnosticoValor(campo)}
                 error={getError(campo)}
                 gridCols={2}
               />
-              {form.diagnosticos[campo]?.valor === 'N' && (
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={form.diagnosticos[campo]?.observacao || ''}
-                  onChange={setDiagnosticoObs(campo)}
-                  className="mt-2"
-                />
-              )}
+              {(() => {
+                const valor = form.diagnosticos[campo]?.valor
+                const isInverted = INVERTED_DIAGNOSTICOS.includes(campo)
+                const shouldShowObs = isInverted ? valor === 'N' : valor === 'S'
+                return shouldShowObs ? (
+                  <Input
+                    placeholder="Adicionar observação (opcional)"
+                    value={form.diagnosticos[campo]?.observacao || ''}
+                    onChange={setDiagnosticoObs(campo)}
+                    className="mt-2"
+                  />
+                ) : null
+              })()}
             </div>
           ))}
 
           {dietas.length > 0 ? (
             <>
               <SearchableModal
-                label="NUTRIÇÃO ATUAL"
+                label={<span>NUTRIÇÃO ATUAL <span className="text-red-500">*</span></span>}
                 value={form.nutricaoAtual}
                 onChange={(val) => setForm((p) => ({ ...p, nutricaoAtual: val }))}
                 error={getError('nutricaoAtual')}
@@ -628,7 +662,7 @@ export default function MortePage() {
                 name="nutricaoAtual"
               />
               <SearchableModal
-                label="NUTRIÇÃO ANTERIOR"
+                label={<span>NUTRIÇÃO ANTERIOR <span className="text-red-500">*</span></span>}
                 value={form.nutricaoAnterior}
                 onChange={(val) => setForm((p) => ({ ...p, nutricaoAnterior: val }))}
                 error={getError('nutricaoAnterior')}
@@ -641,7 +675,7 @@ export default function MortePage() {
           ) : (
             <>
               <Input
-                label="NUTRIÇÃO ATUAL"
+                label={<span>NUTRIÇÃO ATUAL <span className="text-red-500">*</span></span>}
                 placeholder="Carregando..."
                 value={form.nutricaoAtual}
                 onChange={setInput('nutricaoAtual')}
@@ -650,7 +684,7 @@ export default function MortePage() {
                 id="nutricaoAtual"
               />
               <Input
-                label="NUTRIÇÃO ANTERIOR"
+                label={<span>NUTRIÇÃO ANTERIOR <span className="text-red-500">*</span></span>}
                 placeholder="Carregando..."
                 value={form.nutricaoAnterior}
                 onChange={setInput('nutricaoAnterior')}
@@ -664,7 +698,7 @@ export default function MortePage() {
 
         {/* Seção 8: Escore Corporal */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">8. ESCORE CORPORAL</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">8. ESCORE CORPORAL <span className="text-red-500">*</span></h2>
           <button
             onClick={() => setShowEscoreModal(true)}
             className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
@@ -688,13 +722,18 @@ export default function MortePage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal
