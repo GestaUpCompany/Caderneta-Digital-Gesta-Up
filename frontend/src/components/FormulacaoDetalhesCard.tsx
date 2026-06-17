@@ -12,7 +12,7 @@ export default function FormulacaoDetalhesCard({ detalhes }: FormulacaoDetalhesC
         <p className="text-gray-500 font-semibold">TEOR MS (%)</p>
         <p className="text-gray-900 font-bold">
           {detalhes.teorMs !== null && detalhes.teorMs !== undefined
-            ? `${detalhes.teorMs}%`
+            ? `${String(detalhes.teorMs).replace('.', ',')}%`
             : '-'}
         </p>
       </div>
@@ -20,7 +20,7 @@ export default function FormulacaoDetalhesCard({ detalhes }: FormulacaoDetalhesC
         <p className="text-gray-500 font-semibold">META CONSUMO (%/PV)</p>
         <p className="text-gray-900 font-bold">
           {detalhes.metaConsumo !== null && detalhes.metaConsumo !== undefined
-            ? `${detalhes.metaConsumo}%`
+            ? `${Number(detalhes.metaConsumo).toFixed(2).replace('.', ',')}%`
             : '-'}
         </p>
       </div>
