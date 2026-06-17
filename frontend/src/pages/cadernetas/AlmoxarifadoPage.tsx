@@ -11,6 +11,7 @@ import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getFuncionarios, getItensAlmoxarifado, getClassificacoesAlmoxarifado, getSetores } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -79,6 +80,21 @@ export default function AlmoxarifadoPage() {
   const setInput = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [key]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    quemEntregou: { required: true },
+    quemPegou: { required: true },
+    // At least 1 item must be added
+    itens: {
+      custom: (_value: any, form: any) => {
+        return form.itens && form.itens.length > 0 ? null : 'Adicione pelo menos um item'
+      }
+    },
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
 
   const handleAdicionarItem = () => {
     setItemEditando(makeInitialItem())
@@ -284,11 +300,11 @@ export default function AlmoxarifadoPage() {
             </div>
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} />
           <div className="flex flex-col gap-3">
             {funcionariosDisponiveis.length > 0 ? (
               <SearchableModal
-                label="QUEM ENTREGOU?"
+                label={<span>QUEM ENTREGOU? <span className="text-red-500">*</span></span>}
                 value={form.quemEntregou}
                 onChange={set('quemEntregou')}
                 error={getError('quemEntregou')}
@@ -299,7 +315,7 @@ export default function AlmoxarifadoPage() {
               />
             ) : (
               <Input
-                label="QUEM ENTREGOU?"
+                label={<span>QUEM ENTREGOU? <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem entregou"
                 value={form.quemEntregou}
                 onChange={setInput('quemEntregou')}
@@ -309,7 +325,7 @@ export default function AlmoxarifadoPage() {
             )}
             {funcionariosDisponiveis.length > 0 ? (
               <SearchableModal
-                label="QUEM PEGOU?"
+                label={<span>QUEM PEGOU? <span className="text-red-500">*</span></span>}
                 value={form.quemPegou}
                 onChange={set('quemPegou')}
                 error={getError('quemPegou')}
@@ -320,7 +336,7 @@ export default function AlmoxarifadoPage() {
               />
             ) : (
               <Input
-                label="QUEM PEGOU?"
+                label={<span>QUEM PEGOU? <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem pegou"
                 value={form.quemPegou}
                 onChange={setInput('quemPegou')}
@@ -333,7 +349,7 @@ export default function AlmoxarifadoPage() {
 
         {/* Seção 2: Itens */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ITENS RETIRADOS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ITENS RETIRADOS <span className="text-red-500">*</span></h2>
           
           {/* Lista de itens adicionados */}
           {form.itens.length > 0 && (
@@ -583,13 +599,18 @@ export default function AlmoxarifadoPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal
