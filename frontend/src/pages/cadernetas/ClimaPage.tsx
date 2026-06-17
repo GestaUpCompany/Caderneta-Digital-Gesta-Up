@@ -9,6 +9,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { supabase } from '../../services/supabaseClient'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 interface Pluviometro {
   id: string
@@ -56,6 +57,20 @@ export default function ClimaPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    responsavel: { required: true },
+    temperaturaMedia: { required: true },
+  }
+
+  // Add validation for pluviometer measurements
+  form.medicoes.forEach((medicao) => {
+    validationRules[`medicao_${medicao.pluviometroId}`] = { required: true }
+  })
+
+  const { isValid } = useFormValidation(form, validationRules)
 
   // Buscar pluviômetros do Supabase
   useEffect(() => {
@@ -165,9 +180,9 @@ export default function ClimaPage() {
             </div>
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
           <Input
-            label="RESPONSÁVEL"
+            label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
             placeholder="Nome do responsável"
             value={form.responsavel}
             onChange={setInput('responsavel')}
@@ -175,7 +190,7 @@ export default function ClimaPage() {
             readOnly
           />
           <Input
-            label="TEMPERATURA MÉDIA (°C)"
+            label={<span>TEMPERATURA MÉDIA (°C) <span className="text-red-500">*</span></span>}
             placeholder="Ex: 25.5"
             value={form.temperaturaMedia}
             onChange={setInput('temperaturaMedia')}
@@ -205,7 +220,7 @@ export default function ClimaPage() {
                 <div key={medicao.pluviometroId} className="flex flex-col gap-2">
                   <p className="font-semibold text-gray-700">{medicao.pluviometroNome} {medicao.pluviometroLocalizacao && `(${medicao.pluviometroLocalizacao})`}</p>
                   <Input
-                    label="Medição de chuva (mm)"
+                    label={<span>Medição de chuva (mm) <span className="text-red-500">*</span></span>}
                     placeholder="Ex: 12.5"
                     value={medicao.medicao}
                     onChange={(e) => handleMedicaoChange(medicao.pluviometroId, e.target.value)}
@@ -223,7 +238,7 @@ export default function ClimaPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÕES</h2>
           <Input
-            label="OBSERVAÇÃO"
+            label=""
             placeholder="Adicione observações (opcional)"
             value={form.observacao}
             onChange={setInput('observacao')}
@@ -232,10 +247,18 @@ export default function ClimaPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR REGISTRO
           </Button>
+          <Button onClick={() => setForm(makeInitial(usuario))} variant="secondary" icon="🧹">
+            LIMPAR
+          </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </CadernetaLayout>
 
       <SuccessModal

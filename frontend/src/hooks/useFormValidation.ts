@@ -51,7 +51,7 @@ export interface ValidationRule {
   min?: number
   max?: number
   pattern?: RegExp
-  custom?: (value: any) => string | null
+  custom?: (value: any, form: any) => string | null
 }
 
 export interface ValidationRules {
@@ -131,7 +131,7 @@ export function useFormValidation<T extends Record<string, any>>(
 
       // Custom validation
       if (rule.custom) {
-        const customError = rule.custom(value)
+        const customError = rule.custom(value, form)
         if (customError) {
           errors[field] = customError
           return

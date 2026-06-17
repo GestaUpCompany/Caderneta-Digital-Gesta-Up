@@ -10,6 +10,7 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getMaquinasVeiculos, getMaquinaVeiculoByNome, getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
@@ -153,6 +154,25 @@ export default function AbastecimentoPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    quemAbasteceu: { required: true },
+    operadorMotorista: { required: true },
+    maquinaVeiculo: { required: true },
+    totalAbastecido: { required: true },
+    combustivel: { required: true },
+    odometro: { required: true },
+    tipoOperacao: { required: true },
+  }
+
+  // Add validation for tipoOperacaoOutros when tipoOperacao is 'Outros'
+  if (form.tipoOperacao === 'Outros') {
+    validationRules.tipoOperacaoOutros = { required: true }
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
@@ -199,10 +219,10 @@ export default function AbastecimentoPage() {
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
-        <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
+        <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
         <>
           <SearchableModal
-            label="QUEM ABASTECEU?"
+            label={<span>QUEM ABASTECEU? <span className="text-red-500">*</span></span>}
             value={form.quemAbasteceu}
             onChange={set('quemAbasteceu')}
             error={getError('quemAbasteceu')}
@@ -215,7 +235,7 @@ export default function AbastecimentoPage() {
         </>
         <>
           <SearchableModal
-            label="OPERADOR/MOTORISTA?"
+            label={<span>OPERADOR/MOTORISTA? <span className="text-red-500">*</span></span>}
             value={form.operadorMotorista}
             onChange={set('operadorMotorista')}
             error={getError('operadorMotorista')}
@@ -229,7 +249,7 @@ export default function AbastecimentoPage() {
         <>
           {maquinasVeiculosDisponiveis.length > 0 ? (
             <SearchableModal
-              label="MÁQUINA/VEÍCULO?"
+              label={<span>MÁQUINA/VEÍCULO? <span className="text-red-500">*</span></span>}
               value={form.maquinaVeiculo}
               onChange={set('maquinaVeiculo')}
               error={getError('maquinaVeiculo')}
@@ -240,7 +260,7 @@ export default function AbastecimentoPage() {
             />
           ) : (
             <Input
-              label="MÁQUINA/VEÍCULO?"
+              label={<span>MÁQUINA/VEÍCULO? <span className="text-red-500">*</span></span>}
               placeholder="Modelo da máquina/veículo"
               value={form.maquinaVeiculo}
               onChange={setInput('maquinaVeiculo')}
@@ -258,7 +278,7 @@ export default function AbastecimentoPage() {
             disabled={!!maquinaVeiculoSelecionada?.placa}
           />
         )}
-        <Input label="TOTAL ABASTECIDO (L)" placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />
+        <Input label={<span>TOTAL ABASTECIDO (L) <span className="text-red-500">*</span></span>} placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />
       </div>
 
       {/* Seção 2: Combustível e Operação */}
@@ -266,17 +286,17 @@ export default function AbastecimentoPage() {
         <h2 className="text-lg font-black text-gray-900 tracking-tight">2. COMBUSTÍVEL E OPERAÇÃO</h2>
         <Radio
           name="combustivel"
-          label="COMBUSTÍVEL?"
+          label={<span>COMBUSTÍVEL? <span className="text-red-500">*</span></span>}
           options={COMBUSTIVEL_OPTIONS}
           value={form.combustivel}
           onChange={(val) => setForm((prev) => ({ ...prev, combustivel: val }))}
           error={getError('combustivel')}
           gridCols={2}
         />
-        <Input label="ODÔMETRO/HORÍMETRO?" placeholder="Leitura do odômetro/horímetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} />
+        <Input label={<span>ODÔMETRO/HORÍMETRO? <span className="text-red-500">*</span></span>} placeholder="Leitura do odômetro/horímetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} />
         <Radio
           name="tipoOperacao"
-          label="TIPO DE OPERAÇÃO?"
+          label={<span>TIPO DE OPERAÇÃO? <span className="text-red-500">*</span></span>}
           options={OPERACAO_OPTIONS}
           value={form.tipoOperacao}
           onChange={(val) => setForm((prev) => ({ ...prev, tipoOperacao: val }))}
@@ -285,7 +305,7 @@ export default function AbastecimentoPage() {
         />
         {form.tipoOperacao === 'Outros' && (
           <Input
-            label="ESPECIFICAR"
+            label={<span>ESPECIFICAR <span className="text-red-500">*</span></span>}
             placeholder="Especifique o tipo de operação"
             value={form.tipoOperacaoOutros}
             onChange={setInput('tipoOperacaoOutros')}
@@ -305,13 +325,18 @@ export default function AbastecimentoPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
           SALVAR REGISTRO
         </Button>
         <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
           LIMPAR
         </Button>
       </div>
+      {!isValid && (
+        <p className="text-base text-gray-600 text-center">
+          <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+        </p>
+      )}
 
       <SuccessModal
         isOpen={showSuccessModal}

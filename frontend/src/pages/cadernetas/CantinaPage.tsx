@@ -9,6 +9,7 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import { getSupabaseClient } from '../../services/supabaseClient'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 interface ItemSupermercado {
   id: string
@@ -39,7 +40,7 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  numeroCozinheiras: '',
+  numeroCozinheiras: '1',
   quemCozinhou: '',
   quemAjudou: [],
   numeroCafeManha: '',
@@ -75,6 +76,34 @@ export default function CantinaPage() {
     })
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    numeroCozinheiras: { required: true },
+    quemCozinhou: { required: true },
+    // At least 1 refeicao field must be filled
+    refeicoes: {
+      custom: (_value: any, form: any) => {
+        const hasAnyRefeicao = form.numeroCafeManha || form.numeroLanches || form.numeroRefeicoesAlmoco || form.numeroRefeicoesJantar
+        return hasAnyRefeicao ? null : 'Pelo menos uma refeição deve ser informada'
+      }
+    },
+    // At least 1 item must be filled
+    itens: {
+      custom: (_value: any, form: any) => {
+        const hasAnyItem = Object.values(form.itens).some(val => val && val !== '')
+        return hasAnyItem ? null : 'Pelo menos um item deve ser informado'
+      }
+    },
+  }
+
+  // Add validation for quemAjudou fields
+  form.quemAjudou.forEach((_, index) => {
+    validationRules[`quemAjudou.${index}`] = { required: true }
+  })
+
+  const { isValid } = useFormValidation(form, validationRules)
 
   // Buscar funcionários do Supabase
   useEffect(() => {
@@ -225,10 +254,10 @@ export default function CantinaPage() {
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA CANTINA</h2>
-        <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
+        <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
         <Radio
           name="numeroCozinheiras"
-          label="N° COZINHEIRAS"
+          label={<span>N° COZINHEIRAS <span className="text-red-500">*</span></span>}
           options={COZINHEIRAS_OPTIONS}
           value={form.numeroCozinheiras}
           onChange={(val) => setForm((p) => ({ ...p, numeroCozinheiras: val }))}
@@ -236,7 +265,7 @@ export default function CantinaPage() {
           gridCols={5}
         />
         <SearchableModal
-          label="QUEM COZINHOU?"
+          label={<span>QUEM COZINHOU? <span className="text-red-500">*</span></span>}
           value={form.quemCozinhou}
           onChange={(val) => setForm((p) => ({ ...p, quemCozinhou: val }))}
           error={getError('quemCozinhou')}
@@ -247,7 +276,7 @@ export default function CantinaPage() {
         {form.quemAjudou.map((ajudou, index) => (
           <SearchableModal
             key={index}
-            label={`${index + 1}ª AJUDANTE`}
+            label={<span>{index + 1}ª AJUDANTE <span className="text-red-500">*</span></span>}
             value={ajudou}
             onChange={(val) => setQuemAjudou(index, val)}
             error={getError(`quemAjudou.${index}`)}
@@ -260,7 +289,7 @@ export default function CantinaPage() {
 
       {/* Seção 2: Refeições */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. REFEIÇÕES</h2>
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. REFEIÇÕES <span className="text-red-500">*</span></h2>
         <Input label="N° CAFÉ DA MANHÃ?" type="number" placeholder="Quantidade" value={form.numeroCafeManha} onChange={setInput('numeroCafeManha')} error={getError('numeroCafeManha')} />
         <Input label="N° LANCHES?" type="number" placeholder="Quantidade" value={form.numeroLanches} onChange={setInput('numeroLanches')} error={getError('numeroLanches')} />
         <Input label="N° REFEIÇÕES ALMOÇO?" type="number" placeholder="Quantidade" value={form.numeroRefeicoesAlmoco} onChange={setInput('numeroRefeicoesAlmoco')} error={getError('numeroRefeicoesAlmoco')} />
@@ -269,7 +298,7 @@ export default function CantinaPage() {
 
       {/* Seção 3: Itens */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO DE ITENS</h2>
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO DE ITENS <span className="text-red-500">*</span></h2>
         {itensSupermercadoDisponiveis.length === 0 ? (
           <p className="text-gray-500 text-center py-4">Nenhum item cadastrado no sistema</p>
         ) : (
@@ -297,13 +326,18 @@ export default function CantinaPage() {
 
       {/* Ações */}
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
-        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth>
+        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth disabled={!isValid}>
           SALVAR
         </Button>
         <Button onClick={handleLimpar} variant="secondary" icon="🧹" fullWidth>
           LIMPAR
         </Button>
       </div>
+      {!isValid && (
+        <p className="text-base text-gray-600 text-center">
+          <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+        </p>
+      )}
 
       <SuccessModal
         isOpen={showSuccessModal}
