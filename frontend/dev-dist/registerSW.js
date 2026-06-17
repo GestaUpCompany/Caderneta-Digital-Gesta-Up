@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/Caderneta-Digital-Gesta-Up/dev-sw.js?dev-sw', { scope: '/Caderneta-Digital-Gesta-Up/', type: 'classic' })

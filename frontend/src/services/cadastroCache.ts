@@ -415,3 +415,131 @@ export function getLoteDetalhes(lote: string): LoteDetalhes | null {
   if (!cacheData?.lotesDetalhes) return null
   return cacheData.lotesDetalhes[lote] || null
 }
+
+/**
+ * Sincroniza todos os dados de cadastro do Supabase em sequência com delay
+ * Ordem de dependência: Pastos → Lotes → Indivíduos → Bebedouros → Independentes
+ */
+export async function syncAllCadastroData(
+  fazendaId: string,
+  onProgress?: (current: number, total: number, item: string) => void
+): Promise<{ success: boolean; errors: string[] }> {
+  const errors: string[] = []
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+  // Ordem de dependência
+  const syncSteps = [
+    { name: 'Pastos', fn: () => supabaseService.getPastos(fazendaId) },
+    { name: 'Lotes', fn: () => supabaseService.getLotes(fazendaId) },
+    { name: 'Indivíduos', fn: () => supabaseService.getIndividuos(fazendaId, 100) },
+    { name: 'Bebedouros', fn: () => supabaseService.getBebedouros(fazendaId) },
+    { name: 'Formulações', fn: () => supabaseService.getFormulacoes(fazendaId) },
+    { name: 'Funcionários', fn: () => supabaseService.getFuncionarios(fazendaId) },
+    { name: 'Máquinas/Veículos', fn: () => supabaseService.getMaquinasVeiculos(fazendaId) },
+    { name: 'Insumos', fn: () => supabaseService.getInsumos(fazendaId) },
+    { name: 'Frigoríficos', fn: () => supabaseService.getFrigorificos(fazendaId) },
+    { name: 'Causas de Morte', fn: () => supabaseService.getCausasMorte(fazendaId) },
+    { name: 'Fornecedores', fn: () => supabaseService.getFornecedores(fazendaId) },
+  ]
+
+  const result: CadastroCacheData = {
+    pastos: [],
+    lotes: [],
+    frigorificos: [],
+    causasMorte: [],
+    bebedouros: [],
+    fornecedores: [],
+    funcionarios: [],
+    mineral: [],
+    proteinado: [],
+    racao: [],
+    insumos: [],
+    pastosDetalhes: {},
+    lotesDetalhes: {},
+    individuos: [],
+  }
+
+  for (let i = 0; i < syncSteps.length; i++) {
+    const step = syncSteps[i]
+    onProgress?.(i + 1, syncSteps.length, step.name)
+
+    try {
+      const data = await step.fn()
+
+      // Mapear dados para o cache
+      switch (step.name) {
+        case 'Pastos':
+          result.pastos = data?.map((p: any) => p.nome) || []
+          break
+        case 'Lotes':
+          result.lotes = data?.map((l: any) => l.nome) || []
+          break
+        case 'Indivíduos':
+          result.individuos = (data || []).map((i: any) => ({
+            id: i.id,
+            id_manejo: i.id_manejo,
+            id_brinco: i.id_brinco,
+            id_chip: i.id_chip,
+            id_provisorio_cria: i.id_provisorio_cria,
+            sexo: i.sexo,
+            raca: i.raca,
+            categoria: i.categoria,
+            classificacao_matriz: i.classificacao_matriz,
+            numero_partos: i.numero_partos,
+            status: i.status,
+          }))
+          break
+        case 'Bebedouros':
+          result.bebedouros = data?.map((b: any) => b.nome) || []
+          break
+        case 'Formulações':
+          // Formulações são usadas em SuplementacaoPage via getFormulacoes
+          // Não salvamos no cache atual, mas poderíamos no futuro
+          break
+        case 'Funcionários':
+          result.funcionarios = data?.map((f: any) => f.nome) || []
+          break
+        case 'Máquinas/Veículos':
+          // Maquinas não estão no cache atual, mas poderiam ser adicionados
+          break
+        case 'Insumos':
+          result.insumos = data?.map((i: any) => i.nome) || []
+          break
+        case 'Frigoríficos':
+          result.frigorificos = data?.map((f: any) => f.nome) || []
+          break
+        case 'Causas de Morte':
+          result.causasMorte = data?.map((c: any) => c.nome) || []
+          break
+        case 'Fornecedores':
+          result.fornecedores = data?.map((f: any) => f.nome) || []
+          break
+      }
+
+      console.log(`[CadastroCache] ${step.name} carregados: ${Array.isArray(data) ? data.length : 0}`)
+    } catch (error) {
+      console.error(`[CadastroCache] Erro ao carregar ${step.name}:`, error)
+      errors.push(step.name)
+    }
+
+    // Delay entre queries (exceto última)
+    if (i < syncSteps.length - 1) {
+      await delay(750)
+    }
+  }
+
+  // Salvar no cache
+  await saveToCache(result)
+  cacheData = result
+  lastCacheUpdate = Date.now()
+
+  console.log('[CadastroCache] Sincronização concluída:', {
+    success: errors.length === 0,
+    errors,
+    pastos: result.pastos.length,
+    lotes: result.lotes.length,
+    individuos: result.individuos?.length || 0,
+  })
+
+  return { success: errors.length === 0, errors }
+}

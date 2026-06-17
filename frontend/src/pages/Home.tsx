@@ -8,13 +8,19 @@ import { ClipboardList, Sun, Moon } from 'lucide-react'
 import FarmLogo from '../components/FarmLogo'
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
+import { syncAllCadastroData } from '../services/cadastroCache'
 
 const BASE = import.meta.env.BASE_URL
 
 export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { configurado, fazenda, usuario, acessoId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId } = useSelector((state: RootState) => state.config)
+  const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null)
+  const [syncErrors, setSyncErrors] = useState<string[]>([])
+  const [completedItems, setCompletedItems] = useState<string[]>([])
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null)
 
   // Buscar logoUrl diretamente do banco usando acessoId
   useEffect(() => {
@@ -55,6 +61,35 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState('')
   const [ultimaCaderneta, setUltimaCaderneta] = useState<string | null>(null)
   const [versiculoDoDia, setVersiculoDoDia] = useState<Versiculo | null>(null)
+
+  const handleSync = async () => {
+    if (!fazendaId || syncing) return
+
+    setSyncing(true)
+    setSyncProgress(null)
+    setSyncErrors([])
+    setCompletedItems([])
+
+    try {
+      const result = await syncAllCadastroData(fazendaId, (current, total, item) => {
+        setSyncProgress({ current, total, item })
+        setCompletedItems(prev => [...prev, item])
+      })
+
+      if (result.errors.length > 0) {
+        setSyncErrors(result.errors)
+      } else {
+        const now = new Date()
+        setLastSyncTime(now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar:', error)
+      setSyncErrors(['Erro geral de sincronização'])
+    } finally {
+      setSyncing(false)
+      setSyncProgress(null)
+    }
+  }
 
   useEffect(() => {
     const now = new Date()
@@ -175,6 +210,108 @@ export default function Home() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Sync Button and Status */}
+        {configurado && fazendaId && (
+          <div className="mb-6 flex flex-col gap-3">
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-600"
+            >
+              {syncing ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  ATUALIZANDO...
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  ATUALIZAR DADOS
+                </>
+              )}
+            </button>
+
+            {/* Sync Status Card */}
+            {(syncing || syncErrors.length > 0 || (!syncing && syncErrors.length === 0 && syncProgress === null)) && (
+              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
+                {syncing && syncProgress && (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-gray-900">Sincronizando dados de cadastro...</p>
+                      <span className="text-xs text-gray-500">{syncProgress.current}/{syncProgress.total}</span>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    {/* Completed Items */}
+                    {completedItems.length > 0 && (
+                      <div className="space-y-1 mb-3">
+                        {completedItems.map((item, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
+                            <svg className="w-4 h-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Current Item */}
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                      <span>{syncProgress.item}</span>
+                    </div>
+                  </>
+                )}
+
+                {syncErrors.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                        <svg className="w-5 h-5 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-semibold text-red-900">Erros na sincronização</p>
+                    </div>
+                    <ul className="text-sm text-red-700 space-y-1">
+                      {syncErrors.map((error, i) => (
+                        <li key={i} className="flex items-center gap-2">
+                          <span className="text-red-500">•</span>
+                          {error}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                {!syncing && syncErrors.length === 0 && syncProgress === null && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-green-900">Dados atualizados com sucesso</p>
+                      <p className="text-xs text-gray-500">Última atualização: {lastSyncTime || 'agora mesmo'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
         {/* Botão de ação rápida - última caderneta acessada */}

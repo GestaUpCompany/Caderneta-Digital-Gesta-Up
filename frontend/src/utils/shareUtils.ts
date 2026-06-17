@@ -341,7 +341,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `\nCAPACIDADE: *${registro.capacidadeLitros} Litros*\n`
     }
   } else if (caderneta === 'abastecimento') {
-    // Seção: Dados do Abastecimento
+    // Seção: Dados do Abastecimento6
     texto += `DADOS DO ABASTECIMENTO\n`
     texto += `QUEM ABASTECEU: *${registro.quemAbasteceu || '—'}*\n`
     texto += `OPERADOR MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
