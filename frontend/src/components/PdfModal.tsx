@@ -13,6 +13,7 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
+  const modalOpenRef = useRef(false)
 
   // Prevenir scroll quando modal está aberto
   useEffect(() => {
@@ -85,12 +86,15 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   // Prevenir navegação para trás quando modal está aberto (botão voltar do celular)
   useEffect(() => {
     if (isOpen) {
+      modalOpenRef.current = true
       // Adicionar entrada no histórico para poder voltar para fechar o modal
       window.history.pushState({ modalOpen: true }, '', window.location.href)
 
       const handlePopState = (e: PopStateEvent) => {
-        if (e.state?.modalOpen) {
+        if (e.state?.modalOpen && modalOpenRef.current) {
           e.preventDefault()
+          e.stopPropagation()
+          modalOpenRef.current = false
           onClose()
         }
       }
@@ -98,9 +102,10 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
       window.addEventListener('popstate', handlePopState)
       return () => {
         window.removeEventListener('popstate', handlePopState)
-        // Remover a entrada do histórico se o modal for fechado sem usar o botão voltar
+        modalOpenRef.current = false
+        // Limpar o histórico quando o modal fecha
         if (window.history.state?.modalOpen) {
-          window.history.back()
+          window.history.replaceState(null, '', window.location.href)
         }
       }
     }

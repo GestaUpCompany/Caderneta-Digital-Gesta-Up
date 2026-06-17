@@ -42,6 +42,20 @@ const DIAGNOSTICOS_FIELDS = [
   'medicado',
   'animalInchado',
   'animalBicheira',
+  // ManutencaoMaquinasPage checklist
+  'abastecimentoRealizado',
+  'lavagemRealizada',
+  'vidrosPerfeitos',
+  'freiosBons',
+  'bateriaBoa',
+  'conferiuEletrica',
+  'maquinaEngraxada',
+  'nivelAguaIdeal',
+  'conferiuNivelOleo',
+  'calibrouPneus',
+  'limpouRadiador',
+  'tapetesBons',
+  'assentoBom',
 ]
 
 export interface ValidationRule {
@@ -77,10 +91,20 @@ export function useFormValidation<T extends Record<string, any>>(
       if (field.startsWith('tarefa_')) {
         const limpezaKey = field.replace('tarefa_', '')
         value = (form as any).tarefas?.[limpezaKey]
+      } else if (field.endsWith('_obs')) {
+        // Handle checklist observation fields (e.g., abastecimentoRealizado_obs -> form.checklist.abastecimentoRealizado.observacao)
+        const campo = field.replace('_obs', '')
+        value = (form as any).checklist?.[campo]?.observacao
       } else if (DIAGNOSTICOS_FIELDS.includes(field)) {
         // Handle diagnosticos nested structure (e.g., bebedourosCochos -> form.diagnosticos.bebedourosCochos.valor)
-        // Fallback to flat form field if nested structure doesn't exist (PastagensPage, etc.)
-        value = (form as any).diagnosticos?.[field]?.valor ?? form[field]
+        // Also handle manutencao-maquinas checklist (form.checklist[field].valor)
+        const checklistValue = (form as any).checklist?.[field]?.valor
+        if (checklistValue !== undefined) {
+          value = checklistValue
+        } else {
+          // Fallback to diagnosticos structure or flat form field
+          value = (form as any).diagnosticos?.[field]?.valor ?? form[field]
+        }
       } else {
         value = form[field]
       }

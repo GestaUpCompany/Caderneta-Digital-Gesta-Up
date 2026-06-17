@@ -11,6 +11,7 @@ import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { getFuncionarios, getMaquinasVeiculos, getMaquinaVeiculoByNome } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -101,6 +102,22 @@ export default function ManutencaoMaquinasPage() {
     }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Validation rules
+  const validationRules: any = {
+    data: { required: true },
+    responsavelChecklist: { required: true },
+    operadorMotorista: { required: true },
+    maquinaVeiculo: { required: true },
+    odometro: { required: true },
+  }
+
+  // Add validation for checklist fields
+  CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
+    validationRules[campo] = { required: true }
+  })
+
+  const { isValid } = useFormValidation(form, validationRules)
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -252,11 +269,11 @@ export default function ManutencaoMaquinasPage() {
             </div>
           )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} />
           <div className="flex flex-col gap-3">
             {funcionariosDisponiveis.length > 0 ? (
               <SearchableModal
-                label="RESPONSÁVEL"
+                label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
                 value={form.responsavelChecklist}
                 onChange={set('responsavelChecklist')}
                 error={getError('responsavelChecklist')}
@@ -267,7 +284,7 @@ export default function ManutencaoMaquinasPage() {
               />
             ) : (
               <Input
-                label="RESPONSÁVEL"
+                label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
                 placeholder="Carregando..."
                 value={form.responsavelChecklist}
                 onChange={setInput('responsavelChecklist')}
@@ -278,7 +295,7 @@ export default function ManutencaoMaquinasPage() {
             )}
             {funcionariosDisponiveis.length > 0 ? (
               <SearchableModal
-                label="OPERADOR/MOTORISTA"
+                label={<span>OPERADOR/MOTORISTA <span className="text-red-500">*</span></span>}
                 value={form.operadorMotorista}
                 onChange={set('operadorMotorista')}
                 error={getError('operadorMotorista')}
@@ -289,7 +306,7 @@ export default function ManutencaoMaquinasPage() {
               />
             ) : (
               <Input
-                label="OPERADOR/MOTORISTA"
+                label={<span>OPERADOR/MOTORISTA <span className="text-red-500">*</span></span>}
                 placeholder="Carregando..."
                 value={form.operadorMotorista}
                 onChange={setInput('operadorMotorista')}
@@ -301,7 +318,7 @@ export default function ManutencaoMaquinasPage() {
           </div>
           {maquinasVeiculosDisponiveis.length > 0 ? (
             <SearchableModal
-              label="MÁQUINA/VEÍCULO"
+              label={<span>MÁQUINA/VEÍCULO <span className="text-red-500">*</span></span>}
               value={form.maquinaVeiculo}
               onChange={set('maquinaVeiculo')}
               error={getError('maquinaVeiculo')}
@@ -312,7 +329,7 @@ export default function ManutencaoMaquinasPage() {
             />
           ) : (
             <Input
-              label="MÁQUINA/VEÍCULO"
+              label={<span>MÁQUINA/VEÍCULO <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.maquinaVeiculo}
               onChange={setInput('maquinaVeiculo')}
@@ -331,7 +348,7 @@ export default function ManutencaoMaquinasPage() {
             />
           )}
           <Input
-            label="ODÔMETRO/HORÍMETRO (km)"
+            label={<span>ODÔMETRO/HORÍMETRO (km) <span className="text-red-500">*</span></span>}
             placeholder="Informe a quilometragem/horímetro"
             value={form.odometro}
             onChange={setInput('odometro')}
@@ -342,7 +359,7 @@ export default function ManutencaoMaquinasPage() {
 
         {/* Seção 2: Checklist */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CHECKLIST</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CHECKLIST <span className="text-red-500">*</span></h2>
           {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
             <div key={campo}>
               <Radio
@@ -370,7 +387,7 @@ export default function ManutencaoMaquinasPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÃO</h2>
           <Input
-            label="OBSERVAÇÃO"
+            label=""
             placeholder="Adicione observações adicionais (opcional)"
             value={form.observacao}
             onChange={setInput('observacao')}
@@ -379,13 +396,18 @@ export default function ManutencaoMaquinasPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
       </main>
 
       <SuccessModal

@@ -33,6 +33,21 @@ const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
     'animalSozinho',
     'morteSubita',
   ],
+  'manutencao-maquinas': [
+    'abastecimentoRealizado',
+    'lavagemRealizada',
+    'vidrosPerfeitos',
+    'freiosBons',
+    'bateriaBoa',
+    'conferiuEletrica',
+    'maquinaEngraxada',
+    'nivelAguaIdeal',
+    'conferiuNivelOleo',
+    'calibrouPneus',
+    'limpouRadiador',
+    'tapetesBons',
+    'assentoBom',
+  ],
   'operacoes-maquinas': ['algumImprevisto'],
 }
 
@@ -1174,7 +1189,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `RESPONSÁVEL CHECKLIST: *${registro.responsavelChecklist || '—'}*\n`
     texto += `OPERADOR/MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
     texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
-    texto += `PLACA: *${registro.placa || '—'}*\n`
+    if (registro.placa && registro.placa !== '') {
+      texto += `PLACA: *${registro.placa}*\n`
+    }
     texto += `ODÔMETRO/HORÍMETRO: *${registro.odometro || '—'}*\n\n`
 
     // Seção: Checklist
@@ -1198,12 +1215,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     checklistPerguntas.forEach(({ campo, label }) => {
       const valor = (registro.checklist as any)?.[campo]?.valor
       const observacao = (registro.checklist as any)?.[campo]?.observacao
-      if (valor === 'S' || valor === 'N') {
-        const valorFormatado = valor === 'S' ? 'Sim' : 'Não'
-        texto += `${label}: *${valorFormatado}*\n`
-      }
-      if (observacao && observacao !== '') {
-        texto += `OBSERVAÇÃO: *${observacao}*\n`
+      // Only show negative responses (N)
+      if (valor === 'N') {
+        const valorFormatado = 'Não'
+        texto += `${label}: *${valorFormatado}* ⚠️\n`
+        if (observacao && observacao !== '') {
+          texto += `OBSERVAÇÃO: *${observacao}*\n`
+        }
       }
     })
 
