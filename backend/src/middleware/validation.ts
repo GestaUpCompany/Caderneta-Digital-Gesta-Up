@@ -12,7 +12,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     idChipCria: Joi.string().allow('', null),
     tratamento: Joi.string().required(),
     tipoParto: Joi.array().items(
-      Joi.string().valid('Normal', 'Auxiliado', 'Cesárea', 'Aborto', 'Natimorto', 'Distócico', 'Gêmeos', 'Deficiência Física', 'Retenção de Placenta')
+      Joi.string().valid('Normal', 'Auxiliado', 'Cesárea', 'Aborto', 'Natimorto', 'Distócico', 'Gêmeos', 'Deficiência Física', 'Retenção de Placenta', 'Guacho')
     ).required(),
     sexo: Joi.string().valid('Macho', 'Fêmea').required(),
     raca: Joi.string().valid('Aberdeen Angus', 'Anelorado', 'Angus', 'Blonde', 'Brangus', 'Caracu', 'Charolês', 'Gir', 'Girolando', 'Guacho', 'Guzerá', 'Leiteiro', 'Limousin', 'Nelore', 'Red Angus', 'Senepol', 'Simental', 'SRD', 'Tabapuã', 'Wagyu').required(),

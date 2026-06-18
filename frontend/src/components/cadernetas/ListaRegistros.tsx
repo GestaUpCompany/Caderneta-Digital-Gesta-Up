@@ -323,6 +323,12 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                     <option value="Auxiliado">Auxiliado 🤝</option>
                     <option value="Cesárea">Cesárea 🏥</option>
                     <option value="Aborto">Aborto ❌</option>
+                    <option value="Natimorto">Natimorto 💀</option>
+                    <option value="Distócico">Distócico ⚠️</option>
+                    <option value="Gêmeos">Gêmeos 👯</option>
+                    <option value="Deficiência Física">Deficiência Física ♿</option>
+                    <option value="Retenção de Placenta">Retenção de Placenta 🩸</option>
+                    <option value="Guacho">Guacho 🐄</option>
                   </select>
                 </div>
               </>

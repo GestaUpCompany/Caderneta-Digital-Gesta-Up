@@ -89,7 +89,7 @@ export const MOTIVOS_MOVIMENTACAO = [
   'Consumo', 'Transferência', 'Abate', 'Entrada', 'Entrevero',
 ] as const
 
-export const TIPOS_PARTO = ['Normal', 'Distócico', 'Cesárea'] as const
+export const TIPOS_PARTO = ['Normal', 'Auxiliado', 'Cesárea', 'Aborto', 'Natimorto', 'Distócico', 'Gêmeos', 'Deficiência Física', 'Retenção de Placenta', 'Guacho'] as const
 
 export const SEXO_ANIMAL = ['Macho', 'Fêmea'] as const
 

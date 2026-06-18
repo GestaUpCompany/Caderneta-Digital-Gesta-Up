@@ -29,6 +29,7 @@ const TIPOS_PARTO = [
   { value: 'Gêmeos', label: 'GÊMEOS', icon: '👯' },
   { value: 'Deficiência Física', label: 'DEFICIÊNCIA FÍSICA', icon: '♿' },
   { value: 'Retenção de Placenta', label: 'RETENÇÃO DE PLACENTA', icon: '🩸' },
+  { value: 'Guacho', label: 'GUACHO', icon: '🐄' },
 ]
 
 const SEXO = [
