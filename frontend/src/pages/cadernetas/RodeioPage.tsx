@@ -331,7 +331,7 @@ export default function RodeioPage() {
       outros: form.outros ? Number(form.outros) : 0,
       totalCabecas: totalAnimais,
       diagnosticos: form.diagnosticos,
-      escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : null,
+      escoreFezes: form.escoreFezes || null,
       equipe: form.equipe ? Number(form.equipe) : null,
       equipeNomes: form.equipeNomes,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : null,

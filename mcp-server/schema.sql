@@ -313,7 +313,6 @@ CREATE TABLE registros_suplementacao (
   garrote BOOLEAN DEFAULT false,
   novilha BOOLEAN DEFAULT false,
   leitura INTEGER CHECK (leitura >= -1 AND leitura <= 3),
-  sacos INTEGER DEFAULT 0,
   kg_cocho NUMERIC(10,2) DEFAULT 0,
   kg_deposito NUMERIC(10,2) DEFAULT 0,
   creep INTEGER DEFAULT 0,

@@ -3376,7 +3376,7 @@ export type Database = {
           dispositivo_id: string | null
           equipe: number | null
           equipe_nomes: Json | null
-          escore_fezes: number | null
+          escore_fezes: string | null
           escore_gado: number | null
           fazenda_id: string
           gado_contado: string | null
@@ -3405,7 +3405,7 @@ export type Database = {
           dispositivo_id?: string | null
           equipe?: number | null
           equipe_nomes?: Json | null
-          escore_fezes?: number | null
+          escore_fezes?: string | null
           escore_gado?: number | null
           fazenda_id: string
           gado_contado?: string | null
@@ -3434,7 +3434,7 @@ export type Database = {
           dispositivo_id?: string | null
           equipe?: number | null
           equipe_nomes?: Json | null
-          escore_fezes?: number | null
+          escore_fezes?: string | null
           escore_gado?: number | null
           fazenda_id?: string
           gado_contado?: string | null
@@ -3573,7 +3573,7 @@ export type Database = {
           deposito_condicoes: boolean | null
           deposito_condicoes_obs: string | null
           dispositivo_id: string | null
-          escore_fezes: number | null
+          escore_fezes: string | null
           espacamento_cocho_cm_cab: number | null
           espacamento_cocho_detalhes: Json | null
           espacamento_cocho_ideal: boolean | null
@@ -3585,7 +3585,7 @@ export type Database = {
           id: string
           kg_cocho: number | null
           kg_deposito: number | null
-          leitura: number | null
+          leitura: string | null
           limpeza_cocho: boolean | null
           limpeza_cocho_obs: string | null
           lote: string | null
@@ -3611,7 +3611,7 @@ export type Database = {
           deposito_condicoes?: boolean | null
           deposito_condicoes_obs?: string | null
           dispositivo_id?: string | null
-          escore_fezes?: number | null
+          escore_fezes?: string | null
           espacamento_cocho_cm_cab?: number | null
           espacamento_cocho_detalhes?: Json | null
           espacamento_cocho_ideal?: boolean | null
@@ -3623,7 +3623,7 @@ export type Database = {
           id?: string
           kg_cocho?: number | null
           kg_deposito?: number | null
-          leitura?: number | null
+          leitura?: string | null
           limpeza_cocho?: boolean | null
           limpeza_cocho_obs?: string | null
           lote?: string | null
@@ -3649,7 +3649,7 @@ export type Database = {
           deposito_condicoes?: boolean | null
           deposito_condicoes_obs?: string | null
           dispositivo_id?: string | null
-          escore_fezes?: number | null
+          escore_fezes?: string | null
           espacamento_cocho_cm_cab?: number | null
           espacamento_cocho_detalhes?: Json | null
           espacamento_cocho_ideal?: boolean | null
@@ -3661,7 +3661,7 @@ export type Database = {
           id?: string
           kg_cocho?: number | null
           kg_deposito?: number | null
-          leitura?: number | null
+          leitura?: string | null
           limpeza_cocho?: boolean | null
           limpeza_cocho_obs?: string | null
           lote?: string | null

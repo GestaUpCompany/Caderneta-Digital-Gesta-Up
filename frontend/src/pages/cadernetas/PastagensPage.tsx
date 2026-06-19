@@ -479,7 +479,7 @@ export default function PastagensPage() {
       animaisEntreveradosObs: form.animaisEntreveradosObs,
       animalMorto: form.animalMorto,
       animalMortoObs: form.animalMortoObs,
-      escoreFezes: form.escoreFezes ? Number(form.escoreFezes) : 0,
+      escoreFezes: form.escoreFezes || null,
       numeroPessoasManejo: form.numeroPessoasManejo ? Number(form.numeroPessoasManejo) : 0,
       equipe_nomes: form.equipeNomes || null,
       // Campos de divergência

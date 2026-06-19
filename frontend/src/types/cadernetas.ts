@@ -59,7 +59,7 @@ export interface RegistroRodeio extends Registro {
     }
   }
   animaisTratados: number
-  escoreFezes: number | null
+  escoreFezes: string | null
   equipe: number | null
   procedimentos: string[]
   escoreGado: number | null
@@ -77,7 +77,7 @@ export interface RegistroSuplementacao extends Registro {
   boi: 'S' | 'N'
   garrote: 'S' | 'N'
   novilha: 'S' | 'N'
-  leitura: number | null
+  leitura: string | null
   kgCocho: number
   kgDeposito: number
 }
