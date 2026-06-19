@@ -518,7 +518,7 @@ export default function SuplementacaoPage() {
       pastoId: form.pastoId,
       numeroLote: form.numeroLote,
       loteId: form.loteId,
-      produto: form.formulacao,
+      formulacao: form.formulacao,
       teorMs: formulacaoDetalhes?.teorMs ?? null,
       metaConsumo: formulacaoDetalhes?.metaConsumo ?? null,
       leituraCocho: form.leitura || null,
@@ -700,6 +700,7 @@ export default function SuplementacaoPage() {
                 consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN,
                 custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia,
               }}
+              nomeLote={form.numeroLote}
             />
           )}
         </div>
