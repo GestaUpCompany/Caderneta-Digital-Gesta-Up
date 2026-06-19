@@ -3593,7 +3593,7 @@ export type Database = {
           nome_usuario: string | null
           pasto: string | null
           pasto_id: string | null
-          produto: string | null
+          formulacao: string | null
           sync_status: string | null
           tratador: string | null
           updated_at: string | null
@@ -3631,7 +3631,7 @@ export type Database = {
           nome_usuario?: string | null
           pasto?: string | null
           pasto_id?: string | null
-          produto?: string | null
+          formulacao?: string | null
           sync_status?: string | null
           tratador?: string | null
           updated_at?: string | null
@@ -3669,7 +3669,7 @@ export type Database = {
           nome_usuario?: string | null
           pasto?: string | null
           pasto_id?: string | null
-          produto?: string | null
+          formulacao?: string | null
           sync_status?: string | null
           tratador?: string | null
           updated_at?: string | null

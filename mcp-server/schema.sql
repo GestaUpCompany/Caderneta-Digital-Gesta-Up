@@ -304,7 +304,7 @@ CREATE TABLE registros_suplementacao (
   tratador TEXT,
   pasto_id UUID REFERENCES pastos(id) ON DELETE SET NULL,
   lote_id UUID REFERENCES lotes(id) ON DELETE SET NULL,
-  produto TEXT,
+  formulacao TEXT,
   gado TEXT,
   vaca BOOLEAN DEFAULT false,
   touro BOOLEAN DEFAULT false,

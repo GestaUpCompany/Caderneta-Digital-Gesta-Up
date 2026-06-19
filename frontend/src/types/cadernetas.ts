@@ -69,7 +69,7 @@ export interface RegistroSuplementacao extends Registro {
   tratador: string
   pasto: string
   numeroLote: string
-  produto: string
+  formulacao: string
   gado: string
   vaca: 'S' | 'N'
   touro: 'S' | 'N'

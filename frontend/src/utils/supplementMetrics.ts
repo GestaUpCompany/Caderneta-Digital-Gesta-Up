@@ -8,7 +8,7 @@ interface RegistroSuplementacao {
   data: string
   kg_cocho: number | null
   kg_deposito: number | null
-  produto: string | null
+  formulacao: string | null
 }
 
 interface Formulacao {
@@ -87,14 +87,14 @@ function filtrarRegistrosPorPeriodo(
 }
 
 /**
- * Filtra registros por formulação (produto)
+ * Filtra registros por formulação
  */
 function filtrarRegistrosPorFormulacao(
   registros: RegistroSuplementacao[],
   nomeFormulacao: string | null
 ): RegistroSuplementacao[] {
   if (!nomeFormulacao) return registros
-  return registros.filter(reg => reg.produto === nomeFormulacao)
+  return registros.filter(reg => reg.formulacao === nomeFormulacao)
 }
 
 /**

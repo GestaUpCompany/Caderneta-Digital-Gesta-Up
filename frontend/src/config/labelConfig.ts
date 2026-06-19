@@ -91,7 +91,7 @@ const SUPLEMENTACAO_LABELS = {
   ...COMMON_LABELS,
   tratador: 'TRATADOR',
   numeroLote: 'LOTE',
-  produto: 'SUPLEMENTO',
+  formulacao: 'FORMULAÇÃO',
   gado: 'TIPO DE GADO',
   leitura: 'LEITURA DO COCHO',
   leituraCocho: 'LEITURA COCHO',

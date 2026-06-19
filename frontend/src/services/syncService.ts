@@ -189,7 +189,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         pasto_id: registro.pastoId || null,
         lote: registro.numeroLote || null,
         lote_id: registro.loteId || null,
-        produto: registro.produto || null,
+        formulacao: registro.formulacao || null,
         categorias: (registro.categoriasString as string) || null,
         leitura: registro.leituraCocho || null,
         kg_cocho: registro.kgCocho ? Number(registro.kgCocho) : 0,

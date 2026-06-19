@@ -3,7 +3,7 @@ import { CadernetaDisplayConfig } from '../registroDisplayConfig'
 export const suplementacaoConfig: CadernetaDisplayConfig = {
   sections: [
     { title: 'IDENTIFICAÇÃO', order: 1, icon: '📋' },
-    { title: 'PRODUTO', order: 2, icon: '🧪' },
+    { title: 'FORMULAÇÃO', order: 2, icon: '🧪' },
     { title: 'LEITURAS E QUANTIDADES', order: 3, icon: '⚖️' },
     { title: 'CHECKLIST COCHOS', order: 4, icon: '✅' },
     { title: 'CHECKLIST DEPÓSITO', order: 5, icon: '🏚️' },
@@ -14,7 +14,7 @@ export const suplementacaoConfig: CadernetaDisplayConfig = {
     numeroLote: { key: 'numeroLote', section: 'IDENTIFICAÇÃO', priority: 3 },
     categorias: { key: 'categorias', section: 'IDENTIFICAÇÃO', priority: 4, colSpan: 2, format: (v) => Array.isArray(v) ? (v as string[]).join(', ') : String(v) },
 
-    produto: { key: 'produto', section: 'PRODUTO', priority: 1, colSpan: 2 },
+    formulacao: { key: 'formulacao', section: 'FORMULAÇÃO', priority: 1, colSpan: 2 },
 
     leituraCocho: { key: 'leituraCocho', section: 'LEITURAS E QUANTIDADES', priority: 1 },
     kgCocho: { key: 'kgCocho', section: 'LEITURAS E QUANTIDADES', priority: 2 },
