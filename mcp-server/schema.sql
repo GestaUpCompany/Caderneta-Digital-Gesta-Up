@@ -18,16 +18,6 @@ CREATE TABLE usuarios (
 
 -- Índices para usuarios
 CREATE INDEX idx_usuarios_email ON usuarios(email);
-CREATE INDEX idx_usuarios_ativo ON usuarios(ativo);
-
--- Tabela de relação usuario-fazenda (para sistema web)
-CREATE TABLE usuario_fazenda (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  fazenda_id UUID NOT NULL REFERENCES fazendas(id) ON DELETE CASCADE,
-  papel TEXT NOT NULL, -- admin, gerente, peao
-  ativo BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(usuario_id, fazenda_id)
 );
 

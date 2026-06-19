@@ -359,8 +359,6 @@ export function validateAbastecimento(data: Record<string, unknown>): Validation
     errors.push({ field: 'operadorMotorista', message: 'Operador motorista é obrigatório' })
   if (!isNonEmptyString(data.maquinaVeiculo))
     errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
-  if (!isNonEmptyString(data.placa))
-    errors.push({ field: 'placa', message: 'Placa é obrigatória' })
   if (!isNonEmptyString(data.totalAbastecido))
     errors.push({ field: 'totalAbastecido', message: 'Total abastecido é obrigatório' })
   if (!isNonEmptyString(data.combustivel))

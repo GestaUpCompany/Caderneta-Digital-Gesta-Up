@@ -274,7 +274,6 @@ export default function AbastecimentoPage() {
             placeholder="Placa do veículo"
             value={form.placa}
             onChange={setInput('placa')}
-            error={getError('placa')}
             disabled={!!maquinaVeiculoSelecionada?.placa}
           />
         )}
