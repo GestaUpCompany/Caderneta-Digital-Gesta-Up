@@ -10,9 +10,10 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCochoPorFormulacao, getPastos, getLotesByPastoId, getFormulacoes, getFormulacaoByNome } from '../../services/supabaseService'
+import { getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCochoPorFormulacao, getPastos, getLotesByPastoId, getFormulacoes, getFormulacaoByNome, getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
+import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -157,7 +158,9 @@ export default function SuplementacaoPage() {
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
-  const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ nome: string; teorMs: number | null; metaConsumo: number | null } | null>(null)
+  const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null } | null>(null)
+  const [registrosSuplementacao, setRegistrosSuplementacao] = useState<any[]>([])
+  const [metricasSuplementacao, setMetricasSuplementacao] = useState<any>(null)
 
   // Buscar detalhes da formulação quando selecionada
   useEffect(() => {
@@ -173,6 +176,8 @@ export default function SuplementacaoPage() {
             nome: formulacao.nome,
             teorMs: formulacao.teor_ms_dieta ?? null,
             metaConsumo: formulacao.meta_consumo_ms_percent_pv ?? null,
+            custoDietaReaisCabDia: formulacao.custo_dieta_reais_cab_dia ?? null,
+            custoMnTonelada: formulacao.custo_mn_tonelada ?? null,
           })
         } else {
           setFormulacaoDetalhes(null)
@@ -193,6 +198,10 @@ export default function SuplementacaoPage() {
         setPastosDisponiveis(cache.pastos || [])
       }
 
+      if (cache && cache.formulacoes && cache.formulacoes.length > 0) {
+        setFormulacoesDisponiveis(cache.formulacoes)
+      }
+
       if (!fazendaId) {
         setFormulacoesDisponiveis([])
         return
@@ -206,7 +215,12 @@ export default function SuplementacaoPage() {
         setFormulacoesDisponiveis(formulacoesData?.map((f: any) => f.nome) || [])
       } catch (error) {
         console.error('Erro ao carregar formulações do Supabase:', error)
-        setFormulacoesDisponiveis([])
+        // Se falhar, usar cache se disponível
+        if (cache && cache.formulacoes) {
+          setFormulacoesDisponiveis(cache.formulacoes)
+        } else {
+          setFormulacoesDisponiveis([])
+        }
       } finally {
         setLoadingFormulacoes(false)
       }
@@ -238,6 +252,7 @@ export default function SuplementacaoPage() {
       console.log('[SuplementacaoPage] Cache atualizado, recarregando dados')
       if (data) {
         setPastosDisponiveis(data.pastos || [])
+        setFormulacoesDisponiveis(data.formulacoes || [])
       }
     })
 
@@ -400,6 +415,54 @@ export default function SuplementacaoPage() {
 
     calcularEspacamentoCocho()
   }, [dadosPasto, detalhesLote, form.formulacao, fazendaId])
+
+  // Carregar registros de suplementação e calcular métricas quando lote é selecionado
+  useEffect(() => {
+    async function carregarRegistrosSuplementacao() {
+      if (!form.loteId || !fazendaId) {
+        setRegistrosSuplementacao([])
+        return
+      }
+
+      try {
+        const registros = await getRegistrosSuplementacaoByLote(fazendaId, form.loteId)
+        setRegistrosSuplementacao(registros || [])
+      } catch (error) {
+        console.error('Erro ao carregar registros de suplementação:', error)
+        setRegistrosSuplementacao([])
+      }
+    }
+
+    carregarRegistrosSuplementacao()
+  }, [form.loteId, fazendaId])
+
+  // Calcular métricas de suplementação quando dados mudarem
+  useEffect(() => {
+    if (!detalhesLote || !registrosSuplementacao || !formulacaoDetalhes) {
+      setMetricasSuplementacao(null)
+      return
+    }
+
+    try {
+      const categorias = detalhesLote.categorias_raw || []
+      const formulacao = {
+        nome: formulacaoDetalhes.nome,
+        teor_ms_dieta: formulacaoDetalhes.teorMs,
+        meta_consumo_ms_percent_pv: formulacaoDetalhes.metaConsumo,
+        custo_dieta_reais_cab_dia: formulacaoDetalhes.custoDietaReaisCabDia,
+        custo_mn_tonelada: formulacaoDetalhes.custoMnTonelada,
+        consumo_mn_kg_cab_dia: null,
+        consumo_ms_kg_cab_dia: null,
+        custo_ms_tonelada: null
+      }
+
+      const metricas = calcularMetricasSuplementacao(categorias, registrosSuplementacao, formulacao)
+      setMetricasSuplementacao(metricas)
+    } catch (error) {
+      console.error('Erro ao calcular métricas de suplementação:', error)
+      setMetricasSuplementacao(null)
+    }
+  }, [detalhesLote, registrosSuplementacao, formulacaoDetalhes])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -631,6 +694,11 @@ export default function SuplementacaoPage() {
               detalhes={{
                 teorMs: formulacaoDetalhes.teorMs,
                 metaConsumo: formulacaoDetalhes.metaConsumo,
+                consumoMedioGeralPercentPV: metricasSuplementacao?.consumoMedioGeralPercentPV,
+                consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV,
+                consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN,
+                consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN,
+                custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia,
               }}
             />
           )}

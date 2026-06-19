@@ -1366,6 +1366,27 @@ export async function getRegistrosSuplementacao(fazendaId: string, dataInicio?: 
   return data
 }
 
+export async function getRegistrosSuplementacaoByLote(fazendaId: string, loteId: string, dataInicio?: string, dataFim?: string) {
+  let query = supabase
+    .from('registros_suplementacao')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('lote_id', loteId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+
+  if (dataInicio) {
+    query = query.gte('data', dataInicio)
+  }
+  if (dataFim) {
+    query = query.lte('data', dataFim)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+
 export async function createRegistroSuplementacao(registro: TablesInsert<'registros_suplementacao'>) {
   const { data, error } = await supabase
     .from('registros_suplementacao')

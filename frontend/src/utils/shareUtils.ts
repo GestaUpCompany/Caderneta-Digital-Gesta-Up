@@ -562,7 +562,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `TEOR MS (%): *${registro.teorMs}%*\n`
     }
     if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
-      texto += `META CONSUMO (%/PV): *${registro.metaConsumo}%*\n`
+      texto += `META CONSUMO (%PV): *${registro.metaConsumo}%*\n`
     }
     texto += `\n`
     

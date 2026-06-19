@@ -39,6 +39,7 @@ export interface CadastroCacheData {
   proteinado?: string[]
   racao?: string[]
   insumos?: string[]
+  formulacoes?: string[]
   pastosDetalhes?: Record<string, PastoDetalhes>
   lotesDetalhes?: Record<string, LoteDetalhes>
   individuos?: { id: string; id_manejo: string | null; id_brinco: string | null; id_chip: string | null; id_provisorio_cria: string | null; sexo: string; raca: string; categoria: string; classificacao_matriz: string | null; numero_partos: number | null; status: string }[]
@@ -493,8 +494,7 @@ export async function syncAllCadastroData(
           result.bebedouros = data?.map((b: any) => b.nome) || []
           break
         case 'Formulações':
-          // Formulações são usadas em SuplementacaoPage via getFormulacoes
-          // Não salvamos no cache atual, mas poderíamos no futuro
+          result.formulacoes = data?.map((f: any) => f.nome) || []
           break
         case 'Funcionários':
           result.funcionarios = data?.map((f: any) => f.nome) || []
