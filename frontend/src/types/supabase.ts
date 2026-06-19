@@ -3594,7 +3594,6 @@ export type Database = {
           pasto: string | null
           pasto_id: string | null
           produto: string | null
-          sacos: number | null
           sync_status: string | null
           tratador: string | null
           updated_at: string | null
@@ -3633,7 +3632,6 @@ export type Database = {
           pasto?: string | null
           pasto_id?: string | null
           produto?: string | null
-          sacos?: number | null
           sync_status?: string | null
           tratador?: string | null
           updated_at?: string | null
@@ -3672,7 +3670,6 @@ export type Database = {
           pasto?: string | null
           pasto_id?: string | null
           produto?: string | null
-          sacos?: number | null
           sync_status?: string | null
           tratador?: string | null
           updated_at?: string | null

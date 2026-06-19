@@ -78,7 +78,6 @@ export interface RegistroSuplementacao extends Registro {
   garrote: 'S' | 'N'
   novilha: 'S' | 'N'
   leitura: number | null
-  sacos: number
   kgCocho: number
   kgDeposito: number
 }

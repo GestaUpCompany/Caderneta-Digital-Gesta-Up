@@ -97,7 +97,6 @@ const SUPLEMENTACAO_LABELS = {
   leituraCocho: 'LEITURA COCHO',
   kgCocho: 'SUPLEMENTO COCHO (KG)',
   kgDeposito: 'SUPLEMENTO DEPÓSITO (KG)',
-  sacos: 'SACOS',
   suplementoQtd: 'SUPLEMENTO/QTD',
   limpezaCocho: 'LIMPEZA DE COCHO FOI REALIZADA?',
   limpezaCochoObs: 'Observação',

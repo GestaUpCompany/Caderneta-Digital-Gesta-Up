@@ -6,7 +6,6 @@ interface LoteCategoria {
 
 interface RegistroSuplementacao {
   data: string
-  sacos: number | null
   kg_cocho: number | null
   kg_deposito: number | null
   produto: string | null
