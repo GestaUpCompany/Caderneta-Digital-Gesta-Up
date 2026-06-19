@@ -60,13 +60,12 @@ function calcularPesoVivoMedio(categorias: LoteCategoria[]): number | null {
 }
 
 /**
- * Calcula o consumo total de MN dos registros
+ * Calcula o consumo total de MN dos registros (apenas kg_cocho)
  */
 function calcularConsumoTotalMN(registros: RegistroSuplementacao[]): number {
   return registros.reduce((total, reg) => {
     const kgCocho = reg.kg_cocho || 0
-    const kgDeposito = reg.kg_deposito || 0
-    return total + kgCocho + kgDeposito
+    return total + kgCocho
   }, 0)
 }
 
