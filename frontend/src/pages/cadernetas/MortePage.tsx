@@ -225,7 +225,7 @@ export default function MortePage() {
   // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
       } else if (fazendaId) {

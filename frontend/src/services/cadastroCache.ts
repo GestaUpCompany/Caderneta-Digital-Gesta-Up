@@ -78,6 +78,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         bebedouros: cached[CACHE_KEYS.PASTOS_LOTES]?.bebedouros || [],
         fornecedores: cached[CACHE_KEYS.PASTOS_LOTES]?.fornecedores || [],
         funcionarios: cached[CACHE_KEYS.PASTOS_LOTES]?.funcionarios || [],
+        formulacoes: cached[CACHE_KEYS.PASTOS_LOTES]?.formulacoes || [],
         pastosDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {},
         lotesDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {},
         individuos: cached[CACHE_KEYS.PASTOS_LOTES]?.individuos || [],
@@ -108,6 +109,7 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       bebedouros: data.bebedouros || [],
       fornecedores: data.fornecedores || [],
       funcionarios: data.funcionarios || [],
+      formulacoes: data.formulacoes || [],
       pastosDetalhes: data.pastosDetalhes || {},
       lotesDetalhes: data.lotesDetalhes || {},
       individuos: data.individuos || [],
@@ -372,26 +374,55 @@ export function stopCadastroCachePolling(): void {
 
 /**
  * Retorna os dados em cache (ordenados alfabeticamente)
+ * Se não houver dados em memória, tenta carregar do IndexedDB
  */
-export function getCachedCadastroData(): CadastroCacheData | null {
-  if (!cacheData) return null
-
-  return {
-    pastos: [...(cacheData.pastos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    lotes: [...(cacheData.lotes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    frigorificos: [...(cacheData.frigorificos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    causasMorte: [...(cacheData.causasMorte || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    bebedouros: [...(cacheData.bebedouros || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    fornecedores: [...(cacheData.fornecedores || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    funcionarios: [...(cacheData.funcionarios || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    mineral: [...(cacheData.mineral || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    proteinado: [...(cacheData.proteinado || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    racao: [...(cacheData.racao || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    insumos: [...(cacheData.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    pastosDetalhes: cacheData.pastosDetalhes || {},
-    lotesDetalhes: cacheData.lotesDetalhes || {},
-    individuos: cacheData.individuos || [],
+export async function getCachedCadastroData(): Promise<CadastroCacheData | null> {
+  // Se já tem dados em memória, retorna
+  if (cacheData) {
+    return {
+      pastos: [...(cacheData.pastos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      lotes: [...(cacheData.lotes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      frigorificos: [...(cacheData.frigorificos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      causasMorte: [...(cacheData.causasMorte || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      bebedouros: [...(cacheData.bebedouros || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      fornecedores: [...(cacheData.fornecedores || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      funcionarios: [...(cacheData.funcionarios || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      formulacoes: [...(cacheData.formulacoes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      mineral: [...(cacheData.mineral || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      proteinado: [...(cacheData.proteinado || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      racao: [...(cacheData.racao || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      insumos: [...(cacheData.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      pastosDetalhes: cacheData.pastosDetalhes || {},
+      lotesDetalhes: cacheData.lotesDetalhes || {},
+      individuos: cacheData.individuos || [],
+    }
   }
+
+  // Se não tem dados em memória, tenta carregar do IndexedDB
+  const cached = await loadFromCache()
+  if (cached) {
+    cacheData = cached
+    lastCacheUpdate = Date.now()
+    return {
+      pastos: [...(cached.pastos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      lotes: [...(cached.lotes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      frigorificos: [...(cached.frigorificos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      causasMorte: [...(cached.causasMorte || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      bebedouros: [...(cached.bebedouros || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      fornecedores: [...(cached.fornecedores || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      funcionarios: [...(cached.funcionarios || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      formulacoes: [...(cached.formulacoes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      mineral: [...(cached.mineral || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      proteinado: [...(cached.proteinado || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      racao: [...(cached.racao || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      insumos: [...(cached.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      pastosDetalhes: cached.pastosDetalhes || {},
+      lotesDetalhes: cached.lotesDetalhes || {},
+      individuos: cached.individuos || [],
+    }
+  }
+
+  return null
 }
 
 /**

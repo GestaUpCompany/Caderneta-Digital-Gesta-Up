@@ -152,7 +152,7 @@ export default function BebedourosPage() {
   // Carregar bebedouros do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.bebedouros && cache.bebedouros.length > 0) {
         setBebedourosDisponiveis(cache.bebedouros || [])
       } else if (fazendaId) {

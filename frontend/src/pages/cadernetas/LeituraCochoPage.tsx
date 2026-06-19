@@ -72,7 +72,7 @@ export default function LeituraCochoPage() {
   // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
         setLotesDisponiveis(cache.lotes || [])

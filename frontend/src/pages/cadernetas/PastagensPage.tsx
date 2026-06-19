@@ -40,6 +40,14 @@ const ESCORES = [
   { value: '5', label: '5', color: 'bg-red-500' },
 ]
 
+// Fields where "Sim" means a problem exists (observation should show on "Sim")
+const INVERTED_DIAGNOSTICOS = [
+  'animaisMachucadosDoentesBichados',
+  'carrapatosMoscas',
+  'animaisEntreverados',
+  'animalMorto',
+]
+
 interface FormState {
   data: string
   manejador: string
@@ -181,7 +189,7 @@ export default function PastagensPage() {
   // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
         setFuncionariosDisponiveis(cache.funcionarios || [])
@@ -927,7 +935,7 @@ export default function PastagensPage() {
             gridCols={2}
             error={getError('animaisMachucadosDoentesBichados')}
           />
-          {form.animaisMachucadosDoentesBichados === 'N' && (
+          {form.animaisMachucadosDoentesBichados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisMachucadosDoentesBichados') && (
             <Input
               placeholder="Adicionar observação (opcional)"
               value={form.animaisMachucadosDoentesBichadosObs}
@@ -965,7 +973,7 @@ export default function PastagensPage() {
             gridCols={2}
             error={getError('carrapatosMoscas')}
           />
-          {form.carrapatosMoscas === 'N' && (
+          {form.carrapatosMoscas === 'S' && INVERTED_DIAGNOSTICOS.includes('carrapatosMoscas') && (
             <Input
               placeholder="Adicionar observação (opcional)"
               value={form.carrapatosMoscasObs}
@@ -984,7 +992,7 @@ export default function PastagensPage() {
             gridCols={2}
             error={getError('animaisEntreverados')}
           />
-          {form.animaisEntreverados === 'N' && (
+          {form.animaisEntreverados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisEntreverados') && (
             <Input
               placeholder="Adicionar observação (opcional)"
               value={form.animaisEntreveradosObs}
@@ -1003,7 +1011,7 @@ export default function PastagensPage() {
             gridCols={2}
             error={getError('animalMorto')}
           />
-          {form.animalMorto === 'N' && (
+          {form.animalMorto === 'S' && INVERTED_DIAGNOSTICOS.includes('animalMorto') && (
             <Input
               placeholder="Adicionar observação (opcional)"
               value={form.animalMortoObs}

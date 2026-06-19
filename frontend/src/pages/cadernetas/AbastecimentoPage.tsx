@@ -86,7 +86,7 @@ export default function AbastecimentoPage() {
   // Carregar funcionários do cache, com fallback para Supabase
   useEffect(() => {
     const loadFuncionarios = async () => {
-      const cachedData = getCachedCadastroData()
+      const cachedData = await getCachedCadastroData()
       if (cachedData?.funcionarios && cachedData.funcionarios.length > 0) {
         setFuncionariosDisponiveis(cachedData.funcionarios)
         return

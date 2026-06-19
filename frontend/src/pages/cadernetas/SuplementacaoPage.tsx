@@ -193,7 +193,7 @@ export default function SuplementacaoPage() {
   // Carregar formulações e pastos ao abrir a página
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
       }
@@ -231,7 +231,7 @@ export default function SuplementacaoPage() {
   // Carregar pastos do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
       } else if (fazendaId) {

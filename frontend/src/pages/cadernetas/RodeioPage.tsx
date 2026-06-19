@@ -156,7 +156,7 @@ export default function RodeioPage() {
   // Carregar lotes e funcionários do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
         setFuncionariosDisponiveis(cache.funcionarios || [])

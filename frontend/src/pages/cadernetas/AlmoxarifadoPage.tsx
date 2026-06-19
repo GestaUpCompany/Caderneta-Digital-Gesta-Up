@@ -206,7 +206,7 @@ export default function AlmoxarifadoPage() {
   // Carregar funcionários e classificacoes do cache, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.funcionarios && cache.funcionarios.length > 0) {
         setFuncionariosDisponiveis(cache.funcionarios)
       } else if (fazendaId) {

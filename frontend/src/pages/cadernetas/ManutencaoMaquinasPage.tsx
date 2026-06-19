@@ -155,7 +155,7 @@ export default function ManutencaoMaquinasPage() {
   // Carregar funcionários do cache
   useEffect(() => {
     const loadData = async () => {
-      const cache = getCachedCadastroData()
+      const cache = await getCachedCadastroData()
       if (cache && cache.funcionarios && cache.funcionarios.length > 0) {
         setFuncionariosDisponiveis(cache.funcionarios)
       } else if (fazendaId) {
