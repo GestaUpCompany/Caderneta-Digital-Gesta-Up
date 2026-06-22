@@ -557,7 +557,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
     texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
     texto += `FORMULAÇÃO\n`
-    texto += `NOME: *${registro.produto || '—'}*\n`
+    texto += `NOME: *${registro.formulacao || '—'}*\n`
     if (registro.teorMs !== null && registro.teorMs !== undefined) {
       texto += `TEOR MS (%): *${registro.teorMs}%*\n`
     }
