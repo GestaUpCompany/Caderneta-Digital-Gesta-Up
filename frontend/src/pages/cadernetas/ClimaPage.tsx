@@ -23,12 +23,13 @@ interface MedicaoPluviometro {
   pluviometroNome: string
   pluviometroLocalizacao: string
   medicao: string
+  temperatura: string
 }
 
 interface FormState {
   data: string
   responsavel: string
-  temperaturaMedia: string
+  temperaturaMediaCalculada: string
   umidadeRelativa: string
   observacao: string
   medicoes: MedicaoPluviometro[]
@@ -37,7 +38,7 @@ interface FormState {
 const makeInitial = (usuario?: string): FormState => ({
   data: todayBR(),
   responsavel: usuario || '',
-  temperaturaMedia: '',
+  temperaturaMediaCalculada: '',
   umidadeRelativa: '',
   observacao: '',
   medicoes: [],
@@ -62,7 +63,6 @@ export default function ClimaPage() {
   const validationRules: any = {
     data: { required: true },
     responsavel: { required: true },
-    temperaturaMedia: { required: true },
   }
 
   // Add validation for pluviometer measurements
@@ -108,7 +108,8 @@ export default function ClimaPage() {
         pluviometroId: p.id,
         pluviometroNome: p.nome,
         pluviometroLocalizacao: p.localizacao,
-        medicao: ''
+        medicao: '',
+        temperatura: ''
       }))
       setForm(prev => ({ ...prev, medicoes: medicoesIniciais }))
     }
@@ -117,11 +118,36 @@ export default function ClimaPage() {
   const handleMedicaoChange = (pluviometroId: string, value: string) => {
     setForm(prev => ({
       ...prev,
-      medicoes: prev.medicoes.map(m => 
+      medicoes: prev.medicoes.map(m =>
         m.pluviometroId === pluviometroId ? { ...m, medicao: value } : m
       )
     }))
   }
+
+  const handleTemperaturaChange = (pluviometroId: string, value: string) => {
+    setForm(prev => ({
+      ...prev,
+      medicoes: prev.medicoes.map(m =>
+        m.pluviometroId === pluviometroId ? { ...m, temperatura: value } : m
+      )
+    }))
+  }
+
+  // Calcular temperatura média automaticamente a partir das temperaturas dos pluviômetros
+  useEffect(() => {
+    const temperaturasPreenchidas = form.medicoes
+      .map(m => m.temperatura)
+      .filter(t => t !== '')
+      .map(t => Number(t))
+      .filter(t => !isNaN(t))
+
+    if (temperaturasPreenchidas.length > 0) {
+      const media = temperaturasPreenchidas.reduce((a, b) => a + b, 0) / temperaturasPreenchidas.length
+      setForm(prev => ({ ...prev, temperaturaMediaCalculada: media.toFixed(1) }))
+    } else {
+      setForm(prev => ({ ...prev, temperaturaMediaCalculada: '' }))
+    }
+  }, [form.medicoes])
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -133,13 +159,24 @@ export default function ClimaPage() {
         pluviometro_id: m.pluviometroId,
         pluviometro_nome: m.pluviometroNome,
         pluviometro_localizacao: m.pluviometroLocalizacao,
-        medicao: Number(m.medicao)
+        medicao: Number(m.medicao),
+        temperatura: m.temperatura ? Number(m.temperatura) : null
       }))
+
+    const temperaturasPreenchidas = form.medicoes
+      .map(m => m.temperatura)
+      .filter(t => t !== '')
+      .map(t => Number(t))
+      .filter(t => !isNaN(t))
+
+    const temperaturaMedia = temperaturasPreenchidas.length > 0
+      ? temperaturasPreenchidas.reduce((a, b) => a + b, 0) / temperaturasPreenchidas.length
+      : null
 
     const result = await salvarRegistro('clima', {
       data: form.data,
       responsavel: form.responsavel,
-      temperaturaMedia: form.temperaturaMedia ? Number(form.temperaturaMedia) : null,
+      temperaturaMedia: temperaturaMedia,
       umidadeRelativa: form.umidadeRelativa ? Number(form.umidadeRelativa) : null,
       observacao: form.observacao,
       medicoes: medicoesParaSalvar,
@@ -190,15 +227,6 @@ export default function ClimaPage() {
             readOnly
           />
           <Input
-            label={<span>TEMPERATURA MÉDIA (°C) <span className="text-red-500">*</span></span>}
-            placeholder="Ex: 25.5"
-            value={form.temperaturaMedia}
-            onChange={setInput('temperaturaMedia')}
-            error={getError('temperaturaMedia')}
-            type="number"
-            step="0.1"
-          />
-          <Input
             label="UMIDADE RELATIVA DO AR (%)"
             placeholder="Ex: 75"
             value={form.umidadeRelativa}
@@ -228,15 +256,36 @@ export default function ClimaPage() {
                     type="number"
                     step="0.1"
                   />
+                  <Input
+                    label="TEMPERATURA (°C)"
+                    placeholder="Ex: 25.5"
+                    value={medicao.temperatura}
+                    onChange={(e) => handleTemperaturaChange(medicao.pluviometroId, e.target.value)}
+                    type="number"
+                    step="0.1"
+                  />
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Seção 3: Observações */}
+        {/* Seção 3: Temperatura Média */}
+        {form.temperaturaMediaCalculada !== '' && (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TEMPERATURA MÉDIA</h2>
+            <Input
+              label="TEMPERATURA MÉDIA (°C)"
+              value={form.temperaturaMediaCalculada}
+              readOnly
+              disabled
+            />
+          </div>
+        )}
+
+        {/* Seção 4: Observações */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÕES</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÕES</h2>
           <Input
             label=""
             placeholder="Adicione observações (opcional)"

@@ -892,8 +892,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     }
   } else if (caderneta === 'clima') {
     // Para clima, usar ordem específica
-    const ordemClima = ['responsavel', 'temperaturaMedia', 'umidadeRelativa']
-    
+    const ordemClima = ['responsavel', 'umidadeRelativa']
+
     ordemClima.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
@@ -907,12 +907,29 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.medicoes && Array.isArray(registro.medicoes)) {
       texto += `\nPLUVIÔMETROS\n`
       registro.medicoes.forEach((m: any) => {
-        if (m.medicao !== null && m.medicao !== undefined && m.medicao !== '') {
-          const nome = m.pluviometro_nome || m.pluviometroNome || 'Pluviômetro'
-          const localizacao = m.pluviometro_localizacao || m.pluviometroLocalizacao
-          texto += `${nome}${localizacao ? ` (${localizacao})` : ''}: *${m.medicao} mm*\n`
+        const nome = m.pluviometro_nome || m.pluviometroNome || 'Pluviômetro'
+        const localizacao = m.pluviometro_localizacao || m.pluviometroLocalizacao
+        const temMedicao = m.medicao !== null && m.medicao !== undefined && m.medicao !== ''
+        const temTemperatura = m.temperatura !== null && m.temperatura !== undefined && m.temperatura !== ''
+
+        if (temMedicao || temTemperatura) {
+          texto += `${nome}${localizacao ? ` (${localizacao})` : ''}\n`
+          if (temMedicao) {
+            texto += `  Chuva: *${m.medicao} mm*\n`
+          }
+          if (temTemperatura) {
+            texto += `  Temperatura: *${m.temperatura}°C*\n`
+          }
         }
       })
+    }
+
+    // Temperatura média formatada com 2 casas decimais
+    if (registro.temperaturaMedia !== null && registro.temperaturaMedia !== undefined && registro.temperaturaMedia !== '') {
+      const tempMediaNum = Number(registro.temperaturaMedia)
+      if (!isNaN(tempMediaNum)) {
+        texto += `\nTEMPERATURA MÉDIA: *${tempMediaNum.toFixed(2)}°C*\n`
+      }
     }
 
     // Adicionar observação no final
