@@ -24,6 +24,7 @@ const TIPO_SAIDA = [
   { value: 'Enfermaria', label: 'Enfermaria', icon: '' },
   { value: 'Apartação', label: 'Apartação', icon: '' },
   { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
+  { value: 'Venda', label: 'Venda', icon: '' },
 ]
 
 const TIPO_ENTRADA = [
@@ -287,9 +288,9 @@ export default function MovimentacaoPage() {
         destinoFinal = 'Cantina'
       }
     } else if (form.motivoMovimentacao === 'Saída') {
-      if (form.subtipo === 'Enfermaria') {
+      if (form.subtipo === 'Enfermaria' || form.subtipo === 'Venda') {
         if (!destinoFinal || destinoFinal === '') {
-          destinoFinal = 'Enfermaria'
+          destinoFinal = form.subtipo
         }
       }
     }
