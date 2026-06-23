@@ -88,7 +88,10 @@ export function useFormValidation<T extends Record<string, any>>(
     Object.entries(rules).forEach(([field, rule]) => {
       // Handle nested field access (e.g., tarefa_grama -> form.tarefas.grama)
       let value: any
-      if (field.startsWith('tarefa_')) {
+      if (field.startsWith('medicao_')) {
+        const pluviometroId = field.replace('medicao_', '')
+        value = (form as any).medicoes?.find((m: any) => m.pluviometroId === pluviometroId)?.medicao
+      } else if (field.startsWith('tarefa_')) {
         const limpezaKey = field.replace('tarefa_', '')
         value = (form as any).tarefas?.[limpezaKey]
       } else if (field.endsWith('_obs')) {
