@@ -1622,6 +1622,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     }
   }
 
+  // Remove espaços em branco internos nos marcadores de negrito para preservar formatação no WhatsApp
+  texto = texto.replace(/\*\s*([^*\n]+?)\s*\*/g, '*$1*')
+
   return texto
 }
 
