@@ -82,20 +82,33 @@ export default function AnimalIdentifier({
     return () => { cancelled = true }
   }, [fazendaId])
 
-  const handleFieldChange = async (field: 'idManejo' | 'idBrinco' | 'idChip', value: string) => {
+  // Apenas atualiza o valor no estado do pai sem fazer busca ao banco
+  const handleFieldChange = (field: 'idManejo' | 'idBrinco' | 'idChip', value: string) => {
     if (!value || value.trim() === '') {
       onChange({ idManejo: '', idBrinco: '', idChip: '', individuoId: null, animalData: null })
       setAnimalEncontrado(null)
       return
     }
 
-    // Try to find in pre-loaded list (only formal IDs, not id_provisorio_cria)
-    const found = individuos.find((i) => {
-      if (field === 'idManejo') return i.id_manejo === value
-      if (field === 'idBrinco') return i.id_brinco === value
-      return i.id_chip === value
+    // Limpa animal encontrado enquanto usuário digita
+    setAnimalEncontrado(null)
+    onChange({
+      idManejo: field === 'idManejo' ? value : valueManejo,
+      idBrinco: field === 'idBrinco' ? value : valueBrinco,
+      idChip: field === 'idChip' ? value : valueChip,
+      individuoId: null,
+      animalData: null,
     })
+  }
 
+  // Faz a busca ao banco somente quando o usuário sai do input (onBlur)
+  const handleInputBlur = async (value: string) => {
+    if (!value || value.trim() === '') return
+
+    // Primeiro tenta encontrar na lista pré-carregada
+    const found = individuos.find((i) =>
+      i.id_manejo === value || i.id_brinco === value || i.id_chip === value
+    )
     if (found) {
       setAnimalEncontrado(found)
       onChange({
@@ -108,42 +121,7 @@ export default function AnimalIdentifier({
       return
     }
 
-    // Only do on-demand API search if there are individuos loaded (searchable mode)
-    // In free input mode, skip API calls on every keystroke — onBlur handles it
-    if (individuos.length > 0) {
-      try {
-        const busca = await buscarIndividuoPorIdGenerico(fazendaId, value)
-        if (busca) {
-          const animal = busca as AnimalData
-          setAnimalEncontrado(animal)
-          onChange({
-            idManejo: animal.id_manejo || '',
-            idBrinco: animal.id_brinco || '',
-            idChip: animal.id_chip || '',
-            individuoId: animal.id,
-            animalData: animal,
-          })
-          return
-        }
-      } catch (err) {
-        console.error('Erro na busca on-demand:', err)
-      }
-    }
-
-    // Manual entry — not found anywhere (or no individuos to search)
-    setAnimalEncontrado(null)
-    onChange({
-      idManejo: field === 'idManejo' ? value : valueManejo,
-      idBrinco: field === 'idBrinco' ? value : valueBrinco,
-      idChip: field === 'idChip' ? value : valueChip,
-      individuoId: null,
-      animalData: null,
-    })
-  }
-
-  const handleInputBlur = async (value: string) => {
-    if (!value || value.trim() === '') return
-    // Try on-demand search when user finishes typing
+    // Busca on-demand via API só no blur
     try {
       const busca = await buscarIndividuoPorIdGenerico(fazendaId, value)
       if (busca) {
@@ -156,11 +134,16 @@ export default function AnimalIdentifier({
           individuoId: animal.id,
           animalData: animal,
         })
+        return
       }
     } catch (err) {
       console.error('Erro na busca on-demand:', err)
     }
+
+    // Não encontrado — mantém como entrada manual
+    setAnimalEncontrado(null)
   }
+
 
   // Filter out calves (they cannot be mothers) - only show individuals with formal IDs
   const eligibleIndividuos = useMemo(() =>

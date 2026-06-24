@@ -1464,6 +1464,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
 
       // Seção: IDENTIFICAÇÃO DA MÃE
       texto += `IDENTIFICAÇÃO DA MÃE\n`
+      if (registro.idManejoMae) {
+        texto += `ID MANEJO: *${registro.idManejoMae}*\n`
+      }
       if (registro.idBrincoMae) {
         texto += `ID BRINCO: *${registro.idBrincoMae}*\n`
       }
