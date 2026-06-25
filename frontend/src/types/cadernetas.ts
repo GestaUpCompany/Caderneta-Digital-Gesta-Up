@@ -31,8 +31,10 @@ export interface RegistroPastagens extends Registro {
   manejador: string
   numeroLote: string
   pastoSaida: string
+  pastoSaidaId: string
   avaliacaoSaida: string
   pastoEntrada: string
+  pastoEntradaId: string
   avaliacaoEntrada: string
   vaca: number
   touro: number

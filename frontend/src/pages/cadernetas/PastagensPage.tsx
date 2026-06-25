@@ -54,11 +54,13 @@ interface FormState {
   numeroLote: string
   loteId: string
   pastoSaida: string
+  pastoSaidaId: string
   pastoSaidaAreaUtil: string
   pastoSaidaEspecie: string
   avaliacaoSaida: string
   tempoOcupacao: string
   pastoEntrada: string
+  pastoEntradaId: string
   pastoEntradaAreaUtil: string
   pastoEntradaEspecie: string
   avaliacaoEntrada: string
@@ -99,11 +101,13 @@ const makeInitial = (usuario?: string): FormState => ({
   numeroLote: '',
   loteId: '',
   pastoSaida: '',
+  pastoSaidaId: '',
   pastoSaidaAreaUtil: '',
   pastoSaidaEspecie: '',
   avaliacaoSaida: '',
   tempoOcupacao: '',
   pastoEntrada: '',
+  pastoEntradaId: '',
   pastoEntradaAreaUtil: '',
   pastoEntradaEspecie: '',
   avaliacaoEntrada: '',
@@ -228,7 +232,7 @@ export default function PastagensPage() {
     async function carregarDetalhesPastoSaida() {
       if (!form.pastoSaida || !fazendaId) {
         setDetalhesPastoSaida(null)
-        setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoSaidaId: '' }))
         setDetalhesLote(null)
         return
       }
@@ -266,6 +270,7 @@ export default function PastagensPage() {
         // Atualizar o campo tempoOcupação no formulário
         set('tempoOcupacao')(tempoOcupacao)
         // Atualizar campos de detalhes do pasto no formulário
+        set('pastoSaidaId')(pasto.id || '')
         set('pastoSaidaAreaUtil')(pasto.area_util_ha?.toString() || '')
         set('pastoSaidaEspecie')(pasto.especie || '')
         // Remover erro se existia
@@ -302,6 +307,7 @@ export default function PastagensPage() {
     async function carregarDetalhesPastoEntrada() {
       if (!form.pastoEntrada || !fazendaId) {
         setDetalhesPastoEntrada(null)
+        set('pastoEntradaId')('')
         return
       }
 
@@ -348,6 +354,7 @@ export default function PastagensPage() {
         // Atualizar o campo tempoVedação no formulário
         set('tempoVedacao')(tempoVedacao)
         // Atualizar campos de detalhes do pasto no formulário
+        set('pastoEntradaId')(pasto.id || '')
         set('pastoEntradaAreaUtil')(pasto.area_util_ha?.toString() || '')
         set('pastoEntradaEspecie')(pasto.especie || '')
         // Remover erro se existia
@@ -444,11 +451,13 @@ export default function PastagensPage() {
       numeroLote: form.numeroLote,
       loteId: form.loteId,
       pastoSaida: form.pastoSaida,
+      pastoSaidaId: form.pastoSaidaId || null,
       pastoSaidaAreaUtil: form.pastoSaidaAreaUtil,
       pastoSaidaEspecie: form.pastoSaidaEspecie,
       avaliacaoSaida: form.avaliacaoSaida ? Number(form.avaliacaoSaida) : 0,
       tempoOcupacao: form.tempoOcupacao,
       pastoEntrada: form.pastoEntrada,
+      pastoEntradaId: form.pastoEntradaId || null,
       pastoEntradaAreaUtil: form.pastoEntradaAreaUtil,
       pastoEntradaEspecie: form.pastoEntradaEspecie,
       avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,

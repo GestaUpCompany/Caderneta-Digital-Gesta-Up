@@ -589,6 +589,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     }
     
     // Seção: Espaçamento do Cocho
+    /*
     if (registro.espacamentoCochoDetalhes) {
       const detalhes = registro.espacamentoCochoDetalhes as any
       texto += `\nESPAÇAMENTO DO COCHO\n`
@@ -600,6 +601,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       texto += `Metragem cocho: *${detalhes.metragem_cocho_m}m*\n`
       texto += `Cabeças adultas: *${detalhes.cabecas_adultas}*\n`
     }
+    */
     
     // Seção: Checklist Cochos — only display problematic (false/Não) answers
     const checklistCochos = [
