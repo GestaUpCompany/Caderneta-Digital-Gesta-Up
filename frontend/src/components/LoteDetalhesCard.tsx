@@ -50,6 +50,12 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias, metaRo
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
       <div className="grid grid-cols-2 gap-2 text-base">
+        {detalhes.pastos?.nome && (
+          <div className="col-span-2">
+            <p className="text-gray-500 font-semibold">PASTO</p>
+            <p className="text-gray-900 font-bold">{detalhes.pastos.nome}</p>
+          </div>
+        )}
         {detalhes.nome && (
           <div className="col-span-2">
             <p className="text-gray-500 font-semibold">LOTE</p>
