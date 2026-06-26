@@ -14,6 +14,7 @@ import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getTratamentosCached,
+  getRacasCached,
 } from '../../services/cadastroCache'
 import { getContagemPartosVaca, getLotes, createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
@@ -42,7 +43,7 @@ const SEXO = [
   { value: 'Fêmea', label: 'FÊMEA', icon: '♀️' },
 ]
 
-const RACAS = [
+const RACAS_PADRAO = [
   { value: 'Aberdeen Angus', label: 'ABERDEEN ANGUS' },
   { value: 'Anelorado', label: 'ANELORADO' },
   { value: 'Angus', label: 'ANGUS' },
@@ -158,6 +159,7 @@ export default function MaternidadePage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [tratamentosDisponiveis, setTratamentosDisponiveis] = useState<any[]>([])
+  const [racasDisponiveis, setRacasDisponiveis] = useState<any[]>([])
 
   const validationRules: ValidationRules = {
     // Form 1: Dados Gerais
@@ -254,6 +256,16 @@ export default function MaternidadePage() {
           setTratamentosDisponiveis(tratamentosData || [])
         } catch (error) {
           console.error('Erro ao carregar tratamentos:', error)
+        }
+      }
+
+      // Carregar raças (com cache lazy para offline)
+      if (fazendaId) {
+        try {
+          const racasData = await getRacasCached(fazendaId)
+          setRacasDisponiveis(racasData || [])
+        } catch (error) {
+          console.error('Erro ao carregar raças:', error)
         }
       }
     }
@@ -735,7 +747,9 @@ export default function MaternidadePage() {
           <Radio
             name="raca"
             label={<span>RAÇA <span className="text-red-500">*</span></span>}
-            options={RACAS}
+            options={racasDisponiveis.length > 0
+              ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
+              : RACAS_PADRAO}
             value={form.raca}
             onChange={set('raca')}
             error={getError('raca')}

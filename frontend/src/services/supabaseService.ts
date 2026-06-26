@@ -241,6 +241,21 @@ export async function getTratamentos(fazendaId: string) {
   return data
 }
 
+// ==================== RAÇAS ====================
+
+export async function getRacas(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('racas')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 // ==================== LOCAIS ====================
 
 export async function getLocais(fazendaId: string) {
@@ -1057,6 +1072,19 @@ export async function getOcupacaoAtualPorLotePasto(loteId: string, pastoId: stri
     .select('*')
     .eq('lote_id', loteId)
     .eq('pasto_id', pastoId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export async function getOcupacaoAtualPorLoteModulo(loteId: string, moduloId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await (client as any)
+    .from('v_lote_modulo_ocupacao_atual')
+    .select('*')
+    .eq('lote_id', loteId)
+    .eq('modulo_id', moduloId)
     .maybeSingle()
 
   if (error) throw error

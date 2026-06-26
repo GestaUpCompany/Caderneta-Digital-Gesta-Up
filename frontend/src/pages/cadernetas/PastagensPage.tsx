@@ -20,6 +20,7 @@ import {
   getUltimaDataPastoSaidaCached,
   getUltimoStatusPastoCached,
   getOcupacaoAtualPorLotePastoCached,
+  getOcupacaoAtualPorLoteModuloCached,
 } from '../../services/cadastroCache'
 import { getPastos, getFuncionarios } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
@@ -190,6 +191,7 @@ export default function PastagensPage() {
   const [detalhesPastoSaida, setDetalhesPastoSaida] = useState<any>(null)
   const [detalhesPastoEntrada, setDetalhesPastoEntrada] = useState<any>(null)
   const [ocupacaoSaida, setOcupacaoSaida] = useState<any>(null)
+  const [ocupacaoModuloSaida, setOcupacaoModuloSaida] = useState<any>(null)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
 
   const set = (field: keyof FormState) => (val: string) =>
@@ -243,6 +245,7 @@ export default function PastagensPage() {
       if (!form.pastoSaida || !fazendaId) {
         setDetalhesPastoSaida(null)
         setOcupacaoSaida(null)
+        setOcupacaoModuloSaida(null)
         setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoSaidaId: '' }))
         setDetalhesLote(null)
         return
@@ -262,6 +265,7 @@ export default function PastagensPage() {
         if (!lotes || lotes.length === 0) {
           setDetalhesPastoSaida(null)
           setOcupacaoSaida(null)
+          setOcupacaoModuloSaida(null)
           setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
           setDetalhesLote(null)
           setErrors([{ field: 'pastoSaida', message: 'Este pasto está vazio (não possui lote). Selecione outro pasto.' }])
@@ -320,14 +324,35 @@ export default function PastagensPage() {
           } else {
             setOcupacaoSaida(null)
           }
+
+          // Buscar métricas de ocupação do módulo
+          if (pasto.modulo_id) {
+            try {
+              const ocupacaoModulo = await getOcupacaoAtualPorLoteModuloCached(lotePrincipal.id, pasto.modulo_id)
+              if (ocupacaoModulo) {
+                setOcupacaoModuloSaida({
+                  taxaLotacao: ocupacaoModulo.taxa_lotacao_ua_ha,
+                })
+              } else {
+                setOcupacaoModuloSaida(null)
+              }
+            } catch (moduloError) {
+              console.error('Erro ao carregar ocupação do módulo:', moduloError)
+              setOcupacaoModuloSaida(null)
+            }
+          } else {
+            setOcupacaoModuloSaida(null)
+          }
         } catch (ocupacaoError) {
           console.error('Erro ao carregar ocupação do pasto:', ocupacaoError)
           setOcupacaoSaida(null)
+          setOcupacaoModuloSaida(null)
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do pasto de saída:', error)
         setDetalhesPastoSaida(null)
         setOcupacaoSaida(null)
+        setOcupacaoModuloSaida(null)
         setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
         setDetalhesLote(null)
       }
@@ -646,7 +671,7 @@ export default function PastagensPage() {
             />
           )}
           {detalhesPastoSaida && (
-            <PastoDetalhesCard detalhes={detalhesPastoSaida} tipo="saida" tempo={form.tempoOcupacao} ocupacao={ocupacaoSaida} />
+            <PastoDetalhesCard detalhes={detalhesPastoSaida} tipo="saida" tempo={form.tempoOcupacao} ocupacao={ocupacaoSaida} ocupacaoModulo={ocupacaoModuloSaida} />
           )}
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />

@@ -669,6 +669,25 @@ export async function getOcupacaoAtualPorLotePastoCached(loteId: string, pastoId
 }
 
 /**
+ * Busca ocupação atual do lote/módulo com cache lazy.
+ */
+export async function getOcupacaoAtualPorLoteModuloCached(loteId: string, moduloId: string): Promise<any | null> {
+  const key = buildKey('ocupacao-modulo', loteId, moduloId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getOcupacaoAtualPorLoteModulo(loteId, moduloId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca formulação por nome com cache lazy.
  */
 export async function getFormulacaoByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
@@ -794,6 +813,25 @@ export async function getTratamentosCached(fazendaId: string): Promise<any[] | n
 
   try {
     const data = await supabaseService.getTratamentos(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca raças com cache lazy.
+ */
+export async function getRacasCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('racas', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getRacas(fazendaId)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
@@ -1119,13 +1157,24 @@ export async function warmAllCadastroCache(
       }
       await delay(100)
 
-      await getLotesByPastoIdCached(fazendaId, pastoId)
+      const lotesNoPasto = await getLotesByPastoIdCached(fazendaId, pastoId)
       await delay(100)
       await getUltimaDataPastoEntradaCached(fazendaId, pastoNome)
       await delay(100)
       await getUltimaDataPastoSaidaCached(fazendaId, pastoNome)
       await delay(100)
       await getUltimoStatusPastoCached(fazendaId, pastoNome)
+      await delay(100)
+
+      // Aquecer ocupação do módulo para cada lote presente no pasto
+      if (pasto.modulo_id && lotesNoPasto && lotesNoPasto.length > 0) {
+        for (const lote of lotesNoPasto) {
+          if (lote.id) {
+            await getOcupacaoAtualPorLoteModuloCached(lote.id, pasto.modulo_id)
+            await delay(100)
+          }
+        }
+      }
       warmedPastos++
     } catch (error) {
       console.error(`[CadastroCache] Erro ao aquecer pasto ${pasto.nome || pasto.id}:`, error)
@@ -1238,6 +1287,7 @@ export async function warmAllCadastroCache(
 
   // Aquecer dados das demais cadernetas (independentes, uma vez por fazenda)
   const extrasToWarm: { label: string; fn: () => Promise<any> }[] = [
+    { label: 'Raças', fn: () => getRacasCached(fazendaId) },
     { label: 'Causas de Morte', fn: () => getCausasMorteCached(fazendaId) },
     { label: 'Pluviômetros', fn: () => getPluviometrosCached(fazendaId) },
     { label: 'Máquinas/Veículos', fn: () => getMaquinasVeiculosCached(fazendaId) },

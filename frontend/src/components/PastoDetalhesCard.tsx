@@ -8,6 +8,10 @@ interface OcupacaoMetrics {
   metaExcedida?: boolean | null
 }
 
+interface OcupacaoModuloMetrics {
+  taxaLotacao?: number | null
+}
+
 interface PastoDetalhesCardProps {
   detalhes: {
     areaUtil: string
@@ -18,9 +22,10 @@ interface PastoDetalhesCardProps {
   tipo?: 'saida' | 'entrada'
   tempo?: string
   ocupacao?: OcupacaoMetrics | null
+  ocupacaoModulo?: OcupacaoModuloMetrics | null
 }
 
-export default function PastoDetalhesCard({ detalhes, tipo, tempo, ocupacao }: PastoDetalhesCardProps) {
+export default function PastoDetalhesCard({ detalhes, tipo, tempo, ocupacao, ocupacaoModulo }: PastoDetalhesCardProps) {
   const altura = tipo === 'saida' ? detalhes.alturaSaida : detalhes.alturaEntrada
   const alturaLabel = tipo === 'saida' ? 'ALTURA SAÍDA' : tipo === 'entrada' ? 'ALTURA ENTRADA' : 'ALTURA'
   const tempoLabel = tipo === 'saida' ? 'TEMPO OCUPAÇÃO' : tipo === 'entrada' ? 'TEMPO VEDAÇÃO' : 'TEMPO'
@@ -47,7 +52,7 @@ export default function PastoDetalhesCard({ detalhes, tipo, tempo, ocupacao }: P
           <p className="text-gray-500 font-semibold">ESPÉCIE</p>
           <p className="text-gray-900 font-bold">{detalhes.especie}</p>
         </div>
-        {tempo && (
+        {tempo && tipo === 'entrada' && (
           <div className="col-span-2">
             <p className="text-gray-500 font-semibold">{tempoLabel}</p>
             <p className="text-[#3b82f6] font-bold">{tempo}</p>
@@ -55,15 +60,17 @@ export default function PastoDetalhesCard({ detalhes, tipo, tempo, ocupacao }: P
         )}
         {ocupacao && (
           <>
+            {ocupacao.periodoDias != null && ocupacao.periodoHoras != null && (
+              <div className="col-span-2">
+                <p className="text-gray-500 font-semibold">PERÍODO OCUPAÇÃO</p>
+                <p className="text-gray-900 font-bold">{formatDiasHoras(ocupacao.periodoDias, ocupacao.periodoHoras)}</p>
+              </div>
+            )}
             {ocupacao.metaDias != null ? (
               <>
                 <div>
                   <p className="text-gray-500 font-semibold">META OCUPAÇÃO</p>
                   <p className="text-gray-900 font-bold">{ocupacao.metaDias} dias</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 font-semibold">PERÍODO OCUPAÇÃO</p>
-                  <p className="text-gray-900 font-bold">{formatDiasHoras(ocupacao.periodoDias, ocupacao.periodoHoras)}</p>
                 </div>
                 {ocupacao.metaExcedida && ocupacao.desvioPercentual != null && (
                   <div>
@@ -79,26 +86,26 @@ export default function PastoDetalhesCard({ detalhes, tipo, tempo, ocupacao }: P
                     <p className="text-red-600 font-bold">{ocupacao.diasAcimaMeta} dias</p>
                   </div>
                 )}
-                {ocupacao.taxaLotacao != null && (
-                  <div className="col-span-2">
-                    <p className="text-gray-500 font-semibold">TAXA LOTAÇÃO</p>
-                    <p className="text-gray-900 font-bold">{ocupacao.taxaLotacao} UA/ha</p>
-                  </div>
-                )}
               </>
             ) : (
               <div className="col-span-2">
                 <p className="text-gray-500 font-semibold">META OCUPAÇÃO</p>
                 <p className="text-amber-600 font-bold">Não há meta definida para calcular métricas</p>
-                {ocupacao.taxaLotacao != null && (
-                  <>
-                    <p className="text-gray-500 font-semibold mt-1">TAXA LOTAÇÃO</p>
-                    <p className="text-gray-900 font-bold">{ocupacao.taxaLotacao} UA/ha</p>
-                  </>
-                )}
+              </div>
+            )}
+            {ocupacao.taxaLotacao != null && (
+              <div className="col-span-2">
+                <p className="text-gray-500 font-semibold">TAXA LOTAÇÃO PASTO</p>
+                <p className="text-gray-900 font-bold">{ocupacao.taxaLotacao} UA/ha</p>
               </div>
             )}
           </>
+        )}
+        {ocupacaoModulo?.taxaLotacao != null && (
+          <div className="col-span-2">
+            <p className="text-gray-500 font-semibold">TAXA LOTAÇÃO MÓDULO</p>
+            <p className="text-gray-900 font-bold">{ocupacaoModulo.taxaLotacao} UA/ha</p>
+          </div>
         )}
       </div>
     </div>
