@@ -9,7 +9,7 @@ import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { RootState } from '../../store/store'
-import { getSetores, getLocais } from '../../services/supabaseService'
+import { getSetoresCached, getLocaisCached } from '../../services/cadastroCache'
 
 const LIMPEZA_OPTIONS = [
   { value: 'capina', label: 'Capina' },
@@ -59,14 +59,14 @@ export default function LimpezaPage() {
   const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
   const [locaisDisponiveis, setLocaisDisponiveis] = useState<string[]>([])
 
-  // Carregar setores e locais do Supabase
+  // Carregar setores e locais (com cache lazy para offline)
   useEffect(() => {
     const loadData = async () => {
       if (fazendaId) {
         try {
           const [setoresData, locaisData] = await Promise.all([
-            getSetores(fazendaId),
-            getLocais(fazendaId)
+            getSetoresCached(fazendaId),
+            getLocaisCached(fazendaId)
           ])
           setSetoresDisponiveis(setoresData?.map((s: any) => s.nome) || [])
           setLocaisDisponiveis(locaisData?.map((l: any) => l.nome) || [])

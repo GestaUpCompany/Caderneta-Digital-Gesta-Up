@@ -13,8 +13,9 @@ import {
   getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
+  getTratamentosCached,
 } from '../../services/cadastroCache'
-import { getContagemPartosVaca, getLotes, getTratamentos, createIndividuo } from '../../services/supabaseService'
+import { getContagemPartosVaca, getLotes, createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
@@ -246,13 +247,13 @@ export default function MaternidadePage() {
         }
       }
 
-      // Carregar tratamentos
+      // Carregar tratamentos (com cache lazy para offline)
       if (fazendaId) {
         try {
-          const tratamentosData = await getTratamentos(fazendaId)
+          const tratamentosData = await getTratamentosCached(fazendaId)
           setTratamentosDisponiveis(tratamentosData || [])
         } catch (error) {
-          console.error('Erro ao carregar tratamentos do Supabase:', error)
+          console.error('Erro ao carregar tratamentos:', error)
         }
       }
     }

@@ -11,8 +11,9 @@ import {
   getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
+  getMedicamentosCached,
 } from '../../services/cadastroCache'
-import { getMedicamentos, getLotes } from '../../services/supabaseService'
+import { getLotes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -280,12 +281,12 @@ export default function EnfermariaPage() {
     loadData()
   }, [fazendaId])
 
-  // Carregar medicamentos do Supabase
+  // Carregar medicamentos (com cache lazy para offline)
   useEffect(() => {
     const loadMedicamentos = async () => {
       if (fazendaId) {
         try {
-          const medicamentos = await getMedicamentos(fazendaId)
+          const medicamentos = await getMedicamentosCached(fazendaId)
           setMedicamentosDisponiveis(medicamentos || [])
         } catch (error) {
           console.error('Erro ao carregar medicamentos:', error)

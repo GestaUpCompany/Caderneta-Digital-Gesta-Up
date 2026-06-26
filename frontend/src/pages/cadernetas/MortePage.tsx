@@ -12,12 +12,12 @@ import {
   getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
+  getCausasMorteCached,
 } from '../../services/cadastroCache'
 import { getLotes, getFormulacoes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
-import { getSupabaseClient } from '../../services/supabaseClient'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
 const BASE = import.meta.env.BASE_URL
@@ -299,37 +299,19 @@ export default function MortePage() {
     carregarDetalhesLote()
   }, [form.lote, fazendaId])
 
-  // Buscar causas de morte do Supabase
+  // Buscar causas de morte (com cache lazy para offline)
   useEffect(() => {
     async function carregarCausasMorte() {
       if (!fazendaId) return
-
       try {
-        const client = getSupabaseClient()
-        const { data, error } = await client
-          .from('causas_morte')
-          .select('nome')
-          .eq('fazenda_id', fazendaId)
-          .eq('ativo', true)
-          .order('nome')
-
-        if (error) {
-          console.error('Erro ao buscar causas de morte:', error)
-          return
-        }
-
+        const data = await getCausasMorteCached(fazendaId)
         if (data) {
-          const causas = data.map(c => ({
-            value: c.nome,
-            label: c.nome.toUpperCase()
-          }))
-          setCausasMorte(causas)
+          setCausasMorte(data.map((c: any) => ({ value: c.nome, label: c.nome.toUpperCase() })))
         }
       } catch (error) {
         console.error('Erro ao carregar causas de morte:', error)
       }
     }
-
     carregarCausasMorte()
   }, [fazendaId])
 

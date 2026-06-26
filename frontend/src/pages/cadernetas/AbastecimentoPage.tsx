@@ -7,8 +7,8 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getMaquinasVeiculos, getMaquinaVeiculoByNome, getFuncionarios } from '../../services/supabaseService'
+import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services/cadastroCache'
+import { getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
@@ -109,12 +109,12 @@ export default function AbastecimentoPage() {
     loadFuncionarios()
   }, [fazendaId])
 
-  // Carregar máquinas/veículos
+  // Carregar máquinas/veículos (com cache lazy para offline)
   useEffect(() => {
     async function carregarMaquinasVeiculos() {
       if (!fazendaId) return
       try {
-        const maquinas = await getMaquinasVeiculos(fazendaId)
+        const maquinas = await getMaquinasVeiculosCached(fazendaId)
         setMaquinasVeiculosDisponiveis(maquinas || [])
       } catch (error) {
         console.error('Erro ao carregar máquinas/veículos:', error)
@@ -132,10 +132,14 @@ export default function AbastecimentoPage() {
         return
       }
       try {
-        const maquina = await getMaquinaVeiculoByNome(fazendaId, form.maquinaVeiculo)
+        const lista = await getMaquinasVeiculosCached(fazendaId)
+        const maquina = lista?.find((m: any) => m.nome === form.maquinaVeiculo) || null
         if (maquina) {
           setMaquinaVeiculoSelecionada(maquina)
           setForm(prev => ({ ...prev, maquinaVeiculoId: maquina.id, placa: maquina.placa || '' }))
+        } else {
+          setMaquinaVeiculoSelecionada(null)
+          setForm(prev => ({ ...prev, maquinaVeiculoId: '', placa: '' }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes da máquina/veículo:', error)

@@ -8,7 +8,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { getMaquinasVeiculos, getMaquinaVeiculoByNome, getImplementos } from '../../services/supabaseService'
+import { getMaquinasVeiculosCached, getImplementosCached } from '../../services/cadastroCache'
 import { RootState } from '../../store/store'
 
 const TIPO_OPERACAO_OPTIONS = [
@@ -162,12 +162,12 @@ export default function OperacoesMaquinasPage() {
     }
   }, [form.quantidadeTotalAplicada, form.areaTrabalhada])
 
-  // Carregar máquinas/veículos
+  // Carregar máquinas/veículos (com cache lazy para offline)
   useEffect(() => {
     async function carregarMaquinasVeiculos() {
       if (!fazendaId) return
       try {
-        const maquinas = await getMaquinasVeiculos(fazendaId)
+        const maquinas = await getMaquinasVeiculosCached(fazendaId)
         setMaquinasVeiculosDisponiveis(maquinas || [])
       } catch (error) {
         console.error('Erro ao carregar máquinas/veículos:', error)
@@ -176,12 +176,12 @@ export default function OperacoesMaquinasPage() {
     carregarMaquinasVeiculos()
   }, [fazendaId])
 
-  // Carregar implementos
+  // Carregar implementos (com cache lazy para offline)
   useEffect(() => {
     async function carregarImplementos() {
       if (!fazendaId) return
       try {
-        const implementos = await getImplementos(fazendaId)
+        const implementos = await getImplementosCached(fazendaId)
         setImplementosDisponiveis(implementos?.map((i: any) => i.nome) || [])
       } catch (error) {
         console.error('Erro ao carregar implementos:', error)
@@ -198,9 +198,12 @@ export default function OperacoesMaquinasPage() {
         return
       }
       try {
-        const maquina = await getMaquinaVeiculoByNome(fazendaId, form.maquinaVeiculo)
+        const lista = await getMaquinasVeiculosCached(fazendaId)
+        const maquina = lista?.find((m: any) => m.nome === form.maquinaVeiculo) || null
         if (maquina) {
           setForm(prev => ({ ...prev, maquinaVeiculoId: maquina.id }))
+        } else {
+          setForm(prev => ({ ...prev, maquinaVeiculoId: '' }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes da máquina/veículo:', error)

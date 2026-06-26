@@ -7,7 +7,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import { supabase } from '../../services/supabaseClient'
+import { getPluviometrosCached } from '../../services/cadastroCache'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
@@ -72,24 +72,12 @@ export default function ClimaPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  // Buscar pluviômetros do Supabase
+  // Buscar pluviômetros (com cache lazy para offline)
   useEffect(() => {
     async function carregarPluviometros() {
       if (!fazendaId) return
-
       try {
-        const { data, error } = await supabase
-          .from('pluviometros')
-          .select('*')
-          .eq('fazenda_id', fazendaId)
-          .eq('ativo', true)
-          .order('nome')
-
-        if (error) {
-          console.error('Erro ao buscar pluviômetros:', error)
-          return
-        }
-
+        const data = await getPluviometrosCached(fazendaId)
         if (data) {
           setPluviometrosDisponiveis(data as Pluviometro[])
         }
@@ -97,7 +85,6 @@ export default function ClimaPage() {
         console.error('Erro ao carregar pluviômetros:', error)
       }
     }
-
     carregarPluviometros()
   }, [fazendaId])
 

@@ -8,8 +8,8 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getFuncionarios, getItensAlmoxarifado, getClassificacoesAlmoxarifado, getSetores } from '../../services/supabaseService'
+import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getSetoresCached, getItensAlmoxarifadoCached } from '../../services/cadastroCache'
+import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
@@ -203,7 +203,7 @@ export default function AlmoxarifadoPage() {
     }, 100)
   }
 
-  // Carregar funcionários e classificacoes do cache, com fallback para Supabase
+  // Carregar funcionários, classificações e setores (com cache lazy para offline)
   useEffect(() => {
     const loadData = async () => {
       const cache = await getCachedCadastroData()
@@ -214,40 +214,38 @@ export default function AlmoxarifadoPage() {
           const funcionariosData = await getFuncionarios(fazendaId)
           setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
         } catch (error) {
-          console.error('Erro ao carregar funcionários do Supabase:', error)
+          console.error('Erro ao carregar funcionários:', error)
         }
       }
 
-      // Carregar classificacoes do almoxarifado
       if (fazendaId) {
         try {
-          const classificacoesData = await getClassificacoesAlmoxarifado(fazendaId)
+          const classificacoesData = await getClassificacoesAlmoxarifadoCached(fazendaId)
           setClassificacoesDisponiveis(classificacoesData || [])
         } catch (error) {
-          console.error('Erro ao carregar classificacoes do Supabase:', error)
+          console.error('Erro ao carregar classificações:', error)
         }
 
-        // Carregar setores
         try {
-          const setoresData = await getSetores(fazendaId)
+          const setoresData = await getSetoresCached(fazendaId)
           setSetoresDisponiveis(setoresData?.map((s: any) => s.nome) || [])
         } catch (error) {
-          console.error('Erro ao carregar setores do Supabase:', error)
+          console.error('Erro ao carregar setores:', error)
         }
       }
     }
     loadData()
   }, [fazendaId])
 
-  // Carregar itens quando classificacao é selecionada
+  // Carregar itens quando classificação é selecionada (com cache lazy para offline)
   useEffect(() => {
     const loadItens = async () => {
       if (itemEditando?.classificacao && fazendaId) {
         try {
-          const itensData = await getItensAlmoxarifado(fazendaId, itemEditando.classificacao)
+          const itensData = await getItensAlmoxarifadoCached(fazendaId, itemEditando.classificacao)
           setItensDisponiveis(itensData?.map((item: any) => item.nome) || [])
         } catch (error) {
-          console.error('Erro ao carregar itens do Supabase:', error)
+          console.error('Erro ao carregar itens:', error)
         }
       } else {
         setItensDisponiveis([])

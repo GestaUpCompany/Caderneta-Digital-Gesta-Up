@@ -8,8 +8,8 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getFuncionarios, getMaquinasVeiculos, getMaquinaVeiculoByNome } from '../../services/supabaseService'
+import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services/cadastroCache'
+import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
@@ -170,39 +170,20 @@ export default function ManutencaoMaquinasPage() {
     loadData()
   }, [fazendaId])
 
-  // Carregar máquinas/veículos do Supabase
+  // Carregar máquinas/veículos (com cache lazy para offline)
   useEffect(() => {
     const loadData = async () => {
       if (fazendaId) {
         try {
-          const maquinasData = await getMaquinasVeiculos(fazendaId)
-          const filtered = (maquinasData || []).filter(m => m.status?.toLowerCase() === 'ativo')
+          const maquinasData = await getMaquinasVeiculosCached(fazendaId)
+          const filtered = (maquinasData || []).filter((m: any) => m.status?.toLowerCase() === 'ativo')
           setMaquinasVeiculosDisponiveis(filtered)
         } catch (error) {
-          console.error('Erro ao carregar máquinas/veículos do Supabase:', error)
+          console.error('Erro ao carregar máquinas/veículos:', error)
         }
       }
     }
     loadData()
-  }, [fazendaId])
-
-  // Reload data when component gains focus (user navigates back)
-  useEffect(() => {
-    const handleFocus = () => {
-      if (fazendaId) {
-        getMaquinasVeiculos(fazendaId)
-          .then(maquinasData => {
-            const filtered = (maquinasData || []).filter(m => m.status?.toLowerCase() === 'ativo')
-            setMaquinasVeiculosDisponiveis(filtered)
-          })
-          .catch(error => {
-            console.error('Erro ao recarregar máquinas/veículos:', error)
-          })
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
   }, [fazendaId])
 
   // Buscar detalhes da máquina/veículo quando selecionada
@@ -213,9 +194,12 @@ export default function ManutencaoMaquinasPage() {
         return
       }
       try {
-        const maquina = await getMaquinaVeiculoByNome(fazendaId, form.maquinaVeiculo)
+        const lista = await getMaquinasVeiculosCached(fazendaId)
+        const maquina = lista?.find((m: any) => m.nome === form.maquinaVeiculo) || null
         if (maquina) {
           setForm(prev => ({ ...prev, placa: maquina.placa || '' }))
+        } else {
+          setForm(prev => ({ ...prev, placa: '' }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes da máquina/veículo:', error)

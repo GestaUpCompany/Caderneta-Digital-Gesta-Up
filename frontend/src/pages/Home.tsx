@@ -20,7 +20,10 @@ export default function Home() {
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null)
   const [syncErrors, setSyncErrors] = useState<string[]>([])
   const [completedItems, setCompletedItems] = useState<string[]>([])
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null)
+  const LAST_SYNC_KEY = 'ultimo-aquecimento-cache'
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
+    return localStorage.getItem(LAST_SYNC_KEY)
+  })
 
   // Buscar logoUrl diretamente do banco usando acessoId
   useEffect(() => {
@@ -84,7 +87,12 @@ export default function Home() {
         setSyncErrors(result.errors)
       } else {
         const now = new Date()
-        setLastSyncTime(now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
+        const timestamp = now.toLocaleString('pt-BR', {
+          day: '2-digit', month: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        })
+        setLastSyncTime(timestamp)
+        localStorage.setItem(LAST_SYNC_KEY, timestamp)
       }
     } catch (error) {
       console.error('Erro ao sincronizar:', error)
@@ -327,7 +335,7 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <p className="text-xs text-gray-600">
-                      Última atualização: <span className="font-medium text-gray-800">{lastSyncTime || 'agora mesmo'}</span>
+                      Última atualização: <span className="font-medium text-gray-800">{lastSyncTime || 'Nunca atualizado'}</span>
                     </p>
                   </div>
                 )}

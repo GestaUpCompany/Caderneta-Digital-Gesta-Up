@@ -2020,6 +2020,36 @@ export async function createRegistroAlmoxarifado(registro: any) {
   return data
 }
 
+// ==================== PLUVIÔMETROS ====================
+
+export async function getPluviometros(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('pluviometros')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
+// ==================== ITENS SUPERMERCADO (CANTINA) ====================
+
+export async function getItensSupermercado(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await (client as any)
+    .from('itens_supermercado')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 export async function updateRegistroAlmoxarifado(id: string, registro: any) {
   const { data, error } = await supabase
     .from('registros_almoxarifado')

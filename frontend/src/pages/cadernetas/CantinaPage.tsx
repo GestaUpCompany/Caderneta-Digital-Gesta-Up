@@ -6,9 +6,9 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getSupabaseClient } from '../../services/supabaseClient'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
+import { getCachedCadastroData, getItensSupermercadoCached } from '../../services/cadastroCache'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
 interface ItemSupermercado {
@@ -105,59 +105,30 @@ export default function CantinaPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  // Buscar funcionários do Supabase
+  // Buscar funcionários do cache (com fallback para offline)
   useEffect(() => {
     async function carregarFuncionarios() {
       if (!fazendaId) return
-
       try {
-        const client = getSupabaseClient()
-        const { data, error } = await client
-          .from('funcionarios')
-          .select('nome')
-          .eq('fazenda_id', fazendaId)
-          .eq('ativo', true)
-          .order('nome')
-
-        if (error) {
-          console.error('Erro ao buscar funcionários:', error)
-          return
-        }
-
-        if (data) {
-          const funcionariosList = data.map(f => f.nome)
-          setFuncionariosDisponiveis(funcionariosList)
+        const cache = await getCachedCadastroData()
+        if (cache?.funcionarios && cache.funcionarios.length > 0) {
+          setFuncionariosDisponiveis(cache.funcionarios)
         }
       } catch (error) {
         console.error('Erro ao carregar funcionários:', error)
       }
     }
-
     carregarFuncionarios()
   }, [fazendaId])
 
-  // Buscar itens de supermercado do Supabase
+  // Buscar itens de supermercado (com cache lazy para offline)
   useEffect(() => {
     async function carregarItensSupermercado() {
       if (!fazendaId) return
-
       try {
-        const client = getSupabaseClient()
-        const { data, error } = await (client as any)
-          .from('itens_supermercado')
-          .select('*')
-          .eq('fazenda_id', fazendaId)
-          .eq('ativo', true)
-          .order('nome')
-
-        if (error) {
-          console.error('Erro ao buscar itens de supermercado:', error)
-          return
-        }
-
+        const data = await getItensSupermercadoCached(fazendaId)
         if (data) {
           setItensSupermercadoDisponiveis(data as ItemSupermercado[])
-          // Inicializar itens no form
           setForm(prev => ({
             ...prev,
             itens: (data as ItemSupermercado[]).reduce((acc, item) => ({ ...acc, [item.id]: '' }), {} as Record<string, string>)
@@ -167,7 +138,6 @@ export default function CantinaPage() {
         console.error('Erro ao carregar itens de supermercado:', error)
       }
     }
-
     carregarItensSupermercado()
   }, [fazendaId])
 

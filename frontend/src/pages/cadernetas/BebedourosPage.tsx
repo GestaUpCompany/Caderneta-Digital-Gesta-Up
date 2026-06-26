@@ -8,8 +8,8 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getBebedouroByNome, getUltimaDataLimpezaBebedouro, getIntervaloMedioLimpezas, createHistoricoLimpeza, getFuncionarios, getBebedouros } from '../../services/supabaseService'
+import { getCachedCadastroData, getBebedourosCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
+import { createHistoricoLimpeza, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
@@ -149,19 +149,20 @@ export default function BebedourosPage() {
     loadFuncionarios()
   }, [fazendaId])
 
-  // Carregar bebedouros do cache global, com fallback para Supabase
+  // Carregar bebedouros (com cache lazy para offline)
   useEffect(() => {
     const loadData = async () => {
-      const cache = await getCachedCadastroData()
-      if (cache && cache.bebedouros && cache.bebedouros.length > 0) {
-        setBebedourosDisponiveis(cache.bebedouros || [])
-      } else if (fazendaId) {
-        try {
-          const bebedourosData = await getBebedouros(fazendaId)
-          setBebedourosDisponiveis(bebedourosData?.map((b: any) => b.nome) || [])
-        } catch (error) {
-          console.error('Erro ao carregar bebedouros do Supabase:', error)
+      if (!fazendaId) return
+      try {
+        const bebedourosData = await getBebedourosCached(fazendaId)
+        if (bebedourosData && bebedourosData.length > 0) {
+          setBebedourosDisponiveis(bebedourosData.map((b: any) => b.nome))
+        } else {
+          const cache = await getCachedCadastroData()
+          setBebedourosDisponiveis(cache?.bebedouros || [])
         }
+      } catch (error) {
+        console.error('Erro ao carregar bebedouros:', error)
       }
     }
     loadData()
@@ -193,7 +194,7 @@ export default function BebedourosPage() {
       }
 
       try {
-        const bebedouro = await getBebedouroByNome(fazendaId, form.numeroBebedouro)
+        const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
         if (!bebedouro) {
           setForm((prev) => ({
             ...prev,
@@ -205,7 +206,7 @@ export default function BebedourosPage() {
         }
 
         // Calcular tempo desde última limpeza
-        const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouro(fazendaId, bebedouro.id)
+        const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
         let tempoDesdeLimpeza = 'Sem histórico'
         if (ultimaDataLimpeza) {
           const dataLimpeza = new Date(ultimaDataLimpeza)
@@ -216,7 +217,7 @@ export default function BebedourosPage() {
         }
 
         // Calcular intervalo médio de limpezas
-        const intervaloMedio = await getIntervaloMedioLimpezas(fazendaId, bebedouro.id)
+        const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
         const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'
 
         // Meta de intervalo
@@ -308,7 +309,7 @@ export default function BebedourosPage() {
       // Registrar limpeza no histórico se um bebedouro foi selecionado
       if (form.numeroBebedouro && fazendaId) {
         try {
-          const bebedouro = await getBebedouroByNome(fazendaId, form.numeroBebedouro)
+          const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
           if (bebedouro) {
             // Converter data do formato DD/MM/YYYY para YYYY-MM-DD
             const [dia, mes, ano] = form.data.split('/')

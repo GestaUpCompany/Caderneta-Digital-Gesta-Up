@@ -14,8 +14,11 @@ import {
   getPastoByNomeCached,
   getLotesByPastoIdCached,
   getLoteDetalhesComCategoriasCached,
+  getFormulacaoByNomeCached,
+  getEspacamentoIdealCochoPorFormulacaoCached,
+  getRegistrosSuplementacaoByLoteCached,
 } from '../../services/cadastroCache'
-import { getEspacamentoIdealCochoPorFormulacao, getPastos, getFormulacoes, getFormulacaoByNome, getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
+import { getPastos, getFormulacoes } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -155,7 +158,6 @@ export default function SuplementacaoPage() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showFezesModal, setShowFezesModal] = useState(false)
   const [formulacoesDisponiveis, setFormulacoesDisponiveis] = useState<string[]>([])
-  const [loadingFormulacoes, setLoadingFormulacoes] = useState(false)
   const [kgDeposito, setKgDeposito] = useState('')
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
   const [lotesNoPasto, setLotesNoPasto] = useState<any[]>([])
@@ -167,7 +169,7 @@ export default function SuplementacaoPage() {
   const [registrosSuplementacao, setRegistrosSuplementacao] = useState<any[]>([])
   const [metricasSuplementacao, setMetricasSuplementacao] = useState<any>(null)
 
-  // Buscar detalhes da formulação quando selecionada
+  // Buscar detalhes da formulação quando selecionada (usa cache para offline)
   useEffect(() => {
     async function carregarDetalhesFormulacao() {
       if (!form.formulacao || !fazendaId) {
@@ -175,7 +177,7 @@ export default function SuplementacaoPage() {
         return
       }
       try {
-        const formulacao = await getFormulacaoByNome(fazendaId, form.formulacao)
+        const formulacao = await getFormulacaoByNomeCached(fazendaId, form.formulacao)
         if (formulacao) {
           setFormulacaoDetalhes({
             nome: formulacao.nome,
@@ -203,31 +205,23 @@ export default function SuplementacaoPage() {
         setPastosDisponiveis(cache.pastos || [])
       }
 
+      // Preenche imediatamente com o cache para não bloquear o modal
       if (cache && cache.formulacoes && cache.formulacoes.length > 0) {
         setFormulacoesDisponiveis(cache.formulacoes)
       }
 
-      if (!fazendaId) {
-        setFormulacoesDisponiveis([])
-        return
-      }
+      if (!fazendaId) return
 
-      setLoadingFormulacoes(true)
-      try {
-        const [formulacoesData] = await Promise.all([
-          getFormulacoes(fazendaId)
-        ])
-        setFormulacoesDisponiveis(formulacoesData?.map((f: any) => f.nome) || [])
-      } catch (error) {
-        console.error('Erro ao carregar formulações do Supabase:', error)
-        // Se falhar, usar cache se disponível
-        if (cache && cache.formulacoes) {
-          setFormulacoesDisponiveis(cache.formulacoes)
-        } else {
-          setFormulacoesDisponiveis([])
+      // Atualiza em background sem bloquear a UI com loading
+      if (navigator.onLine) {
+        try {
+          const formulacoesData = await getFormulacoes(fazendaId)
+          if (formulacoesData && formulacoesData.length > 0) {
+            setFormulacoesDisponiveis(formulacoesData.map((f: any) => f.nome))
+          }
+        } catch (error) {
+          console.error('Erro ao atualizar formulações do Supabase:', error)
         }
-      } finally {
-        setLoadingFormulacoes(false)
       }
     }
     loadData()
@@ -390,7 +384,7 @@ export default function SuplementacaoPage() {
         }
 
         const espacamentoCalculado = metragemCochoM / cabecasAdultas
-        const espacamentoIdeal = await getEspacamentoIdealCochoPorFormulacao(fazendaId, form.formulacao)
+        const espacamentoIdeal = await getEspacamentoIdealCochoPorFormulacaoCached(fazendaId, form.formulacao)
 
         if (!espacamentoIdeal) {
           setEspacamentoCochoDetalhes({
@@ -430,7 +424,7 @@ export default function SuplementacaoPage() {
       }
 
       try {
-        const registros = await getRegistrosSuplementacaoByLote(fazendaId, form.loteId)
+        const registros = await getRegistrosSuplementacaoByLoteCached(fazendaId, form.loteId)
         setRegistrosSuplementacao(registros || [])
       } catch (error) {
         console.error('Erro ao carregar registros de suplementação:', error)
@@ -689,8 +683,7 @@ export default function SuplementacaoPage() {
             onChange={set('formulacao')}
             error={getError('formulacao')}
             options={formulacoesDisponiveis}
-            placeholder={loadingFormulacoes ? 'Carregando formulações...' : 'Buscar formulação...'}
-            disabled={loadingFormulacoes}
+            placeholder='Buscar formulação...'
             id="formulacao"
             name="formulacao"
           />

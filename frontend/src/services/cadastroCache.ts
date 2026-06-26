@@ -783,6 +783,273 @@ export async function getMedicamentosCached(fazendaId: string): Promise<any[] | 
 }
 
 /**
+ * Busca tratamentos com cache lazy.
+ */
+export async function getTratamentosCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('tratamentos', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getTratamentos(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca causas de morte com cache lazy.
+ */
+export async function getCausasMorteCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('causas-morte', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getCausasMorte(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca pluviômetros com cache lazy.
+ */
+export async function getPluviometrosCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('pluviometros', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getPluviometros(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca máquinas/veículos com cache lazy.
+ */
+export async function getMaquinasVeiculosCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('maquinas-veiculos', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getMaquinasVeiculos(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca implementos com cache lazy.
+ */
+export async function getImplementosCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('implementos', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getImplementos(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca itens de supermercado (cantina) com cache lazy.
+ */
+export async function getItensSupermercadoCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('itens-supermercado', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getItensSupermercado(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca setores com cache lazy.
+ */
+export async function getSetoresCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('setores', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getSetores(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca locais com cache lazy.
+ */
+export async function getLocaisCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('locais', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getLocais(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca classificações de almoxarifado com cache lazy.
+ */
+export async function getClassificacoesAlmoxarifadoCached(fazendaId: string): Promise<string[] | null> {
+  const key = buildKey('classificacoes-almoxarifado', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached as string[]
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getClassificacoesAlmoxarifado(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca itens de almoxarifado por classificação com cache lazy.
+ */
+export async function getItensAlmoxarifadoCached(fazendaId: string, classificacao: string): Promise<any[] | null> {
+  const key = buildKey('itens-almoxarifado', fazendaId, classificacao)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getItensAlmoxarifado(fazendaId, classificacao)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca lista de bebedouros com cache lazy.
+ */
+export async function getBebedourosCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('bebedouros', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getBebedouros(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca bebedouro por nome com cache lazy.
+ */
+export async function getBebedouroByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('bebedouro', fazendaId, nome)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getBebedouroByNome(fazendaId, nome)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca última data de limpeza de bebedouro com cache lazy.
+ * TTL curto: dado dinâmico (muda a cada limpeza registrada).
+ */
+export async function getUltimaDataLimpezaBebedouroCached(fazendaId: string, bebedouroId: string): Promise<string | null> {
+  const key = buildKey('ultima-limpeza-bebedouro', fazendaId, bebedouroId)
+  const cached = getCachedQuery(key)
+  if (cached !== undefined && cached !== null) return cached as string
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getUltimaDataLimpezaBebedouro(fazendaId, bebedouroId)
+    setCachedQuery(key, data ?? '')
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca intervalo médio de limpezas do bebedouro com cache lazy.
+ */
+export async function getIntervaloMedioLimpezasCached(fazendaId: string, bebedouroId: string): Promise<number> {
+  const key = buildKey('intervalo-limpeza-bebedouro', fazendaId, bebedouroId)
+  const cached = getCachedQuery(key)
+  if (cached !== undefined && cached !== null) return cached as number
+
+  if (!navigator.onLine) return 0
+
+  try {
+    const data = await supabaseService.getIntervaloMedioLimpezas(fazendaId, bebedouroId)
+    setCachedQuery(key, data)
+    return data
+  } catch {
+    return 0
+  }
+}
+
+/**
  * Aquece o cache com todos os detalhes de pastos e lotes.
  * Deve ser chamado explicitamente quando o usuário clica em "Atualizar Dados"
  * ou quando há internet e se quer garantir funcionamento 100% offline.
@@ -792,7 +1059,7 @@ export async function warmAllCadastroCache(
   onProgress?: (current: number, total: number, item: string) => void,
   pastosData?: any[],
   lotesData?: any[]
-): Promise<{ success: boolean; warmedPastos: number; warmedLotes: number; warmedFormulacoes: number; warmedLotesRodeio: number; warmedMedicamentos: number; errors: string[] }> {
+): Promise<{ success: boolean; warmedPastos: number; warmedLotes: number; warmedFormulacoes: number; warmedLotesRodeio: number; warmedMedicamentos: number; warmedTratamentos: number; warmedExtras: number; errors: string[] }> {
   const errors: string[] = []
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -813,7 +1080,7 @@ export async function warmAllCadastroCache(
       formulacoes = fetchedFormulacoes || []
     } catch (error) {
       console.error('[CadastroCache] Erro ao buscar listas para warm cache:', error)
-      return { success: false, warmedPastos: 0, warmedLotes: 0, warmedFormulacoes: 0, warmedLotesRodeio: 0, warmedMedicamentos: 0, errors: ['Falha ao buscar listas de pastos/lotes/formulacoes'] }
+      return { success: false, warmedPastos: 0, warmedLotes: 0, warmedFormulacoes: 0, warmedLotesRodeio: 0, warmedMedicamentos: 0, warmedTratamentos: 0, warmedExtras: 0, errors: ['Falha ao buscar listas de pastos/lotes/formulacoes'] }
     }
   } else {
     // Se pastos/lotes foram fornecidos, buscar formulações separadamente
@@ -825,12 +1092,14 @@ export async function warmAllCadastroCache(
     }
   }
 
-  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 1 // +1 para medicamentos
+  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 12 // +extras
   let warmedPastos = 0
   let warmedLotes = 0
   let warmedFormulacoes = 0
   let warmedLotesRodeio = 0
   let warmedMedicamentos = 0
+  let warmedTratamentos = 0
+  let warmedExtras = 0
   let processed = 0
 
   // Aquecer pastos: detalhes, lotes, últimas datas, status, ocupação
@@ -852,11 +1121,11 @@ export async function warmAllCadastroCache(
 
       await getLotesByPastoIdCached(fazendaId, pastoId)
       await delay(100)
-      await getUltimaDataPastoEntradaCached(fazendaId, pastoId)
+      await getUltimaDataPastoEntradaCached(fazendaId, pastoNome)
       await delay(100)
-      await getUltimaDataPastoSaidaCached(fazendaId, pastoId)
+      await getUltimaDataPastoSaidaCached(fazendaId, pastoNome)
       await delay(100)
-      await getUltimoStatusPastoCached(fazendaId, pastoId)
+      await getUltimoStatusPastoCached(fazendaId, pastoNome)
       warmedPastos++
     } catch (error) {
       console.error(`[CadastroCache] Erro ao aquecer pasto ${pasto.nome || pasto.id}:`, error)
@@ -955,19 +1224,95 @@ export async function warmAllCadastroCache(
     errors.push('Medicamentos')
   }
 
+  // Aquecer tratamentos (uma única vez)
+  processed++
+  onProgress?.(processed, totalItems, 'Tratamentos')
+
+  try {
+    await getTratamentosCached(fazendaId)
+    warmedTratamentos++
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao aquecer tratamentos:', error)
+    errors.push('Tratamentos')
+  }
+
+  // Aquecer dados das demais cadernetas (independentes, uma vez por fazenda)
+  const extrasToWarm: { label: string; fn: () => Promise<any> }[] = [
+    { label: 'Causas de Morte', fn: () => getCausasMorteCached(fazendaId) },
+    { label: 'Pluviômetros', fn: () => getPluviometrosCached(fazendaId) },
+    { label: 'Máquinas/Veículos', fn: () => getMaquinasVeiculosCached(fazendaId) },
+    { label: 'Implementos', fn: () => getImplementosCached(fazendaId) },
+    { label: 'Itens Supermercado', fn: () => getItensSupermercadoCached(fazendaId) },
+    { label: 'Setores', fn: () => getSetoresCached(fazendaId) },
+    { label: 'Locais', fn: () => getLocaisCached(fazendaId) },
+    { label: 'Classificações Almoxarifado', fn: () => getClassificacoesAlmoxarifadoCached(fazendaId) },
+    { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },
+  ]
+
+  for (const extra of extrasToWarm) {
+    processed++
+    onProgress?.(processed, totalItems, extra.label)
+    try {
+      await extra.fn()
+      warmedExtras++
+    } catch (error) {
+      console.error(`[CadastroCache] Erro ao aquecer ${extra.label}:`, error)
+      errors.push(extra.label)
+    }
+    await delay(200)
+  }
+
+  // Aquecer itens de almoxarifado por classificação
+  try {
+    processed++
+    onProgress?.(processed, totalItems, 'Itens Almoxarifado')
+    const classificacoes = await getClassificacoesAlmoxarifadoCached(fazendaId)
+    if (classificacoes && classificacoes.length > 0) {
+      for (const classificacao of classificacoes) {
+        await getItensAlmoxarifadoCached(fazendaId, classificacao)
+        await delay(100)
+      }
+      warmedExtras++
+    }
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao aquecer itens almoxarifado:', error)
+    errors.push('Itens Almoxarifado')
+  }
+
+  // Aquecer detalhes de bebedouros (última limpeza e intervalo médio por bebedouro)
+  try {
+    processed++
+    onProgress?.(processed, totalItems, 'Detalhes Bebedouros')
+    const bebedouros = await getBebedourosCached(fazendaId)
+    if (bebedouros && bebedouros.length > 0) {
+      for (const bebedouro of bebedouros) {
+        await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
+        await delay(100)
+        await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
+        await delay(100)
+      }
+      warmedExtras++
+    }
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao aquecer detalhes de bebedouros:', error)
+    errors.push('Detalhes Bebedouros')
+  }
+
   console.log('[CadastroCache] Warm cache completo concluído:', {
     warmedPastos,
     warmedLotes,
     warmedFormulacoes,
     warmedLotesRodeio,
     warmedMedicamentos,
+    warmedTratamentos,
+    warmedExtras,
     errors: errors.length
   })
 
   // Persistir no IndexedDB para sobreviver ao fechamento do app
   await saveQueryCacheToIndexedDB()
 
-  return { success: errors.length === 0, warmedPastos, warmedLotes, warmedFormulacoes, warmedLotesRodeio, warmedMedicamentos, errors }
+  return { success: errors.length === 0, warmedPastos, warmedLotes, warmedFormulacoes, warmedLotesRodeio, warmedMedicamentos, warmedTratamentos, warmedExtras, errors }
 }
 
 /**
