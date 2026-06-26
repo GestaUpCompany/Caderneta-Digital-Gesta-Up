@@ -824,12 +824,12 @@ export async function getRacaoByNome(fazendaId: string, nome: string) {
   return data
 }
 
-// ==================== DIETAS ====================
+// ==================== FORMULAÇÕES (antes: DIETAS) ====================
 
-export async function getDietas(fazendaId: string) {
+export async function getFormulacoesDietas(fazendaId: string) {
   const client = getSupabaseClient()
-  const { data, error } = await client
-    .from('dietas')
+  const { data, error } = await (client as any)
+    .from('formulacoes')
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
@@ -841,27 +841,32 @@ export async function getDietas(fazendaId: string) {
 
 export async function getDietasNomes(fazendaId: string): Promise<string[]> {
   const client = getSupabaseClient()
-  const { data, error } = await client
-    .from('dietas')
+  const { data, error } = await (client as any)
+    .from('formulacoes')
     .select('nome')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
     .order('nome')
 
   if (error) throw error
-  return data?.map(item => item.nome) || []
+  return (data as any[])?.map((item: any) => item.nome) || []
 }
 
-export async function createDieta(dieta: any) {
-  const { data, error } = await supabase
-    .from('dietas')
-    .insert(dieta)
+export async function createFormulacao(formulacao: any) {
+  const { data, error } = await (supabase as any)
+    .from('formulacoes')
+    .insert(formulacao)
     .select()
     .single()
 
   if (error) throw error
   return data
 }
+
+/** @deprecated Use getFormulacoesDietas */
+export const getDietas = getFormulacoesDietas
+/** @deprecated Use createFormulacao */
+export const createDieta = createFormulacao
 
 // ==================== FUNCIONARIOS ====================
 
@@ -1047,7 +1052,7 @@ export async function getUltimoStatusPasto(fazendaId: string, nomePasto: string)
 
 export async function getOcupacaoAtualPorLotePasto(loteId: string, pastoId: string) {
   const client = getSupabaseClient()
-  const { data, error } = await client
+  const { data, error } = await (client as any)
     .from('v_lote_pasto_ocupacao_atual')
     .select('*')
     .eq('lote_id', loteId)
