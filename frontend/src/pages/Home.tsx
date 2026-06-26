@@ -73,7 +73,11 @@ export default function Home() {
     try {
       const result = await syncAllCadastroData(fazendaId, (current, total, item) => {
         setSyncProgress({ current, total, item })
-        setCompletedItems(prev => [...prev, item])
+        setCompletedItems(prev => {
+          const next = [...prev, item]
+          // Manter apenas os últimos 5 itens para não poluir a UI
+          return next.slice(-5)
+        })
       })
 
       if (result.errors.length > 0) {
@@ -216,6 +220,16 @@ export default function Home() {
         {/* Sync Button and Status */}
         {configurado && fazendaId && (
           <div className="mb-6 flex flex-col gap-3">
+            {/* Alerta sempre visível para atualizar antes de sair ao pasto */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+              <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-xs text-amber-800 font-medium">
+                Vai ficar sem internet? Atualize os dados primeiro antes de sair ao pasto.
+              </p>
+            </div>
+
             <button
               onClick={handleSync}
               disabled={syncing}
@@ -245,7 +259,7 @@ export default function Home() {
                 {syncing && syncProgress && (
                   <>
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold text-gray-900">Sincronizando dados de cadastro...</p>
+                      <p className="text-sm font-semibold text-gray-900">Atualizando dados para uso offline...</p>
                       <span className="text-xs text-gray-500">{syncProgress.current}/{syncProgress.total}</span>
                     </div>
                     {/* Progress Bar */}
@@ -273,6 +287,16 @@ export default function Home() {
                       <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
                       <span>{syncProgress.item}</span>
                     </div>
+
+                    {/* Aviso para não fechar o app */}
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                      <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <p className="text-xs text-red-800 font-bold">
+                        Não feche o app até aparecer "Dados atualizados com sucesso". Caso contrário, os dados não estarão completos ao sair ao pasto.
+                      </p>
+                    </div>
                   </>
                 )}
 
@@ -298,16 +322,13 @@ export default function Home() {
                 )}
 
                 {!syncing && syncErrors.length === 0 && syncProgress === null && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-green-900">Dados atualizados com sucesso</p>
-                      <p className="text-xs text-gray-500">Última atualização: {lastSyncTime || 'agora mesmo'}</p>
-                    </div>
+                  <div className="flex items-center gap-2 py-1">
+                    <svg className="w-4 h-4 text-green-600 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p className="text-xs text-gray-600">
+                      Última atualização: <span className="font-medium text-gray-800">{lastSyncTime || 'agora mesmo'}</span>
+                    </p>
                   </div>
                 )}
               </div>

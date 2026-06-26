@@ -41,6 +41,7 @@ export default function SearchableModal({
   const [newChip, setNewChip] = useState('')
   const [createError, setCreateError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const pushedStateRef = useRef(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -53,24 +54,26 @@ export default function SearchableModal({
 
   // Prevenir navegação para trás quando modal está aberto (botão voltar do celular)
   useEffect(() => {
-    if (isOpen) {
-      // Adicionar entrada no histórico para poder voltar para fechar o modal
-      window.history.pushState({ modalOpen: true }, '', window.location.href)
+    if (!isOpen) return
 
-      const handlePopState = (e: PopStateEvent) => {
-        if (e.state?.modalOpen) {
-          e.preventDefault()
-          handleClose()
-        }
+    pushedStateRef.current = true
+    window.history.pushState({ modalOpen: true, timestamp: Date.now() }, '', window.location.href)
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state?.modalOpen) {
+        e.preventDefault()
+        pushedStateRef.current = false
+        setIsOpen(false)
       }
+    }
 
-      window.addEventListener('popstate', handlePopState)
-      return () => {
-        window.removeEventListener('popstate', handlePopState)
-        // Remover a entrada do histórico se o modal for fechado sem usar o botão voltar
-        if (window.history.state?.modalOpen) {
-          window.history.back()
-        }
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      if (pushedStateRef.current && window.history.state?.modalOpen) {
+        pushedStateRef.current = false
+        window.history.back()
       }
     }
   }, [isOpen])

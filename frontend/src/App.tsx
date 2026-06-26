@@ -18,7 +18,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
-import { initializeCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
+import { initializeCadastroCache } from './services/cadastroCache'
 import { reauthenticateFarm, isTokenValid } from './services/authService'
 import ScrollToTop from './components/ScrollToTop'
 
@@ -130,14 +130,11 @@ function AppInner() {
     clearExpiredTokens()
   }, [])
 
-  // Inicializar cache de dados de cadastro
+  // Inicializar cache de dados de cadastro (apenas carrega do IndexedDB, não faz polling)
+  // A atualização completa dos dados é feita manualmente via botão "Atualizar Dados" na Home
   useEffect(() => {
     if (fazendaId) {
       initializeCadastroCache(fazendaId)
-      startCadastroCachePolling(fazendaId)
-    }
-    return () => {
-      stopCadastroCachePolling()
     }
   }, [fazendaId])
 

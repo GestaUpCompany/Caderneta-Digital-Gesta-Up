@@ -9,8 +9,12 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR, brToIso } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getContagemPartosVaca, getLotes, getTratamentos, createIndividuo } from '../../services/supabaseService'
+import {
+  getCachedCadastroData,
+  getLoteByNomeCached,
+  getLoteDetalhesComCategoriasCached,
+} from '../../services/cadastroCache'
+import { getContagemPartosVaca, getLotes, getTratamentos, createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
@@ -277,10 +281,10 @@ export default function MaternidadePage() {
       }
 
       try {
-        const lote = await getLoteByNome(fazendaId, form.lote)
+        const lote = await getLoteByNomeCached(fazendaId, form.lote)
         if (lote) {
           // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategorias(lote.id)
+          const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
           
           // Combinar dados do lote com dados de categorias
           setDetalhesLote({

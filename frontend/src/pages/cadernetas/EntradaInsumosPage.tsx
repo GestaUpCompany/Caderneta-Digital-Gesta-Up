@@ -10,7 +10,9 @@ import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '.
 import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { getFornecedores, getFuncionarios, getInsumos, createInsumo } from '../../services/supabaseService'
+import { getInsumos, createInsumo } from '../../services/supabaseService'
+import { getCachedCadastroData } from '../../services/cadastroCache'
+import { useCadastroOptions } from '../../hooks/useCadastroOptions'
 import FeatureLock from '../../components/FeatureLock'
 
 interface ItemEntrada {
@@ -63,11 +65,9 @@ export default function EntradaInsumosPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [fornecedoresSupabase, setFornecedoresSupabase] = useState<any[]>([])
-  const [funcionariosSupabase, setFuncionariosSupabase] = useState<any[]>([])
+  const { options: fornecedoresOptions, loading: loadingFornecedores } = useCadastroOptions('fornecedores', fazendaId)
+  const { options: funcionariosOptions, loading: loadingFuncionarios } = useCadastroOptions('funcionarios', fazendaId)
   const [insumosSupabase, setInsumosSupabase] = useState<any[]>([])
-  const [loadingFornecedores, setLoadingFornecedores] = useState(false)
-  const [loadingFuncionarios, setLoadingFuncionarios] = useState(false)
   const [loadingInsumos, setLoadingInsumos] = useState(false)
   const [isHorarioManual, setIsHorarioManual] = useState(false)
   const [novoInsumoModal, setNovoInsumoModal] = useState<{ open: boolean; nomeInicial: string; itemId: string }>({ open: false, nomeInicial: '', itemId: '' })
@@ -155,55 +155,7 @@ export default function EntradaInsumosPage() {
     }
   }
 
-  // Carregar fornecedores do Supabase
-  useEffect(() => {
-    async function carregarFornecedores() {
-      if (!fazendaId) {
-        setFornecedoresSupabase([])
-        setLoadingFornecedores(false)
-        return
-      }
-
-      setLoadingFornecedores(true)
-      try {
-        const fornecedores = await getFornecedores(fazendaId)
-        setFornecedoresSupabase(fornecedores || [])
-      } catch (error) {
-        console.error('Erro ao carregar fornecedores:', error)
-        setFornecedoresSupabase([])
-      } finally {
-        setLoadingFornecedores(false)
-      }
-    }
-
-    carregarFornecedores()
-  }, [fazendaId])
-
-  // Carregar funcionários do Supabase
-  useEffect(() => {
-    async function carregarFuncionarios() {
-      if (!fazendaId) {
-        setFuncionariosSupabase([])
-        setLoadingFuncionarios(false)
-        return
-      }
-
-      setLoadingFuncionarios(true)
-      try {
-        const funcionarios = await getFuncionarios(fazendaId)
-        setFuncionariosSupabase(funcionarios || [])
-      } catch (error) {
-        console.error('Erro ao carregar funcionários:', error)
-        setFuncionariosSupabase([])
-      } finally {
-        setLoadingFuncionarios(false)
-      }
-    }
-
-    carregarFuncionarios()
-  }, [fazendaId])
-
-  // Carregar insumos do Supabase
+  // Carregar insumos do Supabase com fallback para cache offline
   useEffect(() => {
     async function carregarInsumos() {
       if (!fazendaId) {
@@ -211,19 +163,22 @@ export default function EntradaInsumosPage() {
         setLoadingInsumos(false)
         return
       }
-
       setLoadingInsumos(true)
       try {
-        const insumos = await getInsumos(fazendaId)
-        setInsumosSupabase(insumos || [])
-      } catch (error) {
-        console.error('Erro ao carregar insumos:', error)
-        setInsumosSupabase([])
+        if (navigator.onLine) {
+          const insumos = await getInsumos(fazendaId)
+          setInsumosSupabase(insumos || [])
+        } else {
+          const cache = await getCachedCadastroData()
+          setInsumosSupabase((cache?.insumos || []).map((nome: string) => ({ nome, id: '' })))
+        }
+      } catch {
+        const cache = await getCachedCadastroData()
+        setInsumosSupabase((cache?.insumos || []).map((nome: string) => ({ nome, id: '' })))
       } finally {
         setLoadingInsumos(false)
       }
     }
-
     carregarInsumos()
   }, [fazendaId])
 
@@ -494,29 +449,17 @@ export default function EntradaInsumosPage() {
                 onChange={setInput('notaFiscal')}
                 error={getError('notaFiscal')}
               />
-              {fornecedoresSupabase.length > 0 ? (
-                <SearchableModal
-                  label="FORNECEDOR"
-                  value={form.fornecedor}
-                  onChange={set('fornecedor')}
-                  error={getError('fornecedor')}
-                  options={fornecedoresSupabase.map(f => f.nome)}
-                  placeholder="Buscar fornecedor..."
-                  disabled={loadingFornecedores}
-                  id="fornecedor"
-                  name="fornecedor"
-                />
-              ) : (
-                <Input
-                  label="FORNECEDOR"
-                  placeholder={loadingFornecedores ? 'Carregando...' : 'Digite o fornecedor'}
-                  value={form.fornecedor}
-                  onChange={setInput('fornecedor')}
-                  error={getError('fornecedor')}
-                  disabled={loadingFornecedores}
-                  id="fornecedor"
-                />
-              )}
+              <SearchableModal
+                label="FORNECEDOR"
+                value={form.fornecedor}
+                onChange={set('fornecedor')}
+                error={getError('fornecedor')}
+                options={fornecedoresOptions}
+                placeholder="Buscar fornecedor..."
+                disabled={loadingFornecedores}
+                id="fornecedor"
+                name="fornecedor"
+              />
             </div>
 
             {/* Seção 4: Transporte */}
@@ -528,52 +471,28 @@ export default function EntradaInsumosPage() {
                 onChange={setInput('placa')}
                 error={getError('placa')}
               />
-              {funcionariosSupabase.length > 0 ? (
-                <SearchableModal
-                  label="MOTORISTA"
-                  value={form.motorista}
-                  onChange={set('motorista')}
-                  error={getError('motorista')}
-                  options={funcionariosSupabase.map(f => f.nome)}
-                  placeholder="Buscar funcionário..."
-                  disabled={loadingFuncionarios}
-                  id="motorista"
-                  name="motorista"
-                />
-              ) : (
-                <Input
-                  label="MOTORISTA *"
-                  placeholder={loadingFuncionarios ? 'Carregando...' : 'Digite o motorista'}
-                  value={form.motorista}
-                  onChange={setInput('motorista')}
-                  error={getError('motorista')}
-                  disabled={loadingFuncionarios}
-                  id="motorista"
-                />
-              )}
-              {funcionariosSupabase.length > 0 ? (
-                <SearchableModal
-                  label="RESPONSÁVEL RECEBIMENTO"
-                  value={form.responsavelRecebimento}
-                  onChange={set('responsavelRecebimento')}
-                  error={getError('responsavelRecebimento')}
-                  options={funcionariosSupabase.map(f => f.nome)}
-                  placeholder="Buscar funcionário..."
-                  disabled={loadingFuncionarios}
-                  id="responsavelRecebimento"
-                  name="responsavelRecebimento"
-                />
-              ) : (
-                <Input
-                  label="RESPONSÁVEL RECEBIMENTO *"
-                  placeholder={loadingFuncionarios ? 'Carregando...' : 'Digite o funcionário'}
-                  value={form.responsavelRecebimento}
-                  onChange={setInput('responsavelRecebimento')}
-                  error={getError('responsavelRecebimento')}
-                  disabled={loadingFuncionarios}
-                  id="responsavelRecebimento"
-                />
-              )}
+              <SearchableModal
+                label="MOTORISTA"
+                value={form.motorista}
+                onChange={set('motorista')}
+                error={getError('motorista')}
+                options={funcionariosOptions}
+                placeholder="Buscar funcionário..."
+                disabled={loadingFuncionarios}
+                id="motorista"
+                name="motorista"
+              />
+              <SearchableModal
+                label="RESPONSÁVEL RECEBIMENTO"
+                value={form.responsavelRecebimento}
+                onChange={set('responsavelRecebimento')}
+                error={getError('responsavelRecebimento')}
+                options={funcionariosOptions}
+                placeholder="Buscar funcionário..."
+                disabled={loadingFuncionarios}
+                id="responsavelRecebimento"
+                name="responsavelRecebimento"
+              />
             </div>
 
             <div className="flex flex-col gap-3">

@@ -9,8 +9,13 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteDetalhesComCategorias, getPastoByNome, getEspacamentoIdealCochoPorFormulacao, getPastos, getLotesByPastoId, getFormulacoes, getFormulacaoByNome, getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
+import {
+  getCachedCadastroData,
+  getPastoByNomeCached,
+  getLotesByPastoIdCached,
+  getLoteDetalhesComCategoriasCached,
+} from '../../services/cadastroCache'
+import { getEspacamentoIdealCochoPorFormulacao, getPastos, getFormulacoes, getFormulacaoByNome, getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -271,7 +276,7 @@ export default function SuplementacaoPage() {
 
       try {
         // Buscar o pasto pelo nome para obter o ID
-        const pasto = await getPastoByNome(fazendaId, form.pasto)
+        const pasto = await getPastoByNomeCached(fazendaId, form.pasto)
         if (!pasto) {
           setDetalhesLote(null)
           setLotesNoPasto([])
@@ -283,7 +288,7 @@ export default function SuplementacaoPage() {
         setForm(prev => ({ ...prev, pastoId }))
 
         // Buscar lotes que ocupam esse pasto
-        const lotes = await getLotesByPastoId(fazendaId, pastoId)
+        const lotes = await getLotesByPastoIdCached(fazendaId, pastoId)
         setLotesNoPasto(lotes || [])
 
         if (!lotes || lotes.length === 0) {
@@ -297,7 +302,7 @@ export default function SuplementacaoPage() {
         const lotePrincipal = lotes[0]
 
         // Buscar detalhes de categorias do lote
-        const categoriasDetalhes = await getLoteDetalhesComCategorias(lotePrincipal.id)
+        const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lotePrincipal.id)
 
         // Combinar dados do lote com dados de categorias
         setDetalhesLote({
@@ -335,7 +340,7 @@ export default function SuplementacaoPage() {
       }
 
       try {
-        const pasto = await getPastoByNome(fazendaId, form.pasto)
+        const pasto = await getPastoByNomeCached(fazendaId, form.pasto)
         if (pasto) {
           setPossuiDeposito(pasto.possui_deposito || false)
           setDadosPasto(pasto)

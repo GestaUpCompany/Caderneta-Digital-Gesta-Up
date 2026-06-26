@@ -1045,6 +1045,19 @@ export async function getUltimoStatusPasto(fazendaId: string, nomePasto: string)
   return entradaTimestamp > saidaTimestamp ? 'entrada' : 'saida'
 }
 
+export async function getOcupacaoAtualPorLotePasto(loteId: string, pastoId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('v_lote_pasto_ocupacao_atual')
+    .select('*')
+    .eq('lote_id', loteId)
+    .eq('pasto_id', pastoId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function getPastoByNome(fazendaId: string, nome: string) {
   const client = getSupabaseClient()
   const { data, error } = await client

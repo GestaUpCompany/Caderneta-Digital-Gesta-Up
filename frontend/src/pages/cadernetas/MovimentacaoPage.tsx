@@ -7,8 +7,12 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { getCachedCadastroData } from '../../services/cadastroCache'
-import { getLoteByNome, getLoteDetalhesComCategorias, getLotes } from '../../services/supabaseService'
+import {
+  getCachedCadastroData,
+  getLoteByNomeCached,
+  getLoteDetalhesComCategoriasCached,
+} from '../../services/cadastroCache'
+import { getLotes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -206,10 +210,10 @@ export default function MovimentacaoPage() {
       }
 
       try {
-        const lote = await getLoteByNome(fazendaId, form.loteOrigem)
+        const lote = await getLoteByNomeCached(fazendaId, form.loteOrigem)
         if (lote) {
           // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategorias(lote.id)
+          const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
           
           // Combinar dados do lote com dados de categorias
           setDetalhesLoteOrigem({
@@ -250,7 +254,7 @@ export default function MovimentacaoPage() {
       }
 
       try {
-        const lote = await getLoteByNome(fazendaId, form.loteDestino)
+        const lote = await getLoteByNomeCached(fazendaId, form.loteDestino)
         if (lote) {
           setForm(prev => ({ ...prev, loteDestinoId: lote.id }))
         }

@@ -1,5 +1,5 @@
 import { BACKEND_URL } from '../utils/constants'
-import { saveCadastroData, getAllCadastroData } from './indexedDB'
+import { saveCadastroData, getAllCadastroData, getCadastroData } from './indexedDB'
 import * as supabaseService from './supabaseService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 
@@ -48,6 +48,42 @@ export interface CadastroCacheData {
 let cacheData: CadastroCacheData | null = null
 let lastCacheUpdate: number = 0
 let pollingInterval: number | null = null
+
+const QUERY_CACHE_KEY = 'queryCache'
+
+/**
+ * Persiste o cache lazy de queries detalhadas no IndexedDB.
+ * Essencial para que detalhes de pastos/lotes sobrevivam ao fechamento do app.
+ */
+export async function saveQueryCacheToIndexedDB(): Promise<void> {
+  try {
+    const data = { queryCache, timestamp: Date.now() }
+    await saveCadastroData(QUERY_CACHE_KEY, data)
+    console.log('[CadastroCache] Query cache salvo no IndexedDB:', {
+      entries: Object.keys(queryCache).length
+    })
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao salvar query cache no IndexedDB:', error)
+  }
+}
+
+/**
+ * Carrega o cache lazy de queries detalhadas do IndexedDB.
+ */
+export async function loadQueryCacheFromIndexedDB(): Promise<void> {
+  try {
+    const cached = await getCadastroData(QUERY_CACHE_KEY)
+    if (cached?.queryCache) {
+      Object.assign(queryCache, cached.queryCache)
+      console.log('[CadastroCache] Query cache carregado do IndexedDB:', {
+        entries: Object.keys(queryCache).length,
+        timestamp: cached.timestamp
+      })
+    }
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao carregar query cache do IndexedDB:', error)
+  }
+}
 
 /**
  * Carrega dados de cadastro do IndexedDB (cache)
@@ -303,6 +339,10 @@ export function clearCadastroCache(): void {
   cacheData = null
   lastCacheUpdate = 0
   currentFazendaId = null
+  // Limpar também o cache lazy de memória
+  for (const key of Object.keys(queryCache)) {
+    delete queryCache[key]
+  }
   console.log('[CadastroCache] Cache limpo')
 }
 
@@ -335,6 +375,9 @@ export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaI
   } else {
     console.log('[CadastroCache] Nenhum dado no cache, será necessário carregar da API')
   }
+
+  // Carregar detalhes de pastos/lotes persistidos (lazy cache)
+  await loadQueryCacheFromIndexedDB()
 
   // Depois atualizar se online
   if (navigator.onLine) {
@@ -448,6 +491,485 @@ export function getLoteDetalhes(lote: string): LoteDetalhes | null {
   return cacheData.lotesDetalhes[lote] || null
 }
 
+// ==================== CACHE LAZY PARA QUERIES ESPECÍFICAS ====================
+// Permite funcionamento offline para buscas de detalhes individuais
+
+const queryCache: Record<string, { data: any; timestamp: number }> = {}
+const QUERY_CACHE_TTL = 10 * 60 * 1000 // 10 minutos
+
+function getCachedQuery<T>(key: string): T | null {
+  const entry = queryCache[key]
+  if (!entry) return null
+  if (Date.now() - entry.timestamp > QUERY_CACHE_TTL) {
+    delete queryCache[key]
+    return null
+  }
+  return entry.data as T
+}
+
+function setCachedQuery(key: string, data: any): void {
+  queryCache[key] = { data, timestamp: Date.now() }
+}
+
+function buildKey(base: string, ...segments: string[]): string {
+  return `${base}:${segments.join(':')}`
+}
+
+/**
+ * Busca pasto por nome com cache lazy.
+ * Retorna do cache se disponível; se offline e não houver cache, retorna null.
+ */
+export async function getPastoByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('pasto', fazendaId, nome)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getPastoByNome(fazendaId, nome)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca lote por nome com cache lazy.
+ */
+export async function getLoteByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('lote', fazendaId, nome)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getLoteByNome(fazendaId, nome)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca detalhes completos do lote (com categorias) com cache lazy.
+ */
+export async function getLoteDetalhesComCategoriasCached(loteId: string): Promise<any | null> {
+  const key = buildKey('lote-detalhes', loteId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getLoteDetalhesComCategorias(loteId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca lotes por ID do pasto com cache lazy.
+ */
+export async function getLotesByPastoIdCached(fazendaId: string, pastoId: string): Promise<any[] | null> {
+  const key = buildKey('lotes-pasto', fazendaId, pastoId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getLotesByPastoId(fazendaId, pastoId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca última data de entrada do pasto com cache lazy.
+ */
+export async function getUltimaDataPastoEntradaCached(fazendaId: string, pastoId: string): Promise<any | null> {
+  const key = buildKey('ultima-entrada', fazendaId, pastoId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getUltimaDataPastoEntrada(fazendaId, pastoId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca última data de saída do pasto com cache lazy.
+ */
+export async function getUltimaDataPastoSaidaCached(fazendaId: string, pastoId: string): Promise<any | null> {
+  const key = buildKey('ultima-saida', fazendaId, pastoId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getUltimaDataPastoSaida(fazendaId, pastoId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca último status do pasto com cache lazy.
+ */
+export async function getUltimoStatusPastoCached(fazendaId: string, pastoId: string): Promise<any | null> {
+  const key = buildKey('ultimo-status', fazendaId, pastoId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getUltimoStatusPasto(fazendaId, pastoId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca ocupação atual do lote/pasto com cache lazy.
+ */
+export async function getOcupacaoAtualPorLotePastoCached(loteId: string, pastoId: string): Promise<any | null> {
+  const key = buildKey('ocupacao', loteId, pastoId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getOcupacaoAtualPorLotePasto(loteId, pastoId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca formulação por nome com cache lazy.
+ */
+export async function getFormulacaoByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('formulacao', fazendaId, nome)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getFormulacaoByNome(fazendaId, nome)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca espaçamento ideal do cocho por formulação com cache lazy.
+ */
+export async function getEspacamentoIdealCochoPorFormulacaoCached(fazendaId: string, formulacao: string): Promise<any | null> {
+  const key = buildKey('espacamento-cocho', fazendaId, formulacao)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getEspacamentoIdealCochoPorFormulacao(fazendaId, formulacao)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca registros de suplementação por lote com cache lazy.
+ */
+export async function getRegistrosSuplementacaoByLoteCached(fazendaId: string, loteId: string): Promise<any | null> {
+  const key = buildKey('suplementacao-lote', fazendaId, loteId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getRegistrosSuplementacaoByLote(fazendaId, loteId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca último rodeio do lote com cache lazy.
+ */
+export async function getLastRodeioDateCached(fazendaId: string, loteId: string): Promise<any | null> {
+  const key = buildKey('ultimo-rodeio', fazendaId, loteId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getLastRodeioDate(loteId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca contagem de partos da vaca com cache lazy.
+ */
+export async function getContagemPartosVacaCached(fazendaId: string, idVaca: string): Promise<any | null> {
+  const key = buildKey('partos-vaca', fazendaId, idVaca)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getContagemPartosVaca(fazendaId, idVaca)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca medicamentos com cache lazy.
+ */
+export async function getMedicamentosCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('medicamentos', fazendaId)
+  const cached = getCachedQuery(key)
+  if (cached && Array.isArray(cached)) return cached
+
+  if (!navigator.onLine) return null
+
+  try {
+    const data = await supabaseService.getMedicamentos(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Aquece o cache com todos os detalhes de pastos e lotes.
+ * Deve ser chamado explicitamente quando o usuário clica em "Atualizar Dados"
+ * ou quando há internet e se quer garantir funcionamento 100% offline.
+ */
+export async function warmAllCadastroCache(
+  fazendaId: string,
+  onProgress?: (current: number, total: number, item: string) => void,
+  pastosData?: any[],
+  lotesData?: any[]
+): Promise<{ success: boolean; warmedPastos: number; warmedLotes: number; warmedFormulacoes: number; warmedLotesRodeio: number; warmedMedicamentos: number; errors: string[] }> {
+  const errors: string[] = []
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+  // Usar listas fornecidas ou buscar do Supabase
+  let pastos: any[] = pastosData || []
+  let lotes: any[] = lotesData || []
+  let formulacoes: any[] = []
+
+  if (!pastosData || !lotesData) {
+    try {
+      const [fetchedPastos, fetchedLotes, fetchedFormulacoes] = await Promise.all([
+        supabaseService.getPastos(fazendaId),
+        supabaseService.getLotes(fazendaId),
+        supabaseService.getFormulacoes(fazendaId)
+      ])
+      pastos = fetchedPastos || []
+      lotes = fetchedLotes || []
+      formulacoes = fetchedFormulacoes || []
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao buscar listas para warm cache:', error)
+      return { success: false, warmedPastos: 0, warmedLotes: 0, warmedFormulacoes: 0, warmedLotesRodeio: 0, warmedMedicamentos: 0, errors: ['Falha ao buscar listas de pastos/lotes/formulacoes'] }
+    }
+  } else {
+    // Se pastos/lotes foram fornecidos, buscar formulações separadamente
+    try {
+      formulacoes = await supabaseService.getFormulacoes(fazendaId)
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao buscar formulações:', error)
+      formulacoes = []
+    }
+  }
+
+  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 1 // +1 para medicamentos
+  let warmedPastos = 0
+  let warmedLotes = 0
+  let warmedFormulacoes = 0
+  let warmedLotesRodeio = 0
+  let warmedMedicamentos = 0
+  let processed = 0
+
+  // Aquecer pastos: detalhes, lotes, últimas datas, status, ocupação
+  for (const pasto of pastos) {
+    processed++
+    onProgress?.(processed, totalItems, `Pasto ${pasto.nome || pasto.id}`)
+
+    try {
+      const pastoNome = pasto.nome || pasto.id
+      const pastoId = pasto.id || pasto.nome
+
+      // Se temos dados brutos do pasto, guardar diretamente no cache lazy
+      if (pasto.id && pastoNome !== pastoId) {
+        setCachedQuery(buildKey('pasto', fazendaId, pastoNome), pasto)
+      } else {
+        await getPastoByNomeCached(fazendaId, pastoNome)
+      }
+      await delay(100)
+
+      await getLotesByPastoIdCached(fazendaId, pastoId)
+      await delay(100)
+      await getUltimaDataPastoEntradaCached(fazendaId, pastoId)
+      await delay(100)
+      await getUltimaDataPastoSaidaCached(fazendaId, pastoId)
+      await delay(100)
+      await getUltimoStatusPastoCached(fazendaId, pastoId)
+      warmedPastos++
+    } catch (error) {
+      console.error(`[CadastroCache] Erro ao aquecer pasto ${pasto.nome || pasto.id}:`, error)
+      errors.push(`Pasto ${pasto.nome || pasto.id}`)
+    }
+
+    await delay(300)
+  }
+
+  // Aquecer lotes: detalhes com categorias
+  for (const lote of lotes) {
+    processed++
+    onProgress?.(processed, totalItems, `Lote ${lote.nome || lote.id}`)
+
+    try {
+      const loteNome = lote.nome || lote.id
+      const loteId = lote.id || lote.nome
+
+      // Se temos dados brutos do lote, guardar diretamente no cache lazy
+      if (lote.id && loteNome !== loteId) {
+        setCachedQuery(buildKey('lote', fazendaId, loteNome), lote)
+      } else {
+        await getLoteByNomeCached(fazendaId, loteNome)
+      }
+      await delay(100)
+
+      await getLoteDetalhesComCategoriasCached(loteId)
+      warmedLotes++
+    } catch (error) {
+      console.error(`[CadastroCache] Erro ao aquecer lote ${lote.nome || lote.id}:`, error)
+      errors.push(`Lote ${lote.nome || lote.id}`)
+    }
+
+    await delay(300)
+  }
+
+  // Aquecer formulações: detalhes, espaçamento ideal, histórico de suplementação
+  for (const formulacao of formulacoes) {
+    processed++
+    onProgress?.(processed, totalItems, `Formulação ${formulacao.nome || formulacao.id}`)
+
+    try {
+      const nome = formulacao.nome || formulacao.id
+
+      // Se temos dados brutos da formulação, guardar diretamente no cache lazy
+      if (formulacao.id && nome !== formulacao.id) {
+        setCachedQuery(buildKey('formulacao', fazendaId, nome), formulacao)
+      } else {
+        await getFormulacaoByNomeCached(fazendaId, nome)
+      }
+      await delay(100)
+
+      await getEspacamentoIdealCochoPorFormulacaoCached(fazendaId, nome)
+      await delay(100)
+
+      // Buscar histórico de suplementação para todos os lotes desta formulação
+      for (const lote of lotes) {
+        await getRegistrosSuplementacaoByLoteCached(fazendaId, lote.id)
+        await delay(50)
+      }
+
+      warmedFormulacoes++
+    } catch (error) {
+      console.error(`[CadastroCache] Erro ao aquecer formulação ${formulacao.nome || formulacao.id}:`, error)
+      errors.push(`Formulação ${formulacao.nome || formulacao.id}`)
+    }
+
+    await delay(300)
+  }
+
+  // Aquecer dados de rodeio para todos os lotes
+  for (const lote of lotes) {
+    processed++
+    onProgress?.(processed, totalItems, `Rodeio Lote ${lote.nome || lote.id}`)
+
+    try {
+      await getLastRodeioDateCached(fazendaId, lote.id)
+      warmedLotesRodeio++
+    } catch (error) {
+      console.error(`[CadastroCache] Erro ao aquecer rodeio do lote ${lote.nome || lote.id}:`, error)
+      errors.push(`Rodeio Lote ${lote.nome || lote.id}`)
+    }
+
+    await delay(300)
+  }
+
+  // Aquecer medicamentos (uma única vez)
+  processed++
+  onProgress?.(processed, totalItems, 'Medicamentos')
+
+  try {
+    await getMedicamentosCached(fazendaId)
+    warmedMedicamentos++
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao aquecer medicamentos:', error)
+    errors.push('Medicamentos')
+  }
+
+  console.log('[CadastroCache] Warm cache completo concluído:', {
+    warmedPastos,
+    warmedLotes,
+    warmedFormulacoes,
+    warmedLotesRodeio,
+    warmedMedicamentos,
+    errors: errors.length
+  })
+
+  // Persistir no IndexedDB para sobreviver ao fechamento do app
+  await saveQueryCacheToIndexedDB()
+
+  return { success: errors.length === 0, warmedPastos, warmedLotes, warmedFormulacoes, warmedLotesRodeio, warmedMedicamentos, errors }
+}
+
 /**
  * Sincroniza todos os dados de cadastro do Supabase em sequência com delay
  * Ordem de dependência: Pastos → Lotes → Indivíduos → Bebedouros → Independentes
@@ -491,6 +1013,10 @@ export async function syncAllCadastroData(
     individuos: [],
   }
 
+  // Manter dados brutos de pastos e lotes para warm cache
+  let rawPastos: any[] = []
+  let rawLotes: any[] = []
+
   for (let i = 0; i < syncSteps.length; i++) {
     const step = syncSteps[i]
     onProgress?.(i + 1, syncSteps.length, step.name)
@@ -501,10 +1027,12 @@ export async function syncAllCadastroData(
       // Mapear dados para o cache
       switch (step.name) {
         case 'Pastos':
-          result.pastos = data?.map((p: any) => p.nome) || []
+          rawPastos = data || []
+          result.pastos = rawPastos.map((p: any) => p.nome)
           break
         case 'Lotes':
-          result.lotes = data?.map((l: any) => l.nome) || []
+          rawLotes = data || []
+          result.lotes = rawLotes.map((l: any) => l.nome)
           break
         case 'Indivíduos':
           result.individuos = (data || []).map((i: any) => ({
@@ -564,13 +1092,28 @@ export async function syncAllCadastroData(
   cacheData = result
   lastCacheUpdate = Date.now()
 
-  console.log('[CadastroCache] Sincronização concluída:', {
+  console.log('[CadastroCache] Sincronização de listas concluída:', {
     success: errors.length === 0,
     errors,
     pastos: result.pastos.length,
     lotes: result.lotes.length,
     individuos: result.individuos?.length || 0,
   })
+
+  // Aquecer cache com todos os detalhes de pastos e lotes
+  // Isso garante funcionamento 100% offline após o usuário clicar em "Atualizar Dados"
+  if (errors.length === 0) {
+    try {
+      console.log('[CadastroCache] Iniciando warm cache completo...')
+      const warmResult = await warmAllCadastroCache(fazendaId, onProgress, rawPastos, rawLotes)
+      if (!warmResult.success) {
+        errors.push(...warmResult.errors)
+      }
+    } catch (error) {
+      console.error('[CadastroCache] Erro no warm cache:', error)
+      errors.push('Warm cache')
+    }
+  }
 
   return { success: errors.length === 0, errors }
 }
