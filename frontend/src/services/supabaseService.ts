@@ -1,4 +1,4 @@
-import { supabase, getSupabaseClient } from './supabaseClient'
+import { supabase, getSupabaseClient, getSupabaseClientWithRefresh } from './supabaseClient'
 import type { TablesInsert, TablesUpdate } from '../types/supabase'
 
 // Função para fazer upload de logo de fazenda
@@ -442,7 +442,8 @@ export async function createCategoria(categoria: TablesInsert<'categorias'>) {
 // ==================== INDIVIDUOS ====================
 
 export async function getIndividuos(fazendaId: string, limit = 100) {
-  const client = getSupabaseClient() as any
+  const client = await getSupabaseClientWithRefresh() as any
+  console.log('[getIndividuos] fazendaId:', fazendaId, 'client:', client === supabase ? 'anon' : 'token')
   const { data, error } = await client
     .from('individuos')
     .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status')
@@ -451,6 +452,7 @@ export async function getIndividuos(fazendaId: string, limit = 100) {
     .order('id_manejo')
     .limit(limit)
 
+  console.log('[getIndividuos] data:', data, 'error:', error)
   if (error) throw error
   return data
 }
@@ -460,7 +462,7 @@ export async function getIndividuoPorCampo(
   campo: 'id_manejo' | 'id_brinco' | 'id_chip',
   valor: string
 ) {
-  const client = getSupabaseClient() as any
+  const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('individuos')
     .select('*')
@@ -473,7 +475,8 @@ export async function getIndividuoPorCampo(
 }
 
 export async function buscarIndividuoPorIdGenerico(fazendaId: string, idDigitado: string) {
-  const client = getSupabaseClient() as any
+  const client = await getSupabaseClientWithRefresh() as any
+  console.log('[buscarIndividuoPorIdGenerico] fazendaId:', fazendaId, 'idDigitado:', idDigitado)
   const { data, error } = await client
     .from('individuos')
     .select('*')
@@ -481,6 +484,7 @@ export async function buscarIndividuoPorIdGenerico(fazendaId: string, idDigitado
     .or(`id_manejo.eq.${idDigitado},id_brinco.eq.${idDigitado},id_chip.eq.${idDigitado}`)
     .limit(1)
 
+  console.log('[buscarIndividuoPorIdGenerico] data:', data, 'error:', error)
   if (error) throw error
   return data?.[0] || null
 }

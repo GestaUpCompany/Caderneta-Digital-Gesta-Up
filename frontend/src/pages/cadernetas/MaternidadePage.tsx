@@ -15,8 +15,10 @@ import {
   getLoteDetalhesComCategoriasCached,
   getTratamentosCached,
   getRacasCached,
+  clearCachedQuery,
+  buildCacheKey,
 } from '../../services/cadastroCache'
-import { getContagemPartosVaca, getLotes, createIndividuo } from '../../services/supabaseService'
+import { getLotes, createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
@@ -153,7 +155,6 @@ export default function MaternidadePage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
-  const [partosCount, setPartosCount] = useState<number>(0)
   const [hasIndividuos, setHasIndividuos] = useState<boolean | null>(null)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
@@ -320,35 +321,6 @@ export default function MaternidadePage() {
     carregarDetalhesLote()
   }, [form.lote, fazendaId])
 
-  // Buscar contagem de partos quando qualquer ID da mãe mudar
-  useEffect(() => {
-    async function carregarContagemPartos() {
-      if (!fazendaId) {
-        setPartosCount(0)
-        return
-      }
-
-      const idManejo = form.idManejoMae?.trim()
-      const idBrinco = form.idBrincoMae?.trim()
-      const idChip = form.idChipMae?.trim()
-
-      if (!idManejo && !idBrinco && !idChip) {
-        setPartosCount(0)
-        return
-      }
-
-      try {
-        const count = await getContagemPartosVaca(fazendaId, idBrinco, idChip, idManejo)
-        setPartosCount(count)
-      } catch (error) {
-        console.error('Erro ao carregar contagem de partos:', error)
-        setPartosCount(0)
-      }
-    }
-
-    carregarContagemPartos()
-  }, [form.idManejoMae, form.idBrincoMae, form.idChipMae, fazendaId])
-
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
@@ -437,6 +409,10 @@ export default function MaternidadePage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
+      // Invalida cache de detalhes do lote para refletir o novo bezerro/bezerra
+      if (form.loteId) {
+        clearCachedQuery(buildCacheKey('lote-detalhes', form.loteId))
+      }
     }
   }
 
@@ -575,7 +551,7 @@ export default function MaternidadePage() {
             onChange={set('categoriaMae')}
             error={getError('categoriaMae')}
             gridCols={2}
-            disabled={!!form.individuoIdMae}
+            disabled={hasIndividuos === true}
           />
           <div className="pt-4 border-t border-gray-100">
             <h3 className="text-base font-bold text-gray-900 mb-4">ESCORE DA MATRIZ <span className="text-red-500">*</span></h3>
@@ -639,22 +615,6 @@ export default function MaternidadePage() {
                 <span className="text-base sm:text-lg font-bold text-center leading-tight">3</span>
               </label>
             </div>
-          </div>
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-base font-bold text-gray-900 mb-2">HISTÓRICO DE PRENHEZ</h3>
-            {!form.idManejoMae && !form.idBrincoMae && !form.idChipMae ? (
-              <p className="text-lg font-semibold text-gray-700">
-                Preencha o ID manejo, brinco e/ou chip da mãe primeiro
-              </p>
-            ) : partosCount > 0 ? (
-              <p className="text-lg font-semibold text-gray-700">
-                {partosCount + 1}ª cria
-              </p>
-            ) : (
-              <p className="text-lg font-semibold text-gray-700">
-                Nenhum registro encontrado
-              </p>
-            )}
           </div>
         </div>
 

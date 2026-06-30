@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import SearchableModal from './ui/SearchableModal'
 import { Input } from './ui'
 import { getIndividuos, buscarIndividuoPorIdGenerico } from '../services/supabaseService'
+import { getCachedCadastroData } from '../services/cadastroCache'
 
 interface AnimalData {
   id: string
@@ -63,42 +64,118 @@ export default function AnimalIdentifier({
     setIndividuos([])
     setAnimalEncontrado(null)
     setHasIndividuos(null)
-    if (!fazendaId) return
+    if (!fazendaId) {
+      console.log('[AnimalIdentifier] fazendaId ausente, skip fetch')
+      return
+    }
     let cancelled = false
     setLoading(true)
-    getIndividuos(fazendaId, 100)
-      .then((data) => {
+
+    const load = async () => {
+      try {
+        // Tenta primeiro o cache de cadastro para funcionar offline/rapido
+        const cache = await getCachedCadastroData()
+        const cachedIndividuos = cache?.individuos || []
+        console.log('[AnimalIdentifier] cache de individuos:', cachedIndividuos.length, cachedIndividuos.slice(0, 3))
+
+        if (cachedIndividuos.length > 0) {
+          if (cancelled) return
+          setIndividuos(cachedIndividuos as AnimalData[])
+          const hasFormalIds = cachedIndividuos.some((i: any) => i.id_manejo || i.id_brinco || i.id_chip)
+          console.log('[AnimalIdentifier] usando cache. hasFormalIds:', hasFormalIds)
+          setHasIndividuos(hasFormalIds)
+          setLoading(false)
+          // Ainda busca no Supabase em background para atualizar
+          getIndividuos(fazendaId, 100)
+            .then((data) => {
+              if (cancelled) return
+              const list = (data as AnimalData[]) || []
+              console.log('[AnimalIdentifier] background getIndividuos retornou', list.length, 'individuos')
+              setIndividuos(list)
+              setHasIndividuos(list.some(i => i.id_manejo || i.id_brinco || i.id_chip))
+            })
+            .catch((err) => console.error('[AnimalIdentifier] background getIndividuos erro:', err))
+          return
+        }
+
+        // Fallback: busca direto no Supabase
+        console.log('[AnimalIdentifier] iniciando getIndividuos para fazendaId:', fazendaId)
+        const data = await getIndividuos(fazendaId, 100)
         if (cancelled) return
         const list = (data as AnimalData[]) || []
+        console.log('[AnimalIdentifier] getIndividuos retornou', list.length, 'individuos. Raw sample:', list.slice(0, 3))
         setIndividuos(list)
         const hasFormalIds = list.some(i => i.id_manejo || i.id_brinco || i.id_chip)
+        console.log('[AnimalIdentifier] hasFormalIds:', hasFormalIds)
         setHasIndividuos(hasFormalIds)
-      })
-      .catch((err) => {
-        console.error('Erro ao carregar individuos:', err)
+      } catch (err) {
+        console.error('[AnimalIdentifier] Erro ao carregar individuos:', err)
         if (!cancelled) setHasIndividuos(false)
-      })
-      .finally(() => { if (!cancelled) setLoading(false) })
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
     return () => { cancelled = true }
   }, [fazendaId])
 
-  // Apenas atualiza o valor no estado do pai sem fazer busca ao banco
+  // Busca um animal na lista pre-carregada a partir de qualquer um dos IDs
+  const findAnimalByAnyId = (ids: { manejo?: string; brinco?: string; chip?: string }) => {
+    const manejo = ids.manejo?.trim()
+    const brinco = ids.brinco?.trim()
+    const chip = ids.chip?.trim()
+    return individuos.find((i) =>
+      (manejo && i.id_manejo === manejo) ||
+      (brinco && i.id_brinco === brinco) ||
+      (chip && i.id_chip === chip)
+    )
+  }
+
+  // Atualiza o estado do pai com os dados de um animal, ou limpa se nenhum for encontrado
+  const setAnimalFromData = (animal: AnimalData | null) => {
+    if (animal) {
+      setAnimalEncontrado(animal)
+      onChange({
+        idManejo: animal.id_manejo || '',
+        idBrinco: animal.id_brinco || '',
+        idChip: animal.id_chip || '',
+        individuoId: animal.id,
+        animalData: animal,
+      })
+    } else {
+      setAnimalEncontrado(null)
+      onChange({ idManejo: '', idBrinco: '', idChip: '', individuoId: null, animalData: null })
+    }
+  }
+
+  // Quando o usuario seleciona um ID existente no SearchableModal, preenche todos os
+  // campos com os dados do mesmo animal, evitando misturar IDs de animais diferentes
   const handleFieldChange = (field: 'idManejo' | 'idBrinco' | 'idChip', value: string) => {
     if (!value || value.trim() === '') {
-      onChange({ idManejo: '', idBrinco: '', idChip: '', individuoId: null, animalData: null })
-      setAnimalEncontrado(null)
+      setAnimalFromData(null)
       return
     }
 
-    // Limpa animal encontrado enquanto usuário digita
-    setAnimalEncontrado(null)
-    onChange({
-      idManejo: field === 'idManejo' ? value : valueManejo,
-      idBrinco: field === 'idBrinco' ? value : valueBrinco,
-      idChip: field === 'idChip' ? value : valueChip,
-      individuoId: null,
-      animalData: null,
+    const found = findAnimalByAnyId({
+      manejo: field === 'idManejo' ? value : undefined,
+      brinco: field === 'idBrinco' ? value : undefined,
+      chip: field === 'idChip' ? value : undefined,
     })
+
+    if (found) {
+      setAnimalFromData(found)
+    } else {
+      // Fallback: ID nao encontrado na lista (nao deveria ocorrer no fluxo normal)
+      setAnimalEncontrado(null)
+      onChange({
+        idManejo: field === 'idManejo' ? value : '',
+        idBrinco: field === 'idBrinco' ? value : '',
+        idChip: field === 'idChip' ? value : '',
+        individuoId: null,
+        animalData: null,
+      })
+    }
   }
 
   // Faz a busca ao banco somente quando o usuário sai do input (onBlur)
@@ -169,7 +246,12 @@ export default function AnimalIdentifier({
     status: ''
   } : null)
 
-  const renderSearchable = hasIndividuos === true
+  // Log para debug: saber quantos individuos foram carregados e se ha IDs formais
+  useEffect(() => {
+    console.log('[AnimalIdentifier] fazendaId:', fazendaId, 'hasIndividuos:', hasIndividuos, 'individuos:', individuos.length, 'eligible:', eligibleIndividuos.length)
+  }, [fazendaId, hasIndividuos, individuos.length, eligibleIndividuos.length])
+
+  const renderSearchable = !!fazendaId
 
   return (
     <div className="flex flex-col gap-3">
@@ -188,14 +270,19 @@ export default function AnimalIdentifier({
             value={valueManejo}
             onChange={(val) => handleFieldChange('idManejo', val)}
             onCreateMulti={({ manejo, brinco, chip }) => {
-              setAnimalEncontrado(null)
-              onChange({
-                idManejo: manejo || '',
-                idBrinco: brinco || '',
-                idChip: chip || '',
-                individuoId: null,
-                animalData: null,
-              })
+              const found = findAnimalByAnyId({ manejo, brinco, chip })
+              if (found) {
+                setAnimalFromData(found)
+              } else {
+                setAnimalEncontrado(null)
+                onChange({
+                  idManejo: manejo || '',
+                  idBrinco: brinco || '',
+                  idChip: chip || '',
+                  individuoId: null,
+                  animalData: null,
+                })
+              }
             }}
             placeholder={loading ? 'Carregando...' : 'Buscar ID Manejo...'}
             disabled={disabled}
@@ -206,14 +293,19 @@ export default function AnimalIdentifier({
             value={valueBrinco}
             onChange={(val) => handleFieldChange('idBrinco', val)}
             onCreateMulti={({ manejo, brinco, chip }) => {
-              setAnimalEncontrado(null)
-              onChange({
-                idManejo: manejo || '',
-                idBrinco: brinco || '',
-                idChip: chip || '',
-                individuoId: null,
-                animalData: null,
-              })
+              const found = findAnimalByAnyId({ manejo, brinco, chip })
+              if (found) {
+                setAnimalFromData(found)
+              } else {
+                setAnimalEncontrado(null)
+                onChange({
+                  idManejo: manejo || '',
+                  idBrinco: brinco || '',
+                  idChip: chip || '',
+                  individuoId: null,
+                  animalData: null,
+                })
+              }
             }}
             placeholder={loading ? 'Carregando...' : 'Buscar ID Brinco...'}
             disabled={disabled}
@@ -224,14 +316,19 @@ export default function AnimalIdentifier({
             value={valueChip}
             onChange={(val) => handleFieldChange('idChip', val)}
             onCreateMulti={({ manejo, brinco, chip }) => {
-              setAnimalEncontrado(null)
-              onChange({
-                idManejo: manejo || '',
-                idBrinco: brinco || '',
-                idChip: chip || '',
-                individuoId: null,
-                animalData: null,
-              })
+              const found = findAnimalByAnyId({ manejo, brinco, chip })
+              if (found) {
+                setAnimalFromData(found)
+              } else {
+                setAnimalEncontrado(null)
+                onChange({
+                  idManejo: manejo || '',
+                  idBrinco: brinco || '',
+                  idChip: chip || '',
+                  individuoId: null,
+                  animalData: null,
+                })
+              }
             }}
             placeholder={loading ? 'Carregando...' : 'Buscar ID Chip...'}
             disabled={disabled}

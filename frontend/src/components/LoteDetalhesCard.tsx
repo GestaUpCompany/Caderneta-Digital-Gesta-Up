@@ -67,14 +67,10 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias, metaRo
           <p className="text-gray-900 font-bold break-words capitalize">{categoriasProcessadas}</p>
         </div>
         <div>
-          <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-          <p className="text-gray-900 font-bold">{detalhes.n_cabecas !== undefined ? detalhes.n_cabecas : '-'}</p>
-        </div>
-        <div>
           <p className="text-gray-500 font-semibold">PESO VIVO ATUAL(kg)</p>
           <p className="text-gray-900 font-bold">{detalhes.peso_vivo_kg !== undefined ? detalhes.peso_vivo_kg.toFixed(2) : '-'}</p>
         </div>
-        <div className="col-span-2">
+        <div>
           <p className="text-gray-500 font-semibold">TOTAL CABEÇAS</p>
           <p className="text-[#3b82f6] font-bold text-lg">{totalCabecas} animais</p>
         </div>

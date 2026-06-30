@@ -515,6 +515,14 @@ function buildKey(base: string, ...segments: string[]): string {
   return `${base}:${segments.join(':')}`
 }
 
+export function clearCachedQuery(key: string): void {
+  delete queryCache[key]
+}
+
+export function buildCacheKey(base: string, ...segments: string[]): string {
+  return buildKey(base, ...segments)
+}
+
 /**
  * Busca pasto por nome com cache lazy.
  * Retorna do cache se disponível; se offline e não houver cache, retorna null.
