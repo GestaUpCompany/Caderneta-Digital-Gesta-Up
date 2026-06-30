@@ -148,7 +148,9 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       formulacoes: data.formulacoes || [],
       pastosDetalhes: data.pastosDetalhes || {},
       lotesDetalhes: data.lotesDetalhes || {},
-      individuos: data.individuos || [],
+      individuos: (data.individuos && data.individuos.length > 0)
+        ? data.individuos
+        : (await getCadastroData(CACHE_KEYS.PASTOS_LOTES))?.individuos || [],
     })
     await saveCadastroData(CACHE_KEYS.SUPLEMENTACAO, {
       mineral: data.mineral,
@@ -379,13 +381,7 @@ export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaI
   // Carregar detalhes de pastos/lotes persistidos (lazy cache)
   await loadQueryCacheFromIndexedDB()
 
-  // Depois atualizar se online
-  if (navigator.onLine) {
-    console.log('[CadastroCache] App está online, atualizando cache da API...')
-    await updateCadastroCache(cadastroSheetUrl, fazendaId)
-  } else {
-    console.log('[CadastroCache] App está offline, usando dados do cache')
-  }
+  console.log('[CadastroCache] Inicialização concluída. Use o botão Atualizar Dados para sincronizar novos dados.')
 }
 
 /**
