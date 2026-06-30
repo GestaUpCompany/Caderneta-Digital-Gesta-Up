@@ -587,16 +587,34 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.escoreFezes !== null && registro.escoreFezes !== undefined && registro.escoreFezes !== '') {
       texto += `ESCORE FEZES: *${registro.escoreFezes}*\n`
     }
-    
+
+    // Seção: Histórico de Consumo
+    const temConsumo = registro.consumoMedioGeralPercentPV || registro.consumoMedio30DiasPercentPV || registro.consumoMedioGeralKgMN || registro.consumoMedio30DiasKgMN
+    if (temConsumo) {
+      texto += `\nHISTÓRICO DE CONSUMO\n`
+      if (registro.consumoMedioGeralPercentPV !== null && registro.consumoMedioGeralPercentPV !== undefined) {
+        texto += `CONSUMO MÉDIO GERAL (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*\n`
+      }
+      if (registro.consumoMedio30DiasPercentPV !== null && registro.consumoMedio30DiasPercentPV !== undefined) {
+        texto += `CONSUMO MÉDIO 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*\n`
+      }
+      if (registro.consumoMedioGeralKgMN !== null && registro.consumoMedioGeralKgMN !== undefined) {
+        texto += `CONSUMO MÉDIO GERAL (kg/MN): *${Number(registro.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*\n`
+      }
+      if (registro.consumoMedio30DiasKgMN !== null && registro.consumoMedio30DiasKgMN !== undefined) {
+        texto += `CONSUMO MÉDIO 30 DIAS (kg/MN): *${Number(registro.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*\n`
+      }
+    }
+
     // Seção: Espaçamento do Cocho
     /*
     if (registro.espacamentoCochoDetalhes) {
       const detalhes = registro.espacamentoCochoDetalhes as any
       texto += `\nESPAÇAMENTO DO COCHO\n`
-      texto += `Espaçamento calculado: *${detalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab*\n`
+      texto += `Espaçamento calculado: *${detalhes.espacamento_calculado_m_cab?.toFixed(2).replace('.', ',')} m/cab*\n`
       if (detalhes.espacamento_ideal_m_cab) {
-        texto += `Espaçamento ideal: *${detalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab*\n`
-        texto += `Desvio: *${detalhes.desvio_percentual?.toFixed(1)}%*\n`
+        texto += `Espaçamento ideal: *${detalhes.espacamento_ideal_m_cab?.toFixed(2).replace('.', ',')} m/cab*\n`
+        texto += `Desvio: *${detalhes.desvio_percentual?.toFixed(1).replace('.', ',')}%*\n`
       }
       texto += `Metragem cocho: *${detalhes.metragem_cocho_m}m*\n`
       texto += `Cabeças adultas: *${detalhes.cabecas_adultas}*\n`
@@ -930,7 +948,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.temperaturaMedia !== null && registro.temperaturaMedia !== undefined && registro.temperaturaMedia !== '') {
       const tempMediaNum = Number(registro.temperaturaMedia)
       if (!isNaN(tempMediaNum)) {
-        texto += `\nTEMPERATURA MÉDIA: *${tempMediaNum.toFixed(2)}°C*\n`
+        texto += `\nTEMPERATURA MÉDIA: *${tempMediaNum.toFixed(2).replace('.', ',')}°C*\n`
       }
     }
 
@@ -1174,7 +1192,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         const valor = parseFloat(item.valorTotal) || 0
         return total + valor
       }, 0)
-      texto += `VALOR TOTAL: *R$ ${valorTotalInsumos.toFixed(2)}*\n`
+      texto += `VALOR TOTAL: *R$ ${valorTotalInsumos.toFixed(2).replace('.', ',')}*\n`
     }
   } else if (caderneta === 'saida-insumos') {
     // Para saída de insumos, usar ordem específica dos formulários
