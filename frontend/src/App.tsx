@@ -20,6 +20,8 @@ import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
 import { initializeCadastroCache } from './services/cadastroCache'
 import { reauthenticateFarm, isTokenValid } from './services/authService'
+import { useFarmStatus } from './hooks/useFarmStatus'
+import FarmInactiveBlock from './components/FarmInactiveBlock'
 import ScrollToTop from './components/ScrollToTop'
 
 // Componente wrapper para PWAUpdateModal com hook
@@ -98,7 +100,11 @@ function AppInner() {
   const { shouldShowWelcome } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
   const { fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
-  
+  const { active: farmActive, loading: farmStatusLoading, nome: farmNome } = useFarmStatus({ acessoId, configurado })
+
+  // Permite acessar a tela de configurações mesmo com fazenda inativa para trocar de fazenda
+  const isFarmInactive = configurado && !farmActive && !farmStatusLoading && location.pathname !== '/configuracoes'
+
   // Hooks de analytics (desativados temporariamente)
   // const sessionTime = useSessionTimer()
   // const { getScreens } = useScreenTracking()
@@ -133,14 +139,14 @@ function AppInner() {
   // Inicializar cache de dados de cadastro (apenas carrega do IndexedDB, não faz polling)
   // A atualização completa dos dados é feita manualmente via botão "Atualizar Dados" na Home
   useEffect(() => {
-    if (fazendaId) {
+    if (fazendaId && !isFarmInactive) {
       initializeCadastroCache(fazendaId)
     }
-  }, [fazendaId])
+  }, [fazendaId, isFarmInactive])
 
   // Re-authenticate automatically if config exists but token is invalid
   useEffect(() => {
-    if (!acessoId || !configurado) return
+    if (!acessoId || !configurado || isFarmInactive) return
 
     const checkAndReauth = async () => {
       if (!isTokenValid()) {
@@ -155,7 +161,7 @@ function AppInner() {
     }
 
     checkAndReauth()
-  }, [acessoId, configurado])
+  }, [acessoId, configurado, isFarmInactive])
 
   useEffect(() => {
     if (syncStatus === 'conflict') {
@@ -277,6 +283,27 @@ function AppInner() {
     updateSession()
   }, [fazenda])
   */
+
+  if (configurado && farmStatusLoading && location.pathname !== '/configuracoes') {
+    return <PageLoader />
+  }
+
+  if (isFarmInactive) {
+    return (
+      <>
+        <FarmInactiveBlock nome={farmNome} />
+        <PWAUpdateModalWrapper />
+        {currentConflict && (
+          <ConflictModal
+            conflict={currentConflict}
+            onResolved={handleConflictResolved}
+          />
+        )}
+        <InstallPrompt />
+        <UpdateDialog />
+      </>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">

@@ -115,7 +115,7 @@ export default function Configuracoes() {
 
     if (!validacaoSupabase.sucesso) {
       setShowValidationModal(false)
-      setErrors([{ field: 'fazenda', message: 'ID não encontrado no Supabase. Contate o administrador.' }])
+      setErrors([{ field: 'fazenda', message: 'ID inválido. Contate o administrador.' }])
       return
     }
 
