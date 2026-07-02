@@ -74,9 +74,21 @@ export async function loadQueryCacheFromIndexedDB(): Promise<void> {
   try {
     const cached = await getCadastroData(QUERY_CACHE_KEY)
     if (cached?.queryCache) {
-      Object.assign(queryCache, cached.queryCache)
+      const now = Date.now()
+      // Filtrar entradas expiradas e arrays vazios antes de carregar
+      const validEntries = Object.entries(cached.queryCache).filter(([key, entry]: [string, any]) => {
+        if (!entry || now - entry.timestamp > QUERY_CACHE_TTL) return false
+        if (Array.isArray(entry.data) && entry.data.length === 0) return false
+        // Registros de suplementação nunca são restaurados do IndexedDB (dados dinâmicos)
+        if (key.includes('suplementacao-lote')) return false
+        return true
+      })
+      validEntries.forEach(([key, entry]) => {
+        queryCache[key] = entry as { data: any; timestamp: number }
+      })
       console.log('[CadastroCache] Query cache carregado do IndexedDB:', {
-        entries: Object.keys(queryCache).length,
+        entries: validEntries.length,
+        skipped: Object.keys(cached.queryCache).length - validEntries.length,
         timestamp: cached.timestamp
       })
     }
@@ -710,41 +722,24 @@ export async function getFormulacaoByNomeCached(fazendaId: string, nome: string)
   }
 }
 
-/**
- * Busca espaçamento ideal do cocho por formulação com cache lazy.
- */
-export async function getEspacamentoIdealCochoPorFormulacaoCached(fazendaId: string, formulacao: string): Promise<any | null> {
-  const key = buildKey('espacamento-cocho', fazendaId, formulacao)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
-
-  if (!navigator.onLine) return null
-
-  try {
-    const data = await supabaseService.getEspacamentoIdealCochoPorFormulacao(fazendaId, formulacao)
-    if (data) setCachedQuery(key, data)
-    return data
-  } catch {
-    return null
-  }
-}
 
 /**
- * Busca registros de suplementação por lote com cache lazy.
+ * Busca registros de suplementação por lote.
+ * Sempre vai ao Supabase quando online (dados dinâmicos críticos).
+ * Usa cache apenas como fallback offline.
  */
 export async function getRegistrosSuplementacaoByLoteCached(fazendaId: string, loteId: string): Promise<any | null> {
   const key = buildKey('suplementacao-lote', fazendaId, loteId)
   const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) return cached || null
 
   try {
     const data = await supabaseService.getRegistrosSuplementacaoByLote(fazendaId, loteId)
-    if (data) setCachedQuery(key, data)
+    if (data && Array.isArray(data) && data.length > 0) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return cached || null
   }
 }
 
@@ -1229,9 +1224,6 @@ export async function warmAllCadastroCache(
       } else {
         await getFormulacaoByNomeCached(fazendaId, nome)
       }
-      await delay(100)
-
-      await getEspacamentoIdealCochoPorFormulacaoCached(fazendaId, nome)
       await delay(100)
 
       // Buscar histórico de suplementação para todos os lotes desta formulação

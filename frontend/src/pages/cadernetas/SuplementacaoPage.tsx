@@ -15,7 +15,6 @@ import {
   getLotesByPastoIdCached,
   getLoteDetalhesComCategoriasCached,
   getFormulacaoByNomeCached,
-  getEspacamentoIdealCochoPorFormulacaoCached,
   getRegistrosSuplementacaoByLoteCached,
 } from '../../services/cadastroCache'
 import { getPastos, getFormulacoes } from '../../services/supabaseService'
@@ -384,25 +383,11 @@ export default function SuplementacaoPage() {
         }
 
         const espacamentoCalculado = metragemCochoM / cabecasAdultas
-        const espacamentoIdeal = await getEspacamentoIdealCochoPorFormulacaoCached(fazendaId, form.formulacao)
-
-        if (!espacamentoIdeal) {
-          setEspacamentoCochoDetalhes({
-            espacamento_calculado_m_cab: espacamentoCalculado,
-            espacamento_ideal_m_cab: null,
-            desvio_percentual: null,
-            metragem_cocho_m: metragemCochoM,
-            cabecas_adultas: cabecasAdultas
-          })
-          return
-        }
-
-        const desvioPercentual = ((espacamentoCalculado - espacamentoIdeal) / espacamentoIdeal) * 100
 
         setEspacamentoCochoDetalhes({
           espacamento_calculado_m_cab: espacamentoCalculado,
-          espacamento_ideal_m_cab: espacamentoIdeal,
-          desvio_percentual: desvioPercentual,
+          espacamento_ideal_m_cab: null,
+          desvio_percentual: null,
           metragem_cocho_m: metragemCochoM,
           cabecas_adultas: cabecasAdultas
         })

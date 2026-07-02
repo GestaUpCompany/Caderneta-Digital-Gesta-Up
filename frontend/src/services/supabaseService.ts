@@ -618,19 +618,6 @@ export async function getEspacamentoIdealCocho(fazendaId: string, produtoTipo: s
   return produto?.espacamento_ideal_cocho || null
 }
 
-export async function getEspacamentoIdealCochoPorFormulacao(fazendaId: string, formulacaoNome: string): Promise<number | null> {
-  const client = getSupabaseClient()
-  const { data, error } = await (client as any)
-    .from('formulacoes')
-    .select('espacamento_ideal_cocho')
-    .eq('fazenda_id', fazendaId)
-    .eq('nome', formulacaoNome)
-    .eq('ativo', true)
-    .maybeSingle()
-
-  if (error) throw error
-  return (data as any)?.espacamento_ideal_cocho || null
-}
 
 // ==================== FORMULAÇÕES ====================
 
@@ -1397,7 +1384,8 @@ export async function deleteRegistroRodeio(id: string) {
 // ==================== REGISTROS SUPLEMENTACAO ====================
 
 export async function getRegistrosSuplementacao(fazendaId: string, dataInicio?: string, dataFim?: string) {
-  let query = supabase
+  const client = getSupabaseClient()
+  let query = client
     .from('registros_suplementacao')
     .select('*')
     .eq('fazenda_id', fazendaId)
@@ -1417,7 +1405,8 @@ export async function getRegistrosSuplementacao(fazendaId: string, dataInicio?: 
 }
 
 export async function getRegistrosSuplementacaoByLote(fazendaId: string, loteId: string, dataInicio?: string, dataFim?: string) {
-  let query = supabase
+  const client = getSupabaseClient()
+  let query = client
     .from('registros_suplementacao')
     .select('*')
     .eq('fazenda_id', fazendaId)
