@@ -589,7 +589,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     }
 
     // Seção: Histórico de Consumo
-    const temConsumo = registro.consumoMedioGeralPercentPV || registro.consumoMedio30DiasPercentPV || registro.consumoMedioGeralKgMN || registro.consumoMedio30DiasKgMN
+    const temConsumo = registro.consumoMedioGeralPercentPV || registro.consumoMedio30DiasPercentPV || registro.consumoMedioGeralKgMN || registro.consumoMedio30DiasKgMN || registro.custoMedioReaisCabDia
     if (temConsumo) {
       texto += `\nHISTÓRICO DE CONSUMO\n`
       if (registro.consumoMedioGeralPercentPV !== null && registro.consumoMedioGeralPercentPV !== undefined) {
@@ -603,6 +603,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
       }
       if (registro.consumoMedio30DiasKgMN !== null && registro.consumoMedio30DiasKgMN !== undefined) {
         texto += `CONSUMO MÉDIO 30 DIAS (kg/MN): *${Number(registro.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*\n`
+      }
+      if (registro.custoMedioReaisCabDia !== null && registro.custoMedioReaisCabDia !== undefined) {
+        texto += `CUSTO MÉDIO (R$/cab/dia): *R$ ${Number(registro.custoMedioReaisCabDia).toFixed(2).replace('.', ',')}*\n`
       }
     }
 

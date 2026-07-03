@@ -8,22 +8,25 @@ const joi_1 = __importDefault(require("joi"));
 const logger_1 = require("../utils/logger");
 const schemas = {
     maternidade: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         pasto: joi_1.default.string().required(),
         pesoCria: joi_1.default.number().min(0).max(100).allow(null),
         idProvisorioCria: joi_1.default.string().required(),
         idBrincoCria: joi_1.default.string().allow('', null),
         idChipCria: joi_1.default.string().allow('', null),
         tratamento: joi_1.default.string().required(),
-        tipoParto: joi_1.default.string().valid('Normal', 'Auxiliado', 'Cesárea', 'Aborto').required(),
+        tipoParto: joi_1.default.array().items(joi_1.default.string().valid('Normal', 'Auxiliado', 'Cesárea', 'Aborto', 'Natimorto', 'Distócico', 'Gêmeos', 'Deficiência Física', 'Retenção de Placenta', 'Guacho')).required(),
         sexo: joi_1.default.string().valid('Macho', 'Fêmea').required(),
-        raca: joi_1.default.string().valid('Nelore', 'Angus', 'Leiteiro', 'Outros').required(),
-        idBrincoMae: joi_1.default.string().required(),
+        raca: joi_1.default.string().valid('Aberdeen Angus', 'Anelorado', 'Angus', 'Blonde', 'Brangus', 'Caracu', 'Charolês', 'Gir', 'Girolando', 'Guacho', 'Guzerá', 'Leiteiro', 'Limousin', 'Nelore', 'Red Angus', 'Senepol', 'Simental', 'SRD', 'Tabapuã', 'Wagyu').required(),
+        idManejoMae: joi_1.default.string().allow('', null),
+        idBrincoMae: joi_1.default.string().allow('', null),
         idChipMae: joi_1.default.string().allow('', null),
+        individuoIdMae: joi_1.default.string().uuid().allow('', null),
+        individuoIdCria: joi_1.default.string().uuid().allow('', null),
         categoriaMae: joi_1.default.string().valid('Nulípara', 'Primípara', 'Secundípara', 'Multípara').required(),
-    }),
+    }).or('idManejoMae', 'idBrincoMae', 'idChipMae'),
     pastagens: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         manejador: joi_1.default.string().required(),
         numeroLote: joi_1.default.string().required(),
         pastoSaida: joi_1.default.string().required(),
@@ -44,7 +47,7 @@ const schemas = {
         escoreGado: joi_1.default.number().integer().min(1).max(5).allow(null),
     }),
     rodeio: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         pasto: joi_1.default.string().required(),
         numeroLote: joi_1.default.string().required(),
         vaca: joi_1.default.number().min(0).default(0),
@@ -62,7 +65,7 @@ const schemas = {
         equipe: joi_1.default.number().integer().min(1).max(5).required(),
     }),
     suplementacao: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         tratador: joi_1.default.string().required(),
         pasto: joi_1.default.string().required(),
         numeroLote: joi_1.default.string().required(),
@@ -70,48 +73,69 @@ const schemas = {
         leituraCocho: joi_1.default.number().integer().min(-1).max(3).required(),
         kgCocho: joi_1.default.number().min(0).default(0),
         kgDeposito: joi_1.default.number().min(0).default(0),
-        // Checklist fields
-        limpezaCocho: joi_1.default.boolean().allow(null),
-        limpezaCochoObs: joi_1.default.string().allow(''),
-        cochosCondicoes: joi_1.default.boolean().allow(null),
-        cochosCondicoesObs: joi_1.default.string().allow(''),
-        aterroAcessoIdeal: joi_1.default.boolean().allow(null),
-        aterroAcessoIdealObs: joi_1.default.string().allow(''),
         espacamentoCochoCmCab: joi_1.default.number().min(0).allow(null),
         espacamentoCochoObs: joi_1.default.string().allow(''),
-        espacamentoCochoAdequado: joi_1.default.boolean().allow(null),
-        espacamentoCochoAdequadoObs: joi_1.default.string().allow(''),
-        depositoCondicoes: joi_1.default.boolean().allow(null),
-        depositoCondicoesObs: joi_1.default.string().allow(''),
+        espacamento_cocho_ideal: joi_1.default.object().allow(null), // Temporary field for migration
+        checklist: joi_1.default.object({
+            limpeza_cocho: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            cochos_condicoes: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            aterro_acesso_ideal: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            espacamento_cocho_adequado: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            deposito_condicoes: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            })
+        }).allow(null),
     }),
     bebedouros: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         responsavel: joi_1.default.string().required(),
-        pasto: joi_1.default.string().required(),
-        numeroLote: joi_1.default.string().required(),
         leituraBebedouro: joi_1.default.number().integer().min(1).max(3).required(),
         numeroBebedouro: joi_1.default.string().allow(''),
         observacao: joi_1.default.string().allow(''),
-        // Checklist fields
-        aguaSuficiente: joi_1.default.boolean().allow(null),
-        aguaSuficienteObs: joi_1.default.string().allow(''),
-        vazaoBebedouroIdeal: joi_1.default.boolean().allow(null),
-        vazaoBebedouroIdealObs: joi_1.default.string().allow(''),
-        aterroAcessoBebedouroIdeal: joi_1.default.boolean().allow(null),
-        aterroAcessoBebedouroIdealObs: joi_1.default.string().allow(''),
-        espacamentoBebedouroIdeal: joi_1.default.boolean().allow(null),
-        espacamentoBebedouroIdealObs: joi_1.default.string().allow(''),
-        boiaProtecaoBoasCondicoes: joi_1.default.boolean().allow(null),
-        boiaProtecaoBoasCondicoesObs: joi_1.default.string().allow(''),
+        checklist: joi_1.default.object({
+            agua_suficiente: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            vazao_bebedouro_ideal: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            aterro_acesso_bebedouro_ideal: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            espacamento_bebedouro_ideal: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            }),
+            boia_protecao_boas_condicoes: joi_1.default.object({
+                valor: joi_1.default.boolean().allow(null),
+                observacao: joi_1.default.string().allow('')
+            })
+        }).allow(null),
     }),
     enfermaria: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         pasto: joi_1.default.string().required(),
         lote: joi_1.default.string().required(),
         brinco: joi_1.default.string().allow(''),
         chip: joi_1.default.string().allow(''),
         sexo: joi_1.default.string().valid('Macho', 'Fêmea').required(),
-        raca: joi_1.default.string().valid('Nelore', 'Angus', 'Leiteiro', 'Anelorado', 'SRD', 'Outros').required(),
+        raca: joi_1.default.string().valid('Nelore', 'Angus', 'Leiteiro', 'Anelorado', 'Guacho', 'SRD', 'Outros').required(),
         idade: joi_1.default.string().allow(''),
         categoria: joi_1.default.string().required(),
         tratamento: joi_1.default.string().allow(''),
@@ -130,7 +154,7 @@ const schemas = {
         })).default([]),
     }),
     movimentacao: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         loteOrigem: joi_1.default.string().when('motivoMovimentacao', {
             is: 'Doação',
             then: joi_1.default.string().allow('', null),
@@ -160,7 +184,7 @@ const schemas = {
         causaObservacao: joi_1.default.string().allow(''),
     }),
     morte: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         pasto: joi_1.default.string().required(),
         lote: joi_1.default.string().allow(''),
         brinco: joi_1.default.string().allow(''),
@@ -168,7 +192,7 @@ const schemas = {
         categoria: joi_1.default.string().required(),
         categoriaOutros: joi_1.default.string().allow(''),
         sexo: joi_1.default.string().valid('Macho', 'Fêmea').required(),
-        raca: joi_1.default.string().valid('Nelore', 'Angus', 'Leiteiro', 'Anelorado', 'SRD', 'Outros').required(),
+        raca: joi_1.default.string().valid('Nelore', 'Angus', 'Leiteiro', 'Anelorado', 'Guacho', 'SRD', 'Outros').required(),
         racaOutros: joi_1.default.string().allow(''),
         idade: joi_1.default.string().allow(''),
         pesoVivo: joi_1.default.number().min(0).allow(null),
@@ -183,7 +207,7 @@ const schemas = {
         })).default({}),
     }),
     clima: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         responsavel: joi_1.default.string().required(),
         temperaturaMedia: joi_1.default.number().min(-50).max(60).allow(null),
         umidadeRelativa: joi_1.default.number().min(0).max(100).allow(null),
@@ -196,7 +220,7 @@ const schemas = {
         })).allow(null).optional(),
     }),
     abastecimento: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         quemAbasteceu: joi_1.default.string().required(),
         operadorMotorista: joi_1.default.string().required(),
         veiculoTrator: joi_1.default.string().required(),
@@ -211,7 +235,7 @@ const schemas = {
         observacao: joi_1.default.string().allow(''),
     }),
     cantina: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         numeroCozinheiras: joi_1.default.number().min(0).required(),
         quemCozinhou: joi_1.default.string().required(),
         quemAjudou: joi_1.default.string().allow(''),
@@ -236,7 +260,7 @@ const schemas = {
         observacao: joi_1.default.string().allow(''),
     }),
     'manutencao-maquinas': joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         responsavelChecklist: joi_1.default.string().required(),
         operadorMotorista: joi_1.default.string().allow(''),
         veiculoTrator: joi_1.default.string().required(),
@@ -249,8 +273,8 @@ const schemas = {
         observacao: joi_1.default.string().allow(''),
     }),
     'operacoes-maquinas': joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
-        maquinaVeiculo: joi_1.default.string().required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
+        maquinaVeiculo: joi_1.default.string().allow('', null),
         maquinaVeiculoId: joi_1.default.string().allow('', null),
         implementoUtilizado: joi_1.default.string().allow('', null),
         horaInicial: joi_1.default.string().allow('', null),
@@ -260,18 +284,26 @@ const schemas = {
         odometroHorimetroFinal: joi_1.default.string().allow('', null),
         totalOdometroHorimetro: joi_1.default.string().allow('', null),
         tipoOperacao: joi_1.default.string().allow('', null),
-        insumoAplicado: joi_1.default.string().allow('', null),
-        quantidadeTotalAplicada: joi_1.default.string().allow('', null),
-        areaTrabalhada: joi_1.default.string().allow('', null),
-        doseAplicada: joi_1.default.string().allow('', null),
-        metaDiariaBatida: joi_1.default.string().allow('', null),
-        metaDiariaBatidaObs: joi_1.default.string().allow('', null),
-        algumImprevisto: joi_1.default.string().allow('', null),
-        algumImprevistoObs: joi_1.default.string().allow('', null),
+        aplicacoes: joi_1.default.array().items(joi_1.default.object({
+            insumo_aplicado: joi_1.default.string().allow('', null),
+            quantidade_total_aplicada: joi_1.default.string().allow('', null),
+            area_trabalhada: joi_1.default.string().allow('', null),
+            dose_aplicada: joi_1.default.string().allow('', null)
+        })).allow(null),
+        checklist: joi_1.default.object({
+            meta_diaria_batida: joi_1.default.object({
+                valor: joi_1.default.string().valid('S', 'N').allow('', null),
+                observacao: joi_1.default.string().allow('', null)
+            }),
+            algum_imprevisto: joi_1.default.object({
+                valor: joi_1.default.string().valid('S', 'N').allow('', null),
+                observacao: joi_1.default.string().allow('', null)
+            })
+        }).allow(null),
         observacao: joi_1.default.string().allow('', null),
     }),
     problemas: joi_1.default.object({
-        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).required(),
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
         setor: joi_1.default.string().valid('Gado', 'Máquinas', 'ADM', 'Fábrica', 'Manutenção', 'Terceirizado').required(),
         local: joi_1.default.string().required(),
         descricaoProblema: joi_1.default.string().required(),

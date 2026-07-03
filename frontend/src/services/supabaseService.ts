@@ -26,7 +26,8 @@ export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<
       .getPublicUrl(filePath)
 
     // Atualizar fazenda com a URL do logo
-    const { error: updateError } = await supabase
+    const client = await getSupabaseClientWithRefresh() as any
+    const { error: updateError } = await client
       .from('fazendas')
       .update({ logo_url: publicUrl })
       .eq('id', fazendaId)
@@ -69,7 +70,8 @@ export async function deleteFazendaLogo(fazendaId: string): Promise<boolean> {
     }
 
     // Atualizar fazenda removendo a URL do logo
-    const { error: updateError } = await supabase
+    const client = await getSupabaseClientWithRefresh() as any
+    const { error: updateError } = await client
       .from('fazendas')
       .update({ logo_url: null })
       .eq('id', fazendaId)
@@ -91,7 +93,8 @@ export async function getFazendaByAcessoId(acessoId: string) {
   // Converter para minúsculas para validação case-insensitive
   const acessoIdNormalizado = acessoId.toLowerCase()
   
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('fazendas')
     .select('*')
     .ilike('acesso_id', acessoIdNormalizado)
@@ -103,7 +106,8 @@ export async function getFazendaByAcessoId(acessoId: string) {
 }
 
 export async function createFazenda(fazenda: TablesInsert<'fazendas'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('fazendas')
     .insert(fazenda)
     .select()
@@ -114,7 +118,8 @@ export async function createFazenda(fazenda: TablesInsert<'fazendas'>) {
 }
 
 export async function updateFazenda(id: string, fazenda: TablesUpdate<'fazendas'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('fazendas')
     .update(fazenda)
     .eq('id', id)
@@ -141,7 +146,8 @@ export async function getPastos(fazendaId: string) {
 }
 
 export async function createPasto(pasto: TablesInsert<'pastos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('pastos')
     .insert(pasto)
     .select()
@@ -152,7 +158,8 @@ export async function createPasto(pasto: TablesInsert<'pastos'>) {
 }
 
 export async function updatePasto(id: string, pasto: TablesUpdate<'pastos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('pastos')
     .update(pasto)
     .eq('id', id)
@@ -164,7 +171,8 @@ export async function updatePasto(id: string, pasto: TablesUpdate<'pastos'>) {
 }
 
 export async function deletePasto(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('pastos')
     .update({ ativo: false })
     .eq('id', id)
@@ -393,7 +401,8 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
 }
 
 export async function updateLote(id: string, lote: TablesUpdate<'lotes'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('lotes')
     .update(lote)
     .eq('id', id)
@@ -405,7 +414,8 @@ export async function updateLote(id: string, lote: TablesUpdate<'lotes'>) {
 }
 
 export async function deleteLote(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('lotes')
     .update({ ativo: false })
     .eq('id', id)
@@ -429,7 +439,8 @@ export async function getCategorias(fazendaId: string) {
 }
 
 export async function createCategoria(categoria: TablesInsert<'categorias'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('categorias')
     .insert(categoria)
     .select()
@@ -561,7 +572,8 @@ export async function getInsumosNomes(fazendaId: string): Promise<string[]> {
 }
 
 export async function createInsumo(insumo: TablesInsert<'insumos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('insumos')
     .insert(insumo)
     .select()
@@ -572,7 +584,8 @@ export async function createInsumo(insumo: TablesInsert<'insumos'>) {
 }
 
 export async function updateInsumo(id: string, insumo: TablesUpdate<'insumos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('insumos')
     .update(insumo)
     .eq('id', id)
@@ -649,7 +662,8 @@ export async function getFormulacaoByNome(fazendaId: string, nome: string): Prom
 }
 
 export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insumos_itens'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('entrada_insumos_itens')
     .insert(item)
     .select()
@@ -660,7 +674,8 @@ export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insum
 }
 
 export async function updateEntradaInsumosItem(id: string, item: TablesUpdate<'entrada_insumos_itens'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('entrada_insumos_itens')
     .update(item)
     .eq('id', id)
@@ -700,7 +715,8 @@ export async function getMineralNomes(fazendaId: string): Promise<string[]> {
 }
 
 export async function createMineral(mineral: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('mineral')
     .insert(mineral)
     .select()
@@ -753,7 +769,8 @@ export async function getProteinadoNomes(fazendaId: string): Promise<string[]> {
 }
 
 export async function createProteinado(proteinado: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('proteinado')
     .insert(proteinado)
     .select()
@@ -806,7 +823,8 @@ export async function getRacaoNomes(fazendaId: string): Promise<string[]> {
 }
 
 export async function createRacao(racao: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('racao')
     .insert(racao)
     .select()
@@ -890,7 +908,8 @@ export async function getFuncionarios(fazendaId: string) {
 }
 
 export async function createFuncionario(funcionario: TablesInsert<'funcionarios'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('funcionarios')
     .insert(funcionario)
     .select()
@@ -1218,7 +1237,8 @@ export async function getRegistrosMaternidade(fazendaId: string, dataInicio?: st
 }
 
 export async function createRegistroMaternidade(registro: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_maternidade')
     .insert(registro as any)
     .select()
@@ -1229,7 +1249,8 @@ export async function createRegistroMaternidade(registro: any) {
 }
 
 export async function updateRegistroMaternidade(id: string, registro: TablesUpdate<'registros_maternidade'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_maternidade')
     .update(registro)
     .eq('id', id)
@@ -1241,7 +1262,8 @@ export async function updateRegistroMaternidade(id: string, registro: TablesUpda
 }
 
 export async function deleteRegistroMaternidade(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_maternidade')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1296,7 +1318,8 @@ export async function getRegistrosPastagens(fazendaId: string, dataInicio?: stri
 }
 
 export async function createRegistroPastagens(registro: TablesInsert<'registros_pastagens'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_pastagens')
     .insert(registro)
     .select()
@@ -1307,7 +1330,8 @@ export async function createRegistroPastagens(registro: TablesInsert<'registros_
 }
 
 export async function updateRegistroPastagens(id: string, registro: TablesUpdate<'registros_pastagens'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_pastagens')
     .update(registro)
     .eq('id', id)
@@ -1319,7 +1343,8 @@ export async function updateRegistroPastagens(id: string, registro: TablesUpdate
 }
 
 export async function deleteRegistroPastagens(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_pastagens')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1350,7 +1375,8 @@ export async function getRegistrosRodeio(fazendaId: string, dataInicio?: string,
 }
 
 export async function createRegistroRodeio(registro: TablesInsert<'registros_rodeio'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_rodeio')
     .insert(registro)
     .select()
@@ -1361,7 +1387,8 @@ export async function createRegistroRodeio(registro: TablesInsert<'registros_rod
 }
 
 export async function updateRegistroRodeio(id: string, registro: TablesUpdate<'registros_rodeio'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_rodeio')
     .update(registro)
     .eq('id', id)
@@ -1373,7 +1400,8 @@ export async function updateRegistroRodeio(id: string, registro: TablesUpdate<'r
 }
 
 export async function deleteRegistroRodeio(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_rodeio')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1427,7 +1455,8 @@ export async function getRegistrosSuplementacaoByLote(fazendaId: string, loteId:
 }
 
 export async function createRegistroSuplementacao(registro: TablesInsert<'registros_suplementacao'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_suplementacao')
     .insert(registro)
     .select()
@@ -1438,7 +1467,8 @@ export async function createRegistroSuplementacao(registro: TablesInsert<'regist
 }
 
 export async function updateRegistroSuplementacao(id: string, registro: TablesUpdate<'registros_suplementacao'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_suplementacao')
     .update(registro)
     .eq('id', id)
@@ -1450,7 +1480,8 @@ export async function updateRegistroSuplementacao(id: string, registro: TablesUp
 }
 
 export async function deleteRegistroSuplementacao(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_suplementacao')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1481,7 +1512,8 @@ export async function getRegistrosBebedouros(fazendaId: string, dataInicio?: str
 }
 
 export async function createRegistroBebedouros(registro: TablesInsert<'registros_bebedouros'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_bebedouros')
     .insert(registro)
     .select()
@@ -1492,7 +1524,8 @@ export async function createRegistroBebedouros(registro: TablesInsert<'registros
 }
 
 export async function updateRegistroBebedouros(id: string, registro: TablesUpdate<'registros_bebedouros'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_bebedouros')
     .update(registro)
     .eq('id', id)
@@ -1504,7 +1537,8 @@ export async function updateRegistroBebedouros(id: string, registro: TablesUpdat
 }
 
 export async function deleteRegistroBebedouros(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_bebedouros')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1535,7 +1569,8 @@ export async function getRegistrosMovimentacao(fazendaId: string, dataInicio?: s
 }
 
 export async function createRegistroMovimentacao(registro: TablesInsert<'registros_movimentacao'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_movimentacao')
     .insert(registro)
     .select()
@@ -1546,7 +1581,8 @@ export async function createRegistroMovimentacao(registro: TablesInsert<'registr
 }
 
 export async function updateRegistroMovimentacao(id: string, registro: TablesUpdate<'registros_movimentacao'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_movimentacao')
     .update(registro)
     .eq('id', id)
@@ -1558,7 +1594,8 @@ export async function updateRegistroMovimentacao(id: string, registro: TablesUpd
 }
 
 export async function deleteRegistroMovimentacao(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_movimentacao')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1589,7 +1626,8 @@ export async function getRegistrosEnfermaria(fazendaId: string, dataInicio?: str
 }
 
 export async function createRegistroEnfermaria(registro: TablesInsert<'registros_enfermaria'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_enfermaria')
     .insert(registro)
     .select()
@@ -1600,7 +1638,8 @@ export async function createRegistroEnfermaria(registro: TablesInsert<'registros
 }
 
 export async function updateRegistroEnfermaria(id: string, registro: TablesUpdate<'registros_enfermaria'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_enfermaria')
     .update(registro)
     .eq('id', id)
@@ -1612,7 +1651,8 @@ export async function updateRegistroEnfermaria(id: string, registro: TablesUpdat
 }
 
 export async function deleteRegistroEnfermaria(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_enfermaria')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1623,7 +1663,8 @@ export async function deleteRegistroEnfermaria(id: string) {
 // ==================== REGISTROS CLIMA ====================
 
 export async function createRegistroClima(registro: TablesInsert<'registros_clima'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_clima')
     .insert(registro)
     .select()
@@ -1634,7 +1675,8 @@ export async function createRegistroClima(registro: TablesInsert<'registros_clim
 }
 
 export async function updateRegistroClima(id: string, registro: TablesUpdate<'registros_clima'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_clima')
     .update(registro)
     .eq('id', id)
@@ -1648,7 +1690,8 @@ export async function updateRegistroClima(id: string, registro: TablesUpdate<'re
 // ==================== REGISTROS PROBLEMAS ====================
 
 export async function createRegistroProblemas(registro: TablesInsert<'registros_problemas'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_problemas')
     .insert(registro)
     .select()
@@ -1659,7 +1702,8 @@ export async function createRegistroProblemas(registro: TablesInsert<'registros_
 }
 
 export async function updateRegistroProblemas(id: string, registro: TablesUpdate<'registros_problemas'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_problemas')
     .update(registro)
     .eq('id', id)
@@ -1673,7 +1717,8 @@ export async function updateRegistroProblemas(id: string, registro: TablesUpdate
 // ==================== REGISTROS ABASTECIMENTO ====================
 
 export async function createRegistroAbastecimento(registro: TablesInsert<'registros_abastecimento'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_abastecimento')
     .insert(registro)
     .select()
@@ -1684,7 +1729,8 @@ export async function createRegistroAbastecimento(registro: TablesInsert<'regist
 }
 
 export async function updateRegistroAbastecimento(id: string, registro: TablesUpdate<'registros_abastecimento'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_abastecimento')
     .update(registro)
     .eq('id', id)
@@ -1698,7 +1744,8 @@ export async function updateRegistroAbastecimento(id: string, registro: TablesUp
 // ==================== REGISTROS CANTINA ====================
 
 export async function createRegistroCantina(registro: TablesInsert<'registros_cantina'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_cantina')
     .insert(registro)
     .select()
@@ -1709,7 +1756,8 @@ export async function createRegistroCantina(registro: TablesInsert<'registros_ca
 }
 
 export async function updateRegistroCantina(id: string, registro: TablesUpdate<'registros_cantina'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_cantina')
     .update(registro)
     .eq('id', id)
@@ -1723,7 +1771,8 @@ export async function updateRegistroCantina(id: string, registro: TablesUpdate<'
 // ==================== REGISTROS MORTE ====================
 
 export async function createRegistroMorte(registro: TablesInsert<'registros_morte'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_morte')
     .insert(registro)
     .select()
@@ -1734,7 +1783,8 @@ export async function createRegistroMorte(registro: TablesInsert<'registros_mort
 }
 
 export async function updateRegistroMorte(id: string, registro: TablesUpdate<'registros_morte'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_morte')
     .update(registro)
     .eq('id', id)
@@ -1768,7 +1818,8 @@ export async function getRegistrosLimpeza(fazendaId: string, dataInicio?: string
 }
 
 export async function createRegistroLimpeza(registro: TablesInsert<'registros_limpeza'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_limpeza')
     .insert(registro)
     .select()
@@ -1779,7 +1830,8 @@ export async function createRegistroLimpeza(registro: TablesInsert<'registros_li
 }
 
 export async function updateRegistroLimpeza(id: string, registro: TablesUpdate<'registros_limpeza'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_limpeza')
     .update(registro)
     .eq('id', id)
@@ -1791,7 +1843,8 @@ export async function updateRegistroLimpeza(id: string, registro: TablesUpdate<'
 }
 
 export async function deleteRegistroLimpeza(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_limpeza')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1848,7 +1901,8 @@ export async function getRegistrosManutencaoMaquinas(fazendaId: string, dataInic
 }
 
 export async function createRegistroManutencaoMaquinas(registro: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_manutencao_maquinas' as any)
     .insert(registro)
     .select()
@@ -1859,7 +1913,8 @@ export async function createRegistroManutencaoMaquinas(registro: any) {
 }
 
 export async function updateRegistroManutencaoMaquinas(id: string, registro: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_manutencao_maquinas' as any)
     .update(registro)
     .eq('id', id)
@@ -1871,7 +1926,8 @@ export async function updateRegistroManutencaoMaquinas(id: string, registro: any
 }
 
 export async function deleteRegistroManutencaoMaquinas(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_manutencao_maquinas' as any)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1880,7 +1936,8 @@ export async function deleteRegistroManutencaoMaquinas(id: string) {
 }
 
 export async function createRegistroOperacoesMaquinas(registro: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_operacoes_maquinas')
     .insert(registro)
     .select()
@@ -1891,7 +1948,8 @@ export async function createRegistroOperacoesMaquinas(registro: any) {
 }
 
 export async function updateRegistroOperacoesMaquinas(id: string, registro: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_operacoes_maquinas')
     .update(registro)
     .eq('id', id)
@@ -1903,7 +1961,8 @@ export async function updateRegistroOperacoesMaquinas(id: string, registro: any)
 }
 
 export async function deleteRegistroOperacoesMaquinas(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_operacoes_maquinas')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1912,7 +1971,8 @@ export async function deleteRegistroOperacoesMaquinas(id: string) {
 }
 
 export async function deleteRegistroMorte(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_morte')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1943,7 +2003,8 @@ export async function getRegistrosEntradaInsumos(fazendaId: string, dataInicio?:
 }
 
 export async function createRegistroEntradaInsumos(registro: TablesInsert<'registros_entrada_insumos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_entrada_insumos')
     .insert(registro)
     .select()
@@ -1954,7 +2015,8 @@ export async function createRegistroEntradaInsumos(registro: TablesInsert<'regis
 }
 
 export async function updateRegistroEntradaInsumos(id: string, registro: TablesUpdate<'registros_entrada_insumos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_entrada_insumos')
     .update(registro)
     .eq('id', id)
@@ -1966,7 +2028,8 @@ export async function updateRegistroEntradaInsumos(id: string, registro: TablesU
 }
 
 export async function deleteRegistroEntradaInsumos(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_entrada_insumos')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -1997,7 +2060,8 @@ export async function getRegistrosSaidaInsumos(fazendaId: string, dataInicio?: s
 }
 
 export async function createRegistroSaidaInsumos(registro: TablesInsert<'registros_saida_insumos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_saida_insumos')
     .insert(registro)
     .select()
@@ -2008,7 +2072,8 @@ export async function createRegistroSaidaInsumos(registro: TablesInsert<'registr
 }
 
 export async function updateRegistroSaidaInsumos(id: string, registro: TablesUpdate<'registros_saida_insumos'>) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_saida_insumos')
     .update(registro)
     .eq('id', id)
@@ -2020,7 +2085,8 @@ export async function updateRegistroSaidaInsumos(id: string, registro: TablesUpd
 }
 
 export async function deleteRegistroSaidaInsumos(id: string) {
-  const { error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
     .from('registros_saida_insumos')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
@@ -2031,7 +2097,8 @@ export async function deleteRegistroSaidaInsumos(id: string) {
 // ==================== REGISTROS ALMOXARIFADO ====================
 
 export async function createRegistroAlmoxarifado(registro: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_almoxarifado')
     .insert(registro)
     .select()
@@ -2072,7 +2139,8 @@ export async function getItensSupermercado(fazendaId: string) {
 }
 
 export async function updateRegistroAlmoxarifado(id: string, registro: any) {
-  const { data, error } = await supabase
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('registros_almoxarifado')
     .update(registro)
     .eq('id', id)
