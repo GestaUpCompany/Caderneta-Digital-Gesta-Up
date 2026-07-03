@@ -1668,4 +1668,4 @@ export const compartilharWhatsApp = async (texto: string) => {
   } else {
     window.open(url, '_blank')
   }
-}
+} 
