@@ -687,6 +687,8 @@ export default function SuplementacaoPage() {
                 consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN,
                 consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN,
                 custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia,
+                motivoFalha: metricasSuplementacao?.motivoFalha,
+                categoriasNaoElegiveis: metricasSuplementacao?.categoriasNaoElegiveis,
               }}
               nomeLote={form.numeroLote}
             />

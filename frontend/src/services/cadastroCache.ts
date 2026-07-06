@@ -1,5 +1,5 @@
 import { BACKEND_URL } from '../utils/constants'
-import { saveCadastroData, getAllCadastroData, getCadastroData } from './indexedDB'
+import { saveCadastroData, getAllCadastroData, getCadastroData, clearCadastroData } from './indexedDB'
 import * as supabaseService from './supabaseService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 
@@ -99,11 +99,19 @@ export async function loadQueryCacheFromIndexedDB(): Promise<void> {
 
 /**
  * Carrega dados de cadastro do IndexedDB (cache)
+ * Verifica se os dados pertencem à fazenda atual
  */
 export async function loadFromCache(): Promise<CadastroCacheData | null> {
   try {
     const cached = await getAllCadastroData()
     if (cached[CACHE_KEYS.PASTOS_LOTES] || cached[CACHE_KEYS.SUPLEMENTACAO]) {
+      // Verificar se os dados são da fazenda atual
+      const cachedFazendaId = cached[CACHE_KEYS.PASTOS_LOTES]?.fazendaId
+      if (currentFazendaId && cachedFazendaId && cachedFazendaId !== currentFazendaId) {
+        console.log('[CadastroCache] Cache de outra fazenda detectado, ignorando:', cachedFazendaId, 'atual:', currentFazendaId)
+        return null
+      }
+      
       console.log('[CadastroCache] Dados carregados do cache:', {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos?.length || 0,
         lotes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotes?.length || 0,
@@ -117,6 +125,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         proteinado: cached[CACHE_KEYS.SUPLEMENTACAO]?.proteinado?.length || 0,
         racao: cached[CACHE_KEYS.SUPLEMENTACAO]?.racao?.length || 0,
         insumos: cached[CACHE_KEYS.SUPLEMENTACAO]?.insumos?.length || 0,
+        fazendaId: cachedFazendaId,
       })
       return {
         pastos: cached[CACHE_KEYS.PASTOS_LOTES]?.pastos || [],
@@ -163,13 +172,13 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       individuos: (data.individuos && data.individuos.length > 0)
         ? data.individuos
         : (await getCadastroData(CACHE_KEYS.PASTOS_LOTES))?.individuos || [],
-    })
+    }, currentFazendaId || undefined)
     await saveCadastroData(CACHE_KEYS.SUPLEMENTACAO, {
       mineral: data.mineral,
       proteinado: data.proteinado,
       racao: data.racao,
       insumos: data.insumos,
-    })
+    }, currentFazendaId || undefined)
 
     // Emitir evento para notificar que o cache foi atualizado
     eventBus.emit(CADASTRO_CACHE_UPDATED, data)
@@ -347,15 +356,22 @@ export async function updateCadastroCache(cadastroSheetUrl: string, fazendaId?: 
 let currentFazendaId: string | null = null
 
 /**
- * Limpa o cache de dados de cadastro
+ * Limpa o cache de dados de cadastro (memória e IndexedDB)
  */
-export function clearCadastroCache(): void {
+export async function clearCadastroCache(): Promise<void> {
   cacheData = null
   lastCacheUpdate = 0
   currentFazendaId = null
   // Limpar também o cache lazy de memória
   for (const key of Object.keys(queryCache)) {
     delete queryCache[key]
+  }
+  // Limpar o IndexedDB
+  try {
+    await clearCadastroData()
+    console.log('[CadastroCache] IndexedDB limpo')
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao limpar IndexedDB:', error)
   }
   console.log('[CadastroCache] Cache limpo')
 }
@@ -374,7 +390,7 @@ export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaI
   // Limpar cache se a fazenda mudou
   if (fazendaId && currentFazendaId && fazendaId !== currentFazendaId) {
     console.log('[CadastroCache] Fazenda mudou, limpando cache...')
-    clearCadastroCache()
+    await clearCadastroCache()
   }
 
   currentFazendaId = fazendaId || null

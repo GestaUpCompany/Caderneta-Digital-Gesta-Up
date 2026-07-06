@@ -28,6 +28,8 @@ interface SupplementMetrics {
   consumoMedioGeralKgMN: number | null
   consumoMedio30DiasKgMN: number | null
   custoMedioReaisCabDia: number | null
+  motivoFalha?: string
+  categoriasNaoElegiveis?: string[]
 }
 
 const CATEGORIAS_EXCLUIDAS = [
@@ -114,6 +116,18 @@ export function calcularMetricasSuplementacao(
   registros: RegistroSuplementacao[],
   formulacao: Formulacao
 ): SupplementMetrics {
+  // Identificar categorias não elegíveis
+  const categoriasNaoElegiveis: string[] = []
+  categorias.forEach(cat => {
+    const categoriaNormalizada = cat.categoria.toLowerCase()
+    const isExcluida = CATEGORIAS_EXCLUIDAS.some(excluida =>
+      categoriaNormalizada.includes(excluida)
+    )
+    if (isExcluida) {
+      categoriasNaoElegiveis.push(cat.categoria)
+    }
+  })
+
   const pesoVivoMedio = calcularPesoVivoMedio(categorias)
 
   if (!pesoVivoMedio) {
@@ -122,7 +136,9 @@ export function calcularMetricasSuplementacao(
       consumoMedio30DiasPercentPV: null,
       consumoMedioGeralKgMN: null,
       consumoMedio30DiasKgMN: null,
-      custoMedioReaisCabDia: null
+      custoMedioReaisCabDia: null,
+      motivoFalha: 'Não há peso vivo médio cadastrado no lote',
+      categoriasNaoElegiveis
     }
   }
 
@@ -141,7 +157,9 @@ export function calcularMetricasSuplementacao(
       consumoMedio30DiasPercentPV: null,
       consumoMedioGeralKgMN: null,
       consumoMedio30DiasKgMN: null,
-      custoMedioReaisCabDia: null
+      custoMedioReaisCabDia: null,
+      motivoFalha: `Lote composto apenas por categorias não elegíveis: ${categoriasNaoElegiveis.join(', ')}`,
+      categoriasNaoElegiveis
     }
   }
 
@@ -186,6 +204,7 @@ export function calcularMetricasSuplementacao(
     consumoMedio30DiasPercentPV,
     consumoMedioGeralKgMN,
     consumoMedio30DiasKgMN,
-    custoMedioReaisCabDia
+    custoMedioReaisCabDia,
+    categoriasNaoElegiveis: categoriasNaoElegiveis.length > 0 ? categoriasNaoElegiveis : undefined
   }
 }

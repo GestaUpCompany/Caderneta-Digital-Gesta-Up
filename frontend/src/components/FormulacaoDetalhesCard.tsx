@@ -7,6 +7,8 @@ interface FormulacaoDetalhesCardProps {
     consumoMedioGeralKgMN?: number | null
     consumoMedio30DiasKgMN?: number | null
     custoMedioReaisCabDia?: number | null
+    motivoFalha?: string
+    categoriasNaoElegiveis?: string[]
   }
   nomeLote?: string
 }
@@ -41,9 +43,21 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
       </div>
       {semDadosHistoricos ? (
         <div className="col-span-2 text-sm text-gray-600 italic">
-          {nomeLote 
-            ? `Não é possível calcular dados históricos de consumo pois não há registros de trato no lote ${nomeLote} com esta formulação`
-            : 'Não é possível calcular dados históricos de consumo pois não há registros de trato com esta formulação'}
+          {detalhes.motivoFalha ? (
+            <>
+              <p>Não é possível calcular dados históricos de consumo:</p>
+              <p className="mt-1">{detalhes.motivoFalha}</p>
+              {detalhes.categoriasNaoElegiveis && detalhes.categoriasNaoElegiveis.length > 0 && (
+                <p className="mt-1">
+                  Categorias não elegíveis: {detalhes.categoriasNaoElegiveis.join(', ')}
+                </p>
+              )}
+            </>
+          ) : nomeLote ? (
+            `Não é possível calcular dados históricos de consumo pois não há registros de trato no lote ${nomeLote} com esta formulação`
+          ) : (
+            'Não é possível calcular dados históricos de consumo pois não há registros de trato com esta formulação'
+          )}
         </div>
       ) : (
         <>
@@ -77,6 +91,11 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
               {formatNumber(detalhes.custoMedioReaisCabDia, 2) !== null ? `R$ ${formatNumber(detalhes.custoMedioReaisCabDia, 2)}` : 'Sem dados'}
             </p>
           </div>
+          {detalhes.categoriasNaoElegiveis && detalhes.categoriasNaoElegiveis.length > 0 && (
+            <div className="text-sm text-amber-600 italic mt-2 pt-2 border-t border-amber-200">
+              <p>⚠️ Categorias desconsideradas no cálculo: {detalhes.categoriasNaoElegiveis.join(', ')}</p>
+            </div>
+          )}
         </>
       )}
     </div>

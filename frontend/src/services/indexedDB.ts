@@ -183,14 +183,16 @@ export interface CadastroDataCache {
   key: string
   data: any
   timestamp: number
+  fazendaId?: string
 }
 
-export async function saveCadastroData(key: string, data: any): Promise<void> {
+export async function saveCadastroData(key: string, data: any, fazendaId?: string): Promise<void> {
   const db = await getDB()
   const cacheItem: CadastroDataCache = {
     key,
     data,
     timestamp: Date.now(),
+    fazendaId,
   }
   await db.put('cadastroData', cacheItem)
 }
@@ -206,7 +208,10 @@ export async function getAllCadastroData(): Promise<Record<string, any>> {
   const items = await db.getAll('cadastroData')
   const result: Record<string, any> = {}
   for (const item of items as CadastroDataCache[]) {
-    result[item.key] = item.data
+    result[item.key] = {
+      ...item.data,
+      fazendaId: item.fazendaId
+    }
   }
   return result
 }
