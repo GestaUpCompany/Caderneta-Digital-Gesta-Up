@@ -684,6 +684,64 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
         }
       })
     }
+  } else if (caderneta === 'leitura-cocho') {
+    // Seção: Dados Principais
+    texto += `DADOS PRINCIPAIS\n`
+    texto += `Responsável: *${registro.responsavel || '—'}*\n`
+    texto += `Pasto/Curral: *${registro.pastoCurral || '—'}*\n`
+    texto += `Lote: *${registro.numeroLote || '—'}*\n\n`
+
+    // Seção: Leitura do Cocho
+    texto += `LEITURA DO COCHO\n`
+    if (registro.leituraCocho !== null && registro.leituraCocho !== undefined && registro.leituraCocho !== '') {
+      texto += `Nota: *${registro.leituraCocho}*\n`
+    }
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `Observação: *${registro.observacao}*\n`
+    }
+
+    // Seção: Histórico de Consumo MS
+    const temConsumoMs =
+      registro.consumoMedioMsKgDesdeFormacao !== null && registro.consumoMedioMsKgDesdeFormacao !== undefined ||
+      registro.consumoMedioMsKgUltimos10Dias !== null && registro.consumoMedioMsKgUltimos10Dias !== undefined ||
+      registro.consumoMsKgDiaAnterior !== null && registro.consumoMsKgDiaAnterior !== undefined ||
+      registro.consumoMedioMsPctPVDesdeFormacao !== null && registro.consumoMedioMsPctPVDesdeFormacao !== undefined ||
+      registro.consumoMedioMsPctPVUltimos10Dias !== null && registro.consumoMedioMsPctPVUltimos10Dias !== undefined ||
+      registro.consumoMsPctPVDiaAnterior !== null && registro.consumoMsPctPVDiaAnterior !== undefined
+
+    if (temConsumoMs) {
+      texto += `\nHISTÓRICO DE CONSUMO MS\n`
+      texto += `kg/cab/dia\n`
+      if (registro.consumoMedioMsKgDesdeFormacao !== null && registro.consumoMedioMsKgDesdeFormacao !== undefined) {
+        texto += `   • Desde formação: *${Number(registro.consumoMedioMsKgDesdeFormacao).toFixed(2).replace('.', ',')}*\n`
+      }
+      if (registro.consumoMedioMsKgUltimos10Dias !== null && registro.consumoMedioMsKgUltimos10Dias !== undefined) {
+        texto += `   • Últimos 10 dias: *${Number(registro.consumoMedioMsKgUltimos10Dias).toFixed(2).replace('.', ',')}*\n`
+      }
+      if (registro.consumoMsKgDiaAnterior !== null && registro.consumoMsKgDiaAnterior !== undefined) {
+        texto += `   • Dia anterior: *${Number(registro.consumoMsKgDiaAnterior).toFixed(2).replace('.', ',')}*\n`
+      }
+      texto += `%PV/cab/dia\n`
+      if (registro.consumoMedioMsPctPVDesdeFormacao !== null && registro.consumoMedioMsPctPVDesdeFormacao !== undefined) {
+        texto += `   • Desde formação: *${Number(registro.consumoMedioMsPctPVDesdeFormacao).toFixed(2).replace('.', ',')}*\n`
+      }
+      if (registro.consumoMedioMsPctPVUltimos10Dias !== null && registro.consumoMedioMsPctPVUltimos10Dias !== undefined) {
+        texto += `   • Últimos 10 dias: *${Number(registro.consumoMedioMsPctPVUltimos10Dias).toFixed(2).replace('.', ',')}*\n`
+      }
+      if (registro.consumoMsPctPVDiaAnterior !== null && registro.consumoMsPctPVDiaAnterior !== undefined) {
+        texto += `   • Dia anterior: *${Number(registro.consumoMsPctPVDiaAnterior).toFixed(2).replace('.', ',')}*\n`
+      }
+    }
+
+    // Seção: Leituras Anteriores
+    if (registro.leiturasUltimos3Dias && Array.isArray(registro.leiturasUltimos3Dias) && registro.leiturasUltimos3Dias.length > 0) {
+      texto += `\nLEITURAS ANTERIORES\n`
+      registro.leiturasUltimos3Dias.forEach((leitura: any) => {
+        const data = leitura.dataBR || leitura.data || '—'
+        const nota = leitura.nota !== null && leitura.nota !== undefined ? leitura.nota : '—'
+        texto += `${data}: *${nota}*\n`
+      })
+    }
   } else if (caderneta === 'enfermaria') {
     // Seção: INFORMAÇÕES BÁSICAS
     const ordemBasicos = ['pasto', 'lote']

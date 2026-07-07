@@ -427,11 +427,14 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
+        responsavel: registro.responsavel || null,
         pasto_curral: registro.pastoCurral || null,
+        pasto_id: registro.pastoId || null,
         lote: registro.numeroLote || null,
-        quantidade_cabecas: registro.quantidadeCabecas ? Number(registro.quantidadeCabecas) : null,
-        media_ms: registro.mediaMS ? Number(registro.mediaMS) : null,
-        leitura_cocho: registro.leituraCocho ? Number(registro.leituraCocho) : null,
+        lote_id: registro.loteId || null,
+        leitura_cocho: registro.leituraCocho !== '' && registro.leituraCocho !== null && registro.leituraCocho !== undefined
+          ? Number(registro.leituraCocho)
+          : null,
         observacao: registro.observacao || null,
       }
     default:
@@ -522,6 +525,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_almoxarifado':
           await supabaseService.createRegistroAlmoxarifado(data)
           break
+        case 'registros_leitura_cocho':
+          await supabaseService.createRegistroLeituraCocho(data)
+          break
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {
@@ -583,6 +589,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_almoxarifado':
           await supabaseService.updateRegistroAlmoxarifado(supabaseId, data)
+          break
+        case 'registros_leitura_cocho':
+          await supabaseService.updateRegistroLeituraCocho(supabaseId, data)
           break
       }
       console.log(`[SUPABASE] Registro atualizado com sucesso em ${tableName}`)

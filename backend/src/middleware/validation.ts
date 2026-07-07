@@ -345,6 +345,17 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     prioridade: Joi.string().valid('baixa', 'média', 'alta').required(),
     setorResolve: Joi.string().allow(''),
   }),
+
+  'leitura-cocho': Joi.object({
+    data: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
+    responsavel: Joi.string().required(),
+    pastoCurral: Joi.string().required(),
+    pastoId: Joi.string().uuid().allow('', null),
+    numeroLote: Joi.string().allow(''),
+    loteId: Joi.string().uuid().allow('', null),
+    leituraCocho: Joi.number().integer().min(-1).max(3).required(),
+    observacao: Joi.string().allow(''),
+  }),
 }
 
 export function validateCaderneta(caderneta: string) {

@@ -322,6 +322,16 @@ const schemas = {
         prioridade: joi_1.default.string().valid('baixa', 'média', 'alta').required(),
         setorResolve: joi_1.default.string().allow(''),
     }),
+    'leitura-cocho': joi_1.default.object({
+        data: joi_1.default.string().pattern(/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/).required(),
+        responsavel: joi_1.default.string().required(),
+        pastoCurral: joi_1.default.string().required(),
+        pastoId: joi_1.default.string().uuid().allow('', null),
+        numeroLote: joi_1.default.string().allow(''),
+        loteId: joi_1.default.string().uuid().allow('', null),
+        leituraCocho: joi_1.default.number().integer().min(-1).max(3).required(),
+        observacao: joi_1.default.string().allow(''),
+    }),
 };
 function validateCaderneta(caderneta) {
     return (req, res, next) => {

@@ -760,6 +760,31 @@ export async function getRegistrosSuplementacaoByLoteCached(fazendaId: string, l
 }
 
 /**
+ * Busca registros de leitura de cocho por lote.
+ * Sempre vai ao Supabase quando online (dados dinâmicos críticos).
+ * Usa cache apenas como fallback offline.
+ */
+export async function getRegistrosLeituraCochoByLoteCached(
+  fazendaId: string,
+  loteId: string,
+  dataInicio?: string,
+  dataFim?: string
+): Promise<any | null> {
+  const key = buildKey('leitura-cocho-lote', fazendaId, loteId, dataInicio || '', dataFim || '')
+  const cached = getCachedQuery(key)
+
+  if (!navigator.onLine) return cached || null
+
+  try {
+    const data = await supabaseService.getRegistrosLeituraCochoByLote(fazendaId, loteId, dataInicio, dataFim)
+    if (data && Array.isArray(data) && data.length > 0) setCachedQuery(key, data)
+    return data
+  } catch {
+    return cached || null
+  }
+}
+
+/**
  * Busca último rodeio do lote com cache lazy.
  */
 export async function getLastRodeioDateCached(fazendaId: string, loteId: string): Promise<any | null> {

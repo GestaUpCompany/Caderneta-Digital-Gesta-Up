@@ -10,16 +10,33 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import {
   getCachedCadastroData,
-  getLoteByNomeCached,
+  getPastoByNomeCached,
+  getLotesByPastoIdCached,
   getLoteDetalhesComCategoriasCached,
+  getRegistrosSuplementacaoByLoteCached,
+  getRegistrosLeituraCochoByLoteCached,
+  getFormulacaoByNomeCached,
 } from '../../services/cadastroCache'
-import { getPastos, getLotes } from '../../services/supabaseService'
+import { getPastos, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { calcularMetricasLeituraCocho, MetricasLeituraCocho } from '../../utils/leituraCochoMetrics'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import PastoDetalhesCard from '../../components/PastoDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import FeatureLock from '../../components/FeatureLock'
 
 const BASE = import.meta.env.BASE_URL
+
+// Função para processar categorias com diferentes delimitadores
+function processarCategorias(categorias: string): string[] {
+  if (!categorias) return []
+  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
+  const regex = /[,.;]+\s*/
+  return categorias
+    .split(regex)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+}
 
 const LEITURAS = [
   { value: '-1', label: '-1', icon: '🔴' },
@@ -31,20 +48,22 @@ const LEITURAS = [
 
 interface FormState {
   data: string
+  responsavel: string
   pastoCurral: string
+  pastoId: string
   numeroLote: string
-  quantidadeCabecas: string
-  mediaMS: string
+  loteId: string
   leituraCocho: string
   observacao: string
 }
 
 const makeInitial = (_usuario?: string): FormState => ({
   data: todayBR(),
+  responsavel: '',
   pastoCurral: '',
+  pastoId: '',
   numeroLote: '',
-  quantidadeCabecas: '',
-  mediaMS: '',
+  loteId: '',
   leituraCocho: '',
   observacao: '',
 })
@@ -59,11 +78,12 @@ export default function LeituraCochoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
-  const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [lotesNoPasto, setLotesNoPasto] = useState<any[]>([])
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
-  
-  // Mock data para MS anteriores (será substituído por busca real no backend)
-  const [msAnteriores, setMsAnteriores] = useState<{ valor: string; data: string }[]>([])
+  const [detalhesPasto, setDetalhesPasto] = useState<any>(null)
+  const [metricas, setMetricas] = useState<MetricasLeituraCocho | null>(null)
+  const [carregandoMetricas, setCarregandoMetricas] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -79,18 +99,20 @@ export default function LeituraCochoPage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.pastos && cache.pastos.length > 0) {
         setPastosDisponiveis(cache.pastos || [])
-        setLotesDisponiveis(cache.lotes || [])
-      } else if (fazendaId) {
-        try {
-          const [pastosData, lotesData] = await Promise.all([
-            getPastos(fazendaId),
-            getLotes(fazendaId)
-          ])
-          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
-          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
-        } catch (error) {
-          console.error('Erro ao carregar dados do Supabase:', error)
-        }
+      }
+      if (cache && cache.funcionarios && cache.funcionarios.length > 0) {
+        setFuncionariosDisponiveis(cache.funcionarios || [])
+      }
+      if (!fazendaId) return
+      try {
+        const [pastosData, funcionariosData] = await Promise.all([
+          getPastos(fazendaId),
+          getFuncionarios(fazendaId)
+        ])
+        setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
+        setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
+      } catch (error) {
+        console.error('Erro ao carregar dados do Supabase:', error)
       }
     }
     loadData()
@@ -102,63 +124,120 @@ export default function LeituraCochoPage() {
       console.log('[LeituraCochoPage] Cache atualizado, recarregando dados')
       if (data) {
         setPastosDisponiveis(data.pastos || [])
-        setLotesDisponiveis(data.lotes || [])
+        setFuncionariosDisponiveis(data.funcionarios || [])
       }
     })
 
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado
+  // Buscar lotes e detalhes quando pasto é selecionado
   useEffect(() => {
-    async function carregarDetalhesLote() {
-      if (!form.numeroLote || !fazendaId) {
+    async function carregarLotesDoPasto() {
+      if (!form.pastoCurral || !fazendaId) {
         setDetalhesLote(null)
+        setLotesNoPasto([])
+        setDetalhesPasto(null)
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
         return
       }
 
       try {
-        const lote = await getLoteByNomeCached(fazendaId, form.numeroLote)
-        if (lote) {
-          // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
-          
-          // Combinar dados do lote com dados de categorias
-          setDetalhesLote({
-            ...lote,
-            categorias: categoriasDetalhes.categorias,
-            n_cabecas: categoriasDetalhes.quant_atual,
-            peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-            qtd_bezerros: categoriasDetalhes.qtd_bezerros
-          })
+        // Buscar o pasto pelo nome para obter o ID
+        const pasto = await getPastoByNomeCached(fazendaId, form.pastoCurral)
+        if (!pasto) {
+          setDetalhesLote(null)
+          setLotesNoPasto([])
+          setDetalhesPasto(null)
+          setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
+          return
         }
+
+        const pastoId = pasto.id
+        setForm(prev => ({ ...prev, pastoId }))
+
+        // Exibir detalhes do pasto selecionado
+        setDetalhesPasto({
+          areaUtil: pasto.area_util_ha?.toString() || '',
+          especie: pasto.especie || '',
+          alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
+        })
+
+        // Buscar lotes que ocupam esse pasto
+        const lotes = await getLotesByPastoIdCached(fazendaId, pastoId)
+        setLotesNoPasto(lotes || [])
+
+        if (!lotes || lotes.length === 0) {
+          setDetalhesLote(null)
+          setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+          return
+        }
+
+        // Se houver 1+ lote(s), usar o primeiro como padrão
+        const lotePrincipal = lotes[0]
+
+        // Buscar detalhes de categorias do lote
+        const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lotePrincipal.id)
+
+        // Combinar dados do lote com dados de categorias
+        setDetalhesLote({
+          ...lotePrincipal,
+          categorias: categoriasDetalhes.categorias,
+          n_cabecas: categoriasDetalhes.quant_atual,
+          peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
+          qtd_bezerros: categoriasDetalhes.qtd_bezerros
+        })
+
+        setForm(prev => ({
+          ...prev,
+          numeroLote: lotePrincipal.nome || '',
+          loteId: lotePrincipal.id
+        }))
       } catch (error) {
-        console.error('Erro ao carregar detalhes do lote:', error)
+        console.error('Erro ao carregar lotes do pasto:', error)
         setDetalhesLote(null)
+        setLotesNoPasto([])
+        setDetalhesPasto(null)
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
       }
     }
 
-    carregarDetalhesLote()
-  }, [form.numeroLote, fazendaId])
+    carregarLotesDoPasto()
+  }, [form.pastoCurral, fazendaId])
 
-  // Buscar MS anteriores quando pasto/curral e lote forem selecionados
+  // Calcular métricas de consumo MS e buscar leituras anteriores quando lote mudar
   useEffect(() => {
-    async function carregarMsAnteriores() {
-      if (!form.pastoCurral || !form.numeroLote) {
-        setMsAnteriores([])
+    async function carregarMetricas() {
+      if (!form.loteId || !fazendaId || !detalhesLote) {
+        setMetricas(null)
         return
       }
 
-      // TODO: Implementar busca real no backend
-      // Por enquanto, usando dados mock
-      setMsAnteriores([
-        { valor: '2.5', data: '10/05/2026' },
-        { valor: '2.8', data: '08/05/2026' },
-      ])
+      setCarregandoMetricas(true)
+      try {
+        const [registrosSuplementacao, leiturasAnteriores] = await Promise.all([
+          getRegistrosSuplementacaoByLoteCached(fazendaId, form.loteId),
+          getRegistrosLeituraCochoByLoteCached(fazendaId, form.loteId)
+        ])
+
+        const metricasCalculadas = await calcularMetricasLeituraCocho(
+          detalhesLote,
+          registrosSuplementacao || [],
+          async (nome: string) => getFormulacaoByNomeCached(fazendaId, nome),
+          leiturasAnteriores || []
+        )
+
+        setMetricas(metricasCalculadas)
+      } catch (error) {
+        console.error('Erro ao carregar métricas de leitura de cocho:', error)
+        setMetricas(null)
+      } finally {
+        setCarregandoMetricas(false)
+      }
     }
 
-    carregarMsAnteriores()
-  }, [form.pastoCurral, form.numeroLote])
+    carregarMetricas()
+  }, [form.loteId, fazendaId, detalhesLote])
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -166,12 +245,21 @@ export default function LeituraCochoPage() {
 
     const result = await salvarRegistro('leitura-cocho', {
       data: form.data,
+      responsavel: form.responsavel,
       pastoCurral: form.pastoCurral,
+      pastoId: form.pastoId,
       numeroLote: form.numeroLote,
-      quantidadeCabecas: form.quantidadeCabecas ? Number(form.quantidadeCabecas) : 0,
-      mediaMS: form.mediaMS ? Number(form.mediaMS) : 0,
-      leituraCocho: form.leituraCocho ? Number(form.leituraCocho) : null,
+      loteId: form.loteId,
+      leituraCocho: form.leituraCocho !== '' ? Number(form.leituraCocho) : null,
       observacao: form.observacao,
+      // Histórico de consumo MS para compartilhamento
+      consumoMedioMsKgDesdeFormacao: metricas?.mediaConsumoMsKgDesdeFormacao ?? null,
+      consumoMedioMsKgUltimos10Dias: metricas?.mediaConsumoMsKgUltimos10Dias ?? null,
+      consumoMsKgDiaAnterior: metricas?.consumoMsKgDiaAnterior ?? null,
+      consumoMedioMsPctPVDesdeFormacao: metricas?.mediaConsumoMsPctPVDesdeFormacao ?? null,
+      consumoMedioMsPctPVUltimos10Dias: metricas?.mediaConsumoMsPctPVUltimos10Dias ?? null,
+      consumoMsPctPVDiaAnterior: metricas?.consumoMsPctPVDiaAnterior ?? null,
+      leiturasUltimos3Dias: metricas?.leiturasUltimos3Dias ?? [],
     })
 
     setSalvando(false)
@@ -207,112 +295,154 @@ export default function LeituraCochoPage() {
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          {usuario && (
-            <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-              <span className="text-xl">👤</span>
-              <p className="text-gray-700 font-semibold">{usuario}</p>
-            </div>
-          )}
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
-          <div className="grid grid-cols-2 gap-3">
-            {pastosDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="PASTO/CURRAL"
-                value={form.pastoCurral}
-                onChange={set('pastoCurral')}
-                error={getError('pastoCurral')}
-                options={pastosDisponiveis}
-                placeholder="Buscar pasto/curral..."
-                id="pastoCurral"
-                name="pastoCurral"
-              />
-            ) : (
-              <Input
-                label="PASTO/CURRAL"
-                placeholder="Carregando..."
-                value={form.pastoCurral}
-                onChange={setInput('pastoCurral')}
-                error={getError('pastoCurral')}
-                disabled
-                id="pastoCurral"
-              />
-            )}
-            {lotesDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="LOTE"
-                value={form.numeroLote}
-                onChange={set('numeroLote')}
-                error={getError('numeroLote')}
-                options={lotesDisponiveis}
-                placeholder="Buscar lote..."
-                id="numeroLote"
-                name="numeroLote"
-              />
-            ) : (
-              <Input
-                label="LOTE"
-                placeholder="Carregando..."
-                value={form.numeroLote}
-                onChange={setInput('numeroLote')}
-                error={getError('numeroLote')}
-                inputMode="numeric"
-                disabled
-                id="numeroLote"
-              />
-            )}
-          </div>
-          {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={(c: string) => c.split(',')} />
+          {funcionariosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
+              value={form.responsavel}
+              onChange={set('responsavel')}
+              error={getError('responsavel')}
+              options={funcionariosDisponiveis}
+              placeholder="Buscar responsável..."
+              id="responsavel"
+              name="responsavel"
+            />
+          ) : (
+            <Input
+              label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
+              placeholder="Carregando..."
+              value={form.responsavel}
+              onChange={setInput('responsavel')}
+              error={getError('responsavel')}
+              disabled
+              id="responsavel"
+            />
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="QTD. CABEÇAS"
-              placeholder="0"
-              value={form.quantidadeCabecas}
-              onChange={setInput('quantidadeCabecas')}
-              inputMode="numeric"
-              type="number"
-              min="0"
+          {pastosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="PASTO/CURRAL"
+              value={form.pastoCurral}
+              onChange={set('pastoCurral')}
+              error={getError('pastoCurral')}
+              options={pastosDisponiveis}
+              placeholder="Buscar pasto/curral..."
+              id="pastoCurral"
+              name="pastoCurral"
             />
+          ) : (
             <Input
-              label="MÉDIA MS"
-              placeholder="0.00"
-              value={form.mediaMS}
-              onChange={setInput('mediaMS')}
-              inputMode="decimal"
-              type="number"
-              min="0"
-              step="0.01"
+              label="PASTO/CURRAL"
+              placeholder="Carregando..."
+              value={form.pastoCurral}
+              onChange={setInput('pastoCurral')}
+              error={getError('pastoCurral')}
+              disabled
+              id="pastoCurral"
             />
-          </div>
+          )}
+          {detalhesPasto && (
+            <PastoDetalhesCard detalhes={detalhesPasto} />
+          )}
+          {lotesNoPasto.length > 1 && (
+            <p className="text-sm text-amber-600 font-medium">
+              ⚠️ Este pasto contém {lotesNoPasto.length} lotes ativos. O primeiro foi selecionado automaticamente.
+            </p>
+          )}
+          {lotesNoPasto.length === 0 && form.pastoCurral && (
+            <p className="text-sm text-red-600 font-medium">
+              ⚠️ Nenhum lote ativo ocupando este pasto.
+            </p>
+          )}
+          {detalhesLote && (
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
+          )}
         </div>
 
-        {/* Seção 2: MS Anteriores */}
+        {/* Seção 2: Métricas de Consumo MS */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. MS ANTERIORES</h2>
-          {msAnteriores.length > 0 ? (
-            <div className="space-y-3">
-              {msAnteriores.map((ms, index) => (
-                <div
-                  key={index}
-                  className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 flex items-center justify-between"
-                >
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. MÉTRICAS DE CONSUMO MS</h2>
+
+          {carregandoMetricas ? (
+            <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-center">
+              <p className="text-gray-600">Carregando métricas...</p>
+            </div>
+          ) : metricas?.mensagem ? (
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 text-center">
+              <p className="text-amber-800">{metricas.mensagem}</p>
+            </div>
+          ) : metricas ? (
+            <div className="space-y-4">
+              {/* kg/cab/dia */}
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 space-y-2">
+                <h3 className="font-semibold text-gray-800">Consumo MS (kg/cab/dia)</h3>
+                <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <p className="text-sm text-gray-600">Data: {ms.data}</p>
-                    <p className="text-lg font-bold text-gray-900">MS: {ms.valor}</p>
+                    <p className="text-xs text-gray-600">Desde formação</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {metricas.mediaConsumoMsKgDesdeFormacao?.toFixed(2) ?? '--'}
+                    </p>
                   </div>
-                  {index === 0 && (
-                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">
-                      ÚLTIMA
-                    </span>
-                  )}
+                  <div>
+                    <p className="text-xs text-gray-600">Últimos 10 dias</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {metricas.mediaConsumoMsKgUltimos10Dias?.toFixed(2) ?? '--'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Dia anterior</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {metricas.consumoMsKgDiaAnterior?.toFixed(2) ?? '--'}
+                    </p>
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* %PV/cab/dia */}
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 space-y-2">
+                <h3 className="font-semibold text-gray-800">Consumo MS (%PV/cab/dia)</h3>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-xs text-gray-600">Desde formação</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {metricas.mediaConsumoMsPctPVDesdeFormacao?.toFixed(2) ?? '--'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Últimos 10 dias</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {metricas.mediaConsumoMsPctPVUltimos10Dias?.toFixed(2) ?? '--'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Dia anterior</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {metricas.consumoMsPctPVDiaAnterior?.toFixed(2) ?? '--'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leituras anteriores */}
+              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 space-y-2">
+                <h3 className="font-semibold text-gray-800">Leitura de Cocho - Últimos 3 dias</h3>
+                {metricas.leiturasUltimos3Dias.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    {metricas.leiturasUltimos3Dias.map((leitura, index) => (
+                      <div key={index}>
+                        <p className="text-xs text-gray-600">{leitura.dataBR}</p>
+                        <p className="text-lg font-bold text-gray-900">{leitura.nota ?? '--'}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 text-center">Nenhuma leitura de cocho registrada nos últimos 3 dias.</p>
+                )}
+              </div>
             </div>
           ) : (
             <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-center">
-              <p className="text-gray-600">Selecione pasto/curral e lote para ver as MS anteriores</p>
+              <p className="text-gray-600">Selecione pasto/curral e lote para ver as métricas de consumo MS.</p>
             </div>
           )}
         </div>

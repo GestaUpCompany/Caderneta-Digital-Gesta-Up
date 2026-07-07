@@ -2150,3 +2150,67 @@ export async function updateRegistroAlmoxarifado(id: string, registro: any) {
   if (error) throw error
   return data
 }
+
+// ==================== REGISTROS LEITURA DE COCHO ====================
+
+export async function getRegistrosLeituraCochoByLote(
+  fazendaId: string,
+  loteId: string,
+  dataInicio?: string,
+  dataFim?: string
+) {
+  const client = await getSupabaseClientWithRefresh()
+  let query = client
+    .from('registros_leitura_cocho')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('lote_id', loteId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+
+  if (dataInicio) {
+    query = query.gte('data', dataInicio)
+  }
+  if (dataFim) {
+    query = query.lte('data', dataFim)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+
+export async function createRegistroLeituraCocho(registro: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_leitura_cocho')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroLeituraCocho(id: string, registro: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_leitura_cocho')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteRegistroLeituraCocho(id: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
+    .from('registros_leitura_cocho')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) throw error
+}

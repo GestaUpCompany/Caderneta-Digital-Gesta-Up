@@ -64,7 +64,7 @@ function buildRegistroFromRow(
     'manutencao-maquinas': ['data', 'responsavelChecklist', 'operadorMotorista', 'maquinaVeiculo', 'placa', 'odometro', 'checklist', 'observacao'],
     problemas: ['data', 'setor', 'local', 'descricaoProblema', 'causaIdentificada', 'causaIdentificadaObs', 'acaoCorretivaRealizada', 'acaoCorretivaRealizadaObs', 'tipoOcorrencia', 'tipoOcorrenciaObs', 'causaRaizIdentificada', 'causaRaizIdentificadaObs', 'gravidadeImpacto', 'gravidadeImpactoObs', 'tipoProblema', 'tipoProblemaObs', 'prioridade'],
     almoxarifado: ['data', 'quemEntregou', 'quemPegou', 'itens', 'observacao'],
-    'leitura-cocho': ['data', 'pastoCurral', 'numeroLote', 'quantidadeCabecas', 'mediaMS', 'leituraCocho', 'observacao'],
+    'leitura-cocho': ['data', 'responsavel', 'pastoCurral', 'pastoId', 'numeroLote', 'loteId', 'leituraCocho', 'observacao'],
   }
 
   const fields = fieldsByCaderneta[caderneta]

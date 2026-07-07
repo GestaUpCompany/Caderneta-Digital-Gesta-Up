@@ -352,6 +352,23 @@ export function validateClima(data: Record<string, unknown>): ValidationResult {
   return { isValid: errors.length === 0, errors }
 }
 
+export function validateLeituraCocho(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.responsavel))
+    errors.push({ field: 'responsavel', message: 'Responsável é obrigatório' })
+  if (!isNonEmptyString(data.pastoCurral))
+    errors.push({ field: 'pastoCurral', message: 'Pasto/Curral é obrigatório' })
+  if (!isNonEmptyString(data.numeroLote))
+    errors.push({ field: 'numeroLote', message: 'Lote é obrigatório' })
+  if (!isScaleValue(data.leituraCocho, -1, 3, true))
+    errors.push({ field: 'leituraCocho', message: 'Leitura do cocho deve ser entre -1 e 3' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
 export function validateAbastecimento(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -631,7 +648,7 @@ export function validateAlmoxarifado(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado'
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -652,6 +669,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'entrada-insumos': validateEntradaInsumos,
   'saida-insumos': validateSaidaInsumos,
   almoxarifado: validateAlmoxarifado,
+  'leitura-cocho': validateLeituraCocho,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {
