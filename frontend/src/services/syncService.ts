@@ -247,7 +247,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         raca: registro.raca || null,
         idade: registro.idade || null,
         categoria: registro.categoria || null,
-        diagnosticos: registro.diagnosticos || {},
+        diagnosticos: registro.diagnosticos || [],
         medicamentos: registro.medicamentos || [],
         tratamento_obs: registro.observacaoTratamento || null,
       }

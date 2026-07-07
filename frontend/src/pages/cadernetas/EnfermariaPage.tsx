@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio, CheckboxGroup } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -13,57 +13,26 @@ import {
   getLoteDetalhesComCategoriasCached,
   getMedicamentosCached,
 } from '../../services/cadastroCache'
-import { getLotes } from '../../services/supabaseService'
+import { getLotes, getLoteById } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import AnimalIdentifier from '../../components/AnimalIdentifier'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
 const DIAGNOSTICOS = [
-  { campo: 'feridaCascos', label: 'FERIDA NOS CASCOS?' },
-  { campo: 'sintomasPneumonia', label: 'SINTOMAS DE PNEUMONIA?' },
-  { campo: 'picadoCobra', label: 'PICADO POR COBRA?' },
-  { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO E TREMORES MUSCULARES?' },
-  { campo: 'febreAlta', label: 'FEBRE ALTA?' },
-  { campo: 'presencaSangue', label: 'EXISTE ALGUM SANGRAMENTO?' },
-  { campo: 'fraturas', label: 'ALGUMA FRATURA / DESLOCAMENTO DE MEMBROS?' },
-  { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS / TIMPANISMO / DIARREIA?' },
-  { campo: 'cegueira', label: 'CEGUEIRA?' },
-  { campo: 'andarCambaleante', label: 'ANDAR CAMBALEANTE?' },
-  { campo: 'bicheira', label: 'TEM BICHEIRA?' },
-  { campo: 'animalInchado', label: 'ANIMAL COM INCHAÇO?' },
-]
-
-const SN_OPTIONS = [
-  { value: 'S', label: 'SIM', icon: '✅' },
-  { value: 'N', label: 'NÃO', icon: '❌' },
-]
-
-const CATEGORIAS = [
-  { value: 'Vaca', label: 'VACA' },
-  { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi Gordo', label: 'BOI GORDO' },
-  { value: 'Boi Magro', label: 'BOI MAGRO' },
-  { value: 'Garrote', label: 'GARROTE' },
-  { value: 'Bezerro', label: 'BEZERRO' },
-  { value: 'Novilha', label: 'NOVILHA' },
-  { value: 'Tropa', label: 'TROPA' },
-  { value: 'Outros', label: 'OUTROS' },
-]
-
-const RACAS = [
-  { value: 'Nelore', label: 'NELORE' },
-  { value: 'Angus', label: 'ANGUS' },
-  { value: 'Leiteiro', label: 'LEITEIRO' },
-  { value: 'Anelorado', label: 'ANELORADO' },
-  { value: 'Guacho', label: 'GUACHO' },
-  { value: 'SRD', label: 'SRD' },
-  { value: 'Outros', label: 'OUTROS' },
-]
-
-const SEXO_OPTIONS = [
-  { value: 'Macho', label: 'MACHO', icon: '♂️' },
-  { value: 'Fêmea', label: 'FÊMEA', icon: '♀️' },
+  'Pneumonia',
+  'Cobra',
+  'Tremores Musculares',
+  'Incoordenação Motora',
+  'Febre',
+  'Sangramento',
+  'Fratura',
+  'Diarreia',
+  'Empanzinado',
+  'Cegueira',
+  'Bicheira',
+  'Inchaço',
 ]
 
 interface MedicamentoItem {
@@ -86,26 +55,42 @@ function processarCategorias(categorias: string): string[] {
     .filter(c => c.length > 0)
 }
 
+function calcularIdade(dataNascimento: string | null | undefined): string {
+  if (!dataNascimento) return ''
+  try {
+    const hoje = new Date()
+    const nascimento = new Date(dataNascimento)
+    if (isNaN(nascimento.getTime())) return ''
+    let anos = hoje.getFullYear() - nascimento.getFullYear()
+    let meses = hoje.getMonth() - nascimento.getMonth()
+    if (meses < 0) {
+      anos--
+      meses += 12
+    }
+    const partes: string[] = []
+    if (anos > 0) partes.push(`${anos} ${anos === 1 ? 'ano' : 'anos'}`)
+    if (meses > 0) partes.push(`${meses} ${meses === 1 ? 'mês' : 'meses'}`)
+    return partes.join(' e ') || '0 mês'
+  } catch {
+    return ''
+  }
+}
+
 interface FormState {
   data: string
   pasto: string
   lote: string
   loteId: string
   pastoId: string
+  idManejo: string
   brinco: string
   chip: string
+  individuoId: string
   sexo: string
   raca: string
-  racaOutros: string
   idade: string
-  categorias: string[]
-  outrosTexto: string
-  diagnosticos: {
-    [key: string]: {
-      valor: string | null
-      observacao: string
-    }
-  }
+  categoria: string
+  diagnosticos: string[]
   observacaoTratamento: string
   medicamentos: MedicamentoItem[]
 }
@@ -116,15 +101,15 @@ const makeInitial = (): FormState => ({
   lote: '',
   loteId: '',
   pastoId: '',
+  idManejo: '',
   brinco: '',
   chip: '',
+  individuoId: '',
   sexo: '',
   raca: '',
-  racaOutros: '',
   idade: '',
-  categorias: [],
-  outrosTexto: '',
-  diagnosticos: {},
+  categoria: '',
+  diagnosticos: [],
   observacaoTratamento: '',
   medicamentos: [],
 })
@@ -144,27 +129,20 @@ export default function EnfermariaPage() {
   const [medicamentoEditando, setMedicamentoEditando] = useState<MedicamentoItem | null>(null)
   const [medicamentoEditandoIndex, setMedicamentoEditandoIndex] = useState<number | null>(null)
   const [tipoFiltro, setTipoFiltro] = useState<string>('')
+  const [loteAutoIdentificado, setLoteAutoIdentificado] = useState<boolean>(false)
+  const [mensagemLote, setMensagemLote] = useState<string>('')
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const setDiagnosticoValor = (campo: string) => (val: string) =>
-    setForm((p) => ({
-      ...p,
-      diagnosticos: {
-        ...p.diagnosticos,
-        [campo]: { ...p.diagnosticos[campo], valor: val }
-      }
+  const toggleDiagnostico = (diagnostico: string) => {
+    setForm((prev) => ({
+      ...prev,
+      diagnosticos: prev.diagnosticos.includes(diagnostico)
+        ? prev.diagnosticos.filter((d) => d !== diagnostico)
+        : [...prev.diagnosticos, diagnostico]
     }))
-
-  const setDiagnosticoObs = (campo: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((p) => ({
-      ...p,
-      diagnosticos: {
-        ...p.diagnosticos,
-        [campo]: { ...p.diagnosticos[campo], observacao: e.target.value }
-      }
-    }))
+  }
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
@@ -172,29 +150,28 @@ export default function EnfermariaPage() {
   const validationRules: any = {
     data: { required: true },
     lote: { required: true },
-    brinco: { required: true },
+    idManejo: {
+      custom: (value: string) => {
+        const hasManejo = value && value.trim() !== ''
+        const hasBrinco = form.brinco && form.brinco.trim() !== ''
+        const hasChip = form.chip && form.chip.trim() !== ''
+        if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip'
+        return null
+      }
+    },
     sexo: { required: true },
     raca: { required: true },
     idade: { required: true },
-    categorias: { required: true },
-    ...Object.fromEntries(DIAGNOSTICOS.map(d => [d.campo, { required: true }])),
-  }
-
-  // Add validation for racaOutros when raca is 'Outros'
-  if (form.raca === 'Outros') {
-    validationRules.racaOutros = { required: true }
-  }
-
-  // Add validation for outrosTexto when categorias includes 'Outros'
-  if (form.categorias.includes('Outros')) {
-    validationRules.outrosTexto = { required: true }
+    categoria: { required: true },
+    diagnosticos: {
+      custom: (value: string[]) => {
+        if (!value || value.length === 0) return 'Selecione pelo menos um diagnóstico'
+        return null
+      }
+    },
   }
 
   const { isValid } = useFormValidation(form, validationRules)
-
-  const handleCategoriasChange = (newCategorias: string[]) => {
-    setForm((prev) => ({ ...prev, categorias: newCategorias }))
-  }
 
   // Handlers para medicamentos
   const handleAdicionarMedicamento = () => {
@@ -362,32 +339,20 @@ export default function EnfermariaPage() {
       return
     }
 
-    // Montar categorias como string separada por vírgula
-    let categoriasArray = form.categorias.filter(c => c !== 'Outros')
-    
-    // Se "Outros" estiver selecionado e houver texto, adicionar no final
-    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
-      categoriasArray.push(`Outros: ${form.outrosTexto.trim()}`)
-    } else if (form.categorias.includes('Outros')) {
-      categoriasArray.push('Outros')
-    }
-    
-    const categoriasString = categoriasArray.join(', ')
-
-    const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
-
     const result = await salvarRegistro('enfermaria', {
       data: form.data,
       pasto: form.pasto,
       pastoId: form.pastoId,
       lote: form.lote,
       loteId: form.loteId,
+      idManejo: form.idManejo,
       brinco: form.brinco,
       chip: form.chip,
+      individuoId: form.individuoId,
       sexo: form.sexo,
-      raca: racaFinal,
+      raca: form.raca,
       idade: form.idade,
-      categoria: categoriasString,
+      categoria: form.categoria,
       diagnosticos: form.diagnosticos,
       medicamentos: form.medicamentos,
       observacaoTratamento: form.observacaoTratamento,
@@ -466,16 +431,38 @@ export default function EnfermariaPage() {
             value={usuario || ''}
             readOnly
           />
-          {lotesDisponiveis.length > 0 ? (
+        </div>
+
+        {/* Seção 2: Identificação */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
+          {loteAutoIdentificado ? (
+            <Input
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
+              value={form.lote}
+              readOnly
+              id="lote"
+            />
+          ) : lotesDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>LOTE <span className="text-red-500">*</span></span>}
               value={form.lote}
-              onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
+              onChange={async (val) => {
+                let loteId = ''
+                try {
+                  const lote = await getLoteByNomeCached(fazendaId, val)
+                  loteId = lote?.id || ''
+                } catch {
+                  loteId = ''
+                }
+                setForm((p) => ({ ...p, lote: val, loteId }))
+              }}
               error={getError('lote')}
               options={lotesDisponiveis}
               placeholder="Buscar lote..."
               id="lote"
               name="lote"
+              disabled={!form.idManejo && !form.brinco && !form.chip}
             />
           ) : (
             <Input
@@ -488,156 +475,88 @@ export default function EnfermariaPage() {
               id="lote"
             />
           )}
+          {mensagemLote && (
+            <p className="text-sm text-amber-600 font-medium">{mensagemLote}</p>
+          )}
           {detalhesLote && (
             <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
-        </div>
+          <AnimalIdentifier
+            fazendaId={fazendaId}
+            valueManejo={form.idManejo}
+            valueBrinco={form.brinco}
+            valueChip={form.chip}
+            required
+            onChange={async ({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
+              const loteAtual = animalData?.lote_atual
+              let novoLote = ''
+              let novoLoteId = ''
+              let autoIdentificado = false
+              let msg = ''
 
-        {/* Seção 2: Identificação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
-          <Input
-            label={<span>ID. BRINCO <span className="text-red-500">*</span></span>}
-            placeholder="Número do brinco"
-            value={form.brinco}
-            onChange={setInput('brinco')}
-            error={getError('brinco')}
+              if (loteAtual) {
+                try {
+                  const lote = await getLoteById(loteAtual)
+                  if (lote) {
+                    novoLote = lote.nome || ''
+                    novoLoteId = lote.id || ''
+                    autoIdentificado = true
+                  } else {
+                    msg = 'Lote do animal não encontrado. Informe o lote manualmente.'
+                  }
+                } catch {
+                  msg = 'Não foi possível identificar o lote do animal. Informe o lote manualmente.'
+                }
+              } else {
+                msg = 'Animal sem lote vinculado. Informe o lote manualmente.'
+              }
+
+              setLoteAutoIdentificado(autoIdentificado)
+              setMensagemLote(msg)
+              setForm(prev => ({
+                ...prev,
+                idManejo: idManejo,
+                brinco: idBrinco,
+                chip: idChip,
+                individuoId: individuoId || '',
+                sexo: animalData?.sexo || prev.sexo,
+                raca: animalData?.raca || prev.raca,
+                idade: calcularIdade(animalData?.data_nascimento) || prev.idade,
+                categoria: animalData?.categoria || prev.categoria,
+                lote: autoIdentificado ? novoLote : prev.lote,
+                loteId: autoIdentificado ? novoLoteId : prev.loteId,
+              }))
+            }}
           />
-          <Input
-            label={<span>ID. CHIP</span>}
-            placeholder="Número do chip"
-            value={form.chip}
-            onChange={setInput('chip')}
-            error={getError('chip')}
-          />
-          <Radio
-            name="sexo"
-            label={<span>SEXO <span className="text-red-500">*</span></span>}
-            options={SEXO_OPTIONS}
-            value={form.sexo}
-            onChange={(val) => setForm((p) => ({ ...p, sexo: val }))}
-            error={getError('sexo')}
-            gridCols={2}
-          />
-          <Radio
-            name="raca"
-            label={<span>RAÇA <span className="text-red-500">*</span></span>}
-            options={RACAS}
-            value={form.raca}
-            onChange={(val) => setForm((p) => ({ ...p, raca: val }))}
-            error={getError('raca')}
-            gridCols={2}
-          />
-          {form.raca === 'Outros' && (
-            <Input
-              label={<span>QUAL RAÇA? <span className="text-red-500">*</span></span>}
-              placeholder="Ex: Brahman, Hereford, Simmental..."
-              value={form.racaOutros}
-              onChange={setInput('racaOutros')}
-              error={getError('racaOutros')}
-            />
-          )}
-          <div>
-            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">IDADE <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.idade === '0 a 4 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="idade" className="sr-only" value="0 a 4 meses" checked={form.idade === '0 a 4 meses'} onChange={(e) => setInput('idade')(e)} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">0 A 4 MESES</span>
-              </label>
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.idade === '5 a 12 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="idade" className="sr-only" value="5 a 12 meses" checked={form.idade === '5 a 12 meses'} onChange={(e) => setInput('idade')(e)} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">5 A 12 MESES</span>
-              </label>
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.idade === '13 a 24 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="idade" className="sr-only" value="13 a 24 meses" checked={form.idade === '13 a 24 meses'} onChange={(e) => setInput('idade')(e)} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">13 A 24 MESES</span>
-              </label>
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.idade === '25 a 36 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="idade" className="sr-only" value="25 a 36 meses" checked={form.idade === '25 a 36 meses'} onChange={(e) => setInput('idade')(e)} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">25 A 36 MESES</span>
-              </label>
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.idade === 'Acima de 36 meses' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="idade" className="sr-only" value="Acima de 36 meses" checked={form.idade === 'Acima de 36 meses'} onChange={(e) => setInput('idade')(e)} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">ACIMA DE 36 MESES</span>
-              </label>
-            </div>
-          </div>
-          <CheckboxGroup
-            label={<span>CATEGORIAS: <span className="text-red-500">*</span></span>}
-            options={CATEGORIAS}
-            selectedValues={form.categorias}
-            onChange={handleCategoriasChange}
-            error={getError('categorias')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="categorias"
-            dataField="categorias"
-          />
-          {form.categorias.includes('Outros') && (
-            <Input
-              label={<span>ESPECIFICAR OUTROS: <span className="text-red-500">*</span></span>}
-              placeholder="Descreva a categoria"
-              value={form.outrosTexto}
-              onChange={setInput('outrosTexto')}
-              error={getError('outrosTexto')}
-            />
-          )}
         </div>
 
         {/* Seção 3: Diagnóstico */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DIAGNÓSTICO</h2>
-          {DIAGNOSTICOS.map(({ campo, label }) => (
-            <div key={campo}>
-              <Radio
-                name={campo}
-                label={<span>{label} <span className="text-red-500">*</span></span>}
-                options={SN_OPTIONS}
-                value={form.diagnosticos[campo]?.valor || ''}
-                onChange={setDiagnosticoValor(campo)}
-                error={getError(campo)}
-                gridCols={2}
-              />
-              {form.diagnosticos[campo]?.valor === 'S' && (
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={form.diagnosticos[campo]?.observacao || ''}
-                  onChange={setDiagnosticoObs(campo)}
-                  className="mt-2"
-                />
-              )}
-            </div>
-          ))}
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DIAGNÓSTICO <span className="text-red-500">*</span></h2>
+          <div className="grid grid-cols-2 gap-2">
+            {DIAGNOSTICOS.map((diagnostico) => {
+              const selecionado = form.diagnosticos.includes(diagnostico)
+              return (
+                <button
+                  key={diagnostico}
+                  type="button"
+                  onClick={() => toggleDiagnostico(diagnostico)}
+                  className={`
+                    cursor-pointer rounded-xl border-2
+                    transition-all active:scale-95
+                    flex flex-col items-center justify-center gap-1
+                    p-2 min-h-[70px]
+                    ${selecionado ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+                  `}
+                >
+                  <span className="text-sm sm:text-base font-bold text-center leading-tight">{diagnostico.toUpperCase()}</span>
+                </button>
+              )
+            })}
+          </div>
+          {getError('diagnosticos') && (
+            <span className="text-sm text-red-500">{getError('diagnosticos')}</span>
+          )}
         </div>
 
         {/* Seção 4: Tratamento */}

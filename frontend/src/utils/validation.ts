@@ -306,9 +306,20 @@ export function validateEnfermaria(data: Record<string, unknown>): ValidationRes
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
   if (!isNonEmptyString(data.lote))
     errors.push({ field: 'lote', message: 'Lote é obrigatório' })
-  // Pelo menos um dos dois é obrigatório
-  if (!isNonEmptyString(data.brinco) && !isNonEmptyString(data.chip))
-    errors.push({ field: 'brinco', message: 'Brinco ou Chip é obrigatório' })
+  // Pelo menos um ID de identificação é obrigatório
+  if (!isNonEmptyString(data.idManejo) && !isNonEmptyString(data.brinco) && !isNonEmptyString(data.chip))
+    errors.push({ field: 'idManejo', message: 'ID Manejo, Brinco ou Chip é obrigatório' })
+  if (!isNonEmptyString(data.sexo))
+    errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
+  if (!isNonEmptyString(data.raca))
+    errors.push({ field: 'raca', message: 'Raça é obrigatória' })
+  if (!isNonEmptyString(data.idade))
+    errors.push({ field: 'idade', message: 'Idade é obrigatória' })
+  if (!isNonEmptyString(data.categoria))
+    errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
+  const diagnosticos = data.diagnosticos as string[] | undefined
+  if (!diagnosticos || diagnosticos.length === 0)
+    errors.push({ field: 'diagnosticos', message: 'Selecione pelo menos um diagnóstico' })
 
   return { isValid: errors.length === 0, errors }
 }

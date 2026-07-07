@@ -293,6 +293,19 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
   return data
 }
 
+export async function getLoteById(loteId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('lotes')
+    .select('*, pastos(nome), meta_intervalo_rodeio_dias, data_proximo_rodeio')
+    .eq('id', loteId)
+    .eq('ativo', true)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 export async function getLastRodeioDate(loteId: string) {
   const client = getSupabaseClient()
   const { data, error } = await client
@@ -457,7 +470,7 @@ export async function getIndividuos(fazendaId: string, limit = 100) {
   console.log('[getIndividuos] fazendaId:', fazendaId, 'client:', client === supabase ? 'anon' : 'token')
   const { data, error } = await client
     .from('individuos')
-    .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status')
+    .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status, data_nascimento, lote_atual')
     .eq('fazenda_id', fazendaId)
     .eq('status', 'Vivo')
     .order('id_manejo')

@@ -16,6 +16,29 @@ interface AnimalData {
   classificacao_matriz: string | null
   numero_partos: number | null
   status: string
+  data_nascimento: string | null
+  lote_atual: string | null
+}
+
+function calcularIdade(dataNascimento: string | null): string {
+  if (!dataNascimento) return ''
+  try {
+    const hoje = new Date()
+    const nascimento = new Date(dataNascimento)
+    if (isNaN(nascimento.getTime())) return ''
+    let anos = hoje.getFullYear() - nascimento.getFullYear()
+    let meses = hoje.getMonth() - nascimento.getMonth()
+    if (meses < 0) {
+      anos--
+      meses += 12
+    }
+    const partes: string[] = []
+    if (anos > 0) partes.push(`${anos} ${anos === 1 ? 'ano' : 'anos'}`)
+    if (meses > 0) partes.push(`${meses} ${meses === 1 ? 'mês' : 'meses'}`)
+    return partes.join(' e ') || '0 mês'
+  } catch {
+    return ''
+  }
 }
 
 interface AnimalIdentifierProps {
@@ -243,7 +266,9 @@ export default function AnimalIdentifier({
     categoria: '',
     classificacao_matriz: null,
     numero_partos: null,
-    status: ''
+    status: '',
+    data_nascimento: null,
+    lote_atual: null
   } : null)
 
   // Log para debug: saber quantos individuos foram carregados e se ha IDs formais
@@ -382,6 +407,10 @@ export default function AnimalIdentifier({
             <div>
               <p className="text-gray-500 font-medium">STATUS</p>
               <p className="text-gray-900 font-bold">{displayAnimal.status || '—'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 font-medium">IDADE</p>
+              <p className="text-gray-900 font-bold">{calcularIdade(displayAnimal.data_nascimento) || '—'}</p>
             </div>
             {displayAnimal.numero_partos !== null && (
               <div>
