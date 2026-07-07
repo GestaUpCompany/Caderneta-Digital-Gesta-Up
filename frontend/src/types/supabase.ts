@@ -2704,7 +2704,15 @@ export type Database = {
           updated_at?: string | null
           version?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "registros_almoxarifado_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       registros_bebedouros: {
         Row: {
@@ -2874,7 +2882,15 @@ export type Database = {
           updated_at?: string | null
           version?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "registros_cantina_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       registros_clima: {
         Row: {
@@ -3371,7 +3387,15 @@ export type Database = {
           veiculo_trator?: string | null
           version?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "registros_manutencao_maquinas_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       registros_maternidade: {
         Row: {
@@ -4704,6 +4728,7 @@ export type Database = {
           nome: string
           papel: string | null
           telefone: string | null
+          ultimo_acesso: string | null
           updated_at: string | null
         }
         Insert: {
@@ -4715,6 +4740,7 @@ export type Database = {
           nome: string
           papel?: string | null
           telefone?: string | null
+          ultimo_acesso?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -4726,6 +4752,7 @@ export type Database = {
           nome?: string
           papel?: string | null
           telefone?: string | null
+          ultimo_acesso?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -5050,6 +5077,15 @@ export type Database = {
           p_tipo: string
         }
         Returns: undefined
+      }
+      get_admin_evolution: {
+        Args: { start_date: string }
+        Returns: {
+          fazendas: number
+          individuos: number
+          month: string
+          usuarios: number
+        }[]
       }
       get_descendentes_individuo: {
         Args: { p_individuo_id: string }
