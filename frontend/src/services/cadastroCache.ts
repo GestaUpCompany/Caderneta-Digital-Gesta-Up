@@ -549,14 +549,16 @@ export function buildCacheKey(base: string, ...segments: string[]): string {
 
 /**
  * Busca pasto por nome com cache lazy.
- * Retorna do cache se disponível; se offline e não houver cache, retorna null.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getPastoByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
   const key = buildKey('pasto', fazendaId, nome)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getPastoByNome(fazendaId, nome)
@@ -569,13 +571,16 @@ export async function getPastoByNomeCached(fazendaId: string, nome: string): Pro
 
 /**
  * Busca lote por nome com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getLoteByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
   const key = buildKey('lote', fazendaId, nome)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getLoteByNome(fazendaId, nome)
@@ -588,13 +593,16 @@ export async function getLoteByNomeCached(fazendaId: string, nome: string): Prom
 
 /**
  * Busca detalhes completos do lote (com categorias) com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getLoteDetalhesComCategoriasCached(loteId: string): Promise<any | null> {
   const key = buildKey('lote-detalhes', loteId)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getLoteDetalhesComCategorias(loteId)
@@ -607,13 +615,16 @@ export async function getLoteDetalhesComCategoriasCached(loteId: string): Promis
 
 /**
  * Busca lotes por ID do pasto com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getLotesByPastoIdCached(fazendaId: string, pastoId: string): Promise<any[] | null> {
   const key = buildKey('lotes-pasto', fazendaId, pastoId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getLotesByPastoId(fazendaId, pastoId)
@@ -626,13 +637,16 @@ export async function getLotesByPastoIdCached(fazendaId: string, pastoId: string
 
 /**
  * Busca última data de entrada do pasto com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getUltimaDataPastoEntradaCached(fazendaId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ultima-entrada', fazendaId, pastoId)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getUltimaDataPastoEntrada(fazendaId, pastoId)
@@ -645,13 +659,16 @@ export async function getUltimaDataPastoEntradaCached(fazendaId: string, pastoId
 
 /**
  * Busca última data de saída do pasto com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getUltimaDataPastoSaidaCached(fazendaId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ultima-saida', fazendaId, pastoId)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getUltimaDataPastoSaida(fazendaId, pastoId)
@@ -664,13 +681,16 @@ export async function getUltimaDataPastoSaidaCached(fazendaId: string, pastoId: 
 
 /**
  * Busca último status do pasto com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getUltimoStatusPastoCached(fazendaId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ultimo-status', fazendaId, pastoId)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getUltimoStatusPasto(fazendaId, pastoId)
@@ -683,13 +703,16 @@ export async function getUltimoStatusPastoCached(fazendaId: string, pastoId: str
 
 /**
  * Busca ocupação atual do lote/pasto com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getOcupacaoAtualPorLotePastoCached(loteId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ocupacao', loteId, pastoId)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getOcupacaoAtualPorLotePasto(loteId, pastoId)
@@ -702,13 +725,16 @@ export async function getOcupacaoAtualPorLotePastoCached(loteId: string, pastoId
 
 /**
  * Busca ocupação atual do lote/módulo com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getOcupacaoAtualPorLoteModuloCached(loteId: string, moduloId: string): Promise<any | null> {
   const key = buildKey('ocupacao-modulo', loteId, moduloId)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getOcupacaoAtualPorLoteModulo(loteId, moduloId)
@@ -721,13 +747,16 @@ export async function getOcupacaoAtualPorLoteModuloCached(loteId: string, modulo
 
 /**
  * Busca formulação por nome com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getFormulacaoByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
   const key = buildKey('formulacao', fazendaId, nome)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getFormulacaoByNome(fazendaId, nome)
@@ -786,13 +815,16 @@ export async function getRegistrosLeituraCochoByLoteCached(
 
 /**
  * Busca último rodeio do lote com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getLastRodeioDateCached(fazendaId: string, loteId: string): Promise<any | null> {
   const key = buildKey('ultimo-rodeio', fazendaId, loteId)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getLastRodeioDate(loteId)
@@ -805,13 +837,16 @@ export async function getLastRodeioDateCached(fazendaId: string, loteId: string)
 
 /**
  * Busca contagem de partos da vaca com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getContagemPartosVacaCached(fazendaId: string, idVaca: string): Promise<any | null> {
   const key = buildKey('partos-vaca', fazendaId, idVaca)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getContagemPartosVaca(fazendaId, idVaca)
@@ -824,13 +859,16 @@ export async function getContagemPartosVacaCached(fazendaId: string, idVaca: str
 
 /**
  * Busca medicamentos com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getMedicamentosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('medicamentos', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getMedicamentos(fazendaId)
@@ -843,13 +881,16 @@ export async function getMedicamentosCached(fazendaId: string): Promise<any[] | 
 
 /**
  * Busca tratamentos com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getTratamentosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('tratamentos', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getTratamentos(fazendaId)
@@ -862,13 +903,16 @@ export async function getTratamentosCached(fazendaId: string): Promise<any[] | n
 
 /**
  * Busca raças com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getRacasCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('racas', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getRacas(fazendaId)
@@ -881,13 +925,16 @@ export async function getRacasCached(fazendaId: string): Promise<any[] | null> {
 
 /**
  * Busca causas de morte com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getCausasMorteCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('causas-morte', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getCausasMorte(fazendaId)
@@ -900,13 +947,16 @@ export async function getCausasMorteCached(fazendaId: string): Promise<any[] | n
 
 /**
  * Busca pluviômetros com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getPluviometrosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('pluviometros', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getPluviometros(fazendaId)
@@ -919,13 +969,16 @@ export async function getPluviometrosCached(fazendaId: string): Promise<any[] | 
 
 /**
  * Busca máquinas/veículos com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getMaquinasVeiculosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('maquinas-veiculos', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getMaquinasVeiculos(fazendaId)
@@ -938,13 +991,16 @@ export async function getMaquinasVeiculosCached(fazendaId: string): Promise<any[
 
 /**
  * Busca implementos com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getImplementosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('implementos', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getImplementos(fazendaId)
@@ -957,13 +1013,16 @@ export async function getImplementosCached(fazendaId: string): Promise<any[] | n
 
 /**
  * Busca itens de supermercado (cantina) com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getItensSupermercadoCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('itens-supermercado', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getItensSupermercado(fazendaId)
@@ -976,13 +1035,16 @@ export async function getItensSupermercadoCached(fazendaId: string): Promise<any
 
 /**
  * Busca setores com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getSetoresCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('setores', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getSetores(fazendaId)
@@ -995,13 +1057,16 @@ export async function getSetoresCached(fazendaId: string): Promise<any[] | null>
 
 /**
  * Busca locais com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getLocaisCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('locais', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getLocais(fazendaId)
@@ -1014,13 +1079,16 @@ export async function getLocaisCached(fazendaId: string): Promise<any[] | null> 
 
 /**
  * Busca classificações de almoxarifado com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getClassificacoesAlmoxarifadoCached(fazendaId: string): Promise<string[] | null> {
   const key = buildKey('classificacoes-almoxarifado', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached as string[]
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached as string[] : null
+  }
 
   try {
     const data = await supabaseService.getClassificacoesAlmoxarifado(fazendaId)
@@ -1033,13 +1101,16 @@ export async function getClassificacoesAlmoxarifadoCached(fazendaId: string): Pr
 
 /**
  * Busca itens de almoxarifado por classificação com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getItensAlmoxarifadoCached(fazendaId: string, classificacao: string): Promise<any[] | null> {
   const key = buildKey('itens-almoxarifado', fazendaId, classificacao)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getItensAlmoxarifado(fazendaId, classificacao)
@@ -1052,13 +1123,16 @@ export async function getItensAlmoxarifadoCached(fazendaId: string, classificaca
 
 /**
  * Busca lista de bebedouros com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getBebedourosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('bebedouros', fazendaId)
-  const cached = getCachedQuery(key)
-  if (cached && Array.isArray(cached)) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
 
   try {
     const data = await supabaseService.getBebedouros(fazendaId)
@@ -1071,13 +1145,16 @@ export async function getBebedourosCached(fazendaId: string): Promise<any[] | nu
 
 /**
  * Busca bebedouro por nome com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getBebedouroByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
   const key = buildKey('bebedouro', fazendaId, nome)
-  const cached = getCachedQuery(key)
-  if (cached) return cached
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
 
   try {
     const data = await supabaseService.getBebedouroByNome(fazendaId, nome)
@@ -1091,13 +1168,16 @@ export async function getBebedouroByNomeCached(fazendaId: string, nome: string):
 /**
  * Busca última data de limpeza de bebedouro com cache lazy.
  * TTL curto: dado dinâmico (muda a cada limpeza registrada).
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getUltimaDataLimpezaBebedouroCached(fazendaId: string, bebedouroId: string): Promise<string | null> {
   const key = buildKey('ultima-limpeza-bebedouro', fazendaId, bebedouroId)
-  const cached = getCachedQuery(key)
-  if (cached !== undefined && cached !== null) return cached as string
 
-  if (!navigator.onLine) return null
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached !== undefined && cached !== null) ? cached as string : null
+  }
 
   try {
     const data = await supabaseService.getUltimaDataLimpezaBebedouro(fazendaId, bebedouroId)
@@ -1110,13 +1190,16 @@ export async function getUltimaDataLimpezaBebedouroCached(fazendaId: string, beb
 
 /**
  * Busca intervalo médio de limpezas do bebedouro com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
  */
 export async function getIntervaloMedioLimpezasCached(fazendaId: string, bebedouroId: string): Promise<number> {
   const key = buildKey('intervalo-limpeza-bebedouro', fazendaId, bebedouroId)
-  const cached = getCachedQuery(key)
-  if (cached !== undefined && cached !== null) return cached as number
 
-  if (!navigator.onLine) return 0
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached !== undefined && cached !== null) ? cached as number : 0
+  }
 
   try {
     const data = await supabaseService.getIntervaloMedioLimpezas(fazendaId, bebedouroId)
