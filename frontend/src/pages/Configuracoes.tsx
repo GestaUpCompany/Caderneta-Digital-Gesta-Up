@@ -33,7 +33,7 @@ export default function Configuracoes() {
     return newErrors.length === 0
   }
 
-  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string }> => {
+  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean }> => {
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
       
@@ -91,7 +91,15 @@ export default function Configuracoes() {
         // Salvar token JWT e refresh token no localStorage
         localStorage.setItem('supabase_token', loginData.access_token)
         localStorage.setItem('supabase_refresh_token', loginData.refresh_token || '')
-        return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome, token: loginData.access_token, acessoId: fazenda.acesso_id, logoUrl: fazenda.logo_url || undefined }
+        return {
+          sucesso: true,
+          fazendaId: fazenda.id,
+          nome: fazenda.nome,
+          token: loginData.access_token,
+          acessoId: fazenda.acesso_id,
+          logoUrl: fazenda.logo_url || undefined,
+          controleAcessoHabilitado: fazenda.controle_acesso_habilitado || false,
+        }
       }
     } catch (error) {
       console.error('Erro ao validar fazenda no Supabase:', error)
@@ -109,7 +117,14 @@ export default function Configuracoes() {
 
     // Validar no Supabase para obter fazendaId (UUID)
     const resultSupabase = await validarFazendaNoSupabase(fazenda.trim())
-    const validacaoSupabase = { sucesso: resultSupabase.sucesso, fazendaId: resultSupabase.fazendaId || '', nome: resultSupabase.nome || '', acessoId: resultSupabase.acessoId || '', logoUrl: resultSupabase.logoUrl }
+    const validacaoSupabase = {
+      sucesso: resultSupabase.sucesso,
+      fazendaId: resultSupabase.fazendaId || '',
+      nome: resultSupabase.nome || '',
+      acessoId: resultSupabase.acessoId || '',
+      logoUrl: resultSupabase.logoUrl,
+      controleAcessoHabilitado: resultSupabase.controleAcessoHabilitado,
+    }
 
     setValidandoFazenda(false)
 
@@ -137,7 +152,8 @@ export default function Configuracoes() {
       fazendaId: supabaseFazendaId,
       acessoId: supabaseAcessoId,
       usuario: usuario.trim(),
-      logoUrl: validacaoSupabase.logoUrl
+      logoUrl: validacaoSupabase.logoUrl,
+      controleAcessoHabilitado: validacaoSupabase.controleAcessoHabilitado || false,
     }
 
     dispatch(setConfig(configData))

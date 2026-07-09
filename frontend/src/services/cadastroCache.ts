@@ -1,6 +1,7 @@
 import { BACKEND_URL } from '../utils/constants'
 import { saveCadastroData, getAllCadastroData, getCadastroData, clearCadastroData } from './indexedDB'
 import * as supabaseService from './supabaseService'
+import { fetchFuncionariosComAcesso } from './funcionarioAuthService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 
 const CACHE_KEYS = {
@@ -219,6 +220,14 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       const bebedouros = bebedourosData?.map((b: any) => b.nome) || []
       const fornecedores = fornecedoresData?.map((f: any) => f.nome) || []
       const funcionarios = funcionariosData?.map((f: any) => f.nome) || []
+
+      // Cache separado dos funcionários com acesso ao app (para RBAC offline)
+      try {
+        await fetchFuncionariosComAcesso(fazendaId)
+      } catch (err) {
+        console.error('[CadastroCache] Erro ao cachear funcionários com acesso:', err)
+      }
+
       const individuos = (individuosData || []).map((i: any) => ({
         id: i.id,
         id_manejo: i.id_manejo,

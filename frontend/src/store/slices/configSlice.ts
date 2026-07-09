@@ -7,6 +7,10 @@ interface ConfigState {
   usuario: string
   logoUrl: string
   configurado: boolean
+  controleAcessoHabilitado: boolean
+  funcionarioId: string
+  funcionarioNome: string
+  funcionarioCadernetas: string[]
 }
 
 const initialState: ConfigState = {
@@ -16,6 +20,10 @@ const initialState: ConfigState = {
   usuario: '',
   logoUrl: '',
   configurado: false,
+  controleAcessoHabilitado: false,
+  funcionarioId: '',
+  funcionarioNome: '',
+  funcionarioCadernetas: [],
 }
 
 const configSlice = createSlice({

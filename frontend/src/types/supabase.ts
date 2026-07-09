@@ -348,6 +348,7 @@ export type Database = {
           acesso_id: string
           ativo: boolean | null
           cnpj: string | null
+          controle_acesso_habilitado: boolean | null
           created_at: string | null
           email: string | null
           endereco: string | null
@@ -362,6 +363,7 @@ export type Database = {
           acesso_id: string
           ativo?: boolean | null
           cnpj?: string | null
+          controle_acesso_habilitado?: boolean | null
           created_at?: string | null
           email?: string | null
           endereco?: string | null
@@ -376,6 +378,7 @@ export type Database = {
           acesso_id?: string
           ativo?: boolean | null
           cnpj?: string | null
+          controle_acesso_habilitado?: boolean | null
           created_at?: string | null
           email?: string | null
           endereco?: string | null
@@ -591,35 +594,44 @@ export type Database = {
       }
       funcionarios: {
         Row: {
+          acessa_app: boolean | null
           ativo: boolean | null
           cargo: string | null
+          cadernetas_permitidas: Json | null
           cpf: string | null
           created_at: string | null
           fazenda_id: string
           id: string
           nome: string
+          pin_hash: string | null
           telefone: string | null
           updated_at: string | null
         }
         Insert: {
+          acessa_app?: boolean | null
           ativo?: boolean | null
           cargo?: string | null
+          cadernetas_permitidas?: Json | null
           cpf?: string | null
           created_at?: string | null
           fazenda_id: string
           id?: string
           nome: string
+          pin_hash?: string | null
           telefone?: string | null
           updated_at?: string | null
         }
         Update: {
+          acessa_app?: boolean | null
           ativo?: boolean | null
           cargo?: string | null
+          cadernetas_permitidas?: Json | null
           cpf?: string | null
           created_at?: string | null
           fazenda_id?: string
           id?: string
           nome?: string
+          pin_hash?: string | null
           telefone?: string | null
           updated_at?: string | null
         }

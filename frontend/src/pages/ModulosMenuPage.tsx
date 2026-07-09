@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { CADERNETAS } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
@@ -16,10 +16,18 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
+
+  const rbacAtivo = controleAcessoHabilitado && funcionarioCadernetas.length > 0
+
+  const cadernetasPermitidas = useMemo(() => {
+    if (!rbacAtivo) return CADERNETAS
+    const permitidas = new Set(funcionarioCadernetas)
+    return CADERNETAS.filter(c => permitidas.has(c.id))
+  }, [rbacAtivo, funcionarioCadernetas])
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())
@@ -45,12 +53,12 @@ export default function ModulosMenuPage() {
     })
   }
 
-  const filteredCaderas = CADERNETAS.filter(caderneta =>
+  const filteredCaderas = cadernetasPermitidas.filter(caderneta =>
     caderneta.label.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const recentCadernetasData = recentCadernetas
-    .map(id => CADERNETAS.find(c => c.id === id))
+    .map(id => cadernetasPermitidas.find(c => c.id === id))
     .filter((c): c is typeof CADERNETAS[0] => c !== undefined && c.disponivel)
 
   const handleCadernetaClick = (cadernetaId: string) => {

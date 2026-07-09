@@ -932,6 +932,20 @@ export async function createFuncionario(funcionario: TablesInsert<'funcionarios'
   return data
 }
 
+export async function getFuncionariosComAcessoApp(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('funcionarios')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .eq('acessa_app', true)
+    .order('nome')
+
+  if (error) throw error
+  return data
+}
+
 // ==================== ITENS ALMOXARIFADO ====================
 
 export async function getItensAlmoxarifado(fazendaId: string, classificacao?: string) {

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
@@ -9,6 +9,9 @@ import FarmLogo from '../components/FarmLogo'
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 import { syncAllCadastroData } from '../services/cadastroCache'
+import FuncionarioLoginModal from '../components/FuncionarioLoginModal'
+import LongPressButton from '../components/LongPressButton'
+import { useFuncionarioAuth } from '../hooks/useFuncionarioAuth'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -64,6 +67,33 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState('')
   const [ultimaCaderneta, setUltimaCaderneta] = useState<string | null>(null)
   const [versiculoDoDia, setVersiculoDoDia] = useState<Versiculo | null>(null)
+  const [showTrocarHint, setShowTrocarHint] = useState(false)
+
+  const {
+    rbacAtivo,
+    funcionariosDisponiveis,
+    showLogin,
+    login,
+    logout,
+  } = useFuncionarioAuth()
+
+  const atualizarControleAcesso = useCallback(async () => {
+    if (!acessoId || !configurado) return
+    try {
+      const fazendaData = await getFazendaByAcessoId(acessoId)
+      if (fazendaData && typeof fazendaData.controle_acesso_habilitado === 'boolean') {
+        dispatch(setConfig({
+          controleAcessoHabilitado: fazendaData.controle_acesso_habilitado,
+        }))
+      }
+    } catch (error) {
+      console.error('[Home] Erro ao buscar config de controle de acesso:', error)
+    }
+  }, [acessoId, configurado, dispatch])
+
+  useEffect(() => {
+    atualizarControleAcesso()
+  }, [atualizarControleAcesso])
 
   const handleSync = async () => {
     if (!fazendaId || syncing) return
@@ -206,8 +236,8 @@ export default function Home() {
               <div className="flex-shrink-0">
                 {greetingIcon}
               </div>
-              <div className="flex-1">
-                <p className="text-base font-bold text-white">
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-white truncate">
                   {greeting}, {usuario}!
                 </p>
                 {fazenda && (
@@ -221,7 +251,25 @@ export default function Home() {
                   </p>
                 )}
               </div>
+              {rbacAtivo && (
+                <LongPressButton
+                  onLongPress={() => {
+                    setShowTrocarHint(false)
+                    logout()
+                  }}
+                  onClick={() => setShowTrocarHint(true)}
+                  ariaLabel="Trocar funcionário"
+                  className="flex-shrink-0 bg-yellow-400 text-[#1a3a2a] font-bold text-xs px-3 py-2 rounded-xl active:bg-yellow-300 transition-colors select-none"
+                >
+                  TROCAR
+                </LongPressButton>
+              )}
             </div>
+            {showTrocarHint && (
+              <p className="text-xs text-yellow-300 mt-2 font-semibold">
+                Toque e segure o botão TROCAR para trocar de funcionário
+              </p>
+            )}
           </div>
         )}
 
@@ -439,6 +487,15 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* Login de funcionário quando RBAC está ativo */}
+      {showLogin && funcionariosDisponiveis.length > 0 && (
+        <FuncionarioLoginModal
+          funcionarios={funcionariosDisponiveis}
+          fazendaId={fazendaId || ''}
+          onLogin={login}
+        />
+      )}
 
       {/* Versículo do Dia */}
       {versiculoDoDia && configurado && (
