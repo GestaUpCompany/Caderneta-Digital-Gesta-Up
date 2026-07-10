@@ -705,6 +705,10 @@ CREATE INDEX idx_execucoes_rotina_data ON execucoes_rotina(data);
 CREATE INDEX idx_execucoes_rotina_status ON execucoes_rotina(status);
 CREATE INDEX idx_execucoes_rotina_funcionario_data ON execucoes_rotina(funcionario_id, data);
 
+-- Permissões para anon e authenticated
+GRANT SELECT, INSERT, UPDATE ON public.execucoes_rotina TO anon;
+GRANT SELECT, INSERT, UPDATE ON public.execucoes_rotina TO authenticated;
+
 -- Habilitar RLS
 ALTER TABLE execucoes_rotina ENABLE ROW LEVEL SECURITY;
 
