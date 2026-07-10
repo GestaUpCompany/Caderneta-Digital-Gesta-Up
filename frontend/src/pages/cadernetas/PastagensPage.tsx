@@ -27,6 +27,7 @@ import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -178,6 +179,7 @@ function processarCategorias(categorias: string): string[] {
 export default function PastagensPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('pastagens')
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -443,15 +445,22 @@ export default function PastagensPage() {
     avaliacaoEntrada: { required: true },
     gadoContado: { required: true },
     escoreGado: { required: true },
-    bebedourosCochos: { required: true },
-    pastagensTaxaLotacao: { required: true },
-    animaisMachucadosDoentesBichados: { required: true },
-    cercasCochosPorteiras: { required: true },
-    carrapatosMoscas: { required: true },
-    animaisEntreverados: { required: true },
-    animalMorto: { required: true },
     escoreFezes: { required: true },
     numeroPessoasManejo: { required: true },
+  }
+  if (checklistAtivo) {
+    const checklistFields = [
+      'bebedourosCochos',
+      'pastagensTaxaLotacao',
+      'animaisMachucadosDoentesBichados',
+      'cercasCochosPorteiras',
+      'carrapatosMoscas',
+      'animaisEntreverados',
+      'animalMorto',
+    ]
+    checklistFields.forEach((campo) => {
+      validationRules[campo] = { required: true }
+    })
   }
 
   // Add dynamic validation for animal categories when gadoContado is 'Sim'
@@ -951,142 +960,149 @@ export default function PastagensPage() {
         </div>
 
         {/* Seção 6: Avaliação Geral */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. AVALIAÇÃO GERAL</h2>
-          <Radio
-            name="bebedourosCochos"
-            label={<span>BEBEDOUROS / COCHOS OK? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'S', label: 'SIM', icon: '✅' },
-              { value: 'N', label: 'NÃO', icon: '❌' }
-            ]}
-            value={form.bebedourosCochos}
-            onChange={set('bebedourosCochos')}
-            gridCols={2}
-            error={getError('bebedourosCochos')}
-          />
-          {form.bebedourosCochos === 'N' && (
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.bebedourosCochosObs}
-              onChange={setInput('bebedourosCochosObs')}
+        {loadingChecklistRegras ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">6. AVALIAÇÃO GERAL</h2>
+            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
+          </div>
+        ) : checklistAtivo ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">6. AVALIAÇÃO GERAL</h2>
+            <Radio
+              name="bebedourosCochos"
+              label={<span>BEBEDOUROS / COCHOS OK? <span className="text-red-500">*</span></span>}
+              options={[
+                { value: 'S', label: 'SIM', icon: '✅' },
+                { value: 'N', label: 'NÃO', icon: '❌' }
+              ]}
+              value={form.bebedourosCochos}
+              onChange={set('bebedourosCochos')}
+              gridCols={2}
+              error={getError('bebedourosCochos')}
             />
-          )}
-          <Radio
-            name="pastagensTaxaLotacao"
-            label={<span>PASTAGENS / TAXA DE LOTAÇÃO ADEQUADA? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'S', label: 'SIM', icon: '✅' },
-              { value: 'N', label: 'NÃO', icon: '❌' }
-            ]}
-            value={form.pastagensTaxaLotacao}
-            onChange={set('pastagensTaxaLotacao')}
-            gridCols={2}
-            error={getError('pastagensTaxaLotacao')}
-          />
-          {form.pastagensTaxaLotacao === 'N' && (
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.pastagensTaxaLotacaoObs}
-              onChange={setInput('pastagensTaxaLotacaoObs')}
+            {form.bebedourosCochos === 'N' && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.bebedourosCochosObs}
+                onChange={setInput('bebedourosCochosObs')}
+              />
+            )}
+            <Radio
+              name="pastagensTaxaLotacao"
+              label={<span>PASTAGENS / TAXA DE LOTAÇÃO ADEQUADA? <span className="text-red-500">*</span></span>}
+              options={[
+                { value: 'S', label: 'SIM', icon: '✅' },
+                { value: 'N', label: 'NÃO', icon: '❌' }
+              ]}
+              value={form.pastagensTaxaLotacao}
+              onChange={set('pastagensTaxaLotacao')}
+              gridCols={2}
+              error={getError('pastagensTaxaLotacao')}
             />
-          )}
-          <Radio
-            name="animaisMachucadosDoentesBichados"
-            label={<span>ANIMAIS MACHUCADOS / DOENTES / BICHADOS? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'S', label: 'SIM', icon: '✅' },
-              { value: 'N', label: 'NÃO', icon: '❌' }
-            ]}
-            value={form.animaisMachucadosDoentesBichados}
-            onChange={set('animaisMachucadosDoentesBichados')}
-            gridCols={2}
-            error={getError('animaisMachucadosDoentesBichados')}
-          />
-          {form.animaisMachucadosDoentesBichados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisMachucadosDoentesBichados') && (
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.animaisMachucadosDoentesBichadosObs}
-              onChange={setInput('animaisMachucadosDoentesBichadosObs')}
+            {form.pastagensTaxaLotacao === 'N' && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.pastagensTaxaLotacaoObs}
+                onChange={setInput('pastagensTaxaLotacaoObs')}
+              />
+            )}
+            <Radio
+              name="animaisMachucadosDoentesBichados"
+              label={<span>ANIMAIS MACHUCADOS / DOENTES / BICHADOS? <span className="text-red-500">*</span></span>}
+              options={[
+                { value: 'S', label: 'SIM', icon: '✅' },
+                { value: 'N', label: 'NÃO', icon: '❌' }
+              ]}
+              value={form.animaisMachucadosDoentesBichados}
+              onChange={set('animaisMachucadosDoentesBichados')}
+              gridCols={2}
+              error={getError('animaisMachucadosDoentesBichados')}
             />
-          )}
-          <Radio
-            name="cercasCochosPorteiras"
-            label={<span>CERCAS / COCHOS / PORTEIRAS OK? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'S', label: 'SIM', icon: '✅' },
-              { value: 'N', label: 'NÃO', icon: '❌' }
-            ]}
-            value={form.cercasCochosPorteiras}
-            onChange={set('cercasCochosPorteiras')}
-            gridCols={2}
-            error={getError('cercasCochosPorteiras')}
-          />
-          {form.cercasCochosPorteiras === 'N' && (
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.cercasCochosPorteirasObs}
-              onChange={setInput('cercasCochosPorteirasObs')}
+            {form.animaisMachucadosDoentesBichados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisMachucadosDoentesBichados') && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.animaisMachucadosDoentesBichadosObs}
+                onChange={setInput('animaisMachucadosDoentesBichadosObs')}
+              />
+            )}
+            <Radio
+              name="cercasCochosPorteiras"
+              label={<span>CERCAS / COCHOS / PORTEIRAS OK? <span className="text-red-500">*</span></span>}
+              options={[
+                { value: 'S', label: 'SIM', icon: '✅' },
+                { value: 'N', label: 'NÃO', icon: '❌' }
+              ]}
+              value={form.cercasCochosPorteiras}
+              onChange={set('cercasCochosPorteiras')}
+              gridCols={2}
+              error={getError('cercasCochosPorteiras')}
             />
-          )}
-          <Radio
-            name="carrapatosMoscas"
-            label={<span>CARRAPATOS / MOSCAS? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'S', label: 'SIM', icon: '✅' },
-              { value: 'N', label: 'NÃO', icon: '❌' }
-            ]}
-            value={form.carrapatosMoscas}
-            onChange={set('carrapatosMoscas')}
-            gridCols={2}
-            error={getError('carrapatosMoscas')}
-          />
-          {form.carrapatosMoscas === 'S' && INVERTED_DIAGNOSTICOS.includes('carrapatosMoscas') && (
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.carrapatosMoscasObs}
-              onChange={setInput('carrapatosMoscasObs')}
+            {form.cercasCochosPorteiras === 'N' && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.cercasCochosPorteirasObs}
+                onChange={setInput('cercasCochosPorteirasObs')}
+              />
+            )}
+            <Radio
+              name="carrapatosMoscas"
+              label={<span>CARRAPATOS / MOSCAS? <span className="text-red-500">*</span></span>}
+              options={[
+                { value: 'S', label: 'SIM', icon: '✅' },
+                { value: 'N', label: 'NÃO', icon: '❌' }
+              ]}
+              value={form.carrapatosMoscas}
+              onChange={set('carrapatosMoscas')}
+              gridCols={2}
+              error={getError('carrapatosMoscas')}
             />
-          )}
-          <Radio
-            name="animaisEntreverados"
-            label={<span>ANIMAIS ENTREVERADOS? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'S', label: 'SIM', icon: '✅' },
-              { value: 'N', label: 'NÃO', icon: '❌' }
-            ]}
-            value={form.animaisEntreverados}
-            onChange={set('animaisEntreverados')}
-            gridCols={2}
-            error={getError('animaisEntreverados')}
-          />
-          {form.animaisEntreverados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisEntreverados') && (
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.animaisEntreveradosObs}
-              onChange={setInput('animaisEntreveradosObs')}
+            {form.carrapatosMoscas === 'S' && INVERTED_DIAGNOSTICOS.includes('carrapatosMoscas') && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.carrapatosMoscasObs}
+                onChange={setInput('carrapatosMoscasObs')}
+              />
+            )}
+            <Radio
+              name="animaisEntreverados"
+              label={<span>ANIMAIS ENTREVERADOS? <span className="text-red-500">*</span></span>}
+              options={[
+                { value: 'S', label: 'SIM', icon: '✅' },
+                { value: 'N', label: 'NÃO', icon: '❌' }
+              ]}
+              value={form.animaisEntreverados}
+              onChange={set('animaisEntreverados')}
+              gridCols={2}
+              error={getError('animaisEntreverados')}
             />
-          )}
-          <Radio
-            name="animalMorto"
-            label={<span>ANIMAL MORTO? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'S', label: 'SIM', icon: '✅' },
-              { value: 'N', label: 'NÃO', icon: '❌' }
-            ]}
-            value={form.animalMorto}
-            onChange={set('animalMorto')}
-            gridCols={2}
-            error={getError('animalMorto')}
-          />
-          {form.animalMorto === 'S' && INVERTED_DIAGNOSTICOS.includes('animalMorto') && (
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.animalMortoObs}
-              onChange={setInput('animalMortoObs')}
+            {form.animaisEntreverados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisEntreverados') && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.animaisEntreveradosObs}
+                onChange={setInput('animaisEntreveradosObs')}
+              />
+            )}
+            <Radio
+              name="animalMorto"
+              label={<span>ANIMAL MORTO? <span className="text-red-500">*</span></span>}
+              options={[
+                { value: 'S', label: 'SIM', icon: '✅' },
+                { value: 'N', label: 'NÃO', icon: '❌' }
+              ]}
+              value={form.animalMorto}
+              onChange={set('animalMorto')}
+              gridCols={2}
+              error={getError('animalMorto')}
             />
-          )}
-        </div>
+            {form.animalMorto === 'S' && INVERTED_DIAGNOSTICOS.includes('animalMorto') && (
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.animalMortoObs}
+                onChange={setInput('animalMortoObs')}
+              />
+            )}
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-3">
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>

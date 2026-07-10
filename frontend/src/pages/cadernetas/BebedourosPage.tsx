@@ -12,6 +12,7 @@ import { getCachedCadastroData, getBebedourosCached, getBebedouroByNomeCached, g
 import { createHistoricoLimpeza, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
@@ -107,6 +108,7 @@ const makeInitial = (usuario?: string): FormState => ({
 export default function BebedourosPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
+  const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('bebedouros')
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -248,11 +250,11 @@ export default function BebedourosPage() {
     data: { required: true },
     responsavel: { required: true },
     leituraBebedouro: { required: true },
-    aguaSuficiente: { required: true },
-    vazaoBebedouroIdeal: { required: true },
-    aterroAcessoBebedouroIdeal: { required: true },
-    espacamentoBebedouroIdeal: { required: true },
-    boiaProtecaoBoasCondicoes: { required: true },
+  }
+  if (checklistAtivo) {
+    CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
+      validationRules[campo] = { required: true }
+    })
   }
 
   const { isValid } = useFormValidation(form, validationRules)
@@ -273,7 +275,7 @@ export default function BebedourosPage() {
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
       observacao: form.observacao,
-      checklist: {
+      checklist: checklistAtivo ? {
         agua_suficiente: {
           valor: form.aguaSuficiente === 'Sim',
           observacao: form.aguaSuficienteObs || ''
@@ -294,7 +296,7 @@ export default function BebedourosPage() {
           valor: form.boiaProtecaoBoasCondicoes === 'Sim',
           observacao: form.boiaProtecaoBoasCondicoesObs || ''
         }
-      },
+      } : null,
       // Limpeza info fields
       tempoDesdeLimpeza: form.tempoDesdeLimpeza,
       intervaloMedioLimpezas: form.intervaloMedioLimpezas,
@@ -433,30 +435,37 @@ export default function BebedourosPage() {
         </div>
 
         {/* Seção 3: Checklist */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST <span className="text-red-500">*</span></h2>
-          {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
-            <div key={campo}>
-              <Radio
-                name={campo}
-                label={label}
-                options={SN_OPTIONS}
-                value={(form as any)[campo]}
-                onChange={set(campo as keyof FormState)}
-                error={getError(campo)}
-                gridCols={2}
-              />
-              {(form as any)[campo] === 'Não' && (
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={(form as any)[`${campo}Obs`] || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
-                  className="mt-2"
+        {loadingChecklistRegras ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST</h2>
+            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
+          </div>
+        ) : checklistAtivo ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST <span className="text-red-500">*</span></h2>
+            {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
+              <div key={campo}>
+                <Radio
+                  name={campo}
+                  label={label}
+                  options={SN_OPTIONS}
+                  value={(form as any)[campo]}
+                  onChange={set(campo as keyof FormState)}
+                  error={getError(campo)}
+                  gridCols={2}
                 />
-              )}
-            </div>
-          ))}
-        </div>
+                {(form as any)[campo] === 'Não' && (
+                  <Input
+                    placeholder="Adicionar observação (opcional)"
+                    value={(form as any)[`${campo}Obs`] || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                    className="mt-2"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {/* Seção 4: Observação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">

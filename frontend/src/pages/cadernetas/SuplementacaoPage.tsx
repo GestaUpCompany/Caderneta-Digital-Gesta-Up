@@ -24,6 +24,7 @@ import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
@@ -149,6 +150,7 @@ const makeInitial = (usuario?: string): FormState => ({
 export default function SuplementacaoPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('suplementacao')
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -464,16 +466,19 @@ export default function SuplementacaoPage() {
       pasto: { required: true },
       formulacao: { required: true },
       leitura: { required: true },
-      limpezaCocho: { required: true },
-      espacamentoCochoAdequado: { required: true },
-      cochosCondicoes: { required: true },
-      aterroAcessoIdeal: { required: true },
     }
-    if (possuiDeposito) {
-      base.depositoCondicoes = { required: true }
+    if (checklistAtivo) {
+      CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
+        if (campo !== 'depositoCondicoes') {
+          base[campo] = { required: true }
+        }
+      })
+      if (possuiDeposito) {
+        base.depositoCondicoes = { required: true }
+      }
     }
     return base
-  }, [possuiDeposito])
+  }, [possuiDeposito, checklistAtivo])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -519,7 +524,7 @@ export default function SuplementacaoPage() {
       consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN ?? null,
       consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN ?? null,
       custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia ?? null,
-      checklist: {
+      checklist: checklistAtivo ? {
         limpeza_cocho: {
           valor: form.limpezaCocho === 'Sim',
           observacao: form.limpezaCochoObs || ''
@@ -542,7 +547,7 @@ export default function SuplementacaoPage() {
             observacao: form.depositoCondicoesObs || ''
           }
         } : {})
-      },
+      } : null,
     })
 
     setSalvando(false)
@@ -753,68 +758,75 @@ export default function SuplementacaoPage() {
         </div>
 
         {/* Seção 4: Checklist */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST <span className="text-red-500">*</span></h2>
+        {loadingChecklistRegras ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST</h2>
+            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
+          </div>
+        ) : checklistAtivo ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">4. CHECKLIST <span className="text-red-500">*</span></h2>
 
-          {CHECKLIST_PERGUNTAS
-            .filter(({ campo }) => campo !== 'depositoCondicoes' || possuiDeposito)
-            .map(({ campo, label }) => (
-            <div key={campo}>
-              <Radio
-                name={campo}
-                label={label}
-                options={SN_OPTIONS}
-                value={(form as any)[campo]}
-                onChange={set(campo as keyof FormState)}
-                error={getError(campo)}
-                gridCols={2}
-              />
-              {(form as any)[campo] === 'Não' && (
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={(form as any)[`${campo}Obs`] || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
-                  className="mt-2"
+            {CHECKLIST_PERGUNTAS
+              .filter(({ campo }) => campo !== 'depositoCondicoes' || possuiDeposito)
+              .map(({ campo, label }) => (
+              <div key={campo}>
+                <Radio
+                  name={campo}
+                  label={label}
+                  options={SN_OPTIONS}
+                  value={(form as any)[campo]}
+                  onChange={set(campo as keyof FormState)}
+                  error={getError(campo)}
+                  gridCols={2}
                 />
-              )}
-              {campo === 'espacamentoCochoAdequado' && espacamentoCochoDetalhes && (
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mt-2">
-                  <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO</h3>
-                  {espacamentoCochoDetalhes.erro ? (
-                    <div className="text-base text-red-600 font-medium">
-                      {espacamentoCochoDetalhes.erro}
-                    </div>
-                  ) : (
-                    <div className="space-y-2 text-base">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Espaçamento calculado:</span>
-                        <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
+                {(form as any)[campo] === 'Não' && (
+                  <Input
+                    placeholder="Adicionar observação (opcional)"
+                    value={(form as any)[`${campo}Obs`] || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                    className="mt-2"
+                  />
+                )}
+                {campo === 'espacamentoCochoAdequado' && espacamentoCochoDetalhes && (
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mt-2">
+                    <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO</h3>
+                    {espacamentoCochoDetalhes.erro ? (
+                      <div className="text-base text-red-600 font-medium">
+                        {espacamentoCochoDetalhes.erro}
                       </div>
-                      {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Espaçamento ideal:</span>
-                            <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Desvio:</span>
-                            <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                              {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
-                            </span>
-                          </div>
-                        </>
-                      )}
-                      <div className="flex flex-col gap-1 text-sm text-gray-500 pt-2 border-t border-gray-200">
-                        <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
-                        <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
+                    ) : (
+                      <div className="space-y-2 text-base">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Espaçamento calculado:</span>
+                          <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
+                        </div>
+                        {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Espaçamento ideal:</span>
+                              <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Desvio:</span>
+                              <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex flex-col gap-1 text-sm text-gray-500 pt-2 border-t border-gray-200">
+                          <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
+                          <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-3">
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>

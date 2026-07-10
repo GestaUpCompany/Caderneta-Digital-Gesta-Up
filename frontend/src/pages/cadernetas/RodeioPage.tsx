@@ -19,6 +19,7 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -145,6 +146,7 @@ const SN_OPTIONS = [
 export default function RodeioPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('rodeio')
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -281,10 +283,10 @@ export default function RodeioPage() {
     data: { required: true },
     numeroLote: { required: true },
     gadoContado: { required: true },
-    ...DIAGNOSTICOS.reduce((acc, { campo }) => {
+    ...(checklistAtivo ? DIAGNOSTICOS.reduce((acc, { campo }) => {
       acc[campo] = { required: true }
       return acc
-    }, {} as Record<string, { required: boolean }>),
+    }, {} as Record<string, { required: boolean }>) : {}),
     escoreFezes: { required: true },
     equipe: { required: true },
   }
@@ -334,7 +336,7 @@ export default function RodeioPage() {
       tropa: form.tropa ? Number(form.tropa) : 0,
       outros: form.outros ? Number(form.outros) : 0,
       totalCabecas: totalAnimais,
-      diagnosticos: form.diagnosticos,
+      diagnosticos: checklistAtivo ? form.diagnosticos : null,
       escoreFezes: form.escoreFezes || null,
       equipe: form.equipe ? Number(form.equipe) : null,
       equipeNomes: form.equipeNomes,
@@ -532,31 +534,38 @@ export default function RodeioPage() {
         </div>
 
         {/* Seção 3: Avaliação Geral S/N */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. AVALIAÇÃO GERAL</h2>
-          {DIAGNOSTICOS.map(({ campo, label }) => (
-            <div key={campo}>
-              <Radio
-                name={campo}
-                label={label}
-                options={SN_OPTIONS}
-                value={form.diagnosticos[campo]?.valor || ''}
-                onChange={setDiagnosticoValor(campo)}
-                error={getError(campo)}
-                gridCols={2}
-              />
-              {((form.diagnosticos[campo]?.valor === 'N' && !INVERTED_DIAGNOSTICOS.includes(campo)) ||
-                (form.diagnosticos[campo]?.valor === 'S' && INVERTED_DIAGNOSTICOS.includes(campo))) && (
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={form.diagnosticos[campo]?.observacao || ''}
-                  onChange={(e) => setDiagnosticoObs(campo)(e.target.value)}
-                  className="mt-2"
+        {loadingChecklistRegras ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">3. AVALIAÇÃO GERAL</h2>
+            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
+          </div>
+        ) : checklistAtivo ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">3. AVALIAÇÃO GERAL</h2>
+            {DIAGNOSTICOS.map(({ campo, label }) => (
+              <div key={campo}>
+                <Radio
+                  name={campo}
+                  label={label}
+                  options={SN_OPTIONS}
+                  value={form.diagnosticos[campo]?.valor || ''}
+                  onChange={setDiagnosticoValor(campo)}
+                  error={getError(campo)}
+                  gridCols={2}
                 />
-              )}
-            </div>
-          ))}
-        </div>
+                {((form.diagnosticos[campo]?.valor === 'N' && !INVERTED_DIAGNOSTICOS.includes(campo)) ||
+                  (form.diagnosticos[campo]?.valor === 'S' && INVERTED_DIAGNOSTICOS.includes(campo))) && (
+                  <Input
+                    placeholder="Adicionar observação (opcional)"
+                    value={form.diagnosticos[campo]?.observacao || ''}
+                    onChange={(e) => setDiagnosticoObs(campo)(e.target.value)}
+                    className="mt-2"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {/* Seção 4: Avaliação do Gado e Equipe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">

@@ -43,7 +43,12 @@ export function useChecklistAtivo(cadernetaId: string): UseChecklistAtivoReturn 
   }, [load])
 
   const hoje = getHojeIso()
-  const ativo = isRegraAtivaParaCaderneta(regras, cadernetaId, hoje)
+  const temRegras = regras.length > 0
+  const cobertoPorRegra = isRegraAtivaParaCaderneta(regras, cadernetaId, hoje)
+  // Se a fazenda ainda não tem regras cadastradas, mantém o comportamento antigo
+  // (checklist sempre visível). Quando existem regras, apenas cadernetas cobertas
+  // por regras ativas exibem o checklist.
+  const ativo = !temRegras || cobertoPorRegra
 
   return {
     ativo,
