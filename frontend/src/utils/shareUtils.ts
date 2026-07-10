@@ -560,6 +560,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
       texto += `META CONSUMO (%PV): *${registro.metaConsumo}%*\n`
     }
+    const totalCabecasLote = (Number(registro.nCabecasLote) || 0) + (Number(registro.qtdBezerrosLote) || 0)
+    if (totalCabecasLote > 0) {
+      texto += `N° CABEÇAS: *${totalCabecasLote}*\n`
+    }
+    if (registro.pesoVivoKgLote !== null && registro.pesoVivoKgLote !== undefined && Number(registro.pesoVivoKgLote) > 0) {
+      texto += `PESO VIVO MÉDIO: *${Number(registro.pesoVivoKgLote).toFixed(2).replace('.', ',')} kg*\n`
+    }
     texto += `\n`
     
     // Seção: Categorias

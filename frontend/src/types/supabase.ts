@@ -4549,9 +4549,12 @@ export type Database = {
           leitura: string | null
           lote: string | null
           lote_id: string | null
+          n_cabecas: number | null
           nome_usuario: string | null
           pasto: string | null
           pasto_id: string | null
+          peso_vivo_kg: number | null
+          qtd_bezerros: number | null
           sync_status: string | null
           tratador: string | null
           updated_at: string | null
@@ -4577,9 +4580,12 @@ export type Database = {
           leitura?: string | null
           lote?: string | null
           lote_id?: string | null
+          n_cabecas?: number | null
           nome_usuario?: string | null
           pasto?: string | null
           pasto_id?: string | null
+          peso_vivo_kg?: number | null
+          qtd_bezerros?: number | null
           sync_status?: string | null
           tratador?: string | null
           updated_at?: string | null
@@ -4605,9 +4611,12 @@ export type Database = {
           leitura?: string | null
           lote?: string | null
           lote_id?: string | null
+          n_cabecas?: number | null
           nome_usuario?: string | null
           pasto?: string | null
           pasto_id?: string | null
+          peso_vivo_kg?: number | null
+          qtd_bezerros?: number | null
           sync_status?: string | null
           tratador?: string | null
           updated_at?: string | null
