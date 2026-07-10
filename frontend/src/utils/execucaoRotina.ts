@@ -1,3 +1,9 @@
+import {
+  getCurrentTimeInTimezone,
+  getDateTimePartsInTimezone,
+  DEFAULT_FARM_TIMEZONE,
+} from './formatDate'
+
 export type StatusExecucao = 'no_horario' | 'atrasado' | 'antecipado' | 'nao_executado'
 
 export interface ExecucaoRotina {
@@ -9,7 +15,9 @@ export interface ExecucaoRotina {
   data: string
   horario_programado: string | null
   primeiro_acesso: string | null
+  primeiro_acesso_local: string | null
   primeiro_registro: string | null
+  primeiro_registro_local: string | null
   status: StatusExecucao | null
   observacao: string | null
   concluido: boolean
@@ -46,20 +54,13 @@ export function formatarHorario(horario: string | null | undefined): string | nu
   return `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}`
 }
 
-export function getHorarioAtualHHMMSS(): string {
-  const now = new Date()
-  const h = String(now.getHours()).padStart(2, '0')
-  const m = String(now.getMinutes()).padStart(2, '0')
-  const s = String(now.getSeconds()).padStart(2, '0')
-  return `${h}:${m}:${s}`
+export function getHorarioAtualHHMMSS(timezone: string = DEFAULT_FARM_TIMEZONE): string {
+  return getCurrentTimeInTimezone(timezone)
 }
 
-export function getDataIso(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+export function getDataIso(timezone: string = DEFAULT_FARM_TIMEZONE): string {
+  const { year, month, day } = getDateTimePartsInTimezone(new Date(), timezone)
+  return `${year}-${month}-${day}`
 }
 
 export function isAtrasoSignificativo(

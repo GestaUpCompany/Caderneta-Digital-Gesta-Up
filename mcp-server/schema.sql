@@ -39,6 +39,7 @@ CREATE TABLE fazendas (
   logo_url TEXT,
   planilha_id TEXT,
   tolerancia_rotina_minutos INTEGER DEFAULT 30,
+  timezone TEXT DEFAULT 'America/Cuiaba',
   ativo BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -689,7 +690,9 @@ CREATE TABLE execucoes_rotina (
   data DATE NOT NULL,
   horario_programado TIME,
   primeiro_acesso TIMESTAMPTZ,
+  primeiro_acesso_local TEXT,
   primeiro_registro TIMESTAMPTZ,
+  primeiro_registro_local TEXT,
   status TEXT CHECK (status IN ('no_horario', 'atrasado', 'antecipado', 'nao_executado')),
   observacao TEXT,
   concluido BOOLEAN DEFAULT false,

@@ -3,6 +3,9 @@ import { CadernetaStore, saveRegistro, getAllRegistros, deleteRegistro, getRegis
 import { enqueueRegistro } from './syncService'
 import { generateId, generateVersion, getCurrentTimestamp } from '../utils/generateId'
 import { validate, CadernetaType } from '../utils/validation'
+import { store } from '../store/store'
+import { getFazendaByAcessoId } from './supabaseService'
+import { getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 
 export interface SaveResult {
   success: boolean
@@ -21,11 +24,10 @@ export async function salvarRegistro(
     return { success: false, errors: validation.errors }
   }
 
-  // Capturar hora atual e concatenar com data
-  const agora = new Date()
-  const hora = agora.getHours().toString().padStart(2, '0')
-  const minuto = agora.getMinutes().toString().padStart(2, '0')
-  const dataComHora = `${data.data as string} ${hora}:${minuto}`
+  // Capturar hora atual no fuso da fazenda e concatenar com data
+  const timezone = await getFarmTimezone()
+  const horaAtual = getCurrentTimeInTimezone(timezone)
+  const dataComHora = `${data.data as string} ${horaAtual.slice(0, 5)}`
 
   const registro = {
     ...data,
@@ -121,5 +123,18 @@ export async function reenviarRegistro(
   } catch (error) {
     console.error('Erro ao reenviar registro:', error)
     return { success: false, message: 'Erro ao reenviar registro. Tente novamente.' }
+  }
+}
+
+async function getFarmTimezone(): Promise<string> {
+  const state = store.getState()
+  const acessoId = state.config.acessoId
+  if (!acessoId) return DEFAULT_FARM_TIMEZONE
+  try {
+    const fazenda = await getFazendaByAcessoId(acessoId)
+    return fazenda?.timezone ?? DEFAULT_FARM_TIMEZONE
+  } catch (err) {
+    console.error('[api] Erro ao buscar timezone da fazenda:', err)
+    return DEFAULT_FARM_TIMEZONE
   }
 }

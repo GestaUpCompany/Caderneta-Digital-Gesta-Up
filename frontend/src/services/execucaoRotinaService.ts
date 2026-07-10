@@ -7,6 +7,7 @@ import {
   getHorarioAtualHHMMSS,
   getDataIso,
 } from '../utils/execucaoRotina'
+import { DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 
 const CACHE_KEY = 'execucoes_rotina'
 
@@ -37,6 +38,7 @@ export interface GarantirExecucaoParams {
   cadernetaId: string
   data?: string
   horarioProgramado?: string | null
+  timezone?: string
 }
 
 export async function garantirExecucaoRotina(
@@ -49,16 +51,20 @@ export async function garantirExecucaoRotina(
     cadernetaId,
     data = getDataIso(),
     horarioProgramado = null,
+    timezone = DEFAULT_FARM_TIMEZONE,
   } = params
 
   const chaveLocal = `${fazendaId}:${funcionarioId}:${cadernetaId}:${data}`
   const cached = await getCadastroData(CACHE_KEY)
   const execucoesLocais: Record<string, ExecucaoRotina> = cached?.execucoes || {}
 
+  const horaLocal = getHorarioAtualHHMMSS(timezone)
+
   const existente = execucoesLocais[chaveLocal]
   if (existente) {
     if (!existente.primeiro_acesso) {
       existente.primeiro_acesso = new Date().toISOString()
+      existente.primeiro_acesso_local = horaLocal
     }
     await salvarExecucoesLocal(fazendaId, execucoesLocais)
     await sincronizarExecucao(existente)
@@ -74,7 +80,9 @@ export async function garantirExecucaoRotina(
     data,
     horario_programado: horarioProgramado,
     primeiro_acesso: new Date().toISOString(),
+    primeiro_acesso_local: horaLocal,
     primeiro_registro: null,
+    primeiro_registro_local: null,
     status: 'nao_executado',
     observacao: null,
     concluido: false,
@@ -98,6 +106,7 @@ export interface RegistrarExecucaoParams {
   horarioRegistro?: string
   observacao?: string | null
   toleranciaMinutos?: number
+  timezone?: string
 }
 
 export async function registrarExecucaoRotina(
@@ -111,16 +120,20 @@ export async function registrarExecucaoRotina(
     horarioRegistro = getHorarioAtualHHMMSS(),
     observacao = null,
     toleranciaMinutos = 30,
+    timezone = DEFAULT_FARM_TIMEZONE,
   } = params
 
   const chaveLocal = `${fazendaId}:${funcionarioId}:${cadernetaId}:${data}`
   const cached = await getCadastroData(CACHE_KEY)
   const execucoesLocais: Record<string, ExecucaoRotina> = cached?.execucoes || {}
 
+  const horaLocal = getHorarioAtualHHMMSS(timezone)
+
   const existente = execucoesLocais[chaveLocal]
   if (existente) {
     if (!existente.primeiro_registro) {
       existente.primeiro_registro = new Date().toISOString()
+      existente.primeiro_registro_local = horaLocal
     }
     existente.status = calcularStatusExecucao(
       existente.horario_programado,
@@ -143,7 +156,9 @@ export async function registrarExecucaoRotina(
     data,
     horario_programado: null,
     primeiro_acesso: new Date().toISOString(),
+    primeiro_acesso_local: horaLocal,
     primeiro_registro: new Date().toISOString(),
+    primeiro_registro_local: horaLocal,
     status: calcularStatusExecucao(null, horarioRegistro, toleranciaMinutos),
     observacao,
     concluido: true,
@@ -181,7 +196,9 @@ async function sincronizarExecucao(execucao: ExecucaoRotina): Promise<void> {
     data: execucao.data,
     horario_programado: execucao.horario_programado,
     primeiro_acesso: execucao.primeiro_acesso,
+    primeiro_acesso_local: execucao.primeiro_acesso_local,
     primeiro_registro: execucao.primeiro_registro,
+    primeiro_registro_local: execucao.primeiro_registro_local,
     status: execucao.status,
     observacao: execucao.observacao,
     concluido: execucao.concluido,

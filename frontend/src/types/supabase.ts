@@ -400,7 +400,9 @@ export type Database = {
           id: string
           observacao: string | null
           primeiro_acesso: string | null
+          primeiro_acesso_local: string | null
           primeiro_registro: string | null
+          primeiro_registro_local: string | null
           rotina_id: string | null
           status: string | null
           updated_at: string | null
@@ -417,7 +419,9 @@ export type Database = {
           id?: string
           observacao?: string | null
           primeiro_acesso?: string | null
+          primeiro_acesso_local?: string | null
           primeiro_registro?: string | null
+          primeiro_registro_local?: string | null
           rotina_id?: string | null
           status?: string | null
           updated_at?: string | null
@@ -434,7 +438,9 @@ export type Database = {
           id?: string
           observacao?: string | null
           primeiro_acesso?: string | null
+          primeiro_acesso_local?: string | null
           primeiro_registro?: string | null
+          primeiro_registro_local?: string | null
           rotina_id?: string | null
           status?: string | null
           updated_at?: string | null
@@ -478,6 +484,7 @@ export type Database = {
           planilha_id: string | null
           telefone: string | null
           tolerancia_rotina_minutos: number | null
+          timezone: string | null
           updated_at: string | null
         }
         Insert: {
@@ -494,6 +501,7 @@ export type Database = {
           planilha_id?: string | null
           telefone?: string | null
           tolerancia_rotina_minutos?: number | null
+          timezone?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -510,6 +518,7 @@ export type Database = {
           planilha_id?: string | null
           telefone?: string | null
           tolerancia_rotina_minutos?: number | null
+          timezone?: string | null
           updated_at?: string | null
         }
         Relationships: []
