@@ -946,6 +946,21 @@ export async function getFuncionariosComAcessoApp(fazendaId: string) {
   return data
 }
 
+// ==================== CHECKLIST REGRAS ====================
+
+export async function getChecklistRegras(fazendaId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('checklist_regras')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('data_inicio', { ascending: false })
+
+  if (error) throw error
+  return data
+}
+
 // ==================== ITENS ALMOXARIFADO ====================
 
 export async function getItensAlmoxarifado(fazendaId: string, classificacao?: string) {

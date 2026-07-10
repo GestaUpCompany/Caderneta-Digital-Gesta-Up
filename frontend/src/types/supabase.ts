@@ -201,6 +201,47 @@ export type Database = {
           },
         ]
       }
+      checklist_regras: {
+        Row: {
+          ativo: boolean | null
+          cadernetas: string[] | null
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string
+          fazenda_id: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cadernetas?: string[] | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio: string
+          fazenda_id: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cadernetas?: string[] | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string
+          fazenda_id?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_regras_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conflitos: {
         Row: {
           criado_em: string | null

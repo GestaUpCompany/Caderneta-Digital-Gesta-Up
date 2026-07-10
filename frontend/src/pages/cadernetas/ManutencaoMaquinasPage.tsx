@@ -12,6 +12,7 @@ import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -72,6 +73,8 @@ export default function ManutencaoMaquinasPage() {
   const logoUrl = useSelector((state: RootState) => state.config.logoUrl)
   const configurado = useSelector((state: RootState) => state.config.configurado)
 
+  const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('manutencao-maquinas')
+
   const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -112,10 +115,12 @@ export default function ManutencaoMaquinasPage() {
     odometro: { required: true },
   }
 
-  // Add validation for checklist fields
-  CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
-    validationRules[campo] = { required: true }
-  })
+  // Add validation for checklist fields only when checklist is active
+  if (checklistAtivo) {
+    CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
+      validationRules[campo] = { required: true }
+    })
+  }
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -130,7 +135,7 @@ export default function ManutencaoMaquinasPage() {
       maquinaVeiculo: form.maquinaVeiculo,
       placa: form.placa,
       odometro: form.odometro,
-      checklist: form.checklist,
+      checklist: checklistAtivo ? form.checklist : null,
       observacao: form.observacao || '',
     })
 
@@ -342,30 +347,37 @@ export default function ManutencaoMaquinasPage() {
         </div>
 
         {/* Seção 2: Checklist */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CHECKLIST <span className="text-red-500">*</span></h2>
-          {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
-            <div key={campo}>
-              <Radio
-                name={campo}
-                label={label}
-                options={SN_OPTIONS}
-                value={form.checklist[campo]?.valor || ''}
-                onChange={setChecklistValor(campo)}
-                error={getError(campo)}
-                gridCols={2}
-              />
-              {form.checklist[campo]?.valor === 'N' && (
-                <Input
-                  placeholder="Adicionar observação (opcional)"
-                  value={form.checklist[campo]?.observacao || ''}
-                  onChange={(e) => setChecklistObs(campo)(e.target.value)}
-                  className="mt-2"
+        {loadingChecklistRegras ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CHECKLIST</h2>
+            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
+          </div>
+        ) : checklistAtivo ? (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CHECKLIST <span className="text-red-500">*</span></h2>
+            {CHECKLIST_PERGUNTAS.map(({ campo, label }) => (
+              <div key={campo}>
+                <Radio
+                  name={campo}
+                  label={label}
+                  options={SN_OPTIONS}
+                  value={form.checklist[campo]?.valor || ''}
+                  onChange={setChecklistValor(campo)}
+                  error={getError(campo)}
+                  gridCols={2}
                 />
-              )}
-            </div>
-          ))}
-        </div>
+                {form.checklist[campo]?.valor === 'N' && (
+                  <Input
+                    placeholder="Adicionar observação (opcional)"
+                    value={form.checklist[campo]?.observacao || ''}
+                    onChange={(e) => setChecklistObs(campo)(e.target.value)}
+                    className="mt-2"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {/* Seção 3: Observação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
