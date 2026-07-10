@@ -1,10 +1,13 @@
 import { getChecklistRegras } from './supabaseService'
 import { saveCadastroData, getCadastroData } from './indexedDB'
 
+export type ChecklistRegraTipo = 'periodo' | 'excecao'
+
 export interface ChecklistRegra {
   id: string
   fazenda_id: string
   cadernetas: string[] | null
+  tipo: ChecklistRegraTipo
   data_inicio: string
   data_fim: string | null
   ativo: boolean | null
@@ -21,6 +24,7 @@ export async function fetchChecklistRegras(fazendaId: string): Promise<Checklist
     id: r.id,
     fazenda_id: r.fazenda_id,
     cadernetas: Array.isArray(r.cadernetas) ? r.cadernetas : [],
+    tipo: r.tipo || 'periodo',
     data_inicio: r.data_inicio,
     data_fim: r.data_fim || null,
     ativo: r.ativo,
@@ -55,14 +59,18 @@ export async function getChecklistRegrasOnlineFirst(fazendaId: string): Promise<
 }
 
 export function isRegraAtivaParaCaderneta(regras: ChecklistRegra[], cadernetaId: string, dataIso: string): boolean {
-  return regras.some((r) => {
-    if (r.ativo === false) return false
-    const cobreCaderneta = !r.cadernetas || r.cadernetas.length === 0 || r.cadernetas.includes(cadernetaId)
-    if (!cobreCaderneta) return false
-    if (dataIso < r.data_inicio) return false
-    if (r.data_fim && dataIso > r.data_fim) return false
-    return true
-  })
+  const regrasNegativas = regras.filter((r) => r.ativo !== false && r.tipo === 'excecao')
+  const regrasPositivas = regras.filter((r) => r.ativo !== false && r.tipo === 'periodo')
+
+  const cobreCaderneta = (r: ChecklistRegra) =>
+    !r.cadernetas || r.cadernetas.length === 0 || r.cadernetas.includes(cadernetaId)
+
+  const cobreData = (r: ChecklistRegra) =>
+    dataIso >= r.data_inicio && (!r.data_fim || dataIso <= r.data_fim)
+
+  if (regrasNegativas.some((r) => cobreCaderneta(r) && cobreData(r))) return false
+
+  return regrasPositivas.some((r) => cobreCaderneta(r) && cobreData(r))
 }
 
 export function getHojeIso(): string {

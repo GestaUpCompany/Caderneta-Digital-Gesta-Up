@@ -89,6 +89,7 @@ const LeituraCochoPage = lazy(() => import('./pages/cadernetas/LeituraCochoPage'
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
 const ChecklistsMenuPage = lazy(() => import('./pages/ChecklistsMenuPage'))
 const RelatoriosPage = lazy(() => import('./pages/RelatoriosPage'))
+const ProgramacaoHojePage = lazy(() => import('./pages/ProgramacaoHojePage'))
 
 // Lazy loading do estoque de insumos
 const EstoquePage = lazy(() => import('./pages/estoque-insumos/EstoquePage'))
@@ -325,6 +326,7 @@ function AppInner() {
             <Route path="/modulos/cadernetas" element={<ModulosMenuPage />} />
             <Route path="/modulos/checklists" element={<ChecklistsMenuPage />} />
             <Route path="/modulos/relatorios" element={<RelatoriosPage />} />
+            <Route path="/programacao-hoje" element={<ProgramacaoHojePage />} />
 
             {/* Estoque de Insumos */}
             <Route path="/estoque-insumos/estoque" element={<EstoquePage />} />

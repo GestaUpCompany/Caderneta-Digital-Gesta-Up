@@ -5,6 +5,8 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import FarmLogo from '../components/FarmLogo'
 import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernetas'
+import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
+import { CalendarCheck } from 'lucide-react'
 
 // Função helper para converter HEX para RGBA com opacidade
 const hexToRgba = (hex: string, alpha: number = 0.25): string => {
@@ -22,6 +24,7 @@ export default function ModulosMenuPage() {
   const [showScrollTop, setShowScrollTop] = useState(false)
 
   const rbacAtivo = controleAcessoHabilitado && funcionarioCadernetas.length > 0
+  const { programacao, loading: programacaoLoading } = useProgramacaoHoje()
 
   const cadernetasPermitidas = useMemo(() => {
     if (!rbacAtivo) return CADERNETAS
@@ -105,6 +108,31 @@ export default function ModulosMenuPage() {
           </div>
         </div>
       </header>
+
+      {/* Botão de Programação de Hoje */}
+      <div className="px-4 pt-4">
+        <button
+          onClick={() => navigate('/programacao-hoje')}
+          className="w-full bg-[#1a3a2a] hover:bg-[#142b20] text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-yellow-400 text-[#1a3a2a] p-2 rounded-lg">
+              <CalendarCheck size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold">Programação de hoje</p>
+              <p className="text-xs text-gray-300">
+                {programacaoLoading
+                  ? 'Carregando...'
+                  : programacao.length === 0
+                  ? 'Nenhuma caderneta programada'
+                  : `${programacao.length} caderneta${programacao.length > 1 ? 's' : ''} para hoje`}
+              </p>
+            </div>
+          </div>
+          <span className="text-yellow-400 text-xl">→</span>
+        </button>
+      </div>
 
       {/* Grid de Cadernetas - 6 botões grandes */}
       <main className="flex-1 p-4 flex flex-col gap-4">

@@ -3,6 +3,7 @@ import { saveCadastroData, getAllCadastroData, getCadastroData, clearCadastroDat
 import * as supabaseService from './supabaseService'
 import { fetchFuncionariosComAcesso } from './funcionarioAuthService'
 import { fetchChecklistRegras } from './checklistRegrasService'
+import { fetchRotinas } from './rotinasService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 
 const CACHE_KEYS = {
@@ -234,6 +235,13 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         await fetchChecklistRegras(fazendaId)
       } catch (err) {
         console.error('[CadastroCache] Erro ao cachear regras de checklist:', err)
+      }
+
+      // Cache das rotinas de cadernetas por funcionário
+      try {
+        await fetchRotinas(fazendaId)
+      } catch (err) {
+        console.error('[CadastroCache] Erro ao cachear rotinas:', err)
       }
 
       const individuos = (individuosData || []).map((i: any) => ({
