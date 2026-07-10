@@ -6,6 +6,8 @@ interface FormulacaoDetalhesCardProps {
     consumoMedio30DiasPercentPV?: number | null
     consumoMedioGeralKgMN?: number | null
     consumoMedio30DiasKgMN?: number | null
+    consumoMedioGeralKgMS?: number | null
+    consumoMedio30DiasKgMS?: number | null
     custoMedioReaisCabDia?: number | null
     motivoFalha?: string
     categoriasNaoElegiveis?: string[]
@@ -83,6 +85,18 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
             <p className="text-gray-500 font-semibold">CONSUMO MÉDIO 30 DIAS (kg/MN)</p>
             <p className="text-gray-900 font-bold">
               {formatNumber(detalhes.consumoMedio30DiasKgMN, 3)}{formatNumber(detalhes.consumoMedio30DiasKgMN, 3) !== null && ' kg'}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-500 font-semibold">CONSUMO MÉDIO GERAL (kg/MS)</p>
+            <p className="text-gray-900 font-bold">
+              {formatNumber(detalhes.consumoMedioGeralKgMS, 3)}{formatNumber(detalhes.consumoMedioGeralKgMS, 3) !== null && ' kg'}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-500 font-semibold">CONSUMO MÉDIO 30 DIAS (kg/MS)</p>
+            <p className="text-gray-900 font-bold">
+              {formatNumber(detalhes.consumoMedio30DiasKgMS, 3)}{formatNumber(detalhes.consumoMedio30DiasKgMS, 3) !== null && ' kg'}
             </p>
           </div>
           <div>

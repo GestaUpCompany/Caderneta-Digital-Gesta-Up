@@ -523,6 +523,8 @@ export default function SuplementacaoPage() {
       consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV ?? null,
       consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN ?? null,
       consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN ?? null,
+      consumoMedioGeralKgMS: metricasSuplementacao?.consumoMedioGeralKgMS ?? null,
+      consumoMedio30DiasKgMS: metricasSuplementacao?.consumoMedio30DiasKgMS ?? null,
       custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia ?? null,
       checklist: checklistAtivo ? {
         limpeza_cocho: {
@@ -691,6 +693,8 @@ export default function SuplementacaoPage() {
                 consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV,
                 consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN,
                 consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN,
+                consumoMedioGeralKgMS: metricasSuplementacao?.consumoMedioGeralKgMS,
+                consumoMedio30DiasKgMS: metricasSuplementacao?.consumoMedio30DiasKgMS,
                 custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia,
                 motivoFalha: metricasSuplementacao?.motivoFalha,
                 categoriasNaoElegiveis: metricasSuplementacao?.categoriasNaoElegiveis,

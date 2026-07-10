@@ -27,9 +27,19 @@ interface SupplementMetrics {
   consumoMedio30DiasPercentPV: number | null
   consumoMedioGeralKgMN: number | null
   consumoMedio30DiasKgMN: number | null
+  consumoMedioGeralKgMS: number | null
+  consumoMedio30DiasKgMS: number | null
   custoMedioReaisCabDia: number | null
   motivoFalha?: string
   categoriasNaoElegiveis?: string[]
+}
+
+interface IntervaloTrato {
+  inicio: Date
+  fim: Date
+  dias: number
+  kgCocho: number
+  consumoDiarioMN: number
 }
 
 const CATEGORIAS_EXCLUIDAS = [
@@ -38,6 +48,25 @@ const CATEGORIAS_EXCLUIDAS = [
   'bezerro ao pé',
   'bezerra ao pé'
 ]
+
+function dataSemHoraUTC(dataStr: string): Date {
+  const dataPart = dataStr.substring(0, 10)
+  const [ano, mes, dia] = dataPart.split('-').map(Number)
+  return new Date(Date.UTC(ano, mes - 1, dia))
+}
+
+function diferencaDias(inicio: Date, fim: Date): number {
+  const diff = Math.round((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
+  return diff > 0 ? diff : 1
+}
+
+function ordenarRegistrosPorData(registros: RegistroSuplementacao[]): RegistroSuplementacao[] {
+  return [...registros].sort((a, b) => {
+    const dataA = dataSemHoraUTC(a.data)
+    const dataB = dataSemHoraUTC(b.data)
+    return dataA.getTime() - dataB.getTime()
+  })
+}
 
 /**
  * Calcula o peso vivo médio do lote, excluindo categorias de bezerros/bezerras
@@ -62,32 +91,6 @@ function calcularPesoVivoMedio(categorias: LoteCategoria[]): number | null {
 }
 
 /**
- * Calcula o consumo total de MN dos registros (apenas kg_cocho)
- */
-function calcularConsumoTotalMN(registros: RegistroSuplementacao[]): number {
-  return registros.reduce((total, reg) => {
-    const kgCocho = reg.kg_cocho || 0
-    return total + kgCocho
-  }, 0)
-}
-
-/**
- * Filtra registros por período (últimos N dias)
- */
-function filtrarRegistrosPorPeriodo(
-  registros: RegistroSuplementacao[],
-  dias: number
-): RegistroSuplementacao[] {
-  const dataCorte = new Date()
-  dataCorte.setDate(dataCorte.getDate() - dias)
-
-  return registros.filter(reg => {
-    const dataReg = new Date(reg.data)
-    return dataReg >= dataCorte
-  })
-}
-
-/**
  * Filtra registros por formulação
  */
 function filtrarRegistrosPorFormulacao(
@@ -98,14 +101,70 @@ function filtrarRegistrosPorFormulacao(
   return registros.filter(reg => reg.formulacao === nomeFormulacao)
 }
 
-/**
- * Calcula o número de dias únicos nos registros
- */
-function calcularDiasUnicos(registros: RegistroSuplementacao[]): number {
-  const datasUnicas = new Set(
-    registros.map(reg => reg.data.split('T')[0])
-  )
-  return datasUnicas.size
+function calcularIntervalosTratos(
+  registros: RegistroSuplementacao[]
+): IntervaloTrato[] {
+  const ordenados = ordenarRegistrosPorData(registros)
+  const intervalos: IntervaloTrato[] = []
+
+  for (let i = 0; i < ordenados.length - 1; i++) {
+    const atual = ordenados[i]
+    const proximo = ordenados[i + 1]
+    const inicio = dataSemHoraUTC(atual.data)
+    const fim = dataSemHoraUTC(proximo.data)
+    const dias = diferencaDias(inicio, fim)
+    const kgCocho = atual.kg_cocho || 0
+
+    intervalos.push({
+      inicio,
+      fim,
+      dias,
+      kgCocho,
+      consumoDiarioMN: kgCocho / dias
+    })
+  }
+
+  return intervalos
+}
+
+function calcularMediaPorDiasCobertos(
+  intervalos: IntervaloTrato[],
+  dataInicio: Date,
+  dataFim: Date
+): number | null {
+  let totalMN = 0
+  let diasCobertos = 0
+
+  const atual = new Date(dataInicio)
+  while (atual <= dataFim) {
+    const intervalo = intervalos.find(
+      int => atual >= int.inicio && atual < int.fim
+    )
+    if (intervalo) {
+      totalMN += intervalo.consumoDiarioMN
+      diasCobertos++
+    }
+    atual.setUTCDate(atual.getUTCDate() + 1)
+  }
+
+  return diasCobertos > 0 ? totalMN / diasCobertos : null
+}
+
+function nullMetrics(
+  motivoFalha: string,
+  categoriasNaoElegiveis: string[]
+): SupplementMetrics {
+  return {
+    consumoMedioGeralPercentPV: null,
+    consumoMedio30DiasPercentPV: null,
+    consumoMedioGeralKgMN: null,
+    consumoMedio30DiasKgMN: null,
+    consumoMedioGeralKgMS: null,
+    consumoMedio30DiasKgMS: null,
+    custoMedioReaisCabDia: null,
+    motivoFalha,
+    categoriasNaoElegiveis: categoriasNaoElegiveis.length > 0 ? categoriasNaoElegiveis : undefined
+  }
 }
 
 /**
@@ -131,15 +190,7 @@ export function calcularMetricasSuplementacao(
   const pesoVivoMedio = calcularPesoVivoMedio(categorias)
 
   if (!pesoVivoMedio) {
-    return {
-      consumoMedioGeralPercentPV: null,
-      consumoMedio30DiasPercentPV: null,
-      consumoMedioGeralKgMN: null,
-      consumoMedio30DiasKgMN: null,
-      custoMedioReaisCabDia: null,
-      motivoFalha: 'Não há peso vivo médio cadastrado no lote',
-      categoriasNaoElegiveis
-    }
+    return nullMetrics('Não há peso vivo médio cadastrado no lote', categoriasNaoElegiveis)
   }
 
   // Calcular número de animais elegíveis (excluindo bezerros/bezerras)
@@ -152,50 +203,66 @@ export function calcularMetricasSuplementacao(
   }, 0)
 
   if (animaisElegiveis === 0) {
-    return {
-      consumoMedioGeralPercentPV: null,
-      consumoMedio30DiasPercentPV: null,
-      consumoMedioGeralKgMN: null,
-      consumoMedio30DiasKgMN: null,
-      custoMedioReaisCabDia: null,
-      motivoFalha: `Lote composto apenas por categorias não elegíveis: ${categoriasNaoElegiveis.join(', ')}`,
+    return nullMetrics(
+      `Lote composto apenas por categorias não elegíveis: ${categoriasNaoElegiveis.join(', ')}`,
       categoriasNaoElegiveis
-    }
+    )
   }
 
   // Filtrar registros pela formulação selecionada
   const registrosDaFormulacao = filtrarRegistrosPorFormulacao(registros, formulacao.nome)
+  const intervalos = calcularIntervalosTratos(registrosDaFormulacao)
 
-  // Métricas gerais (todos os registros da formulação)
-  const todosRegistros = registrosDaFormulacao
-  const consumoTotalGeralMN = calcularConsumoTotalMN(todosRegistros)
-  const diasGerais = calcularDiasUnicos(todosRegistros)
+  if (intervalos.length === 0) {
+    return nullMetrics(
+      'É necessário pelo menos dois tratos para calcular o consumo médio',
+      categoriasNaoElegiveis
+    )
+  }
 
-  const consumoMedioGeralKgMN = diasGerais > 0
-    ? consumoTotalGeralMN / (animaisElegiveis * diasGerais)
+  // Média geral: cobre do primeiro trato até o início do último trato
+  const dataInicioGeral = intervalos[0].inicio
+  const dataFimGeral = intervalos[intervalos.length - 1].fim
+  const mediaMNGeral = calcularMediaPorDiasCobertos(intervalos, dataInicioGeral, dataFimGeral)
+
+  const consumoMedioGeralKgMN = mediaMNGeral !== null
+    ? mediaMNGeral / animaisElegiveis
     : null
 
-  const consumoMedioGeralPercentPV = consumoMedioGeralKgMN !== null
-    ? (consumoMedioGeralKgMN / pesoVivoMedio) * 100
+  // Média 30 dias: cobre os últimos 30 dias até hoje
+  const hoje = new Date()
+  hoje.setUTCHours(0, 0, 0, 0)
+  const inicio30Dias = new Date(hoje)
+  inicio30Dias.setUTCDate(hoje.getUTCDate() - 30)
+  const mediaMN30Dias = calcularMediaPorDiasCobertos(intervalos, inicio30Dias, hoje)
+
+  const consumoMedio30DiasKgMN = mediaMN30Dias !== null
+    ? mediaMN30Dias / animaisElegiveis
     : null
 
-  // Métricas 30 dias
-  const registros30Dias = filtrarRegistrosPorPeriodo(registrosDaFormulacao, 30)
-  const consumoTotal30DiasMN = calcularConsumoTotalMN(registros30Dias)
-  const dias30Dias = calcularDiasUnicos(registros30Dias)
+  // Cálculos de MS e %PV
+  const teorMs = formulacao.teor_ms_dieta
+  const fatorMs = teorMs ? teorMs / 100 : null
 
-  const consumoMedio30DiasKgMN = dias30Dias > 0
-    ? consumoTotal30DiasMN / (animaisElegiveis * dias30Dias)
+  const consumoMedioGeralKgMS = consumoMedioGeralKgMN !== null && fatorMs !== null
+    ? consumoMedioGeralKgMN * fatorMs
     : null
 
-  const consumoMedio30DiasPercentPV = consumoMedio30DiasKgMN !== null
-    ? (consumoMedio30DiasKgMN / pesoVivoMedio) * 100
+  const consumoMedio30DiasKgMS = consumoMedio30DiasKgMN !== null && fatorMs !== null
+    ? consumoMedio30DiasKgMN * fatorMs
     : null
 
-  // Custo médio (usando custo por tonelada e consumo real)
+  const consumoMedioGeralPercentPV = consumoMedioGeralKgMS !== null
+    ? (consumoMedioGeralKgMS / pesoVivoMedio) * 100
+    : null
+
+  const consumoMedio30DiasPercentPV = consumoMedio30DiasKgMS !== null
+    ? (consumoMedio30DiasKgMS / pesoVivoMedio) * 100
+    : null
+
+  // Custo médio (usando custo por tonelada de MN e consumo real)
   let custoMedioReaisCabDia: number | null = null
   if (formulacao.custo_mn_tonelada && consumoMedioGeralKgMN !== null) {
-    // Custo por tonelada (R$/ton) × consumo médio (kg/cab/dia) / 1000
     custoMedioReaisCabDia = (formulacao.custo_mn_tonelada * consumoMedioGeralKgMN) / 1000
   }
 
@@ -204,6 +271,8 @@ export function calcularMetricasSuplementacao(
     consumoMedio30DiasPercentPV,
     consumoMedioGeralKgMN,
     consumoMedio30DiasKgMN,
+    consumoMedioGeralKgMS,
+    consumoMedio30DiasKgMS,
     custoMedioReaisCabDia,
     categoriasNaoElegiveis: categoriasNaoElegiveis.length > 0 ? categoriasNaoElegiveis : undefined
   }
