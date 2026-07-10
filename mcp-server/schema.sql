@@ -38,6 +38,7 @@ CREATE TABLE fazendas (
   email TEXT,
   logo_url TEXT,
   planilha_id TEXT,
+  tolerancia_rotina_minutos INTEGER DEFAULT 30,
   ativo BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -666,6 +667,58 @@ WITH CHECK (true);
 -- Política: apenas usuários da fazenda podem visualizar
 CREATE POLICY "Users can view their farm sync error logs"
 ON logs_sync_errors
+FOR SELECT
+TO authenticated
+USING (fazenda_id IN (
+  SELECT uf.fazenda_id
+  FROM usuario_fazenda uf
+  JOIN usuarios u ON u.id = uf.usuario_id
+  WHERE u.auth_id = auth.uid() AND uf.ativo = true
+));
+
+-- ============================================
+-- TABELA DE EXECUÇÕES DE ROTINA (AUDITORIA)
+-- ============================================
+
+CREATE TABLE execucoes_rotina (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fazenda_id UUID NOT NULL REFERENCES fazendas(id) ON DELETE CASCADE,
+  funcionario_id UUID NOT NULL REFERENCES funcionarios(id) ON DELETE CASCADE,
+  rotina_id UUID REFERENCES rotinas(id) ON DELETE SET NULL,
+  caderneta_id TEXT NOT NULL,
+  data DATE NOT NULL,
+  horario_programado TIME,
+  primeiro_acesso TIMESTAMPTZ,
+  primeiro_registro TIMESTAMPTZ,
+  status TEXT CHECK (status IN ('no_horario', 'atrasado', 'antecipado', 'nao_executado')),
+  observacao TEXT,
+  concluido BOOLEAN DEFAULT false,
+  dispositivo_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_execucoes_rotina_fazenda ON execucoes_rotina(fazenda_id);
+CREATE INDEX idx_execucoes_rotina_funcionario ON execucoes_rotina(funcionario_id);
+CREATE INDEX idx_execucoes_rotina_caderneta ON execucoes_rotina(caderneta_id);
+CREATE INDEX idx_execucoes_rotina_data ON execucoes_rotina(data);
+CREATE INDEX idx_execucoes_rotina_status ON execucoes_rotina(status);
+CREATE INDEX idx_execucoes_rotina_funcionario_data ON execucoes_rotina(funcionario_id, data);
+
+-- Habilitar RLS
+ALTER TABLE execucoes_rotina ENABLE ROW LEVEL SECURITY;
+
+-- Política: app pode inserir/atualizar execuções de rotina
+CREATE POLICY "App can upsert execucoes_rotina"
+ON execucoes_rotina
+FOR ALL
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+-- Política: usuários da fazenda podem visualizar execuções
+CREATE POLICY "Users can view their farm execucoes_rotina"
+ON execucoes_rotina
 FOR SELECT
 TO authenticated
 USING (fazenda_id IN (

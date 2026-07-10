@@ -25,6 +25,9 @@ import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
+import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
+import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
+import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
@@ -151,6 +154,19 @@ export default function SuplementacaoPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('suplementacao')
+  const { garantirExecucao } = useExecucaoRotina()
+  const {
+    showObservacaoModal,
+    horariosModal,
+    iniciarSalvamento,
+    confirmarObservacao,
+    cancelarObservacao,
+  } = useRegistroComExecucao('suplementacao')
+
+  useEffect(() => {
+    garantirExecucao('suplementacao')
+  }, [garantirExecucao])
+
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -482,7 +498,7 @@ export default function SuplementacaoPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  const handleSalvar = async () => {
+  const executarSalvamento = async () => {
     setSalvando(true)
     setErrors([])
 
@@ -562,6 +578,19 @@ export default function SuplementacaoPage() {
       setForm(makeInitial(usuario))
       setKgDeposito('')
     }
+  }
+
+  const handleSalvar = async () => {
+    const podeContinuar = await iniciarSalvamento()
+    if (!podeContinuar) {
+      setSalvando(false)
+      return
+    }
+    await executarSalvamento()
+  }
+
+  const handleSalvarContinuar = async () => {
+    await executarSalvamento()
   }
 
   const handleNewRecord = () => {
@@ -864,6 +893,22 @@ export default function SuplementacaoPage() {
           `${BASE}docs/cocho/POP_Cocho_01.jpg`,
           `${BASE}docs/cocho/POP_Cocho_02.jpg`
         ]}
+      />
+
+      <ObservacaoAtrasoModal
+        isOpen={showObservacaoModal}
+        onClose={async (observacao) => {
+          if (observacao !== undefined) {
+            setSalvando(true)
+            await confirmarObservacao(observacao)
+            await handleSalvarContinuar()
+          } else {
+            cancelarObservacao()
+            setSalvando(false)
+          }
+        }}
+        horarioProgramado={horariosModal.programado}
+        horarioRegistro={horariosModal.registro}
       />
 
       <PdfModal

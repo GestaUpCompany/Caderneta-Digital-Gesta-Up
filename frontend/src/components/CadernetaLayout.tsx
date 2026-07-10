@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 import FarmLogo from './FarmLogo'
+import { useExecucaoRotina } from '../hooks/useExecucaoRotina'
 
 interface CadernetaLayoutProps {
   title: string
@@ -27,6 +28,12 @@ export default function CadernetaLayout({
   const navigate = useNavigate()
   const { acessoId, fazenda } = useSelector((state: RootState) => state.config)
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
+  const { garantirExecucao } = useExecucaoRotina()
+
+  // Registrar primeiro acesso na execução de rotina quando aplicável
+  useEffect(() => {
+    garantirExecucao(cadernetaId)
+  }, [cadernetaId, garantirExecucao])
 
   // Buscar logoUrl diretamente do banco usando acessoId
   useEffect(() => {

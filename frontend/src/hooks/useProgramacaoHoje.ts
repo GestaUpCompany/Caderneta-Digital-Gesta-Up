@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { getRotinasOnlineFirst, Rotina } from '../services/rotinasService'
-import { getProgramacaoPorFuncionario } from '../utils/rotinas'
+import { getProgramacaoPorFuncionario, getHorariosPorFuncionario } from '../utils/rotinas'
 import { getHojeIso } from '../services/checklistRegrasService'
 
 export interface UseProgramacaoHojeReturn {
   programacao: string[]
+  horarios: Record<string, string>
   rotinas: Rotina[]
   loading: boolean
   error: string | null
@@ -50,11 +51,16 @@ export function useProgramacaoHoje(): UseProgramacaoHojeReturn {
     () => (funcionarioId ? getProgramacaoPorFuncionario(rotinas, funcionarioId, hoje) : []),
     [rotinas, funcionarioId, hoje]
   )
+  const horarios = useMemo(
+    () => (funcionarioId ? getHorariosPorFuncionario(rotinas, funcionarioId, hoje) : {}),
+    [rotinas, funcionarioId, hoje]
+  )
 
   const temRotinasCadastradas = rotinas.length > 0
 
   return {
     programacao,
+    horarios,
     rotinas,
     loading,
     error,

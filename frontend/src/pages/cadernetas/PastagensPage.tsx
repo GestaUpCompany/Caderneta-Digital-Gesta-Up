@@ -28,6 +28,9 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
+import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
+import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
+import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -180,6 +183,19 @@ export default function PastagensPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('pastagens')
+  const { garantirExecucao } = useExecucaoRotina()
+  const {
+    showObservacaoModal,
+    horariosModal,
+    iniciarSalvamento,
+    confirmarObservacao,
+    cancelarObservacao,
+  } = useRegistroComExecucao('pastagens')
+
+  useEffect(() => {
+    garantirExecucao('pastagens')
+  }, [garantirExecucao])
+
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -492,7 +508,7 @@ export default function PastagensPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  const handleSalvar = async () => {
+  const executarSalvamento = async () => {
     setSalvando(true)
     setErrors([])
 
@@ -573,6 +589,19 @@ export default function PastagensPage() {
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
     }
+  }
+
+  const handleSalvar = async () => {
+    const podeContinuar = await iniciarSalvamento()
+    if (!podeContinuar) {
+      setSalvando(false)
+      return
+    }
+    await executarSalvamento()
+  }
+
+  const handleSalvarContinuar = async () => {
+    await executarSalvamento()
   }
 
   const handleNewRecord = () => {
@@ -1127,6 +1156,22 @@ export default function PastagensPage() {
         cadernetaName="Manejo Pastagens"
         registro={registroSalvo}
         caderneta="pastagens"
+      />
+
+      <ObservacaoAtrasoModal
+        isOpen={showObservacaoModal}
+        onClose={async (observacao) => {
+          if (observacao !== undefined) {
+            setSalvando(true)
+            await confirmarObservacao(observacao)
+            await handleSalvarContinuar()
+          } else {
+            cancelarObservacao()
+            setSalvando(false)
+          }
+        }}
+        horarioProgramado={horariosModal.programado}
+        horarioRegistro={horariosModal.registro}
       />
 
       <PdfModal

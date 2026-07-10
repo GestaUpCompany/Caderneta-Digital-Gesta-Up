@@ -387,6 +387,82 @@ export type Database = {
           },
         ]
       }
+      execucoes_rotina: {
+        Row: {
+          caderneta_id: string
+          concluido: boolean | null
+          created_at: string | null
+          data: string
+          dispositivo_id: string | null
+          fazenda_id: string
+          funcionario_id: string
+          horario_programado: string | null
+          id: string
+          observacao: string | null
+          primeiro_acesso: string | null
+          primeiro_registro: string | null
+          rotina_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          caderneta_id: string
+          concluido?: boolean | null
+          created_at?: string | null
+          data: string
+          dispositivo_id?: string | null
+          fazenda_id: string
+          funcionario_id: string
+          horario_programado?: string | null
+          id?: string
+          observacao?: string | null
+          primeiro_acesso?: string | null
+          primeiro_registro?: string | null
+          rotina_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          caderneta_id?: string
+          concluido?: boolean | null
+          created_at?: string | null
+          data?: string
+          dispositivo_id?: string | null
+          fazenda_id?: string
+          funcionario_id?: string
+          horario_programado?: string | null
+          id?: string
+          observacao?: string | null
+          primeiro_acesso?: string | null
+          primeiro_registro?: string | null
+          rotina_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execucoes_rotina_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucoes_rotina_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execucoes_rotina_rotina_id_fkey"
+            columns: ["rotina_id"]
+            isOneToOne: false
+            referencedRelation: "rotinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fazendas: {
         Row: {
           acesso_id: string
@@ -401,6 +477,7 @@ export type Database = {
           nome: string
           planilha_id: string | null
           telefone: string | null
+          tolerancia_rotina_minutos: number | null
           updated_at: string | null
         }
         Insert: {
@@ -416,6 +493,7 @@ export type Database = {
           nome: string
           planilha_id?: string | null
           telefone?: string | null
+          tolerancia_rotina_minutos?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -431,6 +509,7 @@ export type Database = {
           nome?: string
           planilha_id?: string | null
           telefone?: string | null
+          tolerancia_rotina_minutos?: number | null
           updated_at?: string | null
         }
         Relationships: []

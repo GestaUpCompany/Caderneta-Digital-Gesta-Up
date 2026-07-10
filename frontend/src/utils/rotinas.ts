@@ -4,7 +4,7 @@ export interface Rotina {
   funcionario_id: string
   cadernetas: string[]
   dias_semana: number[]
-  horario: string | null
+  horarios: Record<string, string | null>
   data_inicio: string
   data_fim: string | null
   ativo: boolean
@@ -57,4 +57,32 @@ export function getProgramacaoPorFuncionario(
   }
 
   return Array.from(cadernetas)
+}
+
+export function getHorariosPorFuncionario(
+  rotinas: Rotina[],
+  funcionarioId: string,
+  dataIso: string
+): Record<string, string> {
+  const rotinasDoFuncionario = getRotinasDoFuncionario(rotinas, funcionarioId, dataIso)
+  const horarios: Record<string, string> = {}
+
+  for (const rotina of rotinasDoFuncionario) {
+    if (rotina.horarios && typeof rotina.horarios === 'object') {
+      for (const [cadernetaId, horario] of Object.entries(rotina.horarios)) {
+        if (horario && typeof horario === 'string') {
+          horarios[cadernetaId] = horario
+        }
+      }
+    }
+  }
+
+  return horarios
+}
+
+export function formatarHorario(horario: string | null | undefined): string | null {
+  if (!horario || typeof horario !== 'string') return null
+  const partes = horario.split(':')
+  if (partes.length < 2) return null
+  return `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}`
 }

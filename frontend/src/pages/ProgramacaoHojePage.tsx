@@ -4,7 +4,9 @@ import { RootState } from '../store/store'
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
 import { useChecklistAtivo } from '../hooks/useChecklistAtivo'
 import { CADERNETAS } from '../utils/constants'
+import { formatarHorario } from '../utils/rotinas'
 import FarmLogo from '../components/FarmLogo'
+import { Clock } from 'lucide-react'
 
 const hexToRgba = (hex: string, alpha: number = 0.25): string => {
   const r = parseInt(hex.slice(1, 3), 16)
@@ -16,7 +18,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 export default function ProgramacaoHojePage() {
   const navigate = useNavigate()
   const { fazenda, logoUrl, funcionarioNome } = useSelector((state: RootState) => state.config)
-  const { programacao, loading, refresh } = useProgramacaoHoje()
+  const { programacao, horarios, loading, refresh } = useProgramacaoHoje()
 
   const programacaoMap = new Map(programacao.map((id) => [id, true]))
   const cadernetasProgramadas = CADERNETAS.filter(
@@ -98,6 +100,7 @@ export default function ProgramacaoHojePage() {
               <CadernetaProgramada
                 key={caderneta.id}
                 caderneta={caderneta}
+                horario={formatarHorario(horarios[caderneta.id])}
                 onClick={() => handleCadernetaClick(caderneta.id)}
               />
             ))}
@@ -110,10 +113,11 @@ export default function ProgramacaoHojePage() {
 
 interface CadernetaProgramadaProps {
   caderneta: (typeof CADERNETAS)[0]
+  horario: string | null
   onClick: () => void
 }
 
-function CadernetaProgramada({ caderneta, onClick }: CadernetaProgramadaProps) {
+function CadernetaProgramada({ caderneta, horario, onClick }: CadernetaProgramadaProps) {
   const { ativo: checklistAtivo, loading: checklistLoading } = useChecklistAtivo(caderneta.id)
 
   return (
@@ -146,6 +150,12 @@ function CadernetaProgramada({ caderneta, onClick }: CadernetaProgramadaProps) {
       <span className="text-sm font-bold text-center leading-tight text-gray-900">
         {caderneta.label}
       </span>
+      {horario && (
+        <span className="flex items-center gap-1 text-xs text-gray-700 font-semibold bg-white/60 px-2 py-1 rounded-full">
+          <Clock size={12} />
+          {horario}
+        </span>
+      )}
       {checklistAtivo && !checklistLoading && (
         <span className="text-xs text-green-700 font-semibold">Checklist ativo</span>
       )}

@@ -20,6 +20,9 @@ import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
+import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
+import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
+import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -147,6 +150,19 @@ export default function RodeioPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('rodeio')
+  const { garantirExecucao } = useExecucaoRotina()
+  const {
+    showObservacaoModal,
+    horariosModal,
+    iniciarSalvamento,
+    confirmarObservacao,
+    cancelarObservacao,
+  } = useRegistroComExecucao('rodeio')
+
+  useEffect(() => {
+    garantirExecucao('rodeio')
+  }, [garantirExecucao])
+
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -299,7 +315,7 @@ export default function RodeioPage() {
     (acc, c) => acc + (Number(form[c as keyof FormState]) || 0), 0
   )
 
-  const handleSalvar = async () => {
+  const executarSalvamento = async () => {
     setSalvando(true)
     setErrors([])
 
@@ -355,6 +371,19 @@ export default function RodeioPage() {
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
+  }
+
+  const handleSalvar = async () => {
+    const podeContinuar = await iniciarSalvamento()
+    if (!podeContinuar) {
+      setSalvando(false)
+      return
+    }
+    await executarSalvamento()
+  }
+
+  const handleSalvarContinuar = async () => {
+    await executarSalvamento()
   }
 
   const handleLimpar = () => {
@@ -766,6 +795,22 @@ export default function RodeioPage() {
         cadernetaName="Rodeio Gado"
         registro={registroSalvo}
         caderneta="rodeio"
+      />
+
+      <ObservacaoAtrasoModal
+        isOpen={showObservacaoModal}
+        onClose={async (observacao) => {
+          if (observacao !== undefined) {
+            setSalvando(true)
+            await confirmarObservacao(observacao)
+            await handleSalvarContinuar()
+          } else {
+            cancelarObservacao()
+            setSalvando(false)
+          }
+        }}
+        horarioProgramado={horariosModal.programado}
+        horarioRegistro={horariosModal.registro}
       />
 
       <PdfModal

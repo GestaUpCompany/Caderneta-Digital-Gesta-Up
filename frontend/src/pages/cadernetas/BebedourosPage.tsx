@@ -13,6 +13,8 @@ import { createHistoricoLimpeza, getFuncionarios } from '../../services/supabase
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
+import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
+import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
@@ -109,6 +111,13 @@ export default function BebedourosPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('bebedouros')
+  const {
+    showObservacaoModal,
+    horariosModal,
+    iniciarSalvamento,
+    confirmarObservacao,
+    cancelarObservacao,
+  } = useRegistroComExecucao('bebedouros')
   const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -259,7 +268,7 @@ export default function BebedourosPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  const handleSalvar = async () => {
+  const executarSalvamento = async () => {
     setSalvando(true)
     setErrors([])
 
@@ -336,6 +345,19 @@ export default function BebedourosPage() {
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
     }
+  }
+
+  const handleSalvar = async () => {
+    const podeContinuar = await iniciarSalvamento()
+    if (!podeContinuar) {
+      setSalvando(false)
+      return
+    }
+    await executarSalvamento()
+  }
+
+  const handleSalvarContinuar = async () => {
+    await executarSalvamento()
   }
 
   const handleNewRecord = () => {
@@ -500,6 +522,22 @@ export default function BebedourosPage() {
         cadernetaName="Bebedouros"
         registro={registroSalvo}
         caderneta="bebedouros"
+      />
+
+      <ObservacaoAtrasoModal
+        isOpen={showObservacaoModal}
+        onClose={async (observacao) => {
+          if (observacao !== undefined) {
+            setSalvando(true)
+            await confirmarObservacao(observacao)
+            await handleSalvarContinuar()
+          } else {
+            cancelarObservacao()
+            setSalvando(false)
+          }
+        }}
+        horarioProgramado={horariosModal.programado}
+        horarioRegistro={horariosModal.registro}
       />
 
       <PdfModal

@@ -15,7 +15,7 @@ export async function fetchRotinas(fazendaId: string): Promise<Rotina[]> {
     funcionario_id: r.funcionario_id,
     cadernetas: Array.isArray(r.cadernetas) ? r.cadernetas : [],
     dias_semana: Array.isArray(r.dias_semana) ? r.dias_semana.map(Number) : [],
-    horario: r.horario || null,
+    horarios: r.horarios && typeof r.horarios === 'object' ? r.horarios : {},
     data_inicio: r.data_inicio,
     data_fim: r.data_fim || null,
     ativo: r.ativo !== false,
