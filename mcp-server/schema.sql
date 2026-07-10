@@ -624,3 +624,53 @@ CREATE TRIGGER update_registros_entrada_insumos_updated_at BEFORE UPDATE ON regi
 
 CREATE TRIGGER update_registros_saida_insumos_updated_at BEFORE UPDATE ON registros_saida_insumos
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- TABELA DE LOGS DE FALHAS DE SINCRONIZAÇÃO
+-- ============================================
+
+CREATE TABLE logs_sync_errors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fazenda_id UUID NOT NULL REFERENCES fazendas(id) ON DELETE CASCADE,
+  dispositivo_id UUID REFERENCES dispositivos(id) ON DELETE SET NULL,
+  caderneta TEXT NOT NULL,
+  registro_id TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  error_code TEXT,
+  error_message TEXT,
+  error_details TEXT,
+  payload JSONB,
+  retry_count INTEGER DEFAULT 0,
+  resolved_at TIMESTAMPTZ,
+  resolved_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índices para logs_sync_errors
+CREATE INDEX idx_logs_sync_errors_fazenda ON logs_sync_errors(fazenda_id);
+CREATE INDEX idx_logs_sync_errors_caderneta ON logs_sync_errors(caderneta);
+CREATE INDEX idx_logs_sync_errors_registro ON logs_sync_errors(registro_id);
+CREATE INDEX idx_logs_sync_errors_created_at ON logs_sync_errors(created_at);
+CREATE INDEX idx_logs_sync_errors_unresolved ON logs_sync_errors(fazenda_id) WHERE resolved_at IS NULL;
+
+-- Habilitar RLS
+ALTER TABLE logs_sync_errors ENABLE ROW LEVEL SECURITY;
+
+-- Política: app pode inserir logs (necessário para logar falhas de autenticação)
+CREATE POLICY "App can insert sync error logs"
+ON logs_sync_errors
+FOR INSERT
+TO anon, authenticated
+WITH CHECK (true);
+
+-- Política: apenas usuários da fazenda podem visualizar
+CREATE POLICY "Users can view their farm sync error logs"
+ON logs_sync_errors
+FOR SELECT
+TO authenticated
+USING (fazenda_id IN (
+  SELECT uf.fazenda_id
+  FROM usuario_fazenda uf
+  JOIN usuarios u ON u.id = uf.usuario_id
+  WHERE u.auth_id = auth.uid() AND uf.ativo = true
+));

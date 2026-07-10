@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Registro } from '../../types/cadernetas'
 import { CadernetaStore } from '../../services/indexedDB'
-import { listarRegistros, excluirRegistro } from '../../services/api'
+import { listarRegistros, excluirRegistro, reenviarRegistro } from '../../services/api'
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
@@ -173,6 +173,15 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
       compartilharWhatsApp(texto)
       setMostrarModalCompartilhar(false)
       setRegistroParaCompartilhar(null)
+    }
+  }
+
+  const handleReenviar = async (registro: Registro) => {
+    const result = await reenviarRegistro(caderneta, registro.id)
+    if (result.success) {
+      carregar()
+    } else {
+      alert(result.message)
     }
   }
 
@@ -796,6 +805,16 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
                   >
                     COMPARTILHAR
                   </Button>
+                  {registro.syncStatus === 'error' && (
+                    <Button
+                      onClick={() => handleReenviar(registro)}
+                      variant="primary"
+                      size="sm"
+                      icon="🔄"
+                    >
+                      REENVIAR
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

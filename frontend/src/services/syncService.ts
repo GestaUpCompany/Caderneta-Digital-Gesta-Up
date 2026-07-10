@@ -27,6 +27,7 @@ export async function enqueueRegistro(
     operation,
     timestamp: Date.now(),
     retryCount: 0,
+    nextRetryAt: Date.now(),
     priority: 'normal',
   }
   await addToSyncQueue(item)
@@ -602,10 +603,55 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
   }
 }
 
-export async function processQueue(fazendaId?: string): Promise<{ synced: number; failed: number }> {
+function calculateBackoffMs(retryCount: number): number {
+  // Backoff exponencial: 30s, 1min, 2min, 4min, 8min, 15min, 30min, 1h, 2h, 4h
+  const baseMs = 30_000
+  const maxMs = 4 * 60 * 60 * 1000
+  const delayMs = Math.min(baseMs * Math.pow(2, retryCount), maxMs)
+  return delayMs
+}
+
+interface LogSyncErrorData {
+  fazendaId: string
+  store: CadernetaStore
+  registroId: string
+  operation: 'create' | 'update'
+  error: unknown
+  retryCount: number
+  payload?: any
+}
+
+export async function logSyncError(data: LogSyncErrorData): Promise<void> {
+  try {
+    const err = data.error as any
+    const errorCode = err?.code || err?.error?.code || String(err?.status || '')
+    const errorMessage = err?.message || err?.error?.message || String(err || 'Erro desconhecido')
+    const errorDetails = err?.details || err?.error?.details || JSON.stringify(err).slice(0, 2000)
+
+    await supabaseService.createLogSyncError({
+      fazenda_id: data.fazendaId,
+      dispositivo_id: null,
+      caderneta: data.store,
+      registro_id: data.registroId,
+      operation: data.operation,
+      error_code: errorCode || undefined,
+      error_message: errorMessage || undefined,
+      error_details: errorDetails || undefined,
+      payload: data.payload || null,
+      retry_count: data.retryCount,
+    })
+  } catch (logErr) {
+    // Falha ao logar não deve interromper o fluxo de sync
+    console.error('[SYNC] Falha ao logar erro de sincronização:', logErr)
+  }
+}
+
+export async function processQueue(fazendaId?: string): Promise<{ synced: number; failed: number; skipped: number }> {
   const queue = await getSyncQueue()
   let synced = 0
   let failed = 0
+  let skipped = 0
+  const now = Date.now()
 
   for (const item of queue) {
     if (item.retryCount >= MAX_RETRY_COUNT) {
@@ -615,6 +661,11 @@ export async function processQueue(fazendaId?: string): Promise<{ synced: number
       continue
     }
 
+    if (item.nextRetryAt > now) {
+      skipped++
+      continue
+    }
+    
     const registro = await getRegistro(item.store, item.registroId)
     if (!registro) {
       await removeFromSyncQueue(item.id)
@@ -634,10 +685,25 @@ export async function processQueue(fazendaId?: string): Promise<{ synced: number
     } catch (err) {
       console.error(`[SYNC] Erro ao sincronizar ${item.store}/${item.registroId}:`, err)
       item.retryCount++
+      item.nextRetryAt = now + calculateBackoffMs(item.retryCount)
       await addToSyncQueue(item)
       failed++
+
+      // Logar falha no Supabase (tabela logs_sync_errors permite INSERT anon)
+      if (fazendaId) {
+        const payload = registroToSupabase(item.store, registro, fazendaId)
+        await logSyncError({
+          fazendaId,
+          store: item.store,
+          registroId: item.registroId,
+          operation: item.operation,
+          error: err,
+          retryCount: item.retryCount,
+          payload,
+        })
+      }
     }
   }
 
-  return { synced, failed }
+  return { synced, failed, skipped }
 }

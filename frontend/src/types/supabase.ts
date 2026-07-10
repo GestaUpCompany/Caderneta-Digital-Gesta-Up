@@ -204,32 +204,35 @@ export type Database = {
       checklist_regras: {
         Row: {
           ativo: boolean | null
-          cadernetas: string[] | null
+          cadernetas: string[]
           created_at: string | null
           data_fim: string | null
           data_inicio: string
           fazenda_id: string
           id: string
+          tipo: string
           updated_at: string | null
         }
         Insert: {
           ativo?: boolean | null
-          cadernetas?: string[] | null
+          cadernetas?: string[]
           created_at?: string | null
           data_fim?: string | null
           data_inicio: string
           fazenda_id: string
           id?: string
+          tipo?: string
           updated_at?: string | null
         }
         Update: {
           ativo?: boolean | null
-          cadernetas?: string[] | null
+          cadernetas?: string[]
           created_at?: string | null
           data_fim?: string | null
           data_inicio?: string
           fazenda_id?: string
           id?: string
+          tipo?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -637,8 +640,8 @@ export type Database = {
         Row: {
           acessa_app: boolean | null
           ativo: boolean | null
-          cargo: string | null
           cadernetas_permitidas: Json | null
+          cargo: string | null
           cpf: string | null
           created_at: string | null
           fazenda_id: string
@@ -651,8 +654,8 @@ export type Database = {
         Insert: {
           acessa_app?: boolean | null
           ativo?: boolean | null
-          cargo?: string | null
           cadernetas_permitidas?: Json | null
+          cargo?: string | null
           cpf?: string | null
           created_at?: string | null
           fazenda_id: string
@@ -665,8 +668,8 @@ export type Database = {
         Update: {
           acessa_app?: boolean | null
           ativo?: boolean | null
-          cargo?: string | null
           cadernetas_permitidas?: Json | null
+          cargo?: string | null
           cpf?: string | null
           created_at?: string | null
           fazenda_id?: string
@@ -1158,6 +1161,72 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "locais_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logs_sync_errors: {
+        Row: {
+          caderneta: string
+          created_at: string | null
+          dispositivo_id: string | null
+          error_code: string | null
+          error_details: string | null
+          error_message: string | null
+          fazenda_id: string
+          id: string
+          operation: string
+          payload: Json | null
+          registro_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          retry_count: number | null
+        }
+        Insert: {
+          caderneta: string
+          created_at?: string | null
+          dispositivo_id?: string | null
+          error_code?: string | null
+          error_details?: string | null
+          error_message?: string | null
+          fazenda_id: string
+          id?: string
+          operation: string
+          payload?: Json | null
+          registro_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number | null
+        }
+        Update: {
+          caderneta?: string
+          created_at?: string | null
+          dispositivo_id?: string | null
+          error_code?: string | null
+          error_details?: string | null
+          error_message?: string | null
+          fazenda_id?: string
+          id?: string
+          operation?: string
+          payload?: Json | null
+          registro_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logs_sync_errors_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logs_sync_errors_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
@@ -4532,6 +4601,63 @@ export type Database = {
           },
         ]
       }
+      rotinas: {
+        Row: {
+          ativo: boolean
+          cadernetas: string[]
+          created_at: string
+          data_fim: string | null
+          data_inicio: string
+          dias_semana: number[]
+          fazenda_id: string
+          funcionario_id: string
+          horario: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cadernetas?: string[]
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          dias_semana?: number[]
+          fazenda_id: string
+          funcionario_id: string
+          horario?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cadernetas?: string[]
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          dias_semana?: number[]
+          fazenda_id?: string
+          funcionario_id?: string
+          horario?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotinas_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotinas_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saida_insumos_itens: {
         Row: {
           id: string
@@ -5147,6 +5273,16 @@ export type Database = {
           profundidade: number
         }[]
       }
+      get_registros_atividades: {
+        Args: { periodo?: string }
+        Returns: {
+          caderneta: string
+          fazenda_id: string
+          fazenda_nome: string
+          periodo_inicio: string
+          quantidade: number
+        }[]
+      }
       listar_individuos_para_atualizacao_peso: {
         Args: never
         Returns: {
@@ -5237,13 +5373,13 @@ export type Database = {
       tipo_movimentacao_motivo:
         | "Consumo"
         | "Abate"
-        | "Saída"
+        | "Sa├¡da"
         | "Entrada"
         | "Entrevero"
-        | "Doação"
+        | "Doa├º├úo"
       tipo_movimentacao_subtipo:
         | "Enfermaria"
-        | "Apartação"
+        | "Aparta├º├úo"
         | "Refugo de Cocho"
         | "Compras"
         | "Venda"
@@ -5410,14 +5546,14 @@ export const Constants = {
       tipo_movimentacao_motivo: [
         "Consumo",
         "Abate",
-        "Saída",
+        "Sa├¡da",
         "Entrada",
         "Entrevero",
-        "Doação",
+        "Doa├º├úo",
       ],
       tipo_movimentacao_subtipo: [
         "Enfermaria",
-        "Apartação",
+        "Aparta├º├úo",
         "Refugo de Cocho",
         "Compras",
         "Venda",

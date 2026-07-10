@@ -96,5 +96,6 @@ export const SEXO_ANIMAL = ['Macho', 'Fêmea'] as const
 export const DB_NAME = 'cadernetas-digitais'
 export const DB_VERSION = 8
 
-export const MAX_RETRY_COUNT = 3
+export const MAX_RETRY_COUNT = 10
 export const SYNC_INTERVAL_MS = 30_000
+export const SYNC_CHECK_INTERVAL_MS = 10_000

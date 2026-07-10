@@ -2256,3 +2256,30 @@ export async function deleteRegistroLeituraCocho(id: string) {
 
   if (error) throw error
 }
+
+// ==================== LOGS DE FALHAS DE SINCRONIZAÇÃO ====================
+
+export interface LogSyncErrorInput {
+  fazenda_id: string
+  dispositivo_id?: string | null
+  caderneta: string
+  registro_id: string
+  operation: 'create' | 'update'
+  error_code?: string
+  error_message?: string
+  error_details?: string
+  payload?: any
+  retry_count?: number
+}
+
+export async function createLogSyncError(log: LogSyncErrorInput) {
+  // Usar cliente anon para garantir que consiga inserir mesmo quando a autenticação falhou
+  const { data, error } = await supabase
+    .from('logs_sync_errors')
+    .insert(log)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}

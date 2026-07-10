@@ -129,6 +129,7 @@ export interface SyncQueueItem {
   operation: 'create' | 'update'
   timestamp: number
   retryCount: number
+  nextRetryAt: number
   priority: 'high' | 'normal' | 'low'
 }
 

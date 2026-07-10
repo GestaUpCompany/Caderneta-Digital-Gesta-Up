@@ -10,11 +10,12 @@ import {
 } from '../store/slices/syncSlice'
 import { processQueue } from '../services/syncService'
 import { getSyncQueue } from '../services/indexedDB'
-import { SYNC_INTERVAL_MS } from '../utils/constants'
+import { reauthenticateFarm, isTokenValid } from '../services/authService'
+import { SYNC_CHECK_INTERVAL_MS } from '../utils/constants'
 
 export function useSync() {
   const dispatch = useDispatch()
-  const { fazendaId, configurado } = useSelector((state: RootState) => state.config)
+  const { fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
   const isRunning = useRef(false)
 
   const updatePendingCount = useCallback(async () => {
@@ -33,6 +34,15 @@ export function useSync() {
     dispatch(setError(null))
 
     try {
+      // Reautenticar peão se o token não estiver válido
+      if (!isTokenValid() && acessoId) {
+        console.log('[useSync] Token inválido, tentando reautenticar peão...')
+        const authResult = await reauthenticateFarm(acessoId)
+        if (!authResult.sucesso) {
+          console.error('[useSync] Falha ao reautenticar peão')
+        }
+      }
+
       const queue = await getSyncQueue()
       const total = queue.length
 
@@ -62,7 +72,7 @@ export function useSync() {
     } finally {
       isRunning.current = false
     }
-  }, [configurado, fazendaId, dispatch, updatePendingCount])
+  }, [configurado, fazendaId, acessoId, dispatch, updatePendingCount])
 
   useEffect(() => {
     const handleOnline = () => {
@@ -93,7 +103,7 @@ export function useSync() {
     if (!configurado || !fazendaId) return
     const interval = setInterval(() => {
       if (navigator.onLine) runSync()
-    }, SYNC_INTERVAL_MS)
+    }, SYNC_CHECK_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [configurado, fazendaId, runSync])
 

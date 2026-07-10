@@ -1,5 +1,5 @@
 import { Registro } from '../types/cadernetas'
-import { CadernetaStore, saveRegistro, getAllRegistros, deleteRegistro } from './indexedDB'
+import { CadernetaStore, saveRegistro, getAllRegistros, deleteRegistro, getRegistro, updateSyncStatus } from './indexedDB'
 import { enqueueRegistro } from './syncService'
 import { generateId, generateVersion, getCurrentTimestamp } from '../utils/generateId'
 import { validate, CadernetaType } from '../utils/validation'
@@ -97,4 +97,29 @@ export async function listarRegistros(caderneta: CadernetaStore): Promise<Regist
 
 export async function excluirRegistro(caderneta: CadernetaStore, id: string): Promise<void> {
   await deleteRegistro(caderneta, id)
+}
+
+export interface ReenviarResult {
+  success: boolean
+  message?: string
+}
+
+export async function reenviarRegistro(
+  caderneta: CadernetaStore,
+  id: string
+): Promise<ReenviarResult> {
+  try {
+    const registro = await getRegistro(caderneta, id)
+    if (!registro) {
+      return { success: false, message: 'Registro não encontrado no dispositivo.' }
+    }
+
+    await updateSyncStatus(caderneta, id, 'pending')
+    await enqueueRegistro(caderneta, id, registro.supabaseId ? 'update' : 'create')
+
+    return { success: true, message: 'Registro reenviado para sincronização.' }
+  } catch (error) {
+    console.error('Erro ao reenviar registro:', error)
+    return { success: false, message: 'Erro ao reenviar registro. Tente novamente.' }
+  }
 }
