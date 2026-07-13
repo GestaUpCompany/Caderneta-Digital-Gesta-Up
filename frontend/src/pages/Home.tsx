@@ -12,6 +12,7 @@ import { syncAllCadastroData } from '../services/cadastroCache'
 import FuncionarioLoginModal from '../components/FuncionarioLoginModal'
 import LongPressButton from '../components/LongPressButton'
 import { useFuncionarioAuth } from '../hooks/useFuncionarioAuth'
+import { useAppLock } from '../hooks/useAppLock'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -71,11 +72,30 @@ export default function Home() {
 
   const {
     rbacAtivo,
+    funcionarioLogado,
     funcionariosDisponiveis,
     showLogin,
     login,
     logout,
   } = useFuncionarioAuth()
+
+  const {
+    locked,
+    lastFuncionario,
+    loading: appLockLoading,
+    switchUser,
+  } = useAppLock({
+    fazendaId: fazendaId || '',
+    funcionarioLogado,
+    funcionariosDisponiveis,
+    onLogin: login,
+    onLogout: logout,
+  })
+
+  const handleLogout = useCallback(() => {
+    logout()
+    switchUser()
+  }, [logout, switchUser])
 
   const atualizarControleAcesso = useCallback(async () => {
     if (!acessoId || !configurado) return
@@ -255,7 +275,7 @@ export default function Home() {
                 <LongPressButton
                   onLongPress={() => {
                     setShowTrocarHint(false)
-                    logout()
+                    handleLogout()
                   }}
                   onClick={() => setShowTrocarHint(true)}
                   ariaLabel="Trocar funcionário"
@@ -489,11 +509,23 @@ export default function Home() {
       </main>
 
       {/* Login de funcionário quando RBAC está ativo */}
-      {showLogin && funcionariosDisponiveis.length > 0 && (
+      {!appLockLoading && showLogin && funcionariosDisponiveis.length > 0 && !locked && (
         <FuncionarioLoginModal
           funcionarios={funcionariosDisponiveis}
           fazendaId={fazendaId || ''}
           onLogin={login}
+        />
+      )}
+
+      {/* Tela de bloqueio com PIN do último usuário */}
+      {!appLockLoading && locked && lastFuncionario && (
+        <FuncionarioLoginModal
+          funcionarios={funcionariosDisponiveis}
+          fazendaId={fazendaId || ''}
+          onLogin={login}
+          lastFuncionario={lastFuncionario}
+          onSwitchUser={switchUser}
+          pinOnly
         />
       )}
 

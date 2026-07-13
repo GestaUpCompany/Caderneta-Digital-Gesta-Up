@@ -5,6 +5,9 @@ interface FuncionarioLoginModalProps {
   funcionarios: FuncionarioRBAC[]
   fazendaId: string
   onLogin: (funcionario: FuncionarioRBAC) => void
+  lastFuncionario?: FuncionarioRBAC | null
+  onSwitchUser?: () => void
+  pinOnly?: boolean
 }
 
 function getInitials(nome: string): string {
@@ -24,8 +27,15 @@ function stringToColor(str: string): string {
   return colors[Math.abs(hash) % colors.length]
 }
 
-export default function FuncionarioLoginModal({ funcionarios, fazendaId, onLogin }: FuncionarioLoginModalProps) {
-  const [selected, setSelected] = useState<FuncionarioRBAC | null>(null)
+export default function FuncionarioLoginModal({
+  funcionarios,
+  fazendaId,
+  onLogin,
+  lastFuncionario,
+  onSwitchUser,
+  pinOnly = false,
+}: FuncionarioLoginModalProps) {
+  const [selected, setSelected] = useState<FuncionarioRBAC | null>(lastFuncionario || null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -88,6 +98,9 @@ export default function FuncionarioLoginModal({ funcionarios, fazendaId, onLogin
     setSelected(null)
     setPin('')
     setError('')
+    if (pinOnly && onSwitchUser) {
+      onSwitchUser()
+    }
   }
 
   return (
@@ -158,7 +171,7 @@ export default function FuncionarioLoginModal({ funcionarios, fazendaId, onLogin
                 disabled={loading}
                 className="bg-gray-600 text-white text-lg font-bold py-5 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50"
               >
-                VOLTAR
+                {pinOnly ? 'TROCAR USUÁRIO' : 'VOLTAR'}
               </button>
               <button
                 onClick={() => handlePinDigit('0')}
