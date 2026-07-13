@@ -4559,11 +4559,25 @@ export type Database = {
           tratador: string | null
           updated_at: string | null
           version: number | null
+          consumo_medio_geral_percent_pv: number | null
+          consumo_medio_30dias_percent_pv: number | null
+          consumo_medio_geral_kg_mn: number | null
+          consumo_medio_30dias_kg_mn: number | null
+          consumo_medio_geral_kg_ms: number | null
+          consumo_medio_30dias_kg_ms: number | null
+          custo_medio_reais_cab_dia: number | null
         }
         Insert: {
           categorias?: string | null
           checklist?: Json | null
           created_at?: string | null
+          consumo_medio_geral_percent_pv?: number | null
+          consumo_medio_30dias_percent_pv?: number | null
+          consumo_medio_geral_kg_mn?: number | null
+          consumo_medio_30dias_kg_mn?: number | null
+          consumo_medio_geral_kg_ms?: number | null
+          consumo_medio_30dias_kg_ms?: number | null
+          custo_medio_reais_cab_dia?: number | null
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
@@ -4595,6 +4609,13 @@ export type Database = {
           categorias?: string | null
           checklist?: Json | null
           created_at?: string | null
+          consumo_medio_geral_percent_pv?: number | null
+          consumo_medio_30dias_percent_pv?: number | null
+          consumo_medio_geral_kg_mn?: number | null
+          consumo_medio_30dias_kg_mn?: number | null
+          consumo_medio_geral_kg_ms?: number | null
+          consumo_medio_30dias_kg_ms?: number | null
+          custo_medio_reais_cab_dia?: number | null
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
