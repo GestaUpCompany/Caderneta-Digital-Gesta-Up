@@ -169,7 +169,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
 
   const handleCompartilharTexto = () => {
     if (registroParaCompartilhar) {
-      const texto = formatarRegistroComoTexto(registroParaCompartilhar, caderneta)
+      const texto = formatarRegistroComoTexto(registroParaCompartilhar, caderneta, registros)
       compartilharWhatsApp(texto)
       setMostrarModalCompartilhar(false)
       setRegistroParaCompartilhar(null)
