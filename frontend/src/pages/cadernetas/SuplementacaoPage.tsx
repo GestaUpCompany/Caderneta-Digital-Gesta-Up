@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
+import { calcularPeriodoTrato } from '../../utils/shareUtils'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -576,7 +577,16 @@ export default function SuplementacaoPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      setRegistroSalvo(result.registro)
+      const registroComPeriodo = result.registro
+        ? { ...result.registro }
+        : null
+      if (registroComPeriodo) {
+        const periodoTrato = calcularPeriodoTrato(registroComPeriodo, registrosSuplementacao)
+        if (periodoTrato) {
+          registroComPeriodo.periodoTratoDias = periodoTrato
+        }
+      }
+      setRegistroSalvo(registroComPeriodo)
       setShowSuccessModal(true)
       setForm(makeInitial(usuario))
       setKgDeposito('')

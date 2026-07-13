@@ -78,7 +78,71 @@ const formatFieldValue = (key: string, value: unknown): string => {
   return valueStr
 }
 
-export const formatarRegistroComoTexto = (registro: Registro, caderneta: string): string => {
+function parseDataRegistro(data: unknown): Date | null {
+  if (!data) return null
+  const dataStr = String(data)
+  // Tenta formato DD/MM/YYYY HH:MM
+  const matchBrHora = dataStr.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
+  if (matchBrHora) {
+    const [_, dia, mes, ano, hora, minuto] = matchBrHora
+    return new Date(Number(ano), Number(mes) - 1, Number(dia), Number(hora), Number(minuto))
+  }
+  // Tenta formato DD/MM/YYYY
+  const matchBr = dataStr.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+  if (matchBr) {
+    const [_, dia, mes, ano] = matchBr
+    return new Date(Number(ano), Number(mes) - 1, Number(dia))
+  }
+  // Tenta formato ISO YYYY-MM-DDTHH:MM:SS
+  const matchIsoHora = dataStr.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/)
+  if (matchIsoHora) {
+    const [_, ano, mes, dia, hora, minuto] = matchIsoHora
+    return new Date(Number(ano), Number(mes) - 1, Number(dia), Number(hora), Number(minuto))
+  }
+  // Tenta formato ISO YYYY-MM-DD
+  const matchIso = dataStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (matchIso) {
+    const [_, ano, mes, dia] = matchIso
+    return new Date(Number(ano), Number(mes) - 1, Number(dia))
+  }
+  return null
+}
+
+export function calcularPeriodoTrato(registroAtual: Registro, todosRegistros?: Registro[]): string | null {
+  if (!todosRegistros || todosRegistros.length === 0) return null
+  const dataAtual = parseDataRegistro(registroAtual.data)
+  if (!dataAtual) return null
+
+  const registrosDoMesmoLote = todosRegistros.filter(
+    r => r.loteId === registroAtual.loteId && r.id !== registroAtual.id
+  )
+
+  let dataAnteriorMaisProxima: Date | null = null
+
+  for (const r of registrosDoMesmoLote) {
+    const dataR = parseDataRegistro(r.data)
+    if (!dataR || dataR.getTime() >= dataAtual.getTime()) continue
+    if (!dataAnteriorMaisProxima || dataR.getTime() > dataAnteriorMaisProxima.getTime()) {
+      dataAnteriorMaisProxima = dataR
+    }
+  }
+
+  if (!dataAnteriorMaisProxima) return null
+
+  const diffMs = dataAtual.getTime() - dataAnteriorMaisProxima.getTime()
+  const totalHoras = Math.max(0, Math.round(diffMs / (1000 * 60 * 60)))
+  const dias = Math.floor(totalHoras / 24)
+  const horas = totalHoras % 24
+
+  if (dias > 0) {
+    if (horas === 0) return `${dias} dia${dias !== 1 ? 's' : ''}`
+    return `${dias} dia${dias !== 1 ? 's' : ''} e ${horas} hora${horas !== 1 ? 's' : ''}`
+  }
+
+  return `${horas} hora${horas !== 1 ? 's' : ''}`
+}
+
+export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   // Obter nome da caderneta
   const cadernetaInfo = CADERNETAS.find(c => c.id === caderneta)
   const cadernetaNome = cadernetaInfo?.label || caderneta.toUpperCase()
@@ -566,6 +630,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string)
     }
     if (registro.pesoVivoKgLote !== null && registro.pesoVivoKgLote !== undefined && Number(registro.pesoVivoKgLote) > 0) {
       texto += `PESO VIVO MÉDIO: *${Number(registro.pesoVivoKgLote).toFixed(2).replace('.', ',')} kg*\n`
+    }
+    const periodoTrato = registro.periodoTratoDias !== null && registro.periodoTratoDias !== undefined
+      ? String(registro.periodoTratoDias)
+      : calcularPeriodoTrato(registro, todosRegistros)
+    if (periodoTrato) {
+      texto += `PERÍODO DE TRATO: *${periodoTrato}*\n`
     }
     texto += `\n`
     
