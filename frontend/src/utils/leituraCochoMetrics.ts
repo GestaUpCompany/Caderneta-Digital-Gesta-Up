@@ -66,6 +66,143 @@ function isCategoriaExcluida(categoria: string): boolean {
   return CATEGORIAS_EXCLUIDAS.some(excluida => normalizada.includes(excluida))
 }
 
+export interface CmsJanelas {
+  ontem: number | null
+  anteontem: number | null
+  tresDiasAtras: number | null
+  dezDias: number | null
+  geral: number | null
+}
+
+function parseDataRegistro(data: string): Date | null {
+  if (!data) return null
+  // Tenta formato ISO YYYY-MM-DDTHH:mm:ss
+  const matchIso = data.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (matchIso) {
+    const [_, ano, mes, dia] = matchIso
+    return new Date(Date.UTC(Number(ano), Number(mes) - 1, Number(dia)))
+  }
+  // Tenta formato BR DD/MM/YYYY
+  const matchBr = data.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+  if (matchBr) {
+    const [_, dia, mes, ano] = matchBr
+    return new Date(Date.UTC(Number(ano), Number(mes) - 1, Number(dia)))
+  }
+  return null
+}
+
+function ordenarRegistrosPorData(registros: RegistroSuplementacao[]): RegistroSuplementacao[] {
+  return [...registros].sort((a, b) => {
+    const dataA = parseDataRegistro(a.data)
+    const dataB = parseDataRegistro(b.data)
+    if (!dataA || !dataB) return 0
+    return dataA.getTime() - dataB.getTime()
+  })
+}
+
+function calcularCmsIntervalo(
+  kgCocho: number,
+  diasIntervalo: number,
+  cabecas: number,
+  pesoVivoMedio: number,
+  teorMs: number
+): number | null {
+  if (!kgCocho || !diasIntervalo || !cabecas || !pesoVivoMedio || !teorMs) return null
+  const ms = kgCocho * (teorMs / 100)
+  const msPorAnimalDia = ms / diasIntervalo / cabecas
+  return (msPorAnimalDia / pesoVivoMedio) * 100
+}
+
+export function calcularCmsPorJanelas(
+  detalhesLote: LoteDetalhes,
+  registrosSuplementacao: RegistroSuplementacao[],
+  teorMsDieta: number | null
+): CmsJanelas {
+  const cabecas = calcularCabecasElegiveis(detalhesLote)
+  const pesoVivoMedio = calcularPesoVivoMedio(detalhesLote)
+
+  if (!cabecas || !pesoVivoMedio || !teorMsDieta) {
+    return { ontem: null, anteontem: null, tresDiasAtras: null, dezDias: null, geral: null }
+  }
+
+  const ordenados = ordenarRegistrosPorData(registrosSuplementacao)
+  if (ordenados.length < 2) {
+    return { ontem: null, anteontem: null, tresDiasAtras: null, dezDias: null, geral: null }
+  }
+
+  const hoje = new Date()
+  hoje.setUTCHours(0, 0, 0, 0)
+
+  const intervalos: { inicio: Date; fim: Date; dias: number; kgCocho: number; cms: number | null }[] = []
+
+  for (let i = 0; i < ordenados.length - 1; i++) {
+    const atual = ordenados[i]
+    const proximo = ordenados[i + 1]
+    const inicio = parseDataRegistro(atual.data)
+    const fim = parseDataRegistro(proximo.data)
+    if (!inicio || !fim) continue
+
+    const diffMs = fim.getTime() - inicio.getTime()
+    const dias = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)))
+    const kgCocho = atual.kg_cocho || 0
+
+    intervalos.push({
+      inicio,
+      fim,
+      dias,
+      kgCocho,
+      cms: calcularCmsIntervalo(kgCocho, dias, cabecas, pesoVivoMedio, teorMsDieta),
+    })
+  }
+
+  if (intervalos.length === 0) {
+    return { ontem: null, anteontem: null, tresDiasAtras: null, dezDias: null, geral: null }
+  }
+
+  function cmsNaData(data: Date): number | null {
+    const intervalo = intervalos.find(int => data >= int.inicio && data < int.fim)
+    return intervalo?.cms ?? null
+  }
+
+  const ontem = new Date(hoje)
+  ontem.setUTCDate(hoje.getUTCDate() - 1)
+
+  const anteontem = new Date(hoje)
+  anteontem.setUTCDate(hoje.getUTCDate() - 2)
+
+  const tresDiasAtras = new Date(hoje)
+  tresDiasAtras.setUTCDate(hoje.getUTCDate() - 3)
+
+  const inicio10Dias = new Date(hoje)
+  inicio10Dias.setUTCDate(hoje.getUTCDate() - 10)
+
+  const valores10Dias: number[] = []
+  const atual10 = new Date(inicio10Dias)
+  while (atual10 <= hoje) {
+    const cms = cmsNaData(atual10)
+    if (cms !== null) valores10Dias.push(cms)
+    atual10.setUTCDate(atual10.getUTCDate() + 1)
+  }
+
+  const valoresGeral: number[] = []
+  const inicioGeral = intervalos[0].inicio
+  const fimGeral = intervalos[intervalos.length - 1].fim
+  const atualGeral = new Date(inicioGeral)
+  while (atualGeral <= fimGeral) {
+    const cms = cmsNaData(atualGeral)
+    if (cms !== null) valoresGeral.push(cms)
+    atualGeral.setUTCDate(atualGeral.getUTCDate() + 1)
+  }
+
+  return {
+    ontem: cmsNaData(ontem),
+    anteontem: cmsNaData(anteontem),
+    tresDiasAtras: cmsNaData(tresDiasAtras),
+    dezDias: valores10Dias.length > 0 ? valores10Dias.reduce((a, b) => a + b, 0) / valores10Dias.length : null,
+    geral: valoresGeral.length > 0 ? valoresGeral.reduce((a, b) => a + b, 0) / valoresGeral.length : null,
+  }
+}
+
 function calcularPesoVivoMedio(detalhesLote: LoteDetalhes): number | null {
   const categorias = obterCategoriasArray(detalhesLote)
   if (categorias.length === 0) {

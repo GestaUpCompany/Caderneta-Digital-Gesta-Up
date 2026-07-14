@@ -1,512 +1,583 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
-import SuccessModal from '../../components/SuccessModal'
-import PdfModal from '../../components/PdfModal'
+import { Input, DatePicker, SearchableModal } from '../../components/ui'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import {
   getCachedCadastroData,
-  getPastoByNomeCached,
-  getLotesByPastoIdCached,
   getLoteDetalhesComCategoriasCached,
   getRegistrosSuplementacaoByLoteCached,
   getRegistrosLeituraCochoByLoteCached,
-  getFormulacaoByNomeCached,
 } from '../../services/cadastroCache'
-import { getPastos, getFuncionarios } from '../../services/supabaseService'
-import { scrollToFirstError } from '../../utils/scrollToError'
-import { calcularMetricasLeituraCocho, MetricasLeituraCocho } from '../../utils/leituraCochoMetrics'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
-import PastoDetalhesCard from '../../components/PastoDetalhesCard'
-import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
-import FeatureLock from '../../components/FeatureLock'
+import { getLotes, getFuncionarios, getCurrais } from '../../services/supabaseService'
+import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 
-const BASE = import.meta.env.BASE_URL
-
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
+interface LoteItem {
+  id: string
+  nome: string
+  curral: string
+  curralId: string | null
+  dieta: string | null
+  leituraAnterior: number | null
+  tratoAnterior: number | null
+  nota: string
+  notaSalva: boolean
+  salvando: boolean
+  quantidade: number | null
+  pesoVivoKg: number | null
+  periodoDias: number | null
+  categorias: string
+  cms: CmsJanelas
 }
 
-const LEITURAS = [
-  { value: '-1', label: '-1', icon: '🔴' },
-  { value: '0', label: '0', icon: '🟡' },
-  { value: '1', label: '1', icon: '🟢' },
-  { value: '2', label: '2', icon: '🟡' },
-  { value: '3', label: '3', icon: '🔴' },
-]
-
-interface FormState {
-  data: string
-  responsavel: string
-  pastoCurral: string
-  pastoId: string
-  numeroLote: string
-  loteId: string
-  leituraCocho: string
-  observacao: string
+function formatarPercentual(valor: number | null): string {
+  if (valor === null || valor === undefined) return '—'
+  return `${valor.toFixed(2).replace('.', ',')}%`
 }
 
-const makeInitial = (_usuario?: string): FormState => ({
-  data: todayBR(),
-  responsavel: '',
-  pastoCurral: '',
-  pastoId: '',
-  numeroLote: '',
-  loteId: '',
-  leituraCocho: '',
-  observacao: '',
-})
+function formatarNumero(valor: number | null, casas = 2): string {
+  if (valor === null || valor === undefined) return '—'
+  return valor.toFixed(casas).replace('.', ',')
+}
+
+function capitalizarIniciais(texto: string): string {
+  return texto
+    .toLowerCase()
+    .split(' ')
+    .map((palavra) => (palavra.length > 0 ? palavra[0].toUpperCase() + palavra.slice(1) : palavra))
+    .join(' ')
+}
+
+function parseDataBR(data: string): Date | null {
+  const [day, month, year] = data.split('/').map(Number)
+  if (!day || !month || !year) return null
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+function diferencaDias(inicio: Date, fim: Date): number {
+  const diff = Math.round((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
+  return diff > 0 ? diff : 1
+}
 
 export default function LeituraCochoPage() {
   const navigate = useNavigate()
-  const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
-  const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
-  const [salvando, setSalvando] = useState(false)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [showPdfModal, setShowPdfModal] = useState(false)
-  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
-  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
-  const [lotesNoPasto, setLotesNoPasto] = useState<any[]>([])
-  const [detalhesLote, setDetalhesLote] = useState<any>(null)
-  const [detalhesPasto, setDetalhesPasto] = useState<any>(null)
-  const [metricas, setMetricas] = useState<MetricasLeituraCocho | null>(null)
-  const [carregandoMetricas, setCarregandoMetricas] = useState(false)
+  const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
+  const [data, setData] = useState<string>(todayBR())
+  const [responsavel, setResponsavel] = useState<string>(usuario || '')
+  const [responsaveis, setResponsaveis] = useState<string[]>([])
+  const [carregandoResponsaveis, setCarregandoResponsaveis] = useState(false)
+  const [lotes, setLotes] = useState<LoteItem[]>([])
+  const [loteSelecionadoId, setLoteSelecionadoId] = useState<string | null>(null)
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState<string | null>(null)
+  const listaRef = useRef<HTMLDivElement>(null)
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  const set = (field: keyof FormState) => (val: string) =>
-    setForm((prev) => ({ ...prev, [field]: val }))
-
-  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
-
-  // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
-    const loadData = async () => {
-      const cache = await getCachedCadastroData()
-      if (cache && cache.pastos && cache.pastos.length > 0) {
-        setPastosDisponiveis(cache.pastos || [])
-      }
-      if (cache && cache.funcionarios && cache.funcionarios.length > 0) {
-        setFuncionariosDisponiveis(cache.funcionarios || [])
-      }
+    async function carregarDadosIniciais() {
       if (!fazendaId) return
+      setCarregando(true)
+      setErro(null)
+
       try {
-        const [pastosData, funcionariosData] = await Promise.all([
-          getPastos(fazendaId),
-          getFuncionarios(fazendaId)
+        setCarregandoResponsaveis(true)
+        const cache = await getCachedCadastroData()
+        if (cache?.funcionarios?.length) {
+          setResponsaveis(cache.funcionarios)
+        }
+
+        const [lotesData, funcionariosData, curraisData] = await Promise.all([
+          getLotes(fazendaId),
+          getFuncionarios(fazendaId),
+          getCurrais(fazendaId),
         ])
-        setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
-        setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
-      } catch (error) {
-        console.error('Erro ao carregar dados do Supabase:', error)
-      }
-    }
-    loadData()
-  }, [fazendaId])
 
-  // Escutar atualizações do cache de cadastro
-  useEffect(() => {
-    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
-      console.log('[LeituraCochoPage] Cache atualizado, recarregando dados')
-      if (data) {
-        setPastosDisponiveis(data.pastos || [])
-        setFuncionariosDisponiveis(data.funcionarios || [])
-      }
-    })
+        const funcionariosNomes = funcionariosData?.map((f: any) => f.nome) || []
+        setResponsaveis(funcionariosNomes)
+        setCarregandoResponsaveis(false)
 
-    return unsubscribe
-  }, [])
+        const mapaCurrais = new Map<string, { id: string; nome: string }>()
+        curraisData?.forEach((c: any) => {
+          if (c.id && c.nome && c.lote_id) {
+            mapaCurrais.set(c.lote_id, { id: c.id, nome: c.nome })
+          }
+        })
 
-  // Buscar lotes e detalhes quando pasto é selecionado
-  useEffect(() => {
-    async function carregarLotesDoPasto() {
-      if (!form.pastoCurral || !fazendaId) {
-        setDetalhesLote(null)
-        setLotesNoPasto([])
-        setDetalhesPasto(null)
-        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
-        return
-      }
-
-      try {
-        // Buscar o pasto pelo nome para obter o ID
-        const pasto = await getPastoByNomeCached(fazendaId, form.pastoCurral)
-        if (!pasto) {
-          setDetalhesLote(null)
-          setLotesNoPasto([])
-          setDetalhesPasto(null)
-          setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
+        if (!lotesData || lotesData.length === 0) {
+          setLotes([])
+          setCarregando(false)
           return
         }
 
-        const pastoId = pasto.id
-        setForm(prev => ({ ...prev, pastoId }))
+        const lotesEnriquecidos = await Promise.all(
+          lotesData.map(async (lote: any) => {
+            const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
+            const [registrosSuplementacao, registrosLeitura] = await Promise.all([
+              getRegistrosSuplementacaoByLoteCached(fazendaId, lote.id),
+              getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id),
+            ])
 
-        // Exibir detalhes do pasto selecionado
-        setDetalhesPasto({
-          areaUtil: pasto.area_util_ha?.toString() || '',
-          especie: pasto.especie || '',
-          alturaEntrada: pasto.altura_entrada_cm?.toString() || '',
-        })
+            const curralInfo = lote.id ? mapaCurrais.get(lote.id) : null
+            if (!curralInfo) {
+              return null
+            }
+            const curral = curralInfo.nome || ''
 
-        // Buscar lotes que ocupam esse pasto
-        const lotes = await getLotesByPastoIdCached(fazendaId, pastoId)
-        setLotesNoPasto(lotes || [])
+            const supOrdenados = [...(registrosSuplementacao || [])].sort(
+              (a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime()
+            )
+            const dieta = supOrdenados[0]?.formulacao || null
 
-        if (!lotes || lotes.length === 0) {
-          setDetalhesLote(null)
-          setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
-          return
-        }
+            const leitOrdenados = [...(registrosLeitura || [])].sort(
+              (a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime()
+            )
+            const leituraAnterior = leitOrdenados[0]?.leitura_cocho ?? null
 
-        // Se houver 1+ lote(s), usar o primeiro como padrão
-        const lotePrincipal = lotes[0]
+            const tratoAnterior: number | null = supOrdenados[0]?.kg_cocho ?? null
 
-        // Buscar detalhes de categorias do lote
-        const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lotePrincipal.id)
+            let periodoDias: number | null = null
+            if (supOrdenados.length >= 2) {
+              const maisRecente = supOrdenados[0]
+              const anterior = supOrdenados[1]
+              const dataMaisRecente = parseDataBR(maisRecente.data) || new Date(maisRecente.data)
+              const dataAnterior = parseDataBR(anterior.data) || new Date(anterior.data)
+              periodoDias = diferencaDias(dataAnterior, dataMaisRecente)
+            }
 
-        // Combinar dados do lote com dados de categorias
-        setDetalhesLote({
-          ...lotePrincipal,
-          categorias: categoriasDetalhes.categorias,
-          n_cabecas: categoriasDetalhes.quant_atual,
-          peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-          qtd_bezerros: categoriasDetalhes.qtd_bezerros
-        })
+            const categorias =
+              typeof detalhes?.categorias === 'string' && detalhes.categorias !== '-'
+                ? detalhes.categorias
+                : Array.isArray(detalhes?.categorias)
+                  ? detalhes.categorias
+                      .map((c: any) => (typeof c === 'string' ? c : c.categoria))
+                      .filter(Boolean)
+                      .join(', ')
+                  : ''
 
-        setForm(prev => ({
-          ...prev,
-          numeroLote: lotePrincipal.nome || '',
-          loteId: lotePrincipal.id
-        }))
-      } catch (error) {
-        console.error('Erro ao carregar lotes do pasto:', error)
-        setDetalhesLote(null)
-        setLotesNoPasto([])
-        setDetalhesPasto(null)
-        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
-      }
-    }
+            const cms = calcularCmsPorJanelas(detalhes || lote, registrosSuplementacao || [], 70)
 
-    carregarLotesDoPasto()
-  }, [form.pastoCurral, fazendaId])
-
-  // Calcular métricas de consumo MS e buscar leituras anteriores quando lote mudar
-  useEffect(() => {
-    async function carregarMetricas() {
-      if (!form.loteId || !fazendaId || !detalhesLote) {
-        setMetricas(null)
-        return
-      }
-
-      setCarregandoMetricas(true)
-      try {
-        const [registrosSuplementacao, leiturasAnteriores] = await Promise.all([
-          getRegistrosSuplementacaoByLoteCached(fazendaId, form.loteId),
-          getRegistrosLeituraCochoByLoteCached(fazendaId, form.loteId)
-        ])
-
-        const metricasCalculadas = await calcularMetricasLeituraCocho(
-          detalhesLote,
-          registrosSuplementacao || [],
-          async (nome: string) => getFormulacaoByNomeCached(fazendaId, nome),
-          leiturasAnteriores || []
+            return {
+              id: lote.id,
+              nome: lote.nome,
+              curral,
+              curralId: curralInfo.id,
+              dieta,
+              leituraAnterior,
+              tratoAnterior,
+              nota: '',
+              notaSalva: false,
+              salvando: false,
+              quantidade: detalhes?.quant_atual ?? lote.n_cabecas ?? null,
+              pesoVivoKg: detalhes?.peso_vivo_kg ?? lote.peso_vivo_kg ?? null,
+              periodoDias,
+              categorias,
+              cms,
+            } as LoteItem
+          })
         )
 
-        setMetricas(metricasCalculadas)
+        const lotesFiltrados = lotesEnriquecidos
+          .filter((l): l is LoteItem => l !== null)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+        setLotes(lotesFiltrados)
+        if (lotesFiltrados.length > 0) {
+          setLoteSelecionadoId(lotesFiltrados[0].id)
+        } else {
+          setLoteSelecionadoId(null)
+        }
       } catch (error) {
-        console.error('Erro ao carregar métricas de leitura de cocho:', error)
-        setMetricas(null)
+        console.error('Erro ao carregar dados da leitura de cocho:', error)
+        setErro('Erro ao carregar dados. Tente novamente.')
       } finally {
-        setCarregandoMetricas(false)
+        setCarregando(false)
+        setCarregandoResponsaveis(false)
       }
     }
 
-    carregarMetricas()
-  }, [form.loteId, fazendaId, detalhesLote])
+    carregarDadosIniciais()
+  }, [fazendaId])
 
-  const handleSalvar = async () => {
-    setSalvando(true)
-    setErrors([])
+  const loteSelecionado = useMemo(
+    () => lotes.find((l) => l.id === loteSelecionadoId) || null,
+    [lotes, loteSelecionadoId]
+  )
 
-    const result = await salvarRegistro('leitura-cocho', {
-      data: form.data,
-      responsavel: form.responsavel,
-      pastoCurral: form.pastoCurral,
-      pastoId: form.pastoId,
-      numeroLote: form.numeroLote,
-      loteId: form.loteId,
-      leituraCocho: form.leituraCocho !== '' ? Number(form.leituraCocho) : null,
-      observacao: form.observacao,
-      // Histórico de consumo MS para compartilhamento
-      consumoMedioMsKgDesdeFormacao: metricas?.mediaConsumoMsKgDesdeFormacao ?? null,
-      consumoMedioMsKgUltimos10Dias: metricas?.mediaConsumoMsKgUltimos10Dias ?? null,
-      consumoMsKgDiaAnterior: metricas?.consumoMsKgDiaAnterior ?? null,
-      consumoMedioMsPctPVDesdeFormacao: metricas?.mediaConsumoMsPctPVDesdeFormacao ?? null,
-      consumoMedioMsPctPVUltimos10Dias: metricas?.mediaConsumoMsPctPVUltimos10Dias ?? null,
-      consumoMsPctPVDiaAnterior: metricas?.consumoMsPctPVDiaAnterior ?? null,
-      leiturasUltimos3Dias: metricas?.leiturasUltimos3Dias ?? [],
-    })
-
-    setSalvando(false)
-    if (!result.success && result.errors) {
-      setErrors(result.errors)
-      scrollToFirstError(result.errors)
-    } else {
-      setRegistroSalvo(result.registro)
-      setShowSuccessModal(true)
-      setForm(makeInitial(usuario))
+  const selecionarLote = useCallback((id: string) => {
+    setLoteSelecionadoId(id)
+    const elemento = document.getElementById(`lote-card-${id}`)
+    if (elemento) {
+      elemento.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }
-  }
+  }, [])
 
-  const handleNewRecord = () => {
-    setShowSuccessModal(false)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  const navegarLote = useCallback(
+    (direcao: 'anterior' | 'proximo') => {
+      if (!loteSelecionadoId) return
+      const index = lotes.findIndex((l) => l.id === loteSelecionadoId)
+      if (index === -1) return
+      const novoIndex = direcao === 'anterior' ? index - 1 : index + 1
+      if (novoIndex >= 0 && novoIndex < lotes.length) {
+        selecionarLote(lotes[novoIndex].id)
+        setTimeout(() => {
+          inputRefs.current[lotes[novoIndex].id]?.focus()
+        }, 150)
+      }
+    },
+    [lotes, loteSelecionadoId, selecionarLote]
+  )
 
-  const handleExit = () => {
-    setShowSuccessModal(false)
-    navigate('/')
-  }
+  const atualizarNota = useCallback((id: string, valor: string) => {
+    // Permite apenas números e sinal de negativo
+    const valorFiltrado = valor.replace(/[^\d-]/g, '')
+    // Evita múltiplos sinais de negativo
+    const valorLimpo = valorFiltrado.startsWith('-')
+      ? '-' + valorFiltrado.slice(1).replace(/-/g, '')
+      : valorFiltrado.replace(/-/g, '')
+    setLotes((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, nota: valorLimpo, notaSalva: false } : l))
+    )
+  }, [])
+
+  const salvarNota = useCallback(
+    async (id: string) => {
+      const lote = lotes.find((l) => l.id === id)
+      if (!lote || !fazendaId) return
+
+      const notaNumero = lote.nota === '' || lote.nota === '-' ? null : Number(lote.nota)
+      if (lote.nota !== '' && lote.nota !== '-' && isNaN(notaNumero as number)) return
+
+      setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, salvando: true } : l)))
+
+      try {
+        await salvarRegistro('leitura-cocho', {
+          data: `${data} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+          responsavel,
+          pastoCurral: lote.curral,
+          pastoId: null,
+          numeroLote: lote.nome,
+          loteId: lote.id,
+          leituraCocho: notaNumero !== null ? String(notaNumero) : '',
+          observacao: '',
+        })
+
+        setLotes((prev) =>
+          prev.map((l) =>
+            l.id === id
+              ? { ...l, notaSalva: true, salvando: false, leituraAnterior: notaNumero }
+              : l
+          )
+        )
+      } catch (error) {
+        console.error('Erro ao salvar nota:', error)
+        setLotes((prev) =>
+          prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false } : l))
+        )
+      }
+    },
+    [lotes, fazendaId, data, responsavel]
+  )
+
+  const handleNotaBlur = useCallback(
+    (id: string) => {
+      const lote = lotes.find((l) => l.id === id)
+      if (lote && lote.nota !== '' && lote.nota !== '-' && !lote.notaSalva) {
+        salvarNota(id)
+      }
+    },
+    [lotes, salvarNota]
+  )
+
+  const handleNotaKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const lote = lotes.find((l) => l.id === id)
+        if (lote && lote.nota !== '' && lote.nota !== '-') {
+          salvarNota(id).then(() => navegarLote('proximo'))
+        } else {
+          navegarLote('proximo')
+        }
+      }
+    },
+    [lotes, salvarNota, navegarLote]
+  )
+
+  const janelas = [
+    { key: 'ontem' as const, label: 'Um dia atrás' },
+    { key: 'anteontem' as const, label: 'Dois dias atrás' },
+    { key: 'tresDiasAtras' as const, label: 'Três dias atrás' },
+    { key: 'dezDias' as const, label: '10 Dias' },
+    { key: 'geral' as const, label: 'Geral' },
+  ]
+
+  const indiceSelecionado = lotes.findIndex((l) => l.id === loteSelecionadoId)
 
   return (
-    <FeatureLock feature="leitura-cocho" fazendaId={fazendaId}>
-    <>
-      <CadernetaLayout title="LEITURA DE COCHO" cadernetaId="leitura-cocho">
-        {/* Tarja de desenvolvimento */}
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
-          <p className="text-xs font-semibold text-amber-700">⚠️ EM DESENVOLVIMENTO</p>
-        </div>
-        {errors.length > 0 && <ValidationMessage errors={errors} />}
-
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} />
-          {funcionariosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
-              value={form.responsavel}
-              onChange={set('responsavel')}
-              error={getError('responsavel')}
-              options={funcionariosDisponiveis}
-              placeholder="Buscar responsável..."
-              id="responsavel"
-              name="responsavel"
-            />
-          ) : (
-            <Input
-              label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
-              placeholder="Carregando..."
-              value={form.responsavel}
-              onChange={setInput('responsavel')}
-              error={getError('responsavel')}
-              disabled
-              id="responsavel"
-            />
-          )}
-          {pastosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label="PASTO/CURRAL"
-              value={form.pastoCurral}
-              onChange={set('pastoCurral')}
-              error={getError('pastoCurral')}
-              options={pastosDisponiveis}
-              placeholder="Buscar pasto/curral..."
-              id="pastoCurral"
-              name="pastoCurral"
-            />
-          ) : (
-            <Input
-              label="PASTO/CURRAL"
-              placeholder="Carregando..."
-              value={form.pastoCurral}
-              onChange={setInput('pastoCurral')}
-              error={getError('pastoCurral')}
-              disabled
-              id="pastoCurral"
-            />
-          )}
-          {detalhesPasto && (
-            <PastoDetalhesCard detalhes={detalhesPasto} />
-          )}
-          {lotesNoPasto.length > 1 && (
-            <p className="text-sm text-amber-600 font-medium">
-              ⚠️ Este pasto contém {lotesNoPasto.length} lotes ativos. O primeiro foi selecionado automaticamente.
-            </p>
-          )}
-          {lotesNoPasto.length === 0 && form.pastoCurral && (
-            <p className="text-sm text-red-600 font-medium">
-              ⚠️ Nenhum lote ativo ocupando este pasto.
-            </p>
-          )}
-          {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
-          )}
-        </div>
-
-        {/* Seção 2: Métricas de Consumo MS */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. MÉTRICAS DE CONSUMO MS</h2>
-
-          {carregandoMetricas ? (
-            <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-center">
-              <p className="text-gray-600">Carregando métricas...</p>
-            </div>
-          ) : metricas?.mensagem ? (
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 text-center">
-              <p className="text-amber-800">{metricas.mensagem}</p>
-            </div>
-          ) : metricas ? (
-            <div className="space-y-4">
-              {/* kg/cab/dia */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 space-y-2">
-                <h3 className="font-semibold text-gray-800">Consumo MS (kg/cab/dia)</h3>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="text-xs text-gray-600">Desde formação</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {metricas.mediaConsumoMsKgDesdeFormacao?.toFixed(2) ?? '--'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Últimos 10 dias</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {metricas.mediaConsumoMsKgUltimos10Dias?.toFixed(2) ?? '--'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Dia anterior</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {metricas.consumoMsKgDiaAnterior?.toFixed(2) ?? '--'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* %PV/cab/dia */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 space-y-2">
-                <h3 className="font-semibold text-gray-800">Consumo MS (%PV/cab/dia)</h3>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="text-xs text-gray-600">Desde formação</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {metricas.mediaConsumoMsPctPVDesdeFormacao?.toFixed(2) ?? '--'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Últimos 10 dias</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {metricas.mediaConsumoMsPctPVUltimos10Dias?.toFixed(2) ?? '--'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Dia anterior</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {metricas.consumoMsPctPVDiaAnterior?.toFixed(2) ?? '--'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Leituras anteriores */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 space-y-2">
-                <h3 className="font-semibold text-gray-800">Leitura de Cocho - Últimos 3 dias</h3>
-                {metricas.leiturasUltimos3Dias.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    {metricas.leiturasUltimos3Dias.map((leitura, index) => (
-                      <div key={index}>
-                        <p className="text-xs text-gray-600">{leitura.dataBR}</p>
-                        <p className="text-lg font-bold text-gray-900">{leitura.nota ?? '--'}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-600 text-center">Nenhuma leitura de cocho registrada nos últimos 3 dias.</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 text-center">
-              <p className="text-gray-600">Selecione pasto/curral e lote para ver as métricas de consumo MS.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Seção 3: Leitura do Cocho */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. LEITURA DO COCHO</h2>
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP LEITURA DE COCHO</span>
-          </button>
-          <Radio
-            name="leituraCocho"
-            label="LEITURA DO COCHO (-1 a 3)"
-            options={LEITURAS}
-            value={form.leituraCocho}
-            onChange={set('leituraCocho')}
-            error={getError('leituraCocho')}
-            gridCols={5}
+    <CadernetaLayout
+      title="Leitura de Cocho"
+      cadernetaId="leitura-cocho"
+      onBack={() => navigate('/')}
+    >
+      {/* Seção 1: Dados Principais */}
+      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">
+          1. DADOS PRINCIPAIS <span className="text-red-500">*</span>
+        </h2>
+        <DatePicker label="DATA" value={data} onChange={setData} />
+        {responsaveis.length > 0 ? (
+          <SearchableModal
+            label="RESPONSÁVEL"
+            value={responsavel}
+            onChange={setResponsavel}
+            options={responsaveis}
+            placeholder="Buscar funcionário..."
+            disabled={carregandoResponsaveis}
+            id="responsavel"
+            name="responsavel"
           />
-        </div>
-
-        {/* Seção 4: Observação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÃO</h2>
+        ) : (
           <Input
-            placeholder="Detalhes adicionais (opcional)"
-            value={form.observacao}
-            onChange={setInput('observacao')}
+            label="RESPONSÁVEL"
+            placeholder={carregandoResponsaveis ? 'Carregando funcionários...' : 'Nome do responsável'}
+            value={responsavel}
+            onChange={(e) => setResponsavel(e.target.value)}
           />
+        )}
+      </div>
+
+      {/* Seção 2: Lotes */}
+      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">
+          2. LOTES <span className="text-red-500">*</span>
+        </h2>
+        <p className="text-sm text-gray-500">
+          Toque em um lote para carregar os dados e lançar a nota.
+        </p>
+
+        <div ref={listaRef} className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto -mx-1 px-1 pb-1">
+          {carregando ? (
+            <div className="p-8 text-center text-gray-500">Carregando lotes...</div>
+          ) : erro ? (
+            <div className="p-8 text-center text-red-600">{erro}</div>
+          ) : lotes.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              Nenhum lote encontrado para lançar nota.
+            </div>
+          ) : (
+            lotes.map((lote) => {
+              const selecionado = lote.id === loteSelecionadoId
+              return (
+                <div
+                  key={lote.id}
+                  id={`lote-card-${lote.id}`}
+                  onClick={() => selecionarLote(lote.id)}
+                  className={`rounded-2xl border-2 p-4 cursor-pointer transition-all ${
+                    selecionado
+                      ? 'border-yellow-500 bg-yellow-50 shadow-md'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  {/* Linha 1: Curral | Lote */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                        Curral
+                      </span>
+                      <span className="text-sm font-bold text-gray-900 truncate">
+                        {lote.curral || '—'}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                        Lote
+                      </span>
+                      <span className="text-base font-bold text-[#1a3a2a]">{lote.nome}</span>
+                    </div>
+                  </div>
+
+                  {/* Linha 2: Dieta */}
+                  <div className="mb-3">
+                    <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                      Dieta
+                    </span>
+                    <span className="text-xs text-gray-700 truncate block">
+                      {lote.dieta || '—'}
+                    </span>
+                  </div>
+
+                  {/* Linha 3: Leitura | Kg Cocho | Nota */}
+                  <div className="flex items-end gap-3 border-t border-gray-100 pt-3">
+                    <div className="flex-1">
+                      <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                        Leitura
+                      </span>
+                      <span className="text-base font-bold text-gray-900">
+                        {lote.leituraAnterior !== null ? lote.leituraAnterior : '—'}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                        Kg Cocho
+                      </span>
+                      <span className="text-base font-bold text-gray-900">
+                        {formatarNumero(lote.tratoAnterior)} kg
+                      </span>
+                    </div>
+                    <div className="shrink-0">
+                      <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                        Nota
+                      </span>
+                      <div className="relative">
+                        <input
+                          ref={(el) => (inputRefs.current[lote.id] = el)}
+                          type="tel"
+                          inputMode="numeric"
+                          value={lote.nota}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => atualizarNota(lote.id, e.target.value)}
+                          onBlur={() => handleNotaBlur(lote.id)}
+                          onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
+                          placeholder="—"
+                          className={`w-16 h-12 text-center text-lg font-bold border-2 rounded-xl focus:outline-none transition-colors ${
+                            lote.notaSalva
+                              ? 'border-green-500 bg-green-50 text-green-700'
+                              : 'border-gray-300 bg-white text-gray-900 focus:border-yellow-500'
+                          }`}
+                        />
+                        {lote.salvando && (
+                          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                        )}
+                        {lote.notaSalva && !lote.salvando && (
+                          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
+      </div>
 
-        <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
-            SALVAR
-          </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
-            LIMPAR
-          </Button>
+      {/* Seção 3: Informações do Lote */}
+      {loteSelecionado && (
+        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+          {/* Cabeçalho da seção */}
+          <div className="px-6 py-4 bg-[#1a3a2a] text-white">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-black tracking-tight">3. INFORMAÇÕES DO LOTE</h2>
+                <p className="text-xl font-bold text-yellow-400 truncate mt-1">
+                  {loteSelecionado.nome}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => navegarLote('anterior')}
+                disabled={indiceSelecionado === 0}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-white/10 active:bg-white/20 disabled:opacity-30 transition-colors text-sm font-bold"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => navegarLote('proximo')}
+                disabled={indiceSelecionado === lotes.length - 1}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-white/10 active:bg-white/20 disabled:opacity-30 transition-colors text-sm font-bold"
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 flex flex-col gap-5">
+            {/* Dados cadastrais - grid 2x2 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 p-4 rounded-2xl">
+                <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider block">
+                  QTD. CABEÇAS
+                </span>
+                <span className="text-lg font-bold text-gray-900">
+                  {loteSelecionado.quantidade ?? '—'}
+                </span>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-2xl">
+                <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider block">
+                  Peso Atual (kg)
+                </span>
+                <span className="text-lg font-bold text-gray-900">
+                  {formatarNumero(loteSelecionado.pesoVivoKg, 2)}
+                </span>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-2xl">
+                <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider block">
+                  Período (dias)
+                </span>
+                <span className="text-lg font-bold text-gray-900">
+                  {loteSelecionado.periodoDias ?? '—'}
+                </span>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-2xl">
+                <span className="text-[0.65rem] text-gray-400 uppercase tracking-wider block">
+                  Categorias
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {loteSelecionado.categorias ? (
+                    loteSelecionado.categorias
+                      .split(',')
+                      .map((c) => c.trim())
+                      .filter(Boolean)
+                      .map((categoria, index) => (
+                        <span
+                          key={index}
+                          className="inline-block bg-white border border-gray-200 rounded-full px-2.5 py-1 text-xs font-semibold text-gray-700"
+                        >
+                          {capitalizarIniciais(categoria)}
+                        </span>
+                      ))
+                  ) : (
+                    <span className="text-sm font-bold text-gray-900 leading-tight">—</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* CMS por janelas */}
+            <div>
+              <p className="text-sm font-bold text-gray-800 mb-3">
+                CMS (% PV)
+              </p>
+              <div className="space-y-2">
+                {janelas.map((janela) => (
+                  <div
+                    key={janela.key}
+                    className="flex items-center justify-between bg-gray-50 px-4 py-3 rounded-2xl"
+                  >
+                    <span className="text-sm text-gray-600 font-medium">
+                      {janela.label}
+                    </span>
+                    <span className="text-base font-bold text-[#1a3a2a]">
+                      {formatarPercentual(loteSelecionado.cms[janela.key])}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-      </CadernetaLayout>
-
-      <SuccessModal
-        isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        onNewRecord={handleNewRecord}
-        onExit={handleExit}
-        cadernetaName="Leitura de Cocho"
-        registro={registroSalvo}
-        caderneta="leitura-cocho"
-      />
-
-      <PdfModal
-        isOpen={showPdfModal}
-        onClose={() => setShowPdfModal(false)}
-        images={[
-          `${BASE}docs/cocho/POP_Cocho_01.jpg`,
-          `${BASE}docs/cocho/POP_Cocho_02.jpg`
-        ]}
-      />
-    </>
-    </FeatureLock>
+      )}
+    </CadernetaLayout>
   )
 }

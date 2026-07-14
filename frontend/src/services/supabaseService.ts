@@ -180,6 +180,21 @@ export async function deletePasto(id: string) {
   if (error) throw error
 }
 
+// ==================== CURRAIS ====================
+
+export async function getCurrais(fazendaId: string): Promise<any[]> {
+  const client = getSupabaseClient() as any
+  const { data, error } = await client
+    .from('currais')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data || []
+}
+
 // ==================== LOTES ====================
 
 export async function getLotes(fazendaId: string) {
