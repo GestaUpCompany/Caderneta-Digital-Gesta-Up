@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import {
@@ -7,48 +7,35 @@ import {
   isRegraAtivaParaCaderneta,
   getHojeIso,
 } from '../services/checklistRegrasService'
-import { Rotina, getRotinasOnlineFirst } from '../services/rotinasService'
-import { getProgramacaoPorFuncionario } from '../utils/rotinas'
 
 export interface UseChecklistAtivoReturn {
   ativo: boolean
   loading: boolean
   regras: ChecklistRegra[]
-  rotinas: Rotina[]
   refresh: () => Promise<void>
 }
 
 export function useChecklistAtivo(cadernetaId: string): UseChecklistAtivoReturn {
-  const { fazendaId, funcionarioId } = useSelector((state: RootState) => state.config)
+  const { fazendaId } = useSelector((state: RootState) => state.config)
   const [regras, setRegras] = useState<ChecklistRegra[]>([])
-  const [rotinas, setRotinas] = useState<Rotina[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     if (!fazendaId) {
       setRegras([])
-      setRotinas([])
       setLoading(false)
       return
     }
     setLoading(true)
     try {
-      const [regrasData, rotinasData] = await Promise.all([
-        getChecklistRegrasOnlineFirst(fazendaId).catch((err) => {
-          console.error('[useChecklistAtivo] Erro ao carregar regras:', err)
-          return []
-        }),
-        getRotinasOnlineFirst(fazendaId).catch((err) => {
-          console.warn('[useChecklistAtivo] Erro ao carregar rotinas:', err)
-          return []
-        }),
-      ])
+      const regrasData = await getChecklistRegrasOnlineFirst(fazendaId).catch((err) => {
+        console.error('[useChecklistAtivo] Erro ao carregar regras:', err)
+        return []
+      })
       setRegras(regrasData || [])
-      setRotinas(rotinasData || [])
     } catch (err) {
       console.error('[useChecklistAtivo] Erro ao carregar dados:', err)
       setRegras([])
-      setRotinas([])
     } finally {
       setLoading(false)
     }
@@ -60,32 +47,19 @@ export function useChecklistAtivo(cadernetaId: string): UseChecklistAtivoReturn 
 
   const hoje = getHojeIso()
   const temRegras = regras.length > 0
-  const temRotinas = rotinas.length > 0
   const cobertoPorRegra = isRegraAtivaParaCaderneta(regras, cadernetaId, hoje)
 
-  const programacao = useMemo(() => {
-    if (!funcionarioId) return []
-    return getProgramacaoPorFuncionario(rotinas, funcionarioId, hoje)
-  }, [rotinas, funcionarioId, hoje])
-
-  const cadernetaNaProgramacao = programacao.includes(cadernetaId)
-
-  // Regra de negócio corrigida:
-  // - Se a fazenda ainda não usa rotinas, mantém comportamento antigo (regras ou sempre visível).
-  // - Se há rotinas cadastradas, o checklist só fica ativo quando a caderneta está
-  //   na programação do funcionário para hoje E a regra de checklist permite.
-  let ativo: boolean
-  if (!temRotinas) {
-    ativo = !temRegras || cobertoPorRegra
-  } else {
-    ativo = cadernetaNaProgramacao && cobertoPorRegra
-  }
+  // A aparição do checklist depende apenas da regra de período (checklist_regras),
+  // independente de o usuário ter rotina para a caderneta em questão.
+  // - Sem regras cadastradas: checklist sempre visível (comportamento antigo).
+  // - Com regras: checklist ativo apenas quando a caderneta está coberta por uma
+  //   regra ativa para a data de hoje.
+  const ativo = !temRegras || cobertoPorRegra
 
   return {
     ativo,
     loading,
     regras,
-    rotinas,
     refresh: load,
   }
 }
