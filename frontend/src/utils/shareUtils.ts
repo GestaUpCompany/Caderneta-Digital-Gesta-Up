@@ -109,7 +109,7 @@ function parseDataRegistro(data: unknown): Date | null {
 }
 
 export function calcularPeriodoTrato(registroAtual: Registro, todosRegistros?: Registro[]): string | null {
-  if (!todosRegistros || todosRegistros.length === 0) return null
+  if (!todosRegistros || !Array.isArray(todosRegistros) || todosRegistros.length === 0) return null
   const dataAtual = parseDataRegistro(registroAtual.data)
   if (!dataAtual) return null
 
@@ -339,7 +339,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     
     // Seção: Inspeção Atual
     if (registro.numeroBebedouro) {
-      texto += `INSPEÇÃO ATUAL\n`
       texto += `BEBEDOURO: *${registro.numeroBebedouro}*\n`
     }
     if (registro.leituraBebedouro !== null && registro.leituraBebedouro !== undefined) {
@@ -388,13 +387,17 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.tempoDesdeLimpeza || registro.intervaloMedioLimpezas || registro.metaIntervaloLimpeza) {
       texto += `\nHISTÓRICO\n`
       if (registro.tempoDesdeLimpeza) {
-        texto += `TEMPO DESDE ÚLTIMA LIMPEZA: *${registro.tempoDesdeLimpeza}*\n`
+        const tempo = registro.tempoDesdeLimpeza
+        const tempoFormatado = tempo === 'Sem histórico' ? 'Sem histórico' : `há ${tempo}`
+        texto += `ÚLTIMA LIMPEZA: *${tempoFormatado}*\n`
       }
       if (registro.intervaloMedioLimpezas) {
-        texto += `INTERVALO MÉDIO LIMPEZAS: *${registro.intervaloMedioLimpezas}*\n`
+        texto += `INTERVALO MÉDIO: *${registro.intervaloMedioLimpezas}*\n`
       }
       if (registro.metaIntervaloLimpeza) {
-        texto += `META INTERVALO LIMPEZA: *${registro.metaIntervaloLimpeza}*\n`
+        const meta = registro.metaIntervaloLimpeza
+        const metaFormatada = meta === 'Não definida' ? 'Não definida' : `a cada ${meta}`
+        texto += `META LIMPEZA: *${metaFormatada}*\n`
       }
     }
     
@@ -620,16 +623,16 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `TRATADOR: *${registro.tratador || '—'}*\n`
     texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
     texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
-    texto += `NOME: *${registro.formulacao || '—'}*\n`
+    texto += `${registro.formulacao || '—'}\n`
     if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
-      texto += `META CONSUMO (%PV): *${registro.metaConsumo}%*\n`
+      texto += `META CONSUMO (%PV): *${Number(registro.metaConsumo).toFixed(2).replace('.', ',')}% *\n`
     }
     const totalCabecasLote = (Number(registro.nCabecasLote) || 0) + (Number(registro.qtdBezerrosLote) || 0)
     if (totalCabecasLote > 0) {
       texto += `N° CABEÇAS: *${totalCabecasLote}*\n`
     }
     if (registro.pesoVivoKgLote !== null && registro.pesoVivoKgLote !== undefined && Number(registro.pesoVivoKgLote) > 0) {
-      texto += `PESO VIVO MÉDIO: *${Number(registro.pesoVivoKgLote).toFixed(2).replace('.', ',')} kg*\n`
+      texto += `PV MÉDIO: *${Number(registro.pesoVivoKgLote).toFixed(2).replace('.', ',')} kg*\n`
     }
     const periodoTrato = registro.periodoTratoDias !== null && registro.periodoTratoDias !== undefined
       ? String(registro.periodoTratoDias)
@@ -666,16 +669,16 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (temConsumo) {
       texto += `\nHISTÓRICO DE CONSUMO\n`
       if (registro.consumoMedioGeralPercentPV !== null && registro.consumoMedioGeralPercentPV !== undefined) {
-        texto += `CONSUMO MÉDIO GERAL (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*\n`
+        texto += `CPV GERAL (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(2).replace('.', ',')}% *\n`
       }
       if (registro.consumoMedio30DiasPercentPV !== null && registro.consumoMedio30DiasPercentPV !== undefined) {
-        texto += `CONSUMO MÉDIO 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*\n`
+        texto += `CPV 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(2).replace('.', ',')}% *\n`
       }
       if (registro.consumoMedioGeralKgMN !== null && registro.consumoMedioGeralKgMN !== undefined) {
-        texto += `CONSUMO MÉDIO GERAL (kg/MN): *${Number(registro.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*\n`
+        texto += `CMN GERAL (kg/MN): *${Number(registro.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*\n`
       }
       if (registro.consumoMedio30DiasKgMN !== null && registro.consumoMedio30DiasKgMN !== undefined) {
-        texto += `CONSUMO MÉDIO 30 DIAS (kg/MN): *${Number(registro.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*\n`
+        texto += `CMN 30 DIAS (kg/MN): *${Number(registro.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*\n`
       }
       if (registro.custoMedioReaisCabDia !== null && registro.custoMedioReaisCabDia !== undefined) {
         texto += `CUSTO MÉDIO (R$/cab/dia): *R$ ${Number(registro.custoMedioReaisCabDia).toFixed(2).replace('.', ',')}*\n`

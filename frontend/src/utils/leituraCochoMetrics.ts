@@ -1,5 +1,10 @@
 import { isoToBR } from './formatDate'
 
+function round2(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || !isFinite(value)) return null
+  return Math.round(value * 100) / 100
+}
+
 interface CategoriaLote {
   categoria: string
   quant_atual: number | null
@@ -107,7 +112,7 @@ function calcularCmsIntervalo(
   pesoVivoMedio: number,
   teorMs: number
 ): number | null {
-  if (!kgCocho || !diasIntervalo || !cabecas || !pesoVivoMedio || !teorMs) return null
+  if (!kgCocho || diasIntervalo <= 0 || !cabecas || !pesoVivoMedio || !teorMs) return null
   const ms = kgCocho * (teorMs / 100)
   const msPorAnimalDia = ms / diasIntervalo / cabecas
   return (msPorAnimalDia / pesoVivoMedio) * 100
@@ -195,11 +200,11 @@ export function calcularCmsPorJanelas(
   }
 
   return {
-    ontem: cmsNaData(ontem),
-    anteontem: cmsNaData(anteontem),
-    tresDiasAtras: cmsNaData(tresDiasAtras),
-    dezDias: valores10Dias.length > 0 ? valores10Dias.reduce((a, b) => a + b, 0) / valores10Dias.length : null,
-    geral: valoresGeral.length > 0 ? valoresGeral.reduce((a, b) => a + b, 0) / valoresGeral.length : null,
+    ontem: round2(cmsNaData(ontem)),
+    anteontem: round2(cmsNaData(anteontem)),
+    tresDiasAtras: round2(cmsNaData(tresDiasAtras)),
+    dezDias: valores10Dias.length > 0 ? round2(valores10Dias.reduce((a, b) => a + b, 0) / valores10Dias.length) : null,
+    geral: valoresGeral.length > 0 ? round2(valoresGeral.reduce((a, b) => a + b, 0) / valoresGeral.length) : null,
   }
 }
 
@@ -225,7 +230,8 @@ function calcularPesoVivoMedio(detalhesLote: LoteDetalhes): number | null {
     }
   })
 
-  return quantTotal > 0 ? pesoTotal / quantTotal : null
+  if (quantTotal === 0) return null
+  return pesoTotal / quantTotal
 }
 
 function calcularCabecasElegiveis(detalhesLote: LoteDetalhes): number | null {
@@ -288,7 +294,7 @@ function calcularMediaMsKg(
     atual.setUTCDate(atual.getUTCDate() + 1)
   }
 
-  if (diasComRegistro === 0 || cabecas === 0) return null
+  if (diasComRegistro === 0 || cabecas <= 0) return null
   return totalMs / (diasComRegistro * cabecas)
 }
 
@@ -413,12 +419,12 @@ export async function calcularMetricasLeituraCocho(
     }))
 
   return {
-    mediaConsumoMsKgDesdeFormacao: mediaKgDesdeFormacao,
-    mediaConsumoMsKgUltimos10Dias: mediaKg10Dias,
-    consumoMsKgDiaAnterior: consumoKgOntem,
-    mediaConsumoMsPctPVDesdeFormacao: mediaPctDesdeFormacao,
-    mediaConsumoMsPctPVUltimos10Dias: mediaPct10Dias,
-    consumoMsPctPVDiaAnterior: consumoPctOntem,
+    mediaConsumoMsKgDesdeFormacao: round2(mediaKgDesdeFormacao),
+    mediaConsumoMsKgUltimos10Dias: round2(mediaKg10Dias),
+    consumoMsKgDiaAnterior: round2(consumoKgOntem),
+    mediaConsumoMsPctPVDesdeFormacao: round2(mediaPctDesdeFormacao),
+    mediaConsumoMsPctPVUltimos10Dias: round2(mediaPct10Dias),
+    consumoMsPctPVDiaAnterior: round2(consumoPctOntem),
     leiturasUltimos3Dias,
     mensagem: null,
   }

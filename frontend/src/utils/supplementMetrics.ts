@@ -4,6 +4,11 @@ interface LoteCategoria {
   peso_vivo_atual_kg_cab: number | null
 }
 
+function round2(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || !isFinite(value)) return null
+  return Math.round(value * 100) / 100
+}
+
 interface RegistroSuplementacao {
   data: string
   kg_cocho: number | null
@@ -225,7 +230,7 @@ export function calcularMetricasSuplementacao(
   const dataFimGeral = intervalos[intervalos.length - 1].fim
   const mediaMNGeral = calcularMediaPorDiasCobertos(intervalos, dataInicioGeral, dataFimGeral)
 
-  const consumoMedioGeralKgMN = mediaMNGeral !== null
+  const consumoMedioGeralKgMN = mediaMNGeral !== null && animaisElegiveis > 0
     ? mediaMNGeral / animaisElegiveis
     : null
 
@@ -236,7 +241,7 @@ export function calcularMetricasSuplementacao(
   inicio30Dias.setUTCDate(hoje.getUTCDate() - 30)
   const mediaMN30Dias = calcularMediaPorDiasCobertos(intervalos, inicio30Dias, hoje)
 
-  const consumoMedio30DiasKgMN = mediaMN30Dias !== null
+  const consumoMedio30DiasKgMN = mediaMN30Dias !== null && animaisElegiveis > 0
     ? mediaMN30Dias / animaisElegiveis
     : null
 
@@ -252,11 +257,11 @@ export function calcularMetricasSuplementacao(
     ? consumoMedio30DiasKgMN * fatorMs
     : null
 
-  const consumoMedioGeralPercentPV = consumoMedioGeralKgMS !== null
+  const consumoMedioGeralPercentPV = consumoMedioGeralKgMS !== null && pesoVivoMedio > 0
     ? (consumoMedioGeralKgMS / pesoVivoMedio) * 100
     : null
 
-  const consumoMedio30DiasPercentPV = consumoMedio30DiasKgMS !== null
+  const consumoMedio30DiasPercentPV = consumoMedio30DiasKgMS !== null && pesoVivoMedio > 0
     ? (consumoMedio30DiasKgMS / pesoVivoMedio) * 100
     : null
 
@@ -267,13 +272,13 @@ export function calcularMetricasSuplementacao(
   }
 
   return {
-    consumoMedioGeralPercentPV,
-    consumoMedio30DiasPercentPV,
-    consumoMedioGeralKgMN,
-    consumoMedio30DiasKgMN,
-    consumoMedioGeralKgMS,
-    consumoMedio30DiasKgMS,
-    custoMedioReaisCabDia,
+    consumoMedioGeralPercentPV: round2(consumoMedioGeralPercentPV),
+    consumoMedio30DiasPercentPV: round2(consumoMedio30DiasPercentPV),
+    consumoMedioGeralKgMN: round2(consumoMedioGeralKgMN),
+    consumoMedio30DiasKgMN: round2(consumoMedio30DiasKgMN),
+    consumoMedioGeralKgMS: round2(consumoMedioGeralKgMS),
+    consumoMedio30DiasKgMS: round2(consumoMedio30DiasKgMS),
+    custoMedioReaisCabDia: round2(custoMedioReaisCabDia),
     categoriasNaoElegiveis: categoriasNaoElegiveis.length > 0 ? categoriasNaoElegiveis : undefined
   }
 }
