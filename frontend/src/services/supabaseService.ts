@@ -195,6 +195,21 @@ export async function getCurrais(fazendaId: string): Promise<any[]> {
   return data || []
 }
 
+// ==================== LINHAS CONFINAMENTO ====================
+
+export async function getLinhasConfinamento(fazendaId: string): Promise<any[]> {
+  const client = getSupabaseClient() as any
+  const { data, error } = await client
+    .from('linhas_confinamento')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('nome')
+
+  if (error) throw error
+  return data || []
+}
+
 // ==================== LOTES ====================
 
 export async function getLotes(fazendaId: string) {
