@@ -56,8 +56,6 @@ export interface MetricasLeituraCocho {
 }
 
 const CATEGORIAS_EXCLUIDAS = [
-  'bezerro',
-  'bezerra',
   'bezerro ao pé',
   'bezerra ao pé',
 ]

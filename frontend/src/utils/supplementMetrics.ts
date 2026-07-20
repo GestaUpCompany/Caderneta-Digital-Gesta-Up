@@ -48,8 +48,6 @@ interface IntervaloTrato {
 }
 
 const CATEGORIAS_EXCLUIDAS = [
-  'bezerro',
-  'bezerra',
   'bezerro ao pé',
   'bezerra ao pé'
 ]

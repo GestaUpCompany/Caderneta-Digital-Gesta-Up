@@ -623,9 +623,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `TRATADOR: *${registro.tratador || '—'}*\n`
     texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
     texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
-    texto += `${registro.formulacao || '—'}\n`
+    texto += `*${registro.formulacao || '—'}*\n`
     if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
-      texto += `META CONSUMO (%PV): *${Number(registro.metaConsumo).toFixed(2).replace('.', ',')}% *\n`
+      texto += `META CONSUMO (%PV): *${Number(registro.metaConsumo).toFixed(2).replace('.', ',')}%*\n`
     }
     const totalCabecasLote = (Number(registro.nCabecasLote) || 0) + (Number(registro.qtdBezerrosLote) || 0)
     if (totalCabecasLote > 0) {
@@ -669,16 +669,16 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (temConsumo) {
       texto += `\nHISTÓRICO DE CONSUMO\n`
       if (registro.consumoMedioGeralPercentPV !== null && registro.consumoMedioGeralPercentPV !== undefined) {
-        texto += `CPV GERAL (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(2).replace('.', ',')}% *\n`
+        texto += `CMS Geral (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(2).replace('.', ',')}%*\n`
       }
       if (registro.consumoMedio30DiasPercentPV !== null && registro.consumoMedio30DiasPercentPV !== undefined) {
-        texto += `CPV 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(2).replace('.', ',')}% *\n`
+        texto += `CMS 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(2).replace('.', ',')}%*\n`
       }
       if (registro.consumoMedioGeralKgMN !== null && registro.consumoMedioGeralKgMN !== undefined) {
-        texto += `CMN GERAL (kg/MN): *${Number(registro.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*\n`
+        texto += `CMN Geral (kg/MN): *${Number(registro.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*\n`
       }
       if (registro.consumoMedio30DiasKgMN !== null && registro.consumoMedio30DiasKgMN !== undefined) {
-        texto += `CMN 30 DIAS (kg/MN): *${Number(registro.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*\n`
+        texto += `CMN 30 dias (kg/MN): *${Number(registro.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*\n`
       }
       if (registro.custoMedioReaisCabDia !== null && registro.custoMedioReaisCabDia !== undefined) {
         texto += `CUSTO MÉDIO (R$/cab/dia): *R$ ${Number(registro.custoMedioReaisCabDia).toFixed(2).replace('.', ',')}*\n`
