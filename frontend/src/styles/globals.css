@@ -15,6 +15,7 @@
 
   button {
     @apply min-h-[60px] min-w-[60px] text-lg font-bold;
+    touch-action: manipulation;
   }
 
   input, select, textarea {

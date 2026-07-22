@@ -104,10 +104,10 @@ export default function FuncionarioLoginModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-[#1a3a2a]">
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[#1a3a2a] overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto overscroll-contain">
         {!selected ? (
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-md my-auto">
             <h2 className="text-2xl font-black text-white text-center mb-2">QUEM ESTÁ USANDO?</h2>
             <p className="text-center text-yellow-400 mb-8 text-sm font-semibold">
               Toque no seu nome
