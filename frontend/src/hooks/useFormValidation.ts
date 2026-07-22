@@ -91,6 +91,9 @@ export function useFormValidation<T extends Record<string, any>>(
       if (field.startsWith('medicao_')) {
         const pluviometroId = field.replace('medicao_', '')
         value = (form as any).medicoes?.find((m: any) => m.pluviometroId === pluviometroId)?.medicao
+      } else if (field.startsWith('horario_')) {
+        const pluviometroId = field.replace('horario_', '')
+        value = (form as any).medicoes?.find((m: any) => m.pluviometroId === pluviometroId)?.horario
       } else if (field.startsWith('tarefa_')) {
         const limpezaKey = field.replace('tarefa_', '')
         value = (form as any).tarefas?.[limpezaKey]

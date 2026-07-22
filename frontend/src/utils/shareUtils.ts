@@ -130,16 +130,13 @@ export function calcularPeriodoTrato(registroAtual: Registro, todosRegistros?: R
   if (!dataAnteriorMaisProxima) return null
 
   const diffMs = dataAtual.getTime() - dataAnteriorMaisProxima.getTime()
-  const totalHoras = Math.max(0, Math.round(diffMs / (1000 * 60 * 60)))
-  const dias = Math.floor(totalHoras / 24)
-  const horas = totalHoras % 24
+  const dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
 
   if (dias > 0) {
-    if (horas === 0) return `${dias} dia${dias !== 1 ? 's' : ''}`
-    return `${dias} dia${dias !== 1 ? 's' : ''} e ${horas} hora${horas !== 1 ? 's' : ''}`
+    return `${dias} dia${dias !== 1 ? 's' : ''}`
   }
 
-  return `${horas} hora${horas !== 1 ? 's' : ''}`
+  return null
 }
 
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
@@ -1063,14 +1060,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // Adicionar medições de pluviômetros
     if (registro.medicoes && Array.isArray(registro.medicoes)) {
       texto += `\nPLUVIÔMETROS\n`
-      registro.medicoes.forEach((m: any) => {
+      registro.medicoes.forEach((m: any, index: number) => {
         const nome = m.pluviometro_nome || m.pluviometroNome || 'Pluviômetro'
         const localizacao = m.pluviometro_localizacao || m.pluviometroLocalizacao
         const temMedicao = m.medicao !== null && m.medicao !== undefined && m.medicao !== ''
         const temTemperatura = m.temperatura !== null && m.temperatura !== undefined && m.temperatura !== ''
 
         if (temMedicao || temTemperatura) {
-          texto += `${nome}${localizacao ? ` (${localizacao})` : ''}\n`
+          if (index > 0) texto += `\n`
+          texto += `*${nome}${localizacao ? ` (${localizacao})` : ''}*\n`
           if (temMedicao) {
             texto += `  Chuva: *${m.medicao} mm*\n`
           }

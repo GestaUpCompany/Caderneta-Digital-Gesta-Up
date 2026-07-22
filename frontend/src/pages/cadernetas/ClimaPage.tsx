@@ -24,6 +24,7 @@ interface MedicaoPluviometro {
   pluviometroLocalizacao: string
   medicao: string
   temperatura: string
+  horario: string
 }
 
 interface FormState {
@@ -63,11 +64,15 @@ export default function ClimaPage() {
   const validationRules: any = {
     data: { required: true },
     responsavel: { required: true },
+    _medicoes_min: {
+      custom: () => form.medicoes.length === 0 ? 'Selecione pelo menos 1 pluviômetro' : null
+    }
   }
 
-  // Add validation for pluviometer measurements
-  form.medicoes.forEach((medicao) => {
+  // Add validation for selected pluviometer measurements only
+  form.medicoes?.forEach((medicao) => {
     validationRules[`medicao_${medicao.pluviometroId}`] = { required: true }
+    validationRules[`horario_${medicao.pluviometroId}`] = { required: true }
   })
 
   const { isValid } = useFormValidation(form, validationRules)
@@ -88,19 +93,36 @@ export default function ClimaPage() {
     carregarPluviometros()
   }, [fazendaId])
 
-  // Inicializar medições quando pluviômetros são carregados
-  useEffect(() => {
-    if (pluviometrosDisponiveis.length > 0 && form.medicoes.length === 0) {
-      const medicoesIniciais = pluviometrosDisponiveis.map(p => ({
-        pluviometroId: p.id,
-        pluviometroNome: p.nome,
-        pluviometroLocalizacao: p.localizacao,
+  // Pluviômetros disponíveis para seleção (excluir os já selecionados)
+  const pluviometrosParaSelecionar = pluviometrosDisponiveis.filter(
+    p => !form.medicoes.some(m => m.pluviometroId === p.id)
+  )
+
+  const handleAddPluviometro = (pluviometroId: string) => {
+    if (!pluviometroId) return
+    const pluviometro = pluviometrosDisponiveis.find(p => p.id === pluviometroId)
+    if (!pluviometro) return
+    const agora = new Date()
+    const horarioAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+    setForm(prev => ({
+      ...prev,
+      medicoes: [...prev.medicoes, {
+        pluviometroId: pluviometro.id,
+        pluviometroNome: pluviometro.nome,
+        pluviometroLocalizacao: pluviometro.localizacao,
         medicao: '',
-        temperatura: ''
-      }))
-      setForm(prev => ({ ...prev, medicoes: medicoesIniciais }))
-    }
-  }, [pluviometrosDisponiveis])
+        temperatura: '',
+        horario: horarioAtual,
+      }]
+    }))
+  }
+
+  const handleRemovePluviometro = (pluviometroId: string) => {
+    setForm(prev => ({
+      ...prev,
+      medicoes: prev.medicoes.filter(m => m.pluviometroId !== pluviometroId)
+    }))
+  }
 
   const handleMedicaoChange = (pluviometroId: string, value: string) => {
     setForm(prev => ({
@@ -116,6 +138,15 @@ export default function ClimaPage() {
       ...prev,
       medicoes: prev.medicoes.map(m =>
         m.pluviometroId === pluviometroId ? { ...m, temperatura: value } : m
+      )
+    }))
+  }
+
+  const handleHorarioChange = (pluviometroId: string, value: string) => {
+    setForm(prev => ({
+      ...prev,
+      medicoes: prev.medicoes.map(m =>
+        m.pluviometroId === pluviometroId ? { ...m, horario: value } : m
       )
     }))
   }
@@ -147,7 +178,8 @@ export default function ClimaPage() {
         pluviometro_nome: m.pluviometroNome,
         pluviometro_localizacao: m.pluviometroLocalizacao,
         medicao: Number(m.medicao),
-        temperatura: m.temperatura ? Number(m.temperatura) : null
+        temperatura: m.temperatura ? Number(m.temperatura) : null,
+        horario: m.horario || null,
       }))
 
     const temperaturasPreenchidas = form.medicoes
@@ -231,28 +263,74 @@ export default function ClimaPage() {
             <p className="text-gray-500 text-center py-4">Nenhum pluviômetro cadastrado para esta fazenda.</p>
           ) : (
             <div className="flex flex-col gap-4">
-              {form.medicoes.map((medicao) => (
-                <div key={medicao.pluviometroId} className="flex flex-col gap-2">
-                  <p className="font-semibold text-gray-700">{medicao.pluviometroNome} {medicao.pluviometroLocalizacao && `(${medicao.pluviometroLocalizacao})`}</p>
-                  <Input
-                    label={<span>Medição de chuva (mm) <span className="text-red-500">*</span></span>}
-                    placeholder="Ex: 12.5"
-                    value={medicao.medicao}
-                    onChange={(e) => handleMedicaoChange(medicao.pluviometroId, e.target.value)}
-                    error={getError(`medicao_${medicao.pluviometroId}`)}
-                    type="number"
-                    step="0.1"
-                  />
-                  <Input
-                    label="TEMPERATURA (°C)"
-                    placeholder="Ex: 25.5"
-                    value={medicao.temperatura}
-                    onChange={(e) => handleTemperaturaChange(medicao.pluviometroId, e.target.value)}
-                    type="number"
-                    step="0.1"
-                  />
+              {/* Selecionar pluviômetro */}
+              {pluviometrosParaSelecionar.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-bold text-gray-700">SELECIONAR PLUVIÔMETRO</label>
+                  <select
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-900 bg-white focus:outline-none focus:border-green-500"
+                    value=""
+                    onChange={(e) => handleAddPluviometro(e.target.value)}
+                  >
+                    <option value="">+ Adicionar pluviômetro...</option>
+                    {pluviometrosParaSelecionar.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}{p.localizacao ? ` (${p.localizacao})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))}
+              )}
+
+              {/* Pluviômetros selecionados — cards */}
+              {form.medicoes.length === 0 ? (
+                <p className="text-gray-400 text-center py-4 text-sm">
+                  Nenhum pluviômetro selecionado. Use o seletor acima para adicionar.
+                </p>
+              ) : (
+                form.medicoes.map((medicao) => (
+                  <div key={medicao.pluviometroId} className="flex flex-col gap-3 p-4 rounded-2xl bg-gray-50 border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-gray-700">
+                        {medicao.pluviometroNome}
+                        {medicao.pluviometroLocalizacao && ` (${medicao.pluviometroLocalizacao})`}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePluviometro(medicao.pluviometroId)}
+                        className="text-gray-400 hover:text-red-500 transition-colors text-xl leading-none"
+                        aria-label="Remover pluviômetro"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <Input
+                      label={<span>HORÁRIO <span className="text-red-500">*</span></span>}
+                      type="time"
+                      value={medicao.horario}
+                      onChange={(e) => handleHorarioChange(medicao.pluviometroId, e.target.value)}
+                      error={getError(`horario_${medicao.pluviometroId}`)}
+                    />
+                    <Input
+                      label={<span>MEDIÇÃO DE CHUVA (mm) <span className="text-red-500">*</span></span>}
+                      placeholder="Ex: 12.5"
+                      value={medicao.medicao}
+                      onChange={(e) => handleMedicaoChange(medicao.pluviometroId, e.target.value)}
+                      error={getError(`medicao_${medicao.pluviometroId}`)}
+                      type="number"
+                      step="0.1"
+                    />
+                    <Input
+                      label="TEMPERATURA (°C)"
+                      placeholder="Ex: 25.5"
+                      value={medicao.temperatura}
+                      onChange={(e) => handleTemperaturaChange(medicao.pluviometroId, e.target.value)}
+                      type="number"
+                      step="0.1"
+                    />
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

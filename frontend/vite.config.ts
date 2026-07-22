@@ -42,71 +42,15 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
+      // injectManifest: usa nosso src/sw.ts customizado em vez do generateSW
+      // Necessário para implementar NetworkFirst em navegação + plugin de Content-Type
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,pdf}'],
         globIgnores: ['**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
-        navigateFallback: '/Caderneta-Digital-Gesta-Up/index.html',
-        skipWaiting: false,
-        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30
-              }
-            }
-          },
-          {
-            // Estratégia NetworkFirst para JS/CSS para garantir atualizações imediatas
-            urlPattern: /\.(?:js|css)$/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'static-resources-cache',
-              networkTimeoutSeconds: 3,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 1 dia
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ],
-        cleanupOutdatedCaches: true
       },
       devOptions: {
         enabled: false
