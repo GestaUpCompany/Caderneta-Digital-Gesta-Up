@@ -65,6 +65,7 @@ const EnfermariaListaPage = lazy(() => import('./pages/cadernetas/EnfermariaList
 const MortePage = lazy(() => import('./pages/cadernetas/MortePage'))
 const MorteListaPage = lazy(() => import('./pages/cadernetas/MorteListaPage'))
 const ClimaPage = lazy(() => import('./pages/cadernetas/ClimaPage'))
+const ClimaListaPage = lazy(() => import('./pages/cadernetas/ClimaListaPage'))
 const AbastecimentoPage = lazy(() => import('./pages/cadernetas/AbastecimentoPage'))
 const AbastecimentoListaPage = lazy(() => import('./pages/cadernetas/AbastecimentoListaPage'))
 const CantinaPage = lazy(() => import('./pages/cadernetas/CantinaPage'))
@@ -365,6 +366,7 @@ function AppInner() {
 
             {/* Clima */}
             <Route path="/caderneta/clima" element={<ClimaPage />} />
+            <Route path="/caderneta/clima/lista" element={<ClimaListaPage />} />
 
             {/* Abastecimento */}
             <Route path="/caderneta/abastecimento" element={<AbastecimentoPage />} />

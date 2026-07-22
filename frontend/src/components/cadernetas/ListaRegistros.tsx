@@ -18,6 +18,7 @@ interface Props {
   caderneta: CadernetaStore
   titulo: React.ReactNode
   rotaForm: string
+  extraActions?: React.ReactNode
 }
 
 
@@ -77,7 +78,7 @@ const formatFieldValue = (key: string, value: unknown): string => {
   return valueStr
 }
 
-export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
+export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActions }: Props) {
   const navigate = useNavigate()
   const { usuario } = useSelector((state: RootState) => state.config)
   const [registros, setRegistros] = useState<Registro[]>([])
@@ -205,6 +206,8 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm }: Props) {
         <Button onClick={() => navigate(rotaForm)} variant="primary" icon="➕">
           NOVO REGISTRO
         </Button>
+
+        {extraActions}
 
         {/* Busca rápida */}
         <Input
