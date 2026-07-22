@@ -1,16 +1,20 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useSelector } from 'react-redux'
 import ListaRegistros from '../../components/cadernetas/ListaRegistros'
 import { Button } from '../../components/ui'
 import DatePickerIcon from '../../components/ui/DatePickerIcon'
 import { listarRegistros } from '../../services/api'
 import { formatarRegistroComoTexto, compartilharWhatsApp, Registro } from '../../utils/shareUtils'
+import { gerarPdfResumoClima, compartilharPdf } from '../../utils/pdfUtils'
 import { todayBR } from '../../utils/formatDate'
+import { RootState } from '../../store/store'
 
 export default function ClimaListaPage() {
   const [mostrarModalResumo, setMostrarModalResumo] = useState(false)
   const [dataResumo, setDataResumo] = useState(todayBR())
   const [gerando, setGerando] = useState(false)
   const [todosRegistros, setTodosRegistros] = useState<Registro[]>([])
+  const { fazenda } = useSelector((state: RootState) => state.config)
 
   const carregarRegistros = useCallback(async () => {
     const lista = await listarRegistros('clima')
@@ -21,22 +25,26 @@ export default function ClimaListaPage() {
     carregarRegistros()
   }, [carregarRegistros])
 
+  const filtrarRegistrosDoDia = () => {
+    const dataBase = dataResumo.split(' ')[0]
+    return todosRegistros.filter((r) => {
+      const dataRegistro = String(r.data).split(' ')[0]
+      return dataRegistro === dataBase
+    })
+  }
+
   const handleAbrirResumo = () => {
     setDataResumo(todayBR())
     setMostrarModalResumo(true)
   }
 
-  const handleGerarResumo = async () => {
+  const handleGerarResumoTexto = async () => {
     setGerando(true)
     try {
-      // Filtrar registros do dia selecionado (data no formato "DD/MM/YYYY HH:MM")
-      const dataBase = dataResumo.split(' ')[0] // pegar só DD/MM/YYYY
-      const registrosDoDia = todosRegistros.filter((r) => {
-        const dataRegistro = String(r.data).split(' ')[0]
-        return dataRegistro === dataBase
-      })
+      const registrosDoDia = filtrarRegistrosDoDia()
 
       if (registrosDoDia.length === 0) {
+        const dataBase = dataResumo.split(' ')[0]
         alert(`Nenhum registro encontrado para ${dataBase}`)
         setGerando(false)
         return
@@ -45,7 +53,7 @@ export default function ClimaListaPage() {
       // Montar resumo: header + cada registro separado visualmente
       const partes: string[] = []
       partes.push(`📋 *RESUMO DIÁRIO — CLIMA*`)
-      partes.push(`📅 Data: *${dataBase}*`)
+      partes.push(`📅 Data: *${dataResumo.split(' ')[0]}*`)
       partes.push(`📊 Total de registros: *${registrosDoDia.length}*`)
       partes.push('')
       partes.push('──────────────────')
@@ -65,6 +73,35 @@ export default function ClimaListaPage() {
     } catch (err) {
       console.error('Erro ao gerar resumo:', err)
       alert('Erro ao gerar resumo. Tente novamente.')
+    } finally {
+      setGerando(false)
+    }
+  }
+
+  const handleGerarResumoPdf = async () => {
+    setGerando(true)
+    try {
+      const registrosDoDia = filtrarRegistrosDoDia()
+
+      if (registrosDoDia.length === 0) {
+        const dataBase = dataResumo.split(' ')[0]
+        alert(`Nenhum registro encontrado para ${dataBase}`)
+        setGerando(false)
+        return
+      }
+
+      const dataBase = dataResumo.split(' ')[0]
+      const pdfFile = gerarPdfResumoClima(registrosDoDia, dataBase, fazenda)
+
+      setMostrarModalResumo(false)
+      await compartilharPdf(
+        pdfFile,
+        `Resumo Clima — ${dataBase}`,
+        `Resumo diário de clima — ${dataBase} (${registrosDoDia.length} registros)`
+      )
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err)
+      alert('Erro ao gerar PDF. Tente novamente.')
     } finally {
       setGerando(false)
     }
@@ -100,7 +137,25 @@ export default function ClimaListaPage() {
                 onChange={setDataResumo}
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={handleGerarResumoTexto}
+                variant="primary"
+                fullWidth
+                loading={gerando}
+                icon="📤"
+              >
+                ENVIAR COMO TEXTO
+              </Button>
+              <Button
+                onClick={handleGerarResumoPdf}
+                variant="secondary"
+                fullWidth
+                loading={gerando}
+                icon="�"
+              >
+                EXPORTAR PDF
+              </Button>
               <Button
                 onClick={() => setMostrarModalResumo(false)}
                 variant="ghost"
@@ -108,15 +163,6 @@ export default function ClimaListaPage() {
                 disabled={gerando}
               >
                 CANCELAR
-              </Button>
-              <Button
-                onClick={handleGerarResumo}
-                variant="primary"
-                fullWidth
-                loading={gerando}
-                icon="📤"
-              >
-                {gerando ? 'GERANDO...' : 'GERAR E ENVIAR'}
               </Button>
             </div>
           </div>
