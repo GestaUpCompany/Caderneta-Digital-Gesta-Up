@@ -91,7 +91,7 @@ export default function ClimaListaPage() {
       }
 
       const dataBase = dataResumo.split(' ')[0]
-      const pdfFile = gerarPdfResumoClima(registrosDoDia, dataBase, fazenda)
+      const pdfFile = await gerarPdfResumoClima(registrosDoDia, dataBase, fazenda)
 
       setMostrarModalResumo(false)
       await compartilharPdf(
@@ -152,7 +152,7 @@ export default function ClimaListaPage() {
                 variant="secondary"
                 fullWidth
                 loading={gerando}
-                icon="�"
+                icon=""
               >
                 EXPORTAR PDF
               </Button>

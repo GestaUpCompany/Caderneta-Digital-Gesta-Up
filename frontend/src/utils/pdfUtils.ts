@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { Registro } from './shareUtils'
+import { LOGO_URL } from './constants'
 
 interface MedicaoPluviometro {
   pluviometro_nome?: string
@@ -15,11 +16,11 @@ interface MedicaoPluviometro {
  * Gera um PDF profissional com o resumo diário de clima.
  * Retorna um objeto File pronto para compartilhamento via Web Share API.
  */
-export function gerarPdfResumoClima(
+export async function gerarPdfResumoClima(
   registros: Registro[],
   dataResumo: string,
   fazenda?: string
-): File {
+): Promise<File> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
@@ -32,14 +33,36 @@ export function gerarPdfResumoClima(
   doc.setFillColor(26, 58, 42) // #1a3a2a
   doc.rect(0, 0, pageWidth, 28, 'F')
 
+  // Logo com bordas arredondadas à esquerda do título
+  const logoSize = 18
+  const logoX = margin
+  const logoY = 5
+  try {
+    // Buscar a imagem como base64 para o jsPDF
+    const logoDataUrl = await fetchImageAsBase64(LOGO_URL)
+    if (logoDataUrl) {
+      // Máscara de cantos arredondados: desenhar um retângulo branco arredondado
+      // como máscara visual atrás da logo
+      doc.setFillColor(255, 255, 255)
+      doc.roundedRect(logoX - 1, logoY - 1, logoSize + 2, logoSize + 2, 3, 3, 'F')
+      // Adicionar a imagem
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize, undefined, 'FAST')
+    }
+  } catch (err) {
+    // Se a logo não carregar, continuar sem ela
+    console.warn('[pdfUtils] Logo não carregou:', err)
+  }
+
+  // Título (deslocado para a direita para não sobrepor a logo)
+  const titleX = logoX + logoSize + 5
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
-  doc.text("Gesta'Up — Caderneta Digital", margin, 12)
+  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
 
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
-  doc.text('Resumo Diário — Clima', margin, 19)
+  doc.text('Resumo Diário — Clima', titleX, 19)
 
   // Data e fazenda à direita
   const dataFormatada = dataResumo.split(' ')[0]
@@ -140,15 +163,6 @@ export function gerarPdfResumoClima(
     const dataHora = String(registro.data || '')
     const horario = dataHora.split(' ')[1] || ''
     doc.text(`Registro #${index + 1}${horario ? ` — ${horario}` : ''}`, margin + 3, y + 5)
-
-    // Status de sync
-    const syncIcon = registro.syncStatus === 'synced' ? 'Sincronizado' :
-                     registro.syncStatus === 'pending' ? 'Pendente' :
-                     registro.syncStatus === 'error' ? 'Erro' : '—'
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(120, 120, 120)
-    doc.text(syncIcon, pageWidth - margin - 3, y + 5, { align: 'right' })
 
     y += 10
 
@@ -325,4 +339,24 @@ export async function compartilharPdf(
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * Busca uma imagem URL e a converte para base64 data URL.
+ * Necessário porque o jsPDF addImage precisa de dados base64 ou HTMLImageElement.
+ */
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
 }
