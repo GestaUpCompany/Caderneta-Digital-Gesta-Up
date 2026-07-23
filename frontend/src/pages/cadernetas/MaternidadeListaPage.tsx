@@ -57,6 +57,7 @@ export default function MaternidadeListaPage() {
       let naoIdentificados = 0
       const pesos: number[] = []
       let houveMorte = false
+      const tiposPartoContagem: Record<string, number> = {}
 
       registrosDoDia.forEach((r) => {
         const sexo = String(r.sexo || '').toLowerCase()
@@ -69,6 +70,10 @@ export default function MaternidadeListaPage() {
 
         const tipoParto = r.tipoParto
         const tipos = Array.isArray(tipoParto) ? tipoParto : [tipoParto]
+        tipos.forEach((t) => {
+          const tStr = String(t).trim()
+          if (tStr) tiposPartoContagem[tStr] = (tiposPartoContagem[tStr] || 0) + 1
+        })
         if (tipos.some((t) => String(t).toLowerCase() === 'natimorto')) {
           houveMorte = true
         }
@@ -81,6 +86,11 @@ export default function MaternidadeListaPage() {
       const pesoMedio = pesos.length > 0
         ? (pesos.reduce((s, p) => s + p, 0) / pesos.length).toFixed(1).replace('.', ',')
         : null
+      const pesoTotal = pesos.length > 0
+        ? pesos.reduce((s, p) => s + p, 0).toFixed(1).replace('.', ',')
+        : null
+      const menorPeso = pesos.length > 0 ? Math.min(...pesos).toFixed(1).replace('.', ',') : null
+      const maiorPeso = pesos.length > 0 ? Math.max(...pesos).toFixed(1).replace('.', ',') : null
 
       // Montar resumo
       const partes: string[] = []
@@ -94,6 +104,21 @@ export default function MaternidadeListaPage() {
         partes.push(`Não identificados: *${naoIdentificados}*`)
       }
       partes.push(`Peso médio: *${pesoMedio !== null ? pesoMedio + ' kg' : '—'}*`)
+      if (pesoTotal !== null) {
+        partes.push(`Peso total: *${pesoTotal} kg*`)
+      }
+      if (menorPeso !== null && maiorPeso !== null) {
+        partes.push(`Menor peso: *${menorPeso} kg* | Maior peso: *${maiorPeso} kg*`)
+      }
+      // Tipo de parto
+      const tiposOrdenados = Object.entries(tiposPartoContagem).sort((a, b) => b[1] - a[1])
+      if (tiposOrdenados.length > 0) {
+        partes.push('')
+        partes.push(`*Tipo de parto:*`)
+        tiposOrdenados.forEach(([tipo, count]) => {
+          partes.push(`  ${tipo}: ${count}`)
+        })
+      }
       partes.push(`Houve morte: *${houveMorte ? 'Sim' : 'Não'}*`)
 
       const textoCompleto = partes.join('\n')

@@ -381,6 +381,7 @@ export async function gerarPdfResumoMaternidade(
   let naoIdentificados = 0
   const pesos: number[] = []
   let houveMorte = false
+  const tiposPartoContagem: Record<string, number> = {}
 
   registros.forEach((r) => {
     const sexo = String(r.sexo || '').toLowerCase()
@@ -394,6 +395,10 @@ export async function gerarPdfResumoMaternidade(
     // Verificar morte: tipoParto contém "Natimorto" ou observacaoParto contém "Natimorto"
     const tipoParto = r.tipoParto
     const tipos = Array.isArray(tipoParto) ? tipoParto : [tipoParto]
+    tipos.forEach((t) => {
+      const tStr = String(t).trim()
+      if (tStr) tiposPartoContagem[tStr] = (tiposPartoContagem[tStr] || 0) + 1
+    })
     if (tipos.some((t) => String(t).toLowerCase() === 'natimorto')) {
       houveMorte = true
     }
@@ -406,6 +411,11 @@ export async function gerarPdfResumoMaternidade(
   const pesoMedio = pesos.length > 0
     ? pesos.reduce((s, p) => s + p, 0) / pesos.length
     : null
+  const pesoTotal = pesos.length > 0
+    ? pesos.reduce((s, p) => s + p, 0)
+    : null
+  const menorPeso = pesos.length > 0 ? Math.min(...pesos) : null
+  const maiorPeso = pesos.length > 0 ? Math.max(...pesos) : null
 
   // === RESUMO ===
   doc.setTextColor(26, 58, 42)
@@ -456,6 +466,43 @@ export async function gerarPdfResumoMaternidade(
   doc.setFont('helvetica', 'normal')
   doc.text(pesoMedio !== null ? `${pesoMedio.toFixed(1).replace('.', ',')} kg` : '—', margin + labelW, y)
   y += 7
+
+  if (pesoTotal !== null) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Peso total:', margin, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`${pesoTotal.toFixed(1).replace('.', ',')} kg`, margin + labelW, y)
+    y += 7
+  }
+
+  if (menorPeso !== null && maiorPeso !== null) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Menor | Maior peso:', margin, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`${menorPeso.toFixed(1).replace('.', ',')} kg | ${maiorPeso.toFixed(1).replace('.', ',')} kg`, margin + labelW, y)
+    y += 7
+  }
+
+  // Tipo de parto
+  const tiposOrdenados = Object.entries(tiposPartoContagem).sort((a, b) => b[1] - a[1])
+  if (tiposOrdenados.length > 0) {
+    y += 3
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(26, 58, 42)
+    doc.text('TIPO DE PARTO', margin, y)
+    y += 7
+    doc.setFontSize(11)
+    doc.setTextColor(50, 50, 50)
+    tiposOrdenados.forEach(([tipo, count]) => {
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${tipo}:`, margin + 4, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(count), margin + labelW, y)
+      y += 6
+    })
+    y += 3
+  }
 
   doc.setFont('helvetica', 'bold')
   doc.text('Houve morte:', margin, y)
