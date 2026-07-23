@@ -171,20 +171,22 @@ export default function Configuracoes() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
-      <header className="bg-[#1a3a2a] text-white flex items-center px-4 py-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-        >
-          VOLTAR
-        </button>
-        <h1 className="text-base font-bold flex-1 text-center">
-          CADASTROS
-        </h1>
-        <div className="w-[60px]"></div>
+      <header className="bg-[#1a3a2a] text-white px-4 py-4">
+        <div className="flex items-center desktop-form-container">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+          >
+            VOLTAR
+          </button>
+          <h1 className="text-base font-bold flex-1 text-center">
+            CADASTROS
+          </h1>
+          <div className="w-[60px]"></div>
+        </div>
       </header>
 
-      <main className="flex-1 p-4 flex flex-col gap-4">
+      <main className="flex-1 p-4 flex flex-col gap-4 desktop-form-container">
         {/* Alerta de sucesso */}
         {successMsg && (
           <div className="bg-green-100 border-2 border-green-500 rounded-xl p-4 text-center">

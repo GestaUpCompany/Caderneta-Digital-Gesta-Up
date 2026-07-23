@@ -55,7 +55,7 @@ export default function ChecklistsMenuPage() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
-        <div className="flex flex-col items-center gap-3 px-4">
+        <div className="flex flex-col items-center gap-3 px-4 desktop-container">
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
@@ -81,7 +81,7 @@ export default function ChecklistsMenuPage() {
       </header>
 
       {/* Menu de Insumos */}
-      <main className="flex-1 p-4 flex flex-col gap-4">
+      <main className="flex-1 p-4 flex flex-col gap-4 desktop-container">
         {/* Últimos Checklists Acessados */}
         {recentChecklistsData.length > 0 && (
           <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100">

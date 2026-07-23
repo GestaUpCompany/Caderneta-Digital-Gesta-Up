@@ -94,6 +94,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         categoria_mae: registro.categoriaMae || null,
         escore_matriz: registro.escoreMatriz ? Number(registro.escoreMatriz) : null,
         docilidade_matriz: registro.docilidadeMatriz ? Number(registro.docilidadeMatriz) : null,
+        parto_vinculo_id: registro.partoVinculoId || null,
       }
     case 'pastagens':
       return {

@@ -227,7 +227,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
-        <div className="flex flex-col items-center gap-3 px-4">
+        <div className="flex flex-col items-center gap-3 px-4 desktop-container">
           {/* Título Manej'Us 360 */}
           <div className="flex flex-col items-center gap-1">
             <span className="text-2xl font-bold text-white leading-none">Manej'Us</span>
@@ -248,7 +248,7 @@ export default function Home() {
       </header>
 
       {/* Menu de Módulos - 2 botões grandes */}
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 desktop-container">
         {/* Banner de boas-vindas */}
         {configurado && usuario && (
           <div className="mb-6 p-4 rounded-xl shadow-lg animate-fade-in w-full bg-[#1a3a2a]" style={{ border: '1px solid rgba(34, 197, 94, 0.3)' }}>
@@ -339,29 +339,29 @@ export default function Home() {
                       <span className="text-xs text-gray-500">{syncProgress.current}/{syncProgress.total}</span>
                     </div>
                     {/* Progress Bar */}
-                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3 overflow-hidden">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300 max-w-full min-w-1"
                         style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
                       ></div>
                     </div>
                     {/* Completed Items */}
                     {completedItems.length > 0 && (
-                      <div className="space-y-1 mb-3">
+                      <div className="space-y-1 mb-3 min-w-0">
                         {completedItems.map((item, i) => (
-                          <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
-                            <svg className="w-4 h-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <div key={i} className="flex items-center gap-2 text-sm text-gray-600 min-w-0">
+                            <svg className="w-4 h-4 text-green-600 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
-                            <span>{item}</span>
+                            <span className="break-words min-w-0">{item}</span>
                           </div>
                         ))}
                       </div>
                     )}
                     {/* Current Item */}
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                      <span>{syncProgress.item}</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse flex-shrink-0"></div>
+                      <span className="break-words min-w-0">{syncProgress.item}</span>
                     </div>
 
                     {/* Aviso para não fechar o app */}

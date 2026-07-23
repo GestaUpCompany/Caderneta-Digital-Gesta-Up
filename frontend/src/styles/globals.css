@@ -54,6 +54,33 @@
 }
 
 @layer utilities {
+  /* Container responsivo para desktop — limita largura e centraliza */
+  .desktop-container {
+    @apply w-full mx-auto;
+    max-width: 100%;
+  }
+  @media (min-width: 1024px) {
+    .desktop-container {
+      max-width: 1024px;
+    }
+  }
+  @media (min-width: 1280px) {
+    .desktop-container {
+      max-width: 1280px;
+    }
+  }
+
+  /* Container para formulários — mais estreito em desktop */
+  .desktop-form-container {
+    @apply w-full mx-auto;
+    max-width: 100%;
+  }
+  @media (min-width: 1024px) {
+    .desktop-form-container {
+      max-width: 720px;
+    }
+  }
+
   @keyframes fade-in {
     from {
       opacity: 0;

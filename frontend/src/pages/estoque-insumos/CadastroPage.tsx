@@ -24,7 +24,7 @@ export default function CadastroPage() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
-        <div className="flex flex-col items-center gap-3 px-4">
+        <div className="flex flex-col items-center gap-3 px-4 desktop-form-container">
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
@@ -50,7 +50,7 @@ export default function CadastroPage() {
       </header>
 
       {/* Conteúdo */}
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 desktop-form-container">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-4xl animate-spin">⏳</div>

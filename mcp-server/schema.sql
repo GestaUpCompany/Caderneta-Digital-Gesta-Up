@@ -186,6 +186,7 @@ CREATE TABLE registros_maternidade (
   raca TEXT,
   numero_mae TEXT,
   categoria_mae TEXT,
+  parto_vinculo_id UUID,
   sync_status TEXT DEFAULT 'synced',
   version INTEGER DEFAULT 1,
   google_row_id INTEGER,
@@ -200,6 +201,7 @@ CREATE INDEX idx_maternidade_data ON registros_maternidade(data);
 CREATE INDEX idx_maternidade_sync ON registros_maternidade(sync_status);
 CREATE INDEX idx_maternidade_dispositivo ON registros_maternidade(dispositivo_id);
 CREATE INDEX idx_maternidade_deleted ON registros_maternidade(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_maternidade_vinculo ON registros_maternidade(parto_vinculo_id) WHERE parto_vinculo_id IS NOT NULL;
 
 -- Tabela de registros de pastagens
 CREATE TABLE registros_pastagens (

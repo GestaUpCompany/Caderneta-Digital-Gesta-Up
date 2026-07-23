@@ -11,8 +11,10 @@ import {
   getLoteDetalhesComCategoriasCached,
   getRegistrosSuplementacaoByLoteCached,
   getRegistrosLeituraCochoByLoteCached,
+  getCurraisCached,
+  getLinhasConfinamentoCached,
 } from '../../services/cadastroCache'
-import { getLotes, getFuncionarios, getCurrais, getLinhasConfinamento } from '../../services/supabaseService'
+import { getLotes, getFuncionarios } from '../../services/supabaseService'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
 import { ChevronLeft, ChevronRight, Check, ArrowLeft } from 'lucide-react'
 
@@ -110,8 +112,8 @@ export default function LeituraCochoPage() {
         const [lotesData, funcionariosData, curraisData, linhasData] = await Promise.all([
           getLotes(fazendaId),
           getFuncionarios(fazendaId),
-          getCurrais(fazendaId),
-          getLinhasConfinamento(fazendaId),
+          getCurraisCached(fazendaId),
+          getLinhasConfinamentoCached(fazendaId),
         ])
 
         const funcionariosNomes = funcionariosData?.map((f: any) => f.nome) || []

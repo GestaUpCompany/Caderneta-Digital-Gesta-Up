@@ -3632,6 +3632,7 @@ export type Database = {
           observacao_parto: string | null
           pasto: string | null
           pasto_id: string | null
+          parto_vinculo_id: string | null
           peso_cria_kg: number | null
           raca: string | null
           sexo: string | null
@@ -3665,6 +3666,7 @@ export type Database = {
           observacao_parto?: string | null
           pasto?: string | null
           pasto_id?: string | null
+          parto_vinculo_id?: string | null
           peso_cria_kg?: number | null
           raca?: string | null
           sexo?: string | null
@@ -3698,6 +3700,7 @@ export type Database = {
           observacao_parto?: string | null
           pasto?: string | null
           pasto_id?: string | null
+          parto_vinculo_id?: string | null
           peso_cria_kg?: number | null
           raca?: string | null
           sexo?: string | null

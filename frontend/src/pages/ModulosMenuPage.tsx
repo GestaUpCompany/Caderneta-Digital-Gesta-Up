@@ -77,7 +77,7 @@ export default function ModulosMenuPage() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
-        <div className="flex flex-col items-center gap-3 px-4">
+        <div className="flex flex-col items-center gap-3 px-4 desktop-container">
           <div className="flex items-center justify-between w-full">
             <FarmLogo
               farmName={fazenda}
@@ -110,7 +110,7 @@ export default function ModulosMenuPage() {
       </header>
 
       {/* Botão de Programação de Hoje */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-4 desktop-container">
         <button
           onClick={() => navigate('/programacao-hoje')}
           className="w-full bg-[#1a3a2a] hover:bg-[#142b20] text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-between"
@@ -135,7 +135,7 @@ export default function ModulosMenuPage() {
       </div>
 
       {/* Grid de Cadernetas - 6 botões grandes */}
-      <main className="flex-1 p-4 flex flex-col gap-4">
+      <main className="flex-1 p-4 flex flex-col gap-4 desktop-container">
         {/* Últimas Cadernetas Acessadas */}
         {recentCadernetasData.length > 0 && (
           <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100">

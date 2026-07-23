@@ -189,19 +189,21 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-[#1a3a2a] text-white flex items-center px-4 py-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-        >
-          VOLTAR
-        </button>
-        <h1 className="text-base font-bold flex-1 text-center">{titulo}</h1>
-        <span className="text-yellow-400 font-bold text-sm">
-          {registrosFiltradosFinal.length} registros
-        </span>
+        <div className="flex items-center w-full desktop-container">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
+          >
+            VOLTAR
+          </button>
+          <h1 className="text-base font-bold flex-1 text-center">{titulo}</h1>
+          <span className="text-yellow-400 font-bold text-sm">
+            {registrosFiltradosFinal.length} registros
+          </span>
+        </div>
       </header>
 
-      <main className="flex-1 p-4 flex flex-col gap-3 pb-8">
+      <main className="flex-1 p-4 flex flex-col gap-3 pb-8 desktop-container">
         {/* Ações principais */}
         <Button onClick={() => navigate(rotaForm)} variant="primary" icon="➕">
           NOVO REGISTRO
@@ -372,7 +374,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
             {registrosFiltradosFinal.map((registro) => (
               <div
                 key={registro.id}

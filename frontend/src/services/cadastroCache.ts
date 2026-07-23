@@ -1147,6 +1147,50 @@ export async function getItensAlmoxarifadoCached(fazendaId: string, classificaca
 }
 
 /**
+ * Busca lista de currais (confinamento) com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getCurraisCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('currais', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
+
+  try {
+    const data = await supabaseService.getCurrais(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca lista de linhas de confinamento com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getLinhasConfinamentoCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('linhas-confinamento', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
+
+  try {
+    const data = await supabaseService.getLinhasConfinamento(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca lista de bebedouros com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
@@ -1278,7 +1322,7 @@ export async function warmAllCadastroCache(
     }
   }
 
-  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 12 // +extras
+  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 15 // +extras (10 originais + itens almoxarifado + detalhes bebedouros + currais + linhas + RBAC + checklist + rotinas)
   let warmedPastos = 0
   let warmedLotes = 0
   let warmedFormulacoes = 0
@@ -1390,16 +1434,19 @@ export async function warmAllCadastroCache(
     await delay(300)
   }
 
-  // Aquecer dados de rodeio para todos os lotes
+  // Aquecer dados de rodeio e leitura de cocho para todos os lotes
   for (const lote of lotes) {
     processed++
-    onProgress?.(processed, totalItems, `Rodeio Lote ${lote.nome || lote.id}`)
+    onProgress?.(processed, totalItems, `Rodeio/Leitura Lote ${lote.nome || lote.id}`)
 
     try {
       await getLastRodeioDateCached(fazendaId, lote.id)
+      // Aquecer registros de leitura de cocho do lote (sem janela de datas = histórico completo)
+      // Crítico para funcionamento offline da LeituraCochoPage
+      await getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id)
       warmedLotesRodeio++
     } catch (error) {
-      console.error(`[CadastroCache] Erro ao aquecer rodeio do lote ${lote.nome || lote.id}:`, error)
+      console.error(`[CadastroCache] Erro ao aquecer rodeio/leitura do lote ${lote.nome || lote.id}:`, error)
       errors.push(`Rodeio Lote ${lote.nome || lote.id}`)
     }
 
@@ -1442,6 +1489,12 @@ export async function warmAllCadastroCache(
     { label: 'Locais', fn: () => getLocaisCached(fazendaId) },
     { label: 'Classificações Almoxarifado', fn: () => getClassificacoesAlmoxarifadoCached(fazendaId) },
     { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },
+    { label: 'Currais (Confinamento)', fn: () => getCurraisCached(fazendaId) },
+    { label: 'Linhas Confinamento', fn: () => getLinhasConfinamentoCached(fazendaId) },
+    // RBAC / checklists / rotinas — críticos para login de peões e exibição offline
+    { label: 'Funcionários com Acesso (RBAC)', fn: () => fetchFuncionariosComAcesso(fazendaId) },
+    { label: 'Regras de Checklist', fn: () => fetchChecklistRegras(fazendaId) },
+    { label: 'Rotinas de Cadernetas', fn: () => fetchRotinas(fazendaId) },
   ]
 
   for (const extra of extrasToWarm) {

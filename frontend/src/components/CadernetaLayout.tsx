@@ -71,7 +71,7 @@ export default function CadernetaLayout({
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header sticky com botões e título */}
       <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between desktop-form-container">
           <button
             onClick={handleBack}
             className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
@@ -95,14 +95,14 @@ export default function CadernetaLayout({
       {/* Logos não sticky */}
       {showLogos && (
         <div className="bg-[#1a3a2a] text-white px-4 py-5">
-          <div className="flex items-center justify-center gap-8">
+          <div className="flex items-center justify-center gap-8 desktop-form-container">
             <FarmLogo type="both" size="medium" logoUrl={logoUrl} farmName={fazenda} />
           </div>
         </div>
       )}
 
       {/* Conteúdo principal */}
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8">
+      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
         {children}
       </main>
     </div>

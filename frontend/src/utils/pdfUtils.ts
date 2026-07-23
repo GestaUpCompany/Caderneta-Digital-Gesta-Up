@@ -26,6 +26,7 @@ export async function gerarPdfResumoClima(
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 15
   const contentWidth = pageWidth - margin * 2
+  const labelValueGap = 3
   let y = margin
 
   // === HEADER ===
@@ -92,11 +93,21 @@ export async function gerarPdfResumoClima(
   doc.setTextColor(60, 60, 60)
 
   const totalRegistros = registros.length
-  const totalChuva = registros.reduce((sum, r) => {
+
+  // Coletar todas as medições de chuva válidas do dia para calcular a média
+  const medicoesChuva: number[] = []
+  registros.forEach((r) => {
     const medicoes = r.medicoes as MedicaoPluviometro[] | undefined
-    if (!medicoes || !Array.isArray(medicoes)) return sum
-    return sum + medicoes.reduce((s, m) => s + (Number(m.medicao) || 0), 0)
-  }, 0)
+    if (medicoes && Array.isArray(medicoes)) {
+      medicoes.forEach((m) => {
+        const valor = Number(m.medicao)
+        if (!isNaN(valor)) medicoesChuva.push(valor)
+      })
+    }
+  })
+  const mediaChuva = medicoesChuva.length > 0
+    ? medicoesChuva.reduce((s, v) => s + v, 0) / medicoesChuva.length
+    : 0
 
   const temps: number[] = []
   registros.forEach((r) => {
@@ -122,7 +133,7 @@ export async function gerarPdfResumoClima(
   const fmtTemp = (t: number | null) => (t !== null ? `${t.toFixed(1).replace('.', ',')}°C` : '—')
 
   doc.text(`Total de registros: ${totalRegistros}`, margin, y); y += 5
-  doc.text(`Precipitação total: ${totalChuva.toFixed(1).replace('.', ',')} mm`, margin, y); y += 5
+  doc.text(`Precipitação total (média dos pluviômetros): ${mediaChuva.toFixed(1).replace('.', ',')} mm`, margin, y); y += 5
   doc.text(`Temperatura mínima: ${fmtTemp(tempMin)}`, margin, y); y += 5
   doc.text(`Temperatura máxima: ${fmtTemp(tempMax)}`, margin, y); y += 5
   doc.text(`Temperatura média: ${fmtTemp(tempMedia)}`, margin, y); y += 7
@@ -175,7 +186,7 @@ export async function gerarPdfResumoClima(
       doc.setFont('helvetica', 'bold')
       doc.text('Responsável: ', margin + 3, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(String(responsavel), margin + 3 + doc.getTextWidth('Responsável: '), y)
+      doc.text(String(responsavel), margin + 3 + doc.getTextWidth('Responsável: ') + labelValueGap, y)
       y += 5
     }
 
@@ -184,7 +195,7 @@ export async function gerarPdfResumoClima(
       doc.setFont('helvetica', 'bold')
       doc.text('Umidade relativa: ', margin + 3, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(`${umidade}%`, margin + 3 + doc.getTextWidth('Umidade relativa: '), y)
+      doc.text(`${umidade}%`, margin + 3 + doc.getTextWidth('Umidade relativa: ') + labelValueGap, y)
       y += 5
     }
 
@@ -195,7 +206,7 @@ export async function gerarPdfResumoClima(
       doc.setFont('helvetica', 'bold')
       doc.text('Temperatura média: ', margin + 3, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(tStr, margin + 3 + doc.getTextWidth('Temperatura média: '), y)
+      doc.text(tStr, margin + 3 + doc.getTextWidth('Temperatura média: ') + labelValueGap, y)
       y += 5
     }
 
@@ -302,6 +313,180 @@ export async function gerarPdfResumoClima(
   // Gerar blob e criar File
   const blob = doc.output('blob')
   const fileName = `resumo_clima_${dataFormatada.replace(/\//g, '-')}.pdf`
+  return new File([blob], fileName, { type: 'application/pdf' })
+}
+
+/**
+ * Gera um PDF com o resumo diário de maternidade.
+ * Contém: data, total de nascimentos, machos/fêmeas, peso médio, e se houve morte.
+ */
+export async function gerarPdfResumoMaternidade(
+  registros: Registro[],
+  dataResumo: string,
+  fazenda?: string
+): Promise<File> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin = 15
+  let y = margin
+
+  // === HEADER ===
+  doc.setFillColor(26, 58, 42) // #1a3a2a
+  doc.rect(0, 0, pageWidth, 28, 'F')
+
+  const logoSize = 18
+  const logoX = margin
+  const logoY = 5
+  try {
+    const logoDataUrl = await fetchImageAsBase64(LOGO_URL)
+    if (logoDataUrl) {
+      doc.setFillColor(255, 255, 255)
+      doc.roundedRect(logoX - 1, logoY - 1, logoSize + 2, logoSize + 2, 3, 3, 'F')
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize, undefined, 'FAST')
+    }
+  } catch (err) {
+    console.warn('[pdfUtils] Logo não carregou:', err)
+  }
+
+  const titleX = logoX + logoSize + 5
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Resumo Diário — Maternidade', titleX, 19)
+
+  const dataFormatada = dataResumo.split(' ')[0]
+  doc.text(`Data: ${dataFormatada}`, pageWidth - margin, 12, { align: 'right' })
+  if (fazenda) {
+    doc.setFontSize(9)
+    doc.text(`Fazenda: ${fazenda}`, pageWidth - margin, 19, { align: 'right' })
+  }
+
+  y = 34
+
+  // Linha separadora
+  doc.setDrawColor(26, 58, 42)
+  doc.setLineWidth(0.5)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+
+  // === CÁLCULOS ===
+  const totalNascimentos = registros.length
+
+  let machos = 0
+  let femeas = 0
+  let naoIdentificados = 0
+  const pesos: number[] = []
+  let houveMorte = false
+
+  registros.forEach((r) => {
+    const sexo = String(r.sexo || '').toLowerCase()
+    if (sexo === 'macho') machos++
+    else if (sexo === 'fêmea' || sexo === 'femea') femeas++
+    else naoIdentificados++
+
+    const peso = Number(r.pesoCria)
+    if (!isNaN(peso) && peso > 0) pesos.push(peso)
+
+    // Verificar morte: tipoParto contém "Natimorto" ou observacaoParto contém "Natimorto"
+    const tipoParto = r.tipoParto
+    const tipos = Array.isArray(tipoParto) ? tipoParto : [tipoParto]
+    if (tipos.some((t) => String(t).toLowerCase() === 'natimorto')) {
+      houveMorte = true
+    }
+    const obs = String(r.observacaoParto || '').toLowerCase()
+    if (obs.includes('natimorto')) {
+      houveMorte = true
+    }
+  })
+
+  const pesoMedio = pesos.length > 0
+    ? pesos.reduce((s, p) => s + p, 0) / pesos.length
+    : null
+
+  // === RESUMO ===
+  doc.setTextColor(26, 58, 42)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('RESUMO DO DIA', margin, y)
+  y += 8
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.setTextColor(50, 50, 50)
+
+  const labelW = 70
+  doc.setFont('helvetica', 'bold')
+  doc.text('Data:', margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.text(dataFormatada, margin + labelW, y)
+  y += 7
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Total de nascimentos:', margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.text(String(totalNascimentos), margin + labelW, y)
+  y += 7
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Machos:', margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.text(String(machos), margin + labelW, y)
+  y += 7
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Fêmeas:', margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.text(String(femeas), margin + labelW, y)
+  y += 7
+
+  if (naoIdentificados > 0) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Não identificados:', margin, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(String(naoIdentificados), margin + labelW, y)
+    y += 7
+  }
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Peso médio:', margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.text(pesoMedio !== null ? `${pesoMedio.toFixed(1).replace('.', ',')} kg` : '—', margin + labelW, y)
+  y += 7
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Houve morte:', margin, y)
+  doc.setFont('helvetica', 'normal')
+  if (houveMorte) {
+    doc.setTextColor(180, 0, 0)
+    doc.text('Sim', margin + labelW, y)
+    doc.setTextColor(50, 50, 50)
+  } else {
+    doc.text('Não', margin + labelW, y)
+  }
+  y += 10
+
+  // === RODAPÉ ===
+  const totalPaginas = doc.getNumberOfPages()
+  for (let i = 1; i <= totalPaginas; i++) {
+    doc.setPage(i)
+    const pageY = doc.internal.pageSize.getHeight()
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text(
+      `Gesta'Up Caderneta Digital — Gerado em ${new Date().toLocaleString('pt-BR')}`,
+      margin,
+      pageY - 8
+    )
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - margin, pageY - 8, { align: 'right' })
+  }
+
+  const blob = doc.output('blob')
+  const fileName = `resumo_maternidade_${dataFormatada.replace(/\//g, '-')}.pdf`
   return new File([blob], fileName, { type: 'application/pdf' })
 }
 

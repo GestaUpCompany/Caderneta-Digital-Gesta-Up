@@ -23,6 +23,7 @@ import { reauthenticateFarm, isTokenValid } from './services/authService'
 import { useFarmStatus } from './hooks/useFarmStatus'
 import FarmInactiveBlock from './components/FarmInactiveBlock'
 import ScrollToTop from './components/ScrollToTop'
+import { useStoragePersistence } from './hooks/useStoragePersistence'
 
 // Componente wrapper para PWAUpdateModal com hook
 function PWAUpdateModalWrapper() {
@@ -111,6 +112,9 @@ function AppInner() {
   // const sessionTime = useSessionTimer()
   // const { getScreens } = useScreenTracking()
   // const { offlineTime, onlineTime } = useNetworkTracking()
+
+  // Solicitar persistência de armazenamento para evitar evicção do navegador
+  useStoragePersistence()
 
   // Limpar tokens expirados automaticamente ao carregar o app
   useEffect(() => {
