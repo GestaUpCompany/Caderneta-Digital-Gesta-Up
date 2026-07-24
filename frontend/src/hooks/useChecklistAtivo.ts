@@ -6,6 +6,7 @@ import {
   getChecklistRegrasOnlineFirst,
   isRegraAtivaParaCaderneta,
   getHojeIso,
+  getFarmTimezoneAsync,
 } from '../services/checklistRegrasService'
 
 export interface UseChecklistAtivoReturn {
@@ -19,6 +20,7 @@ export function useChecklistAtivo(cadernetaId: string): UseChecklistAtivoReturn 
   const { fazendaId } = useSelector((state: RootState) => state.config)
   const [regras, setRegras] = useState<ChecklistRegra[]>([])
   const [loading, setLoading] = useState(true)
+  const [timezone, setTimezone] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!fazendaId) {
@@ -28,11 +30,15 @@ export function useChecklistAtivo(cadernetaId: string): UseChecklistAtivoReturn 
     }
     setLoading(true)
     try {
-      const regrasData = await getChecklistRegrasOnlineFirst(fazendaId).catch((err) => {
-        console.error('[useChecklistAtivo] Erro ao carregar regras:', err)
-        return []
-      })
+      const [regrasData, tz] = await Promise.all([
+        getChecklistRegrasOnlineFirst(fazendaId).catch((err) => {
+          console.error('[useChecklistAtivo] Erro ao carregar regras:', err)
+          return []
+        }),
+        getFarmTimezoneAsync(),
+      ])
       setRegras(regrasData || [])
+      setTimezone(tz)
     } catch (err) {
       console.error('[useChecklistAtivo] Erro ao carregar dados:', err)
       setRegras([])
@@ -45,7 +51,7 @@ export function useChecklistAtivo(cadernetaId: string): UseChecklistAtivoReturn 
     load()
   }, [load])
 
-  const hoje = getHojeIso()
+  const hoje = getHojeIso(timezone || undefined)
   const temRegras = regras.length > 0
   const cobertoPorRegra = isRegraAtivaParaCaderneta(regras, cadernetaId, hoje)
 

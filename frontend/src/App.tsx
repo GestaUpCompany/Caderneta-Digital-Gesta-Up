@@ -19,6 +19,7 @@ import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
 import { initializeCadastroCache } from './services/cadastroCache'
+import { fetchChecklistRegras } from './services/checklistRegrasService'
 import { reauthenticateFarm, isTokenValid } from './services/authService'
 import { useFarmStatus } from './hooks/useFarmStatus'
 import FarmInactiveBlock from './components/FarmInactiveBlock'
@@ -147,6 +148,11 @@ function AppInner() {
   useEffect(() => {
     if (fazendaId && !isFarmInactive) {
       initializeCadastroCache(fazendaId)
+      // Pré-cachear regras de checklist: consulta pequena que garante
+      // funcionamento offline do useChecklistAtivo desde a abertura do app
+      fetchChecklistRegras(fazendaId).catch((err) => {
+        console.warn('[App] Falha ao pré-cachear regras de checklist:', err)
+      })
     }
   }, [fazendaId, isFarmInactive])
 

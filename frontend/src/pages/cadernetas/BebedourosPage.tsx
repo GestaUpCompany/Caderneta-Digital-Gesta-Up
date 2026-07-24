@@ -8,7 +8,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import { getCachedCadastroData, getBebedourosCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getBebedourosCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached, getPastosByBebedouroCached } from '../../services/cadastroCache'
 import { createHistoricoLimpeza, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -16,6 +16,7 @@ import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
+import BebedouroPastoCard from '../../components/BebedouroPastoCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
@@ -127,6 +128,8 @@ export default function BebedourosPage() {
   const [bebedourosDisponiveis, setBebedourosDisponiveis] = useState<string[]>([])
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [loadingFuncionarios, setLoadingFuncionarios] = useState(false)
+  const [pastosBebedouro, setPastosBebedouro] = useState<{ id: string; nome: string }[] | null>(null)
+  const [loadingPastosBebedouro, setLoadingPastosBebedouro] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -252,6 +255,34 @@ export default function BebedourosPage() {
     }
 
     carregarDadosLimpeza()
+  }, [form.numeroBebedouro, fazendaId])
+
+  // Buscar pastos vinculados ao bebedouro selecionado (via junction pasto_bebedouros)
+  useEffect(() => {
+    async function carregarPastosBebedouro() {
+      if (!form.numeroBebedouro || !fazendaId) {
+        setPastosBebedouro(null)
+        return
+      }
+
+      setLoadingPastosBebedouro(true)
+      try {
+        const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
+        if (!bebedouro) {
+          setPastosBebedouro(null)
+          return
+        }
+        const pastos = await getPastosByBebedouroCached(fazendaId, bebedouro.id)
+        setPastosBebedouro(pastos)
+      } catch (error) {
+        console.error('[BebedourosPage] Erro ao carregar pastos do bebedouro:', error)
+        setPastosBebedouro(null)
+      } finally {
+        setLoadingPastosBebedouro(false)
+      }
+    }
+
+    carregarPastosBebedouro()
   }, [form.numeroBebedouro, fazendaId])
 
   // Validation rules
@@ -436,6 +467,13 @@ export default function BebedourosPage() {
               tempoDesdeLimpeza={form.tempoDesdeLimpeza}
               intervaloMedioLimpezas={form.intervaloMedioLimpezas}
               metaIntervaloLimpeza={form.metaIntervaloLimpeza}
+            />
+          )}
+          {form.numeroBebedouro && (
+            <BebedouroPastoCard
+              nomeBebedouro={form.numeroBebedouro}
+              pastos={pastosBebedouro}
+              loading={loadingPastosBebedouro}
             />
           )}
           <Radio

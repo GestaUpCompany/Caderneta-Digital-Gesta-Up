@@ -1,12 +1,19 @@
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import { useState, useEffect } from 'react'
 import { RootState } from '../store/store'
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
-import { useChecklistAtivo } from '../hooks/useChecklistAtivo'
 import { CADERNETAS } from '../utils/constants'
 import { formatarHorario } from '../utils/rotinas'
 import FarmLogo from '../components/FarmLogo'
 import { Clock } from 'lucide-react'
+import {
+  ChecklistRegra,
+  getChecklistRegrasOnlineFirst,
+  isRegraAtivaParaCaderneta,
+  getHojeIso,
+  getFarmTimezoneAsync,
+} from '../services/checklistRegrasService'
 
 const hexToRgba = (hex: string, alpha: number = 0.25): string => {
   const r = parseInt(hex.slice(1, 3), 16)
@@ -17,8 +24,43 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ProgramacaoHojePage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, funcionarioNome } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, funcionarioNome, fazendaId } = useSelector((state: RootState) => state.config)
   const { programacao, horarios, loading, refresh } = useProgramacaoHoje()
+
+  // Carregar regras de checklist uma única vez para a página inteira,
+  // evitando N chamadas idênticas ao Supabase (uma por caderneta programada)
+  const [regrasChecklist, setRegrasChecklist] = useState<ChecklistRegra[]>([])
+  const [timezone, setTimezone] = useState<string | null>(null)
+  const [checklistLoading, setChecklistLoading] = useState(true)
+
+  useEffect(() => {
+    if (!fazendaId) {
+      setChecklistLoading(false)
+      return
+    }
+    let cancelled = false
+    const loadRegras = async () => {
+      try {
+        const [regras, tz] = await Promise.all([
+          getChecklistRegrasOnlineFirst(fazendaId).catch(() => [] as ChecklistRegra[]),
+          getFarmTimezoneAsync(),
+        ])
+        if (!cancelled) {
+          setRegrasChecklist(regras || [])
+          setTimezone(tz)
+        }
+      } catch {
+        if (!cancelled) setRegrasChecklist([])
+      } finally {
+        if (!cancelled) setChecklistLoading(false)
+      }
+    }
+    loadRegras()
+    return () => { cancelled = true }
+  }, [fazendaId])
+
+  const hoje = getHojeIso(timezone || undefined)
+  const temRegras = regrasChecklist.length > 0
 
   const programacaoMap = new Map(programacao.map((id) => [id, true]))
   const cadernetasProgramadas = CADERNETAS.filter(
@@ -96,14 +138,19 @@ export default function ProgramacaoHojePage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
-            {cadernetasProgramadas.map((caderneta) => (
-              <CadernetaProgramada
-                key={caderneta.id}
-                caderneta={caderneta}
-                horario={formatarHorario(horarios[caderneta.id])}
-                onClick={() => handleCadernetaClick(caderneta.id)}
-              />
-            ))}
+            {cadernetasProgramadas.map((caderneta) => {
+              const checklistAtivo = !temRegras || isRegraAtivaParaCaderneta(regrasChecklist, caderneta.id, hoje)
+              return (
+                <CadernetaProgramada
+                  key={caderneta.id}
+                  caderneta={caderneta}
+                  horario={formatarHorario(horarios[caderneta.id])}
+                  onClick={() => handleCadernetaClick(caderneta.id)}
+                  checklistAtivo={checklistAtivo}
+                  checklistLoading={checklistLoading}
+                />
+              )
+            })}
           </div>
         )}
       </main>
@@ -115,11 +162,11 @@ interface CadernetaProgramadaProps {
   caderneta: (typeof CADERNETAS)[0]
   horario: string | null
   onClick: () => void
+  checklistAtivo: boolean
+  checklistLoading: boolean
 }
 
-function CadernetaProgramada({ caderneta, horario, onClick }: CadernetaProgramadaProps) {
-  const { ativo: checklistAtivo, loading: checklistLoading } = useChecklistAtivo(caderneta.id)
-
+function CadernetaProgramada({ caderneta, horario, onClick, checklistAtivo, checklistLoading }: CadernetaProgramadaProps) {
   return (
     <button
       onClick={onClick}

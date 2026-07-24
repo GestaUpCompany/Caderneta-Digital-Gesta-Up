@@ -1,5 +1,8 @@
 import { getChecklistRegras } from './supabaseService'
 import { saveCadastroData, getCadastroData } from './indexedDB'
+import { getDateTimePartsInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
+import { store } from '../store/store'
+import { getFazendaByAcessoId } from './supabaseService'
 
 export type ChecklistRegraTipo = 'periodo' | 'excecao'
 
@@ -73,10 +76,20 @@ export function isRegraAtivaParaCaderneta(regras: ChecklistRegra[], cadernetaId:
   return regrasPositivas.some((r) => cobreCaderneta(r) && cobreData(r))
 }
 
-export function getHojeIso(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
+export function getHojeIso(timezone?: string): string {
+  const tz = timezone || DEFAULT_FARM_TIMEZONE
+  const { year, month, day } = getDateTimePartsInTimezone(new Date(), tz)
   return `${year}-${month}-${day}`
+}
+
+export async function getFarmTimezoneAsync(): Promise<string> {
+  const state = store.getState()
+  const acessoId = state.config.acessoId
+  if (!acessoId) return DEFAULT_FARM_TIMEZONE
+  try {
+    const fazenda = await getFazendaByAcessoId(acessoId)
+    return fazenda?.timezone ?? DEFAULT_FARM_TIMEZONE
+  } catch {
+    return DEFAULT_FARM_TIMEZONE
+  }
 }

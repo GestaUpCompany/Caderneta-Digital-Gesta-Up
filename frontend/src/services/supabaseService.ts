@@ -1939,6 +1939,37 @@ export async function deleteRegistroLimpeza(id: string) {
   if (error) throw error
 }
 
+// ==================== PASTO ↔ BEBEDOURO (JUNCTION) ====================
+
+/**
+ * Busca os pastos vinculados a um bebedouro via tabela pasto_bebedouros.
+ * Retorna array de { id, nome } dos pastos ativos da fazenda.
+ */
+export async function getPastosByBebedouro(
+  fazendaId: string,
+  bebedouroId: string
+): Promise<{ id: string; nome: string }[]> {
+  const client = getSupabaseClient()
+  const { data, error } = await (client as any)
+    .from('pasto_bebedouros')
+    .select('pasto_id, pastos!inner(id, nome, ativo, fazenda_id)')
+    .eq('bebedouro_id', bebedouroId)
+    .eq('pastos.fazenda_id', fazendaId)
+    .eq('pastos.ativo', true)
+
+  if (error) throw error
+  if (!data || data.length === 0) return []
+
+  return data
+    .map((row: any) => {
+      const pasto = row.pastos
+      if (Array.isArray(pasto)) return pasto[0]
+      return pasto
+    })
+    .filter((p: any) => p && p.id && p.nome)
+    .map((p: any) => ({ id: p.id, nome: p.nome }))
+}
+
 // ==================== REGISTROS OPERAÇÕES MÁQUINAS ====================
 
 export async function getRegistrosOperacoesMaquinas(fazendaId: string, dataInicio?: string, dataFim?: string) {

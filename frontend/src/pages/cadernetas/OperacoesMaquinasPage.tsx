@@ -471,9 +471,9 @@ export default function OperacoesMaquinasPage() {
             onChange={(val) => setForm((prev) => ({ ...prev, algumImprevisto: val }))}
             gridCols={2}
           />
-          {form.algumImprevisto === 'N' && (
+          {form.algumImprevisto === 'S' && (
             <Input
-              placeholder="Adicionar observação (opcional)"
+              placeholder="Descreva o imprevisto"
               value={form.algumImprevistoObs}
               onChange={setInput('algumImprevistoObs')}
               className="mt-2"

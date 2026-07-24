@@ -1710,3 +1710,28 @@ export async function syncAllCadastroData(
 
   return { success: errors.length === 0, errors }
 }
+
+/**
+ * Busca os pastos vinculados a um bebedouro (via junction pasto_bebedouros)
+ * com cache lazy. Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getPastosByBebedouroCached(
+  fazendaId: string,
+  bebedouroId: string
+): Promise<{ id: string; nome: string }[] | null> {
+  const key = buildKey('pastos-by-bebedouro', fazendaId, bebedouroId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery<{ id: string; nome: string }[]>(key)
+    return cached ?? null
+  }
+
+  try {
+    const data = await supabaseService.getPastosByBebedouro(fazendaId, bebedouroId)
+    setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
