@@ -63,7 +63,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
   const baseData = {
     fazenda_id: fazendaId,
     dispositivo_id: null,
-    nome_usuario: registro.usuario || null,
+    nome_usuario: registro.usuario || registro.responsavel || null,
     sync_status: 'synced',
     version: registro.version || 1,
   }
@@ -266,7 +266,6 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'morte':
       return {
         ...baseData,
-        nome_usuario: registro.responsavel || null,
         data: brWithTimeToIso(registro.data),
         pasto: registro.pasto || null,
         pasto_id: registro.pastoId || null,
@@ -300,7 +299,6 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
-        nome_usuario: registro.nomeUsuario || null,
         quem_abasteceu: registro.quemAbasteceu || null,
         operador_motorista: registro.operadorMotorista || null,
         maquina_veiculo: registro.maquinaVeiculo || null,
@@ -317,7 +315,6 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
-        nome_usuario: registro.nomeUsuario || null,
         modo: registro.modo || 'cantina',
         numero_cozinheiras: registro.numeroCozinheiras ? Number(registro.numeroCozinheiras) : null,
         quem_cozinhou: registro.quemCozinhou || null,
@@ -340,7 +337,6 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
-        nome_usuario: registro.nomeUsuario || null,
         numero_equipe: registro.numeroEquipe ? Number(registro.numeroEquipe) : null,
         setor: registro.setor || null,
         local: registro.local || null,

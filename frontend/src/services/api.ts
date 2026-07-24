@@ -18,19 +18,47 @@ export async function salvarRegistro(
   caderneta: CadernetaStore,
   data: Record<string, unknown>
 ): Promise<SaveResult> {
-  
+
   const validation = validate(caderneta as CadernetaType, data)
   if (!validation.isValid) {
     return { success: false, errors: validation.errors }
   }
 
+  // Injetar nome_usuario: precedência é campo explicito no payload > config.usuario
+  // Telas com searchable modal de responsável já enviam o nome selecionado;
+  // telas sem modal contam com config.usuario injetado aqui.
+  const configState = store.getState().config
+  const usuarioConfigurado = (configState.usuario || '').trim()
+  const usuarioPayload = ((data.usuario as string) || '').trim()
+  const responsavelPayload = ((data.responsavel as string) || '').trim()
+
+  // Determinar nome_usuario final
+  let nomeUsuarioFinal = usuarioPayload || responsavelPayload || usuarioConfigurado
+
+  // Se mesmo assim estiver vazio, bloquear o lançamento
+  if (!nomeUsuarioFinal) {
+    return {
+      success: false,
+      errors: [{
+        field: 'nome_usuario',
+        message: 'É necessário configurar seu nome nas Configurações antes de fazer lançamentos.',
+      }],
+    }
+  }
+
+  // Injetar usuario no payload (campo que o syncService lê para nome_usuario)
+  const dataComUsuario: Record<string, unknown> = {
+    ...data,
+    usuario: nomeUsuarioFinal,
+  }
+
   // Capturar hora atual no fuso da fazenda e concatenar com data
   const timezone = await getFarmTimezone()
   const horaAtual = getCurrentTimeInTimezone(timezone)
-  const dataComHora = `${data.data as string} ${horaAtual.slice(0, 5)}`
+  const dataComHora = `${dataComUsuario.data as string} ${horaAtual.slice(0, 5)}`
 
   const registro = {
-    ...data,
+    ...dataComUsuario,
     data: dataComHora,
     id: generateId(),
     version: generateVersion(),

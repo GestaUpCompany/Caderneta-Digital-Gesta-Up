@@ -10,6 +10,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData, getItensSupermercadoCached } from '../../services/cadastroCache'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 interface ItemSupermercado {
   id: string
@@ -284,7 +285,7 @@ export default function CantinaPage() {
         <SearchableModal
           label={<span>QUEM COZINHOU? <span className="text-red-500">*</span></span>}
           value={form.quemCozinhou}
-          onChange={(val) => setForm((p) => ({ ...p, quemCozinhou: val }))}
+          onChange={(val) => { setForm((p) => ({ ...p, quemCozinhou: val })); atualizarNomeUsuarioConfig(val) }}
           error={getError('quemCozinhou')}
           options={funcionariosDisponiveis}
           placeholder="Buscar funcionário..."

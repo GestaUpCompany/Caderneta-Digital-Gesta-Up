@@ -18,6 +18,7 @@ import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import BebedouroPastoCard from '../../components/BebedouroPastoCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -420,7 +421,7 @@ export default function BebedourosPage() {
             <SearchableModal
               label="RESPONSÁVEL"
               value={form.responsavel}
-              onChange={set('responsavel')}
+              onChange={(val) => { set('responsavel')(val); atualizarNomeUsuarioConfig(val) }}
               error={getError('responsavel')}
               options={funcionariosDisponiveis}
               placeholder="Buscar funcionário..."
@@ -433,7 +434,7 @@ export default function BebedourosPage() {
               label="RESPONSÁVEL"
               placeholder={loadingFuncionarios ? 'Carregando funcionários...' : 'Nome do responsável'}
               value={form.responsavel}
-              onChange={setInput('responsavel')}
+              onChange={(e) => { setInput('responsavel')(e); atualizarNomeUsuarioConfig(e.target.value) }}
               error={getError('responsavel')}
             />
           )}

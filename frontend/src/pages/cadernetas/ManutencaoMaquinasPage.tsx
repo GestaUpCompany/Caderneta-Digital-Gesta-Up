@@ -12,6 +12,7 @@ import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -259,7 +260,7 @@ export default function ManutencaoMaquinasPage() {
               <SearchableModal
                 label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
                 value={form.responsavelChecklist}
-                onChange={set('responsavelChecklist')}
+                onChange={(val) => { set('responsavelChecklist')(val); atualizarNomeUsuarioConfig(val) }}
                 error={getError('responsavelChecklist')}
                 options={funcionariosDisponiveis}
                 placeholder="Buscar funcionário..."
@@ -271,7 +272,7 @@ export default function ManutencaoMaquinasPage() {
                 label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
                 placeholder="Carregando..."
                 value={form.responsavelChecklist}
-                onChange={setInput('responsavelChecklist')}
+                onChange={(e) => { setInput('responsavelChecklist')(e); atualizarNomeUsuarioConfig(e.target.value) }}
                 error={getError('responsavelChecklist')}
                 disabled
                 id="responsavelChecklist"

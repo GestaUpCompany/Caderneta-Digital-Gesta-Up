@@ -12,6 +12,7 @@ import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getSetoresC
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -304,7 +305,7 @@ export default function AlmoxarifadoPage() {
               <SearchableModal
                 label={<span>QUEM ENTREGOU? <span className="text-red-500">*</span></span>}
                 value={form.quemEntregou}
-                onChange={set('quemEntregou')}
+                onChange={(val) => { set('quemEntregou')(val); atualizarNomeUsuarioConfig(val) }}
                 error={getError('quemEntregou')}
                 options={funcionariosDisponiveis}
                 placeholder="Buscar funcionário..."
@@ -316,7 +317,7 @@ export default function AlmoxarifadoPage() {
                 label={<span>QUEM ENTREGOU? <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem entregou"
                 value={form.quemEntregou}
-                onChange={setInput('quemEntregou')}
+                onChange={(e) => { setInput('quemEntregou')(e); atualizarNomeUsuarioConfig(e.target.value) }}
                 error={getError('quemEntregou')}
                 id="quemEntregou"
               />
@@ -325,7 +326,7 @@ export default function AlmoxarifadoPage() {
               <SearchableModal
                 label={<span>QUEM PEGOU? <span className="text-red-500">*</span></span>}
                 value={form.quemPegou}
-                onChange={set('quemPegou')}
+                onChange={(val) => { set('quemPegou')(val); atualizarNomeUsuarioConfig(val) }}
                 error={getError('quemPegou')}
                 options={funcionariosDisponiveis}
                 placeholder="Buscar funcionário..."
@@ -337,7 +338,7 @@ export default function AlmoxarifadoPage() {
                 label={<span>QUEM PEGOU? <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem pegou"
                 value={form.quemPegou}
-                onChange={setInput('quemPegou')}
+                onChange={(e) => { setInput('quemPegou')(e); atualizarNomeUsuarioConfig(e.target.value) }}
                 error={getError('quemPegou')}
                 id="quemPegou"
               />

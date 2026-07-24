@@ -11,6 +11,7 @@ import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services
 import { getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
@@ -228,7 +229,7 @@ export default function AbastecimentoPage() {
           <SearchableModal
             label={<span>QUEM ABASTECEU? <span className="text-red-500">*</span></span>}
             value={form.quemAbasteceu}
-            onChange={set('quemAbasteceu')}
+            onChange={(val) => { set('quemAbasteceu')(val); atualizarNomeUsuarioConfig(val) }}
             error={getError('quemAbasteceu')}
             options={funcionariosDisponiveis}
             placeholder={loadingFuncionarios ? 'Carregando funcionários...' : 'Buscar funcionário...'}

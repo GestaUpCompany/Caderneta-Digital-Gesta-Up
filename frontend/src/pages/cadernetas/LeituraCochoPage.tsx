@@ -17,6 +17,7 @@ import {
 import { getLotes, getFuncionarios } from '../../services/supabaseService'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
 import { ChevronLeft, ChevronRight, Check, ArrowLeft } from 'lucide-react'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 interface LoteItem {
   id: string
@@ -376,7 +377,7 @@ export default function LeituraCochoPage() {
           <SearchableModal
             label="RESPONSÁVEL"
             value={responsavel}
-            onChange={setResponsavel}
+            onChange={(val) => { setResponsavel(val); atualizarNomeUsuarioConfig(val) }}
             options={responsaveis}
             placeholder="Buscar funcionário..."
             disabled={carregandoResponsaveis}
@@ -388,7 +389,7 @@ export default function LeituraCochoPage() {
             label="RESPONSÁVEL"
             placeholder={carregandoResponsaveis ? 'Carregando funcionários...' : 'Nome do responsável'}
             value={responsavel}
-            onChange={(e) => setResponsavel(e.target.value)}
+            onChange={(e) => { setResponsavel(e.target.value); atualizarNomeUsuarioConfig(e.target.value) }}
           />
         )}
       </div>

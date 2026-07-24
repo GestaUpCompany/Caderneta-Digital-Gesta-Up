@@ -14,6 +14,7 @@ import { getInsumos, createInsumo } from '../../services/supabaseService'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { useCadastroOptions } from '../../hooks/useCadastroOptions'
 import FeatureLock from '../../components/FeatureLock'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 interface ItemEntrada {
   id: string // ID temporário para controle no frontend
@@ -59,7 +60,7 @@ const makeInitial = (): FormState => ({
 
 export default function EntradaInsumosPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, logoUrl, usuario } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -235,6 +236,7 @@ export default function EntradaInsumosPage() {
         placa: form.placa,
         motorista: form.motorista,
         responsavelRecebimento: form.responsavelRecebimento,
+        usuario: form.responsavelRecebimento || usuario || '',
         data: dataComHora,
         id: entradaId,
         version: generateVersion(),
@@ -485,7 +487,7 @@ export default function EntradaInsumosPage() {
               <SearchableModal
                 label="RESPONSÁVEL RECEBIMENTO"
                 value={form.responsavelRecebimento}
-                onChange={set('responsavelRecebimento')}
+                onChange={(val) => { set('responsavelRecebimento')(val); atualizarNomeUsuarioConfig(val) }}
                 error={getError('responsavelRecebimento')}
                 options={funcionariosOptions}
                 placeholder="Buscar funcionário..."

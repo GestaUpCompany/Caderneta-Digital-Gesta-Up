@@ -31,6 +31,7 @@ import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -664,7 +665,7 @@ export default function PastagensPage() {
             <SearchableModal
               label={<span>MANEJADOR <span className="text-red-500">*</span></span>}
               value={form.manejador}
-              onChange={set('manejador')}
+              onChange={(val) => { set('manejador')(val); atualizarNomeUsuarioConfig(val) }}
               error={getError('manejador')}
               options={funcionariosDisponiveis}
               placeholder="Buscar manejador..."
@@ -676,7 +677,7 @@ export default function PastagensPage() {
               label={<span>MANEJADOR <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.manejador}
-              onChange={setInput('manejador')}
+              onChange={(e) => { setInput('manejador')(e); atualizarNomeUsuarioConfig(e.target.value) }}
               error={getError('manejador')}
               disabled
               id="manejador"
