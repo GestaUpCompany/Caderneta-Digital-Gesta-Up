@@ -142,7 +142,11 @@ export function calcularPeriodoTrato(registroAtual: Registro, todosRegistros?: R
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   // Obter nome da caderneta
   const cadernetaInfo = CADERNETAS.find(c => c.id === caderneta)
-  const cadernetaNome = cadernetaInfo?.label || caderneta.toUpperCase()
+  let cadernetaNome = cadernetaInfo?.label || caderneta.toUpperCase()
+  // Ajustar título para modo marmita na caderneta cantina
+  if (caderneta === 'cantina' && (registro.modo as string) === 'marmita') {
+    cadernetaNome = 'MARMITA'
+  }
 
   let texto = `📋 ${cadernetaNome}\n`
   // registro.data já contém data e hora, formatar com "às" antes do horário
@@ -421,44 +425,57 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
   } else if (caderneta === 'cantina') {
-    // Seção: DADOS DA CANTINA
-    texto += `DADOS DA CANTINA\n`
-    texto += `N° COZINHEIRAS: *${registro.numeroCozinheiras || '—'}*\n`
-    texto += `QUEM COZINHOU: *${registro.quemCozinhou || '—'}*\n`
-    if (registro.quemAjudou && typeof registro.quemAjudou === 'string' && registro.quemAjudou.trim() !== '' && registro.quemAjudou !== '—') {
-      texto += `QUEM AJUDOU: *${registro.quemAjudou}*\n`
-    }
-    texto += `\n`
-    
-    // Seção: QUANTIDADES
-    texto += `QUANTIDADES\n`
-    texto += `N° CAFÉ DA MANHÃ: *${registro.numeroCafeManha || '—'}*\n`
-    texto += `N° LANCHES: *${registro.numeroLanches || '—'}*\n`
-    texto += `N° REFEIÇÕES ALMOÇO: *${registro.numeroRefeicoesAlmoco || '—'}*\n`
-    texto += `N° REFEIÇÕES JANTAR: *${registro.numeroRefeicoesJantar || '—'}*\n`
-    
-    // Seção: ITENS
-    if (registro.itens && Object.keys(registro.itens).length > 0) {
-      texto += `\nITENS\n`
-      Object.entries(registro.itens).forEach(([key, value]) => {
-        if (value && value !== '' && value !== '0') {
-          const label = key.toUpperCase()
-          // Para itens fixos, usar ITEM_UNITS do CantinaPage se disponível
-          // Para simplicidade, vamos mostrar apenas o valor
-          texto += `${label}: *${value}*\n`
-        }
-      })
-    }
-    
-    // Seção: OUTROS
-    if (registro.nomeOutros || registro.quantidadeOutros) {
-      texto += `\nOUTROS\n`
-      if (registro.nomeOutros) {
-        texto += `NOME DO ITEM: *${registro.nomeOutros}*\n`
+    const modo = (registro.modo as string) || 'cantina'
+    if (modo === 'marmita') {
+      // Seção: DADOS DA MARMITA
+      texto += `DADOS DA MARMITA\n`
+      texto += `FORNECEDOR: *${registro.fornecedor || '—'}*\n`
+      texto += `QUANTIDADE: *${registro.quantidadeMarmitas || '—'}*\n`
+      const preco = registro.precoUnitario ? Number(registro.precoUnitario) : null
+      texto += `PREÇO UNITÁRIO: *${preco !== null ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '—'}*\n`
+      if (registro.quantidadeMarmitas && preco !== null) {
+        const total = Number(registro.quantidadeMarmitas) * preco
+        texto += `PREÇO TOTAL: *R$ ${total.toFixed(2).replace('.', ',')}*\n`
       }
-      if (registro.quantidadeOutros) {
-        const unidade = registro.unidadeOutros || ''
-        texto += `QUANTIDADE: *${registro.quantidadeOutros}${unidade ? ' ' + unidade : ''}*\n`
+      texto += `DESTINATÁRIO: *${registro.destinatario || '—'}*\n`
+    } else {
+      // Seção: DADOS DA CANTINA
+      texto += `DADOS DA CANTINA\n`
+      texto += `N° COZINHEIRAS: *${registro.numeroCozinheiras || '—'}*\n`
+      texto += `QUEM COZINHOU: *${registro.quemCozinhou || '—'}*\n`
+      if (registro.quemAjudou && typeof registro.quemAjudou === 'string' && registro.quemAjudou.trim() !== '' && registro.quemAjudou !== '—') {
+        texto += `QUEM AJUDOU: *${registro.quemAjudou}*\n`
+      }
+      texto += `\n`
+      
+      // Seção: QUANTIDADES
+      texto += `QUANTIDADES\n`
+      texto += `N° CAFÉ DA MANHÃ: *${registro.numeroCafeManha || '—'}*\n`
+      texto += `N° LANCHES: *${registro.numeroLanches || '—'}*\n`
+      texto += `N° REFEIÇÕES ALMOÇO: *${registro.numeroRefeicoesAlmoco || '—'}*\n`
+      texto += `N° REFEIÇÕES JANTAR: *${registro.numeroRefeicoesJantar || '—'}*\n`
+      
+      // Seção: ITENS
+      if (registro.itens && Object.keys(registro.itens).length > 0) {
+        texto += `\nITENS\n`
+        Object.entries(registro.itens).forEach(([key, value]) => {
+          if (value && value !== '' && value !== '0') {
+            const label = key.toUpperCase()
+            texto += `${label}: *${value}*\n`
+          }
+        })
+      }
+      
+      // Seção: OUTROS
+      if (registro.nomeOutros || registro.quantidadeOutros) {
+        texto += `\nOUTROS\n`
+        if (registro.nomeOutros) {
+          texto += `NOME DO ITEM: *${registro.nomeOutros}*\n`
+        }
+        if (registro.quantidadeOutros) {
+          const unidade = registro.unidadeOutros || ''
+          texto += `QUANTIDADE: *${registro.quantidadeOutros}${unidade ? ' ' + unidade : ''}*\n`
+        }
       }
     }
     

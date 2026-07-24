@@ -408,22 +408,38 @@ export function validateCantina(data: Record<string, unknown>): ValidationResult
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isPositiveNumber(data.numeroCozinheiras) || Number(data.numeroCozinheiras) === 0)
-    errors.push({ field: 'numeroCozinheiras', message: 'N° Cozinheiras deve ser maior que zero' })
-  if (!isNonEmptyString(data.quemCozinhou))
-    errors.push({ field: 'quemCozinhou', message: 'Quem cozinhou é obrigatório' })
 
-  // Validar pelo menos um item preenchido
-  if (data.itens && typeof data.itens === 'object') {
-    const itens = data.itens as Record<string, unknown>
-    const algumItemPreenchido = Object.values(itens).some(
-      (valor) => valor !== null && valor !== undefined && valor !== '' && Number(valor) > 0
-    )
-    if (!algumItemPreenchido) {
+  const modo = (data.modo as string) || 'cantina'
+
+  if (modo === 'marmita') {
+    // Validação modo marmita
+    if (!isNonEmptyString(data.fornecedor))
+      errors.push({ field: 'fornecedor', message: 'Fornecedor é obrigatório' })
+    if (!isPositiveNumber(data.quantidadeMarmitas))
+      errors.push({ field: 'quantidadeMarmitas', message: 'Quantidade de marmitas deve ser maior que zero' })
+    if (!isPositiveNumber(data.precoUnitario))
+      errors.push({ field: 'precoUnitario', message: 'Preço unitário deve ser maior que zero' })
+    if (!isNonEmptyString(data.destinatario))
+      errors.push({ field: 'destinatario', message: 'Destinatário é obrigatório' })
+  } else {
+    // Validação modo cantina (comportamento original)
+    if (!isPositiveNumber(data.numeroCozinheiras) || Number(data.numeroCozinheiras) === 0)
+      errors.push({ field: 'numeroCozinheiras', message: 'N° Cozinheiras deve ser maior que zero' })
+    if (!isNonEmptyString(data.quemCozinhou))
+      errors.push({ field: 'quemCozinhou', message: 'Quem cozinhou é obrigatório' })
+
+    // Validar pelo menos um item preenchido
+    if (data.itens && typeof data.itens === 'object') {
+      const itens = data.itens as Record<string, unknown>
+      const algumItemPreenchido = Object.values(itens).some(
+        (valor) => valor !== null && valor !== undefined && valor !== '' && Number(valor) > 0
+      )
+      if (!algumItemPreenchido) {
+        errors.push({ field: 'itens', message: 'Preencha pelo menos um item' })
+      }
+    } else {
       errors.push({ field: 'itens', message: 'Preencha pelo menos um item' })
     }
-  } else {
-    errors.push({ field: 'itens', message: 'Preencha pelo menos um item' })
   }
 
   return { isValid: errors.length === 0, errors }

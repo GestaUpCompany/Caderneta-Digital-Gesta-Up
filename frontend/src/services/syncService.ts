@@ -45,7 +45,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   morte: 'registros_morte',
   clima: 'registros_clima',
   abastecimento: 'registros_abastecimento',
-  cantina: 'registros_cantina',
+  cantina: 'registros_alimentacao',
   limpeza: 'registros_limpeza',
   'operacoes-maquinas': 'registros_operacoes_maquinas',
   'manutencao-maquinas': 'registros_manutencao_maquinas',
@@ -318,6 +318,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data: brWithTimeToIso(registro.data),
         nome_usuario: registro.nomeUsuario || null,
+        modo: registro.modo || 'cantina',
         numero_cozinheiras: registro.numeroCozinheiras ? Number(registro.numeroCozinheiras) : null,
         quem_cozinhou: registro.quemCozinhou || null,
         quem_ajudou: registro.quemAjudou || null,
@@ -329,6 +330,10 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         nome_outros: registro.nomeOutros || null,
         quantidade_outros: registro.quantidadeOutros || null,
         unidade_outros: registro.unidadeOutros || null,
+        fornecedor: registro.fornecedor || null,
+        quantidade_marmitas: registro.quantidadeMarmitas ? Number(registro.quantidadeMarmitas) : null,
+        preco_unitario: registro.precoUnitario ? Number(registro.precoUnitario) : null,
+        destinatario: registro.destinatario || null,
         observacao: registro.observacao || null,
       }
     case 'limpeza':
@@ -495,7 +500,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_abastecimento':
           await supabaseService.createRegistroAbastecimento(data)
           break
-        case 'registros_cantina':
+        case 'registros_alimentacao':
           await supabaseService.createRegistroCantina(data)
           break
         case 'registros_limpeza':
@@ -575,7 +580,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_abastecimento':
           await supabaseService.updateRegistroAbastecimento(supabaseId, data)
           break
-        case 'registros_cantina':
+        case 'registros_alimentacao':
           await supabaseService.updateRegistroCantina(supabaseId, data)
           break
         case 'registros_limpeza':

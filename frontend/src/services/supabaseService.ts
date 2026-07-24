@@ -1828,12 +1828,12 @@ export async function updateRegistroAbastecimento(id: string, registro: TablesUp
   return data
 }
 
-// ==================== REGISTROS CANTINA ====================
+// ==================== REGISTROS ALIMENTAÇÃO ====================
 
-export async function createRegistroCantina(registro: TablesInsert<'registros_cantina'>) {
+export async function createRegistroCantina(registro: TablesInsert<'registros_alimentacao'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
-    .from('registros_cantina')
+    .from('registros_alimentacao')
     .insert(registro)
     .select()
     .single()
@@ -1842,10 +1842,10 @@ export async function createRegistroCantina(registro: TablesInsert<'registros_ca
   return data
 }
 
-export async function updateRegistroCantina(id: string, registro: TablesUpdate<'registros_cantina'>) {
+export async function updateRegistroCantina(id: string, registro: TablesUpdate<'registros_alimentacao'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
-    .from('registros_cantina')
+    .from('registros_alimentacao')
     .update(registro)
     .eq('id', id)
     .select()

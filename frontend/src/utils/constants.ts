@@ -68,7 +68,7 @@ export const CADERNETAS = [
   { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', sheetName: 'Morte', disponivel: true },
   { id: 'clima', label: 'CLIMA', emoji: '🌤️', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', sheetName: 'Clima', disponivel: true },
   { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', sheetName: 'Abastecimento', disponivel: true },
-  { id: 'cantina', label: 'CANTINA', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', sheetName: 'Cantina', disponivel: true },
+  { id: 'cantina', label: 'ALIMENTAÇÃO', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', sheetName: 'Alimentação', disponivel: true },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '🧹', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', sheetName: 'Limpeza', disponivel: true },
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES DE MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', sheetName: 'Operações de Máquinas', disponivel: true },
   { id: 'manutencao-maquinas', label: 'MANUTENÇÃO DE MÁQUINAS', emoji: '🔧', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', sheetName: 'Manutenção de Máquinas', disponivel: true },

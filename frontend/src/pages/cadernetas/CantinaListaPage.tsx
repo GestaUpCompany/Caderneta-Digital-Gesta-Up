@@ -4,7 +4,7 @@ export default function CantinaListaPage() {
   return (
     <ListaRegistros
       caderneta="cantina"
-      titulo="CANTINA"
+      titulo="ALIMENTAÇÃO"
       rotaForm="/caderneta/cantina"
     />
   )

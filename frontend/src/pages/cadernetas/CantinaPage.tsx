@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
@@ -26,7 +26,9 @@ const COZINHEIRAS_OPTIONS = [
 ]
 
 interface FormState {
+  modo: 'cantina' | 'marmita'
   data: string
+  // Cantina
   numeroCozinheiras: string
   quemCozinhou: string
   quemAjudou: string[]
@@ -35,10 +37,17 @@ interface FormState {
   numeroRefeicoesAlmoco: string
   numeroRefeicoesJantar: string
   itens: Record<string, string>
+  // Marmita
+  fornecedor: string
+  quantidadeMarmitas: string
+  precoUnitario: string
+  destinatario: string
+  // Comum
   observacao: string
 }
 
 const makeInitial = (): FormState => ({
+  modo: 'cantina',
   data: todayBR(),
   numeroCozinheiras: '1',
   quemCozinhou: '',
@@ -48,6 +57,10 @@ const makeInitial = (): FormState => ({
   numeroRefeicoesAlmoco: '',
   numeroRefeicoesJantar: '',
   itens: {},
+  fornecedor: '',
+  quantidadeMarmitas: '',
+  precoUnitario: '',
+  destinatario: '',
   observacao: '',
 })
 
@@ -77,31 +90,39 @@ export default function CantinaPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Validation rules
-  const validationRules: any = {
-    data: { required: true },
-    numeroCozinheiras: { required: true },
-    quemCozinhou: { required: true },
-    // At least 1 refeicao field must be filled
-    refeicoes: {
-      custom: (_value: any, form: any) => {
-        const hasAnyRefeicao = form.numeroCafeManha || form.numeroLanches || form.numeroRefeicoesAlmoco || form.numeroRefeicoesJantar
-        return hasAnyRefeicao ? null : 'Pelo menos uma refeição deve ser informada'
+  // Validation rules (dinâmico por modo)
+  const validationRules: any = useMemo(() => {
+    const base: any = { data: { required: true } }
+    if (form.modo === 'cantina') {
+      base.numeroCozinheiras = { required: true }
+      base.quemCozinhou = { required: true }
+      // At least 1 refeicao field must be filled
+      base.refeicoes = {
+        custom: (_value: any, form: any) => {
+          const hasAnyRefeicao = form.numeroCafeManha || form.numeroLanches || form.numeroRefeicoesAlmoco || form.numeroRefeicoesJantar
+          return hasAnyRefeicao ? null : 'Pelo menos uma refeição deve ser informada'
+        }
       }
-    },
-    // At least 1 item must be filled
-    itens: {
-      custom: (_value: any, form: any) => {
-        const hasAnyItem = Object.values(form.itens).some(val => val && val !== '')
-        return hasAnyItem ? null : 'Pelo menos um item deve ser informado'
+      // At least 1 item must be filled
+      base.itens = {
+        custom: (_value: any, form: any) => {
+          const hasAnyItem = Object.values(form.itens).some(val => val && val !== '')
+          return hasAnyItem ? null : 'Pelo menos um item deve ser informado'
+        }
       }
-    },
-  }
-
-  // Add validation for quemAjudou fields
-  form.quemAjudou.forEach((_, index) => {
-    validationRules[`quemAjudou.${index}`] = { required: true }
-  })
+      // Add validation for quemAjudou fields
+      form.quemAjudou.forEach((_, index) => {
+        base[`quemAjudou.${index}`] = { required: true }
+      })
+    } else {
+      // Modo marmita
+      base.fornecedor = { required: true }
+      base.quantidadeMarmitas = { required: true }
+      base.precoUnitario = { required: true }
+      base.destinatario = { required: true }
+    }
+    return base
+  }, [form.modo, form.quemAjudou])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -180,14 +201,22 @@ export default function CantinaPage() {
 
     const result = await salvarRegistro('cantina', {
       data: form.data,
-      numeroCozinheiras: form.numeroCozinheiras,
-      quemCozinhou: form.quemCozinhou,
-      quemAjudou: form.quemAjudou.join(', '),
-      numeroCafeManha: form.numeroCafeManha,
-      numeroLanches: form.numeroLanches,
-      numeroRefeicoesAlmoco: form.numeroRefeicoesAlmoco,
-      numeroRefeicoesJantar: form.numeroRefeicoesJantar,
-      itens: itensStorage,
+      modo: form.modo,
+      // Cantina
+      numeroCozinheiras: form.modo === 'cantina' ? form.numeroCozinheiras : null,
+      quemCozinhou: form.modo === 'cantina' ? form.quemCozinhou : null,
+      quemAjudou: form.modo === 'cantina' ? form.quemAjudou.join(', ') : null,
+      numeroCafeManha: form.modo === 'cantina' ? form.numeroCafeManha : null,
+      numeroLanches: form.modo === 'cantina' ? form.numeroLanches : null,
+      numeroRefeicoesAlmoco: form.modo === 'cantina' ? form.numeroRefeicoesAlmoco : null,
+      numeroRefeicoesJantar: form.modo === 'cantina' ? form.numeroRefeicoesJantar : null,
+      itens: form.modo === 'cantina' ? itensStorage : null,
+      // Marmita
+      fornecedor: form.modo === 'marmita' ? form.fornecedor : null,
+      quantidadeMarmitas: form.modo === 'marmita' ? form.quantidadeMarmitas : null,
+      precoUnitario: form.modo === 'marmita' ? form.precoUnitario : null,
+      destinatario: form.modo === 'marmita' ? form.destinatario : null,
+      // Comum
       observacao: form.observacao,
     })
 
@@ -218,9 +247,27 @@ export default function CantinaPage() {
   }
 
   return (
-    <CadernetaLayout title="CANTINA" cadernetaId="cantina">
+    <CadernetaLayout title={form.modo === 'marmita' ? 'MARMITA' : 'ALIMENTAÇÃO'} cadernetaId="cantina">
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
+      {/* Seletor de modo */}
+      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">MODO DE ALIMENTAÇÃO</h2>
+        <Radio
+          name="modo"
+          label={<span>SELECIONE O MODO <span className="text-red-500">*</span></span>}
+          options={[
+            { value: 'cantina', label: 'CANTINA' },
+            { value: 'marmita', label: 'MARMITA' },
+          ]}
+          value={form.modo}
+          onChange={(val) => setForm((p) => ({ ...p, modo: val as 'cantina' | 'marmita' }))}
+          gridCols={2}
+        />
+      </div>
+
+      {form.modo === 'cantina' ? (
+        <>
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA CANTINA</h2>
@@ -293,6 +340,33 @@ export default function CantinaPage() {
         <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÕES</h2>
         <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
       </div>
+        </>
+      ) : (
+        <>
+          {/* Modo Marmita */}
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA MARMITA</h2>
+            <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
+            <Input label={<span>FORNECEDOR <span className="text-red-500">*</span></span>} placeholder="Nome do fornecedor" value={form.fornecedor} onChange={setInput('fornecedor')} error={getError('fornecedor')} />
+            <Input label={<span>QUANTIDADE DE MARMITAS <span className="text-red-500">*</span></span>} type="number" placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={setInput('quantidadeMarmitas')} error={getError('quantidadeMarmitas')} />
+            <Input label={<span>PREÇO UNITÁRIO (R$) <span className="text-red-500">*</span></span>} type="number" step="0.01" placeholder="0,00" value={form.precoUnitario} onChange={setInput('precoUnitario')} error={getError('precoUnitario')} />
+            {form.quantidadeMarmitas && form.precoUnitario && !isNaN(Number(form.quantidadeMarmitas)) && !isNaN(Number(form.precoUnitario)) && (
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <p className="text-sm text-gray-600 font-semibold">PREÇO TOTAL</p>
+                <p className="text-2xl font-black text-gray-900">
+                  R$ {(Number(form.quantidadeMarmitas) * Number(form.precoUnitario)).toFixed(2).replace('.', ',')}
+                </p>
+              </div>
+            )}
+            <Input label={<span>DESTINATÁRIO <span className="text-red-500">*</span></span>} placeholder="Para quem são as marmitas?" value={form.destinatario} onChange={setInput('destinatario')} error={getError('destinatario')} />
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">2. OBSERVAÇÕES</h2>
+            <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
+          </div>
+        </>
+      )}
 
       {/* Ações */}
       <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
@@ -314,7 +388,7 @@ export default function CantinaPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName="Cantina"
+        cadernetaName={form.modo === 'marmita' ? 'Marmita' : 'Alimentação'}
         registro={registroSalvo}
         caderneta="cantina"
       />

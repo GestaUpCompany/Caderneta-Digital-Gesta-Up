@@ -3019,15 +3019,18 @@ export type Database = {
           },
         ]
       }
-      registros_cantina: {
+      registros_alimentacao: {
         Row: {
           created_at: string | null
           data: string
           deleted_at: string | null
+          destino: string | null
           dispositivo_id: string | null
           fazenda_id: string | null
+          fornecedor: string | null
           id: string
           itens: Json | null
+          modo: string | null
           nome_outros: string | null
           nome_usuario: string | null
           numero_cafe_manha: number | null
@@ -3036,6 +3039,8 @@ export type Database = {
           numero_refeicoes_almoco: number | null
           numero_refeicoes_jantar: number | null
           observacao: string | null
+          preco_unitario: number | null
+          quantidade_marmitas: number | null
           quantidade_outros: string | null
           quem_ajudou: string | null
           quem_cozinhou: string | null
@@ -3048,10 +3053,13 @@ export type Database = {
           created_at?: string | null
           data: string
           deleted_at?: string | null
+          destino?: string | null
           dispositivo_id?: string | null
           fazenda_id?: string | null
+          fornecedor?: string | null
           id?: string
           itens?: Json | null
+          modo?: string | null
           nome_outros?: string | null
           nome_usuario?: string | null
           numero_cafe_manha?: number | null
@@ -3060,6 +3068,8 @@ export type Database = {
           numero_refeicoes_almoco?: number | null
           numero_refeicoes_jantar?: number | null
           observacao?: string | null
+          preco_unitario?: number | null
+          quantidade_marmitas?: number | null
           quantidade_outros?: string | null
           quem_ajudou?: string | null
           quem_cozinhou?: string | null
@@ -3072,10 +3082,13 @@ export type Database = {
           created_at?: string | null
           data?: string
           deleted_at?: string | null
+          destino?: string | null
           dispositivo_id?: string | null
           fazenda_id?: string | null
+          fornecedor?: string | null
           id?: string
           itens?: Json | null
+          modo?: string | null
           nome_outros?: string | null
           nome_usuario?: string | null
           numero_cafe_manha?: number | null
@@ -3084,6 +3097,8 @@ export type Database = {
           numero_refeicoes_almoco?: number | null
           numero_refeicoes_jantar?: number | null
           observacao?: string | null
+          preco_unitario?: number | null
+          quantidade_marmitas?: number | null
           quantidade_outros?: string | null
           quem_ajudou?: string | null
           quem_cozinhou?: string | null
@@ -3094,7 +3109,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "registros_cantina_fazenda_id_fkey"
+            foreignKeyName: "registros_alimentacao_fazenda_id_fkey"
             columns: ["fazenda_id"]
             isOneToOne: false
             referencedRelation: "fazendas"
