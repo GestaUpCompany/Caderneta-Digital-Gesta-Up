@@ -85,7 +85,7 @@ export default function ProgramacaoHojePage() {
             <span>Voltar</span>
           </button>
 
-          <div className="flex flex-col items-center">
+          <div className="mx-24 sm:mx-0 flex flex-col items-center">
             <h1 className="mt-2 text-lg font-bold leading-tight tracking-tight text-center tracking-wide">
               PROGRAMAÇÃO DE HOJE
             </h1>

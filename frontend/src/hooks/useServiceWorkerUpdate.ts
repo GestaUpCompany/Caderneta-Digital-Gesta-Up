@@ -121,6 +121,16 @@ export function useServiceWorkerUpdate() {
     // Verificar se já há um SW esperando
     navigator.serviceWorker.getRegistration().then(registration => {
       if (registration?.waiting) {
+        // Se houver um dismiss anterior (usuário clicou em "Depois" na sessão anterior),
+        // aplicar a atualização automaticamente na próxima abertura do app
+        const savedDismiss = localStorage.getItem('sw-update-dismissed')
+        if (savedDismiss) {
+          localStorage.removeItem('sw-update-dismissed')
+          setDismissedAt(null)
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+          return
+        }
+
         setUpdateInfo({
           waiting: registration.waiting,
           isUpdateAvailable: true
