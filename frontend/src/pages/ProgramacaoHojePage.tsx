@@ -5,8 +5,8 @@ import { RootState } from '../store/store'
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
 import { CADERNETAS } from '../utils/constants'
 import { formatarHorario } from '../utils/rotinas'
-import FarmLogo from '../components/FarmLogo'
-import { Clock } from 'lucide-react'
+import { ChevronLeft, Clock } from 'lucide-react'
+import { LOGO_URL, getFarmLogo } from '../utils/constants'
 import {
   ChecklistRegra,
   getChecklistRegrasOnlineFirst,
@@ -74,25 +74,39 @@ export default function ProgramacaoHojePage() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
-      <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
-        <div className="flex flex-col items-center gap-3 px-4 desktop-container">
-          <div className="flex items-center justify-between w-full">
-            <FarmLogo
-              farmName={fazenda}
-              logoUrl={logoUrl}
-              type="both"
-              size="medium"
-              className="justify-between w-full"
-            />
-          </div>
-          <div className="flex items-center gap-3 w-full relative">
-            <button
-              onClick={() => navigate('/modulos/cadernetas')}
-              className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 absolute left-0"
-            >
-              VOLTAR
-            </button>
-            <p className="text-white text-base font-semibold flex-1 text-center">PROGRAMAÇÃO DE HOJE</p>
+      <header className="sticky top-0 z-20 bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
+        <div className="relative px-3 py-3 desktop-container">
+          <button
+            onClick={() => navigate('/modulos/cadernetas')}
+            className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px] backdrop-blur-sm"
+            aria-label="Voltar"
+          >
+            <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+            <span>Voltar</span>
+          </button>
+
+          <div className="flex flex-col items-center">
+            <h1 className="mt-2 text-lg font-bold leading-tight tracking-tight text-center tracking-wide">
+              PROGRAMAÇÃO DE HOJE
+            </h1>
+            <p className="mt-1 text-sm font-semibold text-white/75 text-center tracking-wide">
+              Gesta'Up
+            </p>
+
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <img
+                src={LOGO_URL}
+                alt="GestaUp"
+                className="w-14 h-14 object-contain rounded-[22px]"
+              />
+              {fazenda && (
+                <img
+                  src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
+                  alt="Logo Fazenda"
+                  className="h-14 w-auto max-w-[120px] object-contain rounded-[22px]"
+                />
+              )}
+            </div>
           </div>
         </div>
       </header>

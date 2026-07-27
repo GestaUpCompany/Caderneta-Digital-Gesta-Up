@@ -26,6 +26,7 @@ interface DatePickerProps {
   error?: string
   fullWidth?: boolean
   id?: string
+  compact?: boolean
 }
 
 const formatToBR = (date: Date) =>
@@ -47,6 +48,7 @@ export default function DatePicker({
   error,
   fullWidth = true,
   id,
+  compact = false,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -125,7 +127,7 @@ export default function DatePicker({
 
   return (
     <div className={`${containerWidth}`}>
-      <label className="block text-lg font-bold text-gray-900 mb-2">
+      <label className={`block font-bold text-gray-900 ${compact ? 'text-sm mb-1' : 'text-lg mb-2'}`}>
         {label}
       </label>
 
@@ -133,35 +135,53 @@ export default function DatePicker({
         type="button"
         id={id}
         onClick={() => setIsOpen(true)}
-        className="w-full rounded-3xl border-2 border-gray-900 bg-white px-5 py-4 text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99]"
+        className={`w-full rounded-2xl border-2 border-gray-900 bg-white text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99] ${compact ? 'px-3 py-2 flex items-center justify-between gap-2' : 'rounded-3xl px-5 py-4'}`}
       >
-        <div className="flex items-center justify-between gap-6">
-          <div>
-            <span className="block text-[0.65rem] font-semibold tracking-[0.35em] text-gray-400 uppercase">
-              Data selecionada
-            </span>
-            <span className="mt-1 block text-3xl font-black text-gray-900">
-              {inputValue}
-            </span>
-          </div>
-          <div className="flex flex-col items-center justify-center text-gray-800">
+        {compact ? (
+          <>
+            <span className="text-sm font-bold text-gray-900">{inputValue}</span>
             <svg
-              className="h-7 w-7"
+              className="h-4 w-4 text-gray-600"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.7"
+              strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
               <rect x="3" y="4" width="18" height="18" rx="4" />
               <path d="M16 2v4M8 2v4M3 10h18" />
             </svg>
-            <span className="mt-1 text-[0.55rem] font-black uppercase tracking-[0.3em] text-gray-500">
-              Abrir
-            </span>
+          </>
+        ) : (
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <span className="block text-[0.65rem] font-semibold tracking-[0.35em] text-gray-400 uppercase">
+                Data selecionada
+              </span>
+              <span className="mt-1 block text-3xl font-black text-gray-900">
+                {inputValue}
+              </span>
+            </div>
+            <div className="flex flex-col items-center justify-center text-gray-800">
+              <svg
+                className="h-7 w-7"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="4" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              <span className="mt-1 text-[0.55rem] font-black uppercase tracking-[0.3em] text-gray-500">
+                Abrir
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </button>
 
       {error && (

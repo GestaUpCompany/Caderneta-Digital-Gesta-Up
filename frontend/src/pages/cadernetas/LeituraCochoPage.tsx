@@ -369,10 +369,16 @@ export default function LeituraCochoPage() {
     >
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">
-          1. DADOS PRINCIPAIS <span className="text-red-500">*</span>
-        </h2>
-        <DatePicker label="DATA" value={data} onChange={setData} />
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
+          {usuario && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
+              <span>👤</span>
+              <span>{usuario}</span>
+            </span>
+          )}
+        </div>
+        <DatePicker label="DATA" value={data} onChange={setData} compact />
         {responsaveis.length > 0 ? (
           <SearchableModal
             label="RESPONSÁVEL"

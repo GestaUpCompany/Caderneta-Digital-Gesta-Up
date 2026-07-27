@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { setConfig, setConfigurado } from '../store/slices/configSlice'
 import { RootState } from '../store/store'
 import { Button, Input } from '../components/ui'
+import { ChevronLeft } from 'lucide-react'
 import ValidationModal from '../components/ValidationModal'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 
@@ -171,18 +172,23 @@ export default function Configuracoes() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
-      <header className="bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center desktop-form-container">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-          >
-            VOLTAR
-          </button>
-          <h1 className="text-base font-bold flex-1 text-center">
+      <header className="sticky top-0 z-20 bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
+        <div className="px-3 py-3 desktop-form-container">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px] backdrop-blur-sm"
+              aria-label="Voltar"
+            >
+              <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+              <span>Voltar</span>
+            </button>
+            <div className="w-[92px]" aria-hidden />
+          </div>
+
+          <h1 className="mt-2 text-lg font-bold leading-tight tracking-tight text-center truncate tracking-wide">
             CADASTROS
           </h1>
-          <div className="w-[60px]"></div>
         </div>
       </header>
 

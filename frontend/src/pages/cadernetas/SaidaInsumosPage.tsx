@@ -3,6 +3,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
+import CadernetaHeader from '../../components/CadernetaHeader'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { Input, DatePicker, Button, SearchableModal, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
@@ -29,7 +30,7 @@ const makeInitial = (): FormState => ({
 
 export default function SaidaInsumosPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, logoUrl, usuario } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -164,24 +165,7 @@ export default function SaidaInsumosPage() {
   return (
     <FeatureLock feature="saida-insumos" fazendaId={fazendaId}>
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header sticky com botões e título */}
-      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center justify-between desktop-form-container">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-          >
-            VOLTAR
-          </button>
-          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2">SAÍDA DE INSUMOS</h1>
-          <button
-            onClick={() => navigate('/caderneta/saida-insumos/lista')}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
-          >
-            REGISTROS
-          </button>
-        </div>
-      </div>
+      <CadernetaHeader title="SAÍDA DE INSUMOS" cadernetaId="saida-insumos" />
 
       {/* Logos não sticky */}
       <div className="bg-[#1a3a2a] text-white px-4 py-5">
@@ -211,12 +195,21 @@ export default function SaidaInsumosPage() {
           <>
             {/* Seção 1: Dados da Produção */}
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA PRODUÇÃO</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="section-title">1. DADOS DA PRODUÇÃO</h2>
+                {usuario && (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
+                    <span>👤</span>
+                    <span>{usuario}</span>
+                  </span>
+                )}
+              </div>
               <DatePicker
                 label="DATA DE PRODUÇÃO"
                 value={form.dataProducao}
                 onChange={set('dataProducao')}
                 error={getError('dataProducao')}
+                compact
               />
               {dietasDisponiveis.length > 0 ? (
                 <SearchableModal

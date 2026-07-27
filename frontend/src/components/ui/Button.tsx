@@ -13,10 +13,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-black text-white border-black active:bg-gray-800',
-  secondary: 'bg-white text-black border-2 border-black active:bg-gray-100',
-  danger: 'bg-red-700 text-white border-red-700 active:bg-red-800',
-  success: 'bg-green-800 text-white border-green-800 active:bg-green-900',
+  primary: 'bg-black text-white border-black shadow-md shadow-black/15 active:bg-gray-800',
+  secondary: 'bg-white text-black border-2 border-black shadow-sm active:bg-gray-100',
+  danger: 'bg-red-700 text-white border-red-700 shadow-md shadow-red-900/20 active:bg-red-800',
+  success: 'bg-green-800 text-white border-green-800 shadow-md shadow-green-900/20 active:bg-green-900',
   ghost: 'bg-transparent text-black border-2 border-gray-300 active:bg-gray-100',
 }
 
@@ -38,7 +38,7 @@ export default function Button({
   className = '',
   ...props
 }: ButtonProps) {
-  const baseStyles = 'font-bold rounded-xl transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-3'
+  const baseStyles = 'font-bold rounded-2xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 disabled:shadow-none flex items-center justify-center gap-3'
   const widthStyles = fullWidth ? 'w-full' : ''
 
   return (

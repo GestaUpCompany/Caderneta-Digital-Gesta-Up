@@ -6,6 +6,7 @@ import { generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
+import CadernetaHeader from '../../components/CadernetaHeader'
 import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
@@ -307,24 +308,7 @@ export default function EntradaInsumosPage() {
   return (
     <FeatureLock feature="entrada-insumos" fazendaId={fazendaId}>
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header sticky com botões e título */}
-      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center justify-between desktop-form-container">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-          >
-            VOLTAR
-          </button>
-          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2 text-center">ENTRADA INSUMOS</h1>
-          <button
-            onClick={() => navigate('/caderneta/entrada-insumos/lista')}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3 -mr-2"
-          >
-            REGISTROS
-          </button>
-        </div>
-      </div>
+      <CadernetaHeader title="ENTRADA INSUMOS" cadernetaId="entrada-insumos" />
 
       {/* Logos não sticky */}
       <div className="bg-[#1a3a2a] text-white px-4 py-5">
@@ -344,8 +328,16 @@ export default function EntradaInsumosPage() {
         <>
             {/* Seção 1: Dados da Entrada */}
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA ENTRADA</h2>
-              <DatePicker label="DATA DE ENTRADA" value={form.dataEntrada} onChange={set('dataEntrada')} error={getError('dataEntrada')} />
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="section-title">1. DADOS DA ENTRADA</h2>
+                {usuario && (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
+                    <span>👤</span>
+                    <span>{usuario}</span>
+                  </span>
+                )}
+              </div>
+              <DatePicker label="DATA DE ENTRADA" value={form.dataEntrada} onChange={set('dataEntrada')} error={getError('dataEntrada')} compact />
               
               {/* Horário */}
               <div>

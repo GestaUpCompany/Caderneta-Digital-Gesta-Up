@@ -7,6 +7,7 @@ import { listarRegistros, excluirRegistro, reenviarRegistro } from '../../servic
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
+import { ChevronLeft, List } from 'lucide-react'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/shareUtils'
@@ -188,18 +189,25 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-[#1a3a2a] text-white flex items-center px-4 py-4">
-        <div className="flex items-center w-full desktop-container">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-          >
-            VOLTAR
-          </button>
-          <h1 className="text-base font-bold flex-1 text-center">{titulo}</h1>
-          <span className="text-yellow-400 font-bold text-sm">
-            {registrosFiltradosFinal.length} registros
-          </span>
+      <header className="sticky top-0 z-20 bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
+        <div className="px-3 py-3 desktop-container">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px] backdrop-blur-sm"
+              aria-label="Voltar"
+            >
+              <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+              <span>Voltar</span>
+            </button>
+
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-400/15 text-yellow-200 px-2.5 py-1.5 text-xs font-semibold">
+              <List className="w-3.5 h-3.5" strokeWidth={2.5} />
+              {registrosFiltradosFinal.length} registros
+            </span>
+          </div>
+
+          <h1 className="mt-3 text-lg font-bold leading-tight tracking-tight text-center truncate tracking-wide">{titulo}</h1>
         </div>
       </header>
 

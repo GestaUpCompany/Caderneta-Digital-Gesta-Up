@@ -11,6 +11,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
+import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getCachedCadastroData,
   getPastoByNomeCached,
@@ -617,24 +618,7 @@ export default function PastagensPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header sticky com botões e título */}
-      <div className="sticky top-0 z-10 bg-[#1a3a2a] text-white px-4 py-4">
-        <div className="flex items-center justify-between desktop-form-container">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-          >
-            VOLTAR
-          </button>
-          <h1 className="text-base font-bold absolute left-1/2 -translate-x-1/2 text-center">MANEJO<br/>PASTAGENS</h1>
-          <button
-            onClick={() => navigate('/caderneta/pastagens/lista')}
-            className="text-yellow-400 font-bold text-sm min-h-[40px] px-3"
-          >
-            REGISTROS
-          </button>
-        </div>
-      </div>
+      <CadernetaHeader title="MANEJO PASTAGENS" cadernetaId="pastagens" />
 
       {/* Logos não sticky */}
       <div className="bg-[#1a3a2a] text-white px-4 py-5">
@@ -653,14 +637,16 @@ export default function PastagensPage() {
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          {usuario && (
-            <div className="flex items-center gap-2 pb-4 border-b border-gray-100">
-              <span className="text-xl">👤</span>
-              <p className="text-gray-700 font-semibold">{usuario}</p>
-            </div>
-          )}
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} />
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
+            {usuario && (
+              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
+                <span>👤</span>
+                <span>{usuario}</span>
+              </span>
+            )}
+          </div>
+          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} compact />
           {funcionariosDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>MANEJADOR <span className="text-red-500">*</span></span>}

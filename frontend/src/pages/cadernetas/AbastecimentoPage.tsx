@@ -74,7 +74,7 @@ const makeInitial = (): FormState => ({
 
 export default function AbastecimentoPage() {
   const navigate = useNavigate()
-  const { fazendaId } = useSelector((state: RootState) => state.config)
+  const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -226,8 +226,16 @@ export default function AbastecimentoPage() {
       {errors.length > 0 && <ValidationMessage errors={errors} />}
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
-        <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} />
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="section-title">1. DADOS DO ABASTECIMENTO</h2>
+          {usuario && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
+              <span>👤</span>
+              <span>{usuario}</span>
+            </span>
+          )}
+        </div>
+        <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} compact />
         <>
           <SearchableModal
             label={<span>QUEM ABASTECEU? <span className="text-red-500">*</span></span>}

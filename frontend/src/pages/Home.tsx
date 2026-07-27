@@ -4,8 +4,9 @@ import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
-import { ClipboardList, Sun, Moon } from 'lucide-react'
-import FarmLogo from '../components/FarmLogo'
+import { ClipboardList, Sun, Moon, Settings } from 'lucide-react'
+import { LOGO_URL, getFarmLogo } from '../utils/constants'
+
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 import { syncAllCadastroData } from '../services/cadastroCache'
@@ -226,23 +227,41 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
-      <header className="bg-[#1a3a2a] text-white py-6 border-b-4 border-yellow-400 relative">
-        <div className="flex flex-col items-center gap-3 px-4 desktop-container">
-          {/* Título Manej'Us 360 */}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-white leading-none">Manej'Us</span>
-            <span className="text-2xl font-bold text-yellow-400 leading-none">360</span>
-          </div>
-          {/* Logos */}
-          <div className="flex items-center justify-center w-full mt-4">
-            <FarmLogo
-              farmName={configurado ? fazenda : undefined}
-              logoUrl={logoUrl}
-              type="both"
-              size="medium"
-              gap="gap-4"
-              className="justify-center"
-            />
+      <header className="bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)] relative">
+        <div className="relative px-3 py-3 desktop-container">
+          <button
+            onClick={() => navigate('/configuracoes')}
+            className="absolute right-3 top-3 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors w-10 h-10 backdrop-blur-sm"
+            aria-label="Configurações"
+          >
+            <Settings className="w-5 h-5" strokeWidth={2} />
+          </button>
+
+          {/* Título e subtítulo */}
+          <div className="flex flex-col items-center">
+            <div className="mt-2 flex items-baseline justify-center gap-1.5">
+              <span className="text-2xl font-bold text-white leading-none">Manej'Us</span>
+              <span className="text-2xl font-bold text-yellow-400 leading-none">360</span>
+            </div>
+            <p className="mt-1 text-sm font-semibold text-white/75 text-center tracking-wide">
+              Gesta'Up
+            </p>
+
+            {/* Logos */}
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <img
+                src={LOGO_URL}
+                alt="GestaUp"
+                className="w-14 h-14 object-contain rounded-[22px]"
+              />
+              {configurado && fazenda && (
+                <img
+                  src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
+                  alt="Logo Fazenda"
+                  className="h-14 w-auto max-w-[120px] object-contain rounded-[22px]"
+                />
+              )}
+            </div>
           </div>
         </div>
       </header>
