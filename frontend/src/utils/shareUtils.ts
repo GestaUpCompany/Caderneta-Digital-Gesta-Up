@@ -413,7 +413,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `OPERADOR MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
     texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
     texto += `PLACA: *${registro.placa || '—'}*\n`
-    texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'} L*\n\n`
+    texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'} L*\n`
+    if (registro.totalBomba) {
+      texto += `TOTAL DA BOMBA: *${registro.totalBomba} L*\n`
+    }
+    texto += `\n`
     
     texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
     texto += `ODÔMETRO/HORÍMETRO: *${registro.odometro || '—'} km*\n`
@@ -1117,7 +1121,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.itens && Array.isArray(registro.itens) && registro.itens.length > 0) {
       texto += 'ITENS\n'
       registro.itens.forEach((item: any, index: number) => {
-        texto += `${index + 1}. *${item.nome || '—'}* - *${item.quantidade || '—'}*\n`
+        texto += `${index + 1}. *${item.nome || '—'}*\n`
+
+        // Quantidade
+        texto += `   Quantidade: *${item.quantidade || '—'}*\n`
 
         // Classificação (se preenchida)
         if (item.classificacao && item.classificacao !== '') {

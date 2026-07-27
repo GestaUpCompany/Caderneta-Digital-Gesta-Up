@@ -305,6 +305,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         maquina_veiculo_id: registro.maquinaVeiculoId || null,
         placa: registro.placa || null,
         total_abastecido: registro.totalAbastecido ? Number(registro.totalAbastecido) : null,
+        total_bomba: registro.totalBomba ? Number(registro.totalBomba) : null,
         combustivel: registro.combustivel || null,
         odometro_horimetro: registro.odometro || null,
         tipo_operacao: registro.tipoOperacao || null,

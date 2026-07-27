@@ -48,6 +48,7 @@ interface FormState {
   maquinaVeiculoId: string
   placa: string
   totalAbastecido: string
+  totalBomba: string
   combustivel: string
   odometro: string
   tipoOperacao: string
@@ -63,6 +64,7 @@ const makeInitial = (): FormState => ({
   maquinaVeiculoId: '',
   placa: '',
   totalAbastecido: '',
+  totalBomba: '',
   combustivel: '',
   odometro: '',
   tipoOperacao: '',
@@ -190,6 +192,7 @@ export default function AbastecimentoPage() {
       maquinaVeiculoId: form.maquinaVeiculoId,
       placa: form.placa,
       totalAbastecido: form.totalAbastecido,
+      totalBomba: form.totalBomba,
       combustivel: form.combustivel,
       odometro: form.odometro,
       tipoOperacao: form.tipoOperacao,
@@ -283,6 +286,7 @@ export default function AbastecimentoPage() {
           />
         )}
         <Input label={<span>TOTAL ABASTECIDO (L) <span className="text-red-500">*</span></span>} placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />
+        <Input label="TOTAL DA BOMBA (L)" placeholder="Total acumulado da bomba" value={form.totalBomba} onChange={setInput('totalBomba')} inputMode="decimal" />
       </div>
 
       {/* Seção 2: Combustível e Operação */}

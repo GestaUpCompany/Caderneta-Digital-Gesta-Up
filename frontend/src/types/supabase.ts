@@ -2796,6 +2796,7 @@ export type Database = {
           tipo_operacao: string
           tipo_operacao_outros: string | null
           total_abastecido: number
+          total_bomba: number | null
           updated_at: string
           version: number
         }
@@ -2819,6 +2820,7 @@ export type Database = {
           tipo_operacao: string
           tipo_operacao_outros?: string | null
           total_abastecido: number
+          total_bomba?: number | null
           updated_at?: string
           version?: number
         }
@@ -2842,6 +2844,7 @@ export type Database = {
           tipo_operacao?: string
           tipo_operacao_outros?: string | null
           total_abastecido?: number
+          total_bomba?: number | null
           updated_at?: string
           version?: number
         }
