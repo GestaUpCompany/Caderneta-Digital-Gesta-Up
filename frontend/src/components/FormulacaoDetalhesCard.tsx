@@ -2,6 +2,7 @@ interface FormulacaoDetalhesCardProps {
   detalhes: {
     teorMs?: number | null
     metaConsumo?: number | null
+    pesoVivoKg?: number | null
     consumoMedioGeralPercentPV?: number | null
     consumoMedio30DiasPercentPV?: number | null
     consumoMedioGeralKgMN?: number | null
@@ -43,6 +44,14 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
           {formatNumber(detalhes.metaConsumo, 2)}{formatNumber(detalhes.metaConsumo, 2) !== null && '%'}
         </p>
       </div>
+      {detalhes.metaConsumo != null && detalhes.pesoVivoKg != null && detalhes.pesoVivoKg > 0 && (
+        <div>
+          <p className="text-gray-500 font-semibold">META CONSUMO (kg/cab/dia)</p>
+          <p className="text-gray-900 font-bold">
+            {formatNumber((detalhes.metaConsumo / 100) * detalhes.pesoVivoKg, 3)}{formatNumber((detalhes.metaConsumo / 100) * detalhes.pesoVivoKg, 3) !== null && ' kg'}
+          </p>
+        </div>
+      )}
       {semDadosHistoricos ? (
         <div className="col-span-2 text-sm text-gray-600 italic">
           {detalhes.motivoFalha ? (

@@ -645,6 +645,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
       texto += `META CONSUMO (%PV): *${Number(registro.metaConsumo).toFixed(2).replace('.', ',')}%*\n`
     }
+    if (registro.metaConsumo != null && registro.pesoVivoKgLote != null && Number(registro.pesoVivoKgLote) > 0) {
+      const metaKgCabDia = (Number(registro.metaConsumo) / 100) * Number(registro.pesoVivoKgLote)
+      texto += `META CONSUMO (kg/cab/dia): *${metaKgCabDia.toFixed(3).replace('.', ',')} kg*\n`
+    }
     const totalCabecasLote = (Number(registro.nCabecasLote) || 0) + (Number(registro.qtdBezerrosLote) || 0)
     if (totalCabecasLote > 0) {
       texto += `N° CABEÇAS: *${totalCabecasLote}*\n`

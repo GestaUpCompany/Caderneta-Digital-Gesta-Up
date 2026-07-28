@@ -717,6 +717,7 @@ export default function SuplementacaoPage() {
               detalhes={{
                 teorMs: formulacaoDetalhes.teorMs,
                 metaConsumo: formulacaoDetalhes.metaConsumo,
+                pesoVivoKg: detalhesLote?.peso_vivo_kg ?? null,
                 consumoMedioGeralPercentPV: metricasSuplementacao?.consumoMedioGeralPercentPV,
                 consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV,
                 consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN,

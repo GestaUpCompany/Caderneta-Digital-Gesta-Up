@@ -676,20 +676,19 @@ export default function MaternidadePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
-        title="MATERNIDADE"
-        cadernetaId="maternidade"
-        extraHeaderContent={
-          <div className="mt-4 flex items-center justify-center gap-6">
-            <FarmLogo
-              farmName={fazenda}
-              logoUrl={logoUrl}
-              type="both"
-              size="medium"
-            />
-          </div>
-        }
-      />
+      <CadernetaHeader title="MATERNIDADE" cadernetaId="maternidade" />
+
+      {/* Logos não sticky */}
+      <div className="bg-[#1a3a2a] text-white px-4 py-5">
+        <div className="flex items-center justify-center gap-8 desktop-form-container">
+          <FarmLogo
+            farmName={fazenda}
+            logoUrl={logoUrl}
+            type="both"
+            size="medium"
+          />
+        </div>
+      </div>
 
       {/* Botão de PDF POP */}
       <div className="bg-[#1a3a2a] text-white px-4 py-3">
