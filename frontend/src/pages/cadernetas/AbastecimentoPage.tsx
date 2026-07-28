@@ -17,7 +17,6 @@ const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
   { value: 'Gasolina', label: 'GASOLINA' },
   { value: 'Diesel S10', label: 'DIESEL S10' },
-  { value: 'Diesel S500', label: 'DIESEL S500' },
   { value: 'Diesel Comum', label: 'DIESEL COMUM' },
 ]
 

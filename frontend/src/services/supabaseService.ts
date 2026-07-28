@@ -468,6 +468,22 @@ export async function deleteLote(id: string) {
 
 // ==================== CATEGORIAS ====================
 
+export async function getFaixasCategorias(fazendaId: string, sexo?: string) {
+  const client = getSupabaseClient()
+  let query = (client as any)
+    .from('faixas_categorias')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+  if (sexo) {
+    query = query.eq('sexo', sexo)
+  }
+  const { data, error } = await query.order('ordem').order('nome')
+
+  if (error) throw error
+  return data
+}
+
 export async function getCategorias(fazendaId: string) {
   const client = getSupabaseClient()
   const { data, error } = await client

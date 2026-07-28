@@ -76,6 +76,7 @@ export default function AnimalIdentifier({
   const [loading, setLoading] = useState(false)
   const [hasIndividuos, setHasIndividuos] = useState<boolean | null>(null)
   const [animalEncontrado, setAnimalEncontrado] = useState<AnimalData | null>(null)
+  const [isNewlyCreated, setIsNewlyCreated] = useState(false)
 
   // Notify parent when hasIndividuos changes
   useEffect(() => {
@@ -177,6 +178,7 @@ export default function AnimalIdentifier({
   const handleFieldChange = (field: 'idManejo' | 'idBrinco' | 'idChip', value: string) => {
     if (!value || value.trim() === '') {
       setAnimalFromData(null)
+      setIsNewlyCreated(false)
       return
     }
 
@@ -188,9 +190,11 @@ export default function AnimalIdentifier({
 
     if (found) {
       setAnimalFromData(found)
+      setIsNewlyCreated(false)
     } else {
       // Fallback: ID nao encontrado na lista (nao deveria ocorrer no fluxo normal)
       setAnimalEncontrado(null)
+      setIsNewlyCreated(false)
       onChange({
         idManejo: field === 'idManejo' ? value : '',
         idBrinco: field === 'idBrinco' ? value : '',
@@ -294,19 +298,35 @@ export default function AnimalIdentifier({
             options={manejoOptions}
             value={valueManejo}
             onChange={(val) => handleFieldChange('idManejo', val)}
-            onCreateMulti={({ manejo, brinco, chip }) => {
+            createField="manejo"
+            onCreateMulti={async ({ manejo, brinco, chip }) => {
               const found = findAnimalByAnyId({ manejo, brinco, chip })
               if (found) {
                 setAnimalFromData(found)
+                setIsNewlyCreated(false)
               } else {
-                setAnimalEncontrado(null)
-                onChange({
-                  idManejo: manejo || '',
-                  idBrinco: brinco || '',
-                  idChip: chip || '',
-                  individuoId: null,
-                  animalData: null,
-                })
+                let dbFound: AnimalData | null = null
+                try {
+                  if (manejo) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, manejo)
+                  if (!dbFound && brinco) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, brinco)
+                  if (!dbFound && chip) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, chip)
+                } catch (err) {
+                  console.error('[AnimalIdentifier] Erro ao checar duplicidade:', err)
+                }
+                if (dbFound) {
+                  setAnimalFromData(dbFound)
+                  setIsNewlyCreated(false)
+                } else {
+                  setAnimalEncontrado(null)
+                  setIsNewlyCreated(true)
+                  onChange({
+                    idManejo: manejo || '',
+                    idBrinco: brinco || '',
+                    idChip: chip || '',
+                    individuoId: null,
+                    animalData: null,
+                  })
+                }
               }
             }}
             placeholder={loading ? 'Carregando...' : 'Buscar ID Manejo...'}
@@ -317,19 +337,35 @@ export default function AnimalIdentifier({
             options={brincoOptions}
             value={valueBrinco}
             onChange={(val) => handleFieldChange('idBrinco', val)}
-            onCreateMulti={({ manejo, brinco, chip }) => {
+            createField="brinco"
+            onCreateMulti={async ({ manejo, brinco, chip }) => {
               const found = findAnimalByAnyId({ manejo, brinco, chip })
               if (found) {
                 setAnimalFromData(found)
+                setIsNewlyCreated(false)
               } else {
-                setAnimalEncontrado(null)
-                onChange({
-                  idManejo: manejo || '',
-                  idBrinco: brinco || '',
-                  idChip: chip || '',
-                  individuoId: null,
-                  animalData: null,
-                })
+                let dbFound: AnimalData | null = null
+                try {
+                  if (brinco) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, brinco)
+                  if (!dbFound && manejo) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, manejo)
+                  if (!dbFound && chip) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, chip)
+                } catch (err) {
+                  console.error('[AnimalIdentifier] Erro ao checar duplicidade:', err)
+                }
+                if (dbFound) {
+                  setAnimalFromData(dbFound)
+                  setIsNewlyCreated(false)
+                } else {
+                  setAnimalEncontrado(null)
+                  setIsNewlyCreated(true)
+                  onChange({
+                    idManejo: manejo || '',
+                    idBrinco: brinco || '',
+                    idChip: chip || '',
+                    individuoId: null,
+                    animalData: null,
+                  })
+                }
               }
             }}
             placeholder={loading ? 'Carregando...' : 'Buscar ID Brinco...'}
@@ -340,19 +376,35 @@ export default function AnimalIdentifier({
             options={chipOptions}
             value={valueChip}
             onChange={(val) => handleFieldChange('idChip', val)}
-            onCreateMulti={({ manejo, brinco, chip }) => {
+            createField="chip"
+            onCreateMulti={async ({ manejo, brinco, chip }) => {
               const found = findAnimalByAnyId({ manejo, brinco, chip })
               if (found) {
                 setAnimalFromData(found)
+                setIsNewlyCreated(false)
               } else {
-                setAnimalEncontrado(null)
-                onChange({
-                  idManejo: manejo || '',
-                  idBrinco: brinco || '',
-                  idChip: chip || '',
-                  individuoId: null,
-                  animalData: null,
-                })
+                let dbFound: AnimalData | null = null
+                try {
+                  if (chip) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, chip)
+                  if (!dbFound && manejo) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, manejo)
+                  if (!dbFound && brinco) dbFound = await buscarIndividuoPorIdGenerico(fazendaId, brinco)
+                } catch (err) {
+                  console.error('[AnimalIdentifier] Erro ao checar duplicidade:', err)
+                }
+                if (dbFound) {
+                  setAnimalFromData(dbFound)
+                  setIsNewlyCreated(false)
+                } else {
+                  setAnimalEncontrado(null)
+                  setIsNewlyCreated(true)
+                  onChange({
+                    idManejo: manejo || '',
+                    idBrinco: brinco || '',
+                    idChip: chip || '',
+                    individuoId: null,
+                    animalData: null,
+                  })
+                }
               }
             }}
             placeholder={loading ? 'Carregando...' : 'Buscar ID Chip...'}
@@ -388,7 +440,7 @@ export default function AnimalIdentifier({
         </div>
       )}
 
-      {showAnimalCard && displayAnimal && (
+      {showAnimalCard && displayAnimal && !isNewlyCreated && (
         <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 mt-2">
           <p className="text-sm font-semibold text-blue-800 mb-2">DADOS DO ANIMAL</p>
           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -425,6 +477,11 @@ export default function AnimalIdentifier({
             </p>
           )}
         </div>
+      )}
+      {isNewlyCreated && (valueManejo || valueBrinco || valueChip) && (
+        <p className="text-xs text-green-600 mt-2 font-medium">
+          ✅ Novo animal. Será cadastrado na base ao salvar o registro.
+        </p>
       )}
     </div>
   )

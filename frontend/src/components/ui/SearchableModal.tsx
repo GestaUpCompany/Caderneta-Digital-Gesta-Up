@@ -13,8 +13,9 @@ interface SearchableModalProps {
   name?: string
   dataField?: string
   onCreateNew?: (searchTerm: string) => void
-  onCreateMulti?: (ids: { manejo: string; brinco: string; chip: string }) => void
+  onCreateMulti?: (ids: { manejo: string; brinco: string; chip: string }, createField?: 'manejo' | 'brinco' | 'chip') => void
   createNewLabel?: string
+  createField?: 'manejo' | 'brinco' | 'chip'
 }
 
 export default function SearchableModal({
@@ -31,6 +32,7 @@ export default function SearchableModal({
   onCreateNew,
   onCreateMulti,
   createNewLabel = 'Novo',
+  createField,
 }: SearchableModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -109,6 +111,9 @@ export default function SearchableModal({
     if (onCreateMulti) {
       setIsCreating(true)
       setCreateError('')
+      if (createField === 'manejo') setNewManejo(searchTerm)
+      if (createField === 'brinco') setNewBrinco(searchTerm)
+      if (createField === 'chip') setNewChip(searchTerm)
     } else if (onCreateNew) {
       handleClose()
       onCreateNew(searchTerm)
@@ -126,7 +131,7 @@ export default function SearchableModal({
     }
 
     if (onCreateMulti) {
-      onCreateMulti({ manejo, brinco, chip })
+      onCreateMulti({ manejo, brinco, chip }, createField)
     }
     handleClose()
   }

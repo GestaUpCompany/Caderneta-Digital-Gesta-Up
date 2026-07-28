@@ -138,6 +138,9 @@ interface FormState {
   categoriaMae: string
   escoreMatriz: string
   docilidadeMatriz: string
+  racaMae: string
+  categoriaAnimalMae: string
+  dataNascimentoMae: string
 }
 
 const makeInitial = (): FormState => ({
@@ -175,12 +178,16 @@ const makeInitial = (): FormState => ({
   categoriaMae: '',
   escoreMatriz: '',
   docilidadeMatriz: '',
+  racaMae: '',
+  categoriaAnimalMae: '',
+  dataNascimentoMae: '',
 })
 
 export default function MaternidadePage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
+  const [animalIdentifierKey, setAnimalIdentifierKey] = useState(0)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -265,6 +272,14 @@ export default function MaternidadePage() {
     categoriaMae: { required: true },
     escoreMatriz: { required: true },
     docilidadeMatriz: { required: true },
+    racaMae: {
+      custom: (value: string) => {
+        if (!form.individuoIdMae && (form.idManejoMae || form.idBrincoMae || form.idChipMae)) {
+          if (!value || value.trim() === '') return 'Raça da nova mãe é obrigatória'
+        }
+        return null
+      }
+    },
   }
 
   const { isValid, errors: validationErrors } = useFormValidation(form, validationRules)
@@ -462,6 +477,31 @@ export default function MaternidadePage() {
     // Tipo de parto: incluir 'Gêmeos' se marcado
     const tipoPartoFinal = form.gemelos ? [...form.tipoParto, 'Gêmeos'] : form.tipoParto
 
+    // Criar indivíduo da mãe se ela não existir na base (nova mãe via modal NOVO)
+    let individuoIdMaeFinal = form.individuoIdMae
+    if (!individuoIdMaeFinal && (form.idManejoMae || form.idBrincoMae || form.idChipMae)) {
+      try {
+        const novaMae = await createIndividuo({
+          fazenda_id: fazendaId,
+          id_manejo: form.idManejoMae || null,
+          id_brinco: form.idBrincoMae || null,
+          id_chip: form.idChipMae || null,
+          sexo: 'Fêmea',
+          raca: form.racaMae || null,
+          categoria: 'Vaca Parida',
+          classificacao_matriz: form.categoriaMae || null,
+          status: 'Vivo',
+          data_nascimento: form.dataNascimentoMae ? brToIso(form.dataNascimentoMae) || null : null,
+          lote_atual: form.loteId || null,
+          pasto_atual: form.pastoId || null,
+          origem: 'Cadastro Manual',
+        })
+        individuoIdMaeFinal = novaMae?.id || ''
+      } catch (err) {
+        console.error('Erro ao criar indivíduo da mãe:', err)
+      }
+    }
+
     // Função auxiliar para criar indivíduo de uma cria
     const criarIndividuoCria = async (dadosCria: {
       idProvisorio: string
@@ -487,7 +527,7 @@ export default function MaternidadePage() {
           parto: tipoPartoFinal,
           origem: 'Nascimento',
           data_entrada_fazenda: dataNascimentoIso || null,
-          mae: form.individuoIdMae || null,
+          mae: individuoIdMaeFinal || null,
           id_brinco_mae: form.idBrincoMae || null,
           id_chip_mae: form.idChipMae || null,
           lote_atual: form.loteId || null,
@@ -553,7 +593,7 @@ export default function MaternidadePage() {
       idManejoMae: form.idManejoMae,
       idBrincoMae: form.idBrincoMae,
       idChipMae: form.idChipMae,
-      individuoIdMae: form.individuoIdMae,
+      individuoIdMae: individuoIdMaeFinal,
       individuoIdCria,
       categoriaMae: form.categoriaMae,
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
@@ -590,7 +630,7 @@ export default function MaternidadePage() {
           idManejoMae: form.idManejoMae,
           idBrincoMae: form.idBrincoMae,
           idChipMae: form.idChipMae,
-          individuoIdMae: form.individuoIdMae,
+          individuoIdMae: individuoIdMaeFinal,
           individuoIdCria: individuoIdCria2,
           categoriaMae: form.categoriaMae,
           escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
@@ -610,6 +650,7 @@ export default function MaternidadePage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
+      setAnimalIdentifierKey(k => k + 1)
       // Invalida cache de detalhes do lote para refletir o novo bezerro/bezerra
       if (form.loteId) {
         clearCachedQuery(buildCacheKey('lote-detalhes', form.loteId))
@@ -619,6 +660,7 @@ export default function MaternidadePage() {
 
   const handleLimpar = () => {
     setForm(makeInitial())
+    setAnimalIdentifierKey(k => k + 1)
     setErrors([])
   }
 
@@ -713,6 +755,7 @@ export default function MaternidadePage() {
             </p>
           )}
           <AnimalIdentifier
+            key={animalIdentifierKey}
             fazendaId={fazendaId}
             valueManejo={form.idManejoMae}
             valueBrinco={form.idBrincoMae}
@@ -727,20 +770,65 @@ export default function MaternidadePage() {
                 individuoIdMae: individuoId || '',
                 // Auto-populate from individuo data if available
                 categoriaMae: animalData?.classificacao_matriz || prev.categoriaMae,
+                // Clear new-mother fields when an existing animal is found
+                racaMae: individuoId ? '' : prev.racaMae,
+                categoriaAnimalMae: individuoId ? '' : prev.categoriaAnimalMae,
+                dataNascimentoMae: individuoId ? '' : prev.dataNascimentoMae,
               }))
             }}
             required={true}
             showAnimalCard={true}
           />
+          {/* Dados da nova mãe (quando não encontrada na base) */}
+          {!form.individuoIdMae && (form.idManejoMae || form.idBrincoMae || form.idChipMae) && (
+            <div className="bg-green-50 rounded-xl p-4 border border-green-200 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold text-green-800">🆕 DADOS DA NOVA MÃE</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500 font-medium">SEXO</p>
+                  <p className="text-gray-900 font-bold">Fêmea</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 font-medium">STATUS</p>
+                  <p className="text-gray-900 font-bold">Vivo</p>
+                </div>
+              </div>
+              <Radio
+                name="racaMae"
+                label={<span>RAÇA <span className="text-red-500">*</span></span>}
+                options={racasDisponiveis.length > 0
+                  ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
+                  : RACAS_PADRAO}
+                value={form.racaMae}
+                onChange={set('racaMae')}
+                error={getError('racaMae')}
+                gridCols={2}
+              />
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500 font-medium">CATEGORIA</p>
+                  <p className="text-gray-900 font-bold">Vaca Parida</p>
+                </div>
+              </div>
+              <DatePicker
+                label={<span>DATA DE NASCIMENTO <span className="text-sm font-normal text-gray-500">(opcional)</span></span>}
+                value={form.dataNascimentoMae}
+                onChange={set('dataNascimentoMae')}
+                compact
+              />
+            </div>
+          )}
           <Radio
             name="categoriaMae"
-            label={<span>CATEGORIA DA MÃE <span className="text-red-500">*</span></span>}
+            label={<span>CLASSIFICAÇÃO DA MATRIZ <span className="text-red-500">*</span></span>}
             options={CATEGORIAS_MAE}
             value={form.categoriaMae}
             onChange={set('categoriaMae')}
             error={getError('categoriaMae')}
             gridCols={2}
-            disabled={hasIndividuos === true}
+            disabled={!!form.individuoIdMae}
           />
           <div className="pt-4 border-t border-gray-100">
             <h3 className="text-base font-bold text-gray-900 mb-4">ESCORE DA MATRIZ <span className="text-red-500">*</span></h3>
