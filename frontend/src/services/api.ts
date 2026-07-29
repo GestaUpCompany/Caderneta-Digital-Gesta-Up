@@ -24,13 +24,16 @@ export async function salvarRegistro(
     return { success: false, errors: validation.errors }
   }
 
+  // Remover campos de validação que não devem ser persistidos
+  const { maxCabecasLote, ...dataSemCamposValidacao } = data
+
   // Injetar nome_usuario: precedência é campo explicito no payload > config.usuario
   // Telas com searchable modal de responsável já enviam o nome selecionado;
   // telas sem modal contam com config.usuario injetado aqui.
   const configState = store.getState().config
   const usuarioConfigurado = (configState.usuario || '').trim()
-  const usuarioPayload = ((data.usuario as string) || '').trim()
-  const responsavelPayload = ((data.responsavel as string) || '').trim()
+  const usuarioPayload = ((dataSemCamposValidacao.usuario as string) || '').trim()
+  const responsavelPayload = ((dataSemCamposValidacao.responsavel as string) || '').trim()
 
   // Determinar nome_usuario final
   let nomeUsuarioFinal = usuarioPayload || responsavelPayload || usuarioConfigurado
@@ -48,7 +51,7 @@ export async function salvarRegistro(
 
   // Injetar usuario no payload (campo que o syncService lê para nome_usuario)
   const dataComUsuario: Record<string, unknown> = {
-    ...data,
+    ...dataSemCamposValidacao,
     usuario: nomeUsuarioFinal,
   }
 

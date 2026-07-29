@@ -157,7 +157,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
   // Separar campos normais, animais tratados e categorias
   const camposNormais: [string, unknown][] = []
-  const camposAposPesoVivoAtual: [string, unknown][] = []
   const camposMovimentacaoEspeciais: [string, unknown][] = []
   const animaisTratados: Map<number, { id: string; tratamentos: string }> = new Map()
   const categoriasAnimais: string[] = []
@@ -308,9 +307,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `QUANTIFICAÇÃO\n`
     if (registro.numeroCabecas) {
       texto += `NÚMERO CABEÇAS: *${registro.numeroCabecas}*\n`
-    }
-    if (registro.pesoVivoAtual) {
-      texto += `PESO VIVO ATUAL (KG): *${registro.pesoVivoAtual}*\n`
     }
     if (registro.categoria) {
       texto += `CATEGORIA: *${registro.categoria}*\n`
@@ -793,9 +789,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `LEITURA DO COCHO\n`
     if (registro.leituraCocho !== null && registro.leituraCocho !== undefined && registro.leituraCocho !== '') {
       texto += `Nota: *${registro.leituraCocho}*\n`
-    }
-    if (registro.observacao && registro.observacao !== '') {
-      texto += `Observação: *${registro.observacao}*\n`
     }
 
     // Seção: Histórico de Consumo MS
@@ -1750,13 +1743,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       })
     }
   }
-
-  // Adicionar campos após peso vivo atual (movimentação)
-  camposAposPesoVivoAtual.forEach(([key, value]) => {
-    let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-    const valorFormatado = formatFieldValue(key, value)
-    texto += `${label}: *${valorFormatado}*\n`
-  })
 
   // Adicionar animais tratados com estrutura especial
   if (animaisTratados.size > 0) {

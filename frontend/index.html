@@ -23,71 +23,30 @@
     <style>
       #splash {
         position: fixed; inset: 0; z-index: 9999;
-        background: linear-gradient(135deg, #1a3a2a 0%, #0d2820 50%, #1a3a2a 100%);
+        background: #1a3a2a;
         display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 24px;
-        transition: opacity 0.8s ease;
+        align-items: center; justify-content: center; gap: 20px;
+        transition: opacity 0.4s ease;
       }
       #splash.hide { opacity: 0; pointer-events: none; }
-      #splash img { 
-        width: 120px; height: 120px; border-radius: 24px;
-        animation: pulse 2s ease-in-out infinite;
-        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.3), 0 0 40px rgba(250, 204, 21, 0.3);
-      }
-      #splash h1 { 
-        color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 2rem; font-weight: 800; text-align: center; margin: 0;
-        text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      #splash img, #splash h1, #splash span {
         opacity: 0;
-        animation: fadeSlideUp 0.8s ease forwards 0.3s;
+        animation: splashIn 0.3s ease forwards;
       }
-      #splash .highlight {
-        color: #FACC15;
-        font-weight: 900;
-        font-size: 2.5rem;
-      }
-      #splash span {
-        color: #FACC15; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 1rem; text-align: center;
-        opacity: 0;
-        animation: fadeIn 0.8s ease forwards 0.6s;
-      }
-      #splash .progress-container {
-        width: 200px;
-        height: 8px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 9999px;
-        overflow: hidden;
-        opacity: 0;
-        animation: fadeIn 0.8s ease forwards 0.9s;
-        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-      }
-      #splash .progress-bar {
-        height: 100%;
-        background: linear-gradient(90deg, #FACC15, #FBBF24);
-        border-radius: 9999px;
-        animation: progress 2s ease-in-out forwards;
-        box-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
-      }
-      @keyframes progress {
-        0% { width: 0%; }
-        100% { width: 100%; }
-      }
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-      }
-      @keyframes fadeIn {
-        from { opacity: 0; }
+      #splash h1 { animation-delay: 0.05s; }
+      #splash span { animation-delay: 0.1s; }
+      @keyframes splashIn {
         to { opacity: 1; }
       }
-      @keyframes fadeSlideUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+      #splash img { width: 96px; height: 96px; border-radius: 20px; }
+      #splash h1 {
+        color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 1.75rem; font-weight: 800; text-align: center; margin: 0;
       }
-      @keyframes shimmer {
-        0%, 100% { filter: brightness(1); }
-        50% { filter: brightness(1.3); }
+      #splash .highlight { color: #FACC15; font-weight: 900; }
+      #splash span {
+        color: rgba(255,255,255,0.7); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 0.9rem; text-align: center;
       }
     </style>
   </head>
@@ -96,9 +55,6 @@
       <img id="splash-logo" src="" alt="Logo" />
       <h1>Manej'Us <span class="highlight">360</span></h1>
       <span>Gestão rural na palma da mão</span>
-      <div class="progress-container">
-        <div class="progress-bar"></div>
-      </div>
     </div>
     <script>
       // Definir BASE_URL dinamicamente para funcionar em desenvolvimento e produção
@@ -111,8 +67,8 @@
       window.addEventListener('load', function() {
         setTimeout(function() {
           var s = document.getElementById('splash');
-          if (s) { s.classList.add('hide'); setTimeout(function(){ s.remove(); }, 500); }
-        }, 1600);
+          if (s) { s.classList.add('hide'); setTimeout(function(){ s.remove(); }, 400); }
+        }, 800);
       });
     </script>
     <script type="module" src="/src/main.tsx"></script>

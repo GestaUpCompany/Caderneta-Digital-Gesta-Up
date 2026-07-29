@@ -236,7 +236,6 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         destino: registro.loteDestino || null,
         lote_destino_id: registro.loteDestinoId || null,
         numero_cabecas: registro.numeroCabecas ? Number(registro.numeroCabecas) : null,
-        peso_vivo_atual_kg: registro.pesoVivoAtual ? Number(registro.pesoVivoAtual) : null,
         categoria: registro.categoria || null,
         motivo_movimentacao: registro.motivoMovimentacao || null,
         subtipo: registro.subtipo || null,
@@ -449,7 +448,6 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         leitura_cocho: registro.leituraCocho !== '' && registro.leituraCocho !== null && registro.leituraCocho !== undefined
           ? Number(registro.leituraCocho)
           : null,
-        observacao: registro.observacao || null,
       }
     default:
       return baseData

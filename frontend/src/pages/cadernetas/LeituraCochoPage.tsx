@@ -13,6 +13,7 @@ import {
   getRegistrosLeituraCochoByLoteCached,
   getCurraisCached,
   getLinhasConfinamentoCached,
+  getFormulacaoByNomeCached,
 } from '../../services/cadastroCache'
 import { getLotes, getFuncionarios } from '../../services/supabaseService'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
@@ -26,11 +27,13 @@ interface LoteItem {
   curralId: string | null
   linhaId: string | null
   dieta: string | null
+  teorMsDieta: number | null
   leituraAnterior: number | null
   tratoAnterior: number | null
   nota: string
   notaSalva: boolean
   salvando: boolean
+  erroSalvar: boolean
   quantidade: number | null
   pesoVivoKg: number | null
   periodoDias: number | null
@@ -94,6 +97,8 @@ export default function LeituraCochoPage() {
   const [loteSelecionadoId, setLoteSelecionadoId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [erroResponsavel, setErroResponsavel] = useState<string | null>(null)
+  const [totalLotesSemCurral, setTotalLotesSemCurral] = useState(0)
   const listaRef = useRef<HTMLDivElement>(null)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -175,6 +180,17 @@ export default function LeituraCochoPage() {
             )
             const dieta = supOrdenados[0]?.formulacao || null
 
+            // Buscar teor_ms_dieta da formulação
+            let teorMsDieta: number | null = null
+            if (dieta && fazendaId) {
+              try {
+                const formulacao = await getFormulacaoByNomeCached(fazendaId, dieta)
+                teorMsDieta = formulacao?.teor_ms_dieta ? Number(formulacao.teor_ms_dieta) : null
+              } catch {
+                // ignorar erro, usa fallback
+              }
+            }
+
             const leitOrdenados = [...(registrosLeitura || [])].sort(
               (a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime()
             )
@@ -201,7 +217,8 @@ export default function LeituraCochoPage() {
                       .join(', ')
                   : ''
 
-            const cms = calcularCmsPorJanelas(detalhes || lote, registrosSuplementacao || [], 70)
+            const teorEfetivo = teorMsDieta ?? 70
+            const cms = calcularCmsPorJanelas(detalhes || lote, registrosSuplementacao || [], teorEfetivo)
 
             return {
               id: lote.id,
@@ -210,11 +227,13 @@ export default function LeituraCochoPage() {
               curralId: curralInfo.id,
               linhaId: curralInfo.linhaId,
               dieta,
+              teorMsDieta,
               leituraAnterior,
               tratoAnterior,
               nota: '',
               notaSalva: false,
               salvando: false,
+              erroSalvar: false,
               quantidade: detalhes?.quant_atual ?? lote.n_cabecas ?? null,
               pesoVivoKg: detalhes?.peso_vivo_kg ?? lote.peso_vivo_kg ?? null,
               periodoDias,
@@ -224,10 +243,13 @@ export default function LeituraCochoPage() {
           })
         )
 
-        const lotesFiltrados = lotesEnriquecidos
-          .filter((l): l is LoteItem => l !== null && l.linhaId !== null)
+        const lotesValidos = lotesEnriquecidos.filter((l): l is LoteItem => l !== null)
+        const lotesFiltrados = lotesValidos
+          .filter((l) => l.linhaId !== null)
           .sort((a, b) => a.curral.localeCompare(b.curral, 'pt-BR'))
 
+        const semCurral = lotesData.length - lotesValidos.length
+        setTotalLotesSemCurral(semCurral > 0 ? semCurral : 0)
         setLotes(lotesFiltrados)
         setLinhaSelecionadaId(null)
         setLoteSelecionadoId(null)
@@ -291,7 +313,7 @@ export default function LeituraCochoPage() {
       ? '-' + valorFiltrado.slice(1).replace(/-/g, '')
       : valorFiltrado.replace(/-/g, '')
     setLotes((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, nota: valorLimpo, notaSalva: false } : l))
+      prev.map((l) => (l.id === id ? { ...l, nota: valorLimpo, notaSalva: false, erroSalvar: false } : l))
     )
   }, [])
 
@@ -302,37 +324,52 @@ export default function LeituraCochoPage() {
 
       const notaNumero = lote.nota === '' || lote.nota === '-' ? null : Number(lote.nota)
       if (lote.nota !== '' && lote.nota !== '-' && isNaN(notaNumero as number)) return
+      if (!responsavel.trim()) {
+        setErroResponsavel('Selecione um responsável antes de salvar')
+        setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, erroSalvar: true } : l)))
+        return
+      }
 
-      setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, salvando: true } : l)))
+      setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, salvando: true, erroSalvar: false } : l)))
 
       try {
-        await salvarRegistro('leitura-cocho', {
+        const result = await salvarRegistro('leitura-cocho', {
           data: `${data} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
           responsavel,
           pastoCurral: lote.curral,
-          pastoId: null,
+          pastoId: lote.curralId || null,
           numeroLote: lote.nome,
           loteId: lote.id,
           leituraCocho: notaNumero !== null ? String(notaNumero) : '',
-          observacao: '',
         })
+
+        if (!result.success) {
+          setLotes((prev) =>
+            prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
+          )
+          return
+        }
 
         setLotes((prev) =>
           prev.map((l) =>
             l.id === id
-              ? { ...l, notaSalva: true, salvando: false, leituraAnterior: notaNumero }
+              ? { ...l, notaSalva: true, salvando: false, erroSalvar: false, leituraAnterior: notaNumero }
               : l
           )
         )
       } catch (error) {
         console.error('Erro ao salvar nota:', error)
         setLotes((prev) =>
-          prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false } : l))
+          prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
         )
       }
     },
     [lotes, fazendaId, data, responsavel]
   )
+
+  const limparNotas = useCallback(() => {
+    setLotes((prev) => prev.map((l) => ({ ...l, nota: '', notaSalva: false, erroSalvar: false })))
+  }, [])
 
   const handleNotaBlur = useCallback(
     (id: string) => {
@@ -383,7 +420,7 @@ export default function LeituraCochoPage() {
           <SearchableModal
             label="RESPONSÁVEL"
             value={responsavel}
-            onChange={(val) => { setResponsavel(val); atualizarNomeUsuarioConfig(val) }}
+            onChange={(val) => { setResponsavel(val); setErroResponsavel(null); atualizarNomeUsuarioConfig(val) }}
             options={responsaveis}
             placeholder="Buscar funcionário..."
             disabled={carregandoResponsaveis}
@@ -395,8 +432,11 @@ export default function LeituraCochoPage() {
             label="RESPONSÁVEL"
             placeholder={carregandoResponsaveis ? 'Carregando funcionários...' : 'Nome do responsável'}
             value={responsavel}
-            onChange={(e) => { setResponsavel(e.target.value); atualizarNomeUsuarioConfig(e.target.value) }}
+            onChange={(e) => { setResponsavel(e.target.value); setErroResponsavel(null); atualizarNomeUsuarioConfig(e.target.value) }}
           />
+        )}
+        {erroResponsavel && (
+          <p className="text-base font-semibold text-red-600">⚠️ {erroResponsavel}</p>
         )}
       </div>
 
@@ -452,6 +492,11 @@ export default function LeituraCochoPage() {
               <p className="text-sm text-gray-500">
                 Toque em uma linha para ver os currais e lançar as notas.
               </p>
+              {totalLotesSemCurral > 0 && (
+                <p className="text-xs text-gray-400 italic">
+                  {totalLotesSemCurral} lote(s) sem curral associado não aparecem na lista.
+                </p>
+              )}
 
               <div ref={listaRef} className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto -mx-1 px-1 pb-1">
                 {carregando ? (
@@ -593,9 +638,11 @@ export default function LeituraCochoPage() {
                                 onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
                                 placeholder=""
                                 className={`w-16 h-12 text-center text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors ${
-                                  lote.notaSalva
-                                    ? 'border-green-500 bg-green-50 text-green-700'
-                                    : 'border-yellow-500 bg-white text-gray-900 focus:border-yellow-600'
+                                  lote.erroSalvar
+                                    ? 'border-red-500 bg-red-50 text-red-700'
+                                    : lote.notaSalva
+                                      ? 'border-green-500 bg-green-50 text-green-700'
+                                      : 'border-yellow-500 bg-white text-gray-900 focus:border-yellow-600'
                                 }`}
                               />
                               {lote.salvando && (
@@ -605,6 +652,9 @@ export default function LeituraCochoPage() {
                                 <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                                   <Check className="w-3 h-3 text-white" />
                                 </span>
+                              )}
+                              {lote.erroSalvar && !lote.salvando && (
+                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">!</span>
                               )}
                             </div>
                           </div>
@@ -646,6 +696,15 @@ export default function LeituraCochoPage() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3 desktop-form-container">
+        <button
+          onClick={limparNotas}
+          className="bg-gray-200 text-gray-700 font-bold text-base px-6 py-3 rounded-2xl border-2 border-gray-300 hover:bg-gray-300 transition-colors active:scale-95"
+        >
+          🧹 LIMPAR NOTAS
+        </button>
       </div>
     </CadernetaLayout>
   )

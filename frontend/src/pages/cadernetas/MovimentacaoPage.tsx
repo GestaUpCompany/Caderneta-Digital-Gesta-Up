@@ -70,7 +70,6 @@ interface FormState {
   loteDestinoId: string
   destinoCustomizado: string
   numeroCabecas: string
-  pesoVivoAtual: string
   motivoMovimentacao: string
   subtipo: string // Enfermaria, Apartação, Refugo de Cocho, Compras
   brinco: string
@@ -89,7 +88,6 @@ const makeInitial = (): FormState => ({
   loteDestinoId: '',
   destinoCustomizado: '',
   numeroCabecas: '',
-  pesoVivoAtual: '',
   motivoMovimentacao: '',
   subtipo: '',
   brinco: '',
@@ -308,7 +306,7 @@ export default function MovimentacaoPage() {
       loteDestino: destinoFinal,
       loteDestinoId: form.loteDestinoId,
       numeroCabecas: form.numeroCabecas ? Number(form.numeroCabecas) : 0,
-      pesoVivoAtual: form.pesoVivoAtual ? Number(form.pesoVivoAtual) : null,
+      maxCabecasLote: detalhesLoteOrigem?.n_cabecas ?? null,
       categorias: form.categorias,
       categoria: categoriasString,
       motivoMovimentacao: form.motivoMovimentacao,
@@ -416,16 +414,18 @@ export default function MovimentacaoPage() {
             inputMode="numeric"
             type="number"
             min="0"
+            max={detalhesLoteOrigem?.n_cabecas ? String(detalhesLoteOrigem.n_cabecas) : undefined}
           />
-          <Input
-            label="PESO VIVO ATUAL (kg)"
-            placeholder="Ex: 450"
-            value={form.pesoVivoAtual}
-            onChange={setInput('pesoVivoAtual')}
-            inputMode="decimal"
-            type="number"
-            min="0"
-          />
+          {detalhesLoteOrigem?.n_cabecas && form.numeroCabecas && Number(form.numeroCabecas) > detalhesLoteOrigem.n_cabecas && (
+            <p className="text-base font-semibold text-red-600">
+              ⚠️ O lote origem tem apenas {detalhesLoteOrigem.n_cabecas} cabeças. Você não pode movimentar mais do que isso.
+            </p>
+          )}
+          {detalhesLoteOrigem?.n_cabecas && (
+            <p className="text-sm text-gray-500">
+              Disponível no lote: {detalhesLoteOrigem.n_cabecas} cabeças
+            </p>
+          )}
           {/* Identificação - apenas se for 1 cabeça */}
           {form.numeroCabecas === '1' && (
             <>

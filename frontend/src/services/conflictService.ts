@@ -49,7 +49,7 @@ function buildRegistroFromRow(
     ],
     suplementacao: ['data', 'tratador', 'pasto', 'numeroLote', 'formulacao', 'gado', 'vaca', 'touro', 'bezerro', 'boi', 'garrote', 'novilha', 'leitura', 'kgCocho', 'kgDeposito'],
     bebedouros: ['data', 'responsavel', 'pasto', 'numeroLote', 'leituraBebedouro', 'numeroBebedouro', 'observacao'],
-    movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'pesoVivoAtual', 'categoria', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
+    movimentacao: ['data', 'loteOrigem', 'loteDestino', 'numeroCabecas', 'categoria', 'motivoMovimentacao', 'brincoChip', 'causaObservacao'],
     enfermaria: ['data', 'pasto', 'lote', 'brincoChip', 'categoria', 'tratamento', 'tratamentoOutros', 'diagnosticos', 'observacaoTratamento'],
     morte: ['responsavel', 'data', 'pasto', 'lote', 'brincoChip', 'categoria', 'categoriaOutros', 'sexo', 'raca', 'racaOutros', 'idade', 'pesoVivo', 'causaMorte', 'causaMorteOutros', 'diagnosticos'],
     abastecimento: ['data', 'quemAbasteceu', 'operadorMotorista', 'maquinaVeiculo', 'placa', 'combustivel', 'tipoOperacao'],
@@ -64,7 +64,7 @@ function buildRegistroFromRow(
     'manutencao-maquinas': ['data', 'responsavelChecklist', 'operadorMotorista', 'maquinaVeiculo', 'placa', 'odometro', 'checklist', 'observacao'],
     problemas: ['data', 'setor', 'local', 'descricaoProblema', 'causaIdentificada', 'causaIdentificadaObs', 'acaoCorretivaRealizada', 'acaoCorretivaRealizadaObs', 'tipoOcorrencia', 'tipoOcorrenciaObs', 'causaRaizIdentificada', 'causaRaizIdentificadaObs', 'gravidadeImpacto', 'gravidadeImpactoObs', 'tipoProblema', 'tipoProblemaObs', 'prioridade'],
     almoxarifado: ['data', 'quemEntregou', 'quemPegou', 'itens', 'observacao'],
-    'leitura-cocho': ['data', 'responsavel', 'pastoCurral', 'pastoId', 'numeroLote', 'loteId', 'leituraCocho', 'observacao'],
+    'leitura-cocho': ['data', 'responsavel', 'pastoCurral', 'pastoId', 'numeroLote', 'loteId', 'leituraCocho'],
   }
 
   const fields = fieldsByCaderneta[caderneta]

@@ -278,6 +278,8 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
     errors.push({ field: 'loteDestino', message: 'Lote de destino é obrigatório' })
   if (!isPositiveNumber(data.numeroCabecas) || Number(data.numeroCabecas) === 0)
     errors.push({ field: 'numeroCabecas', message: 'Número de cabeças deve ser maior que zero' })
+  if (data.maxCabecasLote && Number(data.numeroCabecas) > Number(data.maxCabecasLote))
+    errors.push({ field: 'numeroCabecas', message: `Número de cabeças excede o total do lote (${data.maxCabecasLote})` })
   if (!isNonEmptyString(data.motivoMovimentacao))
     errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
 

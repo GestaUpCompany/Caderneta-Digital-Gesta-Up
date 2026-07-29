@@ -97,7 +97,6 @@ export interface RegistroMovimentacao extends Registro {
   loteOrigem: string
   loteDestino: string
   numeroCabecas: number
-  pesoVivoAtual: number | null
   vaca: 'S' | 'N'
   touro: 'S' | 'N'
   boiGordo: 'S' | 'N'
