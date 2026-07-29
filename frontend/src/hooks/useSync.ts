@@ -16,6 +16,7 @@ import { SYNC_CHECK_INTERVAL_MS } from '../utils/constants'
 export function useSync() {
   const dispatch = useDispatch()
   const { fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
+  const syncRequestId = useSelector((state: RootState) => state.sync.syncRequestId)
   const isRunning = useRef(false)
 
   const updatePendingCount = useCallback(async () => {
@@ -106,6 +107,14 @@ export function useSync() {
     }, SYNC_CHECK_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [configurado, fazendaId, runSync])
+
+  // Dispara sync imediato quando um componente solicita via requestSyncNow
+  // (ex.: botão REENVIAR em um card de registro com erro)
+  useEffect(() => {
+    if (syncRequestId > 0 && configurado && fazendaId) {
+      runSync()
+    }
+  }, [syncRequestId, configurado, fazendaId, runSync])
 
   useEffect(() => {
     updatePendingCount()

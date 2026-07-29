@@ -8,6 +8,7 @@ interface SyncState {
   lastSync: string | null
   syncProgress: number
   errorMessage: string | null
+  syncRequestId: number
 }
 
 const initialState: SyncState = {
@@ -16,6 +17,7 @@ const initialState: SyncState = {
   lastSync: null,
   syncProgress: 0,
   errorMessage: null,
+  syncRequestId: 0,
 }
 
 const syncSlice = createSlice({
@@ -43,6 +45,9 @@ const syncSlice = createSlice({
     setError: (state, action: PayloadAction<string | null>) => {
       state.errorMessage = action.payload
     },
+    requestSyncNow: (state) => {
+      state.syncRequestId += 1
+    },
   },
 })
 
@@ -54,6 +59,7 @@ export const {
   setLastSync,
   setSyncProgress,
   setError,
+  requestSyncNow,
 } = syncSlice.actions
 
 export default syncSlice.reducer

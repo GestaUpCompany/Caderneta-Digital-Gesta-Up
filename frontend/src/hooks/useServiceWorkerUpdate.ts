@@ -1,57 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 
-interface UpdateInfo {
-  waiting: ServiceWorker | null
-  isUpdateAvailable: boolean
-}
-
 export function useServiceWorkerUpdate() {
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo>({
-    waiting: null,
-    isUpdateAvailable: false
-  })
-  const [dismissedAt, setDismissedAt] = useState<number | null>(null)
-  const [showUpdateBanner, setShowUpdateBanner] = useState(false)
-  const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [isReloading, setIsReloading] = useState(false)
 
-  // Verificar se há dismiss temporário
-  const shouldShowUpdate = useCallback(() => {
-    if (!updateInfo.isUpdateAvailable) return false
-    
-    if (!dismissedAt) return true
-    
-    const fiveMinutes = 5 * 60 * 1000
-    const timeSinceDismiss = Date.now() - dismissedAt
-    
-    return timeSinceDismiss >= fiveMinutes
-  }, [updateInfo.isUpdateAvailable, dismissedAt])
-
-  // Aplicar atualização
-  const applyUpdate = useCallback(() => {
-    if (updateInfo.waiting) {
-      updateInfo.waiting.postMessage({ type: 'SKIP_WAITING' })
-      // Não navegar imediatamente - esperar SW_ACTIVATED para garantir recursos prontos
-    } else if (import.meta.env.DEV) {
-      // Em desenvolvimento, fazer reload mesmo sem service worker para teste
-      window.location.reload()
-    }
-  }, [updateInfo.waiting])
-
-  // Dismiss temporário (clicar em Depois no modal)
-  const dismissUpdateModal = useCallback(() => {
-    setDismissedAt(Date.now())
-    setShowUpdateModal(false)
-    // Não ativar service worker - usuário continua usando o app normalmente
-  }, [])
-
-  // Dismiss banner (clicar em Agora não no banner)
-  const dismissUpdateBanner = useCallback(() => {
-    setDismissedAt(Date.now())
-    setShowUpdateBanner(false)
-  }, [])
-
-  // Forçar verificação
   const forceCheck = useCallback(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
@@ -62,81 +13,31 @@ export function useServiceWorkerUpdate() {
     }
   }, [])
 
-  // Forçar exibição do modal (apenas para desenvolvimento)
-  const forceShowModal = useCallback(() => {
-    if (import.meta.env.DEV) {
-      window.dispatchEvent(new CustomEvent('sw-force-show-modal'))
-    }
-  }, [])
-
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
-    // Recuperar dismiss do localStorage
-    const savedDismiss = localStorage.getItem('sw-update-dismissed')
-    if (savedDismiss) {
-      setDismissedAt(parseInt(savedDismiss, 10))
-    }
+    // Auto-aplicar SW waiting na abertura do app (sem interromper o usuário)
+    navigator.serviceWorker.getRegistration().then(registration => {
+      if (registration?.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+      }
+    })
 
-    // Registrar listener para atualizações do Service Worker
-    const handleSWUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent
-      const { waiting } = customEvent.detail
-      
-      setUpdateInfo({
-        waiting,
-        isUpdateAvailable: !!waiting
-      })
-    }
-
-    // Listener para quando o Service Worker ativa
-    const handleSWActivated = () => {
-      // Limpar dismiss ao atualizar
-      localStorage.removeItem('sw-update-dismissed')
-      setDismissedAt(null)
-      // Recarregar página imediatamente sem delay
+    // Quando o SW assume o controle (controllerchange), recarregar silenciosamente
+    const handleControllerChange = () => {
       setIsReloading(true)
-      window.location.href = window.location.origin + '/Caderneta-Digital-Gesta-Up/'
+      window.location.reload()
     }
 
     // Listener para mensagem do service worker (SW_ACTIVATED)
     const handleSWMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'SW_ACTIVATED') {
-        handleSWActivated()
+        handleControllerChange()
       }
     }
 
-    // Listener para forçar exibição do modal (apenas para desenvolvimento)
-    const handleForceShowModal = () => {
-      if (import.meta.env.DEV) {
-        setShowUpdateModal(true)
-      }
-    }
-
-    window.addEventListener('sw-update-available', handleSWUpdate)
-    window.addEventListener('sw-activated', handleSWActivated)
-    window.addEventListener('sw-force-show-modal', handleForceShowModal)
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
     navigator.serviceWorker.addEventListener('message', handleSWMessage)
-
-    // Verificar se já há um SW esperando
-    navigator.serviceWorker.getRegistration().then(registration => {
-      if (registration?.waiting) {
-        // Se houver um dismiss anterior (usuário clicou em "Depois" na sessão anterior),
-        // aplicar a atualização automaticamente na próxima abertura do app
-        const savedDismiss = localStorage.getItem('sw-update-dismissed')
-        if (savedDismiss) {
-          localStorage.removeItem('sw-update-dismissed')
-          setDismissedAt(null)
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' })
-          return
-        }
-
-        setUpdateInfo({
-          waiting: registration.waiting,
-          isUpdateAvailable: true
-        })
-      }
-    })
 
     // Verificar atualização imediatamente ao carregar
     forceCheck()
@@ -148,49 +49,32 @@ export function useServiceWorkerUpdate() {
       }
     }
 
+    // iOS: pageshow com persisted=true (BFCache) dispara em vez de visibilitychange
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        forceCheck()
+      }
+    }
+
+    // Verificação periódica: iOS PWAs em standalone podem não disparar
+    // visibilitychange quando o usuário volta de outras apps
+    const UPDATE_CHECK_INTERVAL = 30 * 60 * 1000 // 30 minutos
+    const intervalId = setInterval(forceCheck, UPDATE_CHECK_INTERVAL)
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pageshow', handlePageShow)
 
     return () => {
-      window.removeEventListener('sw-update-available', handleSWUpdate)
-      window.removeEventListener('sw-activated', handleSWActivated)
-      window.removeEventListener('sw-force-show-modal', handleForceShowModal)
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
       navigator.serviceWorker.removeEventListener('message', handleSWMessage)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pageshow', handlePageShow)
+      clearInterval(intervalId)
     }
   }, [forceCheck])
 
-  // Atualizar estado do banner baseado no dismiss
-  useEffect(() => {
-    // Só mostrar banner se o modal foi fechado (clicou em Depois)
-    if (dismissedAt) {
-      setShowUpdateBanner(shouldShowUpdate())
-    }
-  }, [shouldShowUpdate])
-
-  // Mostrar modal automaticamente quando detectar atualização
-  useEffect(() => {
-    if (updateInfo.isUpdateAvailable && !dismissedAt) {
-      setShowUpdateModal(true)
-    }
-  }, [updateInfo.isUpdateAvailable, dismissedAt])
-
-  // Salvar dismiss no localStorage
-  useEffect(() => {
-    if (dismissedAt) {
-      localStorage.setItem('sw-update-dismissed', dismissedAt.toString())
-    }
-  }, [dismissedAt])
-
   return {
-    isUpdateAvailable: updateInfo.isUpdateAvailable,
-    waitingSW: updateInfo.waiting,
-    showUpdateBanner,
-    showUpdateModal,
     isReloading,
-    applyUpdate,
-    dismissUpdateModal,
-    dismissUpdateBanner,
     forceCheck,
-    forceShowModal
   }
 }

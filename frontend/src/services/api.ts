@@ -157,6 +157,28 @@ export async function reenviarRegistro(
   }
 }
 
+/**
+ * Aguarda o syncStatus do registro mudar de 'pending' para um estado terminal
+ * ('synced' ou 'error'). Retorna o status final, ou 'pending' se o timeout
+ * expirar. Usado para atualizar a UI sem precisar recarregar a página.
+ */
+export async function aguardarSyncConcluido(
+  caderneta: CadernetaStore,
+  id: string,
+  timeoutMs = 30_000,
+  intervalMs = 500
+): Promise<'synced' | 'error' | 'pending' | 'missing'> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const registro = await getRegistro(caderneta, id)
+    if (!registro) return 'missing'
+    const status = registro.syncStatus
+    if (status === 'synced' || status === 'error') return status
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  return 'pending'
+}
+
 async function getFarmTimezone(): Promise<string> {
   const state = store.getState()
   const acessoId = state.config.acessoId

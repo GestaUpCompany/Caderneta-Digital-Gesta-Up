@@ -12,7 +12,7 @@ export default defineConfig({
     react(),
     splitVendorChunkPlugin(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'manejus360.png'],
       manifest: {
         name: "Gesta'Up Cadernetas Digitais",

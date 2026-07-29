@@ -1261,6 +1261,10 @@ export type Database = {
           caderneta: string
           created_at: string | null
           dispositivo_id: string | null
+          dispositivo_uuid: string | null
+          app_version: string | null
+          platform: string | null
+          network_status: string | null
           error_code: string | null
           error_details: string | null
           error_message: string | null
@@ -1277,6 +1281,10 @@ export type Database = {
           caderneta: string
           created_at?: string | null
           dispositivo_id?: string | null
+          dispositivo_uuid?: string | null
+          app_version?: string | null
+          platform?: string | null
+          network_status?: string | null
           error_code?: string | null
           error_details?: string | null
           error_message?: string | null
@@ -1293,6 +1301,10 @@ export type Database = {
           caderneta?: string
           created_at?: string | null
           dispositivo_id?: string | null
+          dispositivo_uuid?: string | null
+          app_version?: string | null
+          platform?: string | null
+          network_status?: string | null
           error_code?: string | null
           error_details?: string | null
           error_message?: string | null

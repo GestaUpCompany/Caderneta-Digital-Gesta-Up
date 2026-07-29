@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
+import { requestSyncNow } from '../../store/slices/syncSlice'
 import { Registro } from '../../types/cadernetas'
 import { CadernetaStore } from '../../services/indexedDB'
-import { listarRegistros, excluirRegistro, reenviarRegistro } from '../../services/api'
+import { listarRegistros, excluirRegistro, reenviarRegistro, aguardarSyncConcluido } from '../../services/api'
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
@@ -81,6 +82,7 @@ const formatFieldValue = (key: string, value: unknown): string => {
 
 export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActions }: Props) {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const { usuario } = useSelector((state: RootState) => state.config)
   const [registros, setRegistros] = useState<Registro[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -92,6 +94,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   const [registroParaExcluir, setRegistroParaExcluir] = useState<string | null>(null)
   const [mostrarModalCompartilhar, setMostrarModalCompartilhar] = useState(false)
   const [registroParaCompartilhar, setRegistroParaCompartilhar] = useState<Registro | null>(null)
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -179,11 +182,21 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   }
 
   const handleReenviar = async (registro: Registro) => {
+    setReenviandoId(registro.id)
     const result = await reenviarRegistro(caderneta, registro.id)
-    if (result.success) {
-      carregar()
-    } else {
+    if (!result.success) {
       alert(result.message)
+      setReenviandoId(null)
+      return
+    }
+    // Dispara sync imediato para não depender do próximo tick do setInterval
+    dispatch(requestSyncNow())
+    // Aguarda o sync concluir para atualizar o card sem recarregar a página
+    const finalStatus = await aguardarSyncConcluido(caderneta, registro.id)
+    await carregar()
+    setReenviandoId(null)
+    if (finalStatus === 'error') {
+      alert('Falha ao sincronizar. Verifique a conexão e tente novamente.')
     }
   }
 
@@ -801,31 +814,34 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                     )
                   })()}
 
-                <div className="flex gap-2 border-t border-gray-100 pt-3">
-                  <Button
-                    onClick={() => handleExcluir(registro.id)}
-                    variant="danger"
-                    size="sm"
-                    icon="🗑️"
-                  >
-                    EXCLUIR
-                  </Button>
-                  <Button
-                    onClick={() => handleCompartilhar(registro)}
-                    variant="ghost"
-                    size="sm"
-                    icon="🔗"
-                  >
-                    COMPARTILHAR
-                  </Button>
+                <div className="flex flex-col gap-2 border-t border-gray-100 pt-3">
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleExcluir(registro.id)}
+                      variant="danger"
+                      size="sm"
+                      icon="🗑️"
+                    >
+                      EXCLUIR
+                    </Button>
+                    <Button
+                      onClick={() => handleCompartilhar(registro)}
+                      variant="ghost"
+                      size="sm"
+                      icon="🔗"
+                    >
+                      COMPARTILHAR
+                    </Button>
+                  </div>
                   {registro.syncStatus === 'error' && (
                     <Button
                       onClick={() => handleReenviar(registro)}
                       variant="primary"
                       size="sm"
-                      icon="🔄"
+                      icon={reenviandoId === registro.id ? '⏳' : '🔄'}
+                      disabled={reenviandoId === registro.id}
                     >
-                      REENVIAR
+                      {reenviandoId === registro.id ? 'ENVIANDO...' : 'REENVIAR'}
                     </Button>
                   )}
                 </div>

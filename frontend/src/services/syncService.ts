@@ -14,6 +14,7 @@ import { generateId } from '../utils/generateId'
 import { Registro } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
 import { brWithTimeToIso } from '../utils/formatDate'
+import { getAuditContext } from '../utils/auditContext'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -638,10 +639,12 @@ export async function logSyncError(data: LogSyncErrorData): Promise<void> {
     const errorCode = err?.code || err?.error?.code || String(err?.status || '')
     const errorMessage = err?.message || err?.error?.message || String(err || 'Erro desconhecido')
     const errorDetails = err?.details || err?.error?.details || JSON.stringify(err).slice(0, 2000)
+    const audit = getAuditContext()
 
     await supabaseService.createLogSyncError({
       fazenda_id: data.fazendaId,
       dispositivo_id: null,
+      dispositivo_uuid: audit.dispositivo_uuid,
       caderneta: data.store,
       registro_id: data.registroId,
       operation: data.operation,
@@ -650,6 +653,9 @@ export async function logSyncError(data: LogSyncErrorData): Promise<void> {
       error_details: errorDetails || undefined,
       payload: data.payload || null,
       retry_count: data.retryCount,
+      app_version: audit.app_version,
+      platform: audit.platform,
+      network_status: audit.network_status,
     })
   } catch (logErr) {
     // Falha ao logar não deve interromper o fluxo de sync

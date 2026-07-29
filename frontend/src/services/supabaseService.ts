@@ -2354,6 +2354,7 @@ export async function deleteRegistroLeituraCocho(id: string) {
 export interface LogSyncErrorInput {
   fazenda_id: string
   dispositivo_id?: string | null
+  dispositivo_uuid?: string | null
   caderneta: string
   registro_id: string
   operation: 'create' | 'update'
@@ -2362,16 +2363,18 @@ export interface LogSyncErrorInput {
   error_details?: string
   payload?: any
   retry_count?: number
+  app_version?: string | null
+  platform?: string | null
+  network_status?: string | null
 }
 
 export async function createLogSyncError(log: LogSyncErrorInput) {
-  // Usar cliente anon para garantir que consiga inserir mesmo quando a autenticação falhou
-  const { data, error } = await supabase
+  // Usar cliente anon para garantir que consiga inserir mesmo quando a autenticação falhou.
+  // Sem .select().single() porque a role anon não tem policy de SELECT nesta tabela,
+  // apenas INSERT. O retorno não é usado pelo caller.
+  const { error } = await supabase
     .from('logs_sync_errors')
     .insert(log)
-    .select()
-    .single()
 
   if (error) throw error
-  return data
 }

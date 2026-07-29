@@ -6,8 +6,6 @@ import WelcomePage from './pages/WelcomePage'
 import SyncStatusBar from './components/SyncStatusBar'
 import ConflictModal from './components/ConflictModal'
 import InstallPrompt from './components/InstallPrompt'
-import { UpdateDialog } from './components/UpdateDialog'
-import { PWAUpdateModal } from './components/PWAUpdateModal'
 import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate'
 import PageLoader from './components/PageLoader'
 import { useSync } from './hooks/useSync'
@@ -26,26 +24,19 @@ import FarmInactiveBlock from './components/FarmInactiveBlock'
 import ScrollToTop from './components/ScrollToTop'
 import { useStoragePersistence } from './hooks/useStoragePersistence'
 
-// Componente wrapper para PWAUpdateModal com hook
+// Componente wrapper para tela de reload durante atualização automática
 function PWAUpdateModalWrapper() {
-  const { showUpdateModal, applyUpdate, dismissUpdateModal, isReloading } = useServiceWorkerUpdate()
+  const { isReloading } = useServiceWorkerUpdate()
+  
+  if (!isReloading) return null
   
   return (
-    <>
-      {isReloading && (
-        <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <span className="text-4xl animate-spin">⏳</span>
-            <p className="text-lg font-semibold text-gray-700">Atualizando app...</p>
-          </div>
-        </div>
-      )}
-      <PWAUpdateModal
-        isOpen={showUpdateModal}
-        onRestartNow={applyUpdate}
-        onLater={dismissUpdateModal}
-      />
-    </>
+    <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <span className="text-4xl animate-spin">⏳</span>
+        <p className="text-lg font-semibold text-gray-700">Atualizando app...</p>
+      </div>
+    </div>
   )
 }
 
@@ -312,7 +303,6 @@ function AppInner() {
           />
         )}
         <InstallPrompt />
-        <UpdateDialog />
       </>
     )
   }
@@ -432,7 +422,6 @@ function AppInner() {
         />
       )}
       <InstallPrompt />
-      <UpdateDialog />
     </div>
   )
 }
