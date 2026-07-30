@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -38,18 +38,6 @@ const TIPO_ENTRADA = [
   { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
 ]
 
-const CATEGORIAS = [
-  { value: 'Vaca', label: 'VACA' },
-  { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi Gordo', label: 'BOI GORDO' },
-  { value: 'Boi Magro', label: 'BOI MAGRO' },
-  { value: 'Garrote', label: 'GARROTE' },
-  { value: 'Bezerro', label: 'BEZERRO' },
-  { value: 'Novilha', label: 'NOVILHA' },
-  { value: 'Tropa', label: 'TROPA' },
-  { value: 'Outros', label: 'OUTROS' },
-]
-
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -68,14 +56,12 @@ interface FormState {
   loteDestino: string
   loteDestinoId: string
   destinoCustomizado: string
-  numeroCabecas: string
+  cabecasPorCategoria: Record<string, string>
   motivoMovimentacao: string
   subtipo: string // Enfermaria, Apartação, Refugo de Cocho, Compras
   brinco: string
   chip: string
   causaObservacao: string
-  categorias: string[]
-  outrosTexto: string
 }
 
 const makeInitial = (): FormState => ({
@@ -85,14 +71,12 @@ const makeInitial = (): FormState => ({
   loteDestino: '',
   loteDestinoId: '',
   destinoCustomizado: '',
-  numeroCabecas: '',
+  cabecasPorCategoria: {},
   motivoMovimentacao: '',
   subtipo: '',
   brinco: '',
   chip: '',
   causaObservacao: '',
-  categorias: [],
-  outrosTexto: '',
 })
 
 export default function MovimentacaoPage() {
@@ -115,9 +99,14 @@ export default function MovimentacaoPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  const handleCategoriasChange = (newCategorias: string[]) => {
-    setForm((p) => ({ ...p, categorias: newCategorias }))
+  const setCabecasCategoria = (categoria: string, valor: string) => {
+    setForm((p) => ({ ...p, cabecasPorCategoria: { ...p.cabecasPorCategoria, [categoria]: valor } }))
   }
+
+  const totalCabecas = Object.values(form.cabecasPorCategoria).reduce(
+    (sum, val) => sum + (Number(val) || 0),
+    0
+  )
 
   // Lógica para definir destino automaticamente baseado no motivo
   useEffect(() => {
@@ -194,7 +183,7 @@ export default function MovimentacaoPage() {
     async function carregarDetalhesLoteOrigem() {
       if (!form.loteOrigem || !fazendaId) {
         setDetalhesLoteOrigem(null)
-        setForm(prev => ({ ...prev, loteOrigemId: '' }))
+        setForm(prev => ({ ...prev, loteOrigemId: '', cabecasPorCategoria: {} }))
         return
       }
 
@@ -208,6 +197,7 @@ export default function MovimentacaoPage() {
           setDetalhesLoteOrigem({
             ...lote,
             categorias: categoriasDetalhes.categorias,
+            categorias_raw: categoriasDetalhes.categorias_raw || [],
             n_cabecas: categoriasDetalhes.quant_atual,
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
@@ -257,64 +247,142 @@ export default function MovimentacaoPage() {
   }, [form.loteDestino, fazendaId, lotesDisponiveis])
 
   const handleSalvar = async () => {
+    console.log('[MovimentacaoPage] handleSalvar chamado', { motivo: form.motivoMovimentacao, lote: form.loteOrigem, cabecas: form.cabecasPorCategoria })
     setSalvando(true)
     setErrors([])
 
-    // Montar categorias selecionadas em string separada por vírgula
-    const categoriasSelecionadas = [...form.categorias]
-
-    // Adicionar categoria "Outros" se selecionada, no final da string
-    if (form.categorias.includes('Outros') && form.outrosTexto.trim()) {
-      const outrosIndex = categoriasSelecionadas.indexOf('Outros')
-      categoriasSelecionadas.splice(outrosIndex, 1) // Remove "Outros" da posição original
-      categoriasSelecionadas.push(`Outros: ${form.outrosTexto.trim()}`) // Adiciona no final
-    }
-
-    const categoriasString = categoriasSelecionadas.join(', ')
-
-    // Se destino customizado for preenchido, usar em vez de loteDestino
-    let destinoFinal = form.destinoCustomizado.trim() ? form.destinoCustomizado.trim() : form.loteDestino
-
-    // Ajustar destino padrão baseado no motivo/subtipo
-    if (form.motivoMovimentacao === 'Consumo') {
-      if (!destinoFinal || destinoFinal === '') {
-        destinoFinal = 'Cantina'
+    try {
+      // Pré-validação: motivo é obrigatório (exceto Doação que tem fluxo próprio)
+      if (!form.motivoMovimentacao) {
+        setErrors([{ field: 'motivoMovimentacao', message: 'Selecione o motivo da movimentação' }])
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
       }
-    } else if (form.motivoMovimentacao === 'Saída') {
-      if (form.subtipo === 'Enfermaria' || form.subtipo === 'Venda') {
+
+      // Pré-validação: lote origem é obrigatório (exceto Doação)
+      if (form.motivoMovimentacao !== 'Doação' && !form.loteOrigem) {
+        setErrors([{ field: 'loteOrigem', message: 'Selecione o lote de origem' }])
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+
+      // Se destino customizado for preenchido, usar em vez de loteDestino
+      let destinoFinal = form.destinoCustomizado.trim() ? form.destinoCustomizado.trim() : form.loteDestino
+
+      // Ajustar destino padrão baseado no motivo/subtipo
+      if (form.motivoMovimentacao === 'Consumo') {
         if (!destinoFinal || destinoFinal === '') {
-          destinoFinal = form.subtipo
+          destinoFinal = 'Cantina'
+        }
+      } else if (form.motivoMovimentacao === 'Saída') {
+        if (form.subtipo === 'Enfermaria' || form.subtipo === 'Venda') {
+          if (!destinoFinal || destinoFinal === '') {
+            destinoFinal = form.subtipo
+          }
         }
       }
-    }
 
-    const result = await salvarRegistro('movimentacao', {
-      data: form.data,
-      responsavel: usuario,
-      usuario: usuario,
-      loteOrigem: form.loteOrigem,
-      loteOrigemId: form.loteOrigemId,
-      loteDestino: destinoFinal,
-      loteDestinoId: form.loteDestinoId,
-      numeroCabecas: form.numeroCabecas ? Number(form.numeroCabecas) : 0,
-      maxCabecasLote: detalhesLoteOrigem?.n_cabecas ?? null,
-      categorias: form.categorias,
-      categoria: categoriasString,
-      motivoMovimentacao: form.motivoMovimentacao,
-      subtipo: form.subtipo || null,
-      brinco: form.brinco,
-      chip: form.chip,
-      causaObservacao: form.causaObservacao,
-    })
+      // Caso especial: Doação não exige lote nem cabeças
+      if (form.motivoMovimentacao === 'Doação') {
+        const result = await salvarRegistro('movimentacao', {
+          data: form.data,
+          responsavel: usuario,
+          usuario: usuario,
+          loteOrigem: form.loteOrigem,
+          loteOrigemId: form.loteOrigemId,
+          loteDestino: destinoFinal,
+          loteDestinoId: form.loteDestinoId,
+          numeroCabecas: 0,
+          maxCabecasLote: null,
+          categoria: null,
+          motivoMovimentacao: form.motivoMovimentacao,
+          subtipo: form.subtipo || null,
+          brinco: form.brinco,
+          chip: form.chip,
+          causaObservacao: form.causaObservacao,
+        })
 
-    setSalvando(false)
-    if (!result.success && result.errors) {
-      setErrors(result.errors)
-      scrollToFirstError(result.errors)
-    } else {
-      setRegistroSalvo(result.registro)
-      setShowSuccessModal(true)
-      setForm(makeInitial())
+        if (!result.success && result.errors) {
+          setErrors(result.errors)
+          scrollToFirstError(result.errors)
+        } else {
+          setRegistroSalvo(result.registro)
+          setShowSuccessModal(true)
+          setForm(makeInitial())
+        }
+        return
+      }
+
+      // Coletar categorias com quantidade > 0
+      const categoriasRaw = detalhesLoteOrigem?.categorias_raw || []
+      console.log('[MovimentacaoPage] categoriasRaw:', categoriasRaw)
+      const categoriasParaMover = categoriasRaw
+        .map((cat: any) => ({
+          categoria: cat.categoria,
+          numeroCabecas: Number(form.cabecasPorCategoria[cat.categoria] || 0),
+          maxCabecas: cat.quant_atual || 0,
+        }))
+        .filter((c: any) => c.numeroCabecas > 0)
+
+      console.log('[MovimentacaoPage] categoriasParaMover:', categoriasParaMover)
+
+      if (categoriasParaMover.length === 0) {
+        setErrors([{ field: 'cabecasPorCategoria', message: 'Informe pelo menos uma quantidade de cabeças por categoria' }])
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+
+      // Validar que nenhuma categoria excede o disponível
+      const excedeDisponivel = categoriasParaMover.find((c: any) => c.numeroCabecas > c.maxCabecas)
+      if (excedeDisponivel) {
+        const msg = `Quantidade de ${excedeDisponivel.categoria} (${excedeDisponivel.numeroCabecas}) excede o disponível no lote (${excedeDisponivel.maxCabecas})`
+        setErrors([{ field: `cabecas_${excedeDisponivel.categoria}`, message: msg }])
+        scrollToFirstError([{ field: `cabecas_${excedeDisponivel.categoria}`, message: msg }])
+        return
+      }
+
+      // Criar um registro de movimentação por categoria
+      const resultados: { success: boolean; errors?: any[]; registro?: any }[] = []
+      for (const c of categoriasParaMover) {
+        console.log('[MovimentacaoPage] salvando categoria:', c.categoria, 'cabecas:', c.numeroCabecas)
+        const result = await salvarRegistro('movimentacao', {
+          data: form.data,
+          responsavel: usuario,
+          usuario: usuario,
+          loteOrigem: form.loteOrigem,
+          loteOrigemId: form.loteOrigemId,
+          loteDestino: destinoFinal,
+          loteDestinoId: form.loteDestinoId,
+          numeroCabecas: c.numeroCabecas,
+          maxCabecasLote: c.maxCabecas,
+          categoria: c.categoria,
+          motivoMovimentacao: form.motivoMovimentacao,
+          subtipo: form.subtipo || null,
+          brinco: totalCabecas === 1 ? form.brinco : '',
+          chip: totalCabecas === 1 ? form.chip : '',
+          causaObservacao: form.causaObservacao,
+        })
+        console.log('[MovimentacaoPage] resultado salvarRegistro:', result)
+        resultados.push(result)
+        if (!result.success && result.errors) break
+      }
+
+      const falhou = resultados.find(r => !r.success)
+      if (falhou && falhou.errors) {
+        setErrors(falhou.errors)
+        scrollToFirstError(falhou.errors)
+      } else {
+        const ultimoRegistro = resultados[resultados.length - 1]?.registro
+        setRegistroSalvo(ultimoRegistro)
+        setShowSuccessModal(true)
+        setForm(makeInitial())
+      }
+    } catch (error) {
+      console.error('[MovimentacaoPage] Erro ao salvar:', error)
+      setErrors([{ field: 'general', message: 'Erro ao salvar registro. Tente novamente.' }])
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } finally {
+      setSalvando(false)
     }
   }
 
@@ -392,43 +460,53 @@ export default function MovimentacaoPage() {
         {/* Seção 2: Quantificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
-          <Input
-            label="N° CABEÇAS"
-            placeholder="Ex: 25"
-            value={form.numeroCabecas}
-            onChange={setInput('numeroCabecas')}
-            error={getError('numeroCabecas')}
-            inputMode="numeric"
-            type="number"
-            min="0"
-            max={detalhesLoteOrigem?.n_cabecas ? String(detalhesLoteOrigem.n_cabecas) : undefined}
-          />
-          {detalhesLoteOrigem?.n_cabecas && form.numeroCabecas && Number(form.numeroCabecas) > detalhesLoteOrigem.n_cabecas && (
-            <p className="text-base font-semibold text-red-600">
-              ⚠️ O lote origem tem apenas {detalhesLoteOrigem.n_cabecas} cabeças. Você não pode movimentar mais do que isso.
-            </p>
-          )}
-          {detalhesLoteOrigem?.n_cabecas && (
-            <p className="text-sm text-gray-500">
-              Disponível no lote: {detalhesLoteOrigem.n_cabecas} cabeças
-            </p>
-          )}
-          {/* Identificação - apenas se for 1 cabeça */}
-          {form.numeroCabecas === '1' && (
+          {detalhesLoteOrigem?.categorias_raw && detalhesLoteOrigem.categorias_raw.length > 0 ? (
             <>
-              <Input
-                label="BRINCO"
-                placeholder="Ex: 2023-145"
-                value={form.brinco}
-                onChange={setInput('brinco')}
-              />
-              <Input
-                label="CHIP"
-                placeholder="Ex: 123456789"
-                value={form.chip}
-                onChange={setInput('chip')}
-              />
+              {getError('cabecasPorCategoria') && (
+                <p className="text-base font-semibold text-red-700">⚠️ {getError('cabecasPorCategoria')}</p>
+              )}
+              {detalhesLoteOrigem.categorias_raw.map((cat: any) => (
+                <div key={cat.categoria} className="flex flex-col gap-1">
+                  <Input
+                    label={`${cat.categoria.toUpperCase()} (Disp.: ${cat.quant_atual || 0})`}
+                    placeholder="Ex: 25"
+                    value={form.cabecasPorCategoria[cat.categoria] || ''}
+                    onChange={(e) => setCabecasCategoria(cat.categoria, e.target.value)}
+                    error={getError(`cabecas_${cat.categoria}`)}
+                    inputMode="numeric"
+                    type="number"
+                    min="0"
+                    max={String(cat.quant_atual || 0)}
+                  />
+                </div>
+              ))}
+              {totalCabecas > 0 && (
+                <p className="text-sm text-gray-500">
+                  Total a movimentar: {totalCabecas} cabeças
+                </p>
+              )}
+              {/* Identificação - apenas se total for 1 cabeça */}
+              {totalCabecas === 1 && (
+                <>
+                  <Input
+                    label="BRINCO"
+                    placeholder="Ex: 2023-145"
+                    value={form.brinco}
+                    onChange={setInput('brinco')}
+                  />
+                  <Input
+                    label="CHIP"
+                    placeholder="Ex: 123456789"
+                    value={form.chip}
+                    onChange={setInput('chip')}
+                  />
+                </>
+              )}
             </>
+          ) : (
+            <p className="text-sm text-gray-500 italic">
+              {form.loteOrigem ? 'Nenhuma categoria encontrada neste lote.' : 'Selecione um lote para ver as categorias disponíveis.'}
+            </p>
           )}
         </div>
 
@@ -655,34 +733,6 @@ export default function MovimentacaoPage() {
               <p className="text-lg font-bold text-gray-900 mb-2">SELECIONE UM DESTINO:</p>
               <p className="text-sm text-gray-500 italic">Escolha uma das opções acima primeiro...</p>
             </div>
-          )}
-        </div>
-
-        {/* Seção 4: Categorias */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. IDENTIFICAÇÃO DOS ANIMAIS</h2>
-          {getError('categorias') && (
-            <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
-          )}
-          <CheckboxGroup
-            label=""
-            options={CATEGORIAS}
-            selectedValues={form.categorias}
-            onChange={handleCategoriasChange}
-            error={getError('categorias')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="categorias"
-            dataField="categorias"
-          />
-          {form.categorias.includes('Outros') && (
-            <Input
-              label="DIGITE A CATEGORIA:"
-              placeholder="Ex: Reprodutor, Matriz, etc."
-              value={form.outrosTexto}
-              onChange={(e) => setForm((p) => ({ ...p, outrosTexto: e.target.value }))}
-              error={getError('outrosTexto')}
-            />
           )}
         </div>
 

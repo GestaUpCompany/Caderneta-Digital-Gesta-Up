@@ -93,20 +93,6 @@ function validateCategoriasNumericas(
  * @param errorMessage Mensagem de erro personalizada
  * @returns ValidationError se array vazio, null se OK
  */
-function validateCategoriasArray(
-  categorias: unknown,
-  fieldName: string,
-  errorMessage?: string
-): ValidationError | null {
-  if (!categorias || !Array.isArray(categorias) || categorias.length === 0) {
-    return {
-      field: fieldName,
-      message: errorMessage || 'Selecione ao menos uma categoria de animal'
-    }
-  }
-  return null
-}
-
 export function validateMaternidade(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -282,19 +268,14 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
     errors.push({ field: 'numeroCabecas', message: `Número de cabeças excede o total do lote (${data.maxCabecasLote})` })
   if (!isNonEmptyString(data.motivoMovimentacao))
     errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
+  if (!isNonEmptyString(data.categoria))
+    errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
 
   // Validação de brinco/chip apenas se for 1 cabeça
   if (Number(data.numeroCabecas) === 1) {
     if (!isNonEmptyString(data.brinco) && !isNonEmptyString(data.chip))
       errors.push({ field: 'brinco', message: 'Brinco ou Chip é obrigatório quando for 1 cabeça' })
   }
-
-  const categoriasError = validateCategoriasArray(
-    data.categorias,
-    'categorias',
-    'Selecione ao menos uma categoria de animal'
-  )
-  if (categoriasError) errors.push(categoriasError)
 
   return { isValid: errors.length === 0, errors }
 }
