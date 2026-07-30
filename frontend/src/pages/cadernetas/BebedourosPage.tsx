@@ -382,14 +382,16 @@ export default function BebedourosPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-            {usuario && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                <span>👤</span>
-                <span>{usuario}</span>
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {usuario && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
+                  <span>👤</span>
+                  <span>{usuario}</span>
+                </span>
+              )}
+              <DatePicker value={form.data} onChange={set('data')} error={getError('data')} compact inline />
+            </div>
           </div>
-          <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} compact />
         </div>
 
         {/* Seção 2: Bebedouro */}

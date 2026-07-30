@@ -413,14 +413,16 @@ export default function MortePage() {
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-            {usuario && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                <span>👤</span>
-                <span>{usuario}</span>
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {usuario && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
+                  <span>👤</span>
+                  <span>{usuario}</span>
+                </span>
+              )}
+              <DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} compact inline />
+            </div>
           </div>
-          <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} compact />
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>LOTE <span className="text-red-500">*</span></span>}

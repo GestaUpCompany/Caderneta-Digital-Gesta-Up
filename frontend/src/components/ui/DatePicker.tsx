@@ -27,6 +27,7 @@ interface DatePickerProps {
   fullWidth?: boolean
   id?: string
   compact?: boolean
+  inline?: boolean
 }
 
 const formatToBR = (date: Date) =>
@@ -49,6 +50,7 @@ export default function DatePicker({
   fullWidth = true,
   id,
   compact = false,
+  inline = false,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -123,21 +125,43 @@ export default function DatePicker({
 
   const calendarDays = generateCalendarDays()
   const today = new Date()
-  const containerWidth = fullWidth ? 'w-full' : 'inline-block'
+  const containerWidth = inline ? 'inline-block' : (fullWidth ? 'w-full' : 'inline-block')
+
+  const buttonClassName = inline
+    ? 'rounded-xl border-2 border-gray-300 bg-white px-2.5 py-1.5 flex items-center gap-1.5 transition-all active:scale-[0.99]'
+    : 'w-full rounded-2xl border-2 border-gray-900 bg-white text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99] ' + (compact ? 'px-3 py-2 flex items-center justify-between gap-2' : 'rounded-3xl px-5 py-4')
 
   return (
-    <div className={`${containerWidth}`}>
-      <label className={`block font-bold text-gray-900 ${compact ? 'text-sm mb-1' : 'text-lg mb-2'}`}>
-        {label}
-      </label>
+    <div className={containerWidth}>
+      {label && !inline && (
+        <label className={`block font-bold text-gray-900 ${compact ? 'text-sm mb-1' : 'text-lg mb-2'}`}>
+          {label}
+        </label>
+      )}
 
       <button
         type="button"
         id={id}
         onClick={() => setIsOpen(true)}
-        className={`w-full rounded-2xl border-2 border-gray-900 bg-white text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99] ${compact ? 'px-3 py-2 flex items-center justify-between gap-2' : 'rounded-3xl px-5 py-4'}`}
+        className={buttonClassName}
       >
-        {compact ? (
+        {inline ? (
+          <>
+            <svg
+              className="h-4 w-4 text-gray-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="4" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            <span className="text-sm font-bold text-gray-900">{inputValue}</span>
+          </>
+        ) : compact ? (
           <>
             <span className="text-sm font-bold text-gray-900">{inputValue}</span>
             <svg
