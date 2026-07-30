@@ -63,7 +63,6 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
 function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string): any {
   const baseData = {
     fazenda_id: fazendaId,
-    dispositivo_id: null,
     nome_usuario: registro.usuario || registro.responsavel || null,
     sync_status: 'synced',
     version: registro.version || 1,

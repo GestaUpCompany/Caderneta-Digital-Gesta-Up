@@ -78,7 +78,6 @@ const CHECKLIST_PERGUNTAS = [
 
 interface FormState {
   data: string
-  tratador: string
   pasto: string
   numeroLote: string
   loteId: string
@@ -125,9 +124,8 @@ interface FormState {
   }
 }
 
-const makeInitial = (usuario?: string): FormState => ({
+const makeInitial = (): FormState => ({
   data: todayBR(),
-  tratador: usuario || '',
   pasto: '',
   numeroLote: '',
   loteId: '',
@@ -169,7 +167,7 @@ export default function SuplementacaoPage() {
     garantirExecucao('suplementacao')
   }, [garantirExecucao])
 
-  const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
+  const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -480,7 +478,6 @@ export default function SuplementacaoPage() {
   const validationRules = useMemo(() => {
     const base: any = {
       data: { required: true },
-      tratador: { required: true },
       pasto: { required: true },
       formulacao: { required: true },
       leitura: { required: true },
@@ -520,7 +517,8 @@ export default function SuplementacaoPage() {
 
     const result = await salvarRegistro('suplementacao', {
       data: form.data,
-      tratador: form.tratador,
+      tratador: usuario,
+      usuario: usuario,
       pasto: form.pasto,
       pastoId: form.pastoId,
       numeroLote: form.numeroLote,
@@ -589,7 +587,7 @@ export default function SuplementacaoPage() {
       }
       setRegistroSalvo(registroComPeriodo)
       setShowSuccessModal(true)
-      setForm(makeInitial(usuario))
+      setForm(makeInitial())
       setKgDeposito('')
     }
   }
@@ -648,13 +646,6 @@ export default function SuplementacaoPage() {
             )}
           </div>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} compact />
-          <Input
-            label="TRATADOR"
-            placeholder="Nome do responsável"
-            value={form.tratador}
-            onChange={setInput('tratador')}
-            error={getError('tratador')}
-          />
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
               label="PASTO"

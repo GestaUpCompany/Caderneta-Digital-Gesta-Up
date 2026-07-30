@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, SearchableModal } from '../../components/ui'
+import { DatePicker } from '../../components/ui'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import {
-  getCachedCadastroData,
   getLoteDetalhesComCategoriasCached,
   getRegistrosSuplementacaoByLoteCached,
   getRegistrosLeituraCochoByLoteCached,
@@ -15,11 +14,9 @@ import {
   getLinhasConfinamentoCached,
   getFormulacaoByNomeCached,
 } from '../../services/cadastroCache'
-import { getLotes, getFuncionarios } from '../../services/supabaseService'
+import { getLotes } from '../../services/supabaseService'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
 import { ChevronLeft, ChevronRight, Check, ArrowLeft } from 'lucide-react'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
-
 interface LoteItem {
   id: string
   nome: string
@@ -88,16 +85,12 @@ export default function LeituraCochoPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
   const [data, setData] = useState<string>(todayBR())
-  const [responsavel, setResponsavel] = useState<string>(usuario || '')
-  const [responsaveis, setResponsaveis] = useState<string[]>([])
-  const [carregandoResponsaveis, setCarregandoResponsaveis] = useState(false)
   const [lotes, setLotes] = useState<LoteItem[]>([])
   const [linhas, setLinhas] = useState<LinhaItem[]>([])
   const [linhaSelecionadaId, setLinhaSelecionadaId] = useState<string | null>(null)
   const [loteSelecionadoId, setLoteSelecionadoId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
-  const [erroResponsavel, setErroResponsavel] = useState<string | null>(null)
   const [totalLotesSemCurral, setTotalLotesSemCurral] = useState(0)
   const listaRef = useRef<HTMLDivElement>(null)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -109,22 +102,11 @@ export default function LeituraCochoPage() {
       setErro(null)
 
       try {
-        setCarregandoResponsaveis(true)
-        const cache = await getCachedCadastroData()
-        if (cache?.funcionarios?.length) {
-          setResponsaveis(cache.funcionarios)
-        }
-
-        const [lotesData, funcionariosData, curraisData, linhasData] = await Promise.all([
+        const [lotesData, curraisData, linhasData] = await Promise.all([
           getLotes(fazendaId),
-          getFuncionarios(fazendaId),
           getCurraisCached(fazendaId),
           getLinhasConfinamentoCached(fazendaId),
         ])
-
-        const funcionariosNomes = funcionariosData?.map((f: any) => f.nome) || []
-        setResponsaveis(funcionariosNomes)
-        setCarregandoResponsaveis(false)
 
         // Mapa de currais por lote_id (apenas currais com lote_id e linha_id)
         const curraisPorLote = new Map<string, { id: string; nome: string; linhaId: string | null }>()
@@ -258,7 +240,6 @@ export default function LeituraCochoPage() {
         setErro('Erro ao carregar dados. Tente novamente.')
       } finally {
         setCarregando(false)
-        setCarregandoResponsaveis(false)
       }
     }
 
@@ -324,18 +305,14 @@ export default function LeituraCochoPage() {
 
       const notaNumero = lote.nota === '' || lote.nota === '-' ? null : Number(lote.nota)
       if (lote.nota !== '' && lote.nota !== '-' && isNaN(notaNumero as number)) return
-      if (!responsavel.trim()) {
-        setErroResponsavel('Selecione um responsável antes de salvar')
-        setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, erroSalvar: true } : l)))
-        return
-      }
 
       setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, salvando: true, erroSalvar: false } : l)))
 
       try {
         const result = await salvarRegistro('leitura-cocho', {
           data: `${data} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
-          responsavel,
+          responsavel: usuario,
+          usuario: usuario,
           pastoCurral: lote.curral,
           pastoId: lote.curralId || null,
           numeroLote: lote.nome,
@@ -364,7 +341,7 @@ export default function LeituraCochoPage() {
         )
       }
     },
-    [lotes, fazendaId, data, responsavel]
+    [lotes, fazendaId, data, usuario]
   )
 
   const limparNotas = useCallback(() => {
@@ -416,28 +393,6 @@ export default function LeituraCochoPage() {
           )}
         </div>
         <DatePicker label="DATA" value={data} onChange={setData} compact />
-        {responsaveis.length > 0 ? (
-          <SearchableModal
-            label="RESPONSÁVEL"
-            value={responsavel}
-            onChange={(val) => { setResponsavel(val); setErroResponsavel(null); atualizarNomeUsuarioConfig(val) }}
-            options={responsaveis}
-            placeholder="Buscar funcionário..."
-            disabled={carregandoResponsaveis}
-            id="responsavel"
-            name="responsavel"
-          />
-        ) : (
-          <Input
-            label="RESPONSÁVEL"
-            placeholder={carregandoResponsaveis ? 'Carregando funcionários...' : 'Nome do responsável'}
-            value={responsavel}
-            onChange={(e) => { setResponsavel(e.target.value); setErroResponsavel(null); atualizarNomeUsuarioConfig(e.target.value) }}
-          />
-        )}
-        {erroResponsavel && (
-          <p className="text-base font-semibold text-red-600">⚠️ {erroResponsavel}</p>
-        )}
       </div>
 
       {/* Seção 2: Linhas / Currais */}

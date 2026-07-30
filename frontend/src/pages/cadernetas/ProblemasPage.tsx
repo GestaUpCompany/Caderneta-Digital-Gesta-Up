@@ -161,6 +161,7 @@ export default function ProblemasPage() {
       tipoProblemaObs: form.tipoProblemaObs || '',
       prioridade: form.prioridade,
       setorResolve: form.setorResolve,
+      usuario: usuario,
     })
 
     setSalvando(false)

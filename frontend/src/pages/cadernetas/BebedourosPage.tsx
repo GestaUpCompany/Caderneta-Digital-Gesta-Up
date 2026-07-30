@@ -9,7 +9,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData, getBebedourosCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached, getPastosByBebedouroCached } from '../../services/cadastroCache'
-import { createHistoricoLimpeza, getFuncionarios } from '../../services/supabaseService'
+import { createHistoricoLimpeza } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
@@ -18,7 +18,6 @@ import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import BebedouroPastoCard from '../../components/BebedouroPastoCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -43,7 +42,6 @@ const CHECKLIST_PERGUNTAS = [
 
 interface FormState {
   data: string
-  responsavel: string
   leituraBebedouro: string
   numeroBebedouro: string
   observacao: string
@@ -86,9 +84,8 @@ interface FormState {
   metaIntervaloLimpeza: string
 }
 
-const makeInitial = (usuario?: string): FormState => ({
+const makeInitial = (): FormState => ({
   data: todayBR(),
-  responsavel: usuario || '',
   leituraBebedouro: '',
   numeroBebedouro: '',
   observacao: '',
@@ -120,15 +117,13 @@ export default function BebedourosPage() {
     confirmarObservacao,
     cancelarObservacao,
   } = useRegistroComExecucao('bebedouros')
-  const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
+  const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [bebedourosDisponiveis, setBebedourosDisponiveis] = useState<string[]>([])
-  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
-  const [loadingFuncionarios, setLoadingFuncionarios] = useState(false)
   const [pastosBebedouro, setPastosBebedouro] = useState<{ id: string; nome: string }[] | null>(null)
   const [loadingPastosBebedouro, setLoadingPastosBebedouro] = useState(false)
 
@@ -139,30 +134,6 @@ export default function BebedourosPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
-
-  // Carregar funcionários do Supabase
-  useEffect(() => {
-    const loadFuncionarios = async () => {
-      if (!fazendaId) {
-        setFuncionariosDisponiveis([])
-        setLoadingFuncionarios(false)
-        return
-      }
-
-      setLoadingFuncionarios(true)
-      try {
-        const funcionarios = await getFuncionarios(fazendaId)
-        setFuncionariosDisponiveis(funcionarios.map(f => f.nome))
-      } catch (error) {
-        console.error('Erro ao carregar funcionários:', error)
-        setFuncionariosDisponiveis([])
-      } finally {
-        setLoadingFuncionarios(false)
-      }
-    }
-
-    loadFuncionarios()
-  }, [fazendaId])
 
   // Carregar bebedouros (com cache lazy para offline)
   useEffect(() => {
@@ -289,7 +260,6 @@ export default function BebedourosPage() {
   // Validation rules
   const validationRules: any = {
     data: { required: true },
-    responsavel: { required: true },
     leituraBebedouro: { required: true },
   }
   if (checklistAtivo) {
@@ -312,7 +282,8 @@ export default function BebedourosPage() {
 
     const result = await salvarRegistro('bebedouros', {
       data: form.data,
-      responsavel: form.responsavel,
+      responsavel: usuario,
+      usuario: usuario,
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
       observacao: form.observacao,
@@ -362,7 +333,7 @@ export default function BebedourosPage() {
               fazendaId,
               bebedouro.id,
               dataLimpeza,
-              form.responsavel,
+              usuario,
               form.observacao || 'Registro de inspeção'
             )
             console.log('[BebedourosPage] Limpeza registrada no histórico')
@@ -375,7 +346,7 @@ export default function BebedourosPage() {
 
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial(usuario))
+      setForm(makeInitial())
     }
   }
 
@@ -419,27 +390,6 @@ export default function BebedourosPage() {
             )}
           </div>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} compact />
-          {funcionariosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label="RESPONSÁVEL"
-              value={form.responsavel}
-              onChange={(val) => { set('responsavel')(val); atualizarNomeUsuarioConfig(val) }}
-              error={getError('responsavel')}
-              options={funcionariosDisponiveis}
-              placeholder="Buscar funcionário..."
-              disabled={loadingFuncionarios}
-              id="responsavel"
-              name="responsavel"
-            />
-          ) : (
-            <Input
-              label="RESPONSÁVEL"
-              placeholder={loadingFuncionarios ? 'Carregando funcionários...' : 'Nome do responsável'}
-              value={form.responsavel}
-              onChange={(e) => { setInput('responsavel')(e); atualizarNomeUsuarioConfig(e.target.value) }}
-              error={getError('responsavel')}
-            />
-          )}
         </div>
 
         {/* Seção 2: Bebedouro */}

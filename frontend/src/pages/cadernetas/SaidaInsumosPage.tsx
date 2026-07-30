@@ -115,6 +115,7 @@ export default function SaidaInsumosPage() {
         dietaProduzida: form.dietaProduzida,
         destinoProducao: form.destinoProducao,
         totalProduzido: form.totalProduzido ? Number(form.totalProduzido) : 0,
+        usuario: usuario,
       })
 
       if (!result.success && result.errors) {

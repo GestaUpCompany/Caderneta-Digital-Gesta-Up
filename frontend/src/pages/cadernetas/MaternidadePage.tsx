@@ -140,7 +140,6 @@ interface FormState {
   docilidadeMatriz: string
   racaMae: string
   categoriaAnimalMae: string
-  dataNascimentoMae: string
 }
 
 const makeInitial = (): FormState => ({
@@ -180,7 +179,6 @@ const makeInitial = (): FormState => ({
   docilidadeMatriz: '',
   racaMae: '',
   categoriaAnimalMae: '',
-  dataNascimentoMae: '',
 })
 
 export default function MaternidadePage() {
@@ -491,7 +489,7 @@ export default function MaternidadePage() {
           categoria: 'Vaca Parida',
           classificacao_matriz: form.categoriaMae || null,
           status: 'Vivo',
-          data_nascimento: form.dataNascimentoMae ? brToIso(form.dataNascimentoMae) || null : null,
+          data_nascimento: null,
           lote_atual: form.loteId || null,
           pasto_atual: form.pastoId || null,
           origem: 'Cadastro Manual',
@@ -599,6 +597,7 @@ export default function MaternidadePage() {
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
       docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
       partoVinculoId,
+      usuario: usuario,
     })
 
     // Registrar 2ª cria (gêmeos)
@@ -772,7 +771,6 @@ export default function MaternidadePage() {
                 // Clear new-mother fields when an existing animal is found
                 racaMae: individuoId ? '' : prev.racaMae,
                 categoriaAnimalMae: individuoId ? '' : prev.categoriaAnimalMae,
-                dataNascimentoMae: individuoId ? '' : prev.dataNascimentoMae,
               }))
             }}
             required={true}
@@ -811,12 +809,6 @@ export default function MaternidadePage() {
                   <p className="text-gray-900 font-bold">Vaca Parida</p>
                 </div>
               </div>
-              <DatePicker
-                label={<span>DATA DE NASCIMENTO <span className="text-sm font-normal text-gray-500">(opcional)</span></span>}
-                value={form.dataNascimentoMae}
-                onChange={set('dataNascimentoMae')}
-                compact
-              />
             </div>
           )}
           <Radio

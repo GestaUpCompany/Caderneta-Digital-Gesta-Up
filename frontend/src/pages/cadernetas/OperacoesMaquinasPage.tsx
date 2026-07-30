@@ -268,6 +268,7 @@ export default function OperacoesMaquinasPage() {
         }
       },
       observacao: form.observacao,
+      usuario: usuario,
     })
 
     setSalvando(false)

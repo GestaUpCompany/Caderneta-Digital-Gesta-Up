@@ -32,7 +32,6 @@ import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -66,7 +65,6 @@ const INVERTED_DIAGNOSTICOS = [
 
 interface FormState {
   data: string
-  manejador: string
   numeroLote: string
   loteId: string
   pastoSaida: string
@@ -111,9 +109,8 @@ interface FormState {
   equipeNomes: string[]
 }
 
-const makeInitial = (usuario?: string): FormState => ({
+const makeInitial = (): FormState => ({
   data: todayBR(),
-  manejador: usuario || '',
   numeroLote: '',
   loteId: '',
   pastoSaida: '',
@@ -198,7 +195,7 @@ export default function PastagensPage() {
     garantirExecucao('pastagens')
   }, [garantirExecucao])
 
-  const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
+  const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -455,7 +452,6 @@ export default function PastagensPage() {
   // Validation rules
   const validationRules: any = {
     data: { required: true },
-    manejador: { required: true },
     numeroLote: { required: true },
     pastoSaida: { required: true },
     avaliacaoSaida: { required: true },
@@ -533,7 +529,8 @@ export default function PastagensPage() {
 
     const result = await salvarRegistro('pastagens', {
       data: form.data,
-      manejador: form.manejador,
+      manejador: usuario,
+      usuario: usuario,
       numeroLote: form.numeroLote,
       loteId: form.loteId,
       pastoSaida: form.pastoSaida,
@@ -589,7 +586,7 @@ export default function PastagensPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial(usuario))
+      setForm(makeInitial())
     }
   }
 
@@ -647,28 +644,6 @@ export default function PastagensPage() {
             )}
           </div>
           <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={set('data')} error={getError('data')} compact />
-          {funcionariosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label={<span>MANEJADOR <span className="text-red-500">*</span></span>}
-              value={form.manejador}
-              onChange={(val) => { set('manejador')(val); atualizarNomeUsuarioConfig(val) }}
-              error={getError('manejador')}
-              options={funcionariosDisponiveis}
-              placeholder="Buscar manejador..."
-              id="manejador"
-              name="manejador"
-            />
-          ) : (
-            <Input
-              label={<span>MANEJADOR <span className="text-red-500">*</span></span>}
-              placeholder="Carregando..."
-              value={form.manejador}
-              onChange={(e) => { setInput('manejador')(e); atualizarNomeUsuarioConfig(e.target.value) }}
-              error={getError('manejador')}
-              disabled
-              id="manejador"
-            />
-          )}
         </div>
 
         {/* Seção 2: Pasto de Saída */}

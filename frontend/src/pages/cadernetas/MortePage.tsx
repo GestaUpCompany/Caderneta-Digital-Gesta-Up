@@ -348,6 +348,7 @@ export default function MortePage() {
 
     const result = await salvarRegistro('morte', {
       responsavel: usuario,
+      usuario: usuario,
       data: form.data,
       pasto: form.pasto,
       pastoId: form.pastoId,
@@ -420,17 +421,6 @@ export default function MortePage() {
             )}
           </div>
           <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} compact />
-          <div className="w-full">
-            <label className="block text-lg font-bold text-gray-900 mb-2">RESPONSÁVEL</label>
-            <div className="relative">
-              <input
-                className="min-h-[60px] text-lg sm:text-xl px-3 sm:px-4 py-3 bg-white border-2 rounded-xl focus:outline-none transition-colors w-full border-gray-400 focus:border-black"
-                placeholder="Nome do responsável"
-                value={usuario || ''}
-                readOnly
-              />
-            </div>
-          </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>LOTE <span className="text-red-500">*</span></span>}

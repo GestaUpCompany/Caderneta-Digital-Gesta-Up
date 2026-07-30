@@ -147,6 +147,7 @@ export default function LimpezaPage() {
       limpezaRealizada: form.limpezaRealizada,
       tarefas: form.tarefas,
       observacao: form.observacao,
+      usuario: usuario,
     })
 
     setSalvando(false)

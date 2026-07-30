@@ -3643,7 +3643,6 @@ export type Database = {
           created_at: string | null
           data: string
           deleted_at: string | null
-          dispositivo_id: string | null
           docilidade_matriz: number | null
           escore_matriz: string | null
           fazenda_id: string
@@ -3677,7 +3676,6 @@ export type Database = {
           created_at?: string | null
           data: string
           deleted_at?: string | null
-          dispositivo_id?: string | null
           docilidade_matriz?: number | null
           escore_matriz?: string | null
           fazenda_id: string
@@ -3711,7 +3709,6 @@ export type Database = {
           created_at?: string | null
           data?: string
           deleted_at?: string | null
-          dispositivo_id?: string | null
           docilidade_matriz?: number | null
           escore_matriz?: string | null
           fazenda_id?: string
@@ -3741,13 +3738,6 @@ export type Database = {
           version?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "registros_maternidade_dispositivo_id_fkey"
-            columns: ["dispositivo_id"]
-            isOneToOne: false
-            referencedRelation: "dispositivos"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "registros_maternidade_fazenda_id_fkey"
             columns: ["fazenda_id"]

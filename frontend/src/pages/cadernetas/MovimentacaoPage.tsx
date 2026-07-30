@@ -63,7 +63,6 @@ function processarCategorias(categorias: string): string[] {
 
 interface FormState {
   data: string
-  responsavel: string
   loteOrigem: string
   loteOrigemId: string
   loteDestino: string
@@ -81,7 +80,6 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  responsavel: '',
   loteOrigem: '',
   loteOrigemId: '',
   loteDestino: '',
@@ -176,14 +174,6 @@ export default function MovimentacaoPage() {
     }
     loadData()
   }, [fazendaId])
-
-  // Atualizar responsavel quando usuario mudar
-  useEffect(() => {
-    if (usuario) {
-      setForm(prev => ({ ...prev, responsavel: usuario }))
-    }
-  }, [usuario])
-
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
@@ -300,7 +290,8 @@ export default function MovimentacaoPage() {
 
     const result = await salvarRegistro('movimentacao', {
       data: form.data,
-      responsavel: form.responsavel,
+      responsavel: usuario,
+      usuario: usuario,
       loteOrigem: form.loteOrigem,
       loteOrigemId: form.loteOrigemId,
       loteDestino: destinoFinal,
@@ -368,12 +359,6 @@ export default function MovimentacaoPage() {
             )}
           </div>
           <DatePicker label="DATA" value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} compact />
-          <Input
-            label="RESPONSÁVEL"
-            placeholder="Nome do responsável"
-            value={usuario || ''}
-            disabled
-          />
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
               label="LOTE"

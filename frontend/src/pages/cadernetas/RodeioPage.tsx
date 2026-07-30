@@ -338,6 +338,8 @@ export default function RodeioPage() {
 
     const result = await salvarRegistro('rodeio', {
       data: form.data,
+      manejador: usuario,
+      usuario: usuario,
       pasto: form.pasto,
       pastoId: form.pastoId,
       numeroLote: form.numeroLote,
@@ -435,12 +437,6 @@ export default function RodeioPage() {
             )}
           </div>
           <DatePicker label="DATA" value={form.data} onChange={set('data')} error={getError('data')} compact />
-          <Input
-            label="MANEJADOR"
-            placeholder="Nome do responsável"
-            value={usuario || ''}
-            readOnly
-          />
           <div className="grid grid-cols-1 gap-3">
             {lotesDisponiveis.length > 0 ? (
               <SearchableModal

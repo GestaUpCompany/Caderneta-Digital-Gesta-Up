@@ -342,6 +342,8 @@ export default function EnfermariaPage() {
 
     const result = await salvarRegistro('enfermaria', {
       data: form.data,
+      responsavel: usuario,
+      usuario: usuario,
       pasto: form.pasto,
       pastoId: form.pastoId,
       lote: form.lote,
@@ -411,12 +413,6 @@ export default function EnfermariaPage() {
             )}
           </div>
           <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} compact />
-          <Input
-            label="RESPONSÁVEL"
-            placeholder="Nome do responsável"
-            value={usuario || ''}
-            readOnly
-          />
         </div>
 
         {/* Seção 2: Identificação */}

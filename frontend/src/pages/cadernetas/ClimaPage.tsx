@@ -29,16 +29,14 @@ interface MedicaoPluviometro {
 
 interface FormState {
   data: string
-  responsavel: string
   temperaturaMediaCalculada: string
   umidadeRelativa: string
   observacao: string
   medicoes: MedicaoPluviometro[]
 }
 
-const makeInitial = (usuario?: string): FormState => ({
+const makeInitial = (): FormState => ({
   data: todayBR(),
-  responsavel: usuario || '',
   temperaturaMediaCalculada: '',
   umidadeRelativa: '',
   observacao: '',
@@ -48,7 +46,7 @@ const makeInitial = (usuario?: string): FormState => ({
 export default function ClimaPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(() => makeInitial(usuario))
+  const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -63,7 +61,6 @@ export default function ClimaPage() {
   // Validation rules
   const validationRules: any = {
     data: { required: true },
-    responsavel: { required: true },
     _medicoes_min: {
       custom: () => form.medicoes.length === 0 ? 'Selecione pelo menos 1 pluviômetro' : null
     }
@@ -194,7 +191,8 @@ export default function ClimaPage() {
 
     const result = await salvarRegistro('clima', {
       data: form.data,
-      responsavel: form.responsavel,
+      responsavel: usuario,
+      usuario: usuario,
       temperaturaMedia: temperaturaMedia,
       umidadeRelativa: form.umidadeRelativa ? Number(form.umidadeRelativa) : null,
       observacao: form.observacao,
@@ -208,7 +206,7 @@ export default function ClimaPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial(usuario))
+      setForm(makeInitial())
     }
   }
 
@@ -239,14 +237,6 @@ export default function ClimaPage() {
             )}
           </div>
           <DatePicker label={<span>DATA <span className="text-red-500">*</span></span>} value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} compact />
-          <Input
-            label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
-            placeholder="Nome do responsável"
-            value={form.responsavel}
-            onChange={setInput('responsavel')}
-            error={getError('responsavel')}
-            readOnly
-          />
           <Input
             label="UMIDADE RELATIVA DO AR (%)"
             placeholder="Ex: 75"
@@ -366,7 +356,7 @@ export default function ClimaPage() {
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR REGISTRO
           </Button>
-          <Button onClick={() => setForm(makeInitial(usuario))} variant="secondary" icon="🧹">
+          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>
