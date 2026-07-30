@@ -271,12 +271,6 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
   if (!isNonEmptyString(data.categoria))
     errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
 
-  // Validação de brinco/chip apenas se for 1 cabeça
-  if (Number(data.numeroCabecas) === 1) {
-    if (!isNonEmptyString(data.brinco) && !isNonEmptyString(data.chip))
-      errors.push({ field: 'brinco', message: 'Brinco ou Chip é obrigatório quando for 1 cabeça' })
-  }
-
   return { isValid: errors.length === 0, errors }
 }
 

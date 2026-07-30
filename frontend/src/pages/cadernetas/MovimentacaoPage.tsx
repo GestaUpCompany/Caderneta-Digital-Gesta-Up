@@ -247,7 +247,6 @@ export default function MovimentacaoPage() {
   }, [form.loteDestino, fazendaId, lotesDisponiveis])
 
   const handleSalvar = async () => {
-    console.log('[MovimentacaoPage] handleSalvar chamado', { motivo: form.motivoMovimentacao, lote: form.loteOrigem, cabecas: form.cabecasPorCategoria })
     setSalvando(true)
     setErrors([])
 
@@ -315,7 +314,6 @@ export default function MovimentacaoPage() {
 
       // Coletar categorias com quantidade > 0
       const categoriasRaw = detalhesLoteOrigem?.categorias_raw || []
-      console.log('[MovimentacaoPage] categoriasRaw:', categoriasRaw)
       const categoriasParaMover = categoriasRaw
         .map((cat: any) => ({
           categoria: cat.categoria,
@@ -323,8 +321,6 @@ export default function MovimentacaoPage() {
           maxCabecas: cat.quant_atual || 0,
         }))
         .filter((c: any) => c.numeroCabecas > 0)
-
-      console.log('[MovimentacaoPage] categoriasParaMover:', categoriasParaMover)
 
       if (categoriasParaMover.length === 0) {
         setErrors([{ field: 'cabecasPorCategoria', message: 'Informe pelo menos uma quantidade de cabeças por categoria' }])
@@ -341,10 +337,16 @@ export default function MovimentacaoPage() {
         return
       }
 
+      // Validar brinco/chip apenas se o total for exatamente 1 cabeça
+      if (totalCabecas === 1 && !form.brinco.trim() && !form.chip.trim()) {
+        setErrors([{ field: 'brinco', message: 'Brinco ou Chip é obrigatório quando for 1 cabeça' }])
+        scrollToFirstError([{ field: 'brinco', message: 'Brinco ou Chip é obrigatório quando for 1 cabeça' }])
+        return
+      }
+
       // Criar um registro de movimentação por categoria
       const resultados: { success: boolean; errors?: any[]; registro?: any }[] = []
       for (const c of categoriasParaMover) {
-        console.log('[MovimentacaoPage] salvando categoria:', c.categoria, 'cabecas:', c.numeroCabecas)
         const result = await salvarRegistro('movimentacao', {
           data: form.data,
           responsavel: usuario,
@@ -362,7 +364,6 @@ export default function MovimentacaoPage() {
           chip: totalCabecas === 1 ? form.chip : '',
           causaObservacao: form.causaObservacao,
         })
-        console.log('[MovimentacaoPage] resultado salvarRegistro:', result)
         resultados.push(result)
         if (!result.success && result.errors) break
       }
