@@ -2314,6 +2314,18 @@ export async function getRegistrosLeituraCochoByLote(
   return data
 }
 
+export async function getNotasLeituraCochoConfig(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await client
+    .from('notas_leitura_cocho_config')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .order('nota', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
 export async function createRegistroLeituraCocho(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client

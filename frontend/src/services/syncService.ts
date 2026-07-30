@@ -448,6 +448,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         leitura_cocho: registro.leituraCocho !== '' && registro.leituraCocho !== null && registro.leituraCocho !== undefined
           ? Number(registro.leituraCocho)
           : null,
+        nota_config_id: registro.notaConfigId || null,
       }
     default:
       return baseData

@@ -2434,6 +2434,44 @@ export type Database = {
           },
         ]
       }
+      notas_leitura_cocho_config: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          fazenda_id: string
+          id: string
+          nota: number
+          percentual_ajuste: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          descricao?: string | null
+          fazenda_id: string
+          id?: string
+          nota: number
+          percentual_ajuste: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          descricao?: string | null
+          fazenda_id?: string
+          id?: string
+          nota?: number
+          percentual_ajuste?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_leitura_cocho_config_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pastos: {
         Row: {
           altura_entrada_cm: number | null
@@ -3417,6 +3455,7 @@ export type Database = {
           lote: string | null
           lote_id: string | null
           nome_usuario: string | null
+          nota_config_id: string | null
           observacao: string | null
           pasto_curral: string | null
           pasto_id: string | null
@@ -3436,6 +3475,7 @@ export type Database = {
           lote?: string | null
           lote_id?: string | null
           nome_usuario?: string | null
+          nota_config_id?: string | null
           observacao?: string | null
           pasto_curral?: string | null
           pasto_id?: string | null
@@ -3455,6 +3495,7 @@ export type Database = {
           lote?: string | null
           lote_id?: string | null
           nome_usuario?: string | null
+          nota_config_id?: string | null
           observacao?: string | null
           pasto_curral?: string | null
           pasto_id?: string | null
@@ -3483,6 +3524,13 @@ export type Database = {
             columns: ["lote_id"]
             isOneToOne: false
             referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_leitura_cocho_nota_config_id_fkey"
+            columns: ["nota_config_id"]
+            isOneToOne: false
+            referencedRelation: "notas_leitura_cocho_config"
             referencedColumns: ["id"]
           },
           {

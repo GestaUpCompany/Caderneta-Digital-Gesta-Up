@@ -14,9 +14,15 @@ import {
   getLinhasConfinamentoCached,
   getFormulacaoByNomeCached,
 } from '../../services/cadastroCache'
-import { getLotes } from '../../services/supabaseService'
+import { getLotes, getNotasLeituraCochoConfig } from '../../services/supabaseService'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
 import { ChevronLeft, ChevronRight, Check, ArrowLeft } from 'lucide-react'
+interface NotaConfig {
+  id: string
+  nota: number
+  descricao: string | null
+  percentual_ajuste: number
+}
 interface LoteItem {
   id: string
   nome: string
@@ -26,6 +32,7 @@ interface LoteItem {
   dieta: string | null
   teorMsDieta: number | null
   leituraAnterior: number | null
+  leituraAnteriorId: string | null
   tratoAnterior: number | null
   nota: string
   notaSalva: boolean
@@ -92,8 +99,9 @@ export default function LeituraCochoPage() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [totalLotesSemCurral, setTotalLotesSemCurral] = useState(0)
+  const [notasConfig, setNotasConfig] = useState<NotaConfig[]>([])
   const listaRef = useRef<HTMLDivElement>(null)
-  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const inputRefs = useRef<Record<string, HTMLSelectElement | null>>({})
 
   useEffect(() => {
     async function carregarDadosIniciais() {
@@ -102,11 +110,22 @@ export default function LeituraCochoPage() {
       setErro(null)
 
       try {
-        const [lotesData, curraisData, linhasData] = await Promise.all([
+        const [lotesData, curraisData, linhasData, notasConfigData] = await Promise.all([
           getLotes(fazendaId),
           getCurraisCached(fazendaId),
           getLinhasConfinamentoCached(fazendaId),
+          getNotasLeituraCochoConfig(fazendaId),
         ])
+
+        const notasConfigOrdenadas = (notasConfigData || [])
+          .map((n: any) => ({
+            id: n.id,
+            nota: n.nota,
+            descricao: n.descricao,
+            percentual_ajuste: Number(n.percentual_ajuste),
+          }))
+          .sort((a: NotaConfig, b: NotaConfig) => a.nota - b.nota)
+        setNotasConfig(notasConfigOrdenadas)
 
         // Mapa de currais por lote_id (apenas currais com lote_id e linha_id)
         const curraisPorLote = new Map<string, { id: string; nome: string; linhaId: string | null }>()
@@ -177,6 +196,7 @@ export default function LeituraCochoPage() {
               (a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime()
             )
             const leituraAnterior = leitOrdenados[0]?.leitura_cocho ?? null
+            const leituraAnteriorId = leitOrdenados[0]?.nota_config_id ?? null
 
             const tratoAnterior: number | null = supOrdenados[0]?.kg_cocho ?? null
 
@@ -211,6 +231,7 @@ export default function LeituraCochoPage() {
               dieta,
               teorMsDieta,
               leituraAnterior,
+              leituraAnteriorId,
               tratoAnterior,
               nota: '',
               notaSalva: false,
@@ -287,37 +308,34 @@ export default function LeituraCochoPage() {
   )
 
   const atualizarNota = useCallback((id: string, valor: string) => {
-    // Permite apenas números e sinal de negativo
-    const valorFiltrado = valor.replace(/[^\d-]/g, '')
-    // Evita múltiplos sinais de negativo
-    const valorLimpo = valorFiltrado.startsWith('-')
-      ? '-' + valorFiltrado.slice(1).replace(/-/g, '')
-      : valorFiltrado.replace(/-/g, '')
     setLotes((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, nota: valorLimpo, notaSalva: false, erroSalvar: false } : l))
+      prev.map((l) => (l.id === id ? { ...l, nota: valor, notaSalva: false, erroSalvar: false } : l))
     )
   }, [])
 
   const salvarNota = useCallback(
-    async (id: string) => {
+    async (id: string, notaConfigIdParam?: string) => {
       const lote = lotes.find((l) => l.id === id)
       if (!lote || !fazendaId) return
 
-      const notaNumero = lote.nota === '' || lote.nota === '-' ? null : Number(lote.nota)
-      if (lote.nota !== '' && lote.nota !== '-' && isNaN(notaNumero as number)) return
+      const configId = notaConfigIdParam ?? lote.nota
+      const configSelecionada = notasConfig.find((c) => c.id === configId) || null
+      const notaNumero = configSelecionada ? configSelecionada.nota : null
+      const notaConfigId = configSelecionada ? configSelecionada.id : null
 
       setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, salvando: true, erroSalvar: false } : l)))
 
       try {
         const result = await salvarRegistro('leitura-cocho', {
-          data: `${data} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+          data: data,
           responsavel: usuario,
           usuario: usuario,
           pastoCurral: lote.curral,
-          pastoId: lote.curralId || null,
+          pastoId: null,
           numeroLote: lote.nome,
           loteId: lote.id,
           leituraCocho: notaNumero !== null ? String(notaNumero) : '',
+          notaConfigId: notaConfigId,
         })
 
         if (!result.success) {
@@ -330,7 +348,7 @@ export default function LeituraCochoPage() {
         setLotes((prev) =>
           prev.map((l) =>
             l.id === id
-              ? { ...l, notaSalva: true, salvando: false, erroSalvar: false, leituraAnterior: notaNumero }
+              ? { ...l, notaSalva: true, salvando: false, erroSalvar: false, leituraAnterior: notaNumero, leituraAnteriorId: notaConfigId }
               : l
           )
         )
@@ -341,39 +359,55 @@ export default function LeituraCochoPage() {
         )
       }
     },
-    [lotes, fazendaId, data, usuario]
+    [lotes, fazendaId, data, usuario, notasConfig]
   )
+
+  const handleNotaChange = useCallback(
+    (id: string, valor: string) => {
+      atualizarNota(id, valor)
+    },
+    [atualizarNota]
+  )
+
+  const [salvandoLinha, setSalvandoLinha] = useState(false)
+
+  const salvarNotasLinha = useCallback(async () => {
+    const pendentes = lotesDaLinha.filter((l) => l.nota !== '' && !l.notaSalva && !l.salvando)
+    if (pendentes.length === 0) return
+
+    setSalvandoLinha(true)
+    setLotes((prev) =>
+      prev.map((l) =>
+        lotesDaLinha.some((pl) => pl.id === l.id) && l.nota !== '' && !l.notaSalva && !l.salvando
+          ? { ...l, salvando: true, erroSalvar: false }
+          : l
+      )
+    )
+
+    await Promise.all(pendentes.map((l) => salvarNota(l.id, l.nota)))
+    setSalvandoLinha(false)
+  }, [lotesDaLinha, salvarNota])
 
   const limparNotas = useCallback(() => {
     setLotes((prev) => prev.map((l) => ({ ...l, nota: '', notaSalva: false, erroSalvar: false })))
   }, [])
 
-  const handleNotaBlur = useCallback(
-    (id: string) => {
-      const lote = lotes.find((l) => l.id === id)
-      if (lote && lote.nota !== '' && lote.nota !== '-' && !lote.notaSalva) {
-        salvarNota(id)
-      }
-    },
-    [lotes, salvarNota]
-  )
-
   const handleNotaKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
+    (e: React.KeyboardEvent<HTMLSelectElement>, _id: string) => {
       if (e.key === 'Enter') {
         e.preventDefault()
-        const lote = lotes.find((l) => l.id === id)
-        if (lote && lote.nota !== '' && lote.nota !== '-') {
-          salvarNota(id).then(() => navegarLote('proximo'))
-        } else {
-          navegarLote('proximo')
-        }
+        navegarLote('proximo')
       }
     },
-    [lotes, salvarNota, navegarLote]
+    [navegarLote]
   )
 
   const indiceSelecionado = lotesDaLinha.findIndex((l) => l.id === loteSelecionadoId)
+
+  const notasPendentes = useMemo(
+    () => lotesDaLinha.filter((l) => l.nota !== '' && !l.notaSalva && !l.salvando).length,
+    [lotesDaLinha]
+  )
 
   return (
     <CadernetaLayout
@@ -584,24 +618,27 @@ export default function LeituraCochoPage() {
                               Nota
                             </span>
                             <div className="relative">
-                              <input
+                              <select
                                 ref={(el) => (inputRefs.current[lote.id] = el)}
-                                type="tel"
-                                inputMode="numeric"
                                 value={lote.nota}
                                 onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => atualizarNota(lote.id, e.target.value)}
-                                onBlur={() => handleNotaBlur(lote.id)}
+                                onChange={(e) => handleNotaChange(lote.id, e.target.value)}
                                 onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
-                                placeholder=""
-                                className={`w-16 h-12 text-center text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors ${
+                                className={`w-20 h-12 text-center text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-pointer ${
                                   lote.erroSalvar
                                     ? 'border-red-500 bg-red-50 text-red-700'
                                     : lote.notaSalva
                                       ? 'border-green-500 bg-green-50 text-green-700'
                                       : 'border-yellow-500 bg-white text-gray-900 focus:border-yellow-600'
                                 }`}
-                              />
+                              >
+                                <option value="">—</option>
+                                {notasConfig.map((config) => (
+                                  <option key={config.id} value={config.id}>
+                                    {config.nota}
+                                  </option>
+                                ))}
+                              </select>
                               {lote.salvando && (
                                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                               )}
@@ -616,6 +653,18 @@ export default function LeituraCochoPage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Descrição da nota selecionada */}
+                        {(() => {
+                          if (!lote.nota) return null
+                          const config = notasConfig.find((c) => c.id === lote.nota)
+                          if (!config?.descricao) return null
+                          return (
+                            <div className="mt-2 rounded-lg bg-gray-50 border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 font-medium leading-snug">
+                              {config.descricao}
+                            </div>
+                          )
+                        })()}
 
                         {/* Linha 6: CMS (% PV) inline compacto */}
                         <div className="border-t border-gray-100 pt-2 mt-2">
@@ -655,14 +704,33 @@ export default function LeituraCochoPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 desktop-form-container">
-        <button
-          onClick={limparNotas}
-          className="bg-gray-200 text-gray-700 font-bold text-base px-6 py-3 rounded-2xl border-2 border-gray-300 hover:bg-gray-300 transition-colors active:scale-95"
-        >
-          🧹 LIMPAR NOTAS
-        </button>
-      </div>
+      {linhaSelecionada && (
+        <div className="flex flex-col gap-3 desktop-form-container">
+          <button
+            onClick={salvarNotasLinha}
+            disabled={salvandoLinha || notasPendentes === 0}
+            className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
+              salvandoLinha
+                ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
+                : notasPendentes === 0
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
+            }`}
+          >
+            {salvandoLinha
+              ? 'SALVANDO...'
+              : notasPendentes > 0
+                ? `SALVAR NOTAS (${notasPendentes})`
+                : 'SALVAR NOTAS'}
+          </button>
+          <button
+            onClick={limparNotas}
+            className="bg-gray-200 text-gray-700 font-bold text-base px-6 py-3 rounded-2xl border-2 border-gray-300 hover:bg-gray-300 transition-colors active:scale-95"
+          >
+            🧹 LIMPAR NOTAS
+          </button>
+        </div>
+      )}
     </CadernetaLayout>
   )
 }

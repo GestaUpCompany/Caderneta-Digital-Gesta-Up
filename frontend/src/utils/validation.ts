@@ -229,8 +229,8 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
     errors.push({ field: 'tratador', message: 'Tratador é obrigatório' })
   if (!isNonEmptyString(data.pasto))
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
-  if (!isNonEmptyString(data.numeroLote))
-    errors.push({ field: 'numeroLote', message: 'Lote é obrigatório' })
+  // Lote não é obrigatório: permite registrar suplementação em pasto sem lote ativo vinculado.
+  // O aviso visual de "Nenhum lote ativo ocupando este pasto" permanece na UI (SuplementacaoPage.tsx).
   if (!isNonEmptyString(data.formulacao))
     errors.push({ field: 'formulacao', message: 'Formulação é obrigatória' })
   if (!isScaleValue(data.leituraCocho, -1, 3))
