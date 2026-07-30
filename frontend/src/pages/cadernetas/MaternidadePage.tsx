@@ -707,9 +707,9 @@ export default function MaternidadePage() {
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {usuario && (
                 <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
                   <span>👤</span>
@@ -781,7 +781,7 @@ export default function MaternidadePage() {
           {/* Dados da nova mãe (quando não encontrada na base) */}
           {!form.individuoIdMae && (form.idManejoMae || form.idBrincoMae || form.idChipMae) && (
             <div className="bg-green-50 rounded-xl p-4 border border-green-200 flex flex-col gap-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <span className="text-base font-bold text-green-800">🆕 DADOS DA NOVA MÃE</span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">

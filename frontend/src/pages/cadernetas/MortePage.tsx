@@ -411,9 +411,9 @@ export default function MortePage() {
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {usuario && (
                 <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
                   <span>👤</span>
