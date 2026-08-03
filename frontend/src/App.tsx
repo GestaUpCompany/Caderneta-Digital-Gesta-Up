@@ -23,6 +23,7 @@ import { useFarmStatus } from './hooks/useFarmStatus'
 import FarmInactiveBlock from './components/FarmInactiveBlock'
 import ScrollToTop from './components/ScrollToTop'
 import { useStoragePersistence } from './hooks/useStoragePersistence'
+import TestModeBanner from './components/TestModeBanner'
 
 // Componente wrapper para tela de reload durante atualização automática
 function PWAUpdateModalWrapper() {
@@ -312,6 +313,11 @@ function AppInner() {
       {/* Só mostrar sync se não for WelcomePage */}
       {(location.pathname !== '/' || !shouldShowWelcome) && location.pathname !== '/welcome' && (
         <SyncStatusBar />
+      )}
+
+      {/* Banner do modo teste (visível em qualquer tela quando ativo) */}
+      {location.pathname !== '/welcome' && (
+        <TestModeBanner />
       )}
       
       <div className="flex-1">

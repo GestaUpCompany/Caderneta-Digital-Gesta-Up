@@ -1,9 +1,10 @@
 import { Registro } from '../types/cadernetas'
-import { CadernetaStore, saveRegistro, getAllRegistros, deleteRegistro, getRegistro, updateSyncStatus } from './indexedDB'
+import { CadernetaStore, saveRegistro, getAllRegistros, deleteRegistro, getRegistro, updateSyncStatus, deleteRegistrosByTestFlag, clearTestItemsFromQueue } from './indexedDB'
 import { enqueueRegistro } from './syncService'
 import { generateId, generateVersion, getCurrentTimestamp } from '../utils/generateId'
 import { validate, CadernetaType } from '../utils/validation'
 import { store } from '../store/store'
+import { setTestMode } from '../store/slices/configSlice'
 import { getFazendaByAcessoId } from './supabaseService'
 import { getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 
@@ -69,13 +70,21 @@ export async function salvarRegistro(
     syncStatus: 'pending' as const,
   } as Registro
 
+  // Modo teste: marca o registro e NÃO enfileira para sync (fica só no dispositivo)
+  const testModeAtivo = store.getState().config.testModeAtivo
+  if (testModeAtivo) {
+    registro.isTestRecord = true
+  }
+
   try {
     await saveRegistro(caderneta, registro)
 
     // Pequeno delay para garantir persistência no IndexedDB (especialmente Android 13)
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    await enqueueRegistro(caderneta, registro.id, 'create')
+    if (!testModeAtivo) {
+      await enqueueRegistro(caderneta, registro.id, 'create')
+    }
 
     return { success: true, registro, id: registro.id }
   } catch (error) {
@@ -129,6 +138,14 @@ export async function listarRegistros(caderneta: CadernetaStore): Promise<Regist
 }
 
 export async function excluirRegistro(caderneta: CadernetaStore, id: string): Promise<void> {
+  // No modo teste, registros reais não podem ser tocados
+  const testModeAtivo = store.getState().config.testModeAtivo
+  if (testModeAtivo) {
+    const registro = await getRegistro(caderneta, id)
+    if (registro && registro.isTestRecord !== true) {
+      throw new Error('Modo teste ativo: não é possível excluir registros reais.')
+    }
+  }
   await deleteRegistro(caderneta, id)
 }
 
@@ -145,6 +162,16 @@ export async function reenviarRegistro(
     const registro = await getRegistro(caderneta, id)
     if (!registro) {
       return { success: false, message: 'Registro não encontrado no dispositivo.' }
+    }
+
+    // No modo teste, registros reais não podem ser reenviados (subiriam ao Supabase)
+    const testModeAtivo = store.getState().config.testModeAtivo
+    if (testModeAtivo && registro.isTestRecord !== true) {
+      return { success: false, message: 'Modo teste ativo: não é possível reenviar registros reais.' }
+    }
+    // Registros de teste nunca sobem ao Supabase
+    if (registro.isTestRecord === true) {
+      return { success: false, message: 'Registros de teste não são sincronizados.' }
     }
 
     await updateSyncStatus(caderneta, id, 'pending')
@@ -190,4 +217,17 @@ async function getFarmTimezone(): Promise<string> {
     console.error('[api] Erro ao buscar timezone da fazenda:', err)
     return DEFAULT_FARM_TIMEZONE
   }
+}
+
+/**
+ * Desativa o modo teste e remove completamente todos os registros marcados
+ * como teste do dispositivo (IndexedDB) e da syncQueue. Registros reais
+ * pré-existentes não são tocados.
+ */
+export async function desativarModoTeste(): Promise<{ removidos: number }> {
+  const removidos = await deleteRegistrosByTestFlag()
+  await clearTestItemsFromQueue()
+  store.dispatch(setTestMode(false))
+  console.log(`[testMode] Modo teste desativado. ${removidos} registro(s) de teste removidos.`)
+  return { removidos }
 }

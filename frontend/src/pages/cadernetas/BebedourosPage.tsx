@@ -108,7 +108,7 @@ const makeInitial = (): FormState => ({
 
 export default function BebedourosPage() {
   const navigate = useNavigate()
-  const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
+  const { usuario, fazendaId, testModeAtivo } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('bebedouros')
   const {
     showObservacaoModal,
@@ -321,7 +321,7 @@ export default function BebedourosPage() {
       scrollToFirstError(result.errors)
     } else {
       // Registrar limpeza no histórico se um bebedouro foi selecionado
-      if (form.numeroBebedouro && fazendaId) {
+      if (form.numeroBebedouro && fazendaId && !testModeAtivo) {
         try {
           const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
           if (bebedouro) {

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { setConfig, setConfigurado } from '../store/slices/configSlice'
+import { setConfig, setConfigurado, setTestMode } from '../store/slices/configSlice'
 import { RootState } from '../store/store'
 import { Button, Input } from '../components/ui'
 import { ChevronLeft } from 'lucide-react'
 import ValidationModal from '../components/ValidationModal'
 import { getFazendaByAcessoId } from '../services/supabaseService'
+import { desativarModoTeste } from '../services/api'
 
 export default function Configuracoes() {
   const navigate = useNavigate()
@@ -21,6 +22,8 @@ export default function Configuracoes() {
   const [validandoFazenda, setValidandoFazenda] = useState(false)
   const [showValidationModal, setShowValidationModal] = useState(false)
   const [validationStatus, setValidationStatus] = useState<'validating' | 'success'>('validating')
+  const [confirmarAtivarTeste, setConfirmarAtivarTeste] = useState(false)
+  const [desativandoTeste, setDesativandoTeste] = useState(false)
 
   const validate = (): boolean => {
     const newErrors: { field: string; message: string }[] = []
@@ -268,6 +271,64 @@ export default function Configuracoes() {
             <p className="text-sm text-gray-600 leading-relaxed">
               O ID da fazenda é fornecido pelo administrador do sistema. Entre em contato com o suporte caso não tenha essa informação.
             </p>
+          </div>
+        )}
+
+        {/* Card Modo Teste - só mostra se configurado */}
+        {config.configurado && (
+          <div className={`rounded-2xl p-5 shadow border-2 ${config.testModeAtivo ? 'bg-amber-50 border-amber-400' : 'bg-white border-gray-200'}`}>
+            <h3 className="text-sm font-semibold text-gray-600 mb-3">MODO TESTE</h3>
+            <p className="text-xs text-gray-600 leading-relaxed mb-4">
+              Quando ativado, todos os registros criados ficam apenas neste dispositivo e não são enviados ao banco de dados. Útil para testar o compartilhamento de texto sem gerar dados reais. Ao desativar, todos os registros de teste são permanentemente removidos.
+            </p>
+
+            {confirmarAtivarTeste ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-bold text-amber-800">Ativar modo teste agora?</p>
+                <p className="text-xs text-amber-700">Registros existentes não serão afetados. Apenas novos registros ficarão marcados como teste.</p>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    onClick={() => {
+                      dispatch(setTestMode(true))
+                      setConfirmarAtivarTeste(false)
+                    }}
+                    className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-full px-4 py-2"
+                  >
+                    SIM, ATIVAR
+                  </button>
+                  <button
+                    onClick={() => setConfirmarAtivarTeste(false)}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded-full px-4 py-2"
+                  >
+                    CANCELAR
+                  </button>
+                </div>
+              </div>
+            ) : config.testModeAtivo ? (
+              <button
+                onClick={async () => {
+                  setDesativandoTeste(true)
+                  try {
+                    await desativarModoTeste()
+                  } catch (err) {
+                    console.error('Erro ao desativar modo teste:', err)
+                  } finally {
+                    setDesativandoTeste(false)
+                  }
+                }}
+                disabled={desativandoTeste}
+                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl px-4 py-3 disabled:opacity-50"
+              >
+                {desativandoTeste ? 'DESATIVANDO E LIMPANDO...' : 'DESATIVAR E REMOVER REGISTROS DE TESTE'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setConfirmarAtivarTeste(true)}
+                className="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-sm rounded-xl px-4 py-3 border-2 border-amber-300"
+              >
+                ATIVAR MODO TESTE
+              </button>
+            )}
           </div>
         )}
 

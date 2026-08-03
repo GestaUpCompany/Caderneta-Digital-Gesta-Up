@@ -15,7 +15,7 @@ import { SYNC_CHECK_INTERVAL_MS } from '../utils/constants'
 
 export function useSync() {
   const dispatch = useDispatch()
-  const { fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
+  const { fazendaId, acessoId, configurado, testModeAtivo } = useSelector((state: RootState) => state.config)
   const syncRequestId = useSelector((state: RootState) => state.sync.syncRequestId)
   const isRunning = useRef(false)
 
@@ -26,6 +26,11 @@ export function useSync() {
 
   const runSync = useCallback(async () => {
     if (!configurado || !fazendaId || isRunning.current) {
+      return
+    }
+
+    // Modo teste: pausa totalmente o sync. Nada sobe ao Supabase.
+    if (testModeAtivo) {
       return
     }
 
@@ -73,7 +78,7 @@ export function useSync() {
     } finally {
       isRunning.current = false
     }
-  }, [configurado, fazendaId, acessoId, dispatch, updatePendingCount])
+  }, [configurado, fazendaId, acessoId, dispatch, updatePendingCount, testModeAtivo])
 
   useEffect(() => {
     const handleOnline = () => {

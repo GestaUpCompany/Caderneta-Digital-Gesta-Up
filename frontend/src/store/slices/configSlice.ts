@@ -11,6 +11,7 @@ interface ConfigState {
   funcionarioId: string
   funcionarioNome: string
   funcionarioCadernetas: string[]
+  testModeAtivo: boolean
 }
 
 const initialState: ConfigState = {
@@ -24,6 +25,7 @@ const initialState: ConfigState = {
   funcionarioId: '',
   funcionarioNome: '',
   funcionarioCadernetas: [],
+  testModeAtivo: false,
 }
 
 const configSlice = createSlice({
@@ -36,9 +38,12 @@ const configSlice = createSlice({
     setConfigurado: (state, action: PayloadAction<boolean>) => {
       state.configurado = action.payload
     },
+    setTestMode: (state, action: PayloadAction<boolean>) => {
+      state.testModeAtivo = action.payload
+    },
     resetConfig: () => initialState,
   },
 })
 
-export const { setConfig, setConfigurado, resetConfig } = configSlice.actions
+export const { setConfig, setConfigurado, setTestMode, resetConfig } = configSlice.actions
 export default configSlice.reducer

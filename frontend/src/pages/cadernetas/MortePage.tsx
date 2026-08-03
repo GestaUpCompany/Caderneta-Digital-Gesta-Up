@@ -276,6 +276,7 @@ export default function MortePage() {
           setDetalhesLote({
             ...lote,
             categorias: categoriasDetalhes.categorias,
+            categorias_raw: categoriasDetalhes.categorias_raw || [],
             n_cabecas: categoriasDetalhes.quant_atual,
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
@@ -283,11 +284,20 @@ export default function MortePage() {
 
           // Auto-derivar pasto do lote
           const pastoNome = (lote as any).pastos?.nome || ''
+
+          // Auto-preencher categoria se o lote tem exatamente 1 categoria
+          const catsRaw = categoriasDetalhes.categorias_raw || []
+          const nomesCategorias = catsRaw.map((c: any) => c.categoria).filter(Boolean)
+          const categoriaAuto = nomesCategorias.length === 1 ? nomesCategorias[0] : ''
+
           setForm(prev => ({
             ...prev,
             pasto: pastoNome,
             loteId: lote.id,
-            pastoId: (lote as any).pasto_id || ''
+            pastoId: (lote as any).pasto_id || '',
+            // Se lote tem 1 categoria, auto-selecionar; senão limpar se a atual nao existe no lote
+            categoria: categoriaAuto || (nomesCategorias.length > 0 && !nomesCategorias.some((c: string) => c.toLowerCase() === prev.categoria.toLowerCase()) ? '' : prev.categoria),
+            categoriaOutros: '',
           }))
         }
       } catch (error) {
@@ -345,6 +355,7 @@ export default function MortePage() {
 
     const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
     const causaMorteFinal = form.causaMorte === 'Outros' ? form.causaMorteOutros : form.causaMorte
+    const categoriaFinal = form.categoria === 'Outros' ? form.categoriaOutros : form.categoria
 
     const result = await salvarRegistro('morte', {
       responsavel: usuario,
@@ -356,7 +367,7 @@ export default function MortePage() {
       loteId: form.loteId,
       brinco: form.brinco,
       chip: form.chip,
-      categoria: form.categoria,
+      categoria: categoriaFinal,
       categoriaOutros: form.categoriaOutros,
       sexo: form.sexo,
       raca: racaFinal,
@@ -472,15 +483,24 @@ export default function MortePage() {
         {/* Seção 3: Quantificação de Animais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CLASSIFICAÇÃO DO GADO</h2>
-          <Radio
-            name="categoria"
-            label={<span>CATEGORIA: <span className="text-red-500">*</span></span>}
-            options={CATEGORIAS}
-            value={form.categoria}
-            onChange={(val) => setForm((p) => ({ ...p, categoria: val }))}
-            error={getError('categoria')}
-            gridCols={2}
-          />
+          {(() => {
+            const catsRaw = detalhesLote?.categorias_raw || []
+            const nomesCats = catsRaw.map((c: any) => c.categoria).filter(Boolean)
+            const options = (nomesCats.length > 0 ? nomesCats : CATEGORIAS.map(c => c.value))
+              .map((v: string) => ({ value: v, label: v.toUpperCase() }))
+              .concat([{ value: 'Outros', label: 'OUTROS' }])
+            return (
+              <Radio
+                name="categoria"
+                label={<span>CATEGORIA: <span className="text-red-500">*</span></span>}
+                options={options}
+                value={form.categoria}
+                onChange={(val) => setForm((p) => ({ ...p, categoria: val }))}
+                error={getError('categoria')}
+                gridCols={2}
+              />
+            )
+          })()}
           {form.categoria === 'Outros' && (
             <Input
               label={<span>ESPECIFICAR OUTROS: <span className="text-red-500">*</span></span>}

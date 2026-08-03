@@ -10,6 +10,7 @@ export interface Registro {
   data: string
   usuario?: string
   dispositivoId?: string
+  isTestRecord?: boolean
   [key: string]: unknown
 }
 

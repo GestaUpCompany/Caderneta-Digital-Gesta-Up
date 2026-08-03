@@ -221,3 +221,56 @@ export async function clearCadastroData(): Promise<void> {
   const db = await getDB()
   await db.clear('cadastroData')
 }
+
+/**
+ * Remove todos os registros marcados como teste (isTestRecord === true)
+ * de todos os stores de cadernetas. Retorna o total removido.
+ */
+export async function deleteRegistrosByTestFlag(): Promise<number> {
+  const db = await getDB()
+  let removidos = 0
+  for (const store of STORES) {
+    const all = await db.getAll(store) as Registro[]
+    const tx = db.transaction(store, 'readwrite')
+    for (const registro of all) {
+      if (registro.isTestRecord === true) {
+        await tx.store.delete(registro.id)
+        removidos++
+      }
+    }
+    await tx.done
+  }
+  return removidos
+}
+
+/**
+ * Remove da syncQueue qualquer item cujo registro associado esteja marcado
+ * como teste. Rede de segurança: em condições normais, registros de teste
+ * nunca são enfileirados, mas esta função garante limpeza total ao desativar.
+ */
+export async function clearTestItemsFromQueue(): Promise<number> {
+  const db = await getDB()
+  const queue = await db.getAll('syncQueue') as SyncQueueItem[]
+  let removidos = 0
+  for (const item of queue) {
+    const registro = await db.get(item.store, item.registroId) as Registro | undefined
+    if (registro?.isTestRecord === true) {
+      await db.delete('syncQueue', item.id)
+      removidos++
+    }
+  }
+  return removidos
+}
+
+/**
+ * Conta quantos registros de teste existem atualmente no dispositivo.
+ */
+export async function countTestRecords(): Promise<number> {
+  const db = await getDB()
+  let total = 0
+  for (const store of STORES) {
+    const all = await db.getAll(store) as Registro[]
+    total += all.filter(r => r.isTestRecord === true).length
+  }
+  return total
+}

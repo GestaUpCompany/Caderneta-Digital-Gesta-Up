@@ -183,7 +183,7 @@ const makeInitial = (): FormState => ({
 
 export default function MaternidadePage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazenda, fazendaId, logoUrl, testModeAtivo } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
   const [animalIdentifierKey, setAnimalIdentifierKey] = useState(0)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
@@ -478,6 +478,9 @@ export default function MaternidadePage() {
     // Criar indivíduo da mãe se ela não existir na base (nova mãe via modal NOVO)
     let individuoIdMaeFinal = form.individuoIdMae
     if (!individuoIdMaeFinal && (form.idManejoMae || form.idBrincoMae || form.idChipMae)) {
+      if (testModeAtivo) {
+        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe no Supabase')
+      } else {
       try {
         const novaMae = await createIndividuo({
           fazenda_id: fazendaId,
@@ -498,6 +501,7 @@ export default function MaternidadePage() {
       } catch (err) {
         console.error('Erro ao criar indivíduo da mãe:', err)
       }
+      }
     }
 
     // Função auxiliar para criar indivíduo de uma cria
@@ -509,6 +513,10 @@ export default function MaternidadePage() {
       raca: string
       peso: string
     }): Promise<string> => {
+      if (testModeAtivo) {
+        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da cria no Supabase')
+        return ''
+      }
       try {
         const categoriaCria = dadosCria.sexo === 'Macho' ? 'Bezerro ao Pé' : 'Bezerra ao Pé'
         const dataNascimentoIso = brToIso(form.data)

@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
+import { store } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
@@ -135,6 +136,10 @@ export default function EntradaInsumosPage() {
 
   const handleCriarInsumo = async () => {
     if (!novoInsumoNome.trim() || !fazendaId) return
+    if (store.getState().config.testModeAtivo) {
+      console.log('[EntradaInsumosPage] Modo teste ativo: criação de insumo no Supabase bloqueada')
+      return
+    }
     setCriandoInsumo(true)
     try {
       const novoInsumo = await createInsumo({
@@ -229,6 +234,7 @@ export default function EntradaInsumosPage() {
       const dataComHora = `${form.dataEntrada} ${hora}:${minuto}`
 
       const entradaId = uuidv4()
+      const testModeAtivo = store.getState().config.testModeAtivo
       const registroEntrada = {
         dataEntrada: form.dataEntrada,
         horario: form.horario,
@@ -243,10 +249,13 @@ export default function EntradaInsumosPage() {
         version: generateVersion(),
         lastModified: getCurrentTimestamp(),
         syncStatus: 'pending' as const,
+        isTestRecord: testModeAtivo ? true : undefined,
       }
 
       await saveRegistro('entrada-insumos', registroEntrada)
-      await enqueueRegistro('entrada-insumos', entradaId, 'create')
+      if (!testModeAtivo) {
+        await enqueueRegistro('entrada-insumos', entradaId, 'create')
+      }
 
       // 2. Salvar cada item
       for (const item of itensValidos) {
@@ -263,10 +272,13 @@ export default function EntradaInsumosPage() {
           version: generateVersion(),
           lastModified: getCurrentTimestamp(),
           syncStatus: 'pending' as const,
+          isTestRecord: testModeAtivo ? true : undefined,
         }
 
         await saveRegistro('entrada-insumos-itens', registroItem)
-        await enqueueRegistro('entrada-insumos-itens', itemId, 'create')
+        if (!testModeAtivo) {
+          await enqueueRegistro('entrada-insumos-itens', itemId, 'create')
+        }
       }
 
       // 3. Delay para persistência
