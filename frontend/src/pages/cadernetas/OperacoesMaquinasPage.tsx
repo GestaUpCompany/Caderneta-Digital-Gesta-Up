@@ -7,6 +7,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { normalizarNumeroString, normalizarNumero } from '../../utils/formatNumber'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { getMaquinasVeiculosCached, getImplementosCached } from '../../services/cadastroCache'
 import { RootState } from '../../store/store'
@@ -111,9 +112,9 @@ export default function OperacoesMaquinasPage() {
   // Calcular total odometro automaticamente
   useEffect(() => {
     if (form.odometroHorimetroInicial && form.odometroHorimetroFinal) {
-      const inicial = parseFloat(form.odometroHorimetroInicial)
-      const final = parseFloat(form.odometroHorimetroFinal)
-      if (!isNaN(inicial) && !isNaN(final) && final >= inicial) {
+      const inicial = normalizarNumero(form.odometroHorimetroInicial)
+      const final = normalizarNumero(form.odometroHorimetroFinal)
+      if (inicial !== null && final !== null && final >= inicial) {
         setForm((prev) => ({ ...prev, totalOdometroHorimetro: String(final - inicial) }))
       }
     }
@@ -252,9 +253,9 @@ export default function OperacoesMaquinasPage() {
       implementoUtilizado: form.implementoUtilizado,
       horaInicial: form.horaInicial,
       horaFinal: form.horaFinal,
-      odometroHorimetroInicial: form.odometroHorimetroInicial,
-      odometroHorimetroFinal: form.odometroHorimetroFinal,
-      totalOdometroHorimetro: form.totalOdometroHorimetro,
+      odometroHorimetroInicial: normalizarNumeroString(form.odometroHorimetroInicial),
+      odometroHorimetroFinal: normalizarNumeroString(form.odometroHorimetroFinal),
+      totalOdometroHorimetro: normalizarNumeroString(form.totalOdometroHorimetro),
       tipoOperacao: form.tipoOperacao,
       aplicacoes: form.aplicacoes && form.aplicacoes.length > 0 ? form.aplicacoes : null,
       checklist: {

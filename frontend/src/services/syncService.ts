@@ -15,6 +15,7 @@ import { Registro } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
 import { brWithTimeToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
+import { normalizarNumeroString } from '../utils/formatNumber'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -306,7 +307,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         total_abastecido: registro.totalAbastecido ? Number(String(registro.totalAbastecido).replace(',', '.')) : 0,
         total_bomba: registro.totalBomba ? Number(String(registro.totalBomba).replace(',', '.')) : null,
         combustivel: registro.combustivel || '',
-        odometro_horimetro: registro.odometro || '',
+        odometro_horimetro: registro.odometro ? normalizarNumeroString(String(registro.odometro)) : '',
         tipo_operacao: registro.tipoOperacao || '',
         tipo_operacao_outros: registro.tipoOperacaoOutros || null,
         observacao: registro.observacao || null,
@@ -357,9 +358,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         implemento_utilizado: registro.implementoUtilizado || '',
         hora_inicial: registro.horaInicial || null,
         hora_final: registro.horaFinal || null,
-        odometro_horimetro_inicial: registro.odometroHorimetroInicial || '',
-        odometro_horimetro_final: registro.odometroHorimetroFinal || '',
-        total_odometro_horimetro: registro.totalOdometroHorimetro || null,
+        odometro_horimetro_inicial: registro.odometroHorimetroInicial ? normalizarNumeroString(String(registro.odometroHorimetroInicial)) : '',
+        odometro_horimetro_final: registro.odometroHorimetroFinal ? normalizarNumeroString(String(registro.odometroHorimetroFinal)) : '',
+        total_odometro_horimetro: registro.totalOdometroHorimetro ? normalizarNumeroString(String(registro.totalOdometroHorimetro)) : null,
         tipo_operacao: registro.tipoOperacao || '',
         aplicacoes: registro.aplicacoes || null,
         checklist: registro.checklist || null,
@@ -401,7 +402,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         operador_motorista: registro.operadorMotorista || null,
         veiculo_trator: registro.maquinaVeiculo || null,
         placa: registro.placa || null,
-        odometro_horimetro: registro.odometro || null,
+        odometro_horimetro: registro.odometro ? normalizarNumeroString(String(registro.odometro)) : null,
         checklist: registro.checklist || null,
         observacao: registro.observacao || null,
       }

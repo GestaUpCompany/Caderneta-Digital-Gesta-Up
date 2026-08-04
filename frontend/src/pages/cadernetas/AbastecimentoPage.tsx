@@ -6,6 +6,7 @@ import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { normalizarNumeroString } from '../../utils/formatNumber'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services/cadastroCache'
 import { getFuncionarios } from '../../services/supabaseService'
@@ -193,7 +194,7 @@ export default function AbastecimentoPage() {
       totalAbastecido: form.totalAbastecido,
       totalBomba: form.totalBomba,
       combustivel: form.combustivel,
-      odometro: form.odometro,
+      odometro: normalizarNumeroString(form.odometro),
       tipoOperacao: form.tipoOperacao,
       tipoOperacaoOutros: form.tipoOperacaoOutros,
       observacao: form.observacao,
@@ -310,7 +311,7 @@ export default function AbastecimentoPage() {
           error={getError('combustivel')}
           gridCols={2}
         />
-        <Input label={<span>ODÔMETRO/HORÍMETRO? <span className="text-red-500">*</span></span>} placeholder="Leitura do odômetro/horímetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} />
+        <Input label={<span>ODÔMETRO/HORÍMETRO? <span className="text-red-500">*</span></span>} placeholder="Leitura do odômetro/horímetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} inputMode="decimal" />
         <Radio
           name="tipoOperacao"
           label={<span>TIPO DE OPERAÇÃO? <span className="text-red-500">*</span></span>}

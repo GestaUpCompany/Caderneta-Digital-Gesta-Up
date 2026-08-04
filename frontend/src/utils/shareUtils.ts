@@ -1,5 +1,6 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
+import { formatarNumeroBR } from './formatNumber'
 
 // Fields where "Sim" should have a warning icon (negative when true)
 const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
@@ -416,7 +417,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `\n`
     
     texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
-    texto += `ODÔMETRO/HORÍMETRO: *${registro.odometro || '—'} km*\n`
+    texto += `ODÔMETRO/HORÍMETRO: *${formatarNumeroBR(registro.odometro, '—')} km*\n`
     texto += `TIPO DE OPERAÇÃO: *${registro.tipoOperacao || '—'}*\n`
     if (registro.tipoOperacao === 'Outros' && registro.tipoOperacaoOutros) {
       texto += `ESPECIFICAR: *${registro.tipoOperacaoOutros}*\n`
@@ -581,8 +582,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
     
     if (registro.odometroHorimetroInicial && registro.odometroHorimetroFinal) {
-      const total = registro.totalOdometroHorimetro || '—'
-      texto += `ODÔMETRO: *${registro.odometroHorimetroInicial} km → ${registro.odometroHorimetroFinal} km*\n`
+      const total = formatarNumeroBR(registro.totalOdometroHorimetro, '—')
+      texto += `ODÔMETRO: *${formatarNumeroBR(registro.odometroHorimetroInicial, '—')} km → ${formatarNumeroBR(registro.odometroHorimetroFinal, '—')} km*\n`
       texto += `TOTAL ODÔMETRO: *${total} km*\n`
     }
     
@@ -1385,7 +1386,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.placa && registro.placa !== '') {
       texto += `PLACA: *${registro.placa}*\n`
     }
-    texto += `ODÔMETRO/HORÍMETRO: *${registro.odometro || '—'}*\n\n`
+    texto += `ODÔMETRO/HORÍMETRO: *${formatarNumeroBR(registro.odometro, '—')}*\n\n`
 
     // Seção: Checklist
     const checklistPerguntas = [

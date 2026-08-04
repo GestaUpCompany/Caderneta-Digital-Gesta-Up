@@ -14,6 +14,7 @@ import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
+import { normalizarNumeroString } from '../../utils/formatNumber'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -131,7 +132,7 @@ export default function ManutencaoMaquinasPage() {
       operadorMotorista: form.operadorMotorista,
       maquinaVeiculo: form.maquinaVeiculo,
       placa: form.placa,
-      odometro: form.odometro,
+      odometro: normalizarNumeroString(form.odometro),
       checklist: form.checklist,
       observacao: form.observacao || '',
     })
@@ -326,7 +327,7 @@ export default function ManutencaoMaquinasPage() {
             value={form.odometro}
             onChange={setInput('odometro')}
             error={getError('odometro')}
-            inputMode="numeric"
+            inputMode="decimal"
           />
         </div>
 
