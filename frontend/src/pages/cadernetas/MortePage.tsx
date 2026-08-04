@@ -23,6 +23,15 @@ import { useFormValidation } from '../../hooks/useFormValidation'
 
 const BASE = import.meta.env.BASE_URL
 
+function processarCategorias(categorias: string): string[] {
+  if (!categorias) return []
+  const regex = /[,.;]+\s*/
+  return categorias
+    .split(regex)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+}
+
 const SEXO = [
   { value: 'Macho', label: 'MACHO', icon: '♂️' },
   { value: 'Fêmea', label: 'FÊMEA', icon: '♀️' },
@@ -215,11 +224,6 @@ export default function MortePage() {
     validationRules.racaOutros = { required: true }
   }
 
-  // Add validation for categoriaOutros when categoria is 'Outros'
-  if (form.categoria === 'Outros') {
-    validationRules.categoriaOutros = { required: true }
-  }
-
   // Add validation for causaMorteOutros when causaMorte is 'Outros'
   if (form.causaMorte === 'Outros') {
     validationRules.causaMorteOutros = { required: true }
@@ -355,7 +359,7 @@ export default function MortePage() {
 
     const racaFinal = form.raca === 'Outros' ? form.racaOutros : form.raca
     const causaMorteFinal = form.causaMorte === 'Outros' ? form.causaMorteOutros : form.causaMorte
-    const categoriaFinal = form.categoria === 'Outros' ? form.categoriaOutros : form.categoria
+    const categoriaFinal = form.categoria
 
     const result = await salvarRegistro('morte', {
       responsavel: usuario,
@@ -457,7 +461,7 @@ export default function MortePage() {
             />
           )}
           {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={() => []} />
+            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
           )}
         </div>
 
@@ -487,8 +491,8 @@ export default function MortePage() {
             const catsRaw = detalhesLote?.categorias_raw || []
             const nomesCats = catsRaw.map((c: any) => c.categoria).filter(Boolean)
             const options = (nomesCats.length > 0 ? nomesCats : CATEGORIAS.map(c => c.value))
+              .filter((v: string) => v.toLowerCase() !== 'outros')
               .map((v: string) => ({ value: v, label: v.toUpperCase() }))
-              .concat([{ value: 'Outros', label: 'OUTROS' }])
             return (
               <Radio
                 name="categoria"
@@ -501,15 +505,6 @@ export default function MortePage() {
               />
             )
           })()}
-          {form.categoria === 'Outros' && (
-            <Input
-              label={<span>ESPECIFICAR OUTROS: <span className="text-red-500">*</span></span>}
-              placeholder="Descreva a categoria"
-              value={form.categoriaOutros}
-              onChange={setInput('categoriaOutros')}
-              error={getError('categoriaOutros')}
-            />
-          )}
         </div>
 
         {/* Seção 4: Sexo e Raça */}

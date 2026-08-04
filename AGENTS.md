@@ -13,6 +13,59 @@ Projeto Supabase: `nrwljcvhwbezmoummxbl` ("Cadernetas Digitais")
 - Typecheck PWA: `cd frontend && npx tsc --noEmit`
 - Dev PWA: `cd frontend && npm run dev`
 
+## Débitos técnicos pendentes
+
+### Tela de auditoria de erros de sync no Painel Web (rota /admin)
+
+**Contexto**: a tabela `logs_sync_errors` no Supabase já é gravada pelo PWA (via `logSyncError` em syncService.ts) e agora também por triggers do banco (ver abaixo). Mas não existe nenhuma interface para ler essa tabela. Hoje só é acessível via SQL direto no Supabase Studio, o que impede auditoria operacional por alguém não-técnico.
+
+**Spec da implementação (Painel Web, repo `GestaUp-Cadernetas-Gestao`)**:
+
+Criar rota `/admin/erros-sync` com:
+
+1. **Tabela `logs_sync_errors`** (schema já existe):
+   - `id` (uuid), `fazenda_id` (uuid), `dispositivo_id` (uuid), `caderneta` (text), `registro_id` (text), `operation` (text), `error_code` (text), `error_message` (text), `error_details` (text), `payload` (jsonb), `retry_count` (int), `resolved_at` (timestamptz), `resolved_by` (text), `created_at` (timestamptz), `dispositivo_uuid` (text), `app_version` (text), `platform` (text), `network_status` (text)
+
+2. **Listagem paginada** com filtros:
+   - Fazenda (select)
+   - Caderneta (select: morte, movimentacao, maternidade, etc.)
+   - Error code (select: CATEGORIA_NOT_IN_LOTE, network, 23505, 42501, etc.)
+   - Período (date range)
+   - Resolvido/não-resolvido (toggle)
+   - Busca livre em `error_message` e `error_details`
+
+3. **Colunas exibidas**: created_at, fazenda, caderneta, error_code, error_message (truncado), resolved (sim/não), actions
+
+4. **Detalhe expandido** (click na linha ou modal): todos os campos, payload formatado como JSON, botão "marcar como resolvido" (seta `resolved_at = now()` e `resolved_by = usuário logado`)
+
+5. **Acesso**: restrito a usuários com papel `admin` na `usuario_fazenda` (mesma policy já usada no Painel Web)
+
+6. **Real-time**: opcional, subscrição via Supabase Realtime na tabela para atualização ao vivo
+
+### Validação de categoria em triggers de desconto de cabeças
+
+**Problema**: os triggers `trigger_update_quant_atual_morte`, `trigger_update_quant_atual_maternidade` e `trigger_update_quant_atual_movimentacao` fazem `UPDATE lote_categorias SET quant_atual = ... WHERE lote_id = NEW.lote_id AND LOWER(categoria) = LOWER(NEW.categoria)`. Se a categoria do registro não existe em `lote_categorias`, o UPDATE afeta 0 linhas silenciosamente: o registro é salvo mas a cabeça não é descontada de nenhuma categoria, sem erro nem log.
+
+**Caso real (Fazenda Guanabara, 03/08/2026)**: peão lançou morte no lote "Farmacia" (pasto Enfermaria) com categoria "Bezerro", mas o lote só tinha "Boi Magro" ativa em `lote_categorias`. O trigger executou mas não descontou. `quant_atual` de "Boi Magro" permaneceu 15 e `morte` permaneceu 0.
+
+**Correção aplicada (morte)**: a função `update_quant_atual_morte()` agora verifica se a categoria existe em `lote_categorias` antes do UPDATE. Se não existe, insere um registro em `logs_sync_errors` com `error_code = 'CATEGORIA_NOT_IN_LOTE'`, `caderneta = 'morte'`, e o payload com lote_id, categoria, brinco, pasto, lote, nome_usuario. O INSERT do registro não é rejeitado (o peão já salvou), mas o erro fica auditável na tabela.
+
+**Pendente (maternidade e movimentacao)**: as funções `update_quant_atual_maternidade()` e `update_quant_atual_movimentacao()` precisam do mesmo tratamento. Ambas têm o mesmo padrão de UPDATE condicional que pode afetar 0 linhas silenciosamente.
+
+### Log de erro visível na lista de registros + eliminação de retries automáticos
+
+**Contexto**: registros com `syncStatus === 'error'` mostram apenas `❌` e botão REENVIAR na lista, sem nenhuma informação sobre o erro. O erro é logado em `logs_sync_errors` no Supabase (via `logSyncError` em syncService.ts:636), mas se o log falha ao subir (offline, rede instável), o erro some sem rastro. Em produção, peões ficam sem saber por que o registro não sincronizou.
+
+**Decisão aprovada (a implementar)**:
+
+1. **Persistir erro localmente no IndexedDB** (frente 1, essencial): adicionar campo opcional `syncError` ao registro no IndexedDB com `{ code, message, details, retryCount, failedAt, operation }`. Gravar no catch de `processQueue` (syncService.ts:702-721) junto com `updateSyncStatus('error')`. Limpar `syncError` quando status muda para `synced`. Funciona offline, sobrevive a reload, não depende do Supabase. `logs_sync_errors` no Supabase continua sendo gravado para auditoria/Painel Web.
+
+2. **Exibir erro no card da lista** (frente 2, UX): em `ListaRegistros.tsx`, quando `syncStatus === 'error'`, mostrar seção colapsável com mensagem amigável traduzida (tabela estática de ~10-15 códigos Postgres/Supabase: 42501=RLS, 23505=duplicata, 23502=not-null, network=sem conexão, etc.) e detalhes técnicos colapsáveis com botão "copiar" para enviar ao suporte.
+
+3. **Eliminar retries automáticos**: no catch de `processQueue`, em vez de incrementar `retryCount` e recolocar na fila com backoff, remover o item da fila, marcar `syncStatus = 'error'`, gravar `syncError` local, e logar no Supabase. `calculateBackoffMs` e `MAX_RETRY_COUNT` deixam de ser usados. O reenvio manual (botão REENVIAR em ListaRegistros.tsx:836-846) continua funcionando como válvula de escape para falhas transitórias. Motivo: dois peões podem repetir a mesma operação em celulares diferentes; retries automáticos do que falhou causam duplicatas quando o outro peão já sincronizou.
+
+**Débito não resolvido por essa mudança**: idempotência via `upsert` com `local_id` nas 21 tabelas de registros. Hoje o `registroToSupabase` não envia o `id` local como chave de idempotência; se o INSERT sucede no Supabase mas a resposta se perde (timeout, rede instável), o dispositivo não grava `supabaseId` e tenta criar de novo (duplicata). Eliminar retries encolhe a janela de risco mas não fecha o buraco. A correção estrutural exige adicionar coluna `local_id` (ou `idempotency_key`) nas tabelas + usar `upsert` com `onConflict`, migração coordenada com o Painel Web conforme matriz de impacto do AGENTS.md.
+
 ## Auditoria de código (julho/2026)
 
 Foram identificadas 87 falhas em 4 frentes. As matrizes completas estão abaixo.
