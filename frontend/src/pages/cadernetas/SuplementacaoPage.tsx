@@ -538,13 +538,6 @@ export default function SuplementacaoPage() {
       espacamentoCochoDetalhes: espacamentoCochoDetalhes,
       espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
       espacamentoCochoObs: form.espacamentoCochoObs || '',
-      consumoMedioGeralPercentPV: metricasSuplementacao?.consumoMedioGeralPercentPV ?? null,
-      consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV ?? null,
-      consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN ?? null,
-      consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN ?? null,
-      consumoMedioGeralKgMS: metricasSuplementacao?.consumoMedioGeralKgMS ?? null,
-      consumoMedio30DiasKgMS: metricasSuplementacao?.consumoMedio30DiasKgMS ?? null,
-      custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia ?? null,
       checklist: checklistAtivo ? {
         limpeza_cocho: {
           valor: form.limpezaCocho === 'Sim',
