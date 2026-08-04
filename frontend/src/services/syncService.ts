@@ -58,6 +58,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   problemas: 'registros_problemas',
   almoxarifado: 'registros_almoxarifado',
   'leitura-cocho': 'registros_leitura_cocho',
+  'trato-confinamento': 'registros_oferta_trato',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -444,6 +445,26 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
           : null,
         nota_config_id: registro.notaConfigId || null,
       }
+    case 'trato-confinamento': {
+      // Converte data BR (DD/MM/AAAA HH:mm) para ISO; campos do trato
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        curral_id: registro.curralId || null,
+        lote_id: registro.loteId || null,
+        ordem_trato: Number(registro.ordemTrato) || null,
+        kg_planejado: registro.kgPlanejado !== '' && registro.kgPlanejado !== null && registro.kgPlanejado !== undefined
+          ? Number(registro.kgPlanejado)
+          : null,
+        kg_ofertado_real: registro.kgReal !== '' && registro.kgReal !== null && registro.kgReal !== undefined
+          ? Number(registro.kgReal)
+          : null,
+        leitura_cocho_nota: registro.leituraCochoNota !== '' && registro.leituraCochoNota !== null && registro.leituraCochoNota !== undefined
+          ? Number(registro.leituraCochoNota)
+          : null,
+        programacao_id: registro.programacaoId || null,
+      }
+    }
     default:
       return baseData
   }
@@ -535,6 +556,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_leitura_cocho':
           await supabaseService.createRegistroLeituraCocho(data)
           break
+        case 'registros_oferta_trato':
+          await supabaseService.createRegistroOfertaTrato(data)
+          break
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {
@@ -599,6 +623,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_leitura_cocho':
           await supabaseService.updateRegistroLeituraCocho(supabaseId, data)
+          break
+        case 'registros_oferta_trato':
+          await supabaseService.updateRegistroOfertaTrato(supabaseId, data)
           break
       }
       console.log(`[SUPABASE] Registro atualizado com sucesso em ${tableName}`)

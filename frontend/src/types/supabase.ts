@@ -5125,6 +5125,214 @@ export type Database = {
         }
         Relationships: []
       }
+      registros_oferta_trato: {
+        Row: {
+          id: string
+          fazenda_id: string
+          curral_id: string
+          lote_id: string | null
+          data: string
+          ordem_trato: number
+          kg_planejado: number | null
+          kg_ofertado_real: number | null
+          leitura_cocho_nota: number | null
+          programacao_id: string | null
+          nome_usuario: string | null
+          dispositivo_id: string | null
+          sync_status: string | null
+          version: number | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          fazenda_id: string
+          curral_id: string
+          lote_id?: string | null
+          data: string
+          ordem_trato: number
+          kg_planejado?: number | null
+          kg_ofertado_real?: number | null
+          leitura_cocho_nota?: number | null
+          programacao_id?: string | null
+          nome_usuario?: string | null
+          dispositivo_id?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          fazenda_id?: string
+          curral_id?: string
+          lote_id?: string | null
+          data?: string
+          ordem_trato?: number
+          kg_planejado?: number | null
+          kg_ofertado_real?: number | null
+          leitura_cocho_nota?: number | null
+          programacao_id?: string | null
+          nome_usuario?: string | null
+          dispositivo_id?: string | null
+          sync_status?: string | null
+          version?: number | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_oferta_trato_curral_id_fkey"
+            columns: ["curral_id"]
+            isOneToOne: false
+            referencedRelation: "currais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_oferta_trato_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_oferta_trato_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_oferta_trato_programacao_id_fkey"
+            columns: ["programacao_id"]
+            isOneToOne: false
+            referencedRelation: "programacao_tratos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programacao_tratos: {
+        Row: {
+          id: string
+          fazenda_id: string
+          tipo: string
+          quantidade_tratos: number
+          ativo: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          fazenda_id: string
+          tipo: string
+          quantidade_tratos: number
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          fazenda_id?: string
+          tipo?: string
+          quantidade_tratos?: number
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      programacao_tratos_percentuais: {
+        Row: {
+          id: string
+          programacao_id: string
+          ordem_trato: number
+          percentual: number
+          horario_sugerido: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          programacao_id: string
+          ordem_trato: number
+          percentual: number
+          horario_sugerido?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          programacao_id?: string
+          ordem_trato?: number
+          percentual?: number
+          horario_sugerido?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programacao_tratos_percentuais_programacao_id_fkey"
+            columns: ["programacao_id"]
+            isOneToOne: false
+            referencedRelation: "programacao_tratos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programacao_tratos_currais: {
+        Row: {
+          id: string
+          programacao_id: string
+          curral_id: string
+          lote_id: string | null
+          kg_mn_dia: number
+          n_cabecas_snapshot: number | null
+          peso_vivo_medio_snapshot: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          programacao_id: string
+          curral_id: string
+          lote_id?: string | null
+          kg_mn_dia: number
+          n_cabecas_snapshot?: number | null
+          peso_vivo_medio_snapshot?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          programacao_id?: string
+          curral_id?: string
+          lote_id?: string | null
+          kg_mn_dia?: number
+          n_cabecas_snapshot?: number | null
+          peso_vivo_medio_snapshot?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programacao_tratos_currais_curral_id_fkey"
+            columns: ["curral_id"]
+            isOneToOne: false
+            referencedRelation: "currais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programacao_tratos_currais_programacao_id_fkey"
+            columns: ["programacao_id"]
+            isOneToOne: false
+            referencedRelation: "programacao_tratos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       v_historico_ocupacao_modulo: {

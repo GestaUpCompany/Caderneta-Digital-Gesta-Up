@@ -65,6 +65,7 @@ function buildRegistroFromRow(
     problemas: ['data', 'setor', 'local', 'descricaoProblema', 'causaIdentificada', 'causaIdentificadaObs', 'acaoCorretivaRealizada', 'acaoCorretivaRealizadaObs', 'tipoOcorrencia', 'tipoOcorrenciaObs', 'causaRaizIdentificada', 'causaRaizIdentificadaObs', 'gravidadeImpacto', 'gravidadeImpactoObs', 'tipoProblema', 'tipoProblemaObs', 'prioridade'],
     almoxarifado: ['data', 'quemEntregou', 'quemPegou', 'itens', 'observacao'],
     'leitura-cocho': ['data', 'responsavel', 'pastoCurral', 'pastoId', 'numeroLote', 'loteId', 'leituraCocho'],
+    'trato-confinamento': ['data', 'curral', 'curralId', 'numeroLote', 'loteId', 'ordemTrato', 'kgPlanejado', 'kgReal', 'leituraCochoNota', 'programacaoId'],
   }
 
   const fields = fieldsByCaderneta[caderneta]

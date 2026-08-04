@@ -77,6 +77,7 @@ export const CADERNETAS = [
   { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
   { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', sheetName: 'Leitura de Cocho', disponivel: true },
+  { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '🥩', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#A0522D', sheetName: 'Trato Confinamento', disponivel: true },
 ]
 
 export const CATEGORIAS_ANIMAL = ['Vaca', 'Touro', 'Boi', 'Bezerro', 'Garrote', 'Novilha'] as const

@@ -720,6 +720,18 @@ export async function getFormulacaoByNome(fazendaId: string, nome: string): Prom
   return (data as any) || null
 }
 
+export async function getFormulacaoById(id: string): Promise<any | null> {
+  const client = getSupabaseClient()
+  const { data, error } = await (client as any)
+    .from('formulacoes')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw error
+  return (data as any) || null
+}
+
 export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insumos_itens'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
@@ -2355,6 +2367,201 @@ export async function deleteRegistroLeituraCocho(id: string) {
   const client = await getSupabaseClientWithRefresh() as any
   const { error } = await client
     .from('registros_leitura_cocho')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+/**
+ * Busca o total de kg ofertado no dia mais recente de tratos para um lote.
+ * Retorna { data, total_kg } ou null se não houver tratos.
+ * Usado pela LeituraCochoPage para mostrar o "Kg Cocho" quando a fazenda
+ * usa o sistema de trato de confinamento em vez de suplementação.
+ */
+export async function getUltimoTratoTotalByLote(
+  fazendaId: string,
+  loteId: string
+): Promise<{ data: string; total_kg: number } | null> {
+  const client = await getSupabaseClientWithRefresh() as any
+  // Busca todos os tratos do lote, ordenados por data decrescente
+  const { data: result, error } = await client
+    .from('registros_oferta_trato')
+    .select('data, kg_ofertado_real')
+    .eq('fazenda_id', fazendaId)
+    .eq('lote_id', loteId)
+    .is('deleted_at', null)
+    .not('kg_ofertado_real', 'is', null)
+    .order('data', { ascending: false })
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  if (!result || result.length === 0) return null
+
+  // Agrupa por data, pega o dia mais recente
+  const dataMaisRecente = result[0].data
+  const tratosDoDia = result.filter((r: any) => r.data === dataMaisRecente)
+  const totalKg = tratosDoDia.reduce(
+    (sum: number, r: any) => sum + (Number(r.kg_ofertado_real) || 0),
+    0
+  )
+
+  return { data: dataMaisRecente, total_kg: totalKg }
+}
+
+// ==================== REGISTROS DE OFERTA DE TRATO (CONFINAMENTO) ====================
+
+/**
+ * Busca a programação de tratos ativa de um tipo (engorda/sequestro) para a fazenda,
+ * incluindo percentuais por trato e kg MN/dia por curral.
+ */
+export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: prog, error: progError } = await client
+    .from('programacao_tratos')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .eq('tipo', tipo)
+    .maybeSingle()
+
+  if (progError) throw progError
+  if (!prog) return { programacao: null, percentuais: [], currais: [] }
+
+  const [percRes, curraisRes] = await Promise.all([
+    client
+      .from('programacao_tratos_percentuais')
+      .select('*')
+      .eq('programacao_id', prog.id)
+      .order('ordem_trato', { ascending: true }),
+    client
+      .from('programacao_tratos_currais')
+      .select('*')
+      .eq('programacao_id', prog.id),
+  ])
+
+  if (percRes.error) throw percRes.error
+  if (curraisRes.error) throw curraisRes.error
+
+  return {
+    programacao: prog,
+    percentuais: percRes.data || [],
+    currais: curraisRes.data || [],
+  }
+}
+
+/**
+ * Busca quais tipos de programação (engorda/sequestro) já existem ativos para a fazenda.
+ */
+export async function getTiposProgramacaoTratos(fazendaId: string): Promise<string[]> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('programacao_tratos')
+    .select('tipo')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+
+  if (error || !data) return []
+  return data.map((d: any) => d.tipo as string)
+}
+
+/**
+ * Busca registros de oferta de trato para um curral em uma data específica.
+ */
+export async function getRegistrosOfertaTratoByCurralData(
+  fazendaId: string,
+  curralId: string,
+  data: string
+) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: result, error } = await client
+    .from('registros_oferta_trato')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('curral_id', curralId)
+    .eq('data', data)
+    .is('deleted_at', null)
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  return result || []
+}
+
+/**
+ * Busca registros de oferta de trato para uma fazenda em uma data específica,
+ * agrupados por curral. Retorna array plano; o caller pode agrupar por curral_id.
+ */
+export async function getRegistrosOfertaTratoByFazendaData(
+  fazendaId: string,
+  data: string
+) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: result, error } = await client
+    .from('registros_oferta_trato')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('data', data)
+    .is('deleted_at', null)
+    .order('curral_id', { ascending: true })
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  return result || []
+}
+
+/**
+ * Busca todos os registros de oferta de trato de um curral em datas anteriores
+ * a uma data de referência (para calcular o total real do dia anterior).
+ */
+export async function getRegistrosOfertaTratoAnteriores(
+  fazendaId: string,
+  curralId: string,
+  dataReferencia: string
+) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: result, error } = await client
+    .from('registros_oferta_trato')
+    .select('data, ordem_trato, kg_ofertado_real')
+    .eq('fazenda_id', fazendaId)
+    .eq('curral_id', curralId)
+    .lt('data', dataReferencia)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  return result || []
+}
+
+export async function createRegistroOfertaTrato(registro: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_oferta_trato')
+    .insert(registro)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroOfertaTrato(id: string, registro: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_oferta_trato')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteRegistroOfertaTrato(id: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { error } = await client
+    .from('registros_oferta_trato')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 

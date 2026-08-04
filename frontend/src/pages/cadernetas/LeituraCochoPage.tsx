@@ -10,6 +10,7 @@ import {
   getLoteDetalhesComCategoriasCached,
   getRegistrosSuplementacaoByLoteCached,
   getRegistrosLeituraCochoByLoteCached,
+  getUltimoTratoTotalByLoteCached,
   getCurraisCached,
   getLinhasConfinamentoCached,
   getFormulacaoByNomeCached,
@@ -128,7 +129,7 @@ export default function LeituraCochoPage() {
         setNotasConfig(notasConfigOrdenadas)
 
         // Mapa de currais por lote_id (apenas currais com lote_id e linha_id)
-        const curraisPorLote = new Map<string, { id: string; nome: string; linhaId: string | null }>()
+        const curraisPorLote = new Map<string, { id: string; nome: string; linhaId: string | null; formulacao_id: string | null }>()
         // Mapa de currais por linha_id (para montar resumo de nomes)
         const curraisPorLinha = new Map<string, string[]>()
         curraisData?.forEach((c: any) => {
@@ -137,6 +138,7 @@ export default function LeituraCochoPage() {
             id: c.id,
             nome: c.nome,
             linhaId: c.linha_id || null,
+            formulacao_id: c.formulacao_id || null,
           })
           if (c.linha_id) {
             const arr = curraisPorLinha.get(c.linha_id) || []
@@ -165,9 +167,10 @@ export default function LeituraCochoPage() {
         const lotesEnriquecidos = await Promise.all(
           lotesData.map(async (lote: any) => {
             const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
-            const [registrosSuplementacao, registrosLeitura] = await Promise.all([
+            const [registrosSuplementacao, registrosLeitura, ultimoTrato] = await Promise.all([
               getRegistrosSuplementacaoByLoteCached(fazendaId, lote.id),
               getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id),
+              getUltimoTratoTotalByLoteCached(fazendaId, lote.id),
             ])
 
             const curralInfo = lote.id ? curraisPorLote.get(lote.id) : null
@@ -179,7 +182,18 @@ export default function LeituraCochoPage() {
             const supOrdenados = [...(registrosSuplementacao || [])].sort(
               (a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime()
             )
-            const dieta = supOrdenados[0]?.formulacao || null
+            let dieta = supOrdenados[0]?.formulacao || null
+
+            // Se não há suplementação mas há trato de confinamento, busca a formulação do curral
+            if (!dieta && curralInfo?.formulacao_id) {
+              try {
+                const { getFormulacaoById } = await import('../../services/supabaseService')
+                const form = await getFormulacaoById(curralInfo.formulacao_id)
+                dieta = form?.nome || null
+              } catch {
+                // ignorar erro
+              }
+            }
 
             // Buscar teor_ms_dieta da formulação
             let teorMsDieta: number | null = null
@@ -198,7 +212,9 @@ export default function LeituraCochoPage() {
             const leituraAnterior = leitOrdenados[0]?.leitura_cocho ?? null
             const leituraAnteriorId = leitOrdenados[0]?.nota_config_id ?? null
 
-            const tratoAnterior: number | null = supOrdenados[0]?.kg_cocho ?? null
+            // Kg Cocho: prioriza suplementação; se não houver, usa o total do último trato de confinamento
+            const tratoAnterior: number | null =
+              supOrdenados[0]?.kg_cocho ?? ultimoTrato?.total_kg ?? null
 
             let periodoDias: number | null = null
             if (supOrdenados.length >= 2) {

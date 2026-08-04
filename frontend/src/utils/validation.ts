@@ -357,6 +357,29 @@ export function validateLeituraCocho(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
+export function validateTratoConfinamento(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.curralId))
+    errors.push({ field: 'curralId', message: 'Curral é obrigatório' })
+  if (!isNonEmptyString(data.curral))
+    errors.push({ field: 'curral', message: 'Nome do curral é obrigatório' })
+  const ordem = Number(data.ordemTrato)
+  if (!Number.isFinite(ordem) || ordem < 1)
+    errors.push({ field: 'ordemTrato', message: 'Ordem do trato deve ser um número inteiro maior que zero' })
+  // kg_real é opcional (pode estar vazio se o usuário ainda não digitou), mas se preenchido deve ser >= 0
+  const kgReal = data.kgReal
+  if (kgReal !== undefined && kgReal !== null && kgReal !== '') {
+    const num = Number(kgReal)
+    if (!Number.isFinite(num) || num < 0)
+      errors.push({ field: 'kgReal', message: 'Kg real deve ser um número não negativo' })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
 export function validateAbastecimento(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -652,7 +675,7 @@ export function validateAlmoxarifado(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho'
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -674,6 +697,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'saida-insumos': validateSaidaInsumos,
   almoxarifado: validateAlmoxarifado,
   'leitura-cocho': validateLeituraCocho,
+  'trato-confinamento': validateTratoConfinamento,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

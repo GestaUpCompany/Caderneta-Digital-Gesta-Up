@@ -79,6 +79,7 @@ const ManutencaoMaquinasListaPage = lazy(() => import('./pages/cadernetas/Manute
 const ProblemasPage = lazy(() => import('./pages/cadernetas/ProblemasPage'))
 const ProblemasListaPage = lazy(() => import('./pages/cadernetas/ProblemasListaPage'))
 const LeituraCochoPage = lazy(() => import('./pages/cadernetas/LeituraCochoPage'))
+const TratoConfinamentoPage = lazy(() => import('./pages/cadernetas/TratoConfinamentoPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
@@ -412,6 +413,9 @@ function AppInner() {
 
             {/* Leitura de Cocho */}
             <Route path="/caderneta/leitura-cocho" element={<LeituraCochoPage />} />
+
+            {/* Trato Confinamento */}
+            <Route path="/caderneta/trato-confinamento" element={<TratoConfinamentoPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

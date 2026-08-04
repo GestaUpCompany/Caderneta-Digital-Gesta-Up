@@ -839,6 +839,110 @@ export async function getRegistrosLeituraCochoByLoteCached(
 }
 
 /**
+ * Busca o total de kg do último dia de tratos para um lote (sistema de confinamento).
+ * Retorna { data, total_kg } ou null.
+ */
+export async function getUltimoTratoTotalByLoteCached(
+  fazendaId: string,
+  loteId: string
+): Promise<{ data: string; total_kg: number } | null> {
+  const key = buildKey('ultimo-trato-lote', fazendaId, loteId)
+  const cached = getCachedQuery(key) as { data: string; total_kg: number } | null
+
+  if (!navigator.onLine) return cached || null
+
+  try {
+    const data = await supabaseService.getUltimoTratoTotalByLote(fazendaId, loteId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return cached || null
+  }
+}
+
+/**
+ * Tipos de programação de tratos ativos para a fazenda (engorda, sequestro).
+ */
+export async function getTiposProgramacaoTratosCached(fazendaId: string): Promise<string[]> {
+  const key = buildKey('tipos-programacao-tratos', fazendaId)
+  const cached = getCachedQuery(key) as string[] | null
+
+  if (!navigator.onLine) return cached || []
+
+  try {
+    const data = await supabaseService.getTiposProgramacaoTratos(fazendaId)
+    if (data && data.length > 0) setCachedQuery(key, data)
+    return data || []
+  } catch {
+    return cached || []
+  }
+}
+
+/**
+ * Programação de tratos completa (programacao + percentuais + currais) por tipo.
+ * Crítico para funcionamento offline da TratoConfinamentoPage.
+ */
+export async function getProgramacaoTratosCompletaCached(fazendaId: string, tipo: string): Promise<any> {
+  const key = buildKey('programacao-tratos', fazendaId, tipo)
+  const cached = getCachedQuery(key)
+
+  if (!navigator.onLine) return cached || null
+
+  try {
+    const data = await supabaseService.getProgramacaoTratosCompleta(fazendaId, tipo)
+    if (data && data.programacao) setCachedQuery(key, data)
+    return data
+  } catch {
+    return cached || null
+  }
+}
+
+/**
+ * Registros de oferta de trato de toda a fazenda em uma data específica.
+ * Usado pela TratoConfinamentoPage para contar tratos já feitos no dia.
+ */
+export async function getRegistrosOfertaTratoByFazendaDataCached(
+  fazendaId: string,
+  data: string
+): Promise<any[]> {
+  const key = buildKey('registros-trato-fazenda-data', fazendaId, data)
+  const cached = getCachedQuery(key) as any[] | null
+
+  if (!navigator.onLine) return cached || []
+
+  try {
+    const dataResult = await supabaseService.getRegistrosOfertaTratoByFazendaData(fazendaId, data)
+    if (dataResult && dataResult.length > 0) setCachedQuery(key, dataResult)
+    return dataResult || []
+  } catch {
+    return cached || []
+  }
+}
+
+/**
+ * Registros de oferta de trato anteriores à data de referência para um curral.
+ * Usado para determinar dia 1 vs dia 2+ e calcular total real do dia anterior.
+ */
+export async function getRegistrosOfertaTratoAnterioresCached(
+  fazendaId: string,
+  curralId: string,
+  dataReferencia: string
+): Promise<any[]> {
+  const key = buildKey('registros-trato-anteriores', fazendaId, curralId, dataReferencia)
+  const cached = getCachedQuery(key) as any[] | null
+
+  if (!navigator.onLine) return cached || []
+
+  try {
+    const data = await supabaseService.getRegistrosOfertaTratoAnteriores(fazendaId, curralId, dataReferencia)
+    if (data && data.length > 0) setCachedQuery(key, data)
+    return data || []
+  } catch {
+    return cached || []
+  }
+}
+
+/**
  * Busca último rodeio do lote com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
@@ -1444,6 +1548,8 @@ export async function warmAllCadastroCache(
       // Aquecer registros de leitura de cocho do lote (sem janela de datas = histórico completo)
       // Crítico para funcionamento offline da LeituraCochoPage
       await getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id)
+      // Aquecer último trato de confinamento do lote (para Kg Cocho na LeituraCochoPage)
+      await getUltimoTratoTotalByLoteCached(fazendaId, lote.id)
       warmedLotesRodeio++
     } catch (error) {
       console.error(`[CadastroCache] Erro ao aquecer rodeio/leitura do lote ${lote.nome || lote.id}:`, error)
@@ -1544,6 +1650,42 @@ export async function warmAllCadastroCache(
   } catch (error) {
     console.error('[CadastroCache] Erro ao aquecer detalhes de bebedouros:', error)
     errors.push('Detalhes Bebedouros')
+  }
+
+  // Aquecer dados de trato de confinamento (programação + registros)
+  // Crítico para funcionamento offline da TratoConfinamentoPage
+  try {
+    processed++
+    onProgress?.(processed, totalItems, 'Tratos Confinamento')
+
+    // 1. Tipos de programação ativos
+    const tiposProg = await getTiposProgramacaoTratosCached(fazendaId)
+
+    // 2. Programação completa por tipo + registros do dia atual e anterior
+    const dataHoje = new Date().toISOString().slice(0, 10)
+    const dataOntem = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+
+    for (const tipo of tiposProg.length > 0 ? tiposProg : ['engorda', 'sequestro']) {
+      await delay(100)
+      const progCompleta = await getProgramacaoTratosCompletaCached(fazendaId, tipo)
+      if (progCompleta && progCompleta.currais) {
+        // Aquecer registros do dia atual e anterior para todos os currais da programação
+        await getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataHoje)
+        await delay(100)
+        await getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataOntem)
+        await delay(100)
+
+        // Aquecer registros anteriores por curral (para cálculo dia 1 vs dia 2+)
+        for (const curral of progCompleta.currais) {
+          await getRegistrosOfertaTratoAnterioresCached(fazendaId, curral.curral_id, dataHoje)
+          await delay(50)
+        }
+      }
+    }
+    warmedExtras++
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao aquecer tratos de confinamento:', error)
+    errors.push('Tratos Confinamento')
   }
 
   console.log('[CadastroCache] Warm cache completo concluído:', {
