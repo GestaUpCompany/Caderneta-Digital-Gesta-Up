@@ -407,14 +407,17 @@ export default function TratoConfinamentoPage() {
     carregarDados()
   }, [carregarDados])
 
-  // Focar no primeiro input após carregar
+  // Focar no primeiro input após carregar (apenas na transição de carregando -> pronto)
+  const carregandoRef = useRef(true)
   useEffect(() => {
-    if (!carregando && currais.length > 0 && !currais[0].tratosConcluidos) {
+    // Só foca quando termina o carregamento (carregando vai de true -> false)
+    if (carregandoRef.current && !carregando && currais.length > 0 && !currais[0].tratosConcluidos) {
       const primeiro = currais[0]
       setTimeout(() => {
         inputRefs.current[primeiro.curralId]?.focus()
       }, 200)
     }
+    carregandoRef.current = carregando
   }, [carregando, currais])
 
   const atualizarKgReal = useCallback((curralId: string, valor: string) => {
@@ -686,34 +689,34 @@ export default function TratoConfinamentoPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-end justify-between gap-3 border-t border-gray-100 pt-2">
-                          <div className="flex items-end gap-4">
-                            <div>
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                        <div className="flex items-start justify-between gap-2 border-t border-gray-100 pt-2">
+                          <div className="flex items-start gap-3 sm:gap-6 min-w-0 flex-1">
+                            <div className="min-w-[3rem] sm:min-w-[4rem] flex flex-col">
+                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
                                 Trato
                               </span>
-                              <span className="text-base font-bold text-gray-900">
+                              <span className="text-sm sm:text-base font-bold text-gray-900 leading-tight">
                                 {curral.ordemTrato}º de {curral.quantidadeTratos}
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                            <div className="min-w-[4rem] sm:min-w-[5rem] flex flex-col">
+                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
                                 Previsto
                               </span>
-                              <span className="text-base font-bold text-[#1a3a2a]">
+                              <span className="text-sm sm:text-base font-bold text-[#1a3a2a] leading-tight">
                                 {formatarKg(curral.kgPlanejado)} kg
                               </span>
                             </div>
                             {curral.leituraCochoNota !== null && (
-                              <div>
-                                <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                              <div className="min-w-[4rem] sm:min-w-[5rem] flex flex-col">
+                                <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
                                   Leitura
                                 </span>
-                                <span className="text-base font-bold text-gray-900">
+                                <span className="text-sm sm:text-base font-bold text-gray-900 leading-tight">
                                   {curral.leituraCochoNota}
                                   {curral.leituraPercentualAjuste !== null && (
                                     <span
-                                      className={`text-xs ml-1 ${
+                                      className={`text-[0.65rem] sm:text-xs ml-1 ${
                                         curral.leituraPercentualAjuste > 0
                                           ? 'text-green-600'
                                           : curral.leituraPercentualAjuste < 0
@@ -744,7 +747,7 @@ export default function TratoConfinamentoPage() {
                                 onChange={(e) => atualizarKgReal(curral.curralId, e.target.value)}
                                 onKeyDown={(e) => handleKgRealKeyDown(e, curral.curralId)}
                                 placeholder="—"
-                                className={`w-24 h-12 text-center text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-text ${
+                                className={`w-20 h-11 sm:w-24 sm:h-12 text-center text-lg sm:text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-text ${
                                   curral.erroSalvar
                                     ? 'border-red-500 bg-red-50 text-red-700'
                                     : curral.salvo
