@@ -8,6 +8,7 @@ import { ChevronLeft } from 'lucide-react'
 import ValidationModal from '../components/ValidationModal'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 import { desativarModoTeste } from '../services/api'
+import PushNotificationCard from '../components/PushNotificationCard'
 
 export default function Configuracoes() {
   const navigate = useNavigate()
@@ -330,6 +331,11 @@ export default function Configuracoes() {
               </button>
             )}
           </div>
+        )}
+
+        {/* Card de Notificações Push - só mostra se configurado */}
+        {config.configurado && config.fazendaId && (
+          <PushNotificationCard fazendaId={config.fazendaId} />
         )}
 
         {/* Botão Salvar */}
