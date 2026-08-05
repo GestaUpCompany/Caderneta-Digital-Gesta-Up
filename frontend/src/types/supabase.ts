@@ -5823,6 +5823,13 @@ export type Database = {
           updated_at: string | null
         }
       }
+      remover_push_subscription: {
+        Args: {
+          p_dispositivo_id: string
+          p_endpoint: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       maquina_veiculo_categoria:

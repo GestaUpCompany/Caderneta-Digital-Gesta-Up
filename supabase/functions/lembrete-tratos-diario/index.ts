@@ -84,56 +84,69 @@ async function getFazendasComTratosAtivos(supabase: any): Promise<string[]> {
  * Busca a programação de tratos ativa de uma fazenda e extrai os horários.
  * Prioriza 'engorda'; se não houver, pega o primeiro tipo ativo disponível.
  */
-async function getHorariosTratosFazenda(supabase: any, fazendaId: string): Promise<string[] | null> {
-  // Busca programação de engorda ativa
-  const { data: progEngorda } = await supabase
+async function getHorariosTratosFazenda(supabase: any, fazendaId: string, debug?: any[]): Promise<string[] | null> {
+  // Busca programação de engorda ativa (primeiro tipo prioritário)
+  let { data: prog, error: progError } = await supabase
     .from('programacao_tratos')
-    .select(`
-      id,
-      quantidade_tratos,
-      tipo,
-      ativo,
-      programacao_tratos_percentuais (
-        ordem_trato,
-        percentual,
-        horario_sugerido
-      )
-    `)
+    .select('id, quantidade_tratos, tipo, ativo')
     .eq('fazenda_id', fazendaId)
     .eq('tipo', 'engorda')
     .eq('ativo', true)
     .maybeSingle()
 
-  let prog = progEngorda
+  if (debug) {
+    debug.push({ step: 'query_engorda', prog, progError: progError?.message })
+  }
+
+  if (progError) {
+    console.error(`[push] Erro ao buscar programacao engorda de ${fazendaId}:`, progError)
+  }
 
   // Se não tem engorda ativa, busca qualquer tipo ativo
   if (!prog) {
-    const { data: progAny } = await supabase
+    const { data: progAny, error: errAny } = await supabase
       .from('programacao_tratos')
-      .select(`
-        id,
-        quantidade_tratos,
-        tipo,
-        ativo,
-        programacao_tratos_percentuais (
-          ordem_trato,
-          percentual,
-          horario_sugerido
-        )
-      `)
+      .select('id, quantidade_tratos, tipo, ativo')
       .eq('fazenda_id', fazendaId)
       .eq('ativo', true)
       .maybeSingle()
     prog = progAny
+    if (debug) {
+      debug.push({ step: 'query_any', prog, progError: errAny?.message })
+    }
+    if (errAny) {
+      console.error(`[push] Erro ao buscar programacao qualquer tipo de ${fazendaId}:`, errAny)
+    }
   }
 
-  if (!prog || !prog.programacao_tratos_percentuais) {
+  if (!prog) {
+    console.log(`[push] Nenhuma programacao ativa para ${fazendaId}`)
     return null
   }
 
-  const horarios = prog.programacao_tratos_percentuais
+  // Busca os percentuais/horários em query separada (mais robusto que nested)
+  const { data: percentuais, error: pctError } = await supabase
+    .from('programacao_tratos_percentuais')
+    .select('ordem_trato, percentual, horario_sugerido')
+    .eq('programacao_id', prog.id)
+    .order('ordem_trato')
+
+  if (debug) {
+    debug.push({ step: 'query_percentuais', programacao_id: prog.id, percentuais, pctError: pctError?.message })
+  }
+
+  if (pctError) {
+    console.error(`[push] Erro ao buscar percentuais de ${prog.id}:`, pctError)
+    return null
+  }
+
+  if (!percentuais || percentuais.length === 0) {
+    console.log(`[push] Sem percentuais para programacao ${prog.id}`)
+    return null
+  }
+
+  const horarios = percentuais
     .filter((p: any) => p.horario_sugerido)
-    .sort((a: any, b: any) => a.ordem_trato - b.ordem_trato)
     .map((p: any) => p.horario_sugerido.slice(0, 5)) // HH:mm
 
   return horarios.length > 0 ? horarios : null
@@ -212,11 +225,22 @@ Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return new Response(JSON.stringify({ error: 'SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórias' }), {
+    return new Response(JSON.stringify({
+      error: 'SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configuradas',
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!serviceRoleKey,
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
   }
+
+  // Debug: info sobre as keys (sem expor o valor completo)
+  const keyDebug = isTestMode ? {
+    urlLength: supabaseUrl.length,
+    keyLength: serviceRoleKey.length,
+    keyPrefix: serviceRoleKey.substring(0, 20),
+  } : null
 
   // Criar cliente Supabase com service role
   const supabase = createClient(supabaseUrl, serviceRoleKey)
@@ -240,10 +264,16 @@ Deno.serve(async (req: Request) => {
   let totalEnviadas = 0
   let totalFalhas = 0
   let fazendasComTratos = 0
+  const debugInfo: any[] = []
 
   // 2. Para cada fazenda, buscar horários e enviar pushes
   for (const fazendaId of fazendaIds) {
-    const horarios = await getHorariosTratosFazenda(supabase, fazendaId)
+    const stepDebug: any[] = []
+    const horarios = await getHorariosTratosFazenda(supabase, fazendaId, isTestMode ? stepDebug : undefined)
+
+    if (isTestMode) {
+      debugInfo.push({ fazendaId, horarios, steps: stepDebug })
+    }
 
     if (!horarios || horarios.length === 0) {
       continue // Fazenda não tem programação ativa com horários
@@ -252,6 +282,10 @@ Deno.serve(async (req: Request) => {
     fazendasComTratos++
 
     const subscriptions = await getPushSubscriptions(supabase, fazendaId)
+
+    if (isTestMode) {
+      debugInfo.push({ fazendaId, subscriptionsCount: subscriptions.length })
+    }
 
     if (subscriptions.length === 0) {
       continue // Fazenda não tem dispositivos registrados
@@ -296,6 +330,7 @@ Deno.serve(async (req: Request) => {
     fazendas_com_tratos: fazendasComTratos,
     pushes_enviados: totalEnviadas,
     pushes_falharam: totalFalhas,
+    ...(isTestMode ? { debug: debugInfo, keyDebug } : {}),
   }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },

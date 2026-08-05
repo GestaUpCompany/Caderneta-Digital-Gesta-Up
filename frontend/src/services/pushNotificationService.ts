@@ -45,7 +45,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const rawData = atob(base64)
-  const outputArray = new Uint8Array(rawData.length)
+  const buffer = new ArrayBuffer(rawData.length)
+  const outputArray = new Uint8Array(buffer)
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i)
   }
@@ -97,7 +98,7 @@ export async function registerPushSubscription(
     } else {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
       })
     }
 
@@ -147,15 +148,26 @@ export async function unregisterPushSubscription(): Promise<boolean> {
     const subscription = await registration.pushManager.getSubscription()
 
     if (subscription) {
+      const sub = subscription.toJSON()
+      const endpoint = sub.endpoint
+      const deviceId = getDeviceId()
+
+      // Unsubscribe local primeiro (impede o navegador de receber novos pushes)
       await subscription.unsubscribe()
+
+      // Deletar do Supabase via RPC (SECURITY DEFINER, bypassa RLS)
+      if (endpoint) {
+        const { error } = await supabase.rpc('remover_push_subscription', {
+          p_dispositivo_id: deviceId,
+          p_endpoint: endpoint,
+        })
+        if (error) {
+          console.warn('[push] Erro ao remover subscription do Supabase:', error)
+        }
+      }
     }
 
-    // A limpeza no Supabase é feita via DELETE por dispositivo_id,
-    // mas como o PWA usa anon key (sem RLS de DELETE), a remoção
-    // do registro no banco fica a cargo da Edge Function ou do Painel Web.
-    // O unsubscribe local já impede que o navegador receba novos pushes.
-
-    console.log('[push] Subscription removida localmente')
+    console.log('[push] Subscription removida (local + Supabase)')
     return true
   } catch (err) {
     console.error('[push] Erro ao remover subscription:', err)
