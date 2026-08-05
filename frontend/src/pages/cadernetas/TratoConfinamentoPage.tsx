@@ -37,6 +37,7 @@ interface CurralTrato {
   quantidadeTratos: number
   ordemTrato: number // próximo trato a ser feito (count + 1)
   percentualTrato: number // percentual do trato atual
+  horarioSugerido: string | null // horário sugerido do trato atual (HH:mm)
   kgPlanejado: number | null
   kgReal: string
   leituraCochoNota: number | null
@@ -284,10 +285,12 @@ export default function TratoConfinamentoPage() {
           const quantidadeTratos = progData.quantidadeTratos
           const tratosConcluidos = ordemTrato > quantidadeTratos
 
-          // Percentual do trato atual
-          const percentualTrato = progData.percentuais.find(
+          // Percentual e horário sugerido do trato atual
+          const tratoAtual = progData.percentuais.find(
             (p) => p.ordem_trato === ordemTrato
-          )?.percentual ?? 0
+          )
+          const percentualTrato = tratoAtual?.percentual ?? 0
+          const horarioSugerido = tratoAtual?.horario_sugerido ?? null
 
           // Verifica se é dia 1 (não há tratos em datas anteriores)
           const registrosAnteriores = await getRegistrosOfertaTratoAnterioresCached(
@@ -374,6 +377,7 @@ export default function TratoConfinamentoPage() {
             quantidadeTratos,
             ordemTrato,
             percentualTrato,
+            horarioSugerido,
             kgPlanejado,
             kgReal: kgRealInicial,
             leituraCochoNota,
@@ -564,6 +568,12 @@ export default function TratoConfinamentoPage() {
               <p className="text-sm text-white/70">
                 {programacao.quantidadeTratos} tratos/dia · Tipo:{' '}
                 {TIPOS_PROGRAMACAO.find((t) => t.value === tipoSelecionado)?.label}
+                {programacao.percentuais.some((p) => p.horario_sugerido) && (
+                  <> · Horários: {programacao.percentuais
+                    .filter((p) => p.horario_sugerido)
+                    .map((p) => p.horario_sugerido!.slice(0, 5))
+                    .join(' · ')}</>
+                )}
               </p>
             )}
           </div>
@@ -698,6 +708,11 @@ export default function TratoConfinamentoPage() {
                               <span className="text-sm sm:text-base font-bold text-gray-900 leading-tight">
                                 {curral.ordemTrato}º de {curral.quantidadeTratos}
                               </span>
+                              {curral.horarioSugerido && (
+                                <span className="text-[0.65rem] sm:text-xs font-semibold text-blue-600 leading-tight mt-0.5">
+                                  {curral.horarioSugerido.slice(0, 5)}h
+                                </span>
+                              )}
                             </div>
                             <div className="min-w-[4rem] sm:min-w-[5rem] flex flex-col">
                               <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">

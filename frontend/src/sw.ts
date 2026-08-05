@@ -179,3 +179,50 @@ registerRoute(
   }),
   'GET'
 )
+
+// ==================== PUSH NOTIFICATIONS ====================
+
+self.addEventListener('push', (event: PushEvent) => {
+  if (!event.data) return
+
+  let payload: { title?: string; body?: string; url?: string }
+  try {
+    payload = event.data.json()
+  } catch {
+    payload = { title: 'GestaUp', body: event.data.text() }
+  }
+
+  const title = payload.title || 'GestaUp'
+  const options: NotificationOptions = {
+    body: payload.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-96.png',
+    tag: payload.url || 'gestaup-notification',
+    data: { url: payload.url || '/' },
+    // vibrate não é parte de NotificationOptions no TS lib, mas é suportado no Android
+    ...({ vibrate: [200, 100, 200] } as object),
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close()
+
+  const targetUrl = (event.notification.data?.url as string) || '/'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Se já há uma janela aberta, foca nela e navega
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin)) {
+          client.focus()
+          client.navigate(targetUrl)
+          return
+        }
+      }
+      // Senão, abre nova janela
+      return self.clients.openWindow(targetUrl)
+    })
+  )
+})

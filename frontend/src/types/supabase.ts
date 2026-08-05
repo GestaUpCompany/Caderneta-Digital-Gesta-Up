@@ -5333,6 +5333,57 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          id: string
+          fazenda_id: string
+          funcionario_id: string | null
+          dispositivo_id: string
+          endpoint: string
+          keys_p256dh: string
+          keys_auth: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          fazenda_id: string
+          funcionario_id?: string | null
+          dispositivo_id: string
+          endpoint: string
+          keys_p256dh: string
+          keys_auth: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          fazenda_id?: string
+          funcionario_id?: string | null
+          dispositivo_id?: string
+          endpoint?: string
+          keys_p256dh?: string
+          keys_auth?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "peoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       v_historico_ocupacao_modulo: {
@@ -5734,6 +5785,44 @@ export type Database = {
         Returns: undefined
       }
       verificar_ocupacoes_acima_meta: { Args: never; Returns: undefined }
+      registrar_push_subscription: {
+        Args: {
+          p_fazenda_id: string
+          p_dispositivo_id: string
+          p_endpoint: string
+          p_keys_p256dh: string
+          p_keys_auth: string
+          p_funcionario_id?: string | null
+        }
+        Returns: {
+          id: string
+          fazenda_id: string
+          funcionario_id: string | null
+          dispositivo_id: string
+          endpoint: string
+          keys_p256dh: string
+          keys_auth: string
+          created_at: string
+          updated_at: string
+        }
+      }
+      salvar_notificacoes_config: {
+        Args: {
+          p_fazenda_id: string
+          p_threshold_recategorizacao: number
+          p_recategorizacao_ativo: boolean
+          p_tratos_ativo?: boolean
+        }
+        Returns: {
+          id: string
+          fazenda_id: string
+          threshold_recategorizacao: string
+          recategorizacao_ativo: boolean
+          tratos_ativo: boolean
+          created_at: string | null
+          updated_at: string | null
+        }
+      }
     }
     Enums: {
       maquina_veiculo_categoria:

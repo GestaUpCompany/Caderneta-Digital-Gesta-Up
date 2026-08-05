@@ -24,6 +24,7 @@ import FarmInactiveBlock from './components/FarmInactiveBlock'
 import ScrollToTop from './components/ScrollToTop'
 import { useStoragePersistence } from './hooks/useStoragePersistence'
 import TestModeBanner from './components/TestModeBanner'
+import { registerPushSubscription } from './services/pushNotificationService'
 
 // Componente wrapper para tela de reload durante atualização automática
 function PWAUpdateModalWrapper() {
@@ -145,6 +146,10 @@ function AppInner() {
       // funcionamento offline do useChecklistAtivo desde a abertura do app
       fetchChecklistRegras(fazendaId).catch((err) => {
         console.warn('[App] Falha ao pré-cachear regras de checklist:', err)
+      })
+      // Registrar push notification (silencioso: falha não bloqueia o app)
+      registerPushSubscription(fazendaId).catch((err) => {
+        console.warn('[App] Falha ao registrar push:', err)
       })
     }
   }, [fazendaId, isFarmInactive])

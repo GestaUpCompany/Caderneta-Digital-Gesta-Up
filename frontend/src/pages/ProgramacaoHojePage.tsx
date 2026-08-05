@@ -14,6 +14,7 @@ import {
   getHojeIso,
   getFarmTimezoneAsync,
 } from '../services/checklistRegrasService'
+import { getTiposProgramacaoTratosCached, getProgramacaoTratosCompletaCached } from '../services/cadastroCache'
 
 const hexToRgba = (hex: string, alpha: number = 0.25): string => {
   const r = parseInt(hex.slice(1, 3), 16)
@@ -32,6 +33,7 @@ export default function ProgramacaoHojePage() {
   const [regrasChecklist, setRegrasChecklist] = useState<ChecklistRegra[]>([])
   const [timezone, setTimezone] = useState<string | null>(null)
   const [checklistLoading, setChecklistLoading] = useState(true)
+  const [horariosTratos, setHorariosTratos] = useState<string[]>([])
 
   useEffect(() => {
     if (!fazendaId) {
@@ -58,6 +60,35 @@ export default function ProgramacaoHojePage() {
     loadRegras()
     return () => { cancelled = true }
   }, [fazendaId])
+
+  // Carrega horários sugeridos dos tratos quando trato-confinamento está programado
+  useEffect(() => {
+    if (!fazendaId || !programacao.includes('trato-confinamento')) {
+      setHorariosTratos([])
+      return
+    }
+    let cancelled = false
+    const loadHorarios = async () => {
+      try {
+        const tipos = await getTiposProgramacaoTratosCached(fazendaId)
+        if (!tipos || tipos.length === 0) return
+        // Pega o primeiro tipo ativo (engorda tem prioridade)
+        const tipo = tipos.includes('engorda') ? 'engorda' : tipos[0]
+        const prog = await getProgramacaoTratosCompletaCached(fazendaId, tipo)
+        if (!cancelled && prog?.percentuais) {
+          const horarios = prog.percentuais
+            .filter((p: any) => p.horario_sugerido)
+            .sort((a: any, b: any) => a.ordem_trato - b.ordem_trato)
+            .map((p: any) => p.horario_sugerido.slice(0, 5))
+          setHorariosTratos(horarios)
+        }
+      } catch {
+        // ignorar erro
+      }
+    }
+    loadHorarios()
+    return () => { cancelled = true }
+  }, [fazendaId, programacao])
 
   const hoje = getHojeIso(timezone || undefined)
   const temRegras = regrasChecklist.length > 0
@@ -159,6 +190,7 @@ export default function ProgramacaoHojePage() {
                   key={caderneta.id}
                   caderneta={caderneta}
                   horario={formatarHorario(horarios[caderneta.id])}
+                  horariosTratos={caderneta.id === 'trato-confinamento' ? horariosTratos : []}
                   onClick={() => handleCadernetaClick(caderneta.id)}
                   checklistAtivo={checklistAtivo}
                   checklistLoading={checklistLoading}
@@ -175,12 +207,13 @@ export default function ProgramacaoHojePage() {
 interface CadernetaProgramadaProps {
   caderneta: (typeof CADERNETAS)[0]
   horario: string | null
+  horariosTratos: string[]
   onClick: () => void
   checklistAtivo: boolean
   checklistLoading: boolean
 }
 
-function CadernetaProgramada({ caderneta, horario, onClick, checklistAtivo, checklistLoading }: CadernetaProgramadaProps) {
+function CadernetaProgramada({ caderneta, horario, horariosTratos, onClick, checklistAtivo, checklistLoading }: CadernetaProgramadaProps) {
   return (
     <button
       onClick={onClick}
@@ -211,11 +244,29 @@ function CadernetaProgramada({ caderneta, horario, onClick, checklistAtivo, chec
       <span className="text-sm font-bold text-center leading-tight text-gray-900">
         {caderneta.label}
       </span>
-      {horario && (
+      {horario && horariosTratos.length === 0 && (
         <span className="flex items-center gap-1 text-xs text-gray-700 font-semibold bg-white/60 px-2 py-1 rounded-full">
           <Clock size={12} />
           {horario}
         </span>
+      )}
+      {horariosTratos.length > 0 && (
+        <div className="flex flex-col items-center gap-1 w-full">
+          <div className="flex flex-wrap items-center justify-center gap-1">
+            {horariosTratos.map((h, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-0.5 text-xs text-gray-700 font-semibold bg-white/60 px-2 py-0.5 rounded-full"
+              >
+                <Clock size={10} />
+                {h}
+              </span>
+            ))}
+          </div>
+          <span className="text-[0.65rem] text-gray-600 font-medium">
+            {horariosTratos.length} tratos hoje
+          </span>
+        </div>
       )}
       {checklistAtivo && !checklistLoading && (
         <span className="text-xs text-green-700 font-semibold">Checklist ativo</span>
