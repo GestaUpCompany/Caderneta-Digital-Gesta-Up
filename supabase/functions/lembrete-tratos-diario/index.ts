@@ -169,9 +169,9 @@ async function removeExpiredSubscription(supabase: any, endpoint: string): Promi
 // ==================== HANDLER ====================
 
 // @ts-ignore - Deno is available in Deno runtime but not in local TypeScript
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
   // CORS para chamadas manuais via HTTP (opcional, o scheduler não precisa)
-  if (_req.method === 'OPTIONS') {
+  if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
       headers: {
@@ -182,8 +182,14 @@ Deno.serve(async (_req: Request) => {
     })
   }
 
-  // Verificar se são 17h em Cuiabá
-  if (!is17hCuiaba()) {
+  // Modo teste: ?test=true&fazenda_id=xxx
+  // Bypassa a verificação de 17h e filtra só a fazenda especificada
+  const url = new URL(req.url)
+  const isTestMode = url.searchParams.get('test') === 'true'
+  const testFazendaId = url.searchParams.get('fazenda_id')
+
+  // Verificar se são 17h em Cuiabá (skip em modo teste)
+  if (!isTestMode && !is17hCuiaba()) {
     return new Response(JSON.stringify({ message: 'Não é 17h em Cuiabá, pulando.' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -216,7 +222,13 @@ Deno.serve(async (_req: Request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
   // 1. Buscar fazendas com tratos_ativo = true
-  const fazendaIds = await getFazendasComTratosAtivos(supabase)
+  //    Em modo teste, filtra só a fazenda especificada
+  let fazendaIds: string[]
+  if (isTestMode && testFazendaId) {
+    fazendaIds = [testFazendaId]
+  } else {
+    fazendaIds = await getFazendasComTratosAtivos(supabase)
+  }
 
   if (fazendaIds.length === 0) {
     return new Response(JSON.stringify({ message: 'Nenhuma fazenda com tratos_ativo = true' }), {
