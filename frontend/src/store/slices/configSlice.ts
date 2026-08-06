@@ -8,6 +8,7 @@ interface ConfigState {
   logoUrl: string
   configurado: boolean
   controleAcessoHabilitado: boolean
+  acessoConfinamento: boolean
   funcionarioId: string
   funcionarioNome: string
   funcionarioCadernetas: string[]
@@ -22,6 +23,7 @@ const initialState: ConfigState = {
   logoUrl: '',
   configurado: false,
   controleAcessoHabilitado: false,
+  acessoConfinamento: false,
   funcionarioId: '',
   funcionarioNome: '',
   funcionarioCadernetas: [],

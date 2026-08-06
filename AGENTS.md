@@ -66,6 +66,18 @@ Criar rota `/admin/erros-sync` com:
 
 **Débito não resolvido por essa mudança**: idempotência via `upsert` com `local_id` nas 21 tabelas de registros. Hoje o `registroToSupabase` não envia o `id` local como chave de idempotência; se o INSERT sucede no Supabase mas a resposta se perde (timeout, rede instável), o dispositivo não grava `supabaseId` e tenta criar de novo (duplicata). Eliminar retries encolhe a janela de risco mas não fecha o buraco. A correção estrutural exige adicionar coluna `local_id` (ou `idempotency_key`) nas tabelas + usar `upsert` com `onConflict`, migração coordenada com o Painel Web conforme matriz de impacto do AGENTS.md.
 
+### Peão sem vínculo em `usuarios`/`usuario_fazenda` na criação de fazenda (Painel Web)
+
+**Contexto**: o PWA autentica como peão (tabela `peoes`, email `peao.<acesso_id>@gestaup.internal`), não como controller. A RLS de `lote_categorias` (e outras tabelas protegidas) verifica `usuarios.auth_id = auth.uid()` com `usuario_fazenda.ativo = true`. Se o peão não tem registro em `usuarios` nem em `usuario_fazenda`, a RLS bloqueia o SELECT e o `LoteDetalhesCard` exibe categorias, peso e cabeças zerados, mesmo com dados válidos no banco. A tabela `lotes` tem policy `qual: true` (qualquer autenticado lê tudo), por isso PASTO e LOTE aparecem no card, criando a falsa impressão de que o lote foi encontrado mas está vazio.
+
+**Causa raiz**: `createFazendaWithController` em `GestaUp-Cadernetas-Gestao/src/services/fazendasService.ts:222-276` (commit `e22f766`, 03/05/2026) cria o peão em `auth.users` (via Edge Function `create-auth-user-only`) e em `peoes`, mas não insere em `usuarios` nem em `usuario_fazenda`. O controller recebe ambos (Passos 2-3 via `signUp` + insert em `usuario_fazenda`), o peão não (Passo 4 incompleto).
+
+**Fazendas afetadas (backfill aplicado em 06/08/2026)**: América, Brilhante, Doce Ilusão, Gesta'Up Teste, Grupo GTC, Agropecuária Marca, Maringá, Monte Azul, RLA, Santa Cecília, Transcal. O backfill inseriu 11 registros em `usuarios` (com `id = auth_id = <uuid do auth.users>`, `papel = 'controller'`, `ativo = true`) e 11 em `usuario_fazenda` (vínculo peão↔fazenda).
+
+**Correção a aplicar no Painel Web** (`fazendasService.ts`, Passo 4): após criar o peão em `auth.users` e `peoes`, buscar o UUID do usuário criado (via `peaoResult.user.id` ou consulta a `auth.users` por email) e inserir em `usuarios` (`id = auth_id = <uuid>`, `email`, `nome = 'peao.<acesso_id>'`, `papel = 'controller'`, `ativo = true`) e em `usuario_fazenda` (`usuario_id = <uuid>`, `fazenda_id`, `papel = 'controller'`, `ativo = true`). A Edge Function `create-auth-user-only` provavelmente já retorna o UUID no payload, mas o código atual só checa `peaoResult.success` e descarta o resto.
+
+**Disparador**: quando criar uma nova fazenda no Painel Web, ou quando um peão reportar que cards de lote mostram dados zerados mas o lote existe no banco, verificar se o peão tem vínculo em `usuarios`/`usuario_fazenda`.
+
 ## Auditoria de código (julho/2026)
 
 Foram identificadas 87 falhas em 4 frentes. As matrizes completas estão abaixo.

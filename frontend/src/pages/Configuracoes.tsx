@@ -38,7 +38,7 @@ export default function Configuracoes() {
     return newErrors.length === 0
   }
 
-  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean }> => {
+  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean }> => {
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
       
@@ -104,6 +104,7 @@ export default function Configuracoes() {
           acessoId: fazenda.acesso_id,
           logoUrl: fazenda.logo_url || undefined,
           controleAcessoHabilitado: fazenda.controle_acesso_habilitado || false,
+          acessoConfinamento: fazenda.acesso_confinamento || false,
         }
       }
     } catch (error) {
@@ -129,6 +130,7 @@ export default function Configuracoes() {
       acessoId: resultSupabase.acessoId || '',
       logoUrl: resultSupabase.logoUrl,
       controleAcessoHabilitado: resultSupabase.controleAcessoHabilitado,
+      acessoConfinamento: resultSupabase.acessoConfinamento,
     }
 
     setValidandoFazenda(false)
@@ -159,6 +161,7 @@ export default function Configuracoes() {
       usuario: usuario.trim(),
       logoUrl: validacaoSupabase.logoUrl,
       controleAcessoHabilitado: validacaoSupabase.controleAcessoHabilitado || false,
+      acessoConfinamento: validacaoSupabase.acessoConfinamento || false,
     }
 
     dispatch(setConfig(configData))

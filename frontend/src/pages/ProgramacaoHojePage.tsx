@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux'
 import { useState, useEffect } from 'react'
 import { RootState } from '../store/store'
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
-import { CADERNETAS } from '../utils/constants'
+import { CADERNETAS, CADERNETA_GRUPO_CORES } from '../utils/constants'
 import { formatarHorario } from '../utils/rotinas'
 import { ChevronLeft, Clock } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
@@ -25,7 +25,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ProgramacaoHojePage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, funcionarioNome, fazendaId } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, funcionarioNome, fazendaId, acessoConfinamento } = useSelector((state: RootState) => state.config)
   const { programacao, horarios, loading, refresh } = useProgramacaoHoje()
 
   // Carregar regras de checklist uma única vez para a página inteira,
@@ -93,10 +93,22 @@ export default function ProgramacaoHojePage() {
   const hoje = getHojeIso(timezone || undefined)
   const temRegras = regrasChecklist.length > 0
 
+  const FAZENDA_INSUMOS = 'd649c65e-16ab-4b77-a84b-df937aa41cc3'
+  const CADERNETAS_EXCLUSIVAS: Record<string, string[]> = {
+    'entrada-insumos': [FAZENDA_INSUMOS],
+    'saida-insumos': [FAZENDA_INSUMOS],
+  }
+  const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento']
+
   const programacaoMap = new Map(programacao.map((id) => [id, true]))
   const cadernetasProgramadas = CADERNETAS.filter(
     (c) => c.disponivel && programacaoMap.has(c.id)
-  )
+  ).filter(c => {
+    const fazendasPermitidas = CADERNETAS_EXCLUSIVAS[c.id]
+    if (fazendasPermitidas && !fazendasPermitidas.includes(fazendaId)) return false
+    if (CADERNETAS_CONFINAMENTO.includes(c.id) && !acessoConfinamento) return false
+    return true
+  })
 
   const handleCadernetaClick = (cadernetaId: string) => {
     navigate(`/caderneta/${cadernetaId}`)
@@ -131,11 +143,13 @@ export default function ProgramacaoHojePage() {
                 className="w-14 h-14 object-contain rounded-[22px]"
               />
               {fazenda && (
-                <img
-                  src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
-                  alt="Logo Fazenda"
-                  className="h-14 w-auto max-w-[120px] object-contain rounded-[22px]"
-                />
+                <div className="rounded-[12px] overflow-hidden flex items-center justify-center h-14 w-auto max-w-[120px] bg-white/0">
+                  <img
+                    src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
+                    alt="Logo Fazenda"
+                    className="h-14 w-auto max-w-[120px] object-contain"
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -217,7 +231,7 @@ function CadernetaProgramada({ caderneta, horario, horariosTratos, onClick, chec
   return (
     <button
       onClick={onClick}
-      style={{ backgroundColor: hexToRgba(caderneta.color || '#E5E7EB') }}
+      style={{ backgroundColor: hexToRgba(CADERNETA_GRUPO_CORES[caderneta.grupo] || '#E5E7EB') }}
       className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl hover:scale-105 hover:shadow-lg"
     >
       {checklistLoading ? (

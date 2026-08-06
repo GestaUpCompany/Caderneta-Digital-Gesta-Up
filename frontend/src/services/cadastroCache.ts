@@ -639,6 +639,29 @@ export async function getLoteDetalhesComCategoriasCached(loteId: string): Promis
 }
 
 /**
+ * Busca parâmetros do plano nutricional ativo de um lote com cache lazy.
+ * Usado para calcular peso projetado na data do registro.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getPlanoNutricionalAtivoByLoteIdCached(loteId: string): Promise<any | null> {
+  const key = buildKey('plano-nutricional-ativo', loteId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return cached || null
+  }
+
+  try {
+    const data = await supabaseService.getPlanoNutricionalAtivoByLoteId(loteId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca lotes por ID do pasto com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.

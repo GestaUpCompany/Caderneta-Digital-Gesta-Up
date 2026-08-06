@@ -105,6 +105,7 @@ export default function Home() {
       if (fazendaData && typeof fazendaData.controle_acesso_habilitado === 'boolean') {
         dispatch(setConfig({
           controleAcessoHabilitado: fazendaData.controle_acesso_habilitado,
+          acessoConfinamento: fazendaData.acesso_confinamento || false,
         }))
       }
     } catch (error) {
@@ -255,11 +256,13 @@ export default function Home() {
                 className="w-14 h-14 object-contain rounded-[22px]"
               />
               {configurado && fazenda && (
-                <img
-                  src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
-                  alt="Logo Fazenda"
-                  className="h-14 w-auto max-w-[120px] object-contain rounded-[22px]"
-                />
+                <div className="rounded-[12px] overflow-hidden flex items-center justify-center h-14 w-auto max-w-[120px] bg-white/0">
+                  <img
+                    src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
+                    alt="Logo Fazenda"
+                    className="h-14 w-auto max-w-[120px] object-contain"
+                  />
+                </div>
               )}
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, Suspense, lazy } from 'react'
+import { useEffect, useRef, Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
 import Configuracoes from './pages/Configuracoes'
@@ -24,7 +24,7 @@ import FarmInactiveBlock from './components/FarmInactiveBlock'
 import ScrollToTop from './components/ScrollToTop'
 import { useStoragePersistence } from './hooks/useStoragePersistence'
 import TestModeBanner from './components/TestModeBanner'
-import { registerPushSubscription } from './services/pushNotificationService'
+import { registerPushSubscription, unregisterPushSubscription } from './services/pushNotificationService'
 
 // Componente wrapper para tela de reload durante atualização automática
 function PWAUpdateModalWrapper() {
@@ -103,6 +103,9 @@ function AppInner() {
   // Permite acessar a tela de configurações mesmo com fazenda inativa para trocar de fazenda
   const isFarmInactive = configurado && !farmActive && !farmStatusLoading && location.pathname !== '/configuracoes'
 
+  // Rastreia o fazendaId anterior para detectar troca de fazenda
+  const previousFazendaIdRef = useRef<string | undefined>(undefined)
+
   // Hooks de analytics (desativados temporariamente)
   // const sessionTime = useSessionTimer()
   // const { getScreens } = useScreenTracking()
@@ -141,16 +144,31 @@ function AppInner() {
   // A atualização completa dos dados é feita manualmente via botão "Atualizar Dados" na Home
   useEffect(() => {
     if (fazendaId && !isFarmInactive) {
+      const previousFazendaId = previousFazendaIdRef.current
+      const trocouFazenda = previousFazendaId && previousFazendaId !== fazendaId
+
       initializeCadastroCache(fazendaId)
       // Pré-cachear regras de checklist: consulta pequena que garante
       // funcionamento offline do useChecklistAtivo desde a abertura do app
       fetchChecklistRegras(fazendaId).catch((err) => {
         console.warn('[App] Falha ao pré-cachear regras de checklist:', err)
       })
-      // Registrar push notification (silencioso: falha não bloqueia o app)
-      registerPushSubscription(fazendaId).catch((err) => {
-        console.warn('[App] Falha ao registrar push:', err)
-      })
+
+      // Push notification: unregister da fazenda anterior antes de registrar a nova
+      const registerPush = async () => {
+        if (trocouFazenda) {
+          console.log('[App] Troca de fazenda detectada, removendo subscription anterior')
+          await unregisterPushSubscription().catch((err) => {
+            console.warn('[App] Falha ao remover subscription anterior:', err)
+          })
+        }
+        registerPushSubscription(fazendaId).catch((err) => {
+          console.warn('[App] Falha ao registrar push:', err)
+        })
+      }
+      registerPush()
+
+      previousFazendaIdRef.current = fazendaId
     }
   }, [fazendaId, isFarmInactive])
 

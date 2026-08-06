@@ -17,7 +17,7 @@ const SIZES = {
   large: { width: 'w-24', height: 'h-24', farmHeight: 'h-24' },
 }
 
-const BORDER_RADIUS = 'rounded-[22px]'
+const BORDER_RADIUS = 'rounded-[12px]'
 
 export default function FarmLogo({
   farmName,
@@ -46,11 +46,13 @@ export default function FarmLogo({
         />
       )}
       {type !== 'gestaup' && farmName && (
-        <img
-          src={farmLogoUrl || LOGO_URL}
-          alt="Logo Fazenda"
-          className={`${sizeConfig.width} ${sizeConfig.farmHeight} w-auto object-contain ${farmRadius} mr-8`}
-        />
+        <div className={`overflow-hidden flex items-center justify-center ${sizeConfig.farmHeight} w-auto max-w-[120px] bg-white/0 ${farmRadius} mr-8`}>
+          <img
+            src={farmLogoUrl || LOGO_URL}
+            alt="Logo Fazenda"
+            className={`${sizeConfig.farmHeight} w-auto object-contain`}
+          />
+        </div>
       )}
     </div>
   )

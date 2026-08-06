@@ -539,7 +539,6 @@ export type Database = {
           gmd: number | null
           id: string
           insumos: Json | null
-          meta_consumo_ms_percent_pv: number | null
           nome: string
           peso_vivo_medio: number | null
           sistema_producao: string | null
@@ -562,7 +561,6 @@ export type Database = {
           gmd?: number | null
           id?: string
           insumos?: Json | null
-          meta_consumo_ms_percent_pv?: number | null
           nome: string
           peso_vivo_medio?: number | null
           sistema_producao?: string | null
@@ -585,7 +583,6 @@ export type Database = {
           gmd?: number | null
           id?: string
           insumos?: Json | null
-          meta_consumo_ms_percent_pv?: number | null
           nome?: string
           peso_vivo_medio?: number | null
           sistema_producao?: string | null

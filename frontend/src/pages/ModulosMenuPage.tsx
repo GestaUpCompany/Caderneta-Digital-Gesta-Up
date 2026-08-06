@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
-import { CADERNETAS } from '../utils/constants'
+import { CADERNETAS, CADERNETA_GRUPO_ORDEM, CADERNETA_GRUPO_CORES } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernetas'
@@ -18,7 +18,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, fazendaId, acessoConfinamento } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -26,11 +26,37 @@ export default function ModulosMenuPage() {
   const rbacAtivo = controleAcessoHabilitado && funcionarioCadernetas.length > 0
   const { programacao, loading: programacaoLoading } = useProgramacaoHoje()
 
+  const FAZENDA_INSUMOS = 'd649c65e-16ab-4b77-a84b-df937aa41cc3'
+  // Cadernetas exclusivas de fazendas específicas: cadernetaId -> [fazendaIds permitidas]
+  const CADERNETAS_EXCLUSIVAS: Record<string, string[]> = {
+    'entrada-insumos': [FAZENDA_INSUMOS],
+    'saida-insumos': [FAZENDA_INSUMOS],
+  }
+  const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento']
+
   const cadernetasPermitidas = useMemo(() => {
-    if (!rbacAtivo) return CADERNETAS
-    const permitidas = new Set(funcionarioCadernetas)
-    return CADERNETAS.filter(c => permitidas.has(c.id))
-  }, [rbacAtivo, funcionarioCadernetas])
+    let lista = CADERNETAS
+
+    // Filtro por fazenda (cadernetas exclusivas de fazendas específicas)
+    lista = lista.filter(c => {
+      const fazendasPermitidas = CADERNETAS_EXCLUSIVAS[c.id]
+      if (!fazendasPermitidas) return true
+      return fazendasPermitidas.includes(fazendaId)
+    })
+
+    // Filtro por módulo de confinamento
+    if (!acessoConfinamento) {
+      lista = lista.filter(c => !CADERNETAS_CONFINAMENTO.includes(c.id))
+    }
+
+    // Filtro RBAC (controle de acesso por funcionário)
+    if (rbacAtivo) {
+      const permitidas = new Set(funcionarioCadernetas)
+      lista = lista.filter(c => permitidas.has(c.id))
+    }
+
+    return lista
+  }, [rbacAtivo, funcionarioCadernetas, fazendaId, acessoConfinamento])
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())
@@ -105,11 +131,13 @@ export default function ModulosMenuPage() {
                 className="w-14 h-14 object-contain rounded-[22px]"
               />
               {fazenda && (
-                <img
-                  src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
-                  alt="Logo Fazenda"
-                  className="h-14 w-auto max-w-[120px] object-contain rounded-[22px]"
-                />
+                <div className="rounded-[12px] overflow-hidden flex items-center justify-center h-14 w-auto max-w-[120px] bg-white/0">
+                  <img
+                    src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
+                    alt="Logo Fazenda"
+                    className="h-14 w-auto max-w-[120px] object-contain"
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -152,7 +180,7 @@ export default function ModulosMenuPage() {
                 <button
                   key={caderneta.id}
                   onClick={() => handleCadernetaClick(caderneta.id)}
-                  style={{ backgroundColor: hexToRgba(caderneta.color || '#E5E7EB') }}
+                  style={{ backgroundColor: hexToRgba(CADERNETA_GRUPO_CORES[caderneta.grupo] || '#E5E7EB') }}
                   className="relative flex flex-col items-center justify-center gap-1 p-3 transition-all rounded-xl hover:scale-105 hover:shadow-md"
                 >
                   <img
@@ -200,43 +228,62 @@ export default function ModulosMenuPage() {
           </svg>
         </div>
 
-        {/* Grid de Cadernetas */}
-        <div className="grid grid-cols-2 gap-6">
-          {filteredCaderas.map((caderneta) => (
-            <button
-              key={caderneta.id}
-              onClick={() => handleCadernetaClick(caderneta.id)}
-              disabled={!caderneta.disponivel}
-              style={{ backgroundColor: hexToRgba(caderneta.color || '#E5E7EB') }}
-              className={`caderneta-card relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl
-                ${caderneta.disponivel
-                  ? 'hover:scale-105'
-                  : 'opacity-50 cursor-not-allowed'
-                }`}
+        {/* Cadernetas agrupadas por categoria */}
+        {CADERNETA_GRUPO_ORDEM.map((grupoNome) => {
+          const cadernetasDoGrupo = filteredCaderas.filter(c => c.grupo === grupoNome)
+          if (cadernetasDoGrupo.length === 0) return null
+          const corGrupo = CADERNETA_GRUPO_CORES[grupoNome] || '#6B7280'
+          return (
+            <div
+              key={grupoNome}
+              className="rounded-2xl p-4 shadow-lg border border-gray-100"
+              style={{ backgroundColor: hexToRgba(corGrupo, 0.06) }}
             >
-              {!caderneta.disponivel && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                  EM BREVE
-                </span>
-              )}
-              <img
-                src={caderneta.icon}
-                alt={caderneta.label}
-                className="w-40 h-auto object-contain rounded-[32px]"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.style.display = 'none'
-                  const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
-                  if (emoji) emoji.style.display = 'block'
-                }}
-              />
-              <span className="text-5xl fallback-emoji hidden">{caderneta.emoji}</span>
-              <span className="text-base font-bold text-center leading-tight text-gray-900">
-                {caderneta.label}
-              </span>
-            </button>
-          ))}
-        </div>
+              <h2
+                className="text-sm font-bold uppercase tracking-wide mb-3"
+                style={{ color: corGrupo }}
+              >
+                {grupoNome}
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                {cadernetasDoGrupo.map((caderneta) => (
+                  <button
+                    key={caderneta.id}
+                    onClick={() => handleCadernetaClick(caderneta.id)}
+                    disabled={!caderneta.disponivel}
+                    style={{ backgroundColor: hexToRgba(corGrupo, 0.2) }}
+                    className={`caderneta-card relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl
+                      ${caderneta.disponivel
+                        ? 'hover:scale-105'
+                        : 'opacity-50 cursor-not-allowed'
+                      }`}
+                  >
+                    {!caderneta.disponivel && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                        EM BREVE
+                      </span>
+                    )}
+                    <img
+                      src={caderneta.icon}
+                      alt={caderneta.label}
+                      className="w-40 h-auto object-contain rounded-[32px]"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
+                        if (emoji) emoji.style.display = 'block'
+                      }}
+                    />
+                    <span className="text-5xl fallback-emoji hidden">{caderneta.emoji}</span>
+                    <span className="text-base font-bold text-center leading-tight text-gray-900">
+                      {caderneta.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </main>
 
       {/* Botão voltar ao topo */}

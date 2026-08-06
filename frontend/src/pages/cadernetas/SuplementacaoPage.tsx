@@ -18,11 +18,13 @@ import {
   getLoteDetalhesComCategoriasCached,
   getFormulacaoByNomeCached,
   getRegistrosSuplementacaoByLoteCached,
+  getPlanoNutricionalAtivoByLoteIdCached,
 } from '../../services/cadastroCache'
 import { getPastos, getFormulacoes } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
+import { calcularPesoProjetado } from '../../utils/pesoProjetado'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -199,7 +201,7 @@ export default function SuplementacaoPage() {
           setFormulacaoDetalhes({
             nome: formulacao.nome,
             teorMs: formulacao.teor_ms_dieta ?? null,
-            metaConsumo: formulacao.meta_consumo_ms_percent_pv ?? null,
+            metaConsumo: formulacao.consumo_ms_percent_pv ?? null,
             custoDietaReaisCabDia: formulacao.custo_dieta_reais_cab_dia ?? null,
             custoMnTonelada: formulacao.custo_mn_tonelada ?? null,
           })
@@ -515,6 +517,23 @@ export default function SuplementacaoPage() {
       categoriasArray = processarCategorias(detalhesLote.categorias)
     }
 
+    // Calcular peso vivo projetado para a data do registro (não a data de hoje)
+    // Se não houver plano ativo ou dados suficientes, usar o peso atual do lote
+    let pesoVivoKgLote = detalhesLote?.peso_vivo_kg ?? null
+    if (form.loteId && form.data) {
+      try {
+        const planoParams = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
+        if (planoParams) {
+          const pesoProjetado = calcularPesoProjetado(form.data, planoParams)
+          if (pesoProjetado != null) {
+            pesoVivoKgLote = Number(pesoProjetado.toFixed(2))
+          }
+        }
+      } catch (error) {
+        console.error('[SuplementacaoPage] Erro ao calcular peso projetado:', error)
+      }
+    }
+
     const result = await salvarRegistro('suplementacao', {
       data: form.data,
       tratador: usuario,
@@ -525,7 +544,7 @@ export default function SuplementacaoPage() {
       loteId: form.loteId,
       nCabecasLote: detalhesLote?.n_cabecas ?? null,
       qtdBezerrosLote: detalhesLote?.qtd_bezerros ?? null,
-      pesoVivoKgLote: detalhesLote?.peso_vivo_kg ?? null,
+      pesoVivoKgLote,
       formulacao: form.formulacao,
       teorMs: formulacaoDetalhes?.teorMs ?? null,
       metaConsumo: formulacaoDetalhes?.metaConsumo ?? null,
@@ -576,6 +595,15 @@ export default function SuplementacaoPage() {
         const periodoTrato = calcularPeriodoTrato(registroComPeriodo, registrosSuplementacao)
         if (periodoTrato) {
           registroComPeriodo.periodoTratoDias = periodoTrato
+        }
+        if (metricasSuplementacao) {
+          registroComPeriodo.consumoMedioGeralPercentPV = metricasSuplementacao.consumoMedioGeralPercentPV
+          registroComPeriodo.consumoMedio30DiasPercentPV = metricasSuplementacao.consumoMedio30DiasPercentPV
+          registroComPeriodo.consumoMedioGeralKgMN = metricasSuplementacao.consumoMedioGeralKgMN
+          registroComPeriodo.consumoMedio30DiasKgMN = metricasSuplementacao.consumoMedio30DiasKgMN
+          registroComPeriodo.consumoMedioGeralKgMS = metricasSuplementacao.consumoMedioGeralKgMS
+          registroComPeriodo.consumoMedio30DiasKgMS = metricasSuplementacao.consumoMedio30DiasKgMS
+          registroComPeriodo.custoMedioReaisCabDia = metricasSuplementacao.custoMedioReaisCabDia
         }
       }
       setRegistroSalvo(registroComPeriodo)

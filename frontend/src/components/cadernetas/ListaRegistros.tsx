@@ -12,6 +12,8 @@ import { ChevronLeft, List } from 'lucide-react'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/shareUtils'
+import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
+import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached } from '../../services/cadastroCache'
 import { CADERNETA_DISPLAY_CONFIG } from '../../config/cadernetas/index'
 import { GLOBAL_HIDDEN_FIELDS, FieldConfig } from '../../config/registroDisplayConfig'
 import { SPECIAL_COMPONENTS } from './registroSpecialComponents'
@@ -83,7 +85,7 @@ const formatFieldValue = (key: string, value: unknown): string => {
 export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActions }: Props) {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { usuario } = useSelector((state: RootState) => state.config)
+  const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
   const [registros, setRegistros] = useState<Registro[]>([])
   const [carregando, setCarregando] = useState(true)
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
@@ -172,13 +174,64 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     setMostrarModalCompartilhar(true)
   }
 
-  const handleCompartilharTexto = () => {
-    if (registroParaCompartilhar) {
-      const texto = formatarRegistroComoTexto(registroParaCompartilhar, caderneta, registros)
-      compartilharWhatsApp(texto)
-      setMostrarModalCompartilhar(false)
-      setRegistroParaCompartilhar(null)
+  const handleCompartilharTexto = async () => {
+    if (!registroParaCompartilhar) return
+    let registroParaShare = registroParaCompartilhar
+
+    if (caderneta === 'suplementacao' && registroParaCompartilhar.loteId && registroParaCompartilhar.formulacao && fazendaId) {
+      try {
+        const loteId = registroParaCompartilhar.loteId as string
+        const nomeFormulacao = registroParaCompartilhar.formulacao as string
+        const [detalhesLote, formulacaoData] = await Promise.all([
+          getLoteDetalhesComCategoriasCached(loteId),
+          getFormulacaoByNomeCached(fazendaId, nomeFormulacao),
+        ])
+
+        if (detalhesLote && formulacaoData) {
+          const categorias = detalhesLote.categorias_raw || []
+          const formulacao = {
+            nome: formulacaoData.nome,
+            teor_ms_dieta: formulacaoData.teor_ms_dieta ?? null,
+            meta_consumo_ms_percent_pv: formulacaoData.consumo_ms_percent_pv ?? null,
+            custo_dieta_reais_cab_dia: formulacaoData.custo_dieta_reais_cab_dia ?? null,
+            custo_mn_tonelada: formulacaoData.custo_mn_tonelada ?? null,
+            consumo_mn_kg_cab_dia: null,
+            consumo_ms_kg_cab_dia: null,
+            custo_ms_tonelada: null,
+          }
+
+          const registrosDoLote = (registros as any[]).filter(
+            r => r.loteId === loteId && r.formulacao === nomeFormulacao
+          ).map(r => ({
+            data: r.data,
+            kg_cocho: r.kgCocho ? Number(r.kgCocho) : null,
+            kg_deposito: r.kgDeposito ? Number(r.kgDeposito) : null,
+            formulacao: r.formulacao,
+          }))
+
+          const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao)
+          if (metricas) {
+            registroParaShare = {
+              ...registroParaCompartilhar,
+              consumoMedioGeralPercentPV: metricas.consumoMedioGeralPercentPV,
+              consumoMedio30DiasPercentPV: metricas.consumoMedio30DiasPercentPV,
+              consumoMedioGeralKgMN: metricas.consumoMedioGeralKgMN,
+              consumoMedio30DiasKgMN: metricas.consumoMedio30DiasKgMN,
+              consumoMedioGeralKgMS: metricas.consumoMedioGeralKgMS,
+              consumoMedio30DiasKgMS: metricas.consumoMedio30DiasKgMS,
+              custoMedioReaisCabDia: metricas.custoMedioReaisCabDia,
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao recalcular métricas para share:', error)
+      }
     }
+
+    const texto = formatarRegistroComoTexto(registroParaShare, caderneta, registros)
+    compartilharWhatsApp(texto)
+    setMostrarModalCompartilhar(false)
+    setRegistroParaCompartilhar(null)
   }
 
   const handleReenviar = async (registro: Registro) => {

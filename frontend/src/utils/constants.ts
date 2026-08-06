@@ -58,27 +58,43 @@ export function getFarmLogo(farmName: string): string {
 }
 
 export const CADERNETAS = [
-  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', sheetName: 'Maternidade Cria', disponivel: true },
-  { id: 'pastagens', label: 'MANEJO PASTAGENS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', sheetName: 'Troca de Pastos', disponivel: true },
-  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: `${BASE}cadernetas/rodeio.png`, color: '#78AB46', sheetName: 'Rodeio Gado', disponivel: true },
-  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', sheetName: 'Suplementação', disponivel: true },
-  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', sheetName: 'Bebedouros', disponivel: true },
-  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', sheetName: 'Movimentacao', disponivel: true },
-  { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', sheetName: 'Enfermaria', disponivel: true },
-  { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', sheetName: 'Morte', disponivel: true },
-  { id: 'clima', label: 'CLIMA', emoji: '🌤️', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', sheetName: 'Clima', disponivel: true },
-  { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', sheetName: 'Abastecimento', disponivel: true },
-  { id: 'cantina', label: 'ALIMENTAÇÃO', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', sheetName: 'Alimentação', disponivel: true },
-  { id: 'limpeza', label: 'LIMPEZA', emoji: '🧹', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', sheetName: 'Limpeza', disponivel: true },
-  { id: 'operacoes-maquinas', label: 'OPERAÇÕES DE MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', sheetName: 'Operações de Máquinas', disponivel: true },
-  { id: 'manutencao-maquinas', label: 'MANUTENÇÃO DE MÁQUINAS', emoji: '🔧', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', sheetName: 'Manutenção de Máquinas', disponivel: true },
-  { id: 'problemas', label: 'PROBLEMAS', emoji: '⚠️', icon: `${BASE}cadernetas/problemas.png`, color: '#F59E0B', sheetName: 'Problemas', disponivel: true },
-  { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '📦', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', sheetName: 'Almoxarifado', disponivel: true },
-  { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true },
-  { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true },
-  { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', sheetName: 'Leitura de Cocho', disponivel: true },
-  { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '🥩', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#A0522D', sheetName: 'Trato Confinamento', disponivel: true },
+  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', sheetName: 'Maternidade Cria', disponivel: true, grupo: 'Manejo Animal' },
+  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: `${BASE}cadernetas/rodeio.png`, color: '#78AB46', sheetName: 'Rodeio Gado', disponivel: true, grupo: 'Manejo Animal' },
+  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', sheetName: 'Movimentacao', disponivel: true, grupo: 'Manejo Animal' },
+  { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', sheetName: 'Enfermaria', disponivel: true, grupo: 'Manejo Animal' },
+  { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', sheetName: 'Morte', disponivel: true, grupo: 'Manejo Animal' },
+  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', sheetName: 'Suplementação', disponivel: true, grupo: 'Nutrição' },
+  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', sheetName: 'Bebedouros', disponivel: true, grupo: 'Nutrição' },
+  { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', sheetName: 'Leitura de Cocho', disponivel: true, grupo: 'Nutrição' },
+  { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '�', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#A0522D', sheetName: 'Trato Confinamento', disponivel: true, grupo: 'Nutrição' },
+  { id: 'operacoes-maquinas', label: 'OPERAÇÕES DE MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', sheetName: 'Operações de Máquinas', disponivel: true, grupo: 'Máquinas & Combustível' },
+  { id: 'manutencao-maquinas', label: 'MANUTENÇÃO DE MÁQUINAS', emoji: '🔧', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', sheetName: 'Manutenção de Máquinas', disponivel: true, grupo: 'Máquinas & Combustível' },
+  { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', sheetName: 'Abastecimento', disponivel: true, grupo: 'Máquinas & Combustível' },
+  { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '📦', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', sheetName: 'Almoxarifado', disponivel: true, grupo: 'Insumos & Estoque' },
+  { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true, grupo: 'Insumos & Estoque' },
+  { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true, grupo: 'Insumos & Estoque' },
+  { id: 'pastagens', label: 'MANEJO PASTAGENS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', sheetName: 'Troca de Pastos', disponivel: true, grupo: 'Infraestrutura & Geral' },
+  { id: 'clima', label: 'CLIMA', emoji: '🌤️', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', sheetName: 'Clima', disponivel: true, grupo: 'Infraestrutura & Geral' },
+  { id: 'cantina', label: 'ALIMENTAÇÃO', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', sheetName: 'Alimentação', disponivel: true, grupo: 'Infraestrutura & Geral' },
+  { id: 'limpeza', label: 'LIMPEZA', emoji: '🧹', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', sheetName: 'Limpeza', disponivel: true, grupo: 'Infraestrutura & Geral' },
+  { id: 'problemas', label: 'PROBLEMAS', emoji: '⚠️', icon: `${BASE}cadernetas/problemas.png`, color: '#F59E0B', sheetName: 'Problemas', disponivel: true, grupo: 'Infraestrutura & Geral' },
 ]
+
+export const CADERNETA_GRUPO_ORDEM = [
+  'Manejo Animal',
+  'Nutrição',
+  'Máquinas & Combustível',
+  'Insumos & Estoque',
+  'Infraestrutura & Geral',
+] as const
+
+export const CADERNETA_GRUPO_CORES: Record<string, string> = {
+  'Manejo Animal': '#6D9E3B',
+  'Nutrição': '#B08D5E',
+  'Máquinas & Combustível': '#4A6FA5',
+  'Insumos & Estoque': '#D97706',
+  'Infraestrutura & Geral': '#6B7280',
+}
 
 export const CATEGORIAS_ANIMAL = ['Vaca', 'Touro', 'Boi', 'Bezerro', 'Garrote', 'Novilha'] as const
 

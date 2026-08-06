@@ -443,6 +443,66 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
   }
 }
 
+/**
+ * Busca os parâmetros do plano nutricional ativo de um lote para cálculo
+ * de peso projetado na data do registro (não na data de hoje).
+ *
+ * Retorna: { pesoInicioKgCab, dataInicio, gmdEfetivo, dataAjustePeso, pesoVivoAtualKgCab }
+ * ou null se o lote não tem plano ativo.
+ */
+export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
+  const client = getSupabaseClient()
+  const { data, error } = await (client as any)
+    .from('lote_categorias')
+    .select(`
+      data_ajuste_peso,
+      peso_vivo_atual_kg_cab,
+      planos_nutricionais!inner (
+        peso_inicio_kg_cab,
+        data_inicio,
+        gmd_planejado,
+        ativo,
+        data_fim,
+        formulacao_id
+      )
+    `)
+    .eq('lote_id', loteId)
+    .eq('ativo', true)
+    .eq('data_fim', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (error) throw error
+  if (!data || data.length === 0) return null
+
+  const lc = data[0]
+  const planos = lc.planos_nutricionais
+  // planos_nutricionais pode vir como array (join) ou objeto
+  const plano = Array.isArray(planos) ? planos.find((p: any) => p.ativo && !p.data_fim) : planos
+  if (!plano) return null
+
+  // Buscar GMD da formulação se o plano não tem gmd_planejado
+  let gmdFormulacao: number | null = null
+  if (plano.gmd_planejado == null && plano.formulacao_id) {
+    const { data: form_data } = await (client as any)
+      .from('formulacoes')
+      .select('gmd')
+      .eq('id', plano.formulacao_id)
+      .single()
+    gmdFormulacao = form_data?.gmd ?? null
+  }
+
+  const gmdEfetivo = plano.gmd_planejado != null ? Number(plano.gmd_planejado) : gmdFormulacao
+
+  return {
+    pesoInicioKgCab: plano.peso_inicio_kg_cab != null ? Number(plano.peso_inicio_kg_cab) : null,
+    dataInicio: plano.data_inicio ?? null,
+    gmdEfetivo: gmdEfetivo != null ? Number(gmdEfetivo) : null,
+    dataAjustePeso: lc.data_ajuste_peso ?? null,
+    pesoVivoAtualKgCab: lc.peso_vivo_atual_kg_cab != null ? Number(lc.peso_vivo_atual_kg_cab) : null,
+  }
+}
+
 export async function updateLote(id: string, lote: TablesUpdate<'lotes'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
