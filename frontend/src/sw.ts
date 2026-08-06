@@ -8,20 +8,42 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 
 declare const self: ServiceWorkerGlobalScope
 
-// SKIP_WAITING message handler
+// SKIP_WAITING message handler (mantido para compatibilidade com codigo antigo)
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()
   }
 })
 
-// Activate: claim clients and notify
+// Install: skipWaiting imediato para que o novo SW ative assim que for baixado,
+// sem depender da pagina enviar SKIP_WAITING. Isso fecha o gap de timing onde
+// registration.waiting era null quando o hook verificava (antes do download completar).
+self.addEventListener('install', () => {
+  self.skipWaiting()
+})
+
+// Caches de runtime que precisam ser purgados quando um novo SW ativa.
+// Sem isso, o navigation-cache (NetworkFirst, 1 dia) pode servir HTML antigo
+// que referencia chunks JS com hashes antigos, mantendo a versao antiga mesmo
+// apos o reload.
+const RUNTIME_CACHES_TO_PURGE = [
+  'navigation-cache',
+  'static-resources-cache',
+]
+
+// Activate: purgar caches de runtime antigos, claim clients e notificar
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    self.clients.claim().then(() => {
-      return self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: 'SW_ACTIVATED' })
+    Promise.all(
+      RUNTIME_CACHES_TO_PURGE.map((cacheName) =>
+        caches.delete(cacheName).catch(() => {})
+      )
+    ).then(() => {
+      return self.clients.claim().then(() => {
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'SW_ACTIVATED' })
+          })
         })
       })
     })

@@ -17,6 +17,8 @@ export function useServiceWorkerUpdate() {
     if (!('serviceWorker' in navigator)) return
 
     // Auto-aplicar SW waiting na abertura do app (sem interromper o usuário)
+    // Cobertura para SW que ficou waiting de uma sessão anterior onde
+    // o skipWaiting no install ainda não existia.
     navigator.serviceWorker.getRegistration().then(registration => {
       if (registration?.waiting) {
         registration.waiting.postMessage({ type: 'SKIP_WAITING' })
