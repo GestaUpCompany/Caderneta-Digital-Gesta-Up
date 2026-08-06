@@ -2534,12 +2534,18 @@ export async function getRegistrosOfertaTratoByCurralData(
   data: string
 ) {
   const client = await getSupabaseClientWithRefresh() as any
+  // Coluna 'data' é timestamptz com hora; .eq não match. Usar range do dia.
+  const dataFim = new Date(data + 'T00:00:00')
+  dataFim.setDate(dataFim.getDate() + 1)
+  const dataFimISO = dataFim.toISOString().slice(0, 10)
+
   const { data: result, error } = await client
     .from('registros_oferta_trato')
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('curral_id', curralId)
-    .eq('data', data)
+    .gte('data', data)
+    .lt('data', dataFimISO)
     .is('deleted_at', null)
     .order('ordem_trato', { ascending: true })
 
@@ -2556,11 +2562,19 @@ export async function getRegistrosOfertaTratoByFazendaData(
   data: string
 ) {
   const client = await getSupabaseClientWithRefresh() as any
+  // A coluna 'data' é timestamptz e os registros incluem hora (ex: 2026-08-06 18:24:00+00).
+  // .eq('data', '2026-08-06') não encontra nada porque compara com 00:00:00.
+  // Usar range gte(data) + lt(data+1dia) para pegar todos os registros do dia.
+  const dataFim = new Date(data + 'T00:00:00')
+  dataFim.setDate(dataFim.getDate() + 1)
+  const dataFimISO = dataFim.toISOString().slice(0, 10)
+
   const { data: result, error } = await client
     .from('registros_oferta_trato')
     .select('*')
     .eq('fazenda_id', fazendaId)
-    .eq('data', data)
+    .gte('data', data)
+    .lt('data', dataFimISO)
     .is('deleted_at', null)
     .order('curral_id', { ascending: true })
     .order('ordem_trato', { ascending: true })

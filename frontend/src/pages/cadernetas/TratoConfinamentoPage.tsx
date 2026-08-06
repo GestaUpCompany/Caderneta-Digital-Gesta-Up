@@ -433,10 +433,10 @@ export default function TratoConfinamentoPage() {
   }, [])
 
   const salvarTrato = useCallback(
-    async (curralId: string) => {
+    async (curralId: string): Promise<boolean> => {
       const curral = currais.find((c) => c.curralId === curralId)
-      if (!curral || !fazendaId) return
-      if (curral.kgReal === '' || curral.tratosConcluidos) return
+      if (!curral || !fazendaId) return false
+      if (curral.kgReal === '' || curral.tratosConcluidos) return false
 
       setCurrais((prev) =>
         prev.map((c) => (c.curralId === curralId ? { ...c, salvando: true, erroSalvar: false } : c))
@@ -464,7 +464,7 @@ export default function TratoConfinamentoPage() {
               c.curralId === curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
             )
           )
-          return
+          return false
         }
 
         setCurrais((prev) =>
@@ -472,6 +472,7 @@ export default function TratoConfinamentoPage() {
             c.curralId === curralId ? { ...c, salvando: false, salvo: true, erroSalvar: false } : c
           )
         )
+        return true
       } catch (error) {
         console.error('Erro ao salvar trato:', error)
         setCurrais((prev) =>
@@ -479,6 +480,7 @@ export default function TratoConfinamentoPage() {
             c.curralId === curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
           )
         )
+        return false
       }
     },
     [currais, fazendaId, data, usuario, programacao]
@@ -502,6 +504,38 @@ export default function TratoConfinamentoPage() {
     [salvarTrato, currais]
   )
 
+  const avancarProximoTrato = useCallback(
+    (curralIds: Set<string>) => {
+      if (!programacao) return
+      setCurrais((prev) =>
+        prev.map((c) => {
+          if (!curralIds.has(c.curralId)) return c
+          const novaOrdem = c.ordemTrato + 1
+          const tratosConcluidos = novaOrdem > c.quantidadeTratos
+          if (tratosConcluidos) {
+            return { ...c, ordemTrato: novaOrdem, tratosConcluidos, kgReal: '', salvo: false, erroSalvar: false }
+          }
+          const tratoAtual = programacao.percentuais.find((p) => p.ordem_trato === novaOrdem)
+          const percentualTrato = tratoAtual?.percentual ?? 0
+          const horarioSugerido = tratoAtual?.horario_sugerido ?? null
+          const kgPlanejado = c.kgBaseDia !== null ? c.kgBaseDia * (percentualTrato / 100) : null
+          return {
+            ...c,
+            ordemTrato: novaOrdem,
+            tratosConcluidos,
+            percentualTrato,
+            horarioSugerido,
+            kgPlanejado,
+            kgReal: '',
+            salvo: false,
+            erroSalvar: false,
+          }
+        })
+      )
+    },
+    [programacao]
+  )
+
   const salvarTodosPendentes = useCallback(async () => {
     const pendentes = currais.filter(
       (c) => c.kgReal !== '' && !c.salvo && !c.salvando && !c.tratosConcluidos
@@ -517,9 +551,17 @@ export default function TratoConfinamentoPage() {
       )
     )
 
-    await Promise.all(pendentes.map((c) => salvarTrato(c.curralId)))
+    const resultados = await Promise.all(pendentes.map((c) => salvarTrato(c.curralId)))
     setSalvandoLote(false)
-  }, [currais, salvarTrato])
+
+    // Atualização otimista: avança os currais salvos para o próximo trato
+    // sem depender de reload do Supabase (o sync é assíncrono e pode não ter
+    // completado ainda). Recalcula kgPlanejado com o percentual do novo trato.
+    const todosSalvos = resultados.every((r) => r === true)
+    if (todosSalvos) {
+      avancarProximoTrato(new Set(pendentes.map((p) => p.curralId)))
+    }
+  }, [currais, salvarTrato, avancarProximoTrato])
 
   const limparKgReais = useCallback(() => {
     setCurrais((prev) =>
@@ -532,6 +574,17 @@ export default function TratoConfinamentoPage() {
       currais.filter((c) => c.kgReal !== '' && !c.salvo && !c.salvando && !c.tratosConcluidos)
         .length,
     [currais]
+  )
+
+  // Detecta se todos os currais foram salvos individualmente (via Enter) e
+  // precisam avançar para o próximo trato. Nesse estado, o botão "SALVAR TRATOS"
+  // fica desabilitado (tratosPendentes === 0) mas a contagem ainda não avançou.
+  const todosSalvosSemAvancar = useMemo(
+    () =>
+      currais.length > 0 &&
+      tratosPendentes === 0 &&
+      currais.every((c) => c.salvo && !c.tratosConcluidos),
+    [currais, tratosPendentes]
   )
 
   const tiposVisiveis = TIPOS_PROGRAMACAO.filter((t) => tiposDisponiveis.includes(t.value))
@@ -827,23 +880,32 @@ export default function TratoConfinamentoPage() {
 
       {programacao && currais.length > 0 && (
         <div className="flex flex-col gap-3 desktop-form-container">
-          <button
-            onClick={salvarTodosPendentes}
-            disabled={salvandoLote || tratosPendentes === 0}
-            className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
-              salvandoLote
-                ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
-                : tratosPendentes === 0
-                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
-            }`}
-          >
-            {salvandoLote
-              ? 'SALVANDO...'
-              : tratosPendentes > 0
-                ? `SALVAR TRATOS (${tratosPendentes})`
-                : 'SALVAR TRATOS'}
-          </button>
+          {todosSalvosSemAvancar ? (
+            <button
+              onClick={() => avancarProximoTrato(new Set(currais.map((c) => c.curralId)))}
+              className="font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+            >
+              PRÓXIMO TRATO →
+            </button>
+          ) : (
+            <button
+              onClick={salvarTodosPendentes}
+              disabled={salvandoLote || tratosPendentes === 0}
+              className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
+                salvandoLote
+                  ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
+                  : tratosPendentes === 0
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
+              }`}
+            >
+              {salvandoLote
+                ? 'SALVANDO...'
+                : tratosPendentes > 0
+                  ? `SALVAR TRATOS (${tratosPendentes})`
+                  : 'SALVAR TRATOS'}
+            </button>
+          )}
           <button
             onClick={limparKgReais}
             className="bg-gray-200 text-gray-700 font-bold text-base px-6 py-3 rounded-2xl border-2 border-gray-300 hover:bg-gray-300 transition-colors active:scale-95"
