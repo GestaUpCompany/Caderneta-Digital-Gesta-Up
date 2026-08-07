@@ -54,8 +54,17 @@ const CATEGORIAS_EXCLUIDAS = [
 
 function dataSemHoraUTC(dataStr: string): Date {
   const dataPart = dataStr.substring(0, 10)
-  const [ano, mes, dia] = dataPart.split('-').map(Number)
-  return new Date(Date.UTC(ano, mes - 1, dia))
+  // Formato ISO (YYYY-MM-DD), vindo do Supabase
+  if (dataPart.includes('-')) {
+    const [ano, mes, dia] = dataPart.split('-').map(Number)
+    return new Date(Date.UTC(ano, mes - 1, dia))
+  }
+  // Formato brasileiro (DD/MM/YYYY), vindo do IndexedDB via DatePicker
+  if (dataPart.includes('/')) {
+    const [dia, mes, ano] = dataPart.split('/').map(Number)
+    return new Date(Date.UTC(ano, mes - 1, dia))
+  }
+  return new Date(dataPart)
 }
 
 function diferencaDias(inicio: Date, fim: Date): number {
