@@ -856,6 +856,400 @@ export async function gerarPdfResumoSuplementacao(
   return new File([blob], fileName, { type: 'application/pdf' })
 }
 
+// === Constantes para Rodeio ===
+const RODEIO_CATEGORIAS: { key: string; label: string }[] = [
+  { key: 'vaca', label: 'Vacas' },
+  { key: 'touro', label: 'Touros' },
+  { key: 'boiGordo', label: 'Bois Gordos' },
+  { key: 'boiMagro', label: 'Bois Magros' },
+  { key: 'garrote', label: 'Garrotes' },
+  { key: 'bezerro', label: 'Bezerros' },
+  { key: 'novilha', label: 'Novilhas' },
+  { key: 'tropa', label: 'Tropas' },
+  { key: 'outros', label: 'Outros' },
+]
+
+const RODEIO_DIAGNOSTICOS: { key: string; label: string; inverted: boolean }[] = [
+  { key: 'bebedourosCochos', label: 'Bebedouros/Cochos OK?', inverted: false },
+  { key: 'pastagensTaxaLotacao', label: 'Pastagens/Taxa de Lotação OK?', inverted: false },
+  { key: 'animaisMachucadosDoentesBichados', label: 'Animais Machucados/Doentes/Bichados', inverted: true },
+  { key: 'cercasCochosPorteiras', label: 'Cercas/Cochos/Porteiras OK?', inverted: false },
+  { key: 'carrapatosMoscas', label: 'Carrapatos/Moscas', inverted: true },
+  { key: 'animaisEntreverados', label: 'Animais Entreverados', inverted: true },
+  { key: 'animalMorto', label: 'Animal Morto', inverted: true },
+]
+
+/**
+ * Gera um PDF com o resumo diário de rodeio.
+ * Inclui resumo consolidado (totais, tabela de categorias, tabela de diagnósticos) + detalhamento por lote.
+ */
+export async function gerarPdfResumoRodeio(
+  registros: Registro[],
+  dataResumo: string,
+  fazenda?: string
+): Promise<File> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 15
+  const contentW = pageWidth - margin * 2
+  let y = margin
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed > pageHeight - 15) {
+      doc.addPage()
+      y = margin + 4
+    }
+  }
+
+  const labelValue = (label: string, value: string, indent = 0) => {
+    ensureSpace(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(26, 58, 42)
+    doc.text(label, margin + indent, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(50, 50, 50)
+    const valueX = margin + indent + 45
+    doc.text(value, valueX, y)
+    y += 6.5
+  }
+
+  // Section title helper
+  const sectionTitle = (title: string) => {
+    y += 3
+    ensureSpace(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(26, 58, 42)
+    doc.text(title, margin, y)
+    y += 7
+  }
+
+  // === HEADER ===
+  doc.setFillColor(26, 58, 42)
+  doc.rect(0, 0, pageWidth, 28, 'F')
+
+  const logoSize = 18
+  const logoX = margin
+  const logoY = 5
+  try {
+    const logoDataUrl = await fetchImageAsBase64(LOGO_URL)
+    if (logoDataUrl) {
+      doc.setFillColor(255, 255, 255)
+      doc.roundedRect(logoX - 1, logoY - 1, logoSize + 2, logoSize + 2, 3, 3, 'F')
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize, undefined, 'FAST')
+    }
+  } catch (err) {
+    console.warn('[pdfUtils] Logo não carregou:', err)
+  }
+
+  const titleX = logoX + logoSize + 5
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Resumo Diário — Rodeio', titleX, 19)
+
+  const dataFormatada = dataResumo.split(' ')[0]
+  doc.text(`Data: ${dataFormatada}`, pageWidth - margin, 12, { align: 'right' })
+  if (fazenda) {
+    doc.setFontSize(9)
+    doc.text(`Fazenda: ${fazenda}`, pageWidth - margin, 19, { align: 'right' })
+  }
+
+  y = 34
+
+  // Linha separadora
+  doc.setDrawColor(26, 58, 42)
+  doc.setLineWidth(0.5)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+
+  // === CÁLCULOS CONSOLIDADOS ===
+  let totalAnimais = 0
+  let lotesContados = 0
+  const categoriasTotais: Record<string, number> = {}
+  RODEIO_CATEGORIAS.forEach((c) => (categoriasTotais[c.key] = 0))
+
+  const diagnosticoContagem: Record<string, number> = {}
+  RODEIO_DIAGNOSTICOS.forEach((d) => (diagnosticoContagem[d.key] = 0))
+
+  const escoresFezes: number[] = []
+  const escoresGado: number[] = []
+
+  registros.forEach((r) => {
+    if (r.gadoContado === 'Sim') {
+      lotesContados++
+      const total = Number(r.totalCabecas) || 0
+      totalAnimais += total
+      RODEIO_CATEGORIAS.forEach((cat) => {
+        const v = Number((r as any)[cat.key])
+        if (!isNaN(v) && v > 0) categoriasTotais[cat.key] += v
+      })
+    } else {
+      const totalLote = (Number((r as any).n_cabecas) || 0) + (Number((r as any).qtd_bezerros) || 0)
+      totalAnimais += totalLote
+    }
+
+    for (const d of RODEIO_DIAGNOSTICOS) {
+      const data = (r.diagnosticos as any)?.[d.key]
+      if (!data || data.valor === null || data.valor === undefined || data.valor === '') continue
+      const isSim = data.valor === 'S' || data.valor === true
+      const isProblem = d.inverted ? isSim : !isSim
+      if (isProblem) diagnosticoContagem[d.key]++
+    }
+
+    const ef = Number(r.escoreFezes)
+    if (!isNaN(ef)) escoresFezes.push(ef)
+    const eg = Number(r.escoreGado)
+    if (!isNaN(eg)) escoresGado.push(eg)
+  })
+
+  // === RESUMO CONSOLIDADO ===
+  doc.setTextColor(26, 58, 42)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('RESUMO DO DIA', margin, y)
+  y += 8
+
+  // Equipe: junção de todos os registros (nomes únicos)
+  const todosNomes = new Set<string>()
+  registros.forEach((r) => {
+    if (Array.isArray(r.equipeNomes)) {
+      (r.equipeNomes as string[]).forEach((n) => {
+        if (n && n.trim() !== '') todosNomes.add(n.trim())
+      })
+    }
+  })
+  const nomesUnicos = Array.from(todosNomes)
+  const totalPessoas = nomesUnicos.length
+  const equipeStr = totalPessoas > 0 ? `${nomesUnicos.join(', ')} (${totalPessoas})` : '—'
+
+  doc.setFontSize(10)
+  labelValue('Equipe:', equipeStr)
+  labelValue('Lotes vistoriados:', String(registros.length))
+  labelValue('Total de animais:', String(totalAnimais))
+  if (lotesContados > 0) {
+    labelValue('Gado contado em:', `${lotesContados} lote(s)`)
+  }
+  if (escoresFezes.length > 0) {
+    const mediaFezes = escoresFezes.reduce((s, v) => s + v, 0) / escoresFezes.length
+    labelValue('Escore medio fezes:', formatBRNum(mediaFezes, 1))
+  }
+  if (escoresGado.length > 0) {
+    const mediaGado = escoresGado.reduce((s, v) => s + v, 0) / escoresGado.length
+    labelValue('Escore medio gado:', formatBRNum(mediaGado, 1))
+  }
+
+  // Contagem consolidada
+  const temCategorias = Object.values(categoriasTotais).some((v) => v > 0)
+  if (temCategorias) {
+    sectionTitle('CONTAGEM CONSOLIDADA')
+    doc.setFontSize(10)
+    RODEIO_CATEGORIAS.forEach((cat) => {
+      const v = categoriasTotais[cat.key]
+      if (v > 0) {
+        labelValue(`${cat.label}:`, String(v))
+      }
+    })
+  }
+
+  // Diagnósticos problemáticos consolidado
+  const temDiagnostico = Object.values(diagnosticoContagem).some((v) => v > 0)
+  if (temDiagnostico) {
+    sectionTitle('DIAGNOSTICOS PROBLEMATICOS')
+    doc.setFontSize(10)
+    RODEIO_DIAGNOSTICOS.forEach((d) => {
+      const count = diagnosticoContagem[d.key]
+      if (count > 0) {
+        // Highlight com fundo amarelo claro
+        ensureSpace(8)
+        doc.setFillColor(255, 248, 220)
+        doc.rect(margin, y - 4.5, contentW, 6.5, 'F')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(120, 60, 0)
+        doc.text(d.label, margin + 2, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(120, 60, 0)
+        const countText = `${count} lote(s)`
+        const countW = doc.getTextWidth(countText)
+        doc.text(countText, pageWidth - margin - 2 - countW, y)
+        y += 6.5
+      }
+    })
+    doc.setTextColor(50, 50, 50)
+  }
+
+  y += 4
+
+  // === DETALHAMENTO POR REGISTRO ===
+  doc.setTextColor(26, 58, 42)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('DETALHAMENTO POR LOTE', margin, y)
+  y += 8
+
+  for (let i = 0; i < registros.length; i++) {
+    const r = registros[i]
+
+    ensureSpace(55)
+
+    // Cabeçalho do registro com fundo verde
+    const pastoStr = r.pasto ? String(r.pasto) : ''
+    const loteStr = r.numeroLote ? String(r.numeroLote) : ''
+    const horario = formatarHorarioRegistro(r.data)
+    const headerParts: string[] = []
+    if (pastoStr || loteStr) {
+      headerParts.push([pastoStr, loteStr].filter(Boolean).join(' / '))
+    } else {
+      headerParts.push(`REGISTRO ${i + 1}`)
+    }
+    if (horario) headerParts.push(horario)
+    const headerText = headerParts.join(' - ')
+
+    doc.setFillColor(26, 58, 42)
+    doc.rect(margin, y - 4, contentW, 8, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(255, 255, 255)
+    doc.text(headerText, margin + 3, y + 1)
+    y += 10
+
+    // Dados
+    doc.setFontSize(10)
+    labelValue('Pasto:', String(r.pasto || '—'))
+    labelValue('Lote:', String(r.numeroLote || '—'))
+    if (r.gadoContado) {
+      labelValue('Gado contado:', r.gadoContado === 'Sim' ? 'Sim' : 'Nao')
+    }
+
+    // Categorias
+    if (r.gadoContado === 'Sim') {
+      let temCat = false
+      for (const cat of RODEIO_CATEGORIAS) {
+        const v = Number((r as any)[cat.key])
+        if (!isNaN(v) && v > 0) {
+          labelValue(`${cat.label}:`, String(v), 4)
+          temCat = true
+        }
+      }
+      if (temCat) {
+        const total = Number(r.totalCabecas)
+        if (!isNaN(total) && total > 0) {
+          labelValue('Total:', `${total} animais`, 4)
+        }
+      }
+    } else {
+      const totalLote = (Number((r as any).n_cabecas) || 0) + (Number((r as any).qtd_bezerros) || 0)
+      if (totalLote > 0) {
+        labelValue('Total lote:', `${totalLote} animais`, 4)
+      }
+    }
+
+    // Escores
+    if (r.escoreFezes != null && r.escoreFezes !== '') {
+      labelValue('Escore fezes:', String(r.escoreFezes))
+    }
+    if (r.escoreGado != null && r.escoreGado !== '') {
+      labelValue('Escore gado:', String(r.escoreGado))
+    }
+
+    // Diagnósticos problemáticos com fundo amarelo claro
+    const problemas: { d: typeof RODEIO_DIAGNOSTICOS[0]; observacao: string }[] = []
+    for (const d of RODEIO_DIAGNOSTICOS) {
+      const data = (r.diagnosticos as any)?.[d.key]
+      if (!data || data.valor === null || data.valor === undefined || data.valor === '') continue
+      const isSim = data.valor === 'S' || data.valor === true
+      const isProblem = d.inverted ? isSim : !isSim
+      if (isProblem) {
+        problemas.push({ d, observacao: data.observacao || '' })
+      }
+    }
+
+    if (problemas.length > 0) {
+      y += 2
+      for (const { d, observacao } of problemas) {
+        // Pre-calcular tamanhos
+        const maxLabelW = contentW - 6
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(120, 60, 0)
+        const labelLines = doc.splitTextToSize(d.label, maxLabelW)
+
+        const labelLineH = 4.8
+        const labelH = labelLines.length * labelLineH
+        const obsH = observacao
+          ? 3.5 + 4.5 * doc.splitTextToSize(`Obs: ${observacao}`, contentW - 10).length
+          : 0
+        const simH = 5.5
+        const innerPadding = 3.5
+        const rectH = innerPadding * 2 + labelH + simH + obsH
+
+        ensureSpace(rectH + 4)
+
+        // Fundo amarelo
+        doc.setFillColor(255, 248, 220)
+        doc.roundedRect(margin, y, contentW, rectH, 2, 2, 'F')
+
+        // Label
+        doc.text(labelLines, margin + 4, y + innerPadding + 3)
+
+        // Sim
+        const simY = y + innerPadding + labelH + 3.5
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        doc.text('Sim', margin + 6, simY)
+
+        // Observação
+        if (observacao) {
+          doc.setFont('helvetica', 'italic')
+          doc.setFontSize(9)
+          doc.setTextColor(100, 80, 40)
+          const obsLines = doc.splitTextToSize(`Obs: ${observacao}`, contentW - 10)
+          doc.text(obsLines, margin + 6, simY + 3.5)
+        }
+
+        y += rectH + 3
+      }
+      doc.setTextColor(50, 50, 50)
+    }
+
+    // Separador
+    if (i < registros.length - 1) {
+      y += 4
+      ensureSpace(8)
+      doc.setDrawColor(200, 200, 200)
+      doc.setLineWidth(0.3)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 6
+    }
+  }
+
+  // === RODAPÉ ===
+  const totalPaginas = doc.getNumberOfPages()
+  for (let i = 1; i <= totalPaginas; i++) {
+    doc.setPage(i)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text(
+      `Gesta'Up Caderneta Digital — Gerado em ${new Date().toLocaleString('pt-BR')}`,
+      margin,
+      pageHeight - 8
+    )
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - margin, pageHeight - 8, { align: 'right' })
+  }
+
+  const blob = doc.output('blob')
+  const fileName = `resumo_rodeio_${dataFormatada.replace(/\//g, '-')}.pdf`
+  return new File([blob], fileName, { type: 'application/pdf' })
+}
+
 /**
  * Compartilha um arquivo PDF via Web Share API (redes sociais).
  * Fallback: faz download do arquivo se Web Share não estiver disponível.

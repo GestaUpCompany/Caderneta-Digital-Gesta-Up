@@ -217,7 +217,7 @@ export default function RodeioPage() {
     async function carregarDetalhesLote() {
       if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
+        setForm(prev => ({ ...prev, loteId: '', pastoId: '', pasto: '' }))
         return
       }
 
@@ -258,14 +258,15 @@ export default function RodeioPage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
-          // Armazenar o ID do lote e o pasto_id
-          setForm(prev => ({ ...prev, loteId: lote.id, pastoId: lote.pasto_id || '' }))
+          // Armazenar o ID do lote, pasto_id e nome do pasto
+          const pastoNome = (lote.pastos as any)?.nome || ''
+          setForm(prev => ({ ...prev, loteId: lote.id, pastoId: lote.pasto_id || '', pasto: pastoNome }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
         setMetaRodeioInfo(null)
-        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
+        setForm(prev => ({ ...prev, loteId: '', pastoId: '', pasto: '' }))
       }
     }
 
