@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { Registro } from './shareUtils'
 import { LOGO_URL } from './constants'
+import { formatarNumeroBR } from './formatNumber'
 
 interface MedicaoPluviometro {
   pluviometro_nome?: string
@@ -534,6 +535,324 @@ export async function gerarPdfResumoMaternidade(
 
   const blob = doc.output('blob')
   const fileName = `resumo_maternidade_${dataFormatada.replace(/\//g, '-')}.pdf`
+  return new File([blob], fileName, { type: 'application/pdf' })
+}
+
+/** Formata número para string no padrão brasileiro (vírgula decimal, ponto milhar) */
+function formatBRNum(v: number, decimais: number): string {
+  return formatarNumeroBR(v, '0', decimais)
+}
+
+/** Extrai horário do campo data (formato "DD/MM/YYYY HH:MM"). Retorna "HH" ou "HH:MM". */
+function formatarHorarioRegistro(dataRegistro: unknown): string {
+  const str = String(dataRegistro ?? '')
+  const timePart = str.split(' ')[1]
+  if (!timePart) return ''
+  const [h, m] = timePart.split(':')
+  if (!h) return ''
+  const hh = h.padStart(2, '0')
+  const mm = (m || '00').padStart(2, '0')
+  return mm === '00' ? hh : `${hh}:${mm}`
+}
+
+interface MetricasSuplementacaoPDF {
+  consumoMedioGeralPercentPV: number | null
+  consumoMedio30DiasPercentPV: number | null
+  consumoMedioGeralKgMN: number | null
+  consumoMedio30DiasKgMN: number | null
+  consumoMedioGeralKgMS: number | null
+  consumoMedio30DiasKgMS: number | null
+  custoMedioReaisCabDia: number | null
+}
+
+/**
+ * Gera um PDF com o resumo diário de suplementação.
+ * Inclui resumo consolidado do dia + detalhamento por registro com métricas de consumo.
+ */
+export async function gerarPdfResumoSuplementacao(
+  registros: Registro[],
+  dataResumo: string,
+  fazenda?: string,
+  metricasPorRegistro?: (MetricasSuplementacaoPDF | null)[]
+): Promise<File> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 15
+  const contentW = pageWidth - margin * 2
+  let y = margin
+
+  // Helper: garantir espaço na página, adicionar nova se necessário
+  const ensureSpace = (needed: number) => {
+    if (y + needed > pageHeight - 15) {
+      doc.addPage()
+      y = margin + 4
+    }
+  }
+
+  // Helper: linha label-valor
+  const labelValue = (label: string, value: string, indent = 0) => {
+    ensureSpace(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(26, 58, 42)
+    doc.text(label, margin + indent, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(50, 50, 50)
+    doc.text(value, margin + indent + 55, y)
+    y += 6
+  }
+
+  // === HEADER ===
+  doc.setFillColor(26, 58, 42) // #1a3a2a
+  doc.rect(0, 0, pageWidth, 28, 'F')
+
+  const logoSize = 18
+  const logoX = margin
+  const logoY = 5
+  try {
+    const logoDataUrl = await fetchImageAsBase64(LOGO_URL)
+    if (logoDataUrl) {
+      doc.setFillColor(255, 255, 255)
+      doc.roundedRect(logoX - 1, logoY - 1, logoSize + 2, logoSize + 2, 3, 3, 'F')
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize, undefined, 'FAST')
+    }
+  } catch (err) {
+    console.warn('[pdfUtils] Logo não carregou:', err)
+  }
+
+  const titleX = logoX + logoSize + 5
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Resumo Diário — Suplementação', titleX, 19)
+
+  const dataFormatada = dataResumo.split(' ')[0]
+  doc.text(`Data: ${dataFormatada}`, pageWidth - margin, 12, { align: 'right' })
+  if (fazenda) {
+    doc.setFontSize(9)
+    doc.text(`Fazenda: ${fazenda}`, pageWidth - margin, 19, { align: 'right' })
+  }
+
+  y = 34
+
+  // Linha separadora
+  doc.setDrawColor(26, 58, 42)
+  doc.setLineWidth(0.5)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+
+  // === RESUMO CONSOLIDADO DO DIA ===
+  doc.setTextColor(26, 58, 42)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('RESUMO DO DIA', margin, y)
+  y += 8
+
+  // Tratador (do primeiro registro)
+  const tratador = String(registros[0]?.tratador || registros[0]?.usuario || '—')
+
+  // Cabeças atendidas: contar lotes únicos para evitar dupla contagem
+  const lotesUnicos = new Map<string, number>()
+  registros.forEach((r) => {
+    const key = (r.loteId as string) || `${r.pasto}|${r.numeroLote}`
+    const cabecas = r.nCabecasLote ? Number(r.nCabecasLote) : 0
+    if (!lotesUnicos.has(key) || cabecas > (lotesUnicos.get(key) || 0)) {
+      lotesUnicos.set(key, cabecas)
+    }
+  })
+  const totalCabecas = Array.from(lotesUnicos.values()).reduce((s, v) => s + v, 0)
+  const totalLotes = lotesUnicos.size
+
+  // Custo estimado do dia: soma de custoMedioReaisCabDia × cabeças por lote único
+  let custoEstimadoDia = 0
+  let temCusto = false
+  if (metricasPorRegistro) {
+    const custoPorLote = new Map<string, number>()
+    registros.forEach((r, i) => {
+      const m = metricasPorRegistro[i]
+      if (!m || m.custoMedioReaisCabDia == null) return
+      const key = (r.loteId as string) || `${r.pasto}|${r.numeroLote}`
+      const cabecas = r.nCabecasLote ? Number(r.nCabecasLote) : 0
+      const custoLote = m.custoMedioReaisCabDia * cabecas
+      custoPorLote.set(key, (custoPorLote.get(key) || 0) + custoLote)
+      temCusto = true
+    })
+    custoEstimadoDia = Array.from(custoPorLote.values()).reduce((s, v) => s + v, 0)
+  }
+
+  doc.setFontSize(10)
+  labelValue('Tratador:', tratador)
+  labelValue('Total de registros:', String(registros.length))
+  labelValue('Lotes atendidos:', String(totalLotes))
+  if (totalCabecas > 0) {
+    labelValue('Cabeças atendidas:', String(totalCabecas))
+  }
+  if (temCusto && custoEstimadoDia > 0) {
+    labelValue('Custo estimado do dia:', `R$ ${formatBRNum(custoEstimadoDia, 2)}`)
+  }
+
+  y += 4
+
+  // === DETALHAMENTO POR REGISTRO ===
+  doc.setTextColor(26, 58, 42)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('DETALHAMENTO POR REGISTRO', margin, y)
+  y += 8
+
+  for (let i = 0; i < registros.length; i++) {
+    const r = registros[i]
+    const metricas = metricasPorRegistro?.[i] || null
+
+    // Quebra de página antes do registro se não houver espaço suficiente (~60mm)
+    ensureSpace(60)
+
+    // Cabeçalho do registro
+    doc.setFillColor(240, 245, 240)
+    doc.rect(margin, y - 4, contentW, 7, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(26, 58, 42)
+    const horario = formatarHorarioRegistro(r.data)
+    doc.text(`REGISTRO ${i + 1}${horario ? ` — ${horario}` : ''}`, margin + 2, y + 1)
+    y += 9
+
+    // Dados do lote
+    doc.setFontSize(10)
+    labelValue('Pasto/Curral:', String(r.pasto || '—'))
+    labelValue('Lote:', String(r.numeroLote || '—'))
+
+    // Formulação
+    const teorMs = r.teorMs != null ? formatBRNum(Number(r.teorMs), 2) : null
+    const formulacaoStr = String(r.formulacao || '—')
+    labelValue('Formulação:', formulacaoStr)
+    if (teorMs) {
+      labelValue('Teor MS dieta:', `${teorMs}%`)
+    }
+
+    // Meta e cabeças
+    if (r.metaConsumo != null) {
+      labelValue('Meta consumo (%PV):', `${formatBRNum(Number(r.metaConsumo), 2)}%`)
+      const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
+      if (r.metaConsumo != null && pesoVivo) {
+        const metaKg = (Number(r.metaConsumo) / 100) * pesoVivo
+        labelValue('Meta consumo (kg/cab/dia):', `${formatBRNum(metaKg, 3)} kg`)
+      }
+    }
+    const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
+    if (nCabecas) {
+      labelValue('N° cabeças:', String(nCabecas))
+    }
+    const pesoVivoLote = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
+    if (pesoVivoLote) {
+      labelValue('PV médio:', `${formatBRNum(pesoVivoLote, 2)} kg`)
+    }
+
+    // Categorias
+    const categorias = String(r.categoriasString || (Array.isArray(r.categorias) ? r.categorias.join(', ') : ''))
+    if (categorias) {
+      ensureSpace(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.setTextColor(26, 58, 42)
+      doc.text('Categorias:', margin, y)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(50, 50, 50)
+      const catLines = doc.splitTextToSize(categorias, contentW - 55)
+      doc.text(catLines, margin + 55, y)
+      y += 6 * catLines.length
+    }
+
+    // Leitura e quantidades
+    y += 2
+    labelValue('Leitura cocho:', String(r.leituraCocho ?? '—'))
+    if (r.kgCocho) {
+      labelValue('Suplemento cocho:', `${formatBRNum(Number(r.kgCocho), 0)} kg`)
+    }
+    if (r.escoreFezes != null && r.escoreFezes !== '') {
+      labelValue('Escore fezes:', String(r.escoreFezes))
+    }
+
+    // Histórico de consumo
+    if (metricas) {
+      const temConsumo = metricas.consumoMedioGeralPercentPV ||
+        metricas.consumoMedio30DiasPercentPV ||
+        metricas.consumoMedioGeralKgMN ||
+        metricas.consumoMedio30DiasKgMN ||
+        metricas.consumoMedioGeralKgMS ||
+        metricas.consumoMedio30DiasKgMS ||
+        metricas.custoMedioReaisCabDia
+      if (temConsumo) {
+        y += 3
+        ensureSpace(40)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(26, 58, 42)
+        doc.text('HISTÓRICO DE CONSUMO', margin, y)
+        y += 6
+
+        if (metricas.consumoMedioGeralPercentPV != null) {
+          labelValue('CMS geral (%PV):', `${formatBRNum(metricas.consumoMedioGeralPercentPV, 2)}%`, 4)
+        }
+        if (metricas.consumoMedio30DiasPercentPV != null) {
+          labelValue('CMS 30 dias (%PV):', `${formatBRNum(metricas.consumoMedio30DiasPercentPV, 2)}%`, 4)
+        }
+        if (metricas.consumoMedioGeralKgMN != null) {
+          labelValue('CMN geral (kg/MN):', `${formatBRNum(metricas.consumoMedioGeralKgMN, 3)} kg`, 4)
+        }
+        if (metricas.consumoMedio30DiasKgMN != null) {
+          labelValue('CMN 30 dias (kg/MN):', `${formatBRNum(metricas.consumoMedio30DiasKgMN, 3)} kg`, 4)
+        }
+        if (metricas.consumoMedioGeralKgMS != null) {
+          labelValue('CMS geral (kg/MS):', `${formatBRNum(metricas.consumoMedioGeralKgMS, 3)} kg`, 4)
+        }
+        if (metricas.consumoMedio30DiasKgMS != null) {
+          labelValue('CMS 30 dias (kg/MS):', `${formatBRNum(metricas.consumoMedio30DiasKgMS, 3)} kg`, 4)
+        }
+        if (metricas.custoMedioReaisCabDia != null) {
+          labelValue('Custo médio (R$/cab/dia):', `R$ ${formatBRNum(metricas.custoMedioReaisCabDia, 2)}`, 4)
+          // Custo estimado lote/dia
+          if (nCabecas && nCabecas > 0) {
+            const custoLoteDia = metricas.custoMedioReaisCabDia * nCabecas
+            labelValue('Custo estimado lote/dia:', `R$ ${formatBRNum(custoLoteDia, 2)}`, 4)
+          }
+        }
+      }
+    }
+
+    // Separador entre registros
+    if (i < registros.length - 1) {
+      y += 4
+      ensureSpace(8)
+      doc.setDrawColor(200, 200, 200)
+      doc.setLineWidth(0.3)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 6
+    }
+  }
+
+  // === RODAPÉ ===
+  const totalPaginas = doc.getNumberOfPages()
+  for (let i = 1; i <= totalPaginas; i++) {
+    doc.setPage(i)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text(
+      `Gesta'Up Caderneta Digital — Gerado em ${new Date().toLocaleString('pt-BR')}`,
+      margin,
+      pageHeight - 8
+    )
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - margin, pageHeight - 8, { align: 'right' })
+  }
+
+  const blob = doc.output('blob')
+  const fileName = `resumo_suplementacao_${dataFormatada.replace(/\//g, '-')}.pdf`
   return new File([blob], fileName, { type: 'application/pdf' })
 }
 

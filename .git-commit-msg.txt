@@ -1,21 +1,16 @@
-Corrige contagem de tratos que sempre mostrava 1º de N (bug de query timestamptz)
+Corrige historico de consumo ausente no share via ListaRegistros
 
-A coluna 'data' em registros_oferta_trato é timestamptz e os registros
-incluem hora (ex: 2026-08-06 18:24:00+00). As queries
-getRegistrosOfertaTratoByFazendaData e getRegistrosOfertaTratoByCurralData
-usavam .eq('data', '2026-08-06'), que compara com 2026-08-06 00:00:00+00
-e nunca encontra registros com hora diferente de meia-noite. Resultado:
-tratosFeitos era sempre 0, ordemTrato sempre 1, e o card sempre mostrava
-"1º de 4" mesmo apos salvar todos os currais.
+A funcao dataSemHoraUTC em supplementMetrics.ts assumia formato ISO
+(YYYY-MM-DD) para o campo data. No success modal do SuplementacaoPage,
+os registros vem do Supabase (formato ISO) e funcionava. No
+ListaRegistros, os registros vem do IndexedDB via DatePicker, que
+salva no formato brasileiro (DD/MM/YYYY). O split('-') produzia NaN,
+gerava Invalid Date, e todas as metricas de consumo ficavam null,
+omitindo a secao HISTORICO DE CONSUMO do texto compartilhado.
 
-Correcao: substituir .eq('data', data) por .gte('data', data) + 
-.lt('data', data+1dia) para pegar todos os registros dentro do dia.
-
-Adicionalmente, adiciona atualizacao otimista em TratoConfinamentoPage:
-apos salvar todos os tratos pendentes com sucesso, avanca ordemTrato
-localmente e recalcula kgPlanejado com o percentual do proximo trato,
-sem depender de reload do Supabase. Se o peao salvar individualmente
-via Enter, mostra botao "PROXIMO TRATO" para avancar a contagem.
+Agora dataSemHoraUTC detecta o formato: se tem '-', parseia ISO; se
+tem '/', parseia brasileiro invertendo dia/mes/ano. O caminho ISO
+(success modal) nao e alterado.
 
 Generated with [Devin](https://devin.ai)
 

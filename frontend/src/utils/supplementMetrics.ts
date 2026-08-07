@@ -27,7 +27,7 @@ interface Formulacao {
   custo_ms_tonelada: number | null
 }
 
-interface SupplementMetrics {
+export interface SupplementMetrics {
   consumoMedioGeralPercentPV: number | null
   consumoMedio30DiasPercentPV: number | null
   consumoMedioGeralKgMN: number | null
