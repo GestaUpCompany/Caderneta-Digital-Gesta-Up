@@ -58,11 +58,11 @@ export function getFarmLogo(farmName: string): string {
 }
 
 export const CADERNETAS = [
-  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', sheetName: 'Maternidade Cria', disponivel: true, grupo: 'Manejo Animal' },
-  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: `${BASE}cadernetas/rodeio.png`, color: '#78AB46', sheetName: 'Rodeio Gado', disponivel: true, grupo: 'Manejo Animal' },
-  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', sheetName: 'Movimentacao', disponivel: true, grupo: 'Manejo Animal' },
-  { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', sheetName: 'Enfermaria', disponivel: true, grupo: 'Manejo Animal' },
-  { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', sheetName: 'Morte', disponivel: true, grupo: 'Manejo Animal' },
+  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', sheetName: 'Maternidade Cria', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: `${BASE}cadernetas/rodeio.png`, color: '#78AB46', sheetName: 'Rodeio Gado', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', sheetName: 'Movimentacao', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', sheetName: 'Enfermaria', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', sheetName: 'Morte', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', sheetName: 'Suplementação', disponivel: true, grupo: 'Nutrição' },
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', sheetName: 'Bebedouros', disponivel: true, grupo: 'Nutrição' },
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', sheetName: 'Leitura de Cocho', disponivel: true, grupo: 'Nutrição' },
@@ -73,7 +73,7 @@ export const CADERNETAS = [
   { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '📦', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', sheetName: 'Almoxarifado', disponivel: true, grupo: 'Insumos & Estoque' },
   { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', sheetName: 'Entrada Insumos', disponivel: true, grupo: 'Insumos & Estoque' },
   { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', sheetName: 'Saída Insumos', disponivel: true, grupo: 'Insumos & Estoque' },
-  { id: 'pastagens', label: 'MANEJO PASTAGENS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', sheetName: 'Troca de Pastos', disponivel: true, grupo: 'Infraestrutura & Geral' },
+  { id: 'pastagens', label: 'MANEJO PASTAGENS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', sheetName: 'Troca de Pastos', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'clima', label: 'CLIMA', emoji: '🌤️', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', sheetName: 'Clima', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'cantina', label: 'ALIMENTAÇÃO', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', sheetName: 'Alimentação', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '🧹', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', sheetName: 'Limpeza', disponivel: true, grupo: 'Infraestrutura & Geral' },
@@ -81,7 +81,7 @@ export const CADERNETAS = [
 ]
 
 export const CADERNETA_GRUPO_ORDEM = [
-  'Manejo Animal',
+  'Gado & Pastagens',
   'Nutrição',
   'Máquinas & Combustível',
   'Insumos & Estoque',
@@ -89,7 +89,7 @@ export const CADERNETA_GRUPO_ORDEM = [
 ] as const
 
 export const CADERNETA_GRUPO_CORES: Record<string, string> = {
-  'Manejo Animal': '#6D9E3B',
+  'Gado & Pastagens': '#6D9E3B',
   'Nutrição': '#B08D5E',
   'Máquinas & Combustível': '#4A6FA5',
   'Insumos & Estoque': '#D97706',
