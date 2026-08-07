@@ -160,10 +160,6 @@ export default function EnfermariaPage() {
         return null
       }
     },
-    sexo: { required: true },
-    raca: { required: true },
-    idade: { required: true },
-    categoria: { required: true },
     diagnosticos: {
       custom: (value: string[]) => {
         if (!value || value.length === 0) return 'Selecione pelo menos um diagnóstico'
