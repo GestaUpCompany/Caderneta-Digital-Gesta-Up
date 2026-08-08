@@ -1,17 +1,11 @@
-Corrige historico de consumo ausente no share via ListaRegistros
+Adiciona resumo diario de rodeio em texto e PDF.
 
-A funcao dataSemHoraUTC em supplementMetrics.ts assumia formato ISO
-(YYYY-MM-DD) para o campo data. No success modal do SuplementacaoPage,
-os registros vem do Supabase (formato ISO) e funcionava. No
-ListaRegistros, os registros vem do IndexedDB via DatePicker, que
-salva no formato brasileiro (DD/MM/YYYY). O split('-') produzia NaN,
-gerava Invalid Date, e todas as metricas de consumo ficavam null,
-omitindo a secao HISTORICO DE CONSUMO do texto compartilhado.
+- Cria RodeioListaPage.tsx com modal de resumo diario
+- Gera texto para WhatsApp com lotes vistoriados, contagens, escores e diagnosticos problematicos
+- Cria gerarPdfResumoRodeio com header, resumo consolidado, contagem consolidada, tabela de diagnosticos problematicos e detalhamento por lote
+- Corrige preenchimento do campo pasto no formulario de rodeio (lote.pastos.nome)
+- Melhora design do PDF: cores amarelo claro para alertas, evita sobreposicao de labels longos, arredonda blocos de diagnosticos
 
-Agora dataSemHoraUTC detecta o formato: se tem '-', parseia ISO; se
-tem '/', parseia brasileiro invertendo dia/mes/ano. O caminho ISO
-(success modal) nao e alterado.
-
-Generated with [Devin](https://devin.ai)
+Generated with Devin (https://devin.ai)
 
 Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

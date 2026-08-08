@@ -286,14 +286,8 @@ export function validateEnfermaria(data: Record<string, unknown>): ValidationRes
   // Pelo menos um ID de identificação é obrigatório
   if (!isNonEmptyString(data.idManejo) && !isNonEmptyString(data.brinco) && !isNonEmptyString(data.chip))
     errors.push({ field: 'idManejo', message: 'ID Manejo, Brinco ou Chip é obrigatório' })
-  if (!isNonEmptyString(data.sexo))
-    errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
-  if (!isNonEmptyString(data.raca))
-    errors.push({ field: 'raca', message: 'Raça é obrigatória' })
-  if (!isNonEmptyString(data.idade))
-    errors.push({ field: 'idade', message: 'Idade é obrigatória' })
-  if (!isNonEmptyString(data.categoria))
-    errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
+  // sexo, raca, idade e categoria são auto-derivados do banco de animais quando disponível.
+  // Para animais novos, esses campos ficam vazios e são cadastrados posteriormente.
   const diagnosticos = data.diagnosticos as string[] | undefined
   if (!diagnosticos || diagnosticos.length === 0)
     errors.push({ field: 'diagnosticos', message: 'Selecione pelo menos um diagnóstico' })

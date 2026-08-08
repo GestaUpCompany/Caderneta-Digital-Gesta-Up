@@ -15,12 +15,10 @@ self.addEventListener('message', (event) => {
   }
 })
 
-// Install: skipWaiting imediato para que o novo SW ative assim que for baixado,
-// sem depender da pagina enviar SKIP_WAITING. Isso fecha o gap de timing onde
-// registration.waiting era null quando o hook verificava (antes do download completar).
-self.addEventListener('install', () => {
-  self.skipWaiting()
-})
+// Install: NÃO chamar self.skipWaiting() aqui.
+// O SW deve ficar em estado waiting até que a página envie SKIP_WAITING,
+// que só acontece na abertura do app (useServiceWorkerUpdate.ts).
+// Isso evita reloads durante o uso do app.
 
 // Caches de runtime que precisam ser purgados quando um novo SW ativa.
 // Sem isso, o navigation-cache (NetworkFirst, 1 dia) pode servir HTML antigo
@@ -105,35 +103,45 @@ const navigationStrategy = new NetworkFirst({
   ],
 })
 
+async function servePrecachedIndex(): Promise<Response> {
+  const cache = await caches.open(
+    'workbox-precache-v2-Caderneta-Digital-Gesta-Up'
+  )
+  const keys = await cache.keys()
+  const indexEntry = keys.find((req) =>
+    req.url.includes('index.html')
+  )
+  if (indexEntry) {
+    const cached = await cache.match(indexEntry)
+    if (cached) {
+      const contentType = cached.headers.get('Content-Type')
+      if (!contentType || !contentType.includes('text/html')) {
+        const body = await cached.blob()
+        return new Response(body, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
+      }
+      return cached
+    }
+  }
+  throw new Error('No cached navigation response available')
+}
+
 registerRoute(
   ({ request }) => request.mode === 'navigate',
   async ({ event, request }) => {
     try {
-      return await navigationStrategy.handle({ event, request })
-    } catch {
-      // Fallback: servir index.html do precache com Content-Type garantido
-      const cache = await caches.open(
-        'workbox-precache-v2-Caderneta-Digital-Gesta-Up'
-      )
-      const keys = await cache.keys()
-      const indexEntry = keys.find((req) =>
-        req.url.includes('index.html')
-      )
-      if (indexEntry) {
-        const cached = await cache.match(indexEntry)
-        if (cached) {
-          const contentType = cached.headers.get('Content-Type')
-          if (!contentType || !contentType.includes('text/html')) {
-            const body = await cached.blob()
-            return new Response(body, {
-              status: 200,
-              headers: { 'Content-Type': 'text/html; charset=utf-8' },
-            })
-          }
-          return cached
-        }
+      const response = await navigationStrategy.handle({ event, request })
+      // GitHub Pages retorna 404 para rotas client-side (ex: /enfermaria).
+      // NetworkFirst trata 404 como resposta válida e a retorna ao browser.
+      // Se não for 200, cair no fallback do precache para servir index.html.
+      if (!response.ok) {
+        return await servePrecachedIndex()
       }
-      throw new Error('No cached navigation response available')
+      return response
+    } catch {
+      return await servePrecachedIndex()
     }
   }
 )

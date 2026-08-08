@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export function useServiceWorkerUpdate() {
   const [isReloading, setIsReloading] = useState(false)
+  // Flag: só faz reload se NÓS dispararmos o SKIP_WAITING (na abertura do app).
+  // Durante o uso, forceCheck baixa novo SW mas ele fica em waiting; sem reload.
+  const skipWaitingSent = useRef(false)
 
   const forceCheck = useCallback(() => {
     if ('serviceWorker' in navigator) {
@@ -17,29 +20,25 @@ export function useServiceWorkerUpdate() {
     if (!('serviceWorker' in navigator)) return
 
     // Auto-aplicar SW waiting na abertura do app (sem interromper o usuário)
-    // Cobertura para SW que ficou waiting de uma sessão anterior onde
-    // o skipWaiting no install ainda não existia.
+    // Cobertura para SW que ficou waiting de uma sessão anterior.
     navigator.serviceWorker.getRegistration().then(registration => {
       if (registration?.waiting) {
+        skipWaitingSent.current = true
         registration.waiting.postMessage({ type: 'SKIP_WAITING' })
       }
     })
 
-    // Quando o SW assume o controle (controllerchange), recarregar silenciosamente
+    // Quando o SW assume o controle (controllerchange), recarregar.
+    // Só recarrega se nós dispararmos SKIP_WAITING na abertura do app.
+    // Se o SW ativar por outro motivo, não interfere no uso.
     const handleControllerChange = () => {
-      setIsReloading(true)
-      window.location.reload()
-    }
-
-    // Listener para mensagem do service worker (SW_ACTIVATED)
-    const handleSWMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'SW_ACTIVATED') {
-        handleControllerChange()
+      if (skipWaitingSent.current) {
+        setIsReloading(true)
+        window.location.reload()
       }
     }
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
-    navigator.serviceWorker.addEventListener('message', handleSWMessage)
 
     // Verificar atualização imediatamente ao carregar
     forceCheck()
@@ -68,7 +67,6 @@ export function useServiceWorkerUpdate() {
 
     return () => {
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
-      navigator.serviceWorker.removeEventListener('message', handleSWMessage)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('pageshow', handlePageShow)
       clearInterval(intervalId)
