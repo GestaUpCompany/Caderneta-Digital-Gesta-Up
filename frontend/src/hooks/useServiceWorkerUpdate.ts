@@ -19,12 +19,35 @@ export function useServiceWorkerUpdate() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
+    let swRegistration: ServiceWorkerRegistration | null = null
+
+    const handleUpdateFound = () => {
+      const installingWorker = swRegistration?.installing
+      if (!installingWorker) return
+      installingWorker.addEventListener('statechange', () => {
+        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          skipWaitingSent.current = true
+          swRegistration?.waiting?.postMessage({ type: 'SKIP_WAITING' })
+        }
+      })
+    }
+
     // Auto-aplicar SW waiting na abertura do app (sem interromper o usuário)
     // Cobertura para SW que ficou waiting de uma sessão anterior.
     navigator.serviceWorker.getRegistration().then(registration => {
+      swRegistration = registration ?? null
       if (registration?.waiting) {
         skipWaitingSent.current = true
         registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+      }
+
+      // Listener para SW que termina de baixar durante esta sessão.
+      // O forceCheck() abaixo dispara registration.update(); se encontrar
+      // um SW novo, o download inicia e dispara updatefound.
+      // Quando o novo SW termina de instalar, enviamos SKIP_WAITING imediatamente,
+      // ativando a nova versão na mesma abertura do app.
+      if (registration) {
+        registration.addEventListener('updatefound', handleUpdateFound)
       }
     })
 
@@ -70,6 +93,7 @@ export function useServiceWorkerUpdate() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('pageshow', handlePageShow)
       clearInterval(intervalId)
+      swRegistration?.removeEventListener('updatefound', handleUpdateFound)
     }
   }, [forceCheck])
 
