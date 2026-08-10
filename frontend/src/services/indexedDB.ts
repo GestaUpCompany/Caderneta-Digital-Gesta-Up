@@ -205,6 +205,11 @@ export async function getCadastroData(key: string): Promise<any | undefined> {
   return item?.data
 }
 
+export async function deleteCadastroData(key: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('cadastroData', key)
+}
+
 export async function getAllCadastroData(): Promise<Record<string, any>> {
   const db = await getDB()
   const items = await db.getAll('cadastroData')

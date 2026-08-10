@@ -10,6 +10,11 @@ import { LOGO_URL, getFarmLogo } from '../utils/constants'
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
 import { syncAllCadastroData } from '../services/cadastroCache'
+import {
+  shouldInvalidateCache,
+  setRbacVersaoCache,
+  clearFuncionariosCache,
+} from '../services/funcionarioAuthService'
 import FuncionarioLoginModal from '../components/FuncionarioLoginModal'
 import LongPressButton from '../components/LongPressButton'
 import { useFuncionarioAuth } from '../hooks/useFuncionarioAuth'
@@ -73,11 +78,13 @@ export default function Home() {
 
   const {
     rbacAtivo,
+    rbacMisconfigured,
     funcionarioLogado,
     funcionariosDisponiveis,
     showLogin,
     login,
     logout,
+    refreshFuncionarios,
   } = useFuncionarioAuth()
 
   const {
@@ -107,14 +114,46 @@ export default function Home() {
           controleAcessoHabilitado: fazendaData.controle_acesso_habilitado,
           acessoConfinamento: fazendaData.acesso_confinamento || false,
         }))
+
+        // Verifica se a versão de RBAC mudou desde a última checagem.
+        // Se mudou, invalida o cache de funcionários e recarrega a lista.
+        const versaoAtual = typeof fazendaData.rbac_versao === 'number' ? fazendaData.rbac_versao : 0
+        const shouldInvalidate = await shouldInvalidateCache(versaoAtual)
+        if (shouldInvalidate) {
+          await clearFuncionariosCache()
+          await setRbacVersaoCache(versaoAtual)
+          refreshFuncionarios()
+        }
       }
     } catch (error) {
       console.error('[Home] Erro ao buscar config de controle de acesso:', error)
     }
-  }, [acessoId, configurado, dispatch])
+  }, [acessoId, configurado, dispatch, refreshFuncionarios])
 
   useEffect(() => {
     atualizarControleAcesso()
+  }, [atualizarControleAcesso])
+
+  // Interval periódico para cobrir o caso de app em foreground contínuo.
+  // O visibilitychange não dispara se o app nunca vai para background.
+  // A cada 10 minutos, rebusca a versão de RBAC.
+  useEffect(() => {
+    if (!acessoId || !configurado) return
+    const interval = setInterval(() => {
+      atualizarControleAcesso()
+    }, 10 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [acessoId, configurado, atualizarControleAcesso])
+
+  // Revalida RBAC quando o app volta de background
+  useEffect(() => {
+    function handleVisibility() {
+      if (!document.hidden) {
+        atualizarControleAcesso()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [atualizarControleAcesso])
 
   const handleSync = async () => {
@@ -529,6 +568,26 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* Tela de bloqueio quando RBAC está habilitado mas nenhum funcionário tem acesso configurado */}
+      {rbacMisconfigured && (
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-[#1a3a2a] p-6 text-center">
+          <div className="text-5xl mb-4">🔒</div>
+          <h2 className="text-xl font-black text-white mb-2">Controle de acesso ativado</h2>
+          <p className="text-sm text-yellow-400 font-semibold mb-4">
+            Nenhum funcionário com acesso ao app foi encontrado.
+          </p>
+          <p className="text-xs text-gray-300 max-w-sm">
+            Peça ao administrador para cadastrar pelo menos um funcionário com acesso ao app e PIN configurado, ou desativar o controle de acesso na fazenda.
+          </p>
+          <button
+            onClick={() => navigate('/configuracoes')}
+            className="mt-6 bg-yellow-400 text-[#1a3a2a] font-bold px-6 py-3 rounded-xl active:bg-yellow-300 transition-colors"
+          >
+            Ir para Configurações
+          </button>
+        </div>
+      )}
 
       {/* Login de funcionário quando RBAC está ativo */}
       {!appLockLoading && showLogin && funcionariosDisponiveis.length > 0 && !locked && (

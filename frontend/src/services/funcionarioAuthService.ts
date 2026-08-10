@@ -1,5 +1,5 @@
 import { getFuncionariosComAcessoApp } from './supabaseService'
-import { saveCadastroData, getCadastroData } from './indexedDB'
+import { saveCadastroData, getCadastroData, deleteCadastroData } from './indexedDB'
 import { verifyPin } from '../utils/pinHash'
 
 export interface FuncionarioRBAC {
@@ -65,5 +65,26 @@ export async function validarPinFuncionario(
 }
 
 export async function clearFuncionariosCache(): Promise<void> {
-  await saveCadastroData(CACHE_KEY, { fazendaId: '', funcionarios: [], timestamp: 0 })
+  await deleteCadastroData(CACHE_KEY)
+}
+
+// --- Controle de versão RBAC ---
+// O PWA guarda a última versão de rbac_versao vista para a fazenda.
+// Quando a versão muda no banco (admin alterou funcionários ou toggle de RBAC),
+// o PWA invalida o cache e recarrega a lista fresca.
+
+const RBAC_VERSAO_KEY = 'rbac_versao'
+
+export async function getRbacVersaoCache(): Promise<number> {
+  const cached = await getCadastroData(RBAC_VERSAO_KEY)
+  return typeof cached === 'number' ? cached : 0
+}
+
+export async function setRbacVersaoCache(versao: number): Promise<void> {
+  await saveCadastroData(RBAC_VERSAO_KEY, versao)
+}
+
+export async function shouldInvalidateCache(currentVersao: number): Promise<boolean> {
+  const cachedVersao = await getRbacVersaoCache()
+  return cachedVersao !== currentVersao
 }

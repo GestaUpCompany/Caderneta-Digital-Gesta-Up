@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
@@ -10,6 +10,7 @@ import {
 
 export interface UseFuncionarioAuthReturn {
   rbacAtivo: boolean
+  rbacMisconfigured: boolean
   funcionarioLogado: FuncionarioRBAC | null
   funcionariosDisponiveis: FuncionarioRBAC[]
   loading: boolean
@@ -33,6 +34,7 @@ export function useFuncionarioAuth(): UseFuncionarioAuthReturn {
   const [loading, setLoading] = useState(true)
 
   const rbacAtivo = controleAcessoHabilitado && funcionarios.length > 0
+  const rbacMisconfigured = controleAcessoHabilitado && !loading && funcionarios.length === 0
 
   const funcionarioLogado = funcionarioId
     ? {
@@ -92,10 +94,41 @@ export function useFuncionarioAuth(): UseFuncionarioAuthReturn {
     await clearFuncionariosCache()
   }, [dispatch])
 
+  // Sincroniza funcionarioLogado com a lista fresca do banco.
+  // Se o funcionario foi desativado/removido, forca logout.
+  // Se as cadernetas_permitidas mudaram, atualiza o Redux.
+  const lastSyncRef = useRef<string>('')
+  useEffect(() => {
+    if (!funcionarioId || !controleAcessoHabilitado || loading) return
+    if (funcionarios.length === 0) return
+
+    const fresh = funcionarios.find(f => f.id === funcionarioId)
+    const syncKey = `${funcionarioId}:${fresh ? JSON.stringify(fresh.cadernetas_permitidas) : 'NOT_FOUND'}`
+    if (syncKey === lastSyncRef.current) return
+    lastSyncRef.current = syncKey
+
+    if (!fresh) {
+      console.warn('[useFuncionarioAuth] Funcionário não encontrado na lista fresca, forçando logout:', funcionarioId)
+      logout()
+      return
+    }
+
+    const freshCadernetas = fresh.cadernetas_permitidas || []
+    const currentCadernetasJson = JSON.stringify(funcionarioCadernetas)
+    const freshCadernetasJson = JSON.stringify(freshCadernetas)
+    if (currentCadernetasJson !== freshCadernetasJson) {
+      dispatch(setConfig({
+        funcionarioNome: fresh.nome,
+        funcionarioCadernetas: freshCadernetas,
+      }))
+    }
+  }, [funcionarios, funcionarioId, controleAcessoHabilitado, loading, funcionarioCadernetas, dispatch, logout])
+
   const showLogin = rbacAtivo && !funcionarioLogado && !loading
 
   return {
     rbacAtivo,
+    rbacMisconfigured,
     funcionarioLogado,
     funcionariosDisponiveis: funcionarios,
     loading,

@@ -79,7 +79,7 @@ interface UseAppLockParams {
   funcionarioLogado: FuncionarioRBAC | null
   funcionariosDisponiveis: FuncionarioRBAC[]
   onLogin: (funcionario: FuncionarioRBAC) => void
-  onLogout: () => void
+  onLogout: () => void | Promise<void>
 }
 
 export function useAppLock({
@@ -158,7 +158,7 @@ export function useAppLock({
         if (!isWithinTrustInterval()) {
           setLastFuncionario(last || readLastFuncionario(fazendaId) || null)
           setLocked(true)
-          onLogout()
+          void onLogout()
         } else {
           updateLastAccessAt()
         }
@@ -206,7 +206,7 @@ export function useAppLock({
     writeLastFuncionario(null)
     setLastFuncionario(null)
     setLocked(false)
-    onLogout()
+    void onLogout()
   }, [onLogout])
 
   return {
