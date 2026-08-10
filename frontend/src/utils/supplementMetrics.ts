@@ -47,10 +47,8 @@ interface IntervaloTrato {
   consumoDiarioMN: number
 }
 
-const CATEGORIAS_EXCLUIDAS = [
-  'bezerro ao pé',
-  'bezerra ao pé'
-]
+// Todas as categorias são consideradas elegíveis (incluindo bezerros)
+const CATEGORIAS_EXCLUIDAS: string[] = []
 
 function dataSemHoraUTC(dataStr: string): Date {
   const dataPart = dataStr.substring(0, 10)
@@ -81,7 +79,7 @@ function ordenarRegistrosPorData(registros: RegistroSuplementacao[]): RegistroSu
 }
 
 /**
- * Calcula o peso vivo médio do lote, excluindo categorias de bezerros/bezerras
+ * Calcula o peso vivo médio do lote (todas as categorias elegíveis)
  */
 function calcularPesoVivoMedio(categorias: LoteCategoria[]): number | null {
   let pesoTotal = 0
@@ -100,17 +98,6 @@ function calcularPesoVivoMedio(categorias: LoteCategoria[]): number | null {
   })
 
   return quantTotal > 0 ? pesoTotal / quantTotal : null
-}
-
-/**
- * Filtra registros por formulação
- */
-function filtrarRegistrosPorFormulacao(
-  registros: RegistroSuplementacao[],
-  nomeFormulacao: string | null
-): RegistroSuplementacao[] {
-  if (!nomeFormulacao) return registros
-  return registros.filter(reg => reg.formulacao === nomeFormulacao)
 }
 
 function calcularIntervalosTratos(
@@ -205,13 +192,9 @@ export function calcularMetricasSuplementacao(
     return nullMetrics('Não há peso vivo médio cadastrado no lote', categoriasNaoElegiveis)
   }
 
-  // Calcular número de animais elegíveis (excluindo bezerros/bezerras)
+  // Calcular número de animais elegíveis (todas as categorias)
   const animaisElegiveis = categorias.reduce((total, cat) => {
-    const categoriaNormalizada = cat.categoria.toLowerCase()
-    const isExcluida = CATEGORIAS_EXCLUIDAS.some(excluida =>
-      categoriaNormalizada.includes(excluida)
-    )
-    return isExcluida ? total : total + (cat.quant_atual || 0)
+    return total + (cat.quant_atual || 0)
   }, 0)
 
   if (animaisElegiveis === 0) {
@@ -221,9 +204,8 @@ export function calcularMetricasSuplementacao(
     )
   }
 
-  // Filtrar registros pela formulação selecionada
-  const registrosDaFormulacao = filtrarRegistrosPorFormulacao(registros, formulacao.nome)
-  const intervalos = calcularIntervalosTratos(registrosDaFormulacao)
+  // Calcular intervalos considerando todos os registros do lote, independente da formulação
+  const intervalos = calcularIntervalosTratos(registros)
 
   if (intervalos.length === 0) {
     return nullMetrics(

@@ -796,9 +796,9 @@ BEGIN
       v_formulacao_nome := v_registro.formulacao;
 
       SELECT
-        COALESCE(SUM(CASE WHEN LOWER(c.categoria) NOT LIKE '%bezerro%' AND LOWER(c.categoria) NOT LIKE '%bezerra%' THEN c.quant_atual ELSE 0 END), 0)::integer,
-        COALESCE(SUM(CASE WHEN LOWER(c.categoria) NOT LIKE '%bezerro%' AND LOWER(c.categoria) NOT LIKE '%bezerra%' THEN c.peso_vivo_atual_kg_cab * c.quant_atual ELSE 0 END), 0) /
-        NULLIF(SUM(CASE WHEN LOWER(c.categoria) NOT LIKE '%bezerro%' AND LOWER(c.categoria) NOT LIKE '%bezerra%' THEN c.quant_atual ELSE 0 END), 0)
+        COALESCE(SUM(c.quant_atual), 0)::integer,
+        COALESCE(SUM(c.peso_vivo_atual_kg_cab * c.quant_atual), 0) /
+        NULLIF(SUM(c.quant_atual), 0)
       INTO v_animais_elegiveis, v_peso_vivo_medio
       FROM lote_categorias c
       WHERE c.lote_id = v_lote_id;
@@ -821,7 +821,6 @@ BEGIN
       FROM registros_suplementacao r
       WHERE r.fazenda_id = v_fazenda
         AND r.lote_id = v_lote_id
-        AND r.formulacao = v_formulacao_nome
         AND r.deleted_at IS NULL;
 
       IF v_registros_lote IS NULL OR array_length(v_registros_lote, 1) IS NULL OR array_length(v_registros_lote, 1) < 2 THEN
