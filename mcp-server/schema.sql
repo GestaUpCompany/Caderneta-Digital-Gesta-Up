@@ -303,7 +303,7 @@ CREATE TABLE registros_suplementacao (
   formulacao TEXT,
   categorias TEXT,
   leitura TEXT,
-  kg_cocho NUMERIC(10,2) DEFAULT 0,
+  kg_cocho NUMERIC(10,2) NOT NULL CHECK (kg_cocho > 0),
   kg_deposito NUMERIC(10,2) DEFAULT 0,
   n_cabecas INTEGER,
   qtd_bezerros INTEGER,

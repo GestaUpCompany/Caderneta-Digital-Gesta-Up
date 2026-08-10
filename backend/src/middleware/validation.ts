@@ -72,7 +72,7 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     numeroLote: Joi.string().required(),
     produto: Joi.string().required(),
     leituraCocho: Joi.number().integer().min(-1).max(3).required(),
-    kgCocho: Joi.number().min(0).default(0),
+    kgCocho: Joi.number().positive().required(),
     kgDeposito: Joi.number().min(0).default(0),
     espacamentoCochoCmCab: Joi.number().min(0).allow(null),
     espacamentoCochoObs: Joi.string().allow(''),

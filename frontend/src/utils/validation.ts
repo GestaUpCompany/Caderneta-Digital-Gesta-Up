@@ -221,8 +221,8 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
     errors.push({ field: 'formulacao', message: 'Formulação é obrigatória' })
   if (!isScaleValue(data.leituraCocho, -1, 3))
     errors.push({ field: 'leituraCocho', message: 'Leitura deve ser entre -1 e 3' })
-  if (!isPositiveNumber(data.kgCocho))
-    errors.push({ field: 'kgCocho', message: 'KG no cocho deve ser um número positivo' })
+  if (!isPositiveNumber(data.kgCocho) || Number(data.kgCocho) === 0)
+    errors.push({ field: 'kgCocho', message: 'KG no cocho é obrigatório e deve ser maior que zero' })
   if (!isPositiveNumber(data.kgDeposito))
     errors.push({ field: 'kgDeposito', message: 'KG no depósito deve ser um número positivo' })
 

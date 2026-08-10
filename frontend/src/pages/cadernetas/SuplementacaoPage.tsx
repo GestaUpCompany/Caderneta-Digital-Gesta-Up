@@ -483,6 +483,13 @@ export default function SuplementacaoPage() {
       pasto: { required: true },
       formulacao: { required: true },
       leitura: { required: true },
+      kgCocho: {
+        required: true,
+        custom: (value: any) => {
+          if (value && Number(value) <= 0) return 'KG no cocho deve ser maior que zero'
+          return null
+        },
+      },
     }
     if (checklistAtivo) {
       CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
@@ -549,7 +556,7 @@ export default function SuplementacaoPage() {
       teorMs: formulacaoDetalhes?.teorMs ?? null,
       metaConsumo: formulacaoDetalhes?.metaConsumo ?? null,
       leituraCocho: form.leitura || null,
-      kgCocho: form.kgCocho ? Number(form.kgCocho) : 0,
+      kgCocho: form.kgCocho ? Number(form.kgCocho) : null,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
       categorias: categoriasArray,
       categoriasString: categoriasString,
