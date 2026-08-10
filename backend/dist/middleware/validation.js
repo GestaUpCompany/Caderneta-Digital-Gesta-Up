@@ -71,7 +71,7 @@ const schemas = {
         numeroLote: joi_1.default.string().required(),
         produto: joi_1.default.string().required(),
         leituraCocho: joi_1.default.number().integer().min(-1).max(3).required(),
-        kgCocho: joi_1.default.number().min(0).default(0),
+        kgCocho: joi_1.default.number().positive().required(),
         kgDeposito: joi_1.default.number().min(0).default(0),
         espacamentoCochoCmCab: joi_1.default.number().min(0).allow(null),
         espacamentoCochoObs: joi_1.default.string().allow(''),

@@ -7,6 +7,10 @@
 
 Projeto Supabase: `nrwljcvhwbezmoummxbl` ("Cadernetas Digitais")
 
+## Fazenda de testes
+
+`d649c65e-16ab-4b77-a84b-df937aa41cc3` ("Fazenda Gesta'Up") — usar sempre esta fazenda para testes que envolvam dados no Supabase. Não pertence a nenhum grupo (`grupo_id = null`), então funcionalidades que dependem de grupo (ex: Transferência entre fazendas) não são funcionais nela.
+
 ## Comandos
 
 - Build PWA: `cd frontend && npm run build`
@@ -50,7 +54,9 @@ Criar rota `/admin/erros-sync` com:
 
 **Correção aplicada (morte)**: a função `update_quant_atual_morte()` agora verifica se a categoria existe em `lote_categorias` antes do UPDATE. Se não existe, insere um registro em `logs_sync_errors` com `error_code = 'CATEGORIA_NOT_IN_LOTE'`, `caderneta = 'morte'`, e o payload com lote_id, categoria, brinco, pasto, lote, nome_usuario. O INSERT do registro não é rejeitado (o peão já salvou), mas o erro fica auditável na tabela.
 
-**Pendente (maternidade e movimentacao)**: as funções `update_quant_atual_maternidade()` e `update_quant_atual_movimentacao()` precisam do mesmo tratamento. Ambas têm o mesmo padrão de UPDATE condicional que pode afetar 0 linhas silenciosamente.
+**Correção aplicada (movimentacao, 10/08/2026)**: a função `update_quant_atual_movimentacao()` agora verifica se a categoria existe em `lote_categorias` para o lote origem antes do UPDATE. Se não existe, insere um registro em `logs_sync_errors` com `error_code = 'CATEGORIA_NOT_IN_LOTE'`, `caderneta = 'movimentacao'`, e o payload com lote_origem_id, lote_destino_id, categoria, motivo_movimentacao, numero_cabecas, nome_usuario. O INSERT do registro não é rejeitado, mas o erro fica auditável. Migração: `add_categoria_not_in_lote_guard_movimentacao`. Validação: inserido registro de teste com categoria fantasma no lote "Lote 16", log criado corretamente, registro e log de teste removidos após validação. Encontrados 28 registros órfãos em produção (9 lotes, 8 categorias distintas) que dispararão o log em novos INSERTs mas não retroativamente.
+
+**Pendente (maternidade)**: a função `update_quant_atual_maternidade()` precisa do mesmo tratamento. Tem o mesmo padrão de UPDATE condicional que pode afetar 0 linhas silenciosamente.
 
 ### Log de erro visível na lista de registros + eliminação de retries automáticos
 
@@ -77,6 +83,24 @@ Criar rota `/admin/erros-sync` com:
 **Correção a aplicar no Painel Web** (`fazendasService.ts`, Passo 4): após criar o peão em `auth.users` e `peoes`, buscar o UUID do usuário criado (via `peaoResult.user.id` ou consulta a `auth.users` por email) e inserir em `usuarios` (`id = auth_id = <uuid>`, `email`, `nome = 'peao.<acesso_id>'`, `papel = 'controller'`, `ativo = true`) e em `usuario_fazenda` (`usuario_id = <uuid>`, `fazenda_id`, `papel = 'controller'`, `ativo = true`). A Edge Function `create-auth-user-only` provavelmente já retorna o UUID no payload, mas o código atual só checa `peaoResult.success` e descarta o resto.
 
 **Disparador**: quando criar uma nova fazenda no Painel Web, ou quando um peão reportar que cards de lote mostram dados zerados mas o lote existe no banco, verificar se o peão tem vínculo em `usuarios`/`usuario_fazenda`.
+
+### Transferência de lote entre fazendas do mesmo grupo (10/08/2026)
+
+**Funcionalidade**: o motivo `Saída` no PWA ganhou o subtipo `Transferência`, que permite mover parcial ou totalmente um lote para outra fazenda do mesmo `grupo_id`. Disponível apenas para fazendas com `grupo_id NOT NULL`.
+
+**RPC no Supabase**: `transferir_lote_entre_fazendas(p_lote_origem_id, p_fazenda_destino_id, p_categorias jsonb, p_nome_usuario text)` em `SECURITY DEFINER`, atômica. Migrações: `add_transferir_lote_entre_fazendas_rpc`, `fix_transferir_lote_filter_peoes`, `fix_transferir_lote_n_cabecas_origem`.
+
+**Regras implementadas**:
+- **Total**: se todas as cabeças do lote origem são transferidas, o lote origem é inativado (`ativo=false`, `n_cabecas=0`, `lote_categorias.ativo=false`).
+- **Parcial**: o lote origem permanece ativo, `quant_atual` das categorias transferidas é decrementado, `transf_saida` incrementado, `n_cabecas`/`numero_cabecas` atualizado para a soma real das categorias restantes.
+- **Snapshot completo**: o lote destino é criado com todos os dados cadastrais da origem (peso, categoria, dados financeiros, raca, sexo, idade, etc.), exceto `pasto_id` e `modulo_id` (específicos da fazenda origem).
+- **Sem plano nutricional**: `formulacao_id` é sempre NULL no lote destino, conforme spec.
+- **Colisão de nome**: se o lote destino já existe na fazenda destino, o nome é sufixado com ` (1)`, ` (2)`, etc.
+- **Notificações**: criadas para todos os controllers (`papel IN ('admin','controller')`, email não-`@gestaup.internal`) de ambas as fazendas. Mensagens distintas: "Lote recebido da fazenda X" (destino) e "Lote transferido para fazenda Y" (origem).
+
+**PWA**: `MovimentacaoPage.tsx` carrega `fazendasDoGrupo` via `getFazendasDoMesmoGrupo(fazendaId)` no `supabaseService.ts`. Quando `subtipo='Transferência'`, mostra seletor de fazenda destino e chama `transferirLoteEntreFazendas()` (RPC) em vez de `salvarRegistro()`. A validação de cabeças por categoria reusa a mesma UI dos outros subtipos. O `SuccessModal` suprime o botão COMPARTILHAR para transferência (caderneta=undefined).
+
+**Painel Web**: não requer mudanças. As notificações aparecem na rota `/controller/notificacoes` existente. O lote criado na fazenda destino aparece na listagem de lotes normalmente.
 
 ## Auditoria de código (julho/2026)
 

@@ -1,1 +1,0 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/Caderneta-Digital-Gesta-Up/sw.js', { scope: '/Caderneta-Digital-Gesta-Up/' })})}

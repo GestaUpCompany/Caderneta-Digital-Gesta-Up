@@ -4,6 +4,8 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
+import { saveRegistro as saveRegistroIDB } from '../../services/indexedDB'
+import { generateId, generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
@@ -13,7 +15,7 @@ import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
 } from '../../services/cadastroCache'
-import { getLotes } from '../../services/supabaseService'
+import { getLotes, getFazendasDoMesmoGrupo, transferirLoteEntreFazendas } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -30,6 +32,7 @@ const TIPO_SAIDA = [
   { value: 'Apartação', label: 'Apartação', icon: '' },
   { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
   { value: 'Venda', label: 'Venda', icon: '' },
+  { value: 'Transferência', label: 'Transferência', icon: '🔄' },
 ]
 
 const TIPO_ENTRADA = [
@@ -58,10 +61,12 @@ interface FormState {
   destinoCustomizado: string
   cabecasPorCategoria: Record<string, string>
   motivoMovimentacao: string
-  subtipo: string // Enfermaria, Apartação, Refugo de Cocho, Compras
+  subtipo: string // Enfermaria, Apartação, Refugo de Cocho, Compras, Transferência
   brinco: string
   chip: string
   causaObservacao: string
+  fazendaDestinoId: string
+  fazendaDestinoNome: string
 }
 
 const makeInitial = (): FormState => ({
@@ -77,6 +82,8 @@ const makeInitial = (): FormState => ({
   brinco: '',
   chip: '',
   causaObservacao: '',
+  fazendaDestinoId: '',
+  fazendaDestinoNome: '',
 })
 
 export default function MovimentacaoPage() {
@@ -91,6 +98,7 @@ export default function MovimentacaoPage() {
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
   const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([])
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
+  const [fazendasDoGrupo, setFazendasDoGrupo] = useState<{ id: string; nome: string }[]>([])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -100,6 +108,14 @@ export default function MovimentacaoPage() {
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const setCabecasCategoria = (categoria: string, valor: string) => {
+    // Trava: impedir valor maior que o disponível na categoria
+    const cat = detalhesLoteOrigem?.categorias_raw?.find((c: any) => c.categoria === categoria)
+    const max = cat?.quant_atual ?? 0
+    const num = Number(valor)
+    if (valor !== '' && !isNaN(num) && num > max) {
+      setForm((p) => ({ ...p, cabecasPorCategoria: { ...p.cabecasPorCategoria, [categoria]: String(max) } }))
+      return
+    }
     setForm((p) => ({ ...p, cabecasPorCategoria: { ...p.cabecasPorCategoria, [categoria]: valor } }))
   }
 
@@ -158,6 +174,17 @@ export default function MovimentacaoPage() {
           setFornecedoresDisponiveis(fornecedoresData || [])
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
+        }
+      }
+
+      // Carregar fazendas do mesmo grupo (para Transferência entre fazendas)
+      if (fazendaId) {
+        try {
+          const fazendas = await getFazendasDoMesmoGrupo(fazendaId)
+          setFazendasDoGrupo(fazendas || [])
+        } catch (error) {
+          // Erro silencioso: se a fazenda não tem grupo_id, a função retorna []
+          setFazendasDoGrupo([])
         }
       }
     }
@@ -308,6 +335,98 @@ export default function MovimentacaoPage() {
           setRegistroSalvo(result.registro)
           setShowSuccessModal(true)
           setForm(makeInitial())
+        }
+        return
+      }
+
+      // Caso especial: Transferência entre fazendas do mesmo grupo
+      if (form.motivoMovimentacao === 'Saída' && form.subtipo === 'Transferência') {
+        if (!form.fazendaDestinoId) {
+          setErrors([{ field: 'fazendaDestinoId', message: 'Selecione a fazenda de destino' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+
+        // Coletar categorias com quantidade > 0 (reusa mesma lógica abaixo)
+        const categoriasRawTransf = detalhesLoteOrigem?.categorias_raw || []
+        const categoriasParaTransferir = categoriasRawTransf
+          .map((cat: any) => ({
+            categoria: cat.categoria,
+            numeroCabecas: Number(form.cabecasPorCategoria[cat.categoria] || 0),
+            maxCabecas: cat.quant_atual || 0,
+          }))
+          .filter((c: any) => c.numeroCabecas > 0)
+
+        if (categoriasParaTransferir.length === 0) {
+          setErrors([{ field: 'cabecasPorCategoria', message: 'Informe pelo menos uma quantidade de cabeças por categoria' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+
+        const excedeTransf = categoriasParaTransferir.find((c: any) => c.numeroCabecas > c.maxCabecas)
+        if (excedeTransf) {
+          const msg = `Quantidade de ${excedeTransf.categoria} (${excedeTransf.numeroCabecas}) excede o disponível no lote (${excedeTransf.maxCabecas})`
+          setErrors([{ field: `cabecas_${excedeTransf.categoria}`, message: msg }])
+          scrollToFirstError([{ field: `cabecas_${excedeTransf.categoria}`, message: msg }])
+          return
+        }
+
+        try {
+          const result = await transferirLoteEntreFazendas(
+            form.loteOrigemId,
+            form.fazendaDestinoId,
+            categoriasParaTransferir.map((c: any) => ({ categoria: c.categoria, numero_cabecas: c.numeroCabecas })),
+            usuario
+          )
+
+          if (!result.success) {
+            setErrors([{ field: 'general', message: result.error || 'Erro ao transferir lote' }])
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            return
+          }
+
+          // Salvar registro local no IndexedDB para aparecer na lista de movimentações
+          // syncStatus='synced' para não tentar sincronizar de novo (a RPC já fez tudo)
+          try {
+            const registroLocal = {
+              id: generateId(),
+              data: `${form.data} ${new Date().toTimeString().slice(0, 5)}`,
+              loteOrigem: form.loteOrigem,
+              loteOrigemId: form.loteOrigemId,
+              loteDestino: result.fazenda_destino_nome || form.fazendaDestinoNome,
+              loteDestinoId: result.lote_destino_id || '',
+              motivoMovimentacao: 'Saída',
+              subtipo: 'Transferência',
+              numeroCabecas: result.total_cabecas || 0,
+              categoria: categoriasParaTransferir.map((c: any) => c.categoria).join(', '),
+              usuario: usuario,
+              responsavel: usuario,
+              brinco: '',
+              chip: '',
+              causaObservacao: `Transferência para ${result.fazenda_destino_nome}. Lote criado: ${result.lote_destino_nome}.`,
+              syncStatus: 'synced' as const,
+              version: generateVersion(),
+              lastModified: getCurrentTimestamp(),
+              supabaseId: result.lote_destino_id,
+            }
+            await saveRegistroIDB('movimentacao', registroLocal as any)
+          } catch (err) {
+            console.error('[MovimentacaoPage] Erro ao salvar registro local da transferência:', err)
+          }
+
+          setRegistroSalvo({
+            tipo: 'transferencia',
+            loteDestinoNome: result.lote_destino_nome,
+            fazendaDestinoNome: result.fazenda_destino_nome,
+            totalCabecas: result.total_cabecas,
+            transferenciaTotal: result.transferencia_total,
+          })
+          setShowSuccessModal(true)
+          setForm(makeInitial())
+        } catch (error: any) {
+          console.error('[MovimentacaoPage] Erro na transferência:', error)
+          setErrors([{ field: 'general', message: error?.message || 'Erro ao transferir lote. Tente novamente.' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
         }
         return
       }
@@ -608,6 +727,33 @@ export default function MovimentacaoPage() {
                         onChange={setInput('causaObservacao')}
                       />
                     </>
+                  ) : form.subtipo === 'Transferência' ? (
+                    <>
+                      {fazendasDoGrupo.length > 0 ? (
+                        <SearchableModal
+                          label="SELECIONE A FAZENDA DE DESTINO:"
+                          value={form.fazendaDestinoNome}
+                          onChange={(val) => {
+                            const fazenda = fazendasDoGrupo.find(f => f.nome === val)
+                            setForm((p) => ({ ...p, fazendaDestinoNome: val, fazendaDestinoId: fazenda?.id || '' }))
+                          }}
+                          error={getError('fazendaDestinoId')}
+                          options={fazendasDoGrupo.map(f => f.nome)}
+                          placeholder="Buscar fazenda..."
+                          id="fazendaDestino"
+                          name="fazendaDestino"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          Esta fazenda não pertence a nenhum grupo. A transferência entre fazendas requer que a fazenda atual faça parte de um grupo.
+                        </p>
+                      )}
+                      <div className="p-4 bg-blue-50 rounded-xl">
+                        <p className="text-sm text-blue-900">
+                          <strong>Transferência entre fazendas:</strong> o lote será criado na fazenda de destino com os mesmos dados cadastrais (peso, categoria, dados financeiros), sem plano nutricional. Se todas as cabeças forem transferidas, o lote origem será inativado.
+                        </p>
+                      </div>
+                    </>
                   ) : null}
                 </>
               ) : form.motivoMovimentacao === 'Entrada' ? (
@@ -692,7 +838,7 @@ export default function MovimentacaoPage() {
                       value={form.loteDestino}
                       onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                       error={getError('loteDestino')}
-                      options={lotesDisponiveis}
+                      options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
                       placeholder="Buscar destino..."
                     />
                   ) : (
@@ -752,9 +898,9 @@ export default function MovimentacaoPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName="Movimentação"
+        cadernetaName={registroSalvo?.tipo === 'transferencia' ? 'Transferência' : 'Movimentação'}
         registro={registroSalvo}
-        caderneta="movimentacao"
+        caderneta={registroSalvo?.tipo === 'transferencia' ? undefined : 'movimentacao'}
       />
     </div>
   )

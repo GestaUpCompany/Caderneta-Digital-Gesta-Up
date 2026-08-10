@@ -105,6 +105,48 @@ export async function getFazendaByAcessoId(acessoId: string) {
   return data
 }
 
+export async function getFazendasDoMesmoGrupo(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  // Buscar grupo_id da fazenda atual
+  const { data: fazendaAtual, error: errAtual } = await client
+    .from('fazendas')
+    .select('grupo_id')
+    .eq('id', fazendaId)
+    .single()
+  if (errAtual) throw errAtual
+  if (!fazendaAtual?.grupo_id) return []
+
+  // Buscar outras fazendas ativas do mesmo grupo
+  const { data, error } = await client
+    .from('fazendas')
+    .select('id, nome, grupo_id')
+    .eq('grupo_id', fazendaAtual.grupo_id)
+    .eq('ativo', true)
+    .neq('id', fazendaId)
+    .order('nome')
+
+  if (error) throw error
+  return data || []
+}
+
+export async function transferirLoteEntreFazendas(
+  loteOrigemId: string,
+  fazendaDestinoId: string,
+  categorias: { categoria: string; numero_cabecas: number }[],
+  nomeUsuario?: string
+): Promise<{ success: boolean; lote_destino_id?: string; lote_destino_nome?: string; fazenda_destino_nome?: string; total_cabecas?: number; transferencia_total?: boolean; error?: string }> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('transferir_lote_entre_fazendas', {
+    p_lote_origem_id: loteOrigemId,
+    p_fazenda_destino_id: fazendaDestinoId,
+    p_categorias: categorias,
+    p_nome_usuario: nomeUsuario || null,
+  })
+
+  if (error) throw error
+  return data
+}
+
 export async function createFazenda(fazenda: TablesInsert<'fazendas'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client

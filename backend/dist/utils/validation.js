@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sanitizeString = exports.validateGoogleSheetsUrl = void 0;
+exports.sanitizeString = void 0;
 exports.isValidDate = isValidDate;
 exports.isPositiveNumber = isPositiveNumber;
 exports.isScaleValue = isScaleValue;
@@ -29,10 +29,6 @@ function isScaleValue(value, min, max, required = false) {
     const num = Number(value);
     return !isNaN(num) && num >= min && num <= max;
 }
-const validateGoogleSheetsUrl = (url) => {
-    return /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/.test(url);
-};
-exports.validateGoogleSheetsUrl = validateGoogleSheetsUrl;
 const sanitizeString = (value) => {
     return value.replace(/[<>\"']/g, '');
 };
