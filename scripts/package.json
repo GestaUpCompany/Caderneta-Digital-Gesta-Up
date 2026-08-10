@@ -1,0 +1,13 @@
+{
+  "name": "cadernetas-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "create-caderneta": "tsx create-caderneta.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.5",
+    "tsx": "^4.19.0",
+    "typescript": "^7.0.2"
+  }
+}

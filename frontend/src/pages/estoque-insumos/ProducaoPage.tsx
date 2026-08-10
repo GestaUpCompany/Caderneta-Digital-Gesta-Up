@@ -5,11 +5,11 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import { Input, Select, DatePicker, Button } from '../../components/ui'
 
-// Mapeamento dieta → insumos (será definido na planilha base)
+// Mapeamento dieta → insumos (será definido no cadastro de dietas no Supabase)
 // Por enquanto, usando um mapeamento estático como exemplo
 const DIETA_INSUMOS_MAP: Record<string, string[]> = {
   // Exemplo: cada dieta usa todos os insumos
-  // Isso será ajustado quando tiver o formato exato da planilha
+  // Isso será ajustado quando tiver o formato exato do cadastro de dietas
 }
 
 interface FormData {
@@ -41,7 +41,7 @@ export default function ProducaoPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      // TODO: Load data from Supabase instead of Google Sheets
+      // TODO: carregar dados do Supabase
       setError('Funcionalidade em migração para Supabase')
       setLoading(false)
     }
@@ -52,7 +52,7 @@ export default function ProducaoPage() {
   // Carregar dados de suplementação (insumos e dietas)
   useEffect(() => {
     async function carregarSuplementacaoData() {
-      // TODO: Load data from Supabase instead of Google Sheets
+      // TODO: carregar dados do Supabase
       setSuplementacaoData(null)
     }
 
@@ -90,7 +90,7 @@ export default function ProducaoPage() {
     setError(null)
 
     try {
-      // TODO: Save to Supabase instead of Google Sheets
+      // TODO: salvar no Supabase
       setError('Funcionalidade em migração para Supabase')
       setSaving(false)
       return

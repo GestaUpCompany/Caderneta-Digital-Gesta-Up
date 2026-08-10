@@ -76,7 +76,7 @@ export default function SaidaInsumosPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      // TODO: Load data from Supabase instead of Google Sheets
+      // TODO: carregar dados do Supabase
       setLoading(false)
     }
 
@@ -86,7 +86,7 @@ export default function SaidaInsumosPage() {
   // Carregar dados de suplementação (insumos e dietas)
   useEffect(() => {
     async function carregarSuplementacaoData() {
-      // TODO: Load data from Supabase instead of Google Sheets
+      // TODO: carregar dados do Supabase
       setSuplementacaoData(null)
       setLoadingSuplementacao(false)
     }

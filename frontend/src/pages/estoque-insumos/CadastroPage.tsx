@@ -12,7 +12,7 @@ export default function CadastroPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      // TODO: Load data from Supabase instead of Google Sheets
+      // TODO: carregar dados do Supabase
       setError('Funcionalidade em migração para Supabase')
       setLoading(false)
     }

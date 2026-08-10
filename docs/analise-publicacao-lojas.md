@@ -6,7 +6,7 @@ Base: estado do repo em 07/08/2026 (commit atual)
 
 ## Arquitetura atual
 
-PWA React 18 + Vite, offline-first, com persistência em IndexedDB (biblioteca `idb`) e sincronização para Supabase. Estado global via Redux Toolkit + redux-persist, UI em Tailwind, Service Worker customizado (Workbox `injectManifest`) para cache de assets estáticos e Web Push (VAPID) para notificações. Backend Express separado para integração com Google Sheets, deployado na Vercel, sem middleware de autenticação (débito S9 no AGENTS.md).
+PWA React 18 + Vite, offline-first, com persistência em IndexedDB (biblioteca `idb`) e sincronização para Supabase. Estado global via Redux Toolkit + redux-persist, UI em Tailwind, Service Worker customizado (Workbox `injectManifest`) para cache de assets estáticos e Web Push (VAPID) para notificações. Backend Express legacy para auth/version, deployado na Vercel, sem middleware de autenticação (débito S9 no AGENTS.md).
 
 Capacitor já integrado e ambos os projetos nativos já scaffoldados:
 - `@capacitor/android` e `@capacitor/ios` no `frontend/package.json`

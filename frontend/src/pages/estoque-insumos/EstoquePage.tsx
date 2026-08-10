@@ -35,7 +35,7 @@ export default function EstoquePage() {
       setLoading(true)
       setError(null)
 
-      // TODO: Load data from Supabase instead of Google Sheets
+      // TODO: carregar dados do Supabase
       throw new Error('Funcionalidade em migração para Supabase')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados de estoque')
@@ -127,7 +127,7 @@ export default function EstoquePage() {
             {showInicializar && (
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">DEFINIR ESTOQUE INICIAL</h2>
-                <p className="text-gray-500 italic">Insumos agora devem ser gerenciados na aba Suplementação da planilha</p>
+                <p className="text-gray-500 italic">Insumos agora devem ser gerenciados no cadastro de Suplementação</p>
                 <div className="flex gap-4 mt-6">
                   <Button
                     onClick={() => {

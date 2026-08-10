@@ -29,7 +29,6 @@ interface CadernetaConfig {
   label: string
   emoji: string
   cor: string
-  sheetName?: string
   disponivel: boolean
   campos: CampoConfig[]
 }
@@ -57,7 +56,7 @@ function readLine(question: string): Promise<string> {
     output: process.stdout
   })
   return new Promise(resolve => {
-    rl.question(question, answer => {
+    rl.question(question, (answer: string) => {
       rl.close()
       resolve(answer)
     })
@@ -78,7 +77,6 @@ async function interactiveInput(): Promise<CadernetaConfig> {
   const label = await readLine('Label (uppercase, ex: PESAGEM): ')
   const emoji = await readLine('Emoji (ex: ⚖️): ')
   const cor = await readLine('Cor hexadecimal (ex: #8B5CF6): ')
-  const sheetName = await readLine('Nome da planilha (opcional, ex: Pesagem): ')
   const disponivel = await confirm('Disponível?')
 
   const numCampos = parseInt(await readLine('Quantos campos? '), 10)
@@ -128,7 +126,6 @@ async function interactiveInput(): Promise<CadernetaConfig> {
     label,
     emoji,
     cor,
-    sheetName: sheetName || undefined,
     disponivel,
     campos
   }
@@ -139,7 +136,7 @@ function jsonInput(configPath: string): CadernetaConfig {
   return JSON.parse(configContent)
 }
 
-function cloneInput(cadernetaId: string): CadernetaConfig {
+async function cloneInput(cadernetaId: string): Promise<CadernetaConfig> {
   // Ler estrutura de caderneta existente
   const pagePath = path.join(FRONTEND_SRC, `pages/cadernetas/${kebabToPascal(cadernetaId)}Page.tsx`)
   const pageContent = fs.readFileSync(pagePath, 'utf-8')
@@ -151,10 +148,10 @@ function cloneInput(cadernetaId: string): CadernetaConfig {
   }
 
   const camposStr = formStateMatch[1]
-  const campoLines = camposStr.split('\n').filter(line => line.trim() && !line.trim().startsWith('//'))
+  const campoLines = camposStr.split('\n').filter((line: string) => line.trim() && !line.trim().startsWith('//'))
   
   const campos: CampoConfig[] = []
-  campoLines.forEach(line => {
+  campoLines.forEach((line: string) => {
     const match = line.match(/\s*(\w+):\s*(string|number|boolean|\[\])/)
     if (match) {
       const nome = match[1]

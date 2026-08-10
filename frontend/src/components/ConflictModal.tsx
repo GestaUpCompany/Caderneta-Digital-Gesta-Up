@@ -73,7 +73,7 @@ export default function ConflictModal({ conflict, onResolved }: Props) {
                 <div className="grid grid-cols-3 bg-gray-100 px-3 py-2 text-xs font-bold text-gray-600 uppercase">
                   <span>Campo</span>
                   <span className="text-center">Seu celular</span>
-                  <span className="text-center">Planilha</span>
+                  <span className="text-center">Servidor</span>
                 </div>
                 {diffKeys.map((key) => (
                   <div
@@ -113,7 +113,7 @@ export default function ConflictModal({ conflict, onResolved }: Props) {
               disabled={loading}
               onClick={() => handleResolve('remote')}
             >
-              ☁️ MANTER DA PLANILHA
+              ☁️ MANTER DO SERVIDOR
             </button>
           </div>
 

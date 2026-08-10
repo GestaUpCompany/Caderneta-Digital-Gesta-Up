@@ -26,10 +26,6 @@ export function isScaleValue(value: unknown, min: number, max: number, required 
   return !isNaN(num) && num >= min && num <= max
 }
 
-export const validateGoogleSheetsUrl = (url: string): boolean => {
-  return /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/.test(url)
-}
-
 export const sanitizeString = (value: string): string => {
   return value.replace(/[<>\"']/g, '')
 }
