@@ -95,15 +95,16 @@ export default function SuplementacaoListaPage() {
       }
 
       const registrosDoLote = (todosRegistros as any[])
-        .filter(r => r.loteId === loteId && r.formulacao === nomeFormulacao)
+        .filter(r => r.loteId === loteId)
         .map(r => ({
+          id: r.id,
           data: r.data,
           kg_cocho: r.kgCocho ? Number(r.kgCocho) : null,
           kg_deposito: r.kgDeposito ? Number(r.kgDeposito) : null,
           formulacao: r.formulacao,
         }))
 
-      const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao)
+      const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao, registro.id)
       if (!metricas) return null
       return {
         consumoMedioGeralPercentPV: metricas.consumoMedioGeralPercentPV,

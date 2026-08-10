@@ -10,6 +10,7 @@ function round2(value: number | null | undefined): number | null {
 }
 
 interface RegistroSuplementacao {
+  id?: string
   data: string
   kg_cocho: number | null
   kg_deposito: number | null
@@ -168,11 +169,15 @@ function nullMetrics(
 
 /**
  * Calcula todas as métricas de suplementação
+ * @param registroAtualId ID do registro atual. Se fornecido, o consumo "geral" é individual
+ *   (baseado no intervalo deste registro até o próximo). Se null, o consumo geral é null
+ *   (último registro do lote não tem consumo).
  */
 export function calcularMetricasSuplementacao(
   categorias: LoteCategoria[],
   registros: RegistroSuplementacao[],
-  formulacao: Formulacao
+  formulacao: Formulacao,
+  registroAtualId?: string
 ): SupplementMetrics {
   // Identificar categorias não elegíveis
   const categoriasNaoElegiveis: string[] = []
@@ -214,16 +219,25 @@ export function calcularMetricasSuplementacao(
     )
   }
 
-  // Média geral: cobre do primeiro trato até o início do último trato
-  const dataInicioGeral = intervalos[0].inicio
-  const dataFimGeral = intervalos[intervalos.length - 1].fim
-  const mediaMNGeral = calcularMediaPorDiasCobertos(intervalos, dataInicioGeral, dataFimGeral)
+  // Consumo geral: individual do registro atual, baseado no intervalo até o próximo
+  // O último registro do lote não tem consumo (null)
+  const ordenados = ordenarRegistrosPorData(registros)
+  let consumoMedioGeralKgMN: number | null = null
 
-  const consumoMedioGeralKgMN = mediaMNGeral !== null && animaisElegiveis > 0
-    ? mediaMNGeral / animaisElegiveis
-    : null
+  if (registroAtualId) {
+    const idx = ordenados.findIndex(r => r.id === registroAtualId)
+    if (idx >= 0 && idx < ordenados.length - 1) {
+      const atual = ordenados[idx]
+      const proximo = ordenados[idx + 1]
+      const inicio = dataSemHoraUTC(atual.data)
+      const fim = dataSemHoraUTC(proximo.data)
+      const dias = diferencaDias(inicio, fim)
+      const kgCocho = atual.kg_cocho || 0
+      consumoMedioGeralKgMN = animaisElegiveis > 0 ? (kgCocho / dias) / animaisElegiveis : null
+    }
+  }
 
-  // Média 30 dias: cobre os últimos 30 dias até hoje
+  // Média 30 dias: cobre os últimos 30 dias até hoje (métrica do lote, mesma para todos os registros em MN)
   const hoje = new Date()
   hoje.setUTCHours(0, 0, 0, 0)
   const inicio30Dias = new Date(hoje)

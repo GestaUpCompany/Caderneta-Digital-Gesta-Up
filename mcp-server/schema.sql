@@ -767,6 +767,8 @@ DECLARE
   v_consumo_30dias_pct_pv NUMERIC;
   v_custo_medio NUMERIC;
   v_fazenda_idx INTEGER;
+  v_idx_registro INTEGER;
+  v_consumo_30dias_mn_lote NUMERIC;
 BEGIN
   IF p_fazenda_id IS NULL THEN
     SELECT array_agg(DISTINCT fazenda_id)
@@ -827,20 +829,29 @@ BEGIN
         CONTINUE;
       END IF;
 
-      v_total_mn := 0;
-      v_total_dias := 0;
-      FOR v_i IN 1 .. array_length(v_registros_lote, 1) - 1 LOOP
-        v_intervalo_dias := GREATEST((v_datas_lote[v_i + 1] - v_datas_lote[v_i])::integer, 1);
-        v_total_mn := v_total_mn + (v_kgs_lote[v_i] / v_intervalo_dias);
-        v_total_dias := v_total_dias + 1;
+      -- Encontrar o índice do registro atual no array do lote
+      v_idx_registro := NULL;
+      FOR v_i IN 1 .. array_length(v_registros_lote, 1) LOOP
+        IF v_registros_lote[v_i] = v_registro.id THEN
+          v_idx_registro := v_i;
+          EXIT;
+        END IF;
       END LOOP;
 
-      IF v_total_dias = 0 THEN
+      IF v_idx_registro IS NULL THEN
         CONTINUE;
       END IF;
 
-      v_consumo_geral_kg_mn := v_total_mn / NULLIF(v_animais_elegiveis, 0);
+      -- Consumo geral: individual por registro, baseado no intervalo até o próximo
+      -- O último registro do lote não tem consumo (null)
+      IF v_idx_registro < array_length(v_registros_lote, 1) THEN
+        v_intervalo_dias := GREATEST((v_datas_lote[v_idx_registro + 1] - v_datas_lote[v_idx_registro])::integer, 1);
+        v_consumo_geral_kg_mn := (v_kgs_lote[v_idx_registro] / v_intervalo_dias) / NULLIF(v_animais_elegiveis, 0);
+      ELSE
+        v_consumo_geral_kg_mn := NULL;
+      END IF;
 
+      -- Consumo 30 dias: média dos consumos diários dos últimos 30 dias (métrica do lote, mesma para todos os registros em MN)
       v_data_inicio := CURRENT_DATE - 30;
       v_total_mn := 0;
       v_total_dias := 0;
@@ -862,9 +873,18 @@ BEGIN
         v_consumo_30dias_kg_mn := NULL;
       END IF;
 
+      -- Conversões para kg_ms e pct_pv usam o teor_ms da formulação do registro atual
       IF v_teor_ms IS NOT NULL AND v_teor_ms > 0 THEN
-        v_consumo_geral_kg_ms := v_consumo_geral_kg_mn * (v_teor_ms / 100);
-        v_consumo_30dias_kg_ms := v_consumo_30dias_kg_mn * (v_teor_ms / 100);
+        IF v_consumo_geral_kg_mn IS NOT NULL THEN
+          v_consumo_geral_kg_ms := v_consumo_geral_kg_mn * (v_teor_ms / 100);
+        ELSE
+          v_consumo_geral_kg_ms := NULL;
+        END IF;
+        IF v_consumo_30dias_kg_mn IS NOT NULL THEN
+          v_consumo_30dias_kg_ms := v_consumo_30dias_kg_mn * (v_teor_ms / 100);
+        ELSE
+          v_consumo_30dias_kg_ms := NULL;
+        END IF;
       ELSE
         v_consumo_geral_kg_ms := NULL;
         v_consumo_30dias_kg_ms := NULL;

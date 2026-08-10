@@ -201,15 +201,16 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
           }
 
           const registrosDoLote = (registros as any[]).filter(
-            r => r.loteId === loteId && r.formulacao === nomeFormulacao
+            r => r.loteId === loteId
           ).map(r => ({
+            id: r.id,
             data: r.data,
             kg_cocho: r.kgCocho ? Number(r.kgCocho) : null,
             kg_deposito: r.kgDeposito ? Number(r.kgDeposito) : null,
             formulacao: r.formulacao,
           }))
 
-          const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao)
+          const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao, registroParaCompartilhar.id)
           if (metricas) {
             registroParaShare = {
               ...registroParaCompartilhar,

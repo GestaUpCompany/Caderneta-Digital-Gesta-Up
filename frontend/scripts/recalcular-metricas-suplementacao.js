@@ -11,12 +11,7 @@ if (!SUPABASE_ANON_KEY) {
   process.exit(1)
 }
 
-const CATEGORIAS_EXCLUIDAS = [
-  'bezerro',
-  'bezerra',
-  'bezerro ao pé',
-  'bezerra ao pé',
-]
+const CATEGORIAS_EXCLUIDAS = []
 
 function dataSemHoraUTC(dataStr) {
   const dataPart = dataStr.substring(0, 10)
@@ -104,7 +99,7 @@ function calcularMediaPorDiasCobertos(intervalos, dataInicio, dataFim) {
   return diasCobertos > 0 ? totalMN / diasCobertos : null
 }
 
-function calcularMetricasSuplementacao(categorias, registros, formulacao) {
+function calcularMetricasSuplementacao(categorias, registros, formulacao, registroAtualId) {
   const categoriasNaoElegiveis = []
   categorias.forEach(cat => {
     const categoriaNormalizada = cat.categoria.toLowerCase()
@@ -152,8 +147,8 @@ function calcularMetricasSuplementacao(categorias, registros, formulacao) {
     }
   }
 
-  const registrosDaFormulacao = filtrarRegistrosPorFormulacao(registros, formulacao.nome)
-  const intervalos = calcularIntervalosTratos(registrosDaFormulacao)
+  // Intervalos considerando todos os registros do lote, independente da formulação
+  const intervalos = calcularIntervalosTratos(registros)
 
   if (intervalos.length === 0) {
     return {
@@ -168,14 +163,25 @@ function calcularMetricasSuplementacao(categorias, registros, formulacao) {
     }
   }
 
-  const dataInicioGeral = intervalos[0].inicio
-  const dataFimGeral = intervalos[intervalos.length - 1].fim
-  const mediaMNGeral = calcularMediaPorDiasCobertos(intervalos, dataInicioGeral, dataFimGeral)
+  // Consumo geral: individual do registro atual, baseado no intervalo até o próximo
+  // O último registro do lote não tem consumo (null)
+  const ordenados = ordenarRegistrosPorData(registros)
+  let consumoMedioGeralKgMN = null
 
-  const consumoMedioGeralKgMN = mediaMNGeral !== null
-    ? mediaMNGeral / animaisElegiveis
-    : null
+  if (registroAtualId) {
+    const idx = ordenados.findIndex(r => r.id === registroAtualId)
+    if (idx >= 0 && idx < ordenados.length - 1) {
+      const atual = ordenados[idx]
+      const proximo = ordenados[idx + 1]
+      const inicio = dataSemHoraUTC(atual.data)
+      const fim = dataSemHoraUTC(proximo.data)
+      const dias = diferencaDias(inicio, fim)
+      const kgCocho = Number(atual.kg_cocho) || 0
+      consumoMedioGeralKgMN = (kgCocho / dias) / animaisElegiveis
+    }
+  }
 
+  // Média 30 dias: média dos consumos diários dos últimos 30 dias (métrica do lote)
   const hoje = new Date()
   hoje.setUTCHours(0, 0, 0, 0)
   const inicio30Dias = new Date(hoje)
@@ -323,7 +329,7 @@ async function main() {
       custo_ms_tonelada: null,
     }
 
-    const metricas = calcularMetricasSuplementacao(cats, regsDoLote, formulacao)
+    const metricas = calcularMetricasSuplementacao(cats, regsDoLote, formulacao, registro.id)
 
     if (metricas.motivoFalha) {
       console.warn(`Registro ${registro.id}: ${metricas.motivoFalha}`)
