@@ -19,6 +19,7 @@ import {
   getFormulacaoByNomeCached,
   getRegistrosSuplementacaoByLoteCached,
   getPlanoNutricionalAtivoByLoteIdCached,
+  getNotasLeituraCochoConfigCached,
 } from '../../services/cadastroCache'
 import { getLotes, getPastos, getFormulacoes } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
@@ -188,6 +189,7 @@ export default function SuplementacaoPage() {
   const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null } | null>(null)
   const [registrosSuplementacao, setRegistrosSuplementacao] = useState<any[]>([])
   const [metricasSuplementacao, setMetricasSuplementacao] = useState<any>(null)
+  const [notasConfig, setNotasConfig] = useState<any[]>([])
 
   // Buscar detalhes da formulação quando selecionada (usa cache para offline)
   useEffect(() => {
@@ -427,6 +429,24 @@ export default function SuplementacaoPage() {
     carregarRegistrosSuplementacao()
   }, [form.loteId, fazendaId])
 
+  // Carregar configuração de notas de leitura de cocho da fazenda
+  useEffect(() => {
+    async function carregarNotasConfig() {
+      if (!fazendaId) {
+        setNotasConfig([])
+        return
+      }
+      try {
+        const notas = await getNotasLeituraCochoConfigCached(fazendaId)
+        setNotasConfig(notas || [])
+      } catch (error) {
+        console.error('Erro ao carregar config de notas de leitura de cocho:', error)
+        setNotasConfig([])
+      }
+    }
+    carregarNotasConfig()
+  }, [fazendaId])
+
   // Calcular métricas de suplementação quando dados mudarem
   useEffect(() => {
     if (!detalhesLote || !registrosSuplementacao || !formulacaoDetalhes) {
@@ -462,6 +482,20 @@ export default function SuplementacaoPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Calcular kg previsto com base no último kg_cocho do lote + percentual da nota selecionada
+  const kgPrevisto = useMemo(() => {
+    if (!form.leitura || registrosSuplementacao.length === 0 || notasConfig.length === 0) return null
+    const ultimoRegistro = registrosSuplementacao[0]
+    const ultimoKgCocho = Number(ultimoRegistro?.kg_cocho)
+    if (!ultimoKgCocho || isNaN(ultimoKgCocho) || ultimoKgCocho <= 0) return null
+    const notaConfig = notasConfig.find((n: any) => Number(n.nota) === Number(form.leitura))
+    if (!notaConfig) return null
+    const percentual = Number(notaConfig.percentual_ajuste)
+    if (isNaN(percentual)) return null
+    const previsto = ultimoKgCocho * (1 + percentual / 100)
+    return Math.round(previsto * 100) / 100
+  }, [form.leitura, registrosSuplementacao, notasConfig])
 
   // Validation rules (dynamic: skip deposito fields when pasto has no deposito)
   const validationRules = useMemo(() => {
@@ -768,6 +802,23 @@ export default function SuplementacaoPage() {
             error={getError('leitura')}
             gridCols={5}
           />
+          {kgPrevisto != null && (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+              <span className="text-xl">📊</span>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">KG Previsto</span>
+                <span className="text-lg font-black text-blue-900">
+                  {kgPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg
+                </span>
+              </div>
+              <span className="text-xs text-blue-600 ml-auto text-right max-w-[50%]">
+                {(() => {
+                  const notaConfig = notasConfig.find((n: any) => Number(n.nota) === Number(form.leitura))
+                  return notaConfig?.descricao || ''
+                })()}
+              </span>
+            </div>
+          )}
           <Input
             label={<span>Total Suplementado no Cocho (kg) <span className="text-red-500">*</span></span>}
             placeholder="0"

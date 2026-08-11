@@ -848,6 +848,25 @@ export async function getRegistrosSuplementacaoByLoteCached(fazendaId: string, l
 }
 
 /**
+ * Busca configuração de notas de leitura de cocho por fazenda.
+ * Sempre vai ao Supabase quando online. Usa cache apenas como fallback offline.
+ */
+export async function getNotasLeituraCochoConfigCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('notas-leitura-cocho-config', fazendaId)
+  const cached = getCachedQuery(key) as any[] | null
+
+  if (!navigator.onLine) return cached || null
+
+  try {
+    const data = await supabaseService.getNotasLeituraCochoConfig(fazendaId)
+    if (data && Array.isArray(data) && data.length > 0) setCachedQuery(key, data)
+    return data
+  } catch {
+    return cached || null
+  }
+}
+
+/**
  * Busca registros de leitura de cocho por lote.
  * Sempre vai ao Supabase quando online (dados dinâmicos críticos).
  * Usa cache apenas como fallback offline.
