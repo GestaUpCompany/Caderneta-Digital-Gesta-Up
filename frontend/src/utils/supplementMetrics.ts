@@ -169,15 +169,14 @@ function nullMetrics(
 
 /**
  * Calcula todas as métricas de suplementação
- * @param registroAtualId ID do registro atual. Se fornecido, o consumo "geral" é individual
- *   (baseado no intervalo deste registro até o próximo). Se null, o consumo geral é null
- *   (último registro do lote não tem consumo).
+ * @param registroAtualId ID do registro atual. Mantido por compatibilidade com callers,
+ *   mas não afeta mais o cálculo: consumo geral voltou a ser média do lote inteiro.
  */
 export function calcularMetricasSuplementacao(
   categorias: LoteCategoria[],
   registros: RegistroSuplementacao[],
   formulacao: Formulacao,
-  registroAtualId?: string
+  _registroAtualId?: string
 ): SupplementMetrics {
   // Identificar categorias não elegíveis
   const categoriasNaoElegiveis: string[] = []
@@ -219,23 +218,14 @@ export function calcularMetricasSuplementacao(
     )
   }
 
-  // Consumo geral: individual do registro atual, baseado no intervalo até o próximo
-  // O último registro do lote não tem consumo (null)
-  const ordenados = ordenarRegistrosPorData(registros)
-  let consumoMedioGeralKgMN: number | null = null
+  // Média geral: cobre do primeiro trato até o início do último trato (métrica do lote)
+  const dataInicioGeral = intervalos[0].inicio
+  const dataFimGeral = intervalos[intervalos.length - 1].fim
+  const mediaMNGeral = calcularMediaPorDiasCobertos(intervalos, dataInicioGeral, dataFimGeral)
 
-  if (registroAtualId) {
-    const idx = ordenados.findIndex(r => r.id === registroAtualId)
-    if (idx >= 0 && idx < ordenados.length - 1) {
-      const atual = ordenados[idx]
-      const proximo = ordenados[idx + 1]
-      const inicio = dataSemHoraUTC(atual.data)
-      const fim = dataSemHoraUTC(proximo.data)
-      const dias = diferencaDias(inicio, fim)
-      const kgCocho = atual.kg_cocho || 0
-      consumoMedioGeralKgMN = animaisElegiveis > 0 ? (kgCocho / dias) / animaisElegiveis : null
-    }
-  }
+  const consumoMedioGeralKgMN = mediaMNGeral !== null && animaisElegiveis > 0
+    ? mediaMNGeral / animaisElegiveis
+    : null
 
   // Média 30 dias: cobre os últimos 30 dias até hoje (métrica do lote, mesma para todos os registros em MN)
   const hoje = new Date()
