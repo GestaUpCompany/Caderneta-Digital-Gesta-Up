@@ -19,7 +19,7 @@ import {
   clearCachedQuery,
   buildCacheKey,
 } from '../../services/cadastroCache'
-import { getLotes, createIndividuo } from '../../services/supabaseService'
+import { getLotes, getPastos, createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
@@ -194,6 +194,7 @@ export default function MaternidadePage() {
   const [hasIndividuos, setHasIndividuos] = useState<boolean | null>(null)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [tratamentosDisponiveis, setTratamentosDisponiveis] = useState<any[]>([])
   const [racasDisponiveis, setRacasDisponiveis] = useState<any[]>([])
@@ -354,10 +355,19 @@ export default function MaternidadePage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
+        setLotesPastoMap(cache.lotesPastoMap || {})
       } else if (fazendaId) {
         try {
-          const lotesData = await getLotes(fazendaId)
+          const [lotesData, pastosData] = await Promise.all([
+            getLotes(fazendaId),
+            getPastos(fazendaId),
+          ])
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          const pastoNomeById: Record<string, string> = {}
+          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+          const mapa: Record<string, string> = {}
+          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+          setLotesPastoMap(mapa)
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
         }
@@ -392,6 +402,7 @@ export default function MaternidadePage() {
       console.log('[MaternidadePage] Cache atualizado, recarregando dados')
       if (data) {
         setLotesDisponiveis(data.lotes || [])
+        setLotesPastoMap(data.lotesPastoMap || {})
       }
     })
 
@@ -729,18 +740,19 @@ export default function MaternidadePage() {
           </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label={<span>LOTE <span className="text-red-500">*</span></span>}
+              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
               value={form.lote}
               onChange={set('lote')}
               error={getError('lote')}
               options={lotesDisponiveis}
-              placeholder="Buscar lote..."
+              secondaryText={(lote) => lotesPastoMap[lote] || ''}
+              placeholder="Buscar pasto ou lote..."
               id="lote"
               name="lote"
             />
           ) : (
             <Input
-              label={<span>LOTE <span className="text-red-500">*</span></span>}
+              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.lote}
               onChange={setInputEvent('lote')}

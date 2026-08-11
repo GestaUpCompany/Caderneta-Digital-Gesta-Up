@@ -14,13 +14,13 @@ import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getCachedCadastroData,
   getPastoByNomeCached,
-  getLotesByPastoIdCached,
+  getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getFormulacaoByNomeCached,
   getRegistrosSuplementacaoByLoteCached,
   getPlanoNutricionalAtivoByLoteIdCached,
 } from '../../services/cadastroCache'
-import { getPastos, getFormulacoes } from '../../services/supabaseService'
+import { getLotes, getPastos, getFormulacoes } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -178,9 +178,10 @@ export default function SuplementacaoPage() {
   const [showFezesModal, setShowFezesModal] = useState(false)
   const [formulacoesDisponiveis, setFormulacoesDisponiveis] = useState<string[]>([])
   const [kgDeposito, setKgDeposito] = useState('')
-  const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
-  const [lotesNoPasto, setLotesNoPasto] = useState<any[]>([])
+  const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [loteSemPasto, setLoteSemPasto] = useState<boolean>(false)
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
@@ -216,14 +217,10 @@ export default function SuplementacaoPage() {
     carregarDetalhesFormulacao()
   }, [form.formulacao, fazendaId])
 
-  // Carregar formulações e pastos ao abrir a página
+  // Carregar formulações ao abrir a página
   useEffect(() => {
     const loadData = async () => {
       const cache = await getCachedCadastroData()
-      if (cache && cache.pastos && cache.pastos.length > 0) {
-        setPastosDisponiveis(cache.pastos || [])
-      }
-
       // Preenche imediatamente com o cache para não bloquear o modal
       if (cache && cache.formulacoes && cache.formulacoes.length > 0) {
         setFormulacoesDisponiveis(cache.formulacoes)
@@ -246,18 +243,27 @@ export default function SuplementacaoPage() {
     loadData()
   }, [fazendaId])
 
-  // Carregar pastos do cache global, com fallback para Supabase
+  // Carregar lotes do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
       const cache = await getCachedCadastroData()
-      if (cache && cache.pastos && cache.pastos.length > 0) {
-        setPastosDisponiveis(cache.pastos || [])
+      if (cache && cache.lotes && cache.lotes.length > 0) {
+        setLotesDisponiveis(cache.lotes || [])
+        setLotesPastoMap(cache.lotesPastoMap || {})
       } else if (fazendaId) {
         try {
-          const pastosData = await getPastos(fazendaId)
-          setPastosDisponiveis(pastosData?.map((p: any) => p.nome) || [])
+          const [lotesData, pastosData] = await Promise.all([
+            getLotes(fazendaId),
+            getPastos(fazendaId),
+          ])
+          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          const pastoNomeById: Record<string, string> = {}
+          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+          const mapa: Record<string, string> = {}
+          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+          setLotesPastoMap(mapa)
         } catch (error) {
-          console.error('Erro ao carregar pastos do Supabase:', error)
+          console.error('Erro ao carregar lotes do Supabase:', error)
         }
       }
     }
@@ -269,7 +275,8 @@ export default function SuplementacaoPage() {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[SuplementacaoPage] Cache atualizado, recarregando dados')
       if (data) {
-        setPastosDisponiveis(data.pastos || [])
+        setLotesDisponiveis(data.lotes || [])
+        setLotesPastoMap(data.lotesPastoMap || {})
         setFormulacoesDisponiveis(data.formulacoes || [])
       }
     })
@@ -277,71 +284,51 @@ export default function SuplementacaoPage() {
     return unsubscribe
   }, [])
 
-  // Buscar lotes e detalhes quando pasto é selecionado
+  // Buscar detalhes do lote e derivar o pasto quando o lote é selecionado
   useEffect(() => {
-    async function carregarLotesDoPasto() {
-      if (!form.pasto || !fazendaId) {
+    async function carregarDetalhesLoteEPasto() {
+      if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
-        setLotesNoPasto([])
-        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
+        setLoteSemPasto(false)
+        setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
         return
       }
 
       try {
-        // Buscar o pasto pelo nome para obter o ID
-        const pasto = await getPastoByNomeCached(fazendaId, form.pasto)
-        if (!pasto) {
+        const lote = await getLoteByNomeCached(fazendaId, form.numeroLote)
+        if (!lote) {
           setDetalhesLote(null)
-          setLotesNoPasto([])
-          setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
+          setLoteSemPasto(false)
+          setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
           return
         }
 
-        const pastoId = pasto.id
-        setForm(prev => ({ ...prev, pastoId }))
-
-        // Buscar lotes que ocupam esse pasto
-        const lotes = await getLotesByPastoIdCached(fazendaId, pastoId)
-        setLotesNoPasto(lotes || [])
-
-        if (!lotes || lotes.length === 0) {
-          setDetalhesLote(null)
-          setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
-          return
-        }
-
-        // Se houver 1+ lote(s), usar o primeiro como padrão
-        // Se houver >1, o usuário poderá selecionar posteriormente (futuro)
-        const lotePrincipal = lotes[0]
+        const pastoNome = lote.pastos?.nome || ''
+        setLoteSemPasto(!lote.pasto_id)
+        setForm(prev => ({ ...prev, pasto: pastoNome, pastoId: lote.pasto_id || '', loteId: lote.id }))
 
         // Buscar detalhes de categorias do lote
-        const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lotePrincipal.id)
+        const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
 
         // Combinar dados do lote com dados de categorias
         setDetalhesLote({
-          ...lotePrincipal,
+          ...lote,
           categorias: categoriasDetalhes.categorias,
           n_cabecas: categoriasDetalhes.quant_atual,
           peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
           qtd_bezerros: categoriasDetalhes.qtd_bezerros,
           categorias_raw: categoriasDetalhes.categorias_raw
         })
-
-        setForm(prev => ({
-          ...prev,
-          numeroLote: lotePrincipal.nome || '',
-          loteId: lotePrincipal.id
-        }))
       } catch (error) {
-        console.error('Erro ao carregar lotes do pasto:', error)
+        console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
-        setLotesNoPasto([])
-        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoId: '' }))
+        setLoteSemPasto(false)
+        setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
       }
     }
 
-    carregarLotesDoPasto()
-  }, [form.pasto, fazendaId])
+    carregarDetalhesLoteEPasto()
+  }, [form.numeroLote, fazendaId])
 
   // Buscar dados do pasto quando selecionado para verificar possui_deposito
   useEffect(() => {
@@ -480,7 +467,13 @@ export default function SuplementacaoPage() {
   const validationRules = useMemo(() => {
     const base: any = {
       data: { required: true },
-      pasto: { required: true },
+      numeroLote: {
+        required: true,
+        custom: () => {
+          if (loteSemPasto) return 'Este lote não possui pasto vinculado. Vincule um pasto ao lote antes de lançar suplementação.'
+          return null
+        },
+      },
       formulacao: { required: true },
       leitura: { required: true },
       kgCocho: {
@@ -512,7 +505,7 @@ export default function SuplementacaoPage() {
       }
     }
     return base
-  }, [possuiDeposito, checklistAtivo, kgDeposito])
+  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -687,36 +680,27 @@ export default function SuplementacaoPage() {
               <DatePicker value={form.data} onChange={set('data')} error={getError('data')} compact inline />
             </div>
           </div>
-          {pastosDisponiveis.length > 0 ? (
+          {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="PASTO"
-              value={form.pasto}
-              onChange={set('pasto')}
-              error={getError('pasto')}
-              options={pastosDisponiveis}
-              placeholder="Buscar pasto..."
-              id="pasto"
-              name="pasto"
+              label="PASTO/LOTE"
+              value={form.numeroLote}
+              onChange={set('numeroLote')}
+              error={getError('numeroLote')}
+              options={lotesDisponiveis}
+              secondaryText={(lote) => lotesPastoMap[lote] || ''}
+              placeholder="Buscar pasto ou lote..."
+              id="numeroLote"
+              name="numeroLote"
             />
           ) : (
             <Input
-              label="PASTO"
+              label="PASTO/LOTE"
               placeholder="Carregando..."
-              value={form.pasto}
-              onChange={setInput('pasto')}
-              error={getError('pasto')}
+              value={form.numeroLote}
+              onChange={setInput('numeroLote')}
+              error={getError('numeroLote')}
               disabled
             />
-          )}
-          {lotesNoPasto.length > 1 && (
-            <p className="text-sm text-amber-600 font-medium">
-              ⚠️ Este pasto contém {lotesNoPasto.length} lotes ativos. O primeiro foi selecionado automaticamente.
-            </p>
-          )}
-          {lotesNoPasto.length === 0 && form.pasto && (
-            <p className="text-sm text-red-600 font-medium">
-              ⚠️ Nenhum lote ativo ocupando este pasto.
-            </p>
           )}
           {detalhesLote && (
             <LoteOcupandoPastoCard
@@ -785,10 +769,11 @@ export default function SuplementacaoPage() {
             gridCols={5}
           />
           <Input
-            label="Total Suplementado no Cocho (kg)"
+            label={<span>Total Suplementado no Cocho (kg) <span className="text-red-500">*</span></span>}
             placeholder="0"
             value={form.kgCocho}
             onChange={setInput('kgCocho')}
+            error={getError('kgCocho')}
             inputMode="decimal"
             type="number"
             min="0"

@@ -45,6 +45,8 @@ export interface CadastroCacheData {
   formulacoes?: string[]
   pastosDetalhes?: Record<string, PastoDetalhes>
   lotesDetalhes?: Record<string, LoteDetalhes>
+  /** Mapa nome do lote -> nome do pasto onde o lote está. Usado para exibir o pasto ao lado do lote nos seletores. */
+  lotesPastoMap?: Record<string, string>
   individuos?: { id: string; id_manejo: string | null; id_brinco: string | null; id_chip: string | null; id_provisorio_cria: string | null; sexo: string; raca: string; categoria: string; classificacao_matriz: string | null; numero_partos: number | null; status: string }[]
 }
 
@@ -141,6 +143,7 @@ export async function loadFromCache(): Promise<CadastroCacheData | null> {
         formulacoes: cached[CACHE_KEYS.PASTOS_LOTES]?.formulacoes || [],
         pastosDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.pastosDetalhes || {},
         lotesDetalhes: cached[CACHE_KEYS.PASTOS_LOTES]?.lotesDetalhes || {},
+        lotesPastoMap: cached[CACHE_KEYS.PASTOS_LOTES]?.lotesPastoMap || {},
         individuos: cached[CACHE_KEYS.PASTOS_LOTES]?.individuos || [],
         mineral: cached[CACHE_KEYS.SUPLEMENTACAO]?.mineral || [],
         proteinado: cached[CACHE_KEYS.SUPLEMENTACAO]?.proteinado || [],
@@ -172,6 +175,7 @@ export async function saveToCache(data: CadastroCacheData): Promise<void> {
       formulacoes: data.formulacoes || [],
       pastosDetalhes: data.pastosDetalhes || {},
       lotesDetalhes: data.lotesDetalhes || {},
+      lotesPastoMap: data.lotesPastoMap || {},
       individuos: (data.individuos && data.individuos.length > 0)
         ? data.individuos
         : (await getCadastroData(CACHE_KEYS.PASTOS_LOTES))?.individuos || [],
@@ -217,6 +221,10 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
 
       const pastos = pastosData?.map((p: any) => p.nome) || []
       const lotes = lotesData?.map((l: any) => l.nome) || []
+      const pastoNomeById: Record<string, string> = {}
+      pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+      const lotesPastoMap: Record<string, string> = {}
+      lotesData?.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || '' })
       const frigorificos = frigorificosData?.map((f: any) => f.nome) || []
       const causasMorte = causasMorteData?.map((c: any) => c.nome) || []
       const bebedouros = bebedourosData?.map((b: any) => b.nome) || []
@@ -272,6 +280,7 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         funcionarios,
         pastosDetalhes: {},
         lotesDetalhes: {},
+        lotesPastoMap,
         individuos,
         mineral,
         proteinado,
@@ -486,6 +495,7 @@ export async function getCachedCadastroData(): Promise<CadastroCacheData | null>
       insumos: [...(cacheData.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
       pastosDetalhes: cacheData.pastosDetalhes || {},
       lotesDetalhes: cacheData.lotesDetalhes || {},
+      lotesPastoMap: cacheData.lotesPastoMap || {},
       individuos: cacheData.individuos || [],
     }
   }
@@ -510,6 +520,7 @@ export async function getCachedCadastroData(): Promise<CadastroCacheData | null>
       insumos: [...(cached.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
       pastosDetalhes: cached.pastosDetalhes || {},
       lotesDetalhes: cached.lotesDetalhes || {},
+      lotesPastoMap: cached.lotesPastoMap || {},
       individuos: cached.individuos || [],
     }
   }

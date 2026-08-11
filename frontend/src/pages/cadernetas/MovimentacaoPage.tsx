@@ -15,7 +15,7 @@ import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
 } from '../../services/cadastroCache'
-import { getLotes, getFazendasDoMesmoGrupo, transferirLoteEntreFazendas } from '../../services/supabaseService'
+import { getLotes, getPastos, getFazendasDoMesmoGrupo, transferirLoteEntreFazendas } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -95,6 +95,7 @@ export default function MovimentacaoPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
   const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([])
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
@@ -160,18 +161,25 @@ export default function MovimentacaoPage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
+        setLotesPastoMap(cache.lotesPastoMap || {})
         setFrigorificosDisponiveis(cache.frigorificos || [])
         setFornecedoresDisponiveis(cache.fornecedores || [])
       } else if (fazendaId) {
         try {
-          const [lotesData, frigorificosData, fornecedoresData] = await Promise.all([
+          const [lotesData, frigorificosData, fornecedoresData, pastosData] = await Promise.all([
             getLotes(fazendaId),
             Promise.resolve([]), // getFrigorificos not available
-            Promise.resolve([])  // getFornecedores not available
+            Promise.resolve([]), // getFornecedores not available
+            getPastos(fazendaId),
           ])
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
           setFrigorificosDisponiveis(frigorificosData || [])
           setFornecedoresDisponiveis(fornecedoresData || [])
+          const pastoNomeById: Record<string, string> = {}
+          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+          const mapa: Record<string, string> = {}
+          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+          setLotesPastoMap(mapa)
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
         }
@@ -197,6 +205,7 @@ export default function MovimentacaoPage() {
       console.log('[MovimentacaoPage] Cache atualizado, recarregando dados')
       if (data) {
         setLotesDisponiveis(data.lotes || [])
+        setLotesPastoMap(data.lotesPastoMap || {})
         setFrigorificosDisponiveis(data.frigorificos || [])
         setFornecedoresDisponiveis(data.fornecedores || [])
       }
@@ -560,18 +569,19 @@ export default function MovimentacaoPage() {
           </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="LOTE"
+              label="PASTO/LOTE"
               value={form.loteOrigem}
               onChange={(val) => setForm((p) => ({ ...p, loteOrigem: val }))}
               error={getError('loteOrigem')}
               options={lotesDisponiveis}
-              placeholder="Buscar lote..."
+              secondaryText={(lote) => lotesPastoMap[lote] || ''}
+              placeholder="Buscar pasto ou lote..."
               id="loteOrigem"
               name="loteOrigem"
             />
           ) : (
             <Input
-              label="LOTE"
+              label="PASTO/LOTE"
               placeholder="Carregando..."
               value={form.loteOrigem}
               onChange={setInput('loteOrigem')}
@@ -709,12 +719,13 @@ export default function MovimentacaoPage() {
                     <>
                       {lotesDisponiveis.length > 0 ? (
                         <SearchableModal
-                          label="SELECIONE O LOTE:"
+                          label="SELECIONE O PASTO/LOTE:"
                           value={form.loteDestino}
                           onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                           error={getError('loteDestino')}
                           options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
-                          placeholder="Buscar lote..."
+                          secondaryText={(lote) => lotesPastoMap[lote] || ''}
+                          placeholder="Buscar pasto ou lote..."
                           id="loteDestino"
                           name="loteDestino"
                         />
@@ -810,12 +821,13 @@ export default function MovimentacaoPage() {
                     <>
                       {lotesDisponiveis.length > 0 ? (
                         <SearchableModal
-                          label="SELECIONE O LOTE:"
+                          label="SELECIONE O PASTO/LOTE:"
                           value={form.loteDestino}
                           onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                           error={getError('loteDestino')}
                           options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
-                          placeholder="Buscar lote..."
+                          secondaryText={(lote) => lotesPastoMap[lote] || ''}
+                          placeholder="Buscar pasto ou lote..."
                           id="loteDestino"
                           name="loteDestino"
                         />
@@ -848,6 +860,7 @@ export default function MovimentacaoPage() {
                       onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                       error={getError('loteDestino')}
                       options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
+                      secondaryText={(lote) => lotesPastoMap[lote] || ''}
                       placeholder="Buscar destino..."
                     />
                   ) : (

@@ -16,6 +16,8 @@ interface SearchableModalProps {
   onCreateMulti?: (ids: { manejo: string; brinco: string; chip: string }, createField?: 'manejo' | 'brinco' | 'chip') => void
   createNewLabel?: string
   createField?: 'manejo' | 'brinco' | 'chip'
+  /** Quando informado, exibe um texto secundário (ex: pasto) à esquerda de cada opção, com a opção original (ex: lote) à direita. Também é usado na busca. */
+  secondaryText?: (option: string) => string
 }
 
 export default function SearchableModal({
@@ -33,6 +35,7 @@ export default function SearchableModal({
   onCreateMulti,
   createNewLabel = 'Novo',
   createField,
+  secondaryText,
 }: SearchableModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -47,12 +50,14 @@ export default function SearchableModal({
 
   useEffect(() => {
     if (isOpen) {
+      const term = searchTerm.toLowerCase()
       const filtered = options.filter(option =>
-        option.toLowerCase().includes(searchTerm.toLowerCase())
+        option.toLowerCase().includes(term) ||
+        (secondaryText && secondaryText(option).toLowerCase().includes(term))
       )
       setFilteredOptions(filtered)
     }
-  }, [searchTerm, options, isOpen])
+  }, [searchTerm, options, isOpen, secondaryText])
 
   // Prevenir navegação para trás quando modal está aberto (botão voltar do celular)
   useEffect(() => {
@@ -159,7 +164,14 @@ export default function SearchableModal({
             : 'border-gray-200 focus:border-gray-400'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-300'}`}
       >
-        {value || 'Selecione...'}
+        {secondaryText && value ? (
+          <div className="flex items-center justify-between gap-2">
+            <span>{secondaryText(value) || '-'}</span>
+            <span className="text-gray-500">{value}</span>
+          </div>
+        ) : (
+          value || 'Selecione...'
+        )}
       </button>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
 
@@ -201,7 +213,14 @@ export default function SearchableModal({
                               : 'bg-gray-50 hover:bg-gray-100 border-2 border-gray-200'
                           }`}
                         >
-                          {option}
+                          {secondaryText ? (
+                            <div className="flex items-center justify-between gap-2">
+                              <span>{secondaryText(option) || '-'}</span>
+                              <span className="text-gray-500">{option}</span>
+                            </div>
+                          ) : (
+                            option
+                          )}
                         </button>
                       ))}
                     </div>

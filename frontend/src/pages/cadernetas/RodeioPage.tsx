@@ -15,7 +15,7 @@ import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
 } from '../../services/cadastroCache'
-import { getLotes, getLastRodeioDate, getFuncionarios } from '../../services/supabaseService'
+import { getLotes, getPastos, getLastRodeioDate, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -172,6 +172,7 @@ export default function RodeioPage() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [metaRodeioInfo, setMetaRodeioInfo] = useState<{ metaDias: number; diasDesdeUltimo: number; diasAteProximo: number; isDentroMeta: boolean; hasRecord: boolean } | null>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
@@ -182,15 +183,22 @@ export default function RodeioPage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
+        setLotesPastoMap(cache.lotesPastoMap || {})
         setFuncionariosDisponiveis(cache.funcionarios || [])
       } else if (fazendaId) {
         try {
-          const [lotesData, funcionariosData] = await Promise.all([
+          const [lotesData, funcionariosData, pastosData] = await Promise.all([
             getLotes(fazendaId),
-            getFuncionarios(fazendaId)
+            getFuncionarios(fazendaId),
+            getPastos(fazendaId),
           ])
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
           setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
+          const pastoNomeById: Record<string, string> = {}
+          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+          const mapa: Record<string, string> = {}
+          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+          setLotesPastoMap(mapa)
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
         }
@@ -205,6 +213,7 @@ export default function RodeioPage() {
       console.log('[RodeioPage] Cache atualizado, recarregando dados')
       if (data) {
         setLotesDisponiveis(data.lotes || [])
+        setLotesPastoMap(data.lotesPastoMap || {})
         setFuncionariosDisponiveis(data.funcionarios || [])
       }
     })
@@ -453,12 +462,13 @@ export default function RodeioPage() {
           <div className="grid grid-cols-1 gap-3">
             {lotesDisponiveis.length > 0 ? (
               <SearchableModal
-                label="LOTE"
+                label="PASTO/LOTE"
                 value={form.numeroLote}
                 onChange={set('numeroLote')}
                 error={getError('numeroLote')}
                 options={lotesDisponiveis}
-                placeholder="Buscar lote..."
+                secondaryText={(lote) => lotesPastoMap[lote] || ''}
+                placeholder="Buscar pasto ou lote..."
                 id="numeroLote"
                 name="numeroLote"
               />

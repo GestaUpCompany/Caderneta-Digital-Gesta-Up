@@ -15,7 +15,7 @@ import {
   getLoteDetalhesComCategoriasCached,
   getCausasMorteCached,
 } from '../../services/cadastroCache'
-import { getLotes, getFormulacoes } from '../../services/supabaseService'
+import { getLotes, getPastos, getFormulacoes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -176,6 +176,7 @@ export default function MortePage() {
   const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
+  const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [causasMorte, setCausasMorte] = useState<{ value: string; label: string }[]>([])
   const [dietas, setDietas] = useState<{ value: string; label: string }[]>([])
@@ -236,10 +237,19 @@ export default function MortePage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
+        setLotesPastoMap(cache.lotesPastoMap || {})
       } else if (fazendaId) {
         try {
-          const lotesData = await getLotes(fazendaId)
+          const [lotesData, pastosData] = await Promise.all([
+            getLotes(fazendaId),
+            getPastos(fazendaId),
+          ])
           setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          const pastoNomeById: Record<string, string> = {}
+          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+          const mapa: Record<string, string> = {}
+          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+          setLotesPastoMap(mapa)
         } catch (error) {
           console.error('Erro ao carregar dados do Supabase:', error)
         }
@@ -254,6 +264,7 @@ export default function MortePage() {
       console.log('[MortePage] Cache atualizado, recarregando dados')
       if (data) {
         setLotesDisponiveis(data.lotes || [])
+        setLotesPastoMap(data.lotesPastoMap || {})
       }
     })
 
@@ -439,18 +450,19 @@ export default function MortePage() {
           </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label={<span>LOTE <span className="text-red-500">*</span></span>}
+              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
               value={form.lote}
               onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
               error={getError('lote')}
               options={lotesDisponiveis}
-              placeholder="Buscar lote..."
+              secondaryText={(lote) => lotesPastoMap[lote] || ''}
+              placeholder="Buscar pasto ou lote..."
               id="lote"
               name="lote"
             />
           ) : (
             <Input
-              label={<span>LOTE <span className="text-red-500">*</span></span>}
+              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.lote}
               onChange={setInput('lote')}
