@@ -61,6 +61,9 @@ export default function ClimaPage() {
   // Validation rules
   const validationRules: any = {
     data: { required: true },
+    _responsavel: {
+      custom: () => (!usuario || usuario.trim() === '') ? 'Responsável é obrigatório' : null
+    },
     _medicoes_min: {
       custom: () => form.medicoes.length === 0 ? 'Selecione pelo menos 1 pluviômetro' : null
     }

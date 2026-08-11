@@ -98,24 +98,30 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.idProvisorioCria))
-    errors.push({ field: 'idProvisorioCria', message: 'ID Provisório é obrigatório' })
-  if (!isNonEmptyString(data.tratamento))
-    errors.push({ field: 'tratamento', message: 'Tratamento é obrigatório' })
-  
-  // Validate tipoParto - can be array (new) or string (old for compatibility)
+
+  // Detectar se é natimorto (2ª cria natimorta envia tipoParto com 'Natimorto')
   const tipoParto = data.tipoParto
+  const isNatimorto = Array.isArray(tipoParto) ? tipoParto.includes('Natimorto') : tipoParto === 'Natimorto'
+
+  if (!isNatimorto) {
+    if (!isNonEmptyString(data.idProvisorioCria))
+      errors.push({ field: 'idProvisorioCria', message: 'ID Provisório é obrigatório' })
+    if (!isNonEmptyString(data.tratamento))
+      errors.push({ field: 'tratamento', message: 'Tratamento é obrigatório' })
+    if (!isNonEmptyString(data.sexo))
+      errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
+    if (!isNonEmptyString(data.raca))
+      errors.push({ field: 'raca', message: 'Raça é obrigatória' })
+  }
+
+  // Validate tipoParto - can be array (new) or string (old for compatibility)
   if (Array.isArray(tipoParto)) {
     if (tipoParto.length === 0)
       errors.push({ field: 'tipoParto', message: 'Tipo de parto é obrigatório' })
   } else if (!isNonEmptyString(tipoParto)) {
     errors.push({ field: 'tipoParto', message: 'Tipo de parto é obrigatório' })
   }
-  
-  if (!isNonEmptyString(data.sexo))
-    errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
-  if (!isNonEmptyString(data.raca))
-    errors.push({ field: 'raca', message: 'Raça é obrigatória' })
+
   // Pelo menos um ID da mãe é obrigatório (Manejo, Brinco ou Chip)
   const hasManejo = isNonEmptyString(data.idManejoMae)
   const hasBrinco = isNonEmptyString(data.idBrincoMae)
@@ -192,16 +198,28 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
     animaisEntreverados: 'Animais entrevero',
     animalMorto: 'Animal morto',
   }
-  Object.entries(avaliacoesSN).forEach(([campo, label]) => {
-    const valor = (data.diagnosticos as any)?.[campo]?.valor
-    if (!isSnBoolean(valor))
-      errors.push({ field: campo, message: `${label}: selecione SIM ou NÃO` })
-  })
+  // Só valida diagnósticos quando o checklist está ativo (payload envia diagnosticos != null)
+  if (data.diagnosticos) {
+    Object.entries(avaliacoesSN).forEach(([campo, label]) => {
+      const valor = (data.diagnosticos as any)?.[campo]?.valor
+      if (!isSnBoolean(valor))
+        errors.push({ field: campo, message: `${label}: selecione SIM ou NÃO` })
+    })
+  }
 
   if (!isScaleValue(data.escoreFezes, 1, 5, true))
     errors.push({ field: 'escoreFezes', message: 'Escore de fezes é obrigatório (1 a 5)' })
   if (!isScaleValue(data.equipe, 1, 5, true))
     errors.push({ field: 'equipe', message: 'Avaliação da equipe é obrigatória (1 a 5)' })
+
+  // Validar nomes da equipe quando equipe > 0
+  const numEquipe = Number(data.equipe) || 0
+  if (numEquipe > 0) {
+    const nomes = data.equipeNomes as string[] | undefined
+    if (!nomes || nomes.length < numEquipe || nomes.some(v => !v || String(v).trim() === '')) {
+      errors.push({ field: 'equipeNomes', message: 'Preencha o nome de todas as pessoas da equipe' })
+    }
+  }
 
   return { isValid: errors.length === 0, errors }
 }
@@ -223,8 +241,11 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
     errors.push({ field: 'leituraCocho', message: 'Leitura deve ser entre -1 e 3' })
   if (!isPositiveNumber(data.kgCocho) || Number(data.kgCocho) === 0)
     errors.push({ field: 'kgCocho', message: 'KG no cocho é obrigatório e deve ser maior que zero' })
-  if (!isPositiveNumber(data.kgDeposito))
-    errors.push({ field: 'kgDeposito', message: 'KG no depósito deve ser um número positivo' })
+  // KG no depósito é obrigatório e maior que zero apenas quando o pasto possui depósito
+  if (data.possuiDeposito) {
+    if (!isPositiveNumber(data.kgDeposito) || Number(data.kgDeposito) === 0)
+      errors.push({ field: 'kgDeposito', message: 'KG no depósito é obrigatório e deve ser maior que zero' })
+  }
 
   return { isValid: errors.length === 0, errors }
 }
@@ -236,6 +257,8 @@ export function validateBebedouros(data: Record<string, unknown>): ValidationRes
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.responsavel))
     errors.push({ field: 'responsavel', message: 'Responsável é obrigatório' })
+  if (!isNonEmptyString(data.numeroBebedouro))
+    errors.push({ field: 'numeroBebedouro', message: 'Bebedouro é obrigatório' })
   if (!isScaleValue(data.leituraBebedouro, 1, 3, true))
     errors.push({ field: 'leituraBebedouro', message: 'Leitura do bebedouro deve ser entre 1 e 3' })
 
@@ -247,16 +270,26 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  
+
   const motivo = data.motivoMovimentacao as string
-  
+  const subtipo = data.subtipo as string
+
   // Para Doação, apenas data e motivo são obrigatórios
   if (motivo === 'Doação') {
     if (!isNonEmptyString(data.motivoMovimentacao))
       errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
     return { isValid: errors.length === 0, errors }
   }
-  
+
+  // Para Transferência entre fazendas, validar origem e motivo (destino e categoria são tratados pela RPC)
+  if (motivo === 'Saída' && subtipo === 'Transferência') {
+    if (!isNonEmptyString(data.loteOrigem))
+      errors.push({ field: 'loteOrigem', message: 'Lote de origem é obrigatório' })
+    if (!isNonEmptyString(data.motivoMovimentacao))
+      errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
+    return { isValid: errors.length === 0, errors }
+  }
+
   // Para outros motivos, validar campos normalmente
   if (!isNonEmptyString(data.loteOrigem))
     errors.push({ field: 'loteOrigem', message: 'Lote de origem é obrigatório' })
@@ -300,13 +333,10 @@ export function validateMorte(data: Record<string, unknown>): ValidationResult {
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.pasto))
-    errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
   if (!isNonEmptyString(data.lote))
     errors.push({ field: 'lote', message: 'Lote é obrigatório' })
-  // Pelo menos um dos dois é obrigatório
-  if (!isNonEmptyString(data.brinco) && !isNonEmptyString(data.chip))
-    errors.push({ field: 'brinco', message: 'Brinco ou Chip é obrigatório' })
+  if (!isNonEmptyString(data.brinco))
+    errors.push({ field: 'brinco', message: 'Brinco é obrigatório' })
   if (!isNonEmptyString(data.categoria))
     errors.push({ field: 'categoria', message: 'Categoria do animal é obrigatória' })
   if (data.categoria === 'Outros' && !isNonEmptyString(data.categoriaOutros))
@@ -315,10 +345,33 @@ export function validateMorte(data: Record<string, unknown>): ValidationResult {
     errors.push({ field: 'sexo', message: 'Sexo é obrigatório' })
   if (!isNonEmptyString(data.raca))
     errors.push({ field: 'raca', message: 'Raça é obrigatória' })
+  if (data.raca === 'Outros' && !isNonEmptyString(data.racaOutros))
+    errors.push({ field: 'racaOutros', message: 'Especifique a raça quando selecionar OUTROS' })
   if (!isNonEmptyString(data.idade))
     errors.push({ field: 'idade', message: 'Idade é obrigatória' })
+  if (!isPositiveNumber(data.pesoVivo))
+    errors.push({ field: 'pesoVivo', message: 'Peso vivo é obrigatório' })
   if (!isNonEmptyString(data.causaMorte))
     errors.push({ field: 'causaMorte', message: 'Causa da morte é obrigatória' })
+  if (data.causaMorte === 'Outros' && !isNonEmptyString(data.causaMorteOutros))
+    errors.push({ field: 'causaMorteOutros', message: 'Especifique a causa da morte quando selecionar OUTROS' })
+  if (!isPositiveNumber(data.escore))
+    errors.push({ field: 'escore', message: 'Escore corporal é obrigatório' })
+
+  // Validar 19 campos de diagnóstico (cada um deve ter valor S ou N)
+  const CAMPOS_DIAGNOSTICO = [
+    'secrecaoOrificios', 'sintomasPneumonia', 'inchaco', 'incoordenacaoTremores',
+    'apatiaFraqueza', 'desordensDigestivas', 'fraturas', 'decomposicao',
+    'doencasPrevias', 'medicamentosRecentes', 'morteSubita', 'animalSozinho',
+    'salivacaoExcessiva', 'sinaisIntoxicacao', 'carrapatosMoscas', 'encontradoVivo',
+    'medicado', 'animalInchado', 'animalBicheira',
+  ]
+  const diagnosticos = data.diagnosticos as Record<string, { valor: string | null; observacao: string }> | undefined
+  for (const campo of CAMPOS_DIAGNOSTICO) {
+    const valor = diagnosticos?.[campo]?.valor
+    if (!isSnBoolean(valor))
+      errors.push({ field: campo, message: 'Selecione SIM ou NÃO' })
+  }
 
   return { isValid: errors.length === 0, errors }
 }
@@ -470,30 +523,35 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.maquinaVeiculo))
     errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
-  
-  // implementoUtilizado is now optional
-  // horaInicial and horaFinal are now optional
-  
-  // Validar formato de horas only if provided
+
+  // implementoUtilizado is optional
+
+  // horaInicial and horaFinal are optional, validate format if provided
   if (data.horaInicial && !isValidTime(data.horaInicial))
     errors.push({ field: 'horaInicial', message: 'Hora inicial inválida. Use formato HH:MM' })
-  
+
   if (data.horaFinal && !isValidTime(data.horaFinal))
     errors.push({ field: 'horaFinal', message: 'Hora final inválida. Use formato HH:MM' })
-  
+
   // Validar que hora final é maior que hora inicial only if both provided
   if (isValidTime(data.horaInicial) && isValidTime(data.horaFinal) && !isTimeAfter(data.horaInicial, data.horaFinal)) {
     errors.push({ field: 'horaFinal', message: 'Hora final deve ser maior que hora inicial' })
   }
-  
-  // odometroHorimetroInicial and odometroHorimetroFinal are now optional
-  
+
+  // odometroHorimetroInicial and odometroHorimetroFinal are required
+  if (!isNonEmptyString(data.odometroHorimetroInicial))
+    errors.push({ field: 'odometroHorimetroInicial', message: 'Odômetro/horímetro inicial é obrigatório' })
+  if (!isNonEmptyString(data.odometroHorimetroFinal))
+    errors.push({ field: 'odometroHorimetroFinal', message: 'Odômetro/horímetro final é obrigatório' })
+
   // Validar que total odometro foi calculado (deve ser positivo quando ambos odômetros estão preenchidos)
   if (data.odometroHorimetroInicial && data.odometroHorimetroFinal && !isPositiveNumber(data.totalOdometroHorimetro)) {
     errors.push({ field: 'totalOdometroHorimetro', message: 'Odômetro final deve ser maior que o inicial' })
   }
 
-  // tipoOperacao is now optional
+  // tipoOperacao is required
+  if (!isNonEmptyString(data.tipoOperacao))
+    errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
 
   // Validar valores positivos em campos numéricos only if provided
   if (data.quantidadeTotalAplicada && !isPositiveNumber(data.quantidadeTotalAplicada))
@@ -503,10 +561,10 @@ export function validateOperacoesMaquinas(data: Record<string, unknown>): Valida
   if (data.doseAplicada && !isPositiveNumber(data.doseAplicada))
     errors.push({ field: 'doseAplicada', message: 'Dose aplicada deve ser positiva' })
 
-  // Validar perguntas S/N only if provided
-  if (data.metaDiariaBatida && !isSnBoolean(data.metaDiariaBatida))
+  // metaDiariaBatida and algumImprevisto are required
+  if (!isSnBoolean(data.metaDiariaBatida))
     errors.push({ field: 'metaDiariaBatida', message: 'Meta diária batida: selecione SIM ou NÃO' })
-  if (data.algumImprevisto && !isSnBoolean(data.algumImprevisto))
+  if (!isSnBoolean(data.algumImprevisto))
     errors.push({ field: 'algumImprevisto', message: 'Algum imprevisto: selecione SIM ou NÃO' })
 
   return { isValid: errors.length === 0, errors }

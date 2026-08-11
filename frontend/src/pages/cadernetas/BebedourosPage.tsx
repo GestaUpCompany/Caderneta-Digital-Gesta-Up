@@ -260,6 +260,7 @@ export default function BebedourosPage() {
   // Validation rules
   const validationRules: any = {
     data: { required: true },
+    numeroBebedouro: { required: true },
     leituraBebedouro: { required: true },
   }
   if (checklistAtivo) {
@@ -286,6 +287,8 @@ export default function BebedourosPage() {
       usuario: usuario,
       leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
       numeroBebedouro: form.numeroBebedouro,
+      pasto: pastosBebedouro && pastosBebedouro.length > 0 ? pastosBebedouro.map(p => p.nome).join(', ') : null,
+      pastoId: pastosBebedouro && pastosBebedouro.length === 1 ? pastosBebedouro[0].id : null,
       observacao: form.observacao,
       checklist: checklistAtivo ? {
         agua_suficiente: {
@@ -309,10 +312,6 @@ export default function BebedourosPage() {
           observacao: form.boiaProtecaoBoasCondicoesObs || ''
         }
       } : null,
-      // Limpeza info fields
-      tempoDesdeLimpeza: form.tempoDesdeLimpeza,
-      intervaloMedioLimpezas: form.intervaloMedioLimpezas,
-      metaIntervaloLimpeza: form.metaIntervaloLimpeza,
     })
 
     setSalvando(false)

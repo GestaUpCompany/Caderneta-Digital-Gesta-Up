@@ -491,6 +491,16 @@ export default function SuplementacaoPage() {
         },
       },
     }
+    if (possuiDeposito) {
+      base._kgDeposito = {
+        custom: () => {
+          if (!kgDeposito || kgDeposito.trim() === '' || Number(kgDeposito) <= 0) {
+            return 'KG no depósito é obrigatório e deve ser maior que zero'
+          }
+          return null
+        }
+      }
+    }
     if (checklistAtivo) {
       CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
         if (campo !== 'depositoCondicoes') {
@@ -502,7 +512,7 @@ export default function SuplementacaoPage() {
       }
     }
     return base
-  }, [possuiDeposito, checklistAtivo])
+  }, [possuiDeposito, checklistAtivo, kgDeposito])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -558,6 +568,7 @@ export default function SuplementacaoPage() {
       leituraCocho: form.leitura || null,
       kgCocho: form.kgCocho ? Number(form.kgCocho) : null,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
+      possuiDeposito,
       categorias: categoriasArray,
       categoriasString: categoriasString,
       escoreFezes: form.escoreFezes || null,
@@ -784,13 +795,14 @@ export default function SuplementacaoPage() {
           />
           {possuiDeposito && (
             <Input
-              label="Total Suplementado no Depósito (kg)"
+              label={<span>Total Suplementado no Depósito (kg) <span className="text-red-500">*</span></span>}
               placeholder="0"
               value={kgDeposito}
               onChange={(e) => setKgDeposito(e.target.value)}
               inputMode="decimal"
               type="number"
               min="0"
+              error={getError('_kgDeposito')}
             />
           )}
           <button

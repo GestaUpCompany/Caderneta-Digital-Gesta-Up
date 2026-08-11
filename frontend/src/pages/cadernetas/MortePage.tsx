@@ -208,14 +208,13 @@ export default function MortePage() {
     data: { required: true },
     lote: { required: true },
     brinco: { required: true },
+    categoria: { required: true },
     sexo: { required: true },
     raca: { required: true },
     idade: { required: true },
     pesoVivo: { required: true },
     causaMorte: { required: true },
     escore: { required: true },
-    nutricaoAtual: { required: true },
-    nutricaoAnterior: { required: true },
     ...Object.fromEntries(DIAGNOSTICOS.map(d => [d.campo, { required: true }])),
   }
 
@@ -631,7 +630,7 @@ export default function MortePage() {
           {dietas.length > 0 ? (
             <>
               <SearchableModal
-                label={<span>NUTRIÇÃO ATUAL <span className="text-red-500">*</span></span>}
+                label="NUTRIÇÃO ATUAL"
                 value={form.nutricaoAtual}
                 onChange={(val) => setForm((p) => ({ ...p, nutricaoAtual: val }))}
                 error={getError('nutricaoAtual')}
@@ -641,7 +640,7 @@ export default function MortePage() {
                 name="nutricaoAtual"
               />
               <SearchableModal
-                label={<span>NUTRIÇÃO ANTERIOR <span className="text-red-500">*</span></span>}
+                label="NUTRIÇÃO ANTERIOR"
                 value={form.nutricaoAnterior}
                 onChange={(val) => setForm((p) => ({ ...p, nutricaoAnterior: val }))}
                 error={getError('nutricaoAnterior')}
@@ -654,7 +653,7 @@ export default function MortePage() {
           ) : (
             <>
               <Input
-                label={<span>NUTRIÇÃO ATUAL <span className="text-red-500">*</span></span>}
+                label="NUTRIÇÃO ATUAL"
                 placeholder="Carregando..."
                 value={form.nutricaoAtual}
                 onChange={setInput('nutricaoAtual')}
@@ -663,7 +662,7 @@ export default function MortePage() {
                 id="nutricaoAtual"
               />
               <Input
-                label={<span>NUTRIÇÃO ANTERIOR <span className="text-red-500">*</span></span>}
+                label="NUTRIÇÃO ANTERIOR"
                 placeholder="Carregando..."
                 value={form.nutricaoAnterior}
                 onChange={setInput('nutricaoAnterior')}

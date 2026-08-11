@@ -307,6 +307,16 @@ export default function RodeioPage() {
     }, {} as Record<string, { required: boolean }>) : {}),
     escoreFezes: { required: true },
     equipe: { required: true },
+    equipeNomes: {
+      custom: (value: string[]) => {
+        const numPessoas = Number(form.equipe) || 0
+        if (numPessoas === 0) return null
+        if (!value || value.length < numPessoas || value.some(v => !v || v.trim() === '')) {
+          return 'Preencha o nome de todas as pessoas da equipe'
+        }
+        return null
+      }
+    },
   }
 
   const { isValid } = useFormValidation(form, validationRules)
@@ -651,6 +661,9 @@ export default function RodeioPage() {
           />
           {form.equipe && Number(form.equipe) > 0 && (
             <div className="flex flex-col gap-3">
+              {getError('equipeNomes') && (
+                <p className="text-sm text-red-600 font-semibold">{getError('equipeNomes')}</p>
+              )}
               {Array.from({ length: Number(form.equipe) }).map((_, index) => (
                 funcionariosDisponiveis.length > 0 ? (
                   <SearchableModal

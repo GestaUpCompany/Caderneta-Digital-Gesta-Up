@@ -308,6 +308,15 @@ export default function MovimentacaoPage() {
         }
       }
 
+      // Validar que destino não está vazio (exceto Transferência, que tem fluxo próprio)
+      if (form.motivoMovimentacao !== 'Saída' || form.subtipo !== 'Transferência') {
+        if (!destinoFinal || destinoFinal.trim() === '') {
+          setErrors([{ field: 'loteDestino', message: 'Selecione o destino da movimentação' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+      }
+
       // Caso especial: Doação não exige lote nem cabeças
       if (form.motivoMovimentacao === 'Doação') {
         const result = await salvarRegistro('movimentacao', {

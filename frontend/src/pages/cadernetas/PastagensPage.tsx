@@ -538,13 +538,11 @@ export default function PastagensPage() {
       pastoSaidaAreaUtil: form.pastoSaidaAreaUtil,
       pastoSaidaEspecie: form.pastoSaidaEspecie,
       avaliacaoSaida: form.avaliacaoSaida ? Number(form.avaliacaoSaida) : 0,
-      tempoOcupacao: form.tempoOcupacao,
       pastoEntrada: form.pastoEntrada,
       pastoEntradaId: form.pastoEntradaId || null,
       pastoEntradaAreaUtil: form.pastoEntradaAreaUtil,
       pastoEntradaEspecie: form.pastoEntradaEspecie,
       avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
-      tempoVedacao: form.tempoVedacao,
       gadoContado: form.gadoContado,
       totalAnimais: totalAnimais,
       vaca: form.vaca ? Number(form.vaca) : 0,
@@ -574,9 +572,6 @@ export default function PastagensPage() {
       escoreFezes: form.escoreFezes || null,
       numeroPessoasManejo: form.numeroPessoasManejo ? Number(form.numeroPessoasManejo) : 0,
       equipe_nomes: form.equipeNomes || null,
-      // Campos de divergência
-      n_cabecas: detalhesLote?.n_cabecas || 0,
-      qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
     })
 
     setSalvando(false)

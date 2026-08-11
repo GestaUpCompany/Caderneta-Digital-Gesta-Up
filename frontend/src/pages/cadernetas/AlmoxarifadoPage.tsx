@@ -138,7 +138,6 @@ export default function AlmoxarifadoPage() {
 
     if (errors.size > 0) {
       setItemErrors(errors)
-      alert('Preencha todos os campos obrigatórios')
       return
     }
 
@@ -396,6 +395,15 @@ export default function AlmoxarifadoPage() {
               <h3 className="text-base font-bold text-gray-900">
                 {itemEditandoIndex !== null ? 'EDITAR ITEM' : 'NOVO ITEM'}
               </h3>
+
+              {itemErrors.size > 0 && (
+                <ValidationMessage
+                  errors={Array.from(itemErrors).map(field => ({
+                    field,
+                    message: 'Preencha todos os campos obrigatórios'
+                  }))}
+                />
+              )}
 
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
