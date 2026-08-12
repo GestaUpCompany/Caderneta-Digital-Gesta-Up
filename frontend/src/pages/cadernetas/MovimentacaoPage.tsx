@@ -14,8 +14,10 @@ import {
   getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
+  ensureLotesPastoMap,
+  getFazendasDoMesmoGrupoCached,
 } from '../../services/cadastroCache'
-import { getLotes, getPastos, getFazendasDoMesmoGrupo, transferirLoteEntreFazendas } from '../../services/supabaseService'
+import { getLotes, getPastos, transferirLoteEntreFazendas } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -161,7 +163,7 @@ export default function MovimentacaoPage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(cache.lotesPastoMap || {})
+        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
         setFrigorificosDisponiveis(cache.frigorificos || [])
         setFornecedoresDisponiveis(cache.fornecedores || [])
       } else if (fazendaId) {
@@ -188,7 +190,7 @@ export default function MovimentacaoPage() {
       // Carregar fazendas do mesmo grupo (para Transferência entre fazendas)
       if (fazendaId) {
         try {
-          const fazendas = await getFazendasDoMesmoGrupo(fazendaId)
+          const fazendas = await getFazendasDoMesmoGrupoCached(fazendaId)
           setFazendasDoGrupo(fazendas || [])
         } catch (error) {
           // Erro silencioso: se a fazenda não tem grupo_id, a função retorna []

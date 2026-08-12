@@ -20,6 +20,7 @@ import {
   getRegistrosSuplementacaoByLoteCached,
   getPlanoNutricionalAtivoByLoteIdCached,
   getNotasLeituraCochoConfigCached,
+  ensureLotesPastoMap,
 } from '../../services/cadastroCache'
 import { getLotes, getPastos, getFormulacoes } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
@@ -251,7 +252,7 @@ export default function SuplementacaoPage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(cache.lotesPastoMap || {})
+        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
       } else if (fazendaId) {
         try {
           const [lotesData, pastosData] = await Promise.all([

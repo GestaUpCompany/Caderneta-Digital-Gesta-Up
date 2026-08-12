@@ -14,6 +14,7 @@ import {
   getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
+  ensureLotesPastoMap,
 } from '../../services/cadastroCache'
 import { getLotes, getPastos, getLastRodeioDate, getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -183,7 +184,7 @@ export default function RodeioPage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(cache.lotesPastoMap || {})
+        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
         setFuncionariosDisponiveis(cache.funcionarios || [])
       } else if (fazendaId) {
         try {

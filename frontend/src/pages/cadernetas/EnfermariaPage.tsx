@@ -13,6 +13,7 @@ import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getMedicamentosCached,
+  ensureLotesPastoMap,
 } from '../../services/cadastroCache'
 import { getLotes, getLoteById, getPastos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -244,7 +245,7 @@ export default function EnfermariaPage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(cache.lotesPastoMap || {})
+        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
       } else if (fazendaId) {
         try {
           const [lotesData, pastosData] = await Promise.all([

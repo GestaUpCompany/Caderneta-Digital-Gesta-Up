@@ -14,6 +14,9 @@ import {
   getCurraisCached,
   getLinhasConfinamentoCached,
   getFormulacaoByNomeCached,
+  getCachedCadastroData,
+  getNotasLeituraCochoConfigCached,
+  getLoteByNomeCached,
 } from '../../services/cadastroCache'
 import { getLotes, getNotasLeituraCochoConfig } from '../../services/supabaseService'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
@@ -111,11 +114,39 @@ export default function LeituraCochoPage() {
       setErro(null)
 
       try {
-        const [lotesData, curraisData, linhasData, notasConfigData] = await Promise.all([
-          getLotes(fazendaId),
+        // Buscar lotes: online usa supabaseService, offline usa cache lazy por nome
+        let lotesData: any[] | null = null
+        if (navigator.onLine) {
+          try {
+            lotesData = await getLotes(fazendaId)
+          } catch {
+            lotesData = null
+          }
+        }
+        if (!lotesData || lotesData.length === 0) {
+          // Fallback offline: buscar cada lote pelo nome no cache lazy
+          const cache = await getCachedCadastroData()
+          if (cache && cache.lotes && cache.lotes.length > 0) {
+            const lotesFromCache = await Promise.all(
+              cache.lotes.map((nome: string) => getLoteByNomeCached(fazendaId, nome))
+            )
+            lotesData = lotesFromCache.filter((l: any) => l !== null)
+          }
+        }
+
+        // Notas de leitura de cocho: usar versão cached
+        let notasConfigData: any[] | null = null
+        try {
+          notasConfigData = await getNotasLeituraCochoConfigCached(fazendaId)
+        } catch {
+          if (navigator.onLine) {
+            try { notasConfigData = await getNotasLeituraCochoConfig(fazendaId) } catch { notasConfigData = null }
+          }
+        }
+
+        const [curraisData, linhasData] = await Promise.all([
           getCurraisCached(fazendaId),
           getLinhasConfinamentoCached(fazendaId),
-          getNotasLeituraCochoConfig(fazendaId),
         ])
 
         const notasConfigOrdenadas = (notasConfigData || [])

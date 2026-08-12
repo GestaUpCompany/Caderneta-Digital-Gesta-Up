@@ -1,6 +1,7 @@
 import { Registro } from '../types/cadernetas'
 import { CadernetaStore, saveRegistro, getAllRegistros, deleteRegistro, getRegistro, updateSyncStatus, deleteRegistrosByTestFlag, clearTestItemsFromQueue } from './indexedDB'
 import { enqueueRegistro } from './syncService'
+import { registerBackgroundSync } from '../serviceWorkerRegistration'
 import { generateId, generateVersion, getCurrentTimestamp } from '../utils/generateId'
 import { validate, CadernetaType } from '../utils/validation'
 import { store } from '../store/store'
@@ -84,6 +85,9 @@ export async function salvarRegistro(
 
     if (!testModeAtivo) {
       await enqueueRegistro(caderneta, registro.id, 'create')
+      // Registrar Background Sync one-shot para sincronizar quando a conexão retornar
+      // Android apenas; iOS ignora silenciosamente (feature detection em registerBackgroundSync)
+      registerBackgroundSync('sync-registros').catch(() => {})
     }
 
     return { success: true, registro, id: registro.id }

@@ -18,6 +18,7 @@ import {
   getRacasCached,
   clearCachedQuery,
   buildCacheKey,
+  ensureLotesPastoMap,
 } from '../../services/cadastroCache'
 import { getLotes, getPastos, createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
@@ -355,7 +356,7 @@ export default function MaternidadePage() {
       const cache = await getCachedCadastroData()
       if (cache && cache.lotes && cache.lotes.length > 0) {
         setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(cache.lotesPastoMap || {})
+        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
       } else if (fazendaId) {
         try {
           const [lotesData, pastosData] = await Promise.all([

@@ -1,5 +1,5 @@
 import { BACKEND_URL } from '../utils/constants'
-import { saveCadastroData, getAllCadastroData, getCadastroData, clearCadastroData } from './indexedDB'
+import { saveCadastroData, getAllCadastroData, getCadastroData, deleteCadastroData, clearCadastroData } from './indexedDB'
 import * as supabaseService from './supabaseService'
 import { fetchFuncionariosComAcesso } from './funcionarioAuthService'
 import { fetchChecklistRegras } from './checklistRegrasService'
@@ -12,7 +12,7 @@ const CACHE_KEYS = {
   FRIGORIFICOS: 'frigorificos',
 }
 
-const CACHE_EXPIRY_MS = 10 * 60 * 1000 // 10 minutos
+const CACHE_EXPIRY_MS = 30 * 60 * 1000 // 30 minutos (polling de cache em foreground)
 
 export interface PastoDetalhes {
   pasto: string
@@ -55,6 +55,53 @@ let lastCacheUpdate: number = 0
 let pollingInterval: number | null = null
 
 const QUERY_CACHE_KEY = 'queryCache'
+const SYNC_CHECKPOINT_KEY = 'syncCheckpoint'
+
+/**
+ * Checkpoint para retomar sync de onde parou caso o app seja fechado.
+ * Salvo no IndexedDB a cada etapa concluída.
+ */
+interface SyncCheckpoint {
+  fazendaId: string
+  syncStepsCompleted: number      // índice do último step de syncAllCadastroData concluído
+  warmPhase: string               // 'pastos' | 'lotes' | 'formulacoes' | 'rodeio' | 'medicamentos' | 'tratamentos' | 'extras' | 'almoxarifado' | 'bebedouros' | 'tratos' | 'done'
+  warmPhaseIndex: number          // índice dentro da fase atual
+  timestamp: number
+}
+
+async function saveSyncCheckpoint(cp: SyncCheckpoint): Promise<void> {
+  try {
+    await saveCadastroData(SYNC_CHECKPOINT_KEY, cp)
+  } catch (error) {
+    console.warn('[CadastroCache] Erro ao salvar checkpoint:', error)
+  }
+}
+
+async function loadSyncCheckpoint(fazendaId: string): Promise<SyncCheckpoint | null> {
+  try {
+    const cp = await getCadastroData(SYNC_CHECKPOINT_KEY)
+    if (cp && cp.fazendaId === fazendaId) {
+      // Invalidar checkpoint com mais de 6 horas (dados podem estar stale)
+      if (Date.now() - cp.timestamp > 6 * 60 * 60 * 1000) {
+        console.log('[CadastroCache] Checkpoint expirado (>6h), ignorando')
+        await clearSyncCheckpoint()
+        return null
+      }
+      return cp as SyncCheckpoint
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function clearSyncCheckpoint(): Promise<void> {
+  try {
+    await deleteCadastroData(SYNC_CHECKPOINT_KEY)
+  } catch {
+    // ignorar
+  }
+}
 
 /**
  * Persiste o cache lazy de queries detalhadas no IndexedDB.
@@ -74,18 +121,17 @@ export async function saveQueryCacheToIndexedDB(): Promise<void> {
 
 /**
  * Carrega o cache lazy de queries detalhadas do IndexedDB.
+ * Sem TTL: o cache persiste indefinidamente até o usuário clicar "Atualizar Dados".
+ * Isso garante funcionamento offline mesmo após reabrir o app no campo.
  */
 export async function loadQueryCacheFromIndexedDB(): Promise<void> {
   try {
     const cached = await getCadastroData(QUERY_CACHE_KEY)
     if (cached?.queryCache) {
-      const now = Date.now()
-      // Filtrar entradas expiradas e arrays vazios antes de carregar
-      const validEntries = Object.entries(cached.queryCache).filter(([key, entry]: [string, any]) => {
-        if (!entry || now - entry.timestamp > QUERY_CACHE_TTL) return false
+      // Filtrar apenas entradas vazias (arrays sem elementos) — não expirar por TTL
+      const validEntries = Object.entries(cached.queryCache).filter(([_key, entry]: [string, any]) => {
+        if (!entry) return false
         if (Array.isArray(entry.data) && entry.data.length === 0) return false
-        // Registros de suplementação nunca são restaurados do IndexedDB (dados dinâmicos)
-        if (key.includes('suplementacao-lote')) return false
         return true
       })
       validEntries.forEach(([key, entry]) => {
@@ -443,18 +489,35 @@ export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaI
   // Carregar detalhes de pastos/lotes persistidos (lazy cache)
   await loadQueryCacheFromIndexedDB()
 
-  console.log('[CadastroCache] Inicialização concluída. Use o botão Atualizar Dados para sincronizar novos dados.')
+  // Auto-sync: se cache vazio e online, buscar do Supabase em background
+  // Garante que na primeira instalação o cache seja populado sem precisar clicar "Atualizar Dados"
+  if (!cached && fazendaId && navigator.onLine) {
+    console.log('[CadastroCache] Cache vazio e online. Iniciando auto-sync em background...')
+    try {
+      const result = await syncAllCadastroData(fazendaId)
+      if (result.success) {
+        console.log('[CadastroCache] Auto-sync concluído com sucesso')
+      } else {
+        console.warn('[CadastroCache] Auto-sync concluído com erros:', result.errors)
+      }
+    } catch (error) {
+      console.error('[CadastroCache] Erro no auto-sync:', error)
+    }
+  }
+
+  console.log('[CadastroCache] Inicialização concluída.')
 }
 
 /**
- * Inicia polling para atualizar cache a cada 5 minutos
+ * Inicia polling para atualizar cache em foreground (30 minutos)
+ * Rede de segurança para sessões longas; o botão "Atualizar Dados" permanece como ação manual
  */
 export function startCadastroCachePolling(cadastroSheetUrl: string, fazendaId?: string): void {
   if (pollingInterval) {
     clearInterval(pollingInterval)
   }
 
-  console.log('[CadastroCache] Iniciando polling de 5 minutos para atualização do cache')
+  console.log('[CadastroCache] Iniciando polling de 30 minutos para atualização do cache')
   pollingInterval = window.setInterval(async () => {
     if (navigator.onLine && (cadastroSheetUrl || fazendaId)) {
       console.log('[CadastroCache] Polling: atualizando cache...')
@@ -536,6 +599,52 @@ export function needsCacheUpdate(): boolean {
 }
 
 /**
+ * Garante que lotesPastoMap esteja populado.
+ * Se o cache já tem o mapa, retorna imediatamente.
+ * Se o mapa está vazio mas há lotes e o dispositivo está online, busca do Supabase.
+ * Isso resolve o caso de dispositivos com cache antigo (pré-mudança lote-first)
+ * que têm lotes no cache mas não têm lotesPastoMap.
+ */
+export async function ensureLotesPastoMap(
+  cache: CadastroCacheData,
+  fazendaId?: string
+): Promise<Record<string, string>> {
+  if (cache.lotesPastoMap && Object.keys(cache.lotesPastoMap).length > 0) {
+    return cache.lotesPastoMap
+  }
+  if (!fazendaId || !navigator.onLine) {
+    return cache.lotesPastoMap || {}
+  }
+  try {
+    const [lotesData, pastosData] = await Promise.all([
+      supabaseService.getLotes(fazendaId),
+      supabaseService.getPastos(fazendaId),
+    ])
+    const pastoNomeById: Record<string, string> = {}
+    pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+    const mapa: Record<string, string> = {}
+    lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+    // Atualizar cache em memória para próximas chamadas
+    if (cacheData) {
+      cacheData.lotesPastoMap = mapa
+    }
+    // Persistir no IndexedDB para próximas sessões
+    try {
+      const existing = await getCadastroData(CACHE_KEYS.PASTOS_LOTES)
+      if (existing) {
+        await saveCadastroData(CACHE_KEYS.PASTOS_LOTES, { ...existing, lotesPastoMap: mapa }, currentFazendaId || undefined)
+      }
+    } catch (e) {
+      console.warn('[CadastroCache] Falha ao persistir lotesPastoMap reconstruído:', e)
+    }
+    return mapa
+  } catch (error) {
+    console.error('[CadastroCache] Falha ao reconstruir lotesPastoMap:', error)
+    return cache.lotesPastoMap || {}
+  }
+}
+
+/**
  * Busca detalhes de um pasto específico do cache
  */
 export function getPastoDetalhes(pasto: string): PastoDetalhes | null {
@@ -553,17 +662,13 @@ export function getLoteDetalhes(lote: string): LoteDetalhes | null {
 
 // ==================== CACHE LAZY PARA QUERIES ESPECÍFICAS ====================
 // Permite funcionamento offline para buscas de detalhes individuais
+// Sem TTL: o cache persiste até ser explicitamente atualizado pelo botão "Atualizar Dados"
 
 const queryCache: Record<string, { data: any; timestamp: number }> = {}
-const QUERY_CACHE_TTL = 10 * 60 * 1000 // 10 minutos
 
 function getCachedQuery<T>(key: string): T | null {
   const entry = queryCache[key]
   if (!entry) return null
-  if (Date.now() - entry.timestamp > QUERY_CACHE_TTL) {
-    delete queryCache[key]
-    return null
-  }
   return entry.data as T
 }
 
@@ -1326,6 +1431,28 @@ export async function getCurraisCached(fazendaId: string): Promise<any[] | null>
 }
 
 /**
+ * Busca fazendas do mesmo grupo com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getFazendasDoMesmoGrupoCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('fazendas-grupo', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
+
+  try {
+    const data = await supabaseService.getFazendasDoMesmoGrupo(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca lista de linhas de confinamento com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
@@ -1445,10 +1572,46 @@ export async function warmAllCadastroCache(
   fazendaId: string,
   onProgress?: (current: number, total: number, item: string) => void,
   pastosData?: any[],
-  lotesData?: any[]
+  lotesData?: any[],
+  resumeCheckpoint?: { phase: string; index: number } | null
 ): Promise<{ success: boolean; warmedPastos: number; warmedLotes: number; warmedFormulacoes: number; warmedLotesRodeio: number; warmedMedicamentos: number; warmedTratamentos: number; warmedExtras: number; errors: string[] }> {
   const errors: string[] = []
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+  // Helper: persistir lazy cache e atualizar checkpoint periodicamente
+  const WARM_SAVE_INTERVAL = 10 // persistir a cada 10 itens processados
+  let itemsSinceLastSave = 0
+  const persistProgress = async (phase: string, index: number) => {
+    itemsSinceLastSave++
+    if (itemsSinceLastSave >= WARM_SAVE_INTERVAL) {
+      await saveQueryCacheToIndexedDB()
+      await saveSyncCheckpoint({
+        fazendaId,
+        syncStepsCompleted: 10, // todos os steps de lista já concluídos
+        warmPhase: phase,
+        warmPhaseIndex: index,
+        timestamp: Date.now(),
+      })
+      itemsSinceLastSave = 0
+    }
+  }
+
+  // Determinar ponto de retomada
+  const resumePhase = resumeCheckpoint?.phase ?? null
+  const resumeIndex = resumeCheckpoint?.index ?? 0
+  // Fases em ordem: pastos, lotes, formulacoes, rodeio, medicamentos, tratamentos, extras, almoxarifado, bebedouros, tratos
+  const phaseOrder = ['pastos', 'lotes', 'formulacoes', 'rodeio', 'medicamentos', 'tratamentos', 'extras', 'almoxarifado', 'bebedouros', 'tratos']
+  const shouldSkip = (phase: string) => {
+    if (!resumePhase) return false
+    const resumeOrder = phaseOrder.indexOf(resumePhase)
+    const currentOrder = phaseOrder.indexOf(phase)
+    return currentOrder < resumeOrder
+  }
+  const shouldSkipItem = (phase: string, index: number) => {
+    if (!resumePhase) return false
+    if (phase !== resumePhase) return false
+    return index < resumeIndex
+  }
 
   // Usar listas fornecidas ou buscar do Supabase
   let pastos: any[] = pastosData || []
@@ -1479,7 +1642,7 @@ export async function warmAllCadastroCache(
     }
   }
 
-  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 15 // +extras (10 originais + itens almoxarifado + detalhes bebedouros + currais + linhas + RBAC + checklist + rotinas)
+  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 17 // +extras (12 originais + itens almoxarifado + detalhes bebedouros + currais + linhas + RBAC + checklist + rotinas + notas leitura cocho + fazendas grupo)
   let warmedPastos = 0
   let warmedLotes = 0
   let warmedFormulacoes = 0
@@ -1490,7 +1653,12 @@ export async function warmAllCadastroCache(
   let processed = 0
 
   // Aquecer pastos: detalhes, lotes, últimas datas, status, ocupação
-  for (const pasto of pastos) {
+  if (shouldSkip('pastos')) {
+    console.log('[CadastroCache] Pulando fase pastos (já concluída no checkpoint)')
+  }
+  for (let pi = 0; pi < pastos.length; pi++) {
+    const pasto = pastos[pi]
+    if (shouldSkip('pastos') || shouldSkipItem('pastos', pi)) continue
     processed++
     onProgress?.(processed, totalItems, `Pasto ${pasto.nome || pasto.id}`)
 
@@ -1530,11 +1698,14 @@ export async function warmAllCadastroCache(
       errors.push(`Pasto ${pasto.nome || pasto.id}`)
     }
 
+    await persistProgress('pastos', pi)
     await delay(300)
   }
 
   // Aquecer lotes: detalhes com categorias
-  for (const lote of lotes) {
+  for (let li = 0; li < lotes.length; li++) {
+    const lote = lotes[li]
+    if (shouldSkip('lotes') || shouldSkipItem('lotes', li)) continue
     processed++
     onProgress?.(processed, totalItems, `Lote ${lote.nome || lote.id}`)
 
@@ -1557,11 +1728,14 @@ export async function warmAllCadastroCache(
       errors.push(`Lote ${lote.nome || lote.id}`)
     }
 
+    await persistProgress('lotes', li)
     await delay(300)
   }
 
   // Aquecer formulações: detalhes, espaçamento ideal, histórico de suplementação
-  for (const formulacao of formulacoes) {
+  for (let fi = 0; fi < formulacoes.length; fi++) {
+    const formulacao = formulacoes[fi]
+    if (shouldSkip('formulacoes') || shouldSkipItem('formulacoes', fi)) continue
     processed++
     onProgress?.(processed, totalItems, `Formulação ${formulacao.nome || formulacao.id}`)
 
@@ -1588,11 +1762,14 @@ export async function warmAllCadastroCache(
       errors.push(`Formulação ${formulacao.nome || formulacao.id}`)
     }
 
+    await persistProgress('formulacoes', fi)
     await delay(300)
   }
 
   // Aquecer dados de rodeio e leitura de cocho para todos os lotes
-  for (const lote of lotes) {
+  for (let ri = 0; ri < lotes.length; ri++) {
+    const lote = lotes[ri]
+    if (shouldSkip('rodeio') || shouldSkipItem('rodeio', ri)) continue
     processed++
     onProgress?.(processed, totalItems, `Rodeio/Leitura Lote ${lote.nome || lote.id}`)
 
@@ -1603,37 +1780,46 @@ export async function warmAllCadastroCache(
       await getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id)
       // Aquecer último trato de confinamento do lote (para Kg Cocho na LeituraCochoPage)
       await getUltimoTratoTotalByLoteCached(fazendaId, lote.id)
+      // Aquecer plano nutricional ativo do lote (para peso projetado na SuplementacaoPage)
+      await getPlanoNutricionalAtivoByLoteIdCached(lote.id)
       warmedLotesRodeio++
     } catch (error) {
       console.error(`[CadastroCache] Erro ao aquecer rodeio/leitura do lote ${lote.nome || lote.id}:`, error)
       errors.push(`Rodeio Lote ${lote.nome || lote.id}`)
     }
 
+    await persistProgress('rodeio', ri)
     await delay(300)
   }
 
   // Aquecer medicamentos (uma única vez)
-  processed++
-  onProgress?.(processed, totalItems, 'Medicamentos')
+  if (!shouldSkip('medicamentos')) {
+    processed++
+    onProgress?.(processed, totalItems, 'Medicamentos')
 
-  try {
-    await getMedicamentosCached(fazendaId)
-    warmedMedicamentos++
-  } catch (error) {
-    console.error('[CadastroCache] Erro ao aquecer medicamentos:', error)
-    errors.push('Medicamentos')
+    try {
+      await getMedicamentosCached(fazendaId)
+      warmedMedicamentos++
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao aquecer medicamentos:', error)
+      errors.push('Medicamentos')
+    }
+    await persistProgress('medicamentos', 0)
   }
 
   // Aquecer tratamentos (uma única vez)
-  processed++
-  onProgress?.(processed, totalItems, 'Tratamentos')
+  if (!shouldSkip('tratamentos')) {
+    processed++
+    onProgress?.(processed, totalItems, 'Tratamentos')
 
-  try {
-    await getTratamentosCached(fazendaId)
-    warmedTratamentos++
-  } catch (error) {
-    console.error('[CadastroCache] Erro ao aquecer tratamentos:', error)
-    errors.push('Tratamentos')
+    try {
+      await getTratamentosCached(fazendaId)
+      warmedTratamentos++
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao aquecer tratamentos:', error)
+      errors.push('Tratamentos')
+    }
+    await persistProgress('tratamentos', 0)
   }
 
   // Aquecer dados das demais cadernetas (independentes, uma vez por fazenda)
@@ -1654,9 +1840,13 @@ export async function warmAllCadastroCache(
     { label: 'Funcionários com Acesso (RBAC)', fn: () => fetchFuncionariosComAcesso(fazendaId) },
     { label: 'Regras de Checklist', fn: () => fetchChecklistRegras(fazendaId) },
     { label: 'Rotinas de Cadernetas', fn: () => fetchRotinas(fazendaId) },
+    { label: 'Notas Leitura Cocho (Config)', fn: () => getNotasLeituraCochoConfigCached(fazendaId) },
+    { label: 'Fazendas do Mesmo Grupo', fn: () => getFazendasDoMesmoGrupoCached(fazendaId) },
   ]
 
-  for (const extra of extrasToWarm) {
+  for (let ei = 0; ei < extrasToWarm.length; ei++) {
+    const extra = extrasToWarm[ei]
+    if (shouldSkip('extras') || shouldSkipItem('extras', ei)) continue
     processed++
     onProgress?.(processed, totalItems, extra.label)
     try {
@@ -1666,79 +1856,89 @@ export async function warmAllCadastroCache(
       console.error(`[CadastroCache] Erro ao aquecer ${extra.label}:`, error)
       errors.push(extra.label)
     }
+    await persistProgress('extras', ei)
     await delay(200)
   }
 
   // Aquecer itens de almoxarifado por classificação
-  try {
-    processed++
-    onProgress?.(processed, totalItems, 'Itens Almoxarifado')
-    const classificacoes = await getClassificacoesAlmoxarifadoCached(fazendaId)
-    if (classificacoes && classificacoes.length > 0) {
-      for (const classificacao of classificacoes) {
-        await getItensAlmoxarifadoCached(fazendaId, classificacao)
-        await delay(100)
+  if (!shouldSkip('almoxarifado')) {
+    try {
+      processed++
+      onProgress?.(processed, totalItems, 'Itens Almoxarifado')
+      const classificacoes = await getClassificacoesAlmoxarifadoCached(fazendaId)
+      if (classificacoes && classificacoes.length > 0) {
+        for (const classificacao of classificacoes) {
+          await getItensAlmoxarifadoCached(fazendaId, classificacao)
+          await delay(100)
+        }
+        warmedExtras++
       }
-      warmedExtras++
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao aquecer itens almoxarifado:', error)
+      errors.push('Itens Almoxarifado')
     }
-  } catch (error) {
-    console.error('[CadastroCache] Erro ao aquecer itens almoxarifado:', error)
-    errors.push('Itens Almoxarifado')
+    await persistProgress('almoxarifado', 0)
   }
 
   // Aquecer detalhes de bebedouros (última limpeza e intervalo médio por bebedouro)
-  try {
-    processed++
-    onProgress?.(processed, totalItems, 'Detalhes Bebedouros')
-    const bebedouros = await getBebedourosCached(fazendaId)
-    if (bebedouros && bebedouros.length > 0) {
-      for (const bebedouro of bebedouros) {
-        await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
-        await delay(100)
-        await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
-        await delay(100)
+  if (!shouldSkip('bebedouros')) {
+    try {
+      processed++
+      onProgress?.(processed, totalItems, 'Detalhes Bebedouros')
+      const bebedouros = await getBebedourosCached(fazendaId)
+      if (bebedouros && bebedouros.length > 0) {
+        for (const bebedouro of bebedouros) {
+          await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
+          await delay(100)
+          await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
+          await delay(100)
+        }
+        warmedExtras++
       }
-      warmedExtras++
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao aquecer detalhes de bebedouros:', error)
+      errors.push('Detalhes Bebedouros')
     }
-  } catch (error) {
-    console.error('[CadastroCache] Erro ao aquecer detalhes de bebedouros:', error)
-    errors.push('Detalhes Bebedouros')
+    await persistProgress('bebedouros', 0)
   }
 
   // Aquecer dados de trato de confinamento (programação + registros)
   // Crítico para funcionamento offline da TratoConfinamentoPage
-  try {
-    processed++
-    onProgress?.(processed, totalItems, 'Tratos Confinamento')
+  if (!shouldSkip('tratos')) {
+    try {
+      processed++
+      onProgress?.(processed, totalItems, 'Tratos Confinamento')
 
-    // 1. Tipos de programação ativos
-    const tiposProg = await getTiposProgramacaoTratosCached(fazendaId)
+      // 1. Tipos de programação ativos
+      const tiposProg = await getTiposProgramacaoTratosCached(fazendaId)
 
-    // 2. Programação completa por tipo + registros do dia atual e anterior
-    const dataHoje = new Date().toISOString().slice(0, 10)
-    const dataOntem = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      // 2. Programação completa por tipo + registros do dia atual e anterior
+      const dataHoje = new Date().toISOString().slice(0, 10)
+      const dataOntem = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
 
-    for (const tipo of tiposProg.length > 0 ? tiposProg : ['engorda', 'sequestro']) {
-      await delay(100)
-      const progCompleta = await getProgramacaoTratosCompletaCached(fazendaId, tipo)
-      if (progCompleta && progCompleta.currais) {
-        // Aquecer registros do dia atual e anterior para todos os currais da programação
-        await getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataHoje)
+      for (const tipo of tiposProg.length > 0 ? tiposProg : ['engorda', 'sequestro']) {
         await delay(100)
-        await getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataOntem)
-        await delay(100)
+        const progCompleta = await getProgramacaoTratosCompletaCached(fazendaId, tipo)
+        if (progCompleta && progCompleta.currais) {
+          // Aquecer registros do dia atual e anterior para todos os currais da programação
+          await getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataHoje)
+          await delay(100)
+          await getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataOntem)
+          await delay(100)
 
-        // Aquecer registros anteriores por curral (para cálculo dia 1 vs dia 2+)
-        for (const curral of progCompleta.currais) {
-          await getRegistrosOfertaTratoAnterioresCached(fazendaId, curral.curral_id, dataHoje)
-          await delay(50)
+          // Aquecer registros anteriores por curral (para cálculo dia 1 vs dia 2+)
+          for (const curral of progCompleta.currais) {
+            await getRegistrosOfertaTratoAnterioresCached(fazendaId, curral.curral_id, dataHoje)
+            await delay(50)
+          }
         }
       }
+      warmedExtras++
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao aquecer tratos de confinamento:', error)
+      errors.push('Tratos Confinamento')
     }
-    warmedExtras++
-  } catch (error) {
-    console.error('[CadastroCache] Erro ao aquecer tratos de confinamento:', error)
-    errors.push('Tratos Confinamento')
+    await persistProgress('tratos', 0)
   }
 
   console.log('[CadastroCache] Warm cache completo concluído:', {
@@ -1769,11 +1969,31 @@ export async function syncAllCadastroData(
   const errors: string[] = []
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+  // Guard: não atualizar cache se há registros pendentes de sync
+  // Evita que o cache seja sobrescrito com dados frescos enquanto
+  // registros locais ainda referenciam IDs antigos
+  try {
+    const pendingCount = await (await import('./indexedDB')).countPending()
+    if (pendingCount > 0) {
+      console.log(`[CadastroCache] Há ${pendingCount} registros pendentes de sync. Aguardando sync antes de atualizar cache.`)
+      return { success: false, errors: ['Há registros pendentes de sincronização. Sincronize os registros antes de atualizar os dados.'] }
+    }
+  } catch (error) {
+    console.warn('[CadastroCache] Não foi possível verificar registros pendentes:', error)
+  }
+
+  // Verificar checkpoint para retomar de onde parou
+  const checkpoint = await loadSyncCheckpoint(fazendaId)
+  const resumeFromStep = checkpoint?.syncStepsCompleted ?? -1
+  if (checkpoint) {
+    console.log(`[CadastroCache] Checkpoint encontrado: retomando sync do step ${resumeFromStep + 1}, warm phase=${checkpoint.warmPhase}`)
+  }
+
   // Ordem de dependência
   const syncSteps = [
     { name: 'Pastos', fn: () => supabaseService.getPastos(fazendaId) },
     { name: 'Lotes', fn: () => supabaseService.getLotes(fazendaId) },
-    { name: 'Indivíduos', fn: () => supabaseService.getIndividuos(fazendaId, 100) },
+    { name: 'Indivíduos', fn: () => supabaseService.getIndividuos(fazendaId, 1000) },
     { name: 'Bebedouros', fn: () => supabaseService.getBebedouros(fazendaId) },
     { name: 'Formulações', fn: () => supabaseService.getFormulacoes(fazendaId) },
     { name: 'Funcionários', fn: () => supabaseService.getFuncionarios(fazendaId) },
@@ -1807,6 +2027,21 @@ export async function syncAllCadastroData(
 
   for (let i = 0; i < syncSteps.length; i++) {
     const step = syncSteps[i]
+
+    // Pular steps já concluídos (resume de checkpoint)
+    if (i <= resumeFromStep) {
+      console.log(`[CadastroCache] Pulando step já concluído: ${step.name}`)
+      // Recarregar dados brutos necessários para warm cache
+      if (step.name === 'Pastos') {
+        try { rawPastos = await step.fn() || [] } catch { rawPastos = [] }
+        result.pastos = rawPastos.map((p: any) => p.nome)
+      } else if (step.name === 'Lotes') {
+        try { rawLotes = await step.fn() || [] } catch { rawLotes = [] }
+        result.lotes = rawLotes.map((l: any) => l.nome)
+      }
+      continue
+    }
+
     onProgress?.(i + 1, syncSteps.length, step.name)
 
     try {
@@ -1864,6 +2099,15 @@ export async function syncAllCadastroData(
       }
 
       console.log(`[CadastroCache] ${step.name} carregados: ${Array.isArray(data) ? data.length : 0}`)
+
+      // Salvar checkpoint após cada step concluído
+      await saveSyncCheckpoint({
+        fazendaId,
+        syncStepsCompleted: i,
+        warmPhase: 'none',
+        warmPhaseIndex: 0,
+        timestamp: Date.now(),
+      })
     } catch (error) {
       console.error(`[CadastroCache] Erro ao carregar ${step.name}:`, error)
       errors.push(step.name)
@@ -1875,6 +2119,13 @@ export async function syncAllCadastroData(
     }
   }
 
+  // Construir lotesPastoMap a partir dos dados brutos de pastos e lotes
+  const pastoNomeById: Record<string, string> = {}
+  rawPastos.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+  result.lotesPastoMap = {}
+  const lotesPastoMap = result.lotesPastoMap
+  rawLotes.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || '' })
+
   // Salvar no cache
   await saveToCache(result)
   cacheData = result
@@ -1885,6 +2136,7 @@ export async function syncAllCadastroData(
     errors,
     pastos: result.pastos.length,
     lotes: result.lotes.length,
+    lotesPastoMap: Object.keys(result.lotesPastoMap).length,
     individuos: result.individuos?.length || 0,
   })
 
@@ -1893,7 +2145,10 @@ export async function syncAllCadastroData(
   if (errors.length === 0) {
     try {
       console.log('[CadastroCache] Iniciando warm cache completo...')
-      const warmResult = await warmAllCadastroCache(fazendaId, onProgress, rawPastos, rawLotes)
+      const warmCheckpoint = checkpoint && checkpoint.warmPhase !== 'none' && checkpoint.warmPhase !== 'done'
+        ? { phase: checkpoint.warmPhase, index: checkpoint.warmPhaseIndex }
+        : null
+      const warmResult = await warmAllCadastroCache(fazendaId, onProgress, rawPastos, rawLotes, warmCheckpoint)
       if (!warmResult.success) {
         errors.push(...warmResult.errors)
       }
@@ -1902,6 +2157,10 @@ export async function syncAllCadastroData(
       errors.push('Warm cache')
     }
   }
+
+  // Limpar checkpoint ao completar com sucesso
+  await clearSyncCheckpoint()
+  console.log('[CadastroCache] Checkpoint limpo. Sync concluído.')
 
   return { success: errors.length === 0, errors }
 }

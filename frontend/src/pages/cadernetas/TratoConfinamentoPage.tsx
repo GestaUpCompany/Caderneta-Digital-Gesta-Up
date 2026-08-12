@@ -14,6 +14,9 @@ import {
   getTiposProgramacaoTratosCached,
   getRegistrosOfertaTratoByFazendaDataCached,
   getRegistrosOfertaTratoAnterioresCached,
+  getCachedCadastroData,
+  getNotasLeituraCochoConfigCached,
+  getLoteByNomeCached,
 } from '../../services/cadastroCache'
 import {
   getLotes,
@@ -114,10 +117,17 @@ export default function TratoConfinamentoPage() {
     async function carregarInicial() {
       if (!fazendaId) return
       try {
-        const [notasData, tiposData] = await Promise.all([
-          getNotasLeituraCochoConfig(fazendaId),
-          getTiposProgramacaoTratosCached(fazendaId),
-        ])
+        // Notas de leitura de cocho: usar versão cached para funcionamento offline
+        let notasData: any[] | null = null
+        try {
+          notasData = await getNotasLeituraCochoConfigCached(fazendaId)
+        } catch {
+          if (navigator.onLine) {
+            try { notasData = await getNotasLeituraCochoConfig(fazendaId) } catch { notasData = null }
+          }
+        }
+
+        const tiposData = await getTiposProgramacaoTratosCached(fazendaId)
         const notasOrdenadas = (notasData || [])
           .map((n: any) => ({
             id: n.id,
@@ -157,10 +167,24 @@ export default function TratoConfinamentoPage() {
         return
       }
 
-      const [progCompleta, curraisData, lotesData, registrosDoDia] = await Promise.all([
+      // Buscar lotes: online usa supabaseService, offline usa cache lazy por nome
+      let lotesData: any[] | null = null
+      if (navigator.onLine) {
+        try { lotesData = await getLotes(fazendaId) } catch { lotesData = null }
+      }
+      if (!lotesData || lotesData.length === 0) {
+        const cache = await getCachedCadastroData()
+        if (cache && cache.lotes && cache.lotes.length > 0) {
+          const lotesFromCache = await Promise.all(
+            cache.lotes.map((nome: string) => getLoteByNomeCached(fazendaId, nome))
+          )
+          lotesData = lotesFromCache.filter((l: any) => l !== null)
+        }
+      }
+
+      const [progCompleta, curraisData, registrosDoDia] = await Promise.all([
         getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
         getCurraisCached(fazendaId),
-        getLotes(fazendaId),
         getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
       ])
 

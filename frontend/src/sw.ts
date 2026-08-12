@@ -210,6 +210,49 @@ registerRoute(
   'GET'
 )
 
+// ==================== BACKGROUND SYNC ====================
+
+// Camada 2: Periodic Background Sync (Android apenas, iOS não suporta)
+// O navegador dispara periodicsync no intervalo registrado (mínimo 12h na prática).
+// O SW notifica os clients para que eles chamem updateCadastroCache.
+self.addEventListener('periodicsync', (event: any) => {
+  if (event.tag === 'refresh-cadastro-cache') {
+    console.log('[SW] Periodic Background Sync: refresh-cadastro-cache')
+    event.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'BG_SYNC_REFRESH_CACHE' })
+        })
+      })
+    )
+  }
+})
+
+// Camada 3: Background Sync API one-shot (Android apenas)
+// Dispara quando a conectividade retorna, mesmo com o app fechado.
+// Usado para sincronizar registros pendentes e atualizar cache de cadastro.
+self.addEventListener('sync', (event: any) => {
+  if (event.tag === 'sync-registros') {
+    console.log('[SW] Background Sync: sync-registros')
+    event.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'BG_SYNC_REGISTROS' })
+        })
+      })
+    )
+  } else if (event.tag === 'refresh-cadastro-cache') {
+    console.log('[SW] Background Sync: refresh-cadastro-cache')
+    event.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'BG_SYNC_REFRESH_CACHE' })
+        })
+      })
+    )
+  }
+})
+
 // ==================== PUSH NOTIFICATIONS ====================
 
 self.addEventListener('push', (event: PushEvent) => {

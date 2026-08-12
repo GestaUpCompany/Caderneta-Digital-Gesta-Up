@@ -16,7 +16,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
-import { initializeCadastroCache } from './services/cadastroCache'
+import { initializeCadastroCache, updateCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
 import { fetchChecklistRegras } from './services/checklistRegrasService'
 import { reauthenticateFarm, isTokenValid } from './services/authService'
 import { useFarmStatus } from './hooks/useFarmStatus'
@@ -25,6 +25,7 @@ import ScrollToTop from './components/ScrollToTop'
 import { useStoragePersistence } from './hooks/useStoragePersistence'
 import TestModeBanner from './components/TestModeBanner'
 import { registerPushSubscription, unregisterPushSubscription } from './services/pushNotificationService'
+import { registerBackgroundSync } from './serviceWorkerRegistration'
 
 // Componente wrapper para tela de reload durante atualização automática
 function PWAUpdateModalWrapper() {
@@ -171,6 +172,74 @@ function AppInner() {
       previousFazendaIdRef.current = fazendaId
     }
   }, [fazendaId, isFarmInactive])
+
+  // Camada 1: Foreground sync do cache de cadastro
+  // Atualiza o cache automaticamente quando o app volta de background ou recupera conexão
+  // Polling de 30 minutos como rede de segurança para dados stale em sessões longas
+  useEffect(() => {
+    if (!fazendaId || isFarmInactive) return
+
+    // Atualizar cache quando o app volta de background para foreground
+    const handleVisibilityChange = () => {
+      if (!document.hidden && navigator.onLine) {
+        console.log('[App] App voltou de background, atualizando cache de cadastro')
+        updateCadastroCache(fazendaId).catch((err) => {
+          console.warn('[App] Falha ao atualizar cache on visibility change:', err)
+        })
+      }
+    }
+
+    // Atualizar cache quando o dispositivo recupera conectividade
+    const handleOnline = () => {
+      console.log('[App] Dispositivo online, atualizando cache de cadastro')
+      updateCadastroCache(fazendaId).catch((err) => {
+        console.warn('[App] Falha ao atualizar cache on online event:', err)
+      })
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('online', handleOnline)
+
+    // Iniciar polling de 30 minutos (rede de segurança para sessões longas)
+    startCadastroCachePolling(fazendaId)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('online', handleOnline)
+      stopCadastroCachePolling()
+    }
+  }, [fazendaId, isFarmInactive])
+
+  // Camada 2/3: Listener para mensagens do Service Worker (Background Sync)
+  // O SW envia mensagens quando periodicsync ou sync disparam em background
+  useEffect(() => {
+    if (!fazendaId) return
+
+    const handleSWMessage = (event: MessageEvent) => {
+      const type = event.data?.type
+      if (type === 'BG_SYNC_REFRESH_CACHE') {
+        console.log('[App] Background Sync: atualizando cache de cadastro')
+        updateCadastroCache(fazendaId).catch((err) => {
+          console.warn('[App] Falha ao atualizar cache via BG Sync:', err)
+        })
+      }
+      // BG_SYNC_REGISTROS é tratado pelo useSync (fila de registros)
+      // Não é necessário duplicar aqui; o useSync já faz polling de 10s
+    }
+
+    navigator.serviceWorker.addEventListener('message', handleSWMessage)
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleSWMessage)
+    }
+  }, [fazendaId])
+
+  // Registrar Background Sync one-shot quando há registros pendentes
+  // Garante que o SW tente sincronizar quando a conexão retornar, mesmo com app fechado
+  useEffect(() => {
+    if (!fazendaId || !navigator.onLine) return
+    // Registrar sync one-shot para cache de cadastro (dispara quando online novamente)
+    registerBackgroundSync('refresh-cadastro-cache').catch(() => {})
+  }, [fazendaId])
 
   // Re-authenticate automatically if config exists but token is invalid
   useEffect(() => {
