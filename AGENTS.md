@@ -315,3 +315,34 @@ CorreÃ§Ãµes **SEGURAS** (sem impacto no Painel Web):
 | 8 | N10-N14 | NegÃ³cio | DivisÃµes por zero em mÃ©tricas | NEUTRO |
 | 9 | C9-C10 | ConsistÃªncia | Fuso horÃ¡rio nÃ£o aplicado | NEUTRO |
 | 10 | N4 | NegÃ³cio | currentFazendaId global | NEUTRO |
+
+
+## Mapas KML, georreferenciamento e GPS offline — adicionado em 2026-08-12
+
+Arquitetura aprovada para o MVP de mapas no PWA: baixar mapa da fazenda do usuário, fundo de satélite online (ESRI World Imagery), projetar posição do usuário via GPS, projetar pastos como polígonos, selecionar pasto-alvo e ver distância. Funcionalidade core (polígonos, GPS, distância) funciona offline; satélite exige conexão com fallback gracioso.
+
+Documento completo (decisões de arquitetura, modelo de dados, stack): GestaUp-Cadernetas-Gestao/docs/ARQUITETURA_MAPA_KML.md.
+
+**Resumo para o PWA:**
+
+1. **Biblioteca de mapa**: MapLibre GL JS + is.gl/react-map-gl. Mesma lib do Painel Web, consistência.
+
+2. **GPS**: @capacitor/geolocation para watchPosition (nativo, mais preciso que Web Geolocation API). Plugin Capacitor 8 a adicionar.
+
+3. **Distância até pasto-alvo**: 	urf.js (	urf.distance para centroide, 	urf.pointToPolygonDistance para borda), rodando no celular sem rede.
+
+4. **Offline**: GeoJSON dos pastos/bebedouros/estradas cacheado no IndexedDB via cadastroCache.ts (mesmo padrão existente). Query SELECT id, nome, ST_AsGeoJSON(geometria) as geometria FROM pastos WHERE fazenda_id =  AND geometria IS NOT NULL. Payload pequeno (200-500KB para 100 pastos). Sem multi-tenancy: peão loga com cesso_id da fazenda dele, baixa só os dados dela.
+
+5. **Satélite**: ESRI World Imagery online (gratuito). Fallback gracioso offline: quando o MapLibre não carrega tiles, mostra fundo verde acinzentado com aviso discreto. Polígonos, GPS e distância continuam funcionando. Satélite offline via PMTiles fica para o futuro (fonte a definir: ortomosaicos próprios do setor de projetos ideal, Mapbox pago como fallback).
+
+6. **Tela nova**: "Mapa da Fazenda" no PWA, mostra polígonos + satélite (se online) + posição GPS + lista de pastos para selecionar como alvo + distância destacada.
+
+7. **Fora do MVP (futuro aditivo, sem reescrita)**: satélite offline via PMTiles, routing pelas estradas (
+graph.path ou 	urf.shortestPath), edição de geometrias no PWA (só no Painel Web no MVP).
+
+**Pontos de atenção para a implementação no PWA:**
+- Separar camadas no MapLibre: source de satélite separado dos sources de GeoJSON, para trocar online por PMTiles offline sem refactor.
+- Incrementar versão do cadastroCache para forçar refresh quando o schema do Painel Web mudar (coluna geometria adicionada a pastos/ebedouros).
+- @capacitor/geolocation precisa de permissão de localização no AndroidManifest.xml e Info.plist.
+
+Disparador: quando mencionar "mapa KML", "georreferenciamento", "pastos no mapa", "GPS no PWA", "MapLibre", "PostGIS", "geometria de pasto", "distância até pasto", ou retomar a implementação de mapas, ler esta seção e o GestaUp-Cadernetas-Gestao/docs/ARQUITETURA_MAPA_KML.md.
