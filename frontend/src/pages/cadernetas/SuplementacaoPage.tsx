@@ -482,6 +482,12 @@ export default function SuplementacaoPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
+  // Handler específico para kgCocho: aceita apenas inteiros (sem ponto, vírgula ou decimais)
+  const setKgCochoInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
+    setForm((prev) => ({ ...prev, kgCocho: apenasDigitos }))
+  }
+
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   // Calcular kg previsto com base no último kg_cocho do lote + percentual da nota selecionada
@@ -824,11 +830,11 @@ export default function SuplementacaoPage() {
             label={<span>Total Suplementado no Cocho (kg) <span className="text-red-500">*</span></span>}
             placeholder="0"
             value={form.kgCocho}
-            onChange={setInput('kgCocho')}
+            onChange={setKgCochoInput}
             error={getError('kgCocho')}
-            inputMode="decimal"
-            type="number"
-            min="0"
+            inputMode="numeric"
+            type="text"
+            pattern="[0-9]*"
           />
           {possuiDeposito && (
             <Input
