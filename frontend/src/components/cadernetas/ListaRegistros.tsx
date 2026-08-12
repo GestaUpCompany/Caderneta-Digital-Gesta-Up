@@ -4,7 +4,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { requestSyncNow } from '../../store/slices/syncSlice'
 import { Registro } from '../../types/cadernetas'
 import { CadernetaStore } from '../../services/indexedDB'
-import { listarRegistros, excluirRegistro, reenviarRegistro, aguardarSyncConcluido } from '../../services/api'
+import { listarRegistros, reenviarRegistro, aguardarSyncConcluido } from '../../services/api'
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
@@ -92,8 +92,6 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   const [filtroSexo, setFiltroSexo] = useState('')
   const [filtroTipoParto, setFiltroTipoParto] = useState('')
   const [periodoAtivo, setPeriodoAtivo] = useState<'todos' | 'hoje' | '7dias' | '30dias' | null>(null)
-  const [mostrarModalExcluir, setMostrarModalExcluir] = useState(false)
-  const [registroParaExcluir, setRegistroParaExcluir] = useState<string | null>(null)
   const [mostrarModalCompartilhar, setMostrarModalCompartilhar] = useState(false)
   const [registroParaCompartilhar, setRegistroParaCompartilhar] = useState<Registro | null>(null)
   const [reenviandoId, setReenviandoId] = useState<string | null>(null)
@@ -136,20 +134,6 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
     return resultado
   }, [registrosFiltrados, caderneta, filtroSexo, filtroTipoParto])
-
-  const handleExcluir = (id: string) => {
-    setRegistroParaExcluir(id)
-    setMostrarModalExcluir(true)
-  }
-
-  const confirmarExclusao = async () => {
-    if (registroParaExcluir) {
-      await excluirRegistro(caderneta, registroParaExcluir)
-      setMostrarModalExcluir(false)
-      setRegistroParaExcluir(null)
-      carregar()
-    }
-  }
 
   // const handleExportCSV = () => exportToCSV(registrosFiltradosFinal, `${caderneta}_export`, colunas)
   // const handleExportJSON = () => exportToJSON(registrosFiltradosFinal, `${caderneta}_export`)
@@ -871,14 +855,6 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                 <div className="flex flex-col gap-2 border-t border-gray-100 pt-3">
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => handleExcluir(registro.id)}
-                      variant="danger"
-                      size="sm"
-                      icon="🗑️"
-                    >
-                      EXCLUIR
-                    </Button>
-                    <Button
                       onClick={() => handleCompartilhar(registro)}
                       variant="ghost"
                       size="sm"
@@ -901,37 +877,6 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Modal de confirmação de exclusão */}
-        {mostrarModalExcluir && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">⚠️ Confirmar Exclusão</h3>
-              <p className="text-base text-gray-700 mb-6">
-                Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => {
-                    setMostrarModalExcluir(false)
-                    setRegistroParaExcluir(null)
-                  }}
-                  variant="secondary"
-                  fullWidth
-                >
-                  CANCELAR
-                </Button>
-                <Button
-                  onClick={confirmarExclusao}
-                  variant="danger"
-                  fullWidth
-                >
-                  EXCLUIR
-                </Button>
-              </div>
-            </div>
           </div>
         )}
 
