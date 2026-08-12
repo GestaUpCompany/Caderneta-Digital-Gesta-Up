@@ -355,8 +355,6 @@ export function validateMorte(data: Record<string, unknown>): ValidationResult {
     errors.push({ field: 'causaMorte', message: 'Causa da morte é obrigatória' })
   if (data.causaMorte === 'Outros' && !isNonEmptyString(data.causaMorteOutros))
     errors.push({ field: 'causaMorteOutros', message: 'Especifique a causa da morte quando selecionar OUTROS' })
-  if (!isPositiveNumber(data.escore))
-    errors.push({ field: 'escore', message: 'Escore corporal é obrigatório' })
 
   // Validar 19 campos de diagnóstico (cada um deve ter valor S ou N)
   const CAMPOS_DIAGNOSTICO = [

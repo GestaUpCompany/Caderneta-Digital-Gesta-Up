@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
-import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -21,8 +20,6 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
-
-const BASE = import.meta.env.BASE_URL
 
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -101,18 +98,6 @@ const INVERTED_DIAGNOSTICOS = [
   'morteSubita',
 ]
 
-const ESCORES = [
-  { value: '1', label: '1', color: 'bg-red-500' },
-  { value: '1.5', label: '1.5', color: 'bg-red-500' },
-  { value: '2', label: '2', color: 'bg-yellow-400' },
-  { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
-  { value: '3', label: '3', color: 'bg-green-500' },
-  { value: '3.5', label: '3.5', color: 'bg-green-500' },
-  { value: '4', label: '4', color: 'bg-yellow-400' },
-  { value: '4.5', label: '4.5', color: 'bg-yellow-400' },
-  { value: '5', label: '5', color: 'bg-red-500' },
-]
-
 interface FormState {
   data: string
   pasto: string
@@ -130,7 +115,6 @@ interface FormState {
   pesoVivo: string
   causaMorte: string
   causaMorteOutros: string
-  escore: string
   nutricaoAtual: string
   nutricaoAnterior: string
   diagnosticos: {
@@ -158,7 +142,6 @@ const makeInitial = (): FormState => ({
   pesoVivo: '',
   causaMorte: '',
   causaMorteOutros: '',
-  escore: '',
   nutricaoAtual: '',
   nutricaoAnterior: '',
   diagnosticos: DIAGNOSTICOS.reduce((acc, { campo }) => {
@@ -174,7 +157,6 @@ export default function MortePage() {
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [showEscoreModal, setShowEscoreModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
@@ -216,7 +198,6 @@ export default function MortePage() {
     idade: { required: true },
     pesoVivo: { required: true },
     causaMorte: { required: true },
-    escore: { required: true },
     ...Object.fromEntries(DIAGNOSTICOS.map(d => [d.campo, { required: true }])),
   }
 
@@ -389,7 +370,6 @@ export default function MortePage() {
       idade: form.idade,
       pesoVivo: form.pesoVivo ? Number(form.pesoVivo) : null,
       causaMorte: causaMorteFinal,
-      escore: form.escore ? Number(form.escore) : null,
       nutricaoAtual: form.nutricaoAtual || null,
       nutricaoAnterior: form.nutricaoAnterior || null,
       diagnosticos: form.diagnosticos,
@@ -687,31 +667,6 @@ export default function MortePage() {
           )}
         </div>
 
-        {/* Seção 8: Escore Corporal */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">8. ESCORE CORPORAL <span className="text-red-500">*</span></h2>
-          <button
-            onClick={() => setShowEscoreModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP ESCORE CORPORAL</span>
-          </button>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-            {ESCORES.map((escore) => (
-              <button
-                key={escore.value}
-                onClick={() => setForm((p) => ({ ...p, escore: escore.value }))}
-                className={`py-3 px-4 rounded-xl font-bold transition-all transform hover:scale-105 ${
-                  form.escore === escore.value ? `${escore.color} text-black` : 'bg-gray-200 text-gray-700'
-                }`}
-              >
-                {escore.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="flex flex-col gap-3">
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
@@ -737,13 +692,6 @@ export default function MortePage() {
         caderneta="morte"
       />
 
-      <PdfModal
-        isOpen={showEscoreModal}
-        onClose={() => setShowEscoreModal(false)}
-        images={[
-          `${BASE}docs/ECC/POP_ECC.jpeg`
-        ]}
-      />
     </div>
   )
 }
