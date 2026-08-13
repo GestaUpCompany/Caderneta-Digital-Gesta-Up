@@ -1,7 +1,10 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MapLibreGL from 'maplibre-gl'
-import { Map, Source, Layer, Marker, NavigationControl } from 'react-map-gl/maplibre'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { Map, Source, Layer, NavigationControl } from 'react-map-gl/maplibre'
+import { Geolocation } from '@capacitor/geolocation'
+import { Capacitor } from '@capacitor/core'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { ArrowLeft, Search, MapPin, Navigation, Crosshair, AlertCircle, X, Loader2 } from 'lucide-react'
@@ -81,20 +84,21 @@ export default function MapaFazendaPage() {
   const [syncing, setSyncing] = useState(false)
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'requesting' | 'active' | 'denied' | 'error'>('idle')
   const [gpsPosition, setGpsPosition] = useState<{ lng: number; lat: number; accuracy: number } | null>(null)
-  const [gpsWatchId, setGpsWatchId] = useState<number | null>(null)
   const [destino, setDestino] = useState<DestinoSelecionado | null>(null)
   const [busca, setBusca] = useState('')
   const [showBusca, setShowBusca] = useState(false)
   const [rota, setRota] = useState<GeoJSON.LineString | null>(null)
   const [distanciaRota, setDistanciaRota] = useState<number | null>(null)
   const [offlineAviso, setOfflineAviso] = useState(false)
-  const [viewState, setViewState] = useState({
+  const [initialView] = useState({
     longitude: -54.68,
     latitude: -16.52,
     zoom: 15,
   })
 
   const mapRef = useRef<any>(null)
+  const gpsWatchIdRef = useRef<string | null>(null)
+  const gpsPrimeiraLeituraRef = useRef(true)
 
   // ==================== Carregar dados do mapa ====================
   useEffect(() => {
@@ -114,9 +118,9 @@ export default function MapaFazendaPage() {
         if (cached.pastos.length > 0) {
           const g = cached.pastos[0].geometria
           if (g.type === 'Polygon') {
-            const coords = g.coordinates[0] as [number, number][]
+            const coords = (g as GeoJSON.Polygon).coordinates[0] as [number, number][]
             const [lng, lat] = calcularMelhorLabel(coords)
-            setViewState({ longitude: lng, latitude: lat, zoom: 15 })
+            voarPara(lng, lat, 15)
           }
         }
       }
@@ -131,9 +135,9 @@ export default function MapaFazendaPage() {
             if (fresh.pastos.length > 0 && !cached) {
               const g = fresh.pastos[0].geometria
               if (g.type === 'Polygon') {
-                const coords = g.coordinates[0] as [number, number][]
+                const coords = (g as GeoJSON.Polygon).coordinates[0] as [number, number][]
                 const [lng, lat] = calcularMelhorLabel(coords)
-                setViewState({ longitude: lng, latitude: lat, zoom: 15 })
+                voarPara(lng, lat, 15)
               }
             }
           }
@@ -151,67 +155,82 @@ export default function MapaFazendaPage() {
     return () => { cancelado = true }
   }, [fazendaId])
 
+  // ==================== Helper: voar para coordenada ====================
+  const voarPara = useCallback((lng: number, lat: number, zoom?: number) => {
+    const map = mapRef.current?.getMap?.()
+    if (!map) return
+    const currentZoom = map.getZoom()
+    map.flyTo({
+      center: [lng, lat],
+      zoom: zoom ?? Math.max(currentZoom, 16),
+      duration: 1000,
+      essential: true,
+    })
+  }, [])
+
   // ==================== GPS ====================
   const iniciarGPS = useCallback(async () => {
     setGpsStatus('requesting')
+    gpsPrimeiraLeituraRef.current = true
     try {
-      // Tentar Geolocation API nativa do navegador (funciona no PWA e no Capacitor)
-      if (!navigator.geolocation) {
-        setGpsStatus('error')
-        return
+      // Pedir permissão primeiro (necessário no Capacitor nativo)
+      if (Capacitor.isNativePlatform()) {
+        const perm = await Geolocation.requestPermissions()
+        if (perm.location === 'denied') {
+          setGpsStatus('denied')
+          return
+        }
       }
 
       const options = {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 0,
       }
 
-      const watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          setGpsPosition({
-            lng: pos.coords.longitude,
-            lat: pos.coords.latitude,
-            accuracy: pos.coords.accuracy,
-          })
-          setGpsStatus('active')
+      const watchId = await Geolocation.watchPosition(options, (pos) => {
+        if (!pos) {
+          setGpsStatus('error')
+          return
+        }
 
-          // Centralizar mapa na primeira leitura
-          if (gpsStatus === 'requesting' || gpsStatus === 'idle') {
-            setViewState((prev) => ({
-              ...prev,
-              longitude: pos.coords.longitude,
-              latitude: pos.coords.latitude,
-              zoom: Math.max(prev.zoom, 16),
-            }))
-          }
-        },
-        (err) => {
-          console.error('[GPS] Erro:', err)
-          if (err.code === err.PERMISSION_DENIED) {
-            setGpsStatus('denied')
-          } else {
-            setGpsStatus('error')
-          }
-        },
-        options,
-      )
+        const lng = pos.coords.longitude
+        const lat = pos.coords.latitude
+        const accuracy = pos.coords.accuracy ?? 0
 
-      setGpsWatchId(watchId)
-    } catch (err) {
+        setGpsPosition({ lng, lat, accuracy })
+        setGpsStatus('active')
+
+        // Centralizar mapa apenas na primeira leitura
+        if (gpsPrimeiraLeituraRef.current) {
+          gpsPrimeiraLeituraRef.current = false
+          voarPara(lng, lat, 17)
+        }
+      })
+
+      gpsWatchIdRef.current = watchId
+    } catch (err: any) {
       console.error('[GPS] Erro ao iniciar:', err)
-      setGpsStatus('error')
+      if (err?.message?.includes('denied') || err?.code === 1) {
+        setGpsStatus('denied')
+      } else {
+        setGpsStatus('error')
+      }
     }
-  }, [gpsStatus])
+  }, [voarPara])
 
   // Parar GPS ao desmontar
   useEffect(() => {
     return () => {
-      if (gpsWatchId !== null) {
-        navigator.geolocation.clearWatch(gpsWatchId)
+      if (gpsWatchIdRef.current !== null) {
+        Geolocation.clearWatch({ id: gpsWatchIdRef.current }).catch(() => {})
       }
     }
-  }, [gpsWatchId])
+  }, [])
+
+  // ==================== Iniciar GPS automaticamente ao montar ====================
+  useEffect(() => {
+    iniciarGPS()
+  }, [iniciarGPS])
 
   // ==================== Calcular rota quando destino muda ====================
   useEffect(() => {
@@ -378,6 +397,32 @@ export default function MapaFazendaPage() {
     }
   }, [rota])
 
+  // ==================== GeoJSON da posição GPS ====================
+  const gpsGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
+    if (!gpsPosition) return { type: 'FeatureCollection', features: [] }
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { accuracy: gpsPosition.accuracy },
+        geometry: { type: 'Point', coordinates: [gpsPosition.lng, gpsPosition.lat] },
+      }],
+    }
+  }, [gpsPosition])
+
+  // ==================== GeoJSON do destino ====================
+  const destinoGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
+    if (!destino) return { type: 'FeatureCollection', features: [] }
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { nome: destino.nome },
+        geometry: { type: 'Point', coordinates: destino.centroide },
+      }],
+    }
+  }, [destino])
+
   // ==================== Busca ====================
   const resultadosBusca = useMemo(() => {
     if (!busca.trim()) return []
@@ -414,11 +459,7 @@ export default function MapaFazendaPage() {
     setShowBusca(false)
     setBusca('')
     // Voar para o destino
-    setViewState({
-      longitude: d.centroide[0],
-      latitude: d.centroide[1],
-      zoom: 16,
-    })
+    voarPara(d.centroide[0], d.centroide[1], 16)
   }
 
   const limparDestino = () => {
@@ -429,11 +470,7 @@ export default function MapaFazendaPage() {
 
   const centralizarGPS = () => {
     if (gpsPosition) {
-      setViewState({
-        longitude: gpsPosition.lng,
-        latitude: gpsPosition.lat,
-        zoom: 17,
-      })
+      voarPara(gpsPosition.lng, gpsPosition.lat, 17)
     }
   }
 
@@ -581,16 +618,16 @@ export default function MapaFazendaPage() {
       )}
 
       {/* ==================== Mapa ==================== */}
-      <div className="flex-1 relative" style={{ touchAction: 'none', minHeight: 0 }}>
+      <div className="flex-1 relative overflow-hidden" style={{ touchAction: 'none', minHeight: 0 }}>
         <Map
           ref={mapRef}
-          {...viewState}
-          onMoveEnd={(e) => setViewState({ longitude: e.viewState.longitude, latitude: e.viewState.latitude, zoom: e.viewState.zoom })}
+          initialViewState={initialView}
           mapStyle={mapStyle}
           interactiveLayerIds={['pastos-fill', 'currais-fill', 'pastos-labels', 'currais-labels']}
           onClick={onMapClick}
           dragRotate={false}
           touchPitch={false}
+          pitchWithRotate={false}
           style={{ width: '100%', height: '100%' }}
         >
           <NavigationControl position="top-right" showCompass={false} />
@@ -632,14 +669,15 @@ export default function MapaFazendaPage() {
               type="symbol"
               layout={{
                 'text-field': ['get', 'nome'],
-                'text-size': 12,
+                'text-size': 14,
                 'text-anchor': 'center',
                 'text-allow-overlap': true,
               }}
               paint={{
                 'text-color': '#ffffff',
                 'text-halo-color': '#000000',
-                'text-halo-width': 2,
+                'text-halo-width': 1.5,
+                'text-halo-blur': 0.5,
               }}
             />
           </Source>
@@ -671,14 +709,15 @@ export default function MapaFazendaPage() {
               type="symbol"
               layout={{
                 'text-field': ['get', 'nome'],
-                'text-size': 11,
+                'text-size': 13,
                 'text-anchor': 'center',
                 'text-allow-overlap': true,
               }}
               paint={{
                 'text-color': '#ffffff',
                 'text-halo-color': '#000000',
-                'text-halo-width': 2,
+                'text-halo-width': 1.5,
+                'text-halo-blur': 0.5,
               }}
             />
           </Source>
@@ -729,14 +768,15 @@ export default function MapaFazendaPage() {
                 type="symbol"
                 layout={{
                   'text-field': ['get', 'nome'],
-                  'text-size': 11,
+                  'text-size': 13,
                   'text-anchor': 'center',
                   'text-allow-overlap': true,
                 }}
                 paint={{
                   'text-color': '#ffffff',
                   'text-halo-color': '#5b21b6',
-                  'text-halo-width': 2,
+                  'text-halo-width': 1.5,
+                  'text-halo-blur': 0.5,
                 }}
               />
             </Source>
@@ -776,42 +816,74 @@ export default function MapaFazendaPage() {
             </Source>
           )}
 
-          {/* Marker: posição GPS */}
-          {gpsPosition && (
-            <Marker
-              longitude={gpsPosition.lng}
-              latitude={gpsPosition.lat}
-              anchor="center"
-            >
-              <div className="relative">
-                {/* Círculo de precisão */}
-                <div
-                  className="absolute rounded-full bg-blue-500/20 border border-blue-500/40"
-                  style={{
-                    width: `${Math.min(gpsPosition.accuracy * 2, 200)}px`,
-                    height: `${Math.min(gpsPosition.accuracy * 2, 200)}px`,
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                />
-                {/* Ponto central */}
-                <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg" />
-              </div>
-            </Marker>
+          {/* Source: posição GPS (círculo de precisão + ponto central) */}
+          {gpsGeoJSON.features.length > 0 && (
+            <Source id="gps-source" type="geojson" data={gpsGeoJSON}>
+              <Layer
+                id="gps-accuracy"
+                type="circle"
+                paint={{
+                  'circle-radius': [
+                    'interpolate',
+                    ['linear'],
+                    ['zoom'],
+                    0, 0,
+                    10, Math.min(gpsPosition!.accuracy * 0.05, 20),
+                    15, Math.min(gpsPosition!.accuracy * 0.5, 60),
+                    18, Math.min(gpsPosition!.accuracy * 2, 120),
+                    20, Math.min(gpsPosition!.accuracy * 4, 200),
+                  ],
+                  'circle-color': '#3b82f6',
+                  'circle-opacity': 0.15,
+                  'circle-stroke-width': 1,
+                  'circle-stroke-color': '#3b82f6',
+                  'circle-stroke-opacity': 0.4,
+                }}
+              />
+              <Layer
+                id="gps-dot"
+                type="circle"
+                paint={{
+                  'circle-radius': 8,
+                  'circle-color': '#3b82f6',
+                  'circle-stroke-width': 3,
+                  'circle-stroke-color': '#ffffff',
+                }}
+              />
+            </Source>
           )}
 
-          {/* Marker: destino */}
-          {destino && (
-            <Marker
-              longitude={destino.centroide[0]}
-              latitude={destino.centroide[1]}
-              anchor="center"
-            >
-              <div className="w-6 h-6 rounded-full bg-yellow-400 border-2 border-yellow-600 shadow-lg flex items-center justify-center">
-                <MapPin className="w-3 h-3 text-yellow-800" />
-              </div>
-            </Marker>
+          {/* Source: destino (pino amarelo) */}
+          {destinoGeoJSON.features.length > 0 && (
+            <Source id="destino-source" type="geojson" data={destinoGeoJSON}>
+              <Layer
+                id="destino-circle"
+                type="circle"
+                paint={{
+                  'circle-radius': 10,
+                  'circle-color': '#facc15',
+                  'circle-stroke-width': 3,
+                  'circle-stroke-color': '#a16207',
+                }}
+              />
+              <Layer
+                id="destino-label"
+                type="symbol"
+                layout={{
+                  'text-field': ['get', 'nome'],
+                  'text-size': 13,
+                  'text-anchor': 'top',
+                  'text-offset': [0, 0.8],
+                  'text-allow-overlap': true,
+                }}
+                paint={{
+                  'text-color': '#ffffff',
+                  'text-halo-color': '#a16207',
+                  'text-halo-width': 1.5,
+                  'text-halo-blur': 0.5,
+                }}
+              />
+            </Source>
           )}
         </Map>
 
