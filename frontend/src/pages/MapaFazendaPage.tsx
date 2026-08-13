@@ -38,6 +38,7 @@ const mapStyle: MapLibreGL.StyleSpecification = {
     esri: esriWorldImagery,
     'esri-labels': esriLabels,
   },
+  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   layers: [
     {
       id: 'background',
@@ -101,8 +102,9 @@ export default function MapaFazendaPage() {
   })
 
   const mapRef = useRef<any>(null)
-  const gpsWatchIdRef = useRef<string | null>(null)
   const gpsPrimeiraLeituraRef = useRef(true)
+  const gpsWatchIdRef = useRef<string | null>(null)
+  const headingSuavizadoRef = useRef<number | null>(null)
 
   // ==================== Carregar dados do mapa ====================
   useEffect(() => {
@@ -200,7 +202,27 @@ export default function MapaFazendaPage() {
         const lng = pos.coords.longitude
         const lat = pos.coords.latitude
         const accuracy = pos.coords.accuracy ?? 0
-        const heading = pos.coords.heading ?? null
+        let heading = pos.coords.heading ?? null
+
+        // Suavização do heading: interpolação angular para evitar saltos bruscos
+        // O GPS nativo pode retornar heading com ruído quando o usuário está parado
+        if (heading !== null && !isNaN(heading)) {
+          const prev = headingSuavizadoRef.current
+          if (prev !== null) {
+            // Diferença angular considerando wrap-around (0-360)
+            let diff = heading - prev
+            if (diff > 180) diff -= 360
+            if (diff < -180) diff += 360
+            // Interpolação suave: 70% do anterior + 30% do novo
+            let suavizado = prev + diff * 0.3
+            if (suavizado < 0) suavizado += 360
+            if (suavizado >= 360) suavizado -= 360
+            headingSuavizadoRef.current = suavizado
+            heading = suavizado
+          } else {
+            headingSuavizadoRef.current = heading
+          }
+        }
 
         setGpsPosition({ lng, lat, accuracy, heading })
         setGpsStatus('active')
@@ -404,42 +426,19 @@ export default function MapaFazendaPage() {
   }, [gpsPosition])
 
   // ==================== GeoJSON do cone de direção (heading) ====================
+  // O cone é renderizado como ícone SVG (symbol layer) com gradiente, rotacionado pelo heading.
+  // O GeoJSON só carrega a posição + heading; o ícone é adicionado ao mapa via onLoad.
   const gpsHeadingGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
     if (!gpsPosition || gpsPosition.heading === null || isNaN(gpsPosition.heading)) {
       return { type: 'FeatureCollection', features: [] }
     }
 
-    // Cone: triângulo com vértice na posição do usuário, abrindo ~60° na direção do heading
-    const { lng, lat, heading } = gpsPosition
-    const coneAngulo = 35 // graus de cada lado do heading (70° total)
-    const coneComprimento = 50 // metros
-    const latRad = lat * Math.PI / 180
-
-    // Converter heading (graus a partir do norte, horário) + distância em offset lng/lat
-    function offsetPorHeading(distM: number, anguloDeg: number): [number, number] {
-      const rad = anguloDeg * Math.PI / 180
-      const dx = distM * Math.sin(rad) // leste/oeste
-      const dy = distM * Math.cos(rad) // norte/sul
-      const dLng = dx / (111320 * Math.cos(latRad))
-      const dLat = dy / 111320
-      return [lng + dLng, lat + dLat]
-    }
-
-    // Vértice de trás (posição do usuário)
-    const atras = offsetPorHeading(-8, heading)
-    // Pontos da frente (abertura do cone)
-    const frenteEsq = offsetPorHeading(coneComprimento, heading - coneAngulo)
-    const frenteDir = offsetPorHeading(coneComprimento, heading + coneAngulo)
-
     return {
       type: 'FeatureCollection',
       features: [{
         type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'Polygon',
-          coordinates: [[atras, frenteEsq, frenteDir, atras]],
-        },
+        properties: { heading: gpsPosition.heading },
+        geometry: { type: 'Point', coordinates: [gpsPosition.lng, gpsPosition.lat] },
       }],
     }
   }, [gpsPosition])
@@ -725,6 +724,36 @@ export default function MapaFazendaPage() {
           touchPitch={false}
           pitchWithRotate={false}
           style={{ width: '100%', height: '100%' }}
+          onLoad={(e) => {
+            // Adicionar ícone do cone de direção GPS com gradiente
+            const svg = `
+              <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+                <defs>
+                  <linearGradient id="coneGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.05"/>
+                    <stop offset="40%" stop-color="#3b82f6" stop-opacity="0.25"/>
+                    <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.55"/>
+                  </linearGradient>
+                  <linearGradient id="coneStroke" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="#2563eb" stop-opacity="0.7"/>
+                  </linearGradient>
+                </defs>
+                <path d="M 40 72 L 18 8 Q 40 0 62 8 Z"
+                      fill="url(#coneGrad)"
+                      stroke="url(#coneStroke)"
+                      stroke-width="1.5"
+                      stroke-linejoin="round"/>
+              </svg>
+            `
+            const img = new Image()
+            img.onload = () => {
+              if (e.target && !e.target.hasImage('gps-cone-icon')) {
+                e.target.addImage('gps-cone-icon', img, { pixelRatio: 2, sdf: false })
+              }
+            }
+            img.src = 'data:image/svg+xml;base64,' + btoa(svg)
+          }}
         >
           <NavigationControl position="top-right" showCompass={false} />
 
@@ -769,7 +798,7 @@ export default function MapaFazendaPage() {
                 'text-anchor': 'center',
                 'text-allow-overlap': true,
                 'text-padding': 4,
-                'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
+                'text-font': ['Open Sans Bold', 'Open Sans Regular'],
               }}
               paint={{
                 'text-color': '#ffffff',
@@ -811,7 +840,7 @@ export default function MapaFazendaPage() {
                 'text-anchor': 'center',
                 'text-allow-overlap': true,
                 'text-padding': 4,
-                'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
+                'text-font': ['Open Sans Bold', 'Open Sans Regular'],
               }}
               paint={{
                 'text-color': '#ffffff',
@@ -872,7 +901,7 @@ export default function MapaFazendaPage() {
                   'text-anchor': 'center',
                   'text-allow-overlap': true,
                   'text-padding': 4,
-                  'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
+                  'text-font': ['Open Sans Bold', 'Open Sans Regular'],
                 }}
                 paint={{
                   'text-color': '#ffffff',
@@ -918,15 +947,23 @@ export default function MapaFazendaPage() {
             </Source>
           )}
 
-          {/* Source: cone de direção (heading) */}
+          {/* Source: cone de direção (heading) - ícone SVG com gradiente rotacionado */}
           {gpsHeadingGeoJSON.features.length > 0 && (
             <Source id="gps-heading-source" type="geojson" data={gpsHeadingGeoJSON}>
               <Layer
                 id="gps-heading-cone"
-                type="fill"
+                type="symbol"
+                layout={{
+                  'icon-image': 'gps-cone-icon',
+                  'icon-rotate': ['get', 'heading'],
+                  'icon-rotation-alignment': 'map',
+                  'icon-allow-overlap': true,
+                  'icon-anchor': 'bottom',
+                  'icon-size': 1,
+                  'icon-offset': [0, 0],
+                }}
                 paint={{
-                  'fill-color': '#3b82f6',
-                  'fill-opacity': 0.35,
+                  'icon-opacity': 0.9,
                 }}
               />
             </Source>
@@ -992,7 +1029,7 @@ export default function MapaFazendaPage() {
                   'text-offset': [0, 0.8],
                   'text-allow-overlap': true,
                   'text-padding': 4,
-                  'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
+                  'text-font': ['Open Sans Bold', 'Open Sans Regular'],
                 }}
                 paint={{
                   'text-color': '#ffffff',
