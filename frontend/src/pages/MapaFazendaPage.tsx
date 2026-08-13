@@ -226,16 +226,16 @@ export default function MapaFazendaPage() {
             let diff = heading - prev
             if (diff > 180) diff -= 360
             if (diff < -180) diff += 360
-            // Deadband: ignorar mudanças < 3 graus (ruído da bússola)
-            if (Math.abs(diff) < 3) {
+            // Deadband: ignorar mudanças < 2 graus (ruído da bússola)
+            if (Math.abs(diff) < 2) {
               heading = prev
             } else {
-              // Saltos grandes (> 45°) = mudança real de direção, aceitar direto
-              if (Math.abs(diff) > 45) {
+              // Saltos grandes (> 30°) = mudança real de direção, aceitar direto
+              if (Math.abs(diff) > 30) {
                 headingSuavizadoRef.current = heading
               } else {
-                // Interpolação: 50% anterior + 50% novo (mais responsivo)
-                let suavizado = prev + diff * 0.5
+                // Interpolação: 20% anterior + 80% novo (responsivo)
+                let suavizado = prev + diff * 0.8
                 if (suavizado < 0) suavizado += 360
                 if (suavizado >= 360) suavizado -= 360
                 headingSuavizadoRef.current = suavizado
