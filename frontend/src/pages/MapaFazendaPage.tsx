@@ -9,7 +9,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { ArrowLeft, Search, MapPin, Navigation, Crosshair, AlertCircle, X, Loader2 } from 'lucide-react'
 import { syncMapaFazenda, loadMapaFazenda, type MapaFazendaData } from '../services/mapaCache'
-import { calcularRota, distanciaReta, calcularMelhorLabel } from '../services/mapaRouting'
+import { distanciaReta, calcularMelhorLabel } from '../services/mapaRouting'
 
 // ==================== Configuração do mapa ====================
 
@@ -68,7 +68,7 @@ const mapStyle: MapLibreGL.StyleSpecification = {
 interface DestinoSelecionado {
   id: string
   nome: string
-  tipo: 'pasto' | 'curral'
+  tipo: 'pasto' | 'curral' | 'fabrica'
   geometria: GeoJSON.Geometry
   centroide: [number, number]
 }
@@ -232,7 +232,8 @@ export default function MapaFazendaPage() {
     iniciarGPS()
   }, [iniciarGPS])
 
-  // ==================== Calcular rota quando destino muda ====================
+  // ==================== Calcular distância quando destino muda ====================
+  // Routing por estradas temporariamente desabilitado: usar apenas distância em linha reta
   useEffect(() => {
     if (!destino || !gpsPosition) {
       setRota(null)
@@ -240,24 +241,11 @@ export default function MapaFazendaPage() {
       return
     }
 
-    if (mapaData && mapaData.estradas.length > 0) {
-      const origem: [number, number] = [gpsPosition.lng, gpsPosition.lat]
-      const destinoCoord: [number, number] = destino.centroide
-
-      const resultado = calcularRota(mapaData.estradas, origem, destinoCoord)
-      if (resultado.encontrou && resultado.rota) {
-        setRota(resultado.rota)
-        setDistanciaRota(resultado.distancia_m)
-        return
-      }
-    }
-
-    // Fallback: distância em linha reta
     const origem: [number, number] = [gpsPosition.lng, gpsPosition.lat]
     const dist = distanciaReta(origem, destino.centroide)
     setRota(null)
     setDistanciaRota(dist)
-  }, [destino, gpsPosition, mapaData])
+  }, [destino, gpsPosition])
 
   // ==================== Detectar offline ====================
   useEffect(() => {
@@ -361,7 +349,7 @@ export default function MapaFazendaPage() {
       .filter((p) => p.geometria.type === 'Polygon')
       .map((p) => ({
         type: 'Feature',
-        properties: { id: p.id, nome: p.nome, tipo: p.tipo },
+        properties: { id: p.id, nome: p.nome, tipo: 'fabrica' },
         geometry: p.geometria,
       }))
     return { type: 'FeatureCollection', features }
@@ -428,7 +416,7 @@ export default function MapaFazendaPage() {
     if (!busca.trim()) return []
     const termo = busca.toLowerCase()
 
-    const pastosResults: { id: string; nome: string; tipo: 'pasto' | 'curral'; geometria: GeoJSON.Geometry; centroide: [number, number] }[] =
+    const pastosResults: { id: string; nome: string; tipo: 'pasto' | 'curral' | 'fabrica'; geometria: GeoJSON.Geometry; centroide: [number, number] }[] =
       (mapaData?.pastos || [])
         .filter((p) => p.nome.toLowerCase().includes(termo))
         .map((p) => {
@@ -439,7 +427,7 @@ export default function MapaFazendaPage() {
           return { id: p.id, nome: p.nome, tipo: 'pasto' as const, geometria: p.geometria, centroide }
         })
 
-    const curraisResults: { id: string; nome: string; tipo: 'pasto' | 'curral'; geometria: GeoJSON.Geometry; centroide: [number, number] }[] =
+    const curraisResults: { id: string; nome: string; tipo: 'pasto' | 'curral' | 'fabrica'; geometria: GeoJSON.Geometry; centroide: [number, number] }[] =
       (mapaData?.currais || [])
         .filter((c) => c.nome.toLowerCase().includes(termo))
         .map((c) => {
@@ -450,7 +438,18 @@ export default function MapaFazendaPage() {
           return { id: c.id, nome: c.nome, tipo: 'curral' as const, geometria: c.geometria, centroide }
         })
 
-    return [...pastosResults, ...curraisResults].slice(0, 15)
+    const fabricasResults: { id: string; nome: string; tipo: 'pasto' | 'curral' | 'fabrica'; geometria: GeoJSON.Geometry; centroide: [number, number] }[] =
+      (mapaData?.pontos || [])
+        .filter((p) => p.geometria.type === 'Polygon' && p.nome.toLowerCase().includes(termo))
+        .map((p) => {
+          let centroide: [number, number] = [0, 0]
+          if (p.geometria.type === 'Polygon') {
+            centroide = calcularMelhorLabel((p.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][])
+          }
+          return { id: p.id, nome: p.nome, tipo: 'fabrica' as const, geometria: p.geometria, centroide }
+        })
+
+    return [...pastosResults, ...curraisResults, ...fabricasResults].slice(0, 15)
   }, [busca, mapaData])
 
   // ==================== Handlers ====================
@@ -479,7 +478,7 @@ export default function MapaFazendaPage() {
     if (!mapRef.current) return
     const map = mapRef.current.getMap()
     const features = map.queryRenderedFeatures(e.point, {
-      layers: ['pastos-fill', 'currais-fill', 'pastos-labels', 'currais-labels'],
+      layers: ['pastos-fill', 'currais-fill', 'fabricas-fill', 'pastos-labels', 'currais-labels', 'fabricas-labels'],
     })
 
     if (features.length === 0) return
@@ -487,27 +486,32 @@ export default function MapaFazendaPage() {
     const f = features[0]
     const id = f.properties?.id as string
     const nome = f.properties?.nome as string
-    const tipo = f.properties?.tipo as 'pasto' | 'curral'
+    const tipo = f.properties?.tipo as 'pasto' | 'curral' | 'fabrica'
 
     if (!id || !nome) return
 
-    // Buscar geometria correspondente
-    const item = tipo === 'pasto'
-      ? mapaData?.pastos.find((p) => p.id === id)
-      : mapaData?.currais.find((c) => c.id === id)
+    // Buscar geometria correspondente conforme o tipo
+    let geometria: GeoJSON.Geometry | undefined
+    if (tipo === 'pasto') {
+      geometria = mapaData?.pastos.find((p) => p.id === id)?.geometria
+    } else if (tipo === 'curral') {
+      geometria = mapaData?.currais.find((c) => c.id === id)?.geometria
+    } else if (tipo === 'fabrica') {
+      geometria = mapaData?.pontos.find((p) => p.id === id)?.geometria
+    }
 
-    if (!item) return
+    if (!geometria) return
 
     let centroide: [number, number] = [e.lngLat.lng, e.lngLat.lat]
-    if (item.geometria.type === 'Polygon') {
-      centroide = calcularMelhorLabel((item.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][])
+    if (geometria.type === 'Polygon') {
+      centroide = calcularMelhorLabel((geometria as GeoJSON.Polygon).coordinates[0] as [number, number][])
     }
 
     selecionarDestino({
       id,
       nome,
       tipo,
-      geometria: item.geometria,
+      geometria,
       centroide,
     })
   }
@@ -623,7 +627,7 @@ export default function MapaFazendaPage() {
           ref={mapRef}
           initialViewState={initialView}
           mapStyle={mapStyle}
-          interactiveLayerIds={['pastos-fill', 'currais-fill', 'pastos-labels', 'currais-labels']}
+          interactiveLayerIds={['pastos-fill', 'currais-fill', 'fabricas-fill', 'pastos-labels', 'currais-labels', 'fabricas-labels']}
           onClick={onMapClick}
           dragRotate={false}
           touchPitch={false}
@@ -662,23 +666,25 @@ export default function MapaFazendaPage() {
             />
           </Source>
 
-          {/* Source: labels dos pastos */}
+          {/* Source: labels dos pastos (esconde o label do destino selecionado) */}
           <Source id="pastos-labels-source" type="geojson" data={pastosLabelsGeoJSON}>
             <Layer
               id="pastos-labels"
               type="symbol"
               layout={{
                 'text-field': ['get', 'nome'],
-                'text-size': 14,
+                'text-size': 16,
                 'text-anchor': 'center',
                 'text-allow-overlap': true,
+                'text-padding': 4,
+                'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
               }}
               paint={{
                 'text-color': '#ffffff',
                 'text-halo-color': '#000000',
-                'text-halo-width': 1.5,
-                'text-halo-blur': 0.5,
+                'text-halo-width': 1,
               }}
+              filter={['!=', 'id', destino?.id ?? '__none__']}
             />
           </Source>
 
@@ -702,23 +708,25 @@ export default function MapaFazendaPage() {
             />
           </Source>
 
-          {/* Source: labels dos currais */}
+          {/* Source: labels dos currais (esconde o label do destino selecionado) */}
           <Source id="currais-labels-source" type="geojson" data={curraisLabelsGeoJSON}>
             <Layer
               id="currais-labels"
               type="symbol"
               layout={{
                 'text-field': ['get', 'nome'],
-                'text-size': 13,
+                'text-size': 15,
                 'text-anchor': 'center',
                 'text-allow-overlap': true,
+                'text-padding': 4,
+                'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
               }}
               paint={{
                 'text-color': '#ffffff',
                 'text-halo-color': '#000000',
-                'text-halo-width': 1.5,
-                'text-halo-blur': 0.5,
+                'text-halo-width': 1,
               }}
+              filter={['!=', 'id', destino?.id ?? '__none__']}
             />
           </Source>
 
@@ -760,7 +768,7 @@ export default function MapaFazendaPage() {
             </Source>
           )}
 
-          {/* Source: labels das fábricas */}
+          {/* Source: labels das fábricas (esconde o label do destino selecionado) */}
           {fabricasLabelsGeoJSON.features.length > 0 && (
             <Source id="fabricas-labels-source" type="geojson" data={fabricasLabelsGeoJSON}>
               <Layer
@@ -768,16 +776,18 @@ export default function MapaFazendaPage() {
                 type="symbol"
                 layout={{
                   'text-field': ['get', 'nome'],
-                  'text-size': 13,
+                  'text-size': 15,
                   'text-anchor': 'center',
                   'text-allow-overlap': true,
+                  'text-padding': 4,
+                  'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
                 }}
                 paint={{
                   'text-color': '#ffffff',
                   'text-halo-color': '#5b21b6',
-                  'text-halo-width': 1.5,
-                  'text-halo-blur': 0.5,
+                  'text-halo-width': 1,
                 }}
+                filter={['!=', 'id', destino?.id ?? '__none__']}
               />
             </Source>
           )}
@@ -871,16 +881,17 @@ export default function MapaFazendaPage() {
                 type="symbol"
                 layout={{
                   'text-field': ['get', 'nome'],
-                  'text-size': 13,
+                  'text-size': 15,
                   'text-anchor': 'top',
                   'text-offset': [0, 0.8],
                   'text-allow-overlap': true,
+                  'text-padding': 4,
+                  'text-font': ['Noto Sans Regular', 'Arial Regular', 'sans-serif'],
                 }}
                 paint={{
                   'text-color': '#ffffff',
                   'text-halo-color': '#a16207',
-                  'text-halo-width': 1.5,
-                  'text-halo-blur': 0.5,
+                  'text-halo-width': 1,
                 }}
               />
             </Source>
@@ -920,8 +931,8 @@ export default function MapaFazendaPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${destino.tipo === 'pasto' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {destino.tipo === 'pasto' ? 'Pasto' : 'Curral'}
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${destino.tipo === 'pasto' ? 'bg-green-100 text-green-700' : destino.tipo === 'curral' ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'}`}>
+                    {destino.tipo === 'pasto' ? 'Pasto' : destino.tipo === 'curral' ? 'Curral' : 'Fábrica'}
                   </span>
                   <h2 className="text-base font-bold text-gray-900 truncate">{destino.nome}</h2>
                 </div>
@@ -935,14 +946,7 @@ export default function MapaFazendaPage() {
                             : `${(distanciaRota / 1000).toFixed(2)} km`
                         }
                         </span>
-                        {' '}
-                        {rota ? 'pela rota' : 'em linha reta'}
-                        {!rota && mapaData && mapaData.estradas.length > 0 && (
-                          <span className="text-gray-400"> (sem estradas conectadas)</span>
-                        )}
-                        {!rota && mapaData && mapaData.estradas.length === 0 && (
-                          <span className="text-gray-400"> (sem estradas cadastradas)</span>
-                        )}
+                        {' em linha reta'}
                       </>
                     ) : (
                       <span className="text-gray-400">Ative o GPS para calcular a distância</span>
