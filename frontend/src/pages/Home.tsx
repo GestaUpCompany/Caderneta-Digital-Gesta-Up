@@ -4,7 +4,7 @@ import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
-import { ClipboardList, Sun, Moon, Settings } from 'lucide-react'
+import { ClipboardList, Sun, Moon, Settings, MapPin } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
 
 import { VERSICULOS, Versiculo } from '../config/versiculos'
@@ -565,6 +565,20 @@ export default function Home() {
                 </span>
               </button>
             </div>
+
+            {/* Botão Mapa da Fazenda */}
+            <button
+              onClick={() => navigate('/mapa-fazenda')}
+              className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 border border-white/30 backdrop-blur-sm"
+              style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.1))' }}
+            >
+              <div className="w-40 h-auto flex items-center justify-center">
+                <MapPin className="w-20 h-20 text-cyan-600" strokeWidth={1.5} />
+              </div>
+              <span className="text-base font-bold text-center leading-tight text-gray-900">
+                MAPA DA FAZENDA
+              </span>
+            </button>
           </div>
         )}
       </main>

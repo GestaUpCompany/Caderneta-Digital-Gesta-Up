@@ -72,17 +72,17 @@ Criar rota `/admin/erros-sync` com:
 
 **DÃ©bito nÃ£o resolvido por essa mudanÃ§a**: idempotÃªncia via `upsert` com `local_id` nas 21 tabelas de registros. Hoje o `registroToSupabase` nÃ£o envia o `id` local como chave de idempotÃªncia; se o INSERT sucede no Supabase mas a resposta se perde (timeout, rede instÃ¡vel), o dispositivo nÃ£o grava `supabaseId` e tenta criar de novo (duplicata). Eliminar retries encolhe a janela de risco mas nÃ£o fecha o buraco. A correÃ§Ã£o estrutural exige adicionar coluna `local_id` (ou `idempotency_key`) nas tabelas + usar `upsert` com `onConflict`, migraÃ§Ã£o coordenada com o Painel Web conforme matriz de impacto do AGENTS.md.
 
-### PeÃ£o sem vÃ­nculo em `usuarios`/`usuario_fazenda` na criaÃ§Ã£o de fazenda (Painel Web)
+### PeÃ£o sem vÃ­nculo em `usuarios`/`usuario_fazenda` na criaÃ§Ã£o de fazenda (Painel Web) â€” RESOLVIDO
 
 **Contexto**: o PWA autentica como peÃ£o (tabela `peoes`, email `peao.<acesso_id>@gestaup.internal`), nÃ£o como controller. A RLS de `lote_categorias` (e outras tabelas protegidas) verifica `usuarios.auth_id = auth.uid()` com `usuario_fazenda.ativo = true`. Se o peÃ£o nÃ£o tem registro em `usuarios` nem em `usuario_fazenda`, a RLS bloqueia o SELECT e o `LoteDetalhesCard` exibe categorias, peso e cabeÃ§as zerados, mesmo com dados vÃ¡lidos no banco. A tabela `lotes` tem policy `qual: true` (qualquer autenticado lÃª tudo), por isso PASTO e LOTE aparecem no card, criando a falsa impressÃ£o de que o lote foi encontrado mas estÃ¡ vazio.
 
-**Causa raiz**: `createFazendaWithController` em `GestaUp-Cadernetas-Gestao/src/services/fazendasService.ts:222-276` (commit `e22f766`, 03/05/2026) cria o peÃ£o em `auth.users` (via Edge Function `create-auth-user-only`) e em `peoes`, mas nÃ£o insere em `usuarios` nem em `usuario_fazenda`. O controller recebe ambos (Passos 2-3 via `signUp` + insert em `usuario_fazenda`), o peÃ£o nÃ£o (Passo 4 incompleto).
+**Causa raiz**: `createFazendaWithController` em `GestaUp-Cadernetas-Gestao/src/services/fazendasService.ts:222-276` (commit `e22f766`, 03/05/2026) criava o peÃ£o em `auth.users` (via Edge Function `create-auth-user-only`) e em `peoes`, mas nÃ£o inseria em `usuarios` nem em `usuario_fazenda`. O controller recebia ambos (Passos 2-3 via `signUp` + insert em `usuario_fazenda`), o peÃ£o nÃ£o (Passo 4 incompleto).
 
 **Fazendas afetadas (backfill aplicado em 06/08/2026)**: AmÃ©rica, Brilhante, Doce IlusÃ£o, Gesta'Up Teste, Grupo GTC, AgropecuÃ¡ria Marca, MaringÃ¡, Monte Azul, RLA, Santa CecÃ­lia, Transcal. O backfill inseriu 11 registros em `usuarios` (com `id = auth_id = <uuid do auth.users>`, `papel = 'controller'`, `ativo = true`) e 11 em `usuario_fazenda` (vÃ­nculo peÃ£oâ†”fazenda).
 
-**CorreÃ§Ã£o a aplicar no Painel Web** (`fazendasService.ts`, Passo 4): apÃ³s criar o peÃ£o em `auth.users` e `peoes`, buscar o UUID do usuÃ¡rio criado (via `peaoResult.user.id` ou consulta a `auth.users` por email) e inserir em `usuarios` (`id = auth_id = <uuid>`, `email`, `nome = 'peao.<acesso_id>'`, `papel = 'controller'`, `ativo = true`) e em `usuario_fazenda` (`usuario_id = <uuid>`, `fazenda_id`, `papel = 'controller'`, `ativo = true`). A Edge Function `create-auth-user-only` provavelmente jÃ¡ retorna o UUID no payload, mas o cÃ³digo atual sÃ³ checa `peaoResult.success` e descarta o resto.
+**CorreÃ§Ã£o aplicada no Painel Web** (`fazendasService.ts`, commit `95d2e8c`, 06/08/2026): o Passo 4 agora, apÃ³s criar o peÃ£o em `auth.users` (via Edge Function) e em `peoes`, usa `peaoResult.user.id` (UUID retornado pela Edge Function) para inserir em `usuarios` (`id = auth_id = <uuid>`, `email`, `nome = 'PeÃ£o <nome fazenda>'`, `papel = 'controller'`, `ativo = true`) e em `usuario_fazenda` (`usuario_id = <uuid>`, `fazenda_id`, `papel = 'controller'`, `ativo = true`). Novas fazendas criadas pelo admin jÃ¡ nascem com o peÃ£o totalmente vinculado. A Edge Function `create-auth-user-only` retorna o UUID no payload em `peaoResult.user.id`.
 
-**Disparador**: quando criar uma nova fazenda no Painel Web, ou quando um peÃ£o reportar que cards de lote mostram dados zerados mas o lote existe no banco, verificar se o peÃ£o tem vÃ­nculo em `usuarios`/`usuario_fazenda`.
+**Disparador**: quando criar uma nova fazenda no Painel Web, ou quando um peÃ£o reportar que cards de lote mostram dados zerados mas o lote existe no banco, verificar se o peÃ£o tem vÃ­nculo em `usuarios`/`usuario_fazenda`. Para fazendas criadas antes de 06/08/2026, o backfill jÃ¡ foi aplicado; para fazendas criadas depois, o fluxo de criaÃ§Ã£o jÃ¡ insere os vÃ­nculos corretamente.
 
 ### TransferÃªncia de lote entre fazendas do mesmo grupo (10/08/2026)
 
@@ -317,32 +317,32 @@ CorreÃ§Ãµes **SEGURAS** (sem impacto no Painel Web):
 | 10 | N4 | NegÃ³cio | currentFazendaId global | NEUTRO |
 
 
-## Mapas KML, georreferenciamento e GPS offline — adicionado em 2026-08-12
+## Mapas KML, georreferenciamento e GPS offline ï¿½ adicionado em 2026-08-12
 
-Arquitetura aprovada para o MVP de mapas no PWA: baixar mapa da fazenda do usuário, fundo de satélite online (ESRI World Imagery), projetar posição do usuário via GPS, projetar pastos como polígonos, selecionar pasto-alvo e ver distância. Funcionalidade core (polígonos, GPS, distância) funciona offline; satélite exige conexão com fallback gracioso.
+Arquitetura aprovada para o MVP de mapas no PWA: baixar mapa da fazenda do usuï¿½rio, fundo de satï¿½lite online (ESRI World Imagery), projetar posiï¿½ï¿½o do usuï¿½rio via GPS, projetar pastos como polï¿½gonos, selecionar pasto-alvo e ver distï¿½ncia. Funcionalidade core (polï¿½gonos, GPS, distï¿½ncia) funciona offline; satï¿½lite exige conexï¿½o com fallback gracioso.
 
-Documento completo (decisões de arquitetura, modelo de dados, stack): GestaUp-Cadernetas-Gestao/docs/ARQUITETURA_MAPA_KML.md.
+Documento completo (decisï¿½es de arquitetura, modelo de dados, stack): GestaUp-Cadernetas-Gestao/docs/ARQUITETURA_MAPA_KML.md.
 
 **Resumo para o PWA:**
 
-1. **Biblioteca de mapa**: MapLibre GL JS + is.gl/react-map-gl. Mesma lib do Painel Web, consistência.
+1. **Biblioteca de mapa**: MapLibre GL JS + is.gl/react-map-gl. Mesma lib do Painel Web, consistï¿½ncia.
 
 2. **GPS**: @capacitor/geolocation para watchPosition (nativo, mais preciso que Web Geolocation API). Plugin Capacitor 8 a adicionar.
 
-3. **Distância até pasto-alvo**: 	urf.js (	urf.distance para centroide, 	urf.pointToPolygonDistance para borda), rodando no celular sem rede.
+3. **Distï¿½ncia atï¿½ pasto-alvo**: 	urf.js (	urf.distance para centroide, 	urf.pointToPolygonDistance para borda), rodando no celular sem rede.
 
-4. **Offline**: GeoJSON dos pastos/bebedouros/estradas cacheado no IndexedDB via cadastroCache.ts (mesmo padrão existente). Query SELECT id, nome, ST_AsGeoJSON(geometria) as geometria FROM pastos WHERE fazenda_id =  AND geometria IS NOT NULL. Payload pequeno (200-500KB para 100 pastos). Sem multi-tenancy: peão loga com cesso_id da fazenda dele, baixa só os dados dela.
+4. **Offline**: GeoJSON dos pastos/bebedouros/estradas cacheado no IndexedDB via cadastroCache.ts (mesmo padrï¿½o existente). Query SELECT id, nome, ST_AsGeoJSON(geometria) as geometria FROM pastos WHERE fazenda_id =  AND geometria IS NOT NULL. Payload pequeno (200-500KB para 100 pastos). Sem multi-tenancy: peï¿½o loga com cesso_id da fazenda dele, baixa sï¿½ os dados dela.
 
-5. **Satélite**: ESRI World Imagery online (gratuito). Fallback gracioso offline: quando o MapLibre não carrega tiles, mostra fundo verde acinzentado com aviso discreto. Polígonos, GPS e distância continuam funcionando. Satélite offline via PMTiles fica para o futuro (fonte a definir: ortomosaicos próprios do setor de projetos ideal, Mapbox pago como fallback).
+5. **Satï¿½lite**: ESRI World Imagery online (gratuito). Fallback gracioso offline: quando o MapLibre nï¿½o carrega tiles, mostra fundo verde acinzentado com aviso discreto. Polï¿½gonos, GPS e distï¿½ncia continuam funcionando. Satï¿½lite offline via PMTiles fica para o futuro (fonte a definir: ortomosaicos prï¿½prios do setor de projetos ideal, Mapbox pago como fallback).
 
-6. **Tela nova**: "Mapa da Fazenda" no PWA, mostra polígonos + satélite (se online) + posição GPS + lista de pastos para selecionar como alvo + distância destacada.
+6. **Tela nova**: "Mapa da Fazenda" no PWA, mostra polï¿½gonos + satï¿½lite (se online) + posiï¿½ï¿½o GPS + lista de pastos para selecionar como alvo + distï¿½ncia destacada.
 
-7. **Fora do MVP (futuro aditivo, sem reescrita)**: satélite offline via PMTiles, routing pelas estradas (
-graph.path ou 	urf.shortestPath), edição de geometrias no PWA (só no Painel Web no MVP).
+7. **Fora do MVP (futuro aditivo, sem reescrita)**: satï¿½lite offline via PMTiles, routing pelas estradas (
+graph.path ou 	urf.shortestPath), ediï¿½ï¿½o de geometrias no PWA (sï¿½ no Painel Web no MVP).
 
-**Pontos de atenção para a implementação no PWA:**
-- Separar camadas no MapLibre: source de satélite separado dos sources de GeoJSON, para trocar online por PMTiles offline sem refactor.
-- Incrementar versão do cadastroCache para forçar refresh quando o schema do Painel Web mudar (coluna geometria adicionada a pastos/ebedouros).
-- @capacitor/geolocation precisa de permissão de localização no AndroidManifest.xml e Info.plist.
+**Pontos de atenï¿½ï¿½o para a implementaï¿½ï¿½o no PWA:**
+- Separar camadas no MapLibre: source de satï¿½lite separado dos sources de GeoJSON, para trocar online por PMTiles offline sem refactor.
+- Incrementar versï¿½o do cadastroCache para forï¿½ar refresh quando o schema do Painel Web mudar (coluna geometria adicionada a pastos/ebedouros).
+- @capacitor/geolocation precisa de permissï¿½o de localizaï¿½ï¿½o no AndroidManifest.xml e Info.plist.
 
-Disparador: quando mencionar "mapa KML", "georreferenciamento", "pastos no mapa", "GPS no PWA", "MapLibre", "PostGIS", "geometria de pasto", "distância até pasto", ou retomar a implementação de mapas, ler esta seção e o GestaUp-Cadernetas-Gestao/docs/ARQUITETURA_MAPA_KML.md.
+Disparador: quando mencionar "mapa KML", "georreferenciamento", "pastos no mapa", "GPS no PWA", "MapLibre", "PostGIS", "geometria de pasto", "distï¿½ncia atï¿½ pasto", ou retomar a implementaï¿½ï¿½o de mapas, ler esta seï¿½ï¿½o e o GestaUp-Cadernetas-Gestao/docs/ARQUITETURA_MAPA_KML.md.

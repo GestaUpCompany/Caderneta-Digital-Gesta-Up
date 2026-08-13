@@ -92,6 +92,9 @@ const ProgramacaoHojePage = lazy(() => import('./pages/ProgramacaoHojePage'))
 // Lazy loading do estoque de insumos
 const EstoquePage = lazy(() => import('./pages/estoque-insumos/EstoquePage'))
 
+// Lazy loading do mapa da fazenda
+const MapaFazendaPage = lazy(() => import('./pages/MapaFazendaPage'))
+
 function AppInner() {
   useSync()
   const location = useLocation()
@@ -430,6 +433,9 @@ function AppInner() {
 
             {/* Estoque de Insumos */}
             <Route path="/estoque-insumos/estoque" element={<EstoquePage />} />
+
+            {/* Mapa da Fazenda */}
+            <Route path="/mapa-fazenda" element={<MapaFazendaPage />} />
 
             {/* Maternidade */}
             <Route path="/caderneta/maternidade" element={<MaternidadePage />} />

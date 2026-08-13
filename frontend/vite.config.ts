@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { splitVendorChunkPlugin } from 'vite'
 
 export default defineConfig({
   base: '/Caderneta-Digital-Gesta-Up/',
@@ -10,7 +9,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    splitVendorChunkPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
@@ -59,7 +57,7 @@ export default defineConfig({
     })
   ],
   build: {
-    target: 'es2015',
+    target: 'es2020',
     minify: 'terser',
     terserOptions: {
       compress: {
@@ -72,7 +70,8 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           state: ['@reduxjs/toolkit', 'react-redux', 'redux-persist'],
-          ui: ['lucide-react']
+          ui: ['lucide-react'],
+          map: ['maplibre-gl', 'react-map-gl/maplibre', '@turf/turf']
         }
       }
     },
