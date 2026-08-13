@@ -105,6 +105,7 @@ export default function MapaFazendaPage() {
   const gpsPrimeiraLeituraRef = useRef(true)
   const gpsWatchIdRef = useRef<string | null>(null)
   const headingSuavizadoRef = useRef<number | null>(null)
+  const ultimaPosicaoRef = useRef<{ lng: number; lat: number } | null>(null)
 
   // ==================== Carregar dados do mapa ====================
   useEffect(() => {
@@ -204,21 +205,43 @@ export default function MapaFazendaPage() {
         const accuracy = pos.coords.accuracy ?? 0
         let heading = pos.coords.heading ?? null
 
-        // Suavização do heading: interpolação angular para evitar saltos bruscos
-        // O GPS nativo pode retornar heading com ruído quando o usuário está parado
+        // Deadband de posição: ignorar micro-movimentos (< 1.5m) quando parado
+        // GPS nativo reporta coordenadas com jitter mesmo estacionário
+        const ultima = ultimaPosicaoRef.current
+        if (ultima) {
+          const dLat = (lat - ultima.lat) * 111320
+          const dLng = (lng - ultima.lng) * 111320 * Math.cos(lat * Math.PI / 180)
+          const deslocamento = Math.sqrt(dLat * dLat + dLng * dLng)
+          if (deslocamento < 1.5) {
+            // Parado: manter posição anterior, não atualizar
+            return
+          }
+        }
+        ultimaPosicaoRef.current = { lng, lat }
+
+        // Suavização do heading com deadband
         if (heading !== null && !isNaN(heading)) {
           const prev = headingSuavizadoRef.current
           if (prev !== null) {
-            // Diferença angular considerando wrap-around (0-360)
             let diff = heading - prev
             if (diff > 180) diff -= 360
             if (diff < -180) diff += 360
-            // Interpolação suave: 70% do anterior + 30% do novo
-            let suavizado = prev + diff * 0.3
-            if (suavizado < 0) suavizado += 360
-            if (suavizado >= 360) suavizado -= 360
-            headingSuavizadoRef.current = suavizado
-            heading = suavizado
+            // Deadband: ignorar mudanças < 3 graus (ruído da bússola)
+            if (Math.abs(diff) < 3) {
+              heading = prev
+            } else {
+              // Saltos grandes (> 45°) = mudança real de direção, aceitar direto
+              if (Math.abs(diff) > 45) {
+                headingSuavizadoRef.current = heading
+              } else {
+                // Interpolação: 50% anterior + 50% novo (mais responsivo)
+                let suavizado = prev + diff * 0.5
+                if (suavizado < 0) suavizado += 360
+                if (suavizado >= 360) suavizado -= 360
+                headingSuavizadoRef.current = suavizado
+                heading = suavizado
+              }
+            }
           } else {
             headingSuavizadoRef.current = heading
           }
@@ -251,6 +274,8 @@ export default function MapaFazendaPage() {
       if (gpsWatchIdRef.current !== null) {
         Geolocation.clearWatch({ id: gpsWatchIdRef.current }).catch(() => {})
       }
+      headingSuavizadoRef.current = null
+      ultimaPosicaoRef.current = null
     }
   }, [])
 
@@ -426,19 +451,47 @@ export default function MapaFazendaPage() {
   }, [gpsPosition])
 
   // ==================== GeoJSON do cone de direção (heading) ====================
-  // O cone é renderizado como ícone SVG (symbol layer) com gradiente, rotacionado pelo heading.
-  // O GeoJSON só carrega a posição + heading; o ícone é adicionado ao mapa via onLoad.
+  // Cone em formato de cunha (wedge) com frente curva, centrado na posição do usuário.
+  // Renderizado como polígono fill + outline, sem anchor offset.
   const gpsHeadingGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
     if (!gpsPosition || gpsPosition.heading === null || isNaN(gpsPosition.heading)) {
       return { type: 'FeatureCollection', features: [] }
+    }
+
+    const { lng, lat, heading } = gpsPosition
+    const coneAngulo = 25 // graus de cada lado (50° total)
+    const coneComprimento = 22 // metros
+    const latRad = lat * Math.PI / 180
+
+    function offsetPorHeading(distM: number, anguloDeg: number): [number, number] {
+      const rad = anguloDeg * Math.PI / 180
+      const dx = distM * Math.sin(rad)
+      const dy = distM * Math.cos(rad)
+      const dLng = dx / (111320 * Math.cos(latRad))
+      const dLat = dy / 111320
+      return [lng + dLng, lat + dLat]
+    }
+
+    // Construir cunha com frente curva (7 pontos ao longo do arco)
+    const pontos: [number, number][] = []
+    // Centro (posição do usuário)
+    pontos.push([lng, lat])
+    // Arco da frente
+    const steps = 7
+    for (let i = 0; i <= steps; i++) {
+      const angulo = heading - coneAngulo + (2 * coneAngulo * i / steps)
+      pontos.push(offsetPorHeading(coneComprimento, angulo))
     }
 
     return {
       type: 'FeatureCollection',
       features: [{
         type: 'Feature',
-        properties: { heading: gpsPosition.heading },
-        geometry: { type: 'Point', coordinates: [gpsPosition.lng, gpsPosition.lat] },
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [pontos],
+        },
       }],
     }
   }, [gpsPosition])
@@ -724,36 +777,6 @@ export default function MapaFazendaPage() {
           touchPitch={false}
           pitchWithRotate={false}
           style={{ width: '100%', height: '100%' }}
-          onLoad={(e) => {
-            // Adicionar ícone do cone de direção GPS com gradiente
-            const svg = `
-              <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
-                <defs>
-                  <linearGradient id="coneGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                    <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.05"/>
-                    <stop offset="40%" stop-color="#3b82f6" stop-opacity="0.25"/>
-                    <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.55"/>
-                  </linearGradient>
-                  <linearGradient id="coneStroke" x1="0%" y1="100%" x2="0%" y2="0%">
-                    <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"/>
-                    <stop offset="100%" stop-color="#2563eb" stop-opacity="0.7"/>
-                  </linearGradient>
-                </defs>
-                <path d="M 40 72 L 18 8 Q 40 0 62 8 Z"
-                      fill="url(#coneGrad)"
-                      stroke="url(#coneStroke)"
-                      stroke-width="1.5"
-                      stroke-linejoin="round"/>
-              </svg>
-            `
-            const img = new Image()
-            img.onload = () => {
-              if (e.target && !e.target.hasImage('gps-cone-icon')) {
-                e.target.addImage('gps-cone-icon', img, { pixelRatio: 2, sdf: false })
-              }
-            }
-            img.src = 'data:image/svg+xml;base64,' + btoa(svg)
-          }}
         >
           <NavigationControl position="top-right" showCompass={false} />
 
@@ -947,23 +970,24 @@ export default function MapaFazendaPage() {
             </Source>
           )}
 
-          {/* Source: cone de direção (heading) - ícone SVG com gradiente rotacionado */}
+          {/* Source: cone de direção (heading) - cunha com frente curva */}
           {gpsHeadingGeoJSON.features.length > 0 && (
             <Source id="gps-heading-source" type="geojson" data={gpsHeadingGeoJSON}>
               <Layer
                 id="gps-heading-cone"
-                type="symbol"
-                layout={{
-                  'icon-image': 'gps-cone-icon',
-                  'icon-rotate': ['get', 'heading'],
-                  'icon-rotation-alignment': 'map',
-                  'icon-allow-overlap': true,
-                  'icon-anchor': 'bottom',
-                  'icon-size': 1,
-                  'icon-offset': [0, 0],
-                }}
+                type="fill"
                 paint={{
-                  'icon-opacity': 0.9,
+                  'fill-color': '#3b82f6',
+                  'fill-opacity': 0.2,
+                }}
+              />
+              <Layer
+                id="gps-heading-outline"
+                type="line"
+                paint={{
+                  'line-color': '#3b82f6',
+                  'line-width': 1.5,
+                  'line-opacity': 0.5,
                 }}
               />
             </Source>
