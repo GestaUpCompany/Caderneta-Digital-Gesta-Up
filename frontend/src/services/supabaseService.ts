@@ -359,7 +359,9 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
-    .single()
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   if (error) throw error
   return data
