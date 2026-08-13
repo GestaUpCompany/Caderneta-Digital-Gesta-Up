@@ -8,7 +8,7 @@ import { Capacitor } from '@capacitor/core'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { ArrowLeft, Search, MapPin, Navigation, Crosshair, AlertCircle, X, Loader2 } from 'lucide-react'
-import { syncMapaFazenda, loadMapaFazenda, type MapaFazendaData } from '../services/mapaCache'
+import { syncMapaSePreciso, loadMapaFazenda, getDetalhesPasto, getDetalhesCurral, type MapaFazendaData, type DetalhePasto, type DetalheCurral } from '../services/mapaCache'
 import { distanciaReta, calcularMelhorLabel } from '../services/mapaRouting'
 
 // ==================== Configuração do mapa ====================
@@ -90,6 +90,10 @@ export default function MapaFazendaPage() {
   const [rota, setRota] = useState<GeoJSON.LineString | null>(null)
   const [distanciaRota, setDistanciaRota] = useState<number | null>(null)
   const [offlineAviso, setOfflineAviso] = useState(false)
+  const [detalhePasto, setDetalhePasto] = useState<DetalhePasto | null>(null)
+  const [detalheCurral, setDetalheCurral] = useState<DetalheCurral | null>(null)
+  const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
+  const [detalheAberto, setDetalheAberto] = useState(false)
   const [initialView] = useState({
     longitude: -54.68,
     latitude: -16.52,
@@ -129,8 +133,8 @@ export default function MapaFazendaPage() {
       if (navigator.onLine && !cancelado) {
         setSyncing(true)
         try {
-          const fresh = await syncMapaFazenda(fazendaId!)
-          if (!cancelado) {
+          const fresh = await syncMapaSePreciso(fazendaId!)
+          if (!cancelado && fresh) {
             setMapaData(fresh)
             if (fresh.pastos.length > 0 && !cached) {
               const g = fresh.pastos[0].geometria
@@ -516,7 +520,7 @@ export default function MapaFazendaPage() {
   }
 
   // ==================== Click no mapa ====================
-  const onMapClick = (e: any) => {
+  const onMapClick = async (e: any) => {
     if (!mapRef.current) return
     const map = mapRef.current.getMap()
     const features = map.queryRenderedFeatures(e.point, {
@@ -549,13 +553,59 @@ export default function MapaFazendaPage() {
       centroide = calcularMelhorLabel((geometria as GeoJSON.Polygon).coordinates[0] as [number, number][])
     }
 
-    selecionarDestino({
-      id,
-      nome,
-      tipo,
-      geometria,
-      centroide,
-    })
+    // Para fábrica, selecionar como destino diretamente (não há detalhes de lote)
+    if (tipo === 'fabrica') {
+      selecionarDestino({ id, nome, tipo, geometria, centroide })
+      return
+    }
+
+    // Para pasto/curral, guardar info e mostrar botão "Exibir detalhes"
+    setDetalhePasto(null)
+    setDetalheCurral(null)
+    setDetalheAberto(false)
+    setDestinoPendente({ id, nome, tipo, geometria, centroide })
+  }
+
+  // Info pendente para o botão "Ir até aqui" do painel de detalhes
+  const [destinoPendente, setDestinoPendente] = useState<DestinoSelecionado | null>(null)
+
+  const abrirDetalhe = async () => {
+    if (!destinoPendente) return
+    setDetalheAberto(true)
+    setCarregandoDetalhe(true)
+
+    if (navigator.onLine) {
+      try {
+        if (destinoPendente.tipo === 'pasto') {
+          const detalhe = await getDetalhesPasto(destinoPendente.id)
+          if (detalhe) setDetalhePasto(detalhe)
+        } else if (destinoPendente.tipo === 'curral') {
+          const detalhe = await getDetalhesCurral(destinoPendente.id)
+          if (detalhe) setDetalheCurral(detalhe)
+        }
+      } catch (err) {
+        console.warn('[MapaFazenda] Erro ao buscar detalhes:', err)
+      }
+    }
+
+    setCarregandoDetalhe(false)
+  }
+
+  const irAteDetalhe = () => {
+    if (destinoPendente) {
+      selecionarDestino(destinoPendente)
+      setDetalhePasto(null)
+      setDetalheCurral(null)
+      setDestinoPendente(null)
+      setDetalheAberto(false)
+    }
+  }
+
+  const fecharDetalhe = () => {
+    setDetalhePasto(null)
+    setDetalheCurral(null)
+    setDestinoPendente(null)
+    setDetalheAberto(false)
   }
 
   // ==================== Render ====================
@@ -954,6 +1004,230 @@ export default function MapaFazendaPage() {
           )}
         </Map>
 
+        {/* ==================== Painel de detalhes (pasto/curral) ==================== */}
+        {detalheAberto && (
+          <div className="absolute top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl z-20 overflow-y-auto">
+            <div className="p-4">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  {carregandoDetalhe && !detalhePasto && !detalheCurral ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                      <span className="text-sm text-gray-500">Carregando...</span>
+                    </div>
+                  ) : detalhePasto ? (
+                    <>
+                      <h2 className="text-lg font-bold text-gray-900">{detalhePasto.pasto_nome}</h2>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">Pasto</span>
+                    </>
+                  ) : detalheCurral ? (
+                    <>
+                      <h2 className="text-lg font-bold text-gray-900">{detalheCurral.curral_nome}</h2>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Curral</span>
+                    </>
+                  ) : null}
+                </div>
+                <button
+                  onClick={fecharDetalhe}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors flex-shrink-0"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Detalhes do pasto */}
+              {detalhePasto && (
+                <div className="space-y-2 text-sm">
+                  {detalhePasto.setor && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Setor:</span>
+                      <span className="font-medium">{detalhePasto.setor}</span>
+                    </div>
+                  )}
+                  {detalhePasto.tipo && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Tipo:</span>
+                      <span className="font-medium">{detalhePasto.tipo}</span>
+                    </div>
+                  )}
+                  {detalhePasto.area_total_ha != null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Área total:</span>
+                      <span className="font-medium">{Number(detalhePasto.area_total_ha).toFixed(1)} ha</span>
+                    </div>
+                  )}
+                  {detalhePasto.area_util_ha != null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Área útil:</span>
+                      <span className="font-medium">{Number(detalhePasto.area_util_ha).toFixed(1)} ha</span>
+                    </div>
+                  )}
+                  {detalhePasto.especie && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Espécie:</span>
+                      <span className="font-medium text-right">{detalhePasto.especie}</span>
+                    </div>
+                  )}
+                  {detalhePasto.metragem_cocho_m != null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Cocho:</span>
+                      <span className="font-medium">{Number(detalhePasto.metragem_cocho_m).toFixed(0)} m</span>
+                    </div>
+                  )}
+                  {detalhePasto.fonte_agua_principal && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Água:</span>
+                      <span className="font-medium">{detalhePasto.fonte_agua_principal}</span>
+                    </div>
+                  )}
+                  {detalhePasto.modulo_nome && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Módulo:</span>
+                      <span className="font-medium">{detalhePasto.modulo_nome}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Detalhes do curral */}
+              {detalheCurral && (
+                <div className="space-y-2 text-sm">
+                  {detalheCurral.largura_m != null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Largura:</span>
+                      <span className="font-medium">{Number(detalheCurral.largura_m).toFixed(0)} m</span>
+                    </div>
+                  )}
+                  {detalheCurral.comprimento_m != null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Comprimento:</span>
+                      <span className="font-medium">{Number(detalheCurral.comprimento_m).toFixed(0)} m</span>
+                    </div>
+                  )}
+                  {detalheCurral.metros_cocho_m != null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Cocho:</span>
+                      <span className="font-medium">{Number(detalheCurral.metros_cocho_m).toFixed(0)} m</span>
+                    </div>
+                  )}
+                  {detalheCurral.formulacao_nome && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Dieta:</span>
+                      <span className="font-medium text-right">{detalheCurral.formulacao_nome}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Lote atual (pasto ou curral) */}
+              {detalhePasto?.lote_nome && (
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Lote Atual</p>
+                  <div className="text-sm space-y-1">
+                    <p className="font-medium">{detalhePasto.lote_nome}</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-gray-600">
+                      <span>Cabeças:</span>
+                      <span className="font-medium text-gray-800">{detalhePasto.lote_cabecas}</span>
+                      {detalhePasto.lote_raca && (
+                        <>
+                          <span>Raça:</span>
+                          <span className="font-medium text-gray-800">{detalhePasto.lote_raca}</span>
+                        </>
+                      )}
+                      {detalhePasto.lote_sexo && (
+                        <>
+                          <span>Sexo:</span>
+                          <span className="font-medium text-gray-800">{detalhePasto.lote_sexo}</span>
+                        </>
+                      )}
+                      {detalhePasto.lote_peso_medio_kg != null && (
+                        <>
+                          <span>Peso médio:</span>
+                          <span className="font-medium text-gray-800">{Number(detalhePasto.lote_peso_medio_kg).toFixed(0)} kg</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {detalheCurral?.lote_nome && (
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Lote Atual</p>
+                  <div className="text-sm space-y-1">
+                    <p className="font-medium">{detalheCurral.lote_nome}</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-gray-600">
+                      <span>Cabeças:</span>
+                      <span className="font-medium text-gray-800">{detalheCurral.lote_cabecas}</span>
+                      {detalheCurral.lote_raca && (
+                        <>
+                          <span>Raça:</span>
+                          <span className="font-medium text-gray-800">{detalheCurral.lote_raca}</span>
+                        </>
+                      )}
+                      {detalheCurral.lote_sexo && (
+                        <>
+                          <span>Sexo:</span>
+                          <span className="font-medium text-gray-800">{detalheCurral.lote_sexo}</span>
+                        </>
+                      )}
+                      {detalheCurral.lote_peso_medio_kg != null && (
+                        <>
+                          <span>Peso médio:</span>
+                          <span className="font-medium text-gray-800">{Number(detalheCurral.lote_peso_medio_kg).toFixed(0)} kg</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Categorias e dietas */}
+              {((detalhePasto?.categorias && detalhePasto.categorias.length > 0) ||
+                (detalheCurral?.categorias && detalheCurral.categorias.length > 0)) && (
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Categorias e Dietas</p>
+                  <div className="space-y-2">
+                    {(detalhePasto?.categorias || detalheCurral?.categorias || []).map((cat, i) => (
+                      <div key={i} className="bg-gray-50 rounded-lg p-2">
+                        <div className="flex justify-between items-start">
+                          <span className="font-medium text-sm text-gray-800">{cat.categoria?.replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
+                          <span className="text-sm text-gray-600">{cat.quant_atual} cab</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>Peso: {cat.peso_vivo_kg ? `${Number(cat.peso_vivo_kg).toFixed(0)} kg` : '—'}</span>
+                          <span className={cat.formulacao_nome ? 'text-blue-600 font-medium' : 'text-gray-400'}>
+                            {cat.formulacao_nome || 'Sem dieta'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Aviso offline */}
+              {!navigator.onLine && carregandoDetalhe && (
+                <p className="text-xs text-gray-400 mt-3 text-center">
+                  Detalhes completos requerem internet. Conecte-se para ver lote e dietas.
+                </p>
+              )}
+
+              {/* Botão Ir até aqui */}
+              <div className="mt-4 pt-3 border-t border-gray-200">
+                <button
+                  onClick={irAteDetalhe}
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-medium py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors"
+                >
+                  <Navigation className="w-4 h-4" />
+                  Ir até aqui
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ==================== Botão GPS flutuante ==================== */}
         <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-10">
           {gpsPosition && (
@@ -980,6 +1254,35 @@ export default function MapaFazendaPage() {
             </div>
           )}
         </div>
+
+        {/* ==================== Botão "Exibir detalhes" ao clicar em pasto/curral ==================== */}
+        {destinoPendente && !detalheAberto && !destino && (
+          <div className="absolute bottom-4 left-4 right-20 z-10 bg-white rounded-xl shadow-lg p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${destinoPendente.tipo === 'pasto' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {destinoPendente.tipo === 'pasto' ? 'Pasto' : 'Curral'}
+                </span>
+                <span className="font-bold text-gray-900 truncate">{destinoPendente.nome}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={abrirDetalhe}
+                  className="flex items-center gap-1.5 bg-gray-100 text-gray-700 font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  Exibir detalhes
+                </button>
+                <button
+                  onClick={() => setDestinoPendente(null)}
+                  className="p-1 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ==================== Painel de destino + distância ==================== */}
         {destino && (

@@ -47,5 +47,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Usamos sua localização para mostrar sua posição no mapa da fazenda e calcular distâncias até pastos, currais e outros pontos.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Usamos sua localização para mostrar sua posição no mapa da fazenda e calcular distâncias até pastos, currais e outros pontos.</string>
 </dict>
 </plist>

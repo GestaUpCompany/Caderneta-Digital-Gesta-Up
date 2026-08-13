@@ -17,6 +17,7 @@ import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
 import { initializeCadastroCache, updateCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
+import { syncMapaSePreciso } from './services/mapaCache'
 import { fetchChecklistRegras } from './services/checklistRegrasService'
 import { reauthenticateFarm, isTokenValid } from './services/authService'
 import { useFarmStatus } from './hooks/useFarmStatus'
@@ -152,6 +153,10 @@ function AppInner() {
       const trocouFazenda = previousFazendaId && previousFazendaId !== fazendaId
 
       initializeCadastroCache(fazendaId)
+      // Sincronizar mapa da fazenda (verifica versão antes de baixar)
+      syncMapaSePreciso(fazendaId).catch((err) => {
+        console.warn('[App] Falha ao sincronizar mapa:', err)
+      })
       // Pré-cachear regras de checklist: consulta pequena que garante
       // funcionamento offline do useChecklistAtivo desde a abertura do app
       fetchChecklistRegras(fazendaId).catch((err) => {
@@ -189,6 +194,9 @@ function AppInner() {
         updateCadastroCache(fazendaId).catch((err) => {
           console.warn('[App] Falha ao atualizar cache on visibility change:', err)
         })
+        syncMapaSePreciso(fazendaId).catch((err) => {
+          console.warn('[App] Falha ao sincronizar mapa on visibility change:', err)
+        })
       }
     }
 
@@ -197,6 +205,9 @@ function AppInner() {
       console.log('[App] Dispositivo online, atualizando cache de cadastro')
       updateCadastroCache(fazendaId).catch((err) => {
         console.warn('[App] Falha ao atualizar cache on online event:', err)
+      })
+      syncMapaSePreciso(fazendaId).catch((err) => {
+        console.warn('[App] Falha ao sincronizar mapa on online event:', err)
       })
     }
 
@@ -224,6 +235,9 @@ function AppInner() {
         console.log('[App] Background Sync: atualizando cache de cadastro')
         updateCadastroCache(fazendaId).catch((err) => {
           console.warn('[App] Falha ao atualizar cache via BG Sync:', err)
+        })
+        syncMapaSePreciso(fazendaId).catch((err) => {
+          console.warn('[App] Falha ao sincronizar mapa via BG Sync:', err)
         })
       }
       // BG_SYNC_REGISTROS é tratado pelo useSync (fila de registros)
