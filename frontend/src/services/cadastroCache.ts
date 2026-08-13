@@ -489,6 +489,20 @@ export async function initializeCadastroCache(cadastroSheetUrl: string, fazendaI
   // Carregar detalhes de pastos/lotes persistidos (lazy cache)
   await loadQueryCacheFromIndexedDB()
 
+  // Reconstrução proativa de lotesPastoMap em background.
+  // Cobre o caso de cache populado (lotes presentes) mas com mapa degenerado
+  // (chaves com valores vazios), sintoma de sync parcial anterior em que
+  // getLotes retornou mas getPastos falhou. Sem isso, o usuário veria o pasto
+  // como '-' ao abrir uma caderneta, e só se estivesse online naquele momento.
+  // Fire-and-forget: não bloqueia a inicialização; a guarda interna de
+  // isLotesPastoMapUsable faz a chamada Supabase só disparar quando o mapa
+  // está efetivamente inválido, e a persistência o torna auto-limitante.
+  if (cached && fazendaId) {
+    ensureLotesPastoMap(cached, fazendaId).catch((e) => {
+      console.warn('[CadastroCache] Reconstrução proativa de lotesPastoMap falhou:', e)
+    })
+  }
+
   // Auto-sync: se cache vazio e online, buscar do Supabase em background
   // Garante que na primeira instalação o cache seja populado sem precisar clicar "Atualizar Dados"
   if (!cached && fazendaId && navigator.onLine) {
@@ -540,22 +554,32 @@ export function stopCadastroCachePolling(): void {
  * Retorna os dados em cache (ordenados alfabeticamente)
  * Se não houver dados em memória, tenta carregar do IndexedDB
  */
+/**
+ * Deduplica e ordena alfabeticamente uma lista de strings.
+ * Necessário porque lotes podem compartilhar nome (ex.: múltiplos lotes
+ * ativos chamados "Lote 147" no mesmo pasto) e os seletores não devem
+ * exibir entradas repetidas.
+ */
+function dedupSorted(list: string[] | undefined): string[] {
+  return Array.from(new Set(list || [])).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
 export async function getCachedCadastroData(): Promise<CadastroCacheData | null> {
   // Se já tem dados em memória, retorna
   if (cacheData) {
     return {
-      pastos: [...(cacheData.pastos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      lotes: [...(cacheData.lotes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      frigorificos: [...(cacheData.frigorificos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      causasMorte: [...(cacheData.causasMorte || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      bebedouros: [...(cacheData.bebedouros || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      fornecedores: [...(cacheData.fornecedores || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      funcionarios: [...(cacheData.funcionarios || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      formulacoes: [...(cacheData.formulacoes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      mineral: [...(cacheData.mineral || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      proteinado: [...(cacheData.proteinado || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      racao: [...(cacheData.racao || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      insumos: [...(cacheData.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      pastos: dedupSorted(cacheData.pastos),
+      lotes: dedupSorted(cacheData.lotes),
+      frigorificos: dedupSorted(cacheData.frigorificos),
+      causasMorte: dedupSorted(cacheData.causasMorte),
+      bebedouros: dedupSorted(cacheData.bebedouros),
+      fornecedores: dedupSorted(cacheData.fornecedores),
+      funcionarios: dedupSorted(cacheData.funcionarios),
+      formulacoes: dedupSorted(cacheData.formulacoes),
+      mineral: dedupSorted(cacheData.mineral),
+      proteinado: dedupSorted(cacheData.proteinado),
+      racao: dedupSorted(cacheData.racao),
+      insumos: dedupSorted(cacheData.insumos),
       pastosDetalhes: cacheData.pastosDetalhes || {},
       lotesDetalhes: cacheData.lotesDetalhes || {},
       lotesPastoMap: cacheData.lotesPastoMap || {},
@@ -569,18 +593,18 @@ export async function getCachedCadastroData(): Promise<CadastroCacheData | null>
     cacheData = cached
     lastCacheUpdate = Date.now()
     return {
-      pastos: [...(cached.pastos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      lotes: [...(cached.lotes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      frigorificos: [...(cached.frigorificos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      causasMorte: [...(cached.causasMorte || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      bebedouros: [...(cached.bebedouros || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      fornecedores: [...(cached.fornecedores || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      funcionarios: [...(cached.funcionarios || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      formulacoes: [...(cached.formulacoes || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      mineral: [...(cached.mineral || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      proteinado: [...(cached.proteinado || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      racao: [...(cached.racao || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
-      insumos: [...(cached.insumos || [])].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      pastos: dedupSorted(cached.pastos),
+      lotes: dedupSorted(cached.lotes),
+      frigorificos: dedupSorted(cached.frigorificos),
+      causasMorte: dedupSorted(cached.causasMorte),
+      bebedouros: dedupSorted(cached.bebedouros),
+      fornecedores: dedupSorted(cached.fornecedores),
+      funcionarios: dedupSorted(cached.funcionarios),
+      formulacoes: dedupSorted(cached.formulacoes),
+      mineral: dedupSorted(cached.mineral),
+      proteinado: dedupSorted(cached.proteinado),
+      racao: dedupSorted(cached.racao),
+      insumos: dedupSorted(cached.insumos),
       pastosDetalhes: cached.pastosDetalhes || {},
       lotesDetalhes: cached.lotesDetalhes || {},
       lotesPastoMap: cached.lotesPastoMap || {},
@@ -599,20 +623,48 @@ export function needsCacheUpdate(): boolean {
 }
 
 /**
- * Garante que lotesPastoMap esteja populado.
- * Se o cache já tem o mapa, retorna imediatamente.
- * Se o mapa está vazio mas há lotes e o dispositivo está online, busca do Supabase.
- * Isso resolve o caso de dispositivos com cache antigo (pré-mudança lote-first)
- * que têm lotes no cache mas não têm lotesPastoMap.
+ * Verifica se lotesPastoMap está em estado utilizável.
+ * Considera inválido quando:
+ *  - não existe
+ *  - está vazio (sem chaves)
+ *  - tem chaves mas todos os valores são string vazia (estado degenerado
+ *    gerado por sync parcial em que getLotes retornou mas getPastos falhou)
+ *
+ * Retorna true apenas quando há pelo menos um valor não-vazio, o que indica
+ * que pastos foram carregados e o mapeamento é confiável.
+ */
+function isLotesPastoMapUsable(map: Record<string, string> | undefined): boolean {
+  if (!map) return false
+  const keys = Object.keys(map)
+  if (keys.length === 0) return false
+  // Estado degenerado: chaves presentes mas nenhum pasto resolvido.
+  // Reconstruir para evitar exibir '-' onde deveria haver pasto.
+  return keys.some(k => map[k] && map[k].trim() !== '')
+}
+
+/**
+ * Garante que lotesPastoMap esteja populado e utilizável.
+ *
+ * Reconstrói o mapa quando ele está ausente, vazio, ou degenerado
+ * (chaves presentes mas valores vazios, sintoma de sync parcial em que
+ * getLotes retornou mas getPastos falhou/retornou vazio).
+ *
+ * A reconstrução tenta a chamada ao Supabase independentemente da flag
+ * navigator.onLine (notoriamente flaky em WebView de Android/iOS); em caso
+ * de falha de rede, o catch retorna o mapa existente como fallback.
+ *
+ * Após reconstrução bem-sucedida, atualiza cache em memória, persiste no
+ * IndexedDB e emite CADASTRO_CACHE_UPDATED para que páginas já montadas
+ * atualizem seu estado local.
  */
 export async function ensureLotesPastoMap(
   cache: CadastroCacheData,
   fazendaId?: string
 ): Promise<Record<string, string>> {
-  if (cache.lotesPastoMap && Object.keys(cache.lotesPastoMap).length > 0) {
-    return cache.lotesPastoMap
+  if (isLotesPastoMapUsable(cache.lotesPastoMap)) {
+    return cache.lotesPastoMap as Record<string, string>
   }
-  if (!fazendaId || !navigator.onLine) {
+  if (!fazendaId) {
     return cache.lotesPastoMap || {}
   }
   try {
@@ -624,10 +676,23 @@ export async function ensureLotesPastoMap(
     pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
     const mapa: Record<string, string> = {}
     lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+
+    // Só considerar a reconstrução válida se ela própria for utilizável.
+    // Caso contrário (ex.: getPastos ainda retornou vazio), preservar o
+    // estado anterior para não piorar a situação.
+    if (!isLotesPastoMapUsable(mapa)) {
+      console.warn('[CadastroCache] Reconstrução de lotesPastoMap resultou em mapa não utilizável, mantendo estado anterior')
+      return cache.lotesPastoMap || mapa
+    }
+
     // Atualizar cache em memória para próximas chamadas
     if (cacheData) {
       cacheData.lotesPastoMap = mapa
     }
+    // Sincronizar também o objeto cache recebido por parâmetro, para que
+    // o caller (ex.: loadData da página) use o mapa reconstruído.
+    cache.lotesPastoMap = mapa
+
     // Persistir no IndexedDB para próximas sessões
     try {
       const existing = await getCadastroData(CACHE_KEYS.PASTOS_LOTES)
@@ -637,6 +702,14 @@ export async function ensureLotesPastoMap(
     } catch (e) {
       console.warn('[CadastroCache] Falha ao persistir lotesPastoMap reconstruído:', e)
     }
+
+    // Notificar páginas já montadas para que atualizem seu estado local.
+    // Reaproveita o payload do cache em memória (já atualizado) para que os
+    // assinantes recebam lotes, funcionarios, etc. consistentes com o mapa.
+    if (cacheData) {
+      eventBus.emit(CADASTRO_CACHE_UPDATED, cacheData)
+    }
+
     return mapa
   } catch (error) {
     console.error('[CadastroCache] Falha ao reconstruir lotesPastoMap:', error)

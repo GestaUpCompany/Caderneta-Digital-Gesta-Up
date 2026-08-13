@@ -174,7 +174,7 @@ export default function MovimentacaoPage() {
             Promise.resolve([]), // getFornecedores not available
             getPastos(fazendaId),
           ])
-          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          setLotesDisponiveis(Array.from(new Set(lotesData?.map((l: any) => l.nome) || [])))
           setFrigorificosDisponiveis(frigorificosData || [])
           setFornecedoresDisponiveis(fornecedoresData || [])
           const pastoNomeById: Record<string, string> = {}

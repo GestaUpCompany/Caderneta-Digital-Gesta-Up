@@ -193,7 +193,7 @@ export default function RodeioPage() {
             getFuncionarios(fazendaId),
             getPastos(fazendaId),
           ])
-          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          setLotesDisponiveis(Array.from(new Set(lotesData?.map((l: any) => l.nome) || [])))
           setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
           const pastoNomeById: Record<string, string> = {}
           pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })

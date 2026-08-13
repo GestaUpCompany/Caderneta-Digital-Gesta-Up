@@ -226,7 +226,7 @@ export default function MortePage() {
             getLotes(fazendaId),
             getPastos(fazendaId),
           ])
-          setLotesDisponiveis(lotesData?.map((l: any) => l.nome) || [])
+          setLotesDisponiveis(Array.from(new Set(lotesData?.map((l: any) => l.nome) || [])))
           const pastoNomeById: Record<string, string> = {}
           pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
           const mapa: Record<string, string> = {}

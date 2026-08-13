@@ -48,15 +48,22 @@ export default function SearchableModal({
   const inputRef = useRef<HTMLInputElement>(null)
   const pushedStateRef = useRef(false)
 
+  // Deduplica options preservando a primeira ocorrência e a ordem original.
+  // Necessário porque lotes podem compartilhar nome (ex.: múltiplos lotes
+  // ativos chamados "Lote 147" no mesmo pasto) e o dropdown não deve exibir
+  // entradas repetidas.
+  const uniqueOptions = Array.from(new Set(options))
+
   useEffect(() => {
     if (isOpen) {
       const term = searchTerm.toLowerCase()
-      const filtered = options.filter(option =>
+      const filtered = uniqueOptions.filter(option =>
         option.toLowerCase().includes(term) ||
         (secondaryText && secondaryText(option).toLowerCase().includes(term))
       )
       setFilteredOptions(filtered)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, options, isOpen, secondaryText])
 
   // Prevenir navegação para trás quando modal está aberto (botão voltar do celular)
@@ -87,7 +94,7 @@ export default function SearchableModal({
 
   const handleOpen = () => {
     setSearchTerm('')
-    setFilteredOptions(options)
+    setFilteredOptions(uniqueOptions)
     setIsOpen(true)
   }
 
