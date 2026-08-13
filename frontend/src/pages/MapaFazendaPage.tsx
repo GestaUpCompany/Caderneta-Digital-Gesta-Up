@@ -83,7 +83,7 @@ export default function MapaFazendaPage() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'requesting' | 'active' | 'denied' | 'error'>('idle')
-  const [gpsPosition, setGpsPosition] = useState<{ lng: number; lat: number; accuracy: number } | null>(null)
+  const [gpsPosition, setGpsPosition] = useState<{ lng: number; lat: number; accuracy: number; heading: number | null } | null>(null)
   const [destino, setDestino] = useState<DestinoSelecionado | null>(null)
   const [busca, setBusca] = useState('')
   const [showBusca, setShowBusca] = useState(false)
@@ -196,8 +196,9 @@ export default function MapaFazendaPage() {
         const lng = pos.coords.longitude
         const lat = pos.coords.latitude
         const accuracy = pos.coords.accuracy ?? 0
+        const heading = pos.coords.heading ?? null
 
-        setGpsPosition({ lng, lat, accuracy })
+        setGpsPosition({ lng, lat, accuracy, heading })
         setGpsStatus('active')
 
         // Centralizar mapa apenas na primeira leitura
@@ -394,6 +395,47 @@ export default function MapaFazendaPage() {
         type: 'Feature',
         properties: { accuracy: gpsPosition.accuracy },
         geometry: { type: 'Point', coordinates: [gpsPosition.lng, gpsPosition.lat] },
+      }],
+    }
+  }, [gpsPosition])
+
+  // ==================== GeoJSON do cone de direção (heading) ====================
+  const gpsHeadingGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
+    if (!gpsPosition || gpsPosition.heading === null || isNaN(gpsPosition.heading)) {
+      return { type: 'FeatureCollection', features: [] }
+    }
+
+    // Cone: triângulo com vértice na posição do usuário, abrindo ~60° na direção do heading
+    const { lng, lat, heading } = gpsPosition
+    const coneAngulo = 35 // graus de cada lado do heading (70° total)
+    const coneComprimento = 50 // metros
+    const latRad = lat * Math.PI / 180
+
+    // Converter heading (graus a partir do norte, horário) + distância em offset lng/lat
+    function offsetPorHeading(distM: number, anguloDeg: number): [number, number] {
+      const rad = anguloDeg * Math.PI / 180
+      const dx = distM * Math.sin(rad) // leste/oeste
+      const dy = distM * Math.cos(rad) // norte/sul
+      const dLng = dx / (111320 * Math.cos(latRad))
+      const dLat = dy / 111320
+      return [lng + dLng, lat + dLat]
+    }
+
+    // Vértice de trás (posição do usuário)
+    const atras = offsetPorHeading(-8, heading)
+    // Pontos da frente (abertura do cone)
+    const frenteEsq = offsetPorHeading(coneComprimento, heading - coneAngulo)
+    const frenteDir = offsetPorHeading(coneComprimento, heading + coneAngulo)
+
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[atras, frenteEsq, frenteDir, atras]],
+        },
       }],
     }
   }, [gpsPosition])
@@ -821,6 +863,20 @@ export default function MapaFazendaPage() {
                   'line-color': '#3b82f6',
                   'line-width': 4,
                   'line-opacity': 0.85,
+                }}
+              />
+            </Source>
+          )}
+
+          {/* Source: cone de direção (heading) */}
+          {gpsHeadingGeoJSON.features.length > 0 && (
+            <Source id="gps-heading-source" type="geojson" data={gpsHeadingGeoJSON}>
+              <Layer
+                id="gps-heading-cone"
+                type="fill"
+                paint={{
+                  'fill-color': '#3b82f6',
+                  'fill-opacity': 0.35,
                 }}
               />
             </Source>
