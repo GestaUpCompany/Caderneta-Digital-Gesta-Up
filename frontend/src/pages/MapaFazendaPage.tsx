@@ -271,7 +271,7 @@ export default function MapaFazendaPage() {
     const features: GeoJSON.Feature[] = []
     mapaData.pastos.forEach((p) => {
       if (p.geometria.type === 'Polygon') {
-        const coords = p.geometria.coordinates[0] as [number, number][]
+        const coords = (p.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][]
         const [lng, lat] = calcularMelhorLabel(coords)
         features.push({
           type: 'Feature',
@@ -299,7 +299,7 @@ export default function MapaFazendaPage() {
     const features: GeoJSON.Feature[] = []
     mapaData.currais.forEach((c) => {
       if (c.geometria.type === 'Polygon') {
-        const coords = c.geometria.coordinates[0] as [number, number][]
+        const coords = (c.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][]
         const [lng, lat] = calcularMelhorLabel(coords)
         features.push({
           type: 'Feature',
@@ -354,7 +354,7 @@ export default function MapaFazendaPage() {
     mapaData.pontos
       .filter((p) => p.geometria.type === 'Polygon')
       .forEach((p) => {
-        const coords = p.geometria.coordinates[0] as [number, number][]
+        const coords = (p.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][]
         const [lng, lat] = calcularMelhorLabel(coords)
         features.push({
           type: 'Feature',
@@ -389,7 +389,7 @@ export default function MapaFazendaPage() {
         .map((p) => {
           let centroide: [number, number] = [0, 0]
           if (p.geometria.type === 'Polygon') {
-            centroide = calcularMelhorLabel(p.geometria.coordinates[0] as [number, number][])
+            centroide = calcularMelhorLabel((p.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][])
           }
           return { id: p.id, nome: p.nome, tipo: 'pasto' as const, geometria: p.geometria, centroide }
         })
@@ -400,7 +400,7 @@ export default function MapaFazendaPage() {
         .map((c) => {
           let centroide: [number, number] = [0, 0]
           if (c.geometria.type === 'Polygon') {
-            centroide = calcularMelhorLabel(c.geometria.coordinates[0] as [number, number][])
+            centroide = calcularMelhorLabel((c.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][])
           }
           return { id: c.id, nome: c.nome, tipo: 'curral' as const, geometria: c.geometria, centroide }
         })
@@ -463,7 +463,7 @@ export default function MapaFazendaPage() {
 
     let centroide: [number, number] = [e.lngLat.lng, e.lngLat.lat]
     if (item.geometria.type === 'Polygon') {
-      centroide = calcularMelhorLabel(item.geometria.coordinates[0] as [number, number][])
+      centroide = calcularMelhorLabel((item.geometria as GeoJSON.Polygon).coordinates[0] as [number, number][])
     }
 
     selecionarDestino({
