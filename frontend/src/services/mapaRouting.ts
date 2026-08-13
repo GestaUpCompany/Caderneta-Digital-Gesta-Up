@@ -17,20 +17,106 @@ interface RouteResult {
 
 /**
  * Constrói um grafo navegável a partir das LineStrings de estradas.
- * Nós são criados nos endpoints de cada estrada, com snap por tolerância
- * para conectar estradas adjacentes. Nós intermediários preservam a
- * geometria real da estrada.
+ * Detecta interseções em pontos intermediários (onde uma estrada cruza
+ * ou encontra outra) e divide os segmentos nesses pontos, criando nós
+ * compartilhados. Isso garante que o grafo reflita a topologia real.
  */
 function construirGrafo(estradas: MapaEstrada[], toleranciaMetros: number = 30) {
   const graph = createGraph<GraphNode, { estradaId: string; comprimento: number }>()
-  const nosPorCoord: Map<string, string> = new Map() // key "lng,lat" arredondado -> nodeId
+  const nosPorCoord: Map<string, string> = new Map()
 
+  // Passo 1: coletar todos os segmentos de estrada como arrays de coords
+  const todosSegmentos: { estradaId: string; coords: [number, number][] }[] = []
+  for (const estrada of estradas) {
+    const geom = estrada.geometria
+    if (!geom) continue
+    if (geom.type === 'LineString') {
+      todosSegmentos.push({ estradaId: estrada.id, coords: geom.coordinates as [number, number][] })
+    } else if (geom.type === 'MultiLineString') {
+      for (const parte of geom.coordinates as [number, number][][]) {
+        todosSegmentos.push({ estradaId: estrada.id, coords: parte })
+      }
+    }
+  }
+
+  // Passo 2: para cada segmento, encontrar pontos onde outras estradas
+  // se conectam (endpoint de outra estrada que cai no meio deste segmento)
+  // e inserir esses pontos como vértices adicionais no segmento.
+  const segmentosAugmentados: { estradaId: string; coords: [number, number][] }[] = []
+  for (const seg of todosSegmentos) {
+    const pontosInserir: { index: number; ponto: [number, number] }[] = []
+
+    for (const outroSeg of todosSegmentos) {
+      // Para cada endpoint do outro segmento, verificar se cai neste segmento
+      for (const endpoint of [outroSeg.coords[0], outroSeg.coords[outroSeg.coords.length - 1]]) {
+        // Verificar cada sub-segmento (par de vértices consecutivos)
+        for (let i = 0; i < seg.coords.length - 1; i++) {
+          const a = seg.coords[i]
+          const b = seg.coords[i + 1]
+
+          // Pular se o endpoint é praticamente igual a a ou b
+          const distA = turf.distance(turf.point(endpoint), turf.point(a), { units: 'meters' })
+          const distB = turf.distance(turf.point(endpoint), turf.point(b), { units: 'meters' })
+          if (distA < 1 || distB < 1) continue
+
+          // Calcular distância do ponto à linha (segmento)
+          const segmentLine = turf.lineString([a, b])
+          const nearest = turf.nearestPointOnLine(segmentLine, turf.point(endpoint), { units: 'meters' })
+          const distToLine = nearest.properties.dist
+
+          if (distToLine !== undefined && distToLine < toleranciaMetros) {
+            // O ponto projetado no segmento é onde a conexão acontece
+            const pontoProj = nearest.geometry.coordinates as [number, number]
+            // Verificar se já não foi inserido um ponto muito próximo neste index
+            const jaExiste = pontosInserir.some(
+              (p) => p.index === i && turf.distance(turf.point(p.ponto), turf.point(pontoProj), { units: 'meters' }) < 2,
+            )
+            if (!jaExiste) {
+              pontosInserir.push({ index: i, ponto: pontoProj })
+            }
+          }
+        }
+      }
+    }
+
+    // Se há pontos para inserir, reconstruir o segmento com os novos vértices
+    if (pontosInserir.length === 0) {
+      segmentosAugmentados.push(seg)
+    } else {
+      // Ordenar por index do sub-segmento, depois por posição ao longo do segmento
+      pontosInserir.sort((a, b) => {
+        if (a.index !== b.index) return a.index - b.index
+        // Dentro do mesmo sub-segmento, ordenar por proximidade com o ponto A
+        const aStart = seg.coords[a.index]
+        const distA = turf.distance(turf.point(aStart), turf.point(a.ponto), { units: 'meters' })
+        const distB = turf.distance(turf.point(aStart), turf.point(b.ponto), { units: 'meters' })
+        return distA - distB
+      })
+
+      const novasCoords: [number, number][] = []
+      let currentIndex = 0
+      for (const pi of pontosInserir) {
+        // Adicionar todos os vértices originais até o início do sub-segmento onde o ponto será inserido
+        while (currentIndex <= pi.index) {
+          novasCoords.push(seg.coords[currentIndex])
+          currentIndex++
+        }
+        // Adicionar o ponto projetado
+        novasCoords.push(pi.ponto)
+      }
+      // Adicionar vértices restantes
+      while (currentIndex < seg.coords.length) {
+        novasCoords.push(seg.coords[currentIndex])
+        currentIndex++
+      }
+
+      segmentosAugmentados.push({ estradaId: seg.estradaId, coords: novasCoords })
+    }
+  }
+
+  // Passo 3: construir o grafo com snap exato por coordenadas arredondada
   function obterOuCriarNo(lng: number, lat: number): string {
-    // Snap por tolerância: arredondar coordenadas para agrupar pontos próximos
-    // ~1 metro ≈ 0.00001 grau em lat; usar toleranciaMetros para definir o snap
-    const snapFactor = toleranciaMetros / 111320 // aprox metros para graus
-    const key = `${lng.toFixed(Math.max(0, -Math.log10(snapFactor)))},${lat.toFixed(Math.max(0, -Math.log10(snapFactor)))}`
-
+    const key = `${lng.toFixed(6)},${lat.toFixed(6)}`
     const existente = nosPorCoord.get(key)
     if (existente) return existente
 
@@ -40,24 +126,8 @@ function construirGrafo(estradas: MapaEstrada[], toleranciaMetros: number = 30) 
     return id
   }
 
-  for (const estrada of estradas) {
-    const geom = estrada.geometria
-    if (!geom) continue
-    let coords: [number, number][] = []
-
-    if (geom.type === 'LineString') {
-      coords = geom.coordinates as [number, number][]
-    } else if (geom.type === 'MultiLineString') {
-      // Processar cada parte da MultiLineString independentemente
-      for (const parte of geom.coordinates as [number, number][][]) {
-        processarSegmento(parte, estrada.id, obterOuCriarNo, graph)
-      }
-      continue
-    } else {
-      continue
-    }
-
-    processarSegmento(coords, estrada.id, obterOuCriarNo, graph)
+  for (const seg of segmentosAugmentados) {
+    processarSegmento(seg.coords, seg.estradaId, obterOuCriarNo, graph)
   }
 
   return graph
@@ -95,14 +165,16 @@ function processarSegmento(
 
 /**
  * Encontra o nó do grafo mais próximo de um ponto [lng, lat].
+ * Usa distância em linha reta (em metros) em vez de distância euclidiana em graus.
  */
 function noMaisProximo(graph: any, lng: number, lat: number): string | null {
   let maisProximo: string | null = null
   let menorDist = Infinity
+  const pontoRef = turf.point([lng, lat])
 
   graph.forEachNode((node: any) => {
     const data = node.data as GraphNode
-    const d = Math.sqrt((data.lng - lng) ** 2 + (data.lat - lat) ** 2)
+    const d = turf.distance(pontoRef, turf.point([data.lng, data.lat]), { units: 'meters' })
     if (d < menorDist) {
       menorDist = d
       maisProximo = node.id
@@ -151,9 +223,26 @@ export function calcularRota(
     }
   }
 
-  // Usar ngraph.path com A* para encontrar o caminho mais curto
+  // Usar ngraph.path com A* para encontrar o caminho mais curto por distância
+  // Sem distance/heuristic customizados, o A* usa peso 1 por aresta (menor nº de saltos),
+  // o que produz rotas com voltas desnecessárias. Precisamos passar a distância real
+  // das arestas e uma heurística admissível (distância em linha reta até o destino).
   const pathFinder = aStar(graph, {
     oriented: false,
+    distance: (_fromNode: any, _toNode: any, link: any) => {
+      // Peso da aresta = comprimento em metros (gravado em processarSegmento)
+      return link.data?.comprimento ?? 1
+    },
+    heuristic: (fromNode: any, _toNode: any) => {
+      // Estima o custo restante como distância em linha reta até o destino
+      const fromData = fromNode?.data as GraphNode | undefined
+      if (!fromData) return 0
+      return turf.distance(
+        turf.point([fromData.lng, fromData.lat]),
+        turf.point(destino),
+        { units: 'meters' },
+      )
+    },
   })
 
   const caminho = pathFinder.find(noOrigem, noDestino)
