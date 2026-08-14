@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import { Capacitor } from '@capacitor/core'
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import { Geolocation } from '@capacitor/geolocation'
 import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
@@ -20,6 +23,7 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { comprimirFoto } from '../../utils/photoCompress'
 
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -123,6 +127,10 @@ interface FormState {
       observacao: string
     }
   }
+  fotoBase64: string | null
+  latitude: number | null
+  longitude: number | null
+  gpsAccuracy: number | null
 }
 
 const makeInitial = (): FormState => ({
@@ -148,6 +156,10 @@ const makeInitial = (): FormState => ({
     acc[campo] = { valor: '', observacao: '' }
     return acc
   }, {} as FormState['diagnosticos']),
+  fotoBase64: null,
+  latitude: null,
+  longitude: null,
+  gpsAccuracy: null,
 })
 
 export default function MortePage() {
@@ -163,6 +175,9 @@ export default function MortePage() {
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [causasMorte, setCausasMorte] = useState<{ value: string; label: string }[]>([])
   const [dietas, setDietas] = useState<{ value: string; label: string }[]>([])
+  const [capturandoFoto, setCapturandoFoto] = useState(false)
+  const [fotoErro, setFotoErro] = useState<string | null>(null)
+  const fotoInputRef = useRef<HTMLInputElement>(null)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -345,6 +360,149 @@ export default function MortePage() {
     carregarFormulacoes()
   }, [fazendaId])
 
+  const handleTirarFoto = async () => {
+    setFotoErro(null)
+    setCapturandoFoto(true)
+
+    try {
+      // 1. Garantir permissão de GPS
+      if (Capacitor.isNativePlatform()) {
+        const perm = await Geolocation.requestPermissions()
+        if (perm.location === 'denied') {
+          setFotoErro('Permissão de localização negada. A localização é obrigatória para tirar a foto do animal.')
+          setCapturandoFoto(false)
+          return
+        }
+      }
+
+      // 2. Capturar posição GPS (high accuracy, timeout 15s)
+      // Disparado antes da câmera para garantir que temos coordenadas
+      let pos: any = null
+      try {
+        pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+        })
+      } catch (gpsErr: any) {
+        setFotoErro('Não foi possível obter a localização. Verifique o GPS do dispositivo e tente novamente. A foto só pode ser tirada com coordenadas capturadas.')
+        setCapturandoFoto(false)
+        return
+      }
+
+      // 3. Tirar foto
+      let photoBase64: string
+      if (Capacitor.isNativePlatform()) {
+        const photo = await Camera.getPhoto({
+          quality: 60,
+          allowEditing: false,
+          resultType: CameraResultType.Base64,
+          source: CameraSource.Camera,
+          correctOrientation: true,
+        })
+        if (!photo.base64String) {
+          setFotoErro('Falha ao capturar foto.')
+          setCapturandoFoto(false)
+          return
+        }
+        photoBase64 = photo.base64String
+      } else {
+        // Fallback web: usar input file com capture
+        // O fluxo nativo é o principal; web é fallback para teste
+        fotoInputRef.current?.click()
+        setCapturandoFoto(false)
+        return
+      }
+
+      // 4. Comprimir foto (redimensionar para max 1280px, JPEG 60%)
+      const compressed = await comprimirFoto(photoBase64)
+
+      // 5. Armazenar no form
+      setForm((prev) => ({
+        ...prev,
+        fotoBase64: compressed,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        gpsAccuracy: pos.coords.accuracy ?? null,
+      }))
+    } catch (err: any) {
+      console.error('[MortePage] Erro ao capturar foto:', err)
+      setFotoErro('Erro ao capturar foto. Tente novamente.')
+    } finally {
+      setCapturandoFoto(false)
+    }
+  }
+
+  // Fallback web: processar foto selecionada via input file
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setCapturandoFoto(true)
+    setFotoErro(null)
+
+    try {
+      // No web, solicitar permissão de geolocalização via navigator API
+      if (!navigator.geolocation) {
+        setFotoErro('Geolocalização não suportada neste navegador.')
+        setCapturandoFoto(false)
+        return
+      }
+
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+        })
+      }).catch(() => null)
+
+      if (!pos) {
+        setFotoErro('Não foi possível obter a localização. A foto só pode ser tirada com coordenadas capturadas.')
+        setCapturandoFoto(false)
+        return
+      }
+
+      // Ler arquivo como base64
+      const reader = new FileReader()
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string
+          // Remover prefixo data:image/...;base64,
+          const b64 = result.split(',')[1]
+          resolve(b64)
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const compressed = await comprimirFoto(base64)
+
+      setForm((prev) => ({
+        ...prev,
+        fotoBase64: compressed,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        gpsAccuracy: pos.coords.accuracy ?? null,
+      }))
+    } catch (err: any) {
+      console.error('[MortePage] Erro ao processar foto web:', err)
+      setFotoErro('Erro ao processar foto. Tente novamente.')
+    } finally {
+      setCapturandoFoto(false)
+      if (fotoInputRef.current) fotoInputRef.current.value = ''
+    }
+  }
+
+  const handleRemoverFoto = () => {
+    setForm((prev) => ({
+      ...prev,
+      fotoBase64: null,
+      latitude: null,
+      longitude: null,
+      gpsAccuracy: null,
+    }))
+    setFotoErro(null)
+  }
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
@@ -373,6 +531,10 @@ export default function MortePage() {
       nutricaoAtual: form.nutricaoAtual || null,
       nutricaoAnterior: form.nutricaoAnterior || null,
       diagnosticos: form.diagnosticos,
+      fotoBase64: form.fotoBase64 || null,
+      latitude: form.latitude || null,
+      longitude: form.longitude || null,
+      gpsAccuracy: form.gpsAccuracy || null,
     })
 
     setSalvando(false)
@@ -664,6 +826,61 @@ export default function MortePage() {
                 id="nutricaoAnterior"
               />
             </>
+          )}
+        </div>
+
+        {/* Seção 8: Foto e Localização */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">8. FOTO E LOCALIZAÇÃO</h2>
+
+          {form.fotoBase64 ? (
+            <div className="flex flex-col gap-3">
+              <img
+                src={`data:image/jpeg;base64,${form.fotoBase64}`}
+                alt="Foto do animal"
+                className="w-full max-w-sm rounded-2xl border-2 border-gray-200 mx-auto"
+              />
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2 text-sm text-green-800">
+                <span className="text-lg">📍</span>
+                <div>
+                  <p className="font-semibold">Localização capturada</p>
+                  <p className="text-xs text-green-700">
+                    {form.latitude?.toFixed(6)}, {form.longitude?.toFixed(6)}
+                    {form.gpsAccuracy ? ` (precisão: ~${Math.round(form.gpsAccuracy)}m)` : ''}
+                  </p>
+                </div>
+              </div>
+              <Button onClick={handleRemoverFoto} variant="secondary" icon="🗑️">
+                REMOVER FOTO
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-gray-600">
+                Tire uma foto do animal com a localização capturada automaticamente. A coordenada GPS é registrada no momento da foto.
+              </p>
+              <Button
+                onClick={handleTirarFoto}
+                variant="primary"
+                loading={capturandoFoto}
+                icon="📷"
+              >
+                {capturandoFoto ? 'CAPTURANDO...' : 'TIRAR FOTO DO ANIMAL'}
+              </Button>
+              {fotoErro && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-800">
+                  {fotoErro}
+                </div>
+              )}
+              <input
+                ref={fotoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+            </div>
           )}
         </div>
 

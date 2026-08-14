@@ -13,6 +13,7 @@ import { MAX_RETRY_COUNT } from '../utils/constants'
 import { generateId } from '../utils/generateId'
 import { Registro } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
+import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { brWithTimeToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
 import { normalizarNumeroString } from '../utils/formatNumber'
@@ -281,6 +282,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         nutricao_atual: registro.nutricaoAtual || null,
         nutricao_anterior: registro.nutricaoAnterior || null,
         diagnosticos: registro.diagnosticos || {},
+        latitude: (registro as any).latitude ?? null,
+        longitude: (registro as any).longitude ?? null,
+        gps_accuracy: (registro as any).gpsAccuracy ?? null,
       }
     case 'clima':
       return {
@@ -499,6 +503,32 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
 
     if (store === 'maternidade') {
       console.log('[SYNC DEBUG] Payload maternidade:', JSON.stringify(data, null, 2))
+    }
+
+    // Upload de foto para registros de morte
+    if (store === 'morte' && (registro as any).fotoBase64) {
+      try {
+        const { base64ToBlob } = await import('../utils/photoCompress')
+        const blob = base64ToBlob((registro as any).fotoBase64)
+        const fotoPath = `${fazendaId}/${registro.id}/foto.jpg`
+        const client = await getSupabaseClientWithRefresh() as any
+        const { error: uploadError } = await client
+          .storage
+          .from('fotos-morte')
+          .upload(fotoPath, blob, { contentType: 'image/jpeg', upsert: true })
+
+        if (uploadError) {
+          console.error('[SYNC] Erro ao fazer upload da foto de morte:', uploadError)
+        } else {
+          const { data: urlData } = client
+            .storage
+            .from('fotos-morte')
+            .getPublicUrl(fotoPath)
+          data = { ...data, foto_url: urlData.publicUrl }
+        }
+      } catch (uploadErr) {
+        console.error('[SYNC] Exceção ao fazer upload da foto de morte:', uploadErr)
+      }
     }
 
     if (operation === 'create') {

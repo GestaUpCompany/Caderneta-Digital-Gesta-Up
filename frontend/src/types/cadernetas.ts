@@ -189,6 +189,10 @@ export interface RegistroMorte extends Registro {
       observacao: string
     }
   }
+  fotoBase64?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  gpsAccuracy?: number | null
 }
 
 export interface RegistroProblemas extends Registro {

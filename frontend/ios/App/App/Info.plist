@@ -51,5 +51,9 @@
 	<string>Usamos sua localização para mostrar sua posição no mapa da fazenda e calcular distâncias até pastos, currais e outros pontos.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Usamos sua localização para mostrar sua posição no mapa da fazenda e calcular distâncias até pastos, currais e outros pontos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Usamos a câmera para fotografar animais mortos e registrar a localização da ocorrência no mapa da fazenda.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Salvamos fotos de animais mortas no registro de mortalidade para documentação.</string>
 </dict>
 </plist>
