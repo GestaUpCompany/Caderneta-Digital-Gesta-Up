@@ -575,8 +575,12 @@ export default function MapaFazendaPage() {
   const onMapClick = async (e: any) => {
     if (!mapRef.current) return
     const map = mapRef.current.getMap()
+    // Filtrar apenas layers que existem no estilo atual (evita erro quando não há fábricas/currais)
+    const allLayers = ['pastos-fill', 'currais-fill', 'fabricas-fill', 'pastos-labels', 'currais-labels', 'fabricas-labels']
+    const existingLayers = allLayers.filter((id) => map.getLayer(id) != null)
+    if (existingLayers.length === 0) return
     const features = map.queryRenderedFeatures(e.point, {
-      layers: ['pastos-fill', 'currais-fill', 'fabricas-fill', 'pastos-labels', 'currais-labels', 'fabricas-labels'],
+      layers: existingLayers,
     })
 
     if (features.length === 0) return
@@ -789,7 +793,7 @@ export default function MapaFazendaPage() {
                 'fill-color': '#22c55e',
                 'fill-opacity': destino ? 0.15 : 0.25,
               }}
-              filter={['!=', 'id', destino?.id ?? '']}
+              filter={['!=', 'id', destino?.id ?? destinoPendente?.id ?? '']}
             />
             <Layer
               id="pastos-fill-highlight"
@@ -798,7 +802,7 @@ export default function MapaFazendaPage() {
                 'fill-color': '#facc15',
                 'fill-opacity': 0.5,
               }}
-              filter={['==', 'id', destino?.id ?? '__none__']}
+              filter={['==', 'id', destino?.id ?? destinoPendente?.id ?? '__none__']}
             />
             <Layer
               id="pastos-line"

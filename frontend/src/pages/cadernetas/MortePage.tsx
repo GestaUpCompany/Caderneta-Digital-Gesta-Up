@@ -861,9 +861,10 @@ export default function MortePage() {
               </p>
               <Button
                 onClick={handleTirarFoto}
-                variant="primary"
+                variant="success"
                 loading={capturandoFoto}
                 icon="📷"
+                className="!bg-green-900 !border-green-900 !active:bg-green-950"
               >
                 {capturandoFoto ? 'CAPTURANDO...' : 'TIRAR FOTO DO ANIMAL'}
               </Button>
