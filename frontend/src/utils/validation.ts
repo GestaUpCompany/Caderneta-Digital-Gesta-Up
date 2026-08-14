@@ -335,8 +335,9 @@ export function validateMorte(data: Record<string, unknown>): ValidationResult {
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.lote))
     errors.push({ field: 'lote', message: 'Lote é obrigatório' })
-  if (!isNonEmptyString(data.brinco))
-    errors.push({ field: 'brinco', message: 'Brinco é obrigatório' })
+  // Brinco e chip sao opcionais, mas se ambos estiverem vazios, a observacao de identificacao e obrigatoria
+  if (!isNonEmptyString(data.brinco) && !isNonEmptyString(data.chip) && !isNonEmptyString(data.observacaoIdentificacao))
+    errors.push({ field: 'observacaoIdentificacao', message: 'Informe o brinco/chip ou a razão de o animal não ter identificação' })
   if (!isNonEmptyString(data.categoria))
     errors.push({ field: 'categoria', message: 'Categoria do animal é obrigatória' })
   if (data.categoria === 'Outros' && !isNonEmptyString(data.categoriaOutros))

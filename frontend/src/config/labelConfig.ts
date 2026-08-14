@@ -211,6 +211,7 @@ const MORTE_LABELS = {
   brinco: 'ID. BRINCO',
   chip: 'ID. CHIP',
   brincoChip: 'BRINCO/CHIP',
+  observacaoIdentificacao: 'OBS. IDENTIFICAÇÃO',
   categoria: 'CATEGORIA',
   categoriaOutros: 'CATEGORIA OUTROS',
   sexo: 'SEXO',

@@ -271,6 +271,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote_id: registro.loteId || null,
         brinco: registro.brinco || null,
         chip: registro.chip || null,
+        observacao_identificacao: registro.observacaoIdentificacao || null,
         categoria: registro.categoria || null,
         categoria_outros: registro.categoriaOutros || null,
         sexo: registro.sexo || null,

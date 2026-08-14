@@ -110,6 +110,7 @@ interface FormState {
   pastoId: string
   brinco: string
   chip: string
+  observacaoIdentificacao: string
   categoria: string
   categoriaOutros: string
   sexo: string
@@ -141,6 +142,7 @@ const makeInitial = (): FormState => ({
   pastoId: '',
   brinco: '',
   chip: '',
+  observacaoIdentificacao: '',
   categoria: '',
   categoriaOutros: '',
   sexo: '',
@@ -206,7 +208,17 @@ export default function MortePage() {
   const validationRules: any = {
     data: { required: true },
     lote: { required: true },
-    brinco: { required: true },
+    observacaoIdentificacao: {
+      custom: (_value: any, formState: any) => {
+        const semBrinco = !formState.brinco || formState.brinco.trim() === ''
+        const semChip = !formState.chip || formState.chip.trim() === ''
+        const semObs = !formState.observacaoIdentificacao || formState.observacaoIdentificacao.trim() === ''
+        if (semBrinco && semChip && semObs) {
+          return 'Informe o brinco/chip ou a razão de o animal não ter identificação'
+        }
+        return null
+      },
+    },
     categoria: { required: true },
     sexo: { required: true },
     raca: { required: true },
@@ -521,6 +533,7 @@ export default function MortePage() {
       loteId: form.loteId,
       brinco: form.brinco,
       chip: form.chip,
+      observacaoIdentificacao: form.observacaoIdentificacao,
       categoria: categoriaFinal,
       categoriaOutros: form.categoriaOutros,
       sexo: form.sexo,
@@ -623,18 +636,28 @@ export default function MortePage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO</h2>
           <Input
-            label={<span>ID. BRINCO <span className="text-red-500">*</span></span>}
+            label="ID. BRINCO"
             placeholder="Número do brinco"
             value={form.brinco}
             onChange={setInput('brinco')}
             error={getError('brinco')}
           />
           <Input
-            label={<span>ID. CHIP</span>}
+            label="ID. CHIP"
             placeholder="Número do chip"
             value={form.chip}
             onChange={setInput('chip')}
             error={getError('chip')}
+          />
+          <p className="text-base text-gray-500 -mt-2">
+            Só informe a observação abaixo caso o animal tenha perdido ou não possua o brinco ou chip
+          </p>
+          <Input
+            label={<span>OBS. IDENTIFICAÇÃO {!form.brinco && !form.chip && <span className="text-red-500">*</span>}</span>}
+            placeholder="Razão de o animal não ter identificação"
+            value={form.observacaoIdentificacao}
+            onChange={setInput('observacaoIdentificacao')}
+            error={getError('observacaoIdentificacao')}
           />
         </div>
 

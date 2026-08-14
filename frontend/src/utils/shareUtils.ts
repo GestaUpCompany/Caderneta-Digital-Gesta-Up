@@ -939,7 +939,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
     // Seção: IDENTIFICAÇÃO DO ANIMAL
     texto += '\nIDENTIFICAÇÃO DO ANIMAL\n'
-    const ordemIdentificacao = ['brinco', 'chip']
+    const ordemIdentificacao = ['brinco', 'chip', 'observacaoIdentificacao']
     ordemIdentificacao.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
