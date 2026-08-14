@@ -650,11 +650,11 @@ export default function MortePage() {
             error={getError('chip')}
           />
           <p className="text-base text-gray-500 -mt-2">
-            Só informe a observação abaixo caso o animal tenha perdido ou não possua o brinco ou chip
+            Caso o animal tenha perdido ou não possua brinco ou chip, informe o motivo no campo abaixo
           </p>
           <Input
             label={<span>OBS. IDENTIFICAÇÃO {!form.brinco && !form.chip && <span className="text-red-500">*</span>}</span>}
-            placeholder="Razão de o animal não ter identificação"
+            placeholder="Informe aqui"
             value={form.observacaoIdentificacao}
             onChange={setInput('observacaoIdentificacao')}
             error={getError('observacaoIdentificacao')}

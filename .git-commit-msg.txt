@@ -1,11 +1,17 @@
-Adiciona resumo diario de rodeio em texto e PDF.
+feat: brinco/chip opcionais em morte + observacao de identificacao
 
-- Cria RodeioListaPage.tsx com modal de resumo diario
-- Gera texto para WhatsApp com lotes vistoriados, contagens, escores e diagnosticos problematicos
-- Cria gerarPdfResumoRodeio com header, resumo consolidado, contagem consolidada, tabela de diagnosticos problematicos e detalhamento por lote
-- Corrige preenchimento do campo pasto no formulario de rodeio (lote.pastos.nome)
-- Melhora design do PDF: cores amarelo claro para alertas, evita sobreposicao de labels longos, arredonda blocos de diagnosticos
+Animal sem brinco/chip agora pode ser registrado. Quando ambos estao
+vazios, a observacao de identificacao torna-se obrigatoria para
+justificar a falta. O desconto de cabeca em lote_categorias continua
+funcionando via trigger (usa apenas lote_id + categoria).
 
-Generated with Devin (https://devin.ai)
+Migracao Supabase: add_observacao_identificacao_to_registros_morte
+(adiciona coluna observacao_identificacao text em registros_morte).
+
+Validado na fazenda de testes: morte sem identificacao, observacao
+"Animal perdeu brinco", categoria Boi Gordo descontada em L1, sem
+erros CATEGORIA_NOT_IN_LOTE.
+
+Generated with [Devin](https://devin.ai)
 
 Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
