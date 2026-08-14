@@ -355,7 +355,7 @@ export default function MortePage() {
       if (!fazendaId) return
 
       try {
-        const data = await getFormulacoes(fazendaId)
+        const data = await getFormulacoes(fazendaId, true)
 
         if (data) {
           const formulacoesList = data.map(d => ({

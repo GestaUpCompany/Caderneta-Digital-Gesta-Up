@@ -234,7 +234,7 @@ export default function SuplementacaoPage() {
       // Atualiza em background sem bloquear a UI com loading
       if (navigator.onLine) {
         try {
-          const formulacoesData = await getFormulacoes(fazendaId)
+          const formulacoesData = await getFormulacoes(fazendaId, true)
           if (formulacoesData && formulacoesData.length > 0) {
             setFormulacoesDisponiveis(formulacoesData.map((f: any) => f.nome))
           }

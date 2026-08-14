@@ -163,8 +163,7 @@ export default function SuplementacaoListaPage() {
         partes.push('')
 
         // Formulação e meta de consumo
-        const teorMs = r.teorMs != null ? formatarNumeroBR(r.teorMs, '—', 2) : '—'
-        partes.push(`R/S - ${r.formulacao || '—'} ${teorMs !== '—' ? teorMs + '% PV' : ''}`)
+        partes.push(`R/S - ${r.formulacao || '—'}`)
         if (r.metaConsumo != null) {
           partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(r.metaConsumo, '—', 2)}%*`)
         }

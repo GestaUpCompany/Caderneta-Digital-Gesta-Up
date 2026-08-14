@@ -797,14 +797,19 @@ export async function getEspacamentoIdealCocho(fazendaId: string, produtoTipo: s
 
 // ==================== FORMULAÇÕES ====================
 
-export async function getFormulacoes(fazendaId: string): Promise<any[]> {
+export async function getFormulacoes(fazendaId: string, soTMR?: boolean): Promise<any[]> {
   const client = getSupabaseClient()
-  const { data, error } = await (client as any)
+  let query = (client as any)
     .from('formulacoes')
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
-    .order('nome')
+
+  if (soTMR) {
+    query = query.eq('e_premix', false)
+  }
+
+  const { data, error } = await query.order('nome')
 
   if (error) throw error
   return (data as any[]) || []

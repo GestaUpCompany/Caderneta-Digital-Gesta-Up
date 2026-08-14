@@ -17,6 +17,18 @@ Projeto Supabase: `nrwljcvhwbezmoummxbl` ("Cadernetas Digitais")
 - Typecheck PWA: `cd frontend && npx tsc --noEmit`
 - Dev PWA: `cd frontend && npm run dev`
 
+## Notificações de morte exigem coordenadas (14/08/2026)
+
+**Problema**: a trigger `trg_notify_morte_inserted` (função `notify_morte_inserted()`) criava notificação "Morte registrada" com ação "Ver no Mapa" para todo INSERT em `registros_morte`, mesmo quando `latitude` ou `longitude` eram NULL. O resultado: o usuário clicava em "Ver no Mapa" e o mapa abria sem ponto para centralizar (o `MapaFazenda.tsx` só centraliza quando `latitude != null && longitude != null`, linhas 137-142). 5 das 15 notificações existentes (33%) estavam nesse estado.
+
+**Correção aplicada** (migration `20260814140000_notify_morte_apenas_com_coordenadas.sql`, repo Painel Web): a função `notify_morte_inserted()` agora retorna `NEW` imediatamente quando `NEW.latitude IS NULL OR NEW.longitude IS NULL`, sem criar notificação. O registro da morte continua sendo salvo normalmente; apenas a notificação é suprimida.
+
+**Passivo limpo**: as 5 notificações órfãs pré-correção foram deletadas. Restam 10 notificações de morte, todas com coordenadas válidas.
+
+**Teste** (fazenda `d649c65e-16ab-4b77-a84b-df937aa41cc3`): inserida morte sem coordenadas (0 notificações criadas) e morte com coordenadas (5 notificações criadas, uma por controller/admin). Dados de teste removidos e `quant_atual` restaurado.
+
+**Disparador**: quando mencionar "notificação de morte", "Ver no Mapa sem coordenadas", ou trigger de notificação de morte, lembrar que agora exige coordenadas válidas.
+
 ## Débitos técnicos pendentes
 
 ### Tela de auditoria de erros de sync no Painel Web (rota /admin)
