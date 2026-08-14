@@ -12,13 +12,12 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
-  getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getCausasMorteCached,
-  ensureLotesPastoMap,
+  getLotesAtivosCached,
 } from '../../services/cadastroCache'
-import { getLotes, getPastos, getFormulacoes } from '../../services/supabaseService'
+import { getFormulacoes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -240,29 +239,13 @@ export default function MortePage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  // Carregar lotes do cache global, com fallback para Supabase
+  // Carregar lotes ativos do Supabase (online) ou cache (offline)
   useEffect(() => {
     const loadData = async () => {
-      const cache = await getCachedCadastroData()
-      if (cache && cache.lotes && cache.lotes.length > 0) {
-        setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
-      } else if (fazendaId) {
-        try {
-          const [lotesData, pastosData] = await Promise.all([
-            getLotes(fazendaId),
-            getPastos(fazendaId),
-          ])
-          setLotesDisponiveis(Array.from(new Set(lotesData?.map((l: any) => l.nome) || [])))
-          const pastoNomeById: Record<string, string> = {}
-          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-          const mapa: Record<string, string> = {}
-          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
-          setLotesPastoMap(mapa)
-        } catch (error) {
-          console.error('Erro ao carregar dados do Supabase:', error)
-        }
-      }
+      if (!fazendaId) return
+      const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
+      setLotesDisponiveis(lotes)
+      setLotesPastoMap(mapa)
     }
     loadData()
   }, [fazendaId])

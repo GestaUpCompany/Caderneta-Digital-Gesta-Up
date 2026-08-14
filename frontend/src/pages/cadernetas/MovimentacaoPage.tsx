@@ -14,10 +14,10 @@ import {
   getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
-  ensureLotesPastoMap,
   getFazendasDoMesmoGrupoCached,
+  getLotesAtivosCached,
 } from '../../services/cadastroCache'
-import { getLotes, getPastos, transferirLoteEntreFazendas } from '../../services/supabaseService'
+import { transferirLoteEntreFazendas } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -60,7 +60,6 @@ interface FormState {
   loteOrigemId: string
   loteDestino: string
   loteDestinoId: string
-  destinoCustomizado: string
   cabecasPorCategoria: Record<string, string>
   motivoMovimentacao: string
   subtipo: string // Enfermaria, Apartação, Refugo de Cocho, Compras, Transferência
@@ -77,7 +76,6 @@ const makeInitial = (): FormState => ({
   loteOrigemId: '',
   loteDestino: '',
   loteDestinoId: '',
-  destinoCustomizado: '',
   cabecasPorCategoria: {},
   motivoMovimentacao: '',
   subtipo: '',
@@ -160,31 +158,15 @@ export default function MovimentacaoPage() {
   // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
     const loadData = async () => {
+      if (fazendaId) {
+        const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
+        setLotesDisponiveis(lotes)
+        setLotesPastoMap(mapa)
+      }
       const cache = await getCachedCadastroData()
-      if (cache && cache.lotes && cache.lotes.length > 0) {
-        setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
+      if (cache) {
         setFrigorificosDisponiveis(cache.frigorificos || [])
         setFornecedoresDisponiveis(cache.fornecedores || [])
-      } else if (fazendaId) {
-        try {
-          const [lotesData, frigorificosData, fornecedoresData, pastosData] = await Promise.all([
-            getLotes(fazendaId),
-            Promise.resolve([]), // getFrigorificos not available
-            Promise.resolve([]), // getFornecedores not available
-            getPastos(fazendaId),
-          ])
-          setLotesDisponiveis(Array.from(new Set(lotesData?.map((l: any) => l.nome) || [])))
-          setFrigorificosDisponiveis(frigorificosData || [])
-          setFornecedoresDisponiveis(fornecedoresData || [])
-          const pastoNomeById: Record<string, string> = {}
-          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-          const mapa: Record<string, string> = {}
-          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
-          setLotesPastoMap(mapa)
-        } catch (error) {
-          console.error('Erro ao carregar dados do Supabase:', error)
-        }
       }
 
       // Carregar fazendas do mesmo grupo (para Transferência entre fazendas)
@@ -303,8 +285,8 @@ export default function MovimentacaoPage() {
         return
       }
 
-      // Se destino customizado for preenchido, usar em vez de loteDestino
-      let destinoFinal = form.destinoCustomizado.trim() ? form.destinoCustomizado.trim() : form.loteDestino
+      // Destino final: loteDestino do seletor, com ajuste por motivo/subtipo
+      let destinoFinal = form.loteDestino
 
       // Ajustar destino padrão baseado no motivo/subtipo
       if (form.motivoMovimentacao === 'Consumo') {
@@ -875,12 +857,6 @@ export default function MovimentacaoPage() {
                       disabled
                     />
                   )}
-                  <Input
-                    label="NÃO É UM LOTE?"
-                    placeholder="Descreva o destino"
-                    value={form.destinoCustomizado}
-                    onChange={(e) => setForm((p) => ({ ...p, destinoCustomizado: e.target.value }))}
-                  />
                   <Input
                     label="CAUSA / OBSERVAÇÃO:"
                     placeholder="Descreva detalhes da movimentação"

@@ -14,9 +14,9 @@ import {
   getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
-  ensureLotesPastoMap,
+  getLotesAtivosCached,
 } from '../../services/cadastroCache'
-import { getLotes, getPastos, getLastRodeioDate, getFuncionarios } from '../../services/supabaseService'
+import { getLastRodeioDate } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -178,31 +178,17 @@ export default function RodeioPage() {
   const [metaRodeioInfo, setMetaRodeioInfo] = useState<{ metaDias: number; diasDesdeUltimo: number; diasAteProximo: number; isDentroMeta: boolean; hasRecord: boolean } | null>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
 
-  // Carregar lotes e funcionários do cache global, com fallback para Supabase
+  // Carregar lotes ativos e funcionários do Supabase (online) ou cache (offline)
   useEffect(() => {
     const loadData = async () => {
+      if (fazendaId) {
+        const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
+        setLotesDisponiveis(lotes)
+        setLotesPastoMap(mapa)
+      }
       const cache = await getCachedCadastroData()
-      if (cache && cache.lotes && cache.lotes.length > 0) {
-        setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
+      if (cache) {
         setFuncionariosDisponiveis(cache.funcionarios || [])
-      } else if (fazendaId) {
-        try {
-          const [lotesData, funcionariosData, pastosData] = await Promise.all([
-            getLotes(fazendaId),
-            getFuncionarios(fazendaId),
-            getPastos(fazendaId),
-          ])
-          setLotesDisponiveis(Array.from(new Set(lotesData?.map((l: any) => l.nome) || [])))
-          setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
-          const pastoNomeById: Record<string, string> = {}
-          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-          const mapa: Record<string, string> = {}
-          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
-          setLotesPastoMap(mapa)
-        } catch (error) {
-          console.error('Erro ao carregar dados do Supabase:', error)
-        }
       }
     }
     loadData()

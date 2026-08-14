@@ -11,16 +11,15 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
-  getCachedCadastroData,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getTratamentosCached,
   getRacasCached,
   clearCachedQuery,
   buildCacheKey,
-  ensureLotesPastoMap,
+  getLotesAtivosCached,
 } from '../../services/cadastroCache'
-import { getLotes, getPastos, createIndividuo } from '../../services/supabaseService'
+import { createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
@@ -350,28 +349,13 @@ export default function MaternidadePage() {
     return errors.find((e) => e.field === field)?.message
   }
 
-  // Carregar lotes do cache global, com fallback para Supabase
+  // Carregar lotes ativos do Supabase (online) ou cache (offline)
   useEffect(() => {
     const loadData = async () => {
-      const cache = await getCachedCadastroData()
-      if (cache && cache.lotes && cache.lotes.length > 0) {
-        setLotesDisponiveis(cache.lotes || [])
-        setLotesPastoMap(await ensureLotesPastoMap(cache, fazendaId))
-      } else if (fazendaId) {
-        try {
-          const [lotesData, pastosData] = await Promise.all([
-            getLotes(fazendaId),
-            getPastos(fazendaId),
-          ])
-          setLotesDisponiveis(Array.from(new Set(lotesData?.map((l: any) => l.nome) || [])))
-          const pastoNomeById: Record<string, string> = {}
-          pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-          const mapa: Record<string, string> = {}
-          lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
-          setLotesPastoMap(mapa)
-        } catch (error) {
-          console.error('Erro ao carregar dados do Supabase:', error)
-        }
+      if (fazendaId) {
+        const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
+        setLotesDisponiveis(lotes)
+        setLotesPastoMap(mapa)
       }
 
       // Carregar tratamentos (com cache lazy para offline)

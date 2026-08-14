@@ -616,6 +616,39 @@ export async function getCachedCadastroData(): Promise<CadastroCacheData | null>
 }
 
 /**
+ * Retorna lotes ativos (ativo=true) com o mapa lote→pasto.
+ * Quando online, busca sempre do Supabase (getLotes filtra ativo=true)
+ * para garantir que lotes recém-inativados não apareçam nos seletores.
+ * Quando offline, cai no cache em memória/IndexedDB.
+ */
+export async function getLotesAtivosCached(
+  fazendaId: string
+): Promise<{ lotes: string[]; lotesPastoMap: Record<string, string> }> {
+  if (navigator.onLine) {
+    try {
+      const [lotesData, pastosData] = await Promise.all([
+        supabaseService.getLotes(fazendaId),
+        supabaseService.getPastos(fazendaId),
+      ])
+      const lotes = Array.from(new Set(lotesData?.map((l: any) => l.nome) || []))
+      const pastoNomeById: Record<string, string> = {}
+      pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+      const lotesPastoMap: Record<string, string> = {}
+      lotesData?.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || '' })
+      return { lotes, lotesPastoMap }
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao buscar lotes ativos do Supabase, usando cache:', error)
+    }
+  }
+  // Fallback offline ou erro
+  const cache = await getCachedCadastroData()
+  return {
+    lotes: dedupSorted(cache?.lotes),
+    lotesPastoMap: cache?.lotesPastoMap || {},
+  }
+}
+
+/**
  * Verifica se o cache precisa ser atualizado
  */
 export function needsCacheUpdate(): boolean {

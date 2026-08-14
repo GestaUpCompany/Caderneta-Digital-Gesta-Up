@@ -209,6 +209,12 @@ export default function SearchableModal({
                     </p>
                   ) : (
                     <div className="space-y-2">
+                      {secondaryText && (
+                        <div className="flex items-center justify-between gap-2 px-4 pb-1 text-base font-bold text-gray-500 uppercase tracking-wide">
+                          <span>Pasto</span>
+                          <span>Lote</span>
+                        </div>
+                      )}
                       {filteredOptions.map((option) => (
                         <button
                           key={option}
