@@ -654,7 +654,7 @@ export default function MortePage() {
           </p>
           <Input
             label={<span>OBS. IDENTIFICAÇÃO {!form.brinco && !form.chip && <span className="text-red-500">*</span>}</span>}
-            placeholder="Informe aqui"
+            placeholder=""
             value={form.observacaoIdentificacao}
             onChange={setInput('observacaoIdentificacao')}
             error={getError('observacaoIdentificacao')}
