@@ -1,5 +1,6 @@
 import { supabase, getSupabaseClient, getSupabaseClientWithRefresh } from './supabaseClient'
 import type { TablesInsert, TablesUpdate } from '../types/supabase'
+import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/relatorioLote'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
@@ -2719,4 +2720,34 @@ export async function createLogSyncError(log: LogSyncErrorInput) {
     .insert(log)
 
   if (error) throw error
+}
+
+// ==================== RELATÓRIO DE LOTE (CICLO DE VIDA) ====================
+
+export async function getRelatorioLoteCicloVida(
+  fazendaId: string,
+  loteId: string,
+  secoes?: string[]
+): Promise<RelatorioLotePayload> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('get_relatorio_lote_ciclo_vida', {
+    p_fazenda_id: fazendaId,
+    p_lote_id: loteId,
+    p_secoes: secoes || null,
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function getLotesParaRelatorio(
+  fazendaId: string
+): Promise<LoteRelatorioSimplificado[]> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('get_lotes_para_relatorio', {
+    p_fazenda_id: fazendaId,
+  })
+
+  if (error) throw error
+  return data || []
 }

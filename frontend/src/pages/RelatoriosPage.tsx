@@ -26,6 +26,8 @@ const addRecentRelatorio = (relatorioId: string) => {
   localStorage.setItem('recentRelatorios', JSON.stringify(updated))
 }
 
+const BASE = import.meta.env.BASE_URL
+
 export default function RelatoriosPage() {
   const navigate = useNavigate()
   const { fazenda, logoUrl } = useSelector((state: RootState) => state.config)
@@ -37,7 +39,15 @@ export default function RelatoriosPage() {
     setRecentRelatorios(getRecentRelatorios())
   }, [])
 
-  const menuItems: any[] = []
+  const menuItems: any[] = [
+    {
+      id: 'lote',
+      label: 'Relatório de Lote',
+      color: '#3b82f6',
+      path: '/modulos/relatorios/lote',
+      icon: `${BASE}cadernetas/relatorio-lote.png`,
+    },
+  ]
 
   const filteredItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -101,27 +111,33 @@ export default function RelatoriosPage() {
         {recentRelatoriosData.length > 0 && (
           <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100">
             <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">ÚLTIMOS ACESSADOS</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {recentRelatoriosData.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleRelatorioClick(item.id, item.path)}
                   style={{ backgroundColor: hexToRgba(item.color) }}
-                  className="relative flex flex-col items-center justify-center gap-1 p-3 transition-all rounded-xl hover:scale-105 hover:shadow-md"
+                  className="relative flex flex-col items-center justify-center gap-1.5 p-4 transition-all rounded-xl hover:scale-105 hover:shadow-md min-h-[88px]"
                 >
-                  <img
-                    src={item.icon}
-                    alt={item.label}
-                    className="w-12 h-auto object-contain rounded-[16px]"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = 'none'
-                      const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
-                      if (emoji) emoji.style.display = 'block'
-                    }}
-                  />
-                  <span className="text-2xl fallback-emoji hidden">{item.emoji}</span>
-                  <span className="text-xs font-bold text-center leading-tight text-gray-900">
+                  {item.icon ? (
+                    <>
+                      <img
+                        src={item.icon}
+                        alt={item.label}
+                        className="w-12 h-auto object-contain rounded-[16px]"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
+                          if (emoji) emoji.style.display = 'block'
+                        }}
+                      />
+                      <span className="text-2xl fallback-emoji hidden">{item.emoji}</span>
+                    </>
+                  ) : item.emoji ? (
+                    <span className="text-2xl">{item.emoji}</span>
+                  ) : null}
+                  <span className="text-sm font-bold text-center leading-snug text-gray-900 px-1">
                     {item.label}
                   </span>
                 </button>
@@ -193,10 +209,10 @@ export default function RelatoriosPage() {
                     />
                     <span className="text-5xl fallback-emoji hidden">{item.emoji}</span>
                   </>
-                ) : (
+                ) : item.emoji ? (
                   <span className="text-5xl">{item.emoji}</span>
-                )}
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
+                ) : null}
+                <span className="text-base font-bold text-center leading-snug text-gray-900 px-2">
                   {item.label}
                 </span>
               </button>

@@ -88,6 +88,8 @@ const TratoConfinamentoPage = lazy(() => import('./pages/cadernetas/TratoConfina
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
 const ChecklistsMenuPage = lazy(() => import('./pages/ChecklistsMenuPage'))
 const RelatoriosPage = lazy(() => import('./pages/RelatoriosPage'))
+const RelatorioLoteSeletorPage = lazy(() => import('./pages/RelatorioLoteSeletorPage'))
+const RelatorioLotePage = lazy(() => import('./pages/RelatorioLotePage'))
 const ProgramacaoHojePage = lazy(() => import('./pages/ProgramacaoHojePage'))
 
 // Lazy loading do estoque de insumos
@@ -443,6 +445,8 @@ function AppInner() {
             <Route path="/modulos/cadernetas" element={<ModulosMenuPage />} />
             <Route path="/modulos/checklists" element={<ChecklistsMenuPage />} />
             <Route path="/modulos/relatorios" element={<RelatoriosPage />} />
+            <Route path="/modulos/relatorios/lote" element={<RelatorioLoteSeletorPage />} />
+            <Route path="/modulos/relatorios/lote/:loteId" element={<RelatorioLotePage />} />
             <Route path="/programacao-hoje" element={<ProgramacaoHojePage />} />
 
             {/* Estoque de Insumos */}
