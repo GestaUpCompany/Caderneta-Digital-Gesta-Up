@@ -29,7 +29,7 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
-import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
+import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 
@@ -184,12 +184,13 @@ export default function PastagensPage() {
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('pastagens')
   const { garantirExecucao } = useExecucaoRotina()
   const {
+    salvando,
+    salvar,
     showObservacaoModal,
     horariosModal,
-    iniciarSalvamento,
-    confirmarObservacao,
-    cancelarObservacao,
-  } = useRegistroComExecucao('pastagens')
+    onConfirmarObservacao,
+    onCancelarObservacao,
+  } = useSalvarRegistro('pastagens')
 
   useEffect(() => {
     garantirExecucao('pastagens')
@@ -197,7 +198,6 @@ export default function PastagensPage() {
 
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
-  const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [pastosDisponiveis, setPastosDisponiveis] = useState<string[]>([])
@@ -507,13 +507,11 @@ export default function PastagensPage() {
   const { isValid } = useFormValidation(form, validationRules)
 
   const executarSalvamento = async () => {
-    setSalvando(true)
     setErrors([])
 
     // Validar que pasto de saída e entrada não são iguais
     if (form.pastoSaida && form.pastoEntrada && form.pastoSaida === form.pastoEntrada) {
       setErrors([{ field: 'pastoEntrada', message: 'O pasto de entrada não pode ser igual ao pasto de saída' }])
-      setSalvando(false)
       return
     }
 
@@ -574,7 +572,6 @@ export default function PastagensPage() {
       equipe_nomes: form.equipeNomes || null,
     })
 
-    setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
@@ -583,19 +580,6 @@ export default function PastagensPage() {
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
-  }
-
-  const handleSalvar = async () => {
-    const podeContinuar = await iniciarSalvamento()
-    if (!podeContinuar) {
-      setSalvando(false)
-      return
-    }
-    await executarSalvamento()
-  }
-
-  const handleSalvarContinuar = async () => {
-    await executarSalvamento()
   }
 
   const handleNewRecord = () => {
@@ -1093,7 +1077,7 @@ export default function PastagensPage() {
         ) : null}
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
+          <Button onClick={() => salvar(executarSalvamento)} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => { setForm(makeInitial()); setErrors([]) }} variant="secondary" icon="🧹">
@@ -1121,12 +1105,9 @@ export default function PastagensPage() {
         isOpen={showObservacaoModal}
         onClose={async (observacao) => {
           if (observacao !== undefined) {
-            setSalvando(true)
-            await confirmarObservacao(observacao)
-            await handleSalvarContinuar()
+            await onConfirmarObservacao(observacao)
           } else {
-            cancelarObservacao()
-            setSalvando(false)
+            onCancelarObservacao()
           }
         }}
         horarioProgramado={horariosModal.programado}

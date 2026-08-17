@@ -13,7 +13,7 @@ import { createHistoricoLimpeza } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
-import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
+import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
 import BebedouroPastoCard from '../../components/BebedouroPastoCard'
@@ -111,15 +111,15 @@ export default function BebedourosPage() {
   const { usuario, fazendaId, testModeAtivo } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('bebedouros')
   const {
+    salvando,
+    salvar,
     showObservacaoModal,
     horariosModal,
-    iniciarSalvamento,
-    confirmarObservacao,
-    cancelarObservacao,
-  } = useRegistroComExecucao('bebedouros')
+    onConfirmarObservacao,
+    onCancelarObservacao,
+  } = useSalvarRegistro('bebedouros')
   const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
-  const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -272,12 +272,10 @@ export default function BebedourosPage() {
   const { isValid } = useFormValidation(form, validationRules)
 
   const executarSalvamento = async () => {
-    setSalvando(true)
     setErrors([])
 
     // Validate form using the validation hook
     if (!isValid) {
-      setSalvando(false)
       return
     }
 
@@ -314,7 +312,6 @@ export default function BebedourosPage() {
       } : null,
     })
 
-    setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
@@ -347,19 +344,6 @@ export default function BebedourosPage() {
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
-  }
-
-  const handleSalvar = async () => {
-    const podeContinuar = await iniciarSalvamento()
-    if (!podeContinuar) {
-      setSalvando(false)
-      return
-    }
-    await executarSalvamento()
-  }
-
-  const handleSalvarContinuar = async () => {
-    await executarSalvamento()
   }
 
   const handleNewRecord = () => {
@@ -492,7 +476,7 @@ export default function BebedourosPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
+          <Button onClick={() => salvar(executarSalvamento)} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹" fullWidth>
@@ -520,12 +504,9 @@ export default function BebedourosPage() {
         isOpen={showObservacaoModal}
         onClose={async (observacao) => {
           if (observacao !== undefined) {
-            setSalvando(true)
-            await confirmarObservacao(observacao)
-            await handleSalvarContinuar()
+            await onConfirmarObservacao(observacao)
           } else {
-            cancelarObservacao()
-            setSalvando(false)
+            onCancelarObservacao()
           }
         }}
         horarioProgramado={horariosModal.programado}

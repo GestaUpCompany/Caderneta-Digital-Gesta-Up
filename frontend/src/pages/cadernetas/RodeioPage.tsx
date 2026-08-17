@@ -22,7 +22,7 @@ import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
-import { useRegistroComExecucao } from '../../hooks/useRegistroComExecucao'
+import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 
@@ -154,12 +154,13 @@ export default function RodeioPage() {
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('rodeio')
   const { garantirExecucao } = useExecucaoRotina()
   const {
+    salvando,
+    salvar,
     showObservacaoModal,
     horariosModal,
-    iniciarSalvamento,
-    confirmarObservacao,
-    cancelarObservacao,
-  } = useRegistroComExecucao('rodeio')
+    onConfirmarObservacao,
+    onCancelarObservacao,
+  } = useSalvarRegistro('rodeio')
 
   useEffect(() => {
     garantirExecucao('rodeio')
@@ -167,7 +168,6 @@ export default function RodeioPage() {
 
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
-  const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -324,12 +324,10 @@ export default function RodeioPage() {
   )
 
   const executarSalvamento = async () => {
-    setSalvando(true)
     setErrors([])
 
     // Validate form using the validation hook
     if (!isValid) {
-      setSalvando(false)
       return
     }
 
@@ -372,7 +370,6 @@ export default function RodeioPage() {
       qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
     })
 
-    setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
@@ -381,19 +378,6 @@ export default function RodeioPage() {
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
-  }
-
-  const handleSalvar = async () => {
-    const podeContinuar = await iniciarSalvamento()
-    if (!podeContinuar) {
-      setSalvando(false)
-      return
-    }
-    await executarSalvamento()
-  }
-
-  const handleSalvarContinuar = async () => {
-    await executarSalvamento()
   }
 
   const handleLimpar = () => {
@@ -774,7 +758,7 @@ export default function RodeioPage() {
         </div>*/}
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
+          <Button onClick={() => salvar(executarSalvamento)} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={handleLimpar} variant="secondary" icon="🧹">
@@ -802,12 +786,9 @@ export default function RodeioPage() {
         isOpen={showObservacaoModal}
         onClose={async (observacao) => {
           if (observacao !== undefined) {
-            setSalvando(true)
-            await confirmarObservacao(observacao)
-            await handleSalvarContinuar()
+            await onConfirmarObservacao(observacao)
           } else {
-            cancelarObservacao()
-            setSalvando(false)
+            onCancelarObservacao()
           }
         }}
         horarioProgramado={horariosModal.programado}
