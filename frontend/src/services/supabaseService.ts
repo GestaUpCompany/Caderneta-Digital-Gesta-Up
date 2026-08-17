@@ -513,7 +513,6 @@ export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
     `)
     .eq('lote_id', loteId)
     .eq('ativo', true)
-    .eq('data_fim', null)
     .order('created_at', { ascending: false })
     .limit(1)
 
@@ -526,15 +525,17 @@ export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
   const plano = Array.isArray(planos) ? planos.find((p: any) => p.ativo && !p.data_fim) : planos
   if (!plano) return null
 
-  // Buscar GMD da formulação se o plano não tem gmd_planejado
+  // Buscar GMD e nome da formulação associada ao plano
   let gmdFormulacao: number | null = null
-  if (plano.gmd_planejado == null && plano.formulacao_id) {
+  let formulacaoNome: string | null = null
+  if (plano.formulacao_id) {
     const { data: form_data } = await (client as any)
       .from('formulacoes')
-      .select('gmd')
+      .select('gmd, nome')
       .eq('id', plano.formulacao_id)
       .single()
     gmdFormulacao = form_data?.gmd ?? null
+    formulacaoNome = form_data?.nome ?? null
   }
 
   const gmdEfetivo = plano.gmd_planejado != null ? Number(plano.gmd_planejado) : gmdFormulacao
@@ -545,6 +546,8 @@ export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
     gmdEfetivo: gmdEfetivo != null ? Number(gmdEfetivo) : null,
     dataAjustePeso: lc.data_ajuste_peso ?? null,
     pesoVivoAtualKgCab: lc.peso_vivo_atual_kg_cab != null ? Number(lc.peso_vivo_atual_kg_cab) : null,
+    formulacaoId: plano.formulacao_id ?? null,
+    formulacaoNome,
   }
 }
 

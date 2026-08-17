@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
-import { useState, useEffect, useCallback } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { requestSyncNow } from '../store/slices/syncSlice'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { RootState } from '../store/store'
 import { ChevronLeft, Clock, CheckCircle, PlayCircle, Share2, WifiOff } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
@@ -69,6 +70,7 @@ function formatarTempo(segundos: number | null): string {
 
 export default function AtividadesPage() {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const { fazenda, logoUrl, fazendaId, funcionarioId, funcionarioNome, controleAcessoHabilitado } = useSelector(
     (state: RootState) => state.config
   )
@@ -79,6 +81,42 @@ export default function AtividadesPage() {
   const [atividadeParaConcluir, setAtividadeParaConcluir] = useState<AtividadeFuncionarioPWA | null>(null)
   const [detalhamento, setDetalhamento] = useState('')
   const [filtro, setFiltro] = useState<'todas' | 'pendentes' | 'em_andamento' | 'concluidas'>('todas')
+  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleIniciarClick = (af: AtividadeFuncionarioPWA) => {
+    if (pendingConfirmId === af.id) {
+      // Segundo toque: confirmar
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current)
+        confirmTimeoutRef.current = null
+      }
+      setPendingConfirmId(null)
+      handleMarcarEmAndamento(af)
+    } else {
+      // Primeiro toque: mostrar confirmação
+      setPendingConfirmId(af.id)
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
+      confirmTimeoutRef.current = setTimeout(() => {
+        setPendingConfirmId(null)
+        confirmTimeoutRef.current = null
+      }, 3000)
+    }
+  }
+
+  const handleCancelarConfirm = () => {
+    if (confirmTimeoutRef.current) {
+      clearTimeout(confirmTimeoutRef.current)
+      confirmTimeoutRef.current = null
+    }
+    setPendingConfirmId(null)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
+    }
+  }, [])
 
   const loadAtividades = useCallback(async () => {
     if (!fazendaId || !funcionarioId) {
@@ -115,9 +153,10 @@ export default function AtividadesPage() {
   const handleMarcarEmAndamento = async (af: AtividadeFuncionarioPWA) => {
     const updated = await marcarEmAndamentoLocal(af)
     setAtividades((prev) => prev.map((a) => (a.id === af.id ? updated : a)))
-    // Enfileirar sync
+    // Enfileirar sync e disparar imediatamente
     try {
       await enqueueRegistro('atividade-funcionarios', af.id, 'update')
+      dispatch(requestSyncNow())
     } catch (err) {
       console.warn('[AtividadesPage] Erro ao enfileirar sync:', err)
     }
@@ -139,6 +178,7 @@ export default function AtividadesPage() {
     setAtividades((prev) => prev.map((a) => (a.id === atividadeParaConcluir.id ? updated : a)))
     try {
       await enqueueRegistro('atividade-funcionarios', atividadeParaConcluir.id, 'update')
+      dispatch(requestSyncNow())
     } catch (err) {
       console.warn('[AtividadesPage] Erro ao enfileirar sync:', err)
     }
@@ -299,9 +339,6 @@ export default function AtividadesPage() {
                   {af.tempoGastoSegundos && (
                     <span className="text-xs text-gray-500">Tempo: {formatarTempo(af.tempoGastoSegundos)}</span>
                   )}
-                  {af.syncStatus === 'pending' && (
-                    <span className="text-xs text-amber-600 font-medium">Pendente sync</span>
-                  )}
                 </div>
 
                 {/* Detalhamento se concluída */}
@@ -315,13 +352,31 @@ export default function AtividadesPage() {
                 {/* Ações */}
                 <div className="flex gap-2">
                   {af.statusIndividual === 'pendente' && (
-                    <button
-                      onClick={() => handleMarcarEmAndamento(af)}
-                      className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors min-h-[44px]"
-                    >
-                      <PlayCircle className="w-4 h-4" />
-                      Iniciar
-                    </button>
+                    pendingConfirmId === af.id ? (
+                      <div className="flex-1 flex gap-2">
+                        <button
+                          onClick={() => handleIniciarClick(af)}
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors min-h-[44px] animate-pulse"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Confirmar Início
+                        </button>
+                        <button
+                          onClick={handleCancelarConfirm}
+                          className="px-3 bg-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[44px]"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleIniciarClick(af)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors min-h-[44px]"
+                      >
+                        <PlayCircle className="w-4 h-4" />
+                        Iniciar
+                      </button>
+                    )
                   )}
                   {af.statusIndividual === 'em_andamento' && (
                     <button
@@ -333,13 +388,31 @@ export default function AtividadesPage() {
                     </button>
                   )}
                   {af.statusIndividual === 'atrasada' && (
-                    <button
-                      onClick={() => handleMarcarEmAndamento(af)}
-                      className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors min-h-[44px]"
-                    >
-                      <PlayCircle className="w-4 h-4" />
-                      Iniciar (Atrasada)
-                    </button>
+                    pendingConfirmId === af.id ? (
+                      <div className="flex-1 flex gap-2">
+                        <button
+                          onClick={() => handleIniciarClick(af)}
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors min-h-[44px] animate-pulse"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Confirmar Início
+                        </button>
+                        <button
+                          onClick={handleCancelarConfirm}
+                          className="px-3 bg-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[44px]"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleIniciarClick(af)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors min-h-[44px]"
+                      >
+                        <PlayCircle className="w-4 h-4" />
+                        Iniciar (Atrasada)
+                      </button>
+                    )
                   )}
                   {af.statusIndividual === 'concluida' && (
                     <div className="flex-1 flex items-center justify-center gap-1.5 text-green-600 py-2.5 text-sm font-medium">
@@ -380,7 +453,7 @@ export default function AtividadesPage() {
                 onChange={(e) => setDetalhamento(e.target.value)}
                 rows={4}
                 autoFocus
-                placeholder="Ex: Vacinação realizada em todos os animais do lote 11. Sem intercorrências."
+                placeholder=""
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 min-h-[100px]"
               />
             </div>

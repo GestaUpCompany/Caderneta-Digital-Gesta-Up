@@ -44,28 +44,31 @@ export default function Configuracoes() {
       
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      
-      // Buscar peão na tabela peoes usando anon key (case-insensitive)
-      const peaoResponse = await fetch(`${supabaseUrl}/rest/v1/peoes?fazenda_id=ilike.${acessoId}&ativo=eq.true`, {
+
+      // Buscar dados do peão via RPC (SECURITY DEFINER) para um acesso_id específico.
+      // A tabela peoes não tem mais RLS pública; a RPC é o único caminho.
+      const rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/autenticar_peao_app`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'apikey': supabaseAnonKey,
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
+        body: JSON.stringify({ p_acesso_id: acessoId }),
       })
 
-      if (!peaoResponse.ok) {
-        console.error('Erro ao buscar peão:', await peaoResponse.text())
+      if (!rpcResponse.ok) {
+        console.error('Erro ao chamar RPC autenticar_peao_app:', await rpcResponse.text())
         return { sucesso: false }
       }
 
-      const peaoData = await peaoResponse.json()
-      if (!peaoData || peaoData.length === 0) {
+      const rpcData = await rpcResponse.json()
+      if (!rpcData || rpcData.success !== true || !rpcData.email || !rpcData.password) {
         console.error('Peão não encontrado para esta fazenda')
         return { sucesso: false }
       }
 
-      const peao = peaoData[0]
-      console.log('Peão encontrado:', peao.email)
+      console.log('Peão encontrado:', rpcData.email)
 
       // Fazer login no Supabase Auth com email/senha do peão
       const loginResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -75,8 +78,8 @@ export default function Configuracoes() {
           'apikey': supabaseAnonKey,
         },
         body: JSON.stringify({
-          email: peao.email,
-          password: peao.password,
+          email: rpcData.email,
+          password: rpcData.password,
         }),
       })
 
@@ -87,11 +90,11 @@ export default function Configuracoes() {
 
       const loginData = await loginResponse.json()
       console.log('Login do peão bem-sucedido, token recebido')
-      
+
       // Obter dados da fazenda
       const fazenda = await getFazendaByAcessoId(acessoId)
       console.log('Fazenda encontrada:', fazenda)
-      
+
       if (fazenda) {
         // Salvar token JWT e refresh token no localStorage
         localStorage.setItem('supabase_token', loginData.access_token)

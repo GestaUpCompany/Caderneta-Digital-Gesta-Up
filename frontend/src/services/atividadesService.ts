@@ -1,5 +1,6 @@
 import { getSupabaseClientWithRefresh } from './supabaseClient'
-import { saveCadastroData, getCadastroData } from './indexedDB'
+import { saveCadastroData, getCadastroData, saveRegistro, getAllRegistros } from './indexedDB'
+import { Registro } from '../types/cadernetas'
 
 export interface AtividadeFuncionarioPWA {
   id: string
@@ -26,6 +27,24 @@ export interface AtividadeFuncionarioPWA {
 
 const CACHE_KEY_PREFIX = 'atividades_'
 
+function afToRegistro(af: AtividadeFuncionarioPWA): Registro {
+  return {
+    id: af.id,
+    supabaseId: af.id, // O id do atividade_funcionarios ja e o UUID do Supabase
+    version: 1,
+    lastModified: new Date(af.lastModified).toISOString(),
+    syncStatus: af.syncStatus,
+    // Campos especificos
+    atividadeId: af.atividadeId,
+    funcionarioId: af.funcionarioId,
+    statusIndividual: af.statusIndividual,
+    inicioAt: af.inicioAt,
+    fimAt: af.fimAt,
+    detalhamento: af.detalhamento,
+    tempoGastoSegundos: af.tempoGastoSegundos,
+  } as unknown as Registro
+}
+
 export async function fetchAtividadesFuncionario(
   fazendaId: string,
   funcionarioId: string
@@ -33,7 +52,6 @@ export async function fetchAtividadesFuncionario(
   const supabase = await getSupabaseClientWithRefresh()
   if (!supabase) throw new Error('Sem cliente Supabase')
 
-  // Usar RPC dedicada
   const { data, error } = await (supabase as any)
     .rpc('get_atividades_funcionario', {
       p_fazenda_id: fazendaId,
@@ -63,6 +81,7 @@ export async function fetchAtividadesFuncionario(
     lastModified: Date.now(),
   })) as AtividadeFuncionarioPWA[]
 
+  // Salvar no cache (cadastroData) para a UI
   await saveCadastroData(`${CACHE_KEY_PREFIX}${funcionarioId}`, { fazendaId, atividades: mapped, timestamp: Date.now() })
   return mapped
 }
@@ -75,16 +94,63 @@ export async function getCachedAtividades(funcionarioId: string): Promise<Ativid
   return []
 }
 
+/**
+ * Busca mutacoes locais pendentes no store atividade-funcionarios do IndexedDB.
+ * Retorna um mapa de id -> status/inicio/fim/detalhamento para sobrepor ao fetch online.
+ */
+async function getLocalPendingMutations(): Promise<Map<string, Partial<AtividadeFuncionarioPWA>>> {
+  const map = new Map<string, Partial<AtividadeFuncionarioPWA>>()
+  try {
+    const all = await getAllRegistros('atividade-funcionarios')
+    for (const reg of all) {
+      if (reg.syncStatus === 'pending') {
+        map.set(reg.id, {
+          statusIndividual: (reg as any).statusIndividual,
+          inicioAt: (reg as any).inicioAt,
+          fimAt: (reg as any).fimAt,
+          detalhamento: (reg as any).detalhamento,
+          tempoGastoSegundos: (reg as any).tempoGastoSegundos,
+          syncStatus: 'pending',
+        })
+      }
+    }
+  } catch (err) {
+    console.warn('[Atividades] Erro ao buscar mutacoes locais pendentes:', err)
+  }
+  return map
+}
+
 export async function getAtividadesOnlineFirst(
   fazendaId: string,
   funcionarioId: string
 ): Promise<AtividadeFuncionarioPWA[]> {
   try {
-    return await fetchAtividadesFuncionario(fazendaId, funcionarioId)
+    const online = await fetchAtividadesFuncionario(fazendaId, funcionarioId)
+    // Sobrepor mutacoes locais pendentes sobre os dados online
+    const pending = await getLocalPendingMutations()
+    if (pending.size > 0) {
+      const merged = online.map((a) => {
+        const local = pending.get(a.id)
+        return local ? { ...a, ...local } : a
+      })
+      // Atualizar cache com merged
+      await saveCadastroData(`${CACHE_KEY_PREFIX}${funcionarioId}`, { fazendaId, atividades: merged, timestamp: Date.now() })
+      return merged
+    }
+    return online
   } catch (error) {
     console.warn('[Atividades] Falha ao buscar online, usando cache:', error)
     return getCachedAtividades(funcionarioId)
   }
+}
+
+async function updateCacheAndStore(af: AtividadeFuncionarioPWA): Promise<void> {
+  // 1. Salvar no store atividade-funcionarios (para o processQueue encontrar)
+  await saveRegistro('atividade-funcionarios', afToRegistro(af))
+  // 2. Atualizar cache na cadastroData (para a UI)
+  const cached = await getCachedAtividades(af.funcionarioId)
+  const updatedCache = cached.map((a) => (a.id === af.id ? af : a))
+  await saveCadastroData(`${CACHE_KEY_PREFIX}${af.funcionarioId}`, { atividades: updatedCache, timestamp: Date.now() })
 }
 
 export async function marcarEmAndamentoLocal(af: AtividadeFuncionarioPWA): Promise<AtividadeFuncionarioPWA> {
@@ -95,9 +161,7 @@ export async function marcarEmAndamentoLocal(af: AtividadeFuncionarioPWA): Promi
     syncStatus: 'pending',
     lastModified: Date.now(),
   }
-  const cached = await getCachedAtividades(af.funcionarioId)
-  const updatedCache = cached.map((a) => (a.id === af.id ? updated : a))
-  await saveCadastroData(`${CACHE_KEY_PREFIX}${af.funcionarioId}`, { atividades: updatedCache, timestamp: Date.now() })
+  await updateCacheAndStore(updated)
   return updated
 }
 
@@ -118,9 +182,7 @@ export async function marcarConcluidaLocal(
     syncStatus: 'pending',
     lastModified: Date.now(),
   }
-  const cached = await getCachedAtividades(af.funcionarioId)
-  const updatedCache = cached.map((a) => (a.id === af.id ? updated : a))
-  await saveCadastroData(`${CACHE_KEY_PREFIX}${af.funcionarioId}`, { atividades: updatedCache, timestamp: Date.now() })
+  await updateCacheAndStore(updated)
   return updated
 }
 

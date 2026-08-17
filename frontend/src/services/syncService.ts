@@ -624,6 +624,14 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_oferta_trato':
           await supabaseService.createRegistroOfertaTrato(data)
           break
+        case 'atividade_funcionarios': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: afError } = await client
+            .from('atividade_funcionarios')
+            .upsert(data)
+          if (afError) throw afError
+          break
+        }
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {
@@ -692,6 +700,20 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_oferta_trato':
           await supabaseService.updateRegistroOfertaTrato(supabaseId, data)
           break
+        case 'atividade_funcionarios': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: afError } = await client
+            .from('atividade_funcionarios')
+            .update({
+              status_individual: (registro as any).statusIndividual,
+              inicio_at: (registro as any).inicioAt || null,
+              fim_at: (registro as any).fimAt || null,
+              detalhamento: (registro as any).detalhamento || null,
+            })
+            .eq('id', supabaseId)
+          if (afError) throw afError
+          break
+        }
       }
       console.log(`[SUPABASE] Registro atualizado com sucesso em ${tableName}`)
     }

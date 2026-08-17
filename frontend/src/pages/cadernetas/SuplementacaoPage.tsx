@@ -12,7 +12,6 @@ import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
-  getCachedCadastroData,
   getPastoByNomeCached,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
@@ -22,7 +21,6 @@ import {
   getNotasLeituraCochoConfigCached,
   getLotesAtivosCached,
 } from '../../services/cadastroCache'
-import { getFormulacoes } from '../../services/supabaseService'
 import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -178,7 +176,7 @@ export default function SuplementacaoPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showFezesModal, setShowFezesModal] = useState(false)
-  const [formulacoesDisponiveis, setFormulacoesDisponiveis] = useState<string[]>([])
+  const [semPlanoAtivo, setSemPlanoAtivo] = useState<boolean>(false)
   const [kgDeposito, setKgDeposito] = useState('')
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
@@ -220,32 +218,6 @@ export default function SuplementacaoPage() {
     carregarDetalhesFormulacao()
   }, [form.formulacao, fazendaId])
 
-  // Carregar formulações ao abrir a página
-  useEffect(() => {
-    const loadData = async () => {
-      const cache = await getCachedCadastroData()
-      // Preenche imediatamente com o cache para não bloquear o modal
-      if (cache && cache.formulacoes && cache.formulacoes.length > 0) {
-        setFormulacoesDisponiveis(cache.formulacoes)
-      }
-
-      if (!fazendaId) return
-
-      // Atualiza em background sem bloquear a UI com loading
-      if (navigator.onLine) {
-        try {
-          const formulacoesData = await getFormulacoes(fazendaId, true)
-          if (formulacoesData && formulacoesData.length > 0) {
-            setFormulacoesDisponiveis(formulacoesData.map((f: any) => f.nome))
-          }
-        } catch (error) {
-          console.error('Erro ao atualizar formulações do Supabase:', error)
-        }
-      }
-    }
-    loadData()
-  }, [fazendaId])
-
   // Carregar lotes ativos do Supabase (online) ou cache (offline)
   useEffect(() => {
     const loadData = async () => {
@@ -264,7 +236,6 @@ export default function SuplementacaoPage() {
       if (data) {
         setLotesDisponiveis(data.lotes || [])
         setLotesPastoMap(data.lotesPastoMap || {})
-        setFormulacoesDisponiveis(data.formulacoes || [])
       }
     })
 
@@ -316,6 +287,34 @@ export default function SuplementacaoPage() {
 
     carregarDetalhesLoteEPasto()
   }, [form.numeroLote, fazendaId])
+
+  // Carregar formulação do plano nutricional ativo do lote
+  useEffect(() => {
+    async function carregarFormulacaoDoPlanoAtivo() {
+      if (!form.loteId) {
+        setSemPlanoAtivo(false)
+        setForm(prev => ({ ...prev, formulacao: '' }))
+        return
+      }
+
+      try {
+        const plano = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
+        if (plano && plano.formulacaoNome) {
+          setSemPlanoAtivo(false)
+          setForm(prev => ({ ...prev, formulacao: plano.formulacaoNome }))
+        } else {
+          setSemPlanoAtivo(true)
+          setForm(prev => ({ ...prev, formulacao: '' }))
+        }
+      } catch (error) {
+        console.error('Erro ao carregar formulação do plano ativo:', error)
+        setSemPlanoAtivo(true)
+        setForm(prev => ({ ...prev, formulacao: '' }))
+      }
+    }
+
+    carregarFormulacaoDoPlanoAtivo()
+  }, [form.loteId])
 
   // Buscar dados do pasto quando selecionado para verificar possui_deposito
   useEffect(() => {
@@ -499,7 +498,13 @@ export default function SuplementacaoPage() {
           return null
         },
       },
-      formulacao: { required: true },
+      formulacao: {
+        required: true,
+        custom: () => {
+          if (semPlanoAtivo) return 'Não há plano nutricional ativo para este lote. Vincule um plano no Painel Web antes de lançar suplementação.'
+          return null
+        },
+      },
       leitura: { required: true },
       kgCocho: {
         required: true,
@@ -530,7 +535,7 @@ export default function SuplementacaoPage() {
       }
     }
     return base
-  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto])
+  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto, semPlanoAtivo])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -727,16 +732,33 @@ export default function SuplementacaoPage() {
         {/* Seção 2: Tipo de Suplementação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. TIPO DE SUPLEMENTAÇÃO <span className="text-red-500">*</span></h2>
-          <SearchableModal
-            label="FORMULAÇÃO"
-            value={form.formulacao}
-            onChange={set('formulacao')}
-            error={getError('formulacao')}
-            options={formulacoesDisponiveis}
-            placeholder='Buscar formulação...'
-            id="formulacao"
-            name="formulacao"
-          />
+          {semPlanoAtivo && form.loteId ? (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚠️</span>
+                <span className="text-red-700 font-bold">Sem plano nutricional ativo</span>
+              </div>
+              <p className="text-sm text-red-600">
+                Este lote não possui plano nutricional ativo. Vincule um plano no Painel Web antes de lançar suplementação.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                Formulação <span className="text-red-500">*</span>
+              </label>
+              <div className={`w-full px-4 py-3 rounded-xl border-2 text-base font-semibold ${
+                form.formulacao
+                  ? 'bg-gray-50 border-gray-200 text-gray-900'
+                  : 'bg-gray-50 border-gray-200 text-gray-400'
+              }`}>
+                {form.formulacao || (form.loteId ? 'Carregando formulação do plano ativo...' : 'Selecione um lote primeiro')}
+              </div>
+              <p className="text-xs text-gray-500">
+                A formulação é definida automaticamente pelo plano nutricional ativo do lote.
+              </p>
+            </div>
+          )}
           {formulacaoDetalhes && (
             <FormulacaoDetalhesCard
               detalhes={{
