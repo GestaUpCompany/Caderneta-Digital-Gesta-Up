@@ -270,7 +270,7 @@ export default function AtividadesPage() {
         )}
 
         {/* Filtros */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
           {([
             { value: 'todas', label: 'Todas' },
             { value: 'pendentes', label: 'Pendentes' },
@@ -280,10 +280,10 @@ export default function AtividadesPage() {
             <button
               key={f.value}
               onClick={() => setFiltro(f.value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
                 filtro === f.value
-                  ? 'bg-primary text-white'
-                  : 'bg-white text-gray-600 border border-gray-200'
+                  ? 'bg-[#23503a] text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}
             >
               {f.label}

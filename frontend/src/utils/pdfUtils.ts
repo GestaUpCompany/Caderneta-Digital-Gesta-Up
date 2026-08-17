@@ -1251,6 +1251,291 @@ export async function gerarPdfResumoRodeio(
 }
 
 /**
+ * Gera um PDF com o resumo diário de bebedouros.
+ * Inclui resumo consolidado do dia + detalhamento por bebedouro inspecionado.
+ */
+export async function gerarPdfResumoBebedouros(
+  registros: Registro[],
+  dataResumo: string,
+  fazenda?: string
+): Promise<File> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 15
+  let y = margin
+
+  // === HEADER ===
+  doc.setFillColor(26, 58, 42) // #1a3a2a
+  doc.rect(0, 0, pageWidth, 28, 'F')
+
+  const logoSize = 18
+  const logoX = margin
+  const logoY = 5
+  try {
+    const logoDataUrl = await fetchImageAsBase64(LOGO_URL)
+    if (logoDataUrl) {
+      doc.setFillColor(255, 255, 255)
+      doc.roundedRect(logoX - 1, logoY - 1, logoSize + 2, logoSize + 2, 3, 3, 'F')
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize, undefined, 'FAST')
+    }
+  } catch (err) {
+    console.warn('[pdfUtils] Logo não carregou:', err)
+  }
+
+  const titleX = logoX + logoSize + 5
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text("Gesta'Up - Cadernetas Digitais", titleX, 12)
+
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Resumo Diário - Bebedouros', titleX, 19)
+
+  const dataFormatada = dataResumo.split(' ')[0]
+  doc.text(`Data: ${dataFormatada}`, pageWidth - margin, 12, { align: 'right' })
+  if (fazenda) {
+    doc.setFontSize(9)
+    doc.text(`Fazenda: ${fazenda}`, pageWidth - margin, 19, { align: 'right' })
+  }
+
+  y = 34
+
+  // Linha separadora
+  doc.setDrawColor(26, 58, 42)
+  doc.setLineWidth(0.5)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+
+  // === CÁLCULOS ===
+  const totalInspecoes = registros.length
+  const bebedourosInspecionados = new Set<string>()
+  let leiturasBoas = 0 // leitura 1
+  let leiturasAtencao = 0 // leitura 2
+  let leiturasCriticas = 0 // leitura 3
+  const problemasChecklist: { bebedouro: string; label: string; observacao: string }[] = []
+
+  const CHECKLIST_LABELS: Record<string, string> = {
+    agua_suficiente: 'Quantidade de água inadequada',
+    vazao_bebedouro_ideal: 'Vazão da bóia não ideal',
+    aterro_acesso_bebedouro_ideal: 'Aterro/acesso inadequado',
+    espacamento_bebedouro_ideal: 'Espaçamento do bebedouro não ideal',
+    boia_protecao_boas_condicoes: 'Bóia e proteção em más condições',
+  }
+
+  registros.forEach((r) => {
+    const nome = String(r.numeroBebedouro || '-')
+    bebedourosInspecionados.add(nome)
+
+    const leitura = Number(r.leituraBebedouro)
+    if (leitura === 1) leiturasBoas++
+    else if (leitura === 2) leiturasAtencao++
+    else if (leitura === 3) leiturasCriticas++
+
+    // Coletar problemas do checklist
+    if (r.checklist && typeof r.checklist === 'object') {
+      for (const [campo, label] of Object.entries(CHECKLIST_LABELS)) {
+        const item = (r.checklist as any)[campo]
+        if (item && item.valor === false) {
+          problemasChecklist.push({
+            bebedouro: nome,
+            label,
+            observacao: String(item.observacao || ''),
+          })
+        }
+      }
+    }
+  })
+
+  // === RESUMO ===
+  doc.setTextColor(26, 58, 42)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('RESUMO DO DIA', margin, y)
+  y += 8
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.setTextColor(50, 50, 50)
+
+  const labelW = 70
+  const labelValue = (label: string, value: string, indent = 0) => {
+    doc.setFont('helvetica', 'bold')
+    doc.text(label, margin + indent, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(value, margin + indent + labelW, y)
+    y += 7
+  }
+
+  labelValue('Data:', dataFormatada)
+  labelValue('Total de inspeções:', String(totalInspecoes))
+  labelValue('Bebedouros inspecionados:', String(bebedourosInspecionados.size))
+
+  // Distribuição de leituras
+  y += 3
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(26, 58, 42)
+  doc.text('LEITURAS DE BEBEDOURO', margin, y)
+  y += 7
+  doc.setFontSize(11)
+  doc.setTextColor(50, 50, 50)
+
+  // Bom (1) - verde
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(34, 139, 34)
+  doc.text('Bom (1):', margin + 4, y)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(50, 50, 50)
+  doc.text(String(leiturasBoas), margin + 4 + labelW, y)
+  y += 7
+
+  // Atenção (2) - laranja
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(204, 128, 0)
+  doc.text('Atenção (2):', margin + 4, y)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(50, 50, 50)
+  doc.text(String(leiturasAtencao), margin + 4 + labelW, y)
+  y += 7
+
+  // Crítico (3) - vermelho
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(180, 0, 0)
+  doc.text('Crítico (3):', margin + 4, y)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(50, 50, 50)
+  doc.text(String(leiturasCriticas), margin + 4 + labelW, y)
+  y += 7
+
+  // Problemas do checklist
+  if (problemasChecklist.length > 0) {
+    y += 3
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(26, 58, 42)
+    doc.text('PROBLEMAS IDENTIFICADOS', margin, y)
+    y += 7
+    doc.setFontSize(11)
+    doc.setTextColor(50, 50, 50)
+
+    problemasChecklist.forEach((p) => {
+      if (y > pageHeight - 20) {
+        doc.addPage()
+        y = margin
+      }
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(180, 0, 0)
+      doc.text(`[!] ${p.bebedouro}:`, margin + 4, y)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(50, 50, 50)
+      doc.text(p.label, margin + 4 + 40, y)
+      y += 5
+      if (p.observacao) {
+        doc.setFont('helvetica', 'italic')
+        doc.setFontSize(10)
+        doc.setTextColor(120, 120, 120)
+        const obsLines = doc.splitTextToSize(`Obs: ${p.observacao}`, pageWidth - margin * 2 - 8)
+        obsLines.forEach((line: string) => {
+          if (y > pageHeight - 15) {
+            doc.addPage()
+            y = margin
+          }
+          doc.text(line, margin + 8, y)
+          y += 5
+        })
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(11)
+        doc.setTextColor(50, 50, 50)
+      }
+      y += 2
+    })
+  }
+
+  // === DETALHAMENTO POR BEBEDOURO ===
+  if (y > pageHeight - 30) {
+    doc.addPage()
+    y = margin
+  }
+  y += 5
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(26, 58, 42)
+  doc.text('DETALHAMENTO POR BEBEDOURO', margin, y)
+  y += 8
+  doc.setFontSize(11)
+  doc.setTextColor(50, 50, 50)
+
+  registros.forEach((r) => {
+    if (y > pageHeight - 25) {
+      doc.addPage()
+      y = margin
+    }
+
+    const nome = String(r.numeroBebedouro || '-')
+    const leitura = Number(r.leituraBebedouro)
+    const leituraCor = leitura === 1 ? [34, 139, 34] : leitura === 2 ? [204, 128, 0] : leitura === 3 ? [180, 0, 0] : [128, 128, 128]
+    const leituraLabel = leitura === 1 ? 'Bom' : leitura === 2 ? 'Atenção' : leitura === 3 ? 'Crítico' : '-'
+    const leituraTexto = leitura ? `${leituraLabel} (${leitura})` : '-'
+
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(26, 58, 42)
+    doc.text(nome, margin, y)
+    y += 6
+
+    doc.setFont('helvetica', 'bold')
+    doc.text('Leitura:', margin + 4, y)
+    doc.setTextColor(leituraCor[0], leituraCor[1], leituraCor[2])
+    doc.text(leituraTexto, margin + 4 + labelW, y)
+    y += 7
+    doc.setTextColor(50, 50, 50)
+    doc.setFont('helvetica', 'normal')
+
+    if (r.pasto) {
+      labelValue('Pasto(s):', String(r.pasto), 4)
+    }
+
+    if (r.observacao) {
+      doc.setFont('helvetica', 'bold')
+      doc.text('Observação:', margin + 4, y)
+      doc.setFont('helvetica', 'normal')
+      const obsLines = doc.splitTextToSize(String(r.observacao), pageWidth - margin * 2 - labelW)
+      obsLines.forEach((line: string, idx: number) => {
+        if (y > pageHeight - 15) {
+          doc.addPage()
+          y = margin
+        }
+        doc.text(line, margin + 4 + labelW, y)
+        if (idx < obsLines.length - 1) y += 5
+      })
+      y += 7
+    }
+
+    y += 2
+  })
+
+  // === RODAPE ===
+  const totalPaginas = doc.getNumberOfPages()
+  for (let i = 1; i <= totalPaginas; i++) {
+    doc.setPage(i)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(150, 150, 150)
+    doc.text(
+      `Gesta'Up Caderneta Digital - Gerado em ${new Date().toLocaleString('pt-BR')}`,
+      margin,
+      pageHeight - 8
+    )
+    doc.text(`Página ${i} de ${totalPaginas}`, pageWidth - margin, pageHeight - 8, { align: 'right' })
+  }
+
+  const blob = doc.output('blob')
+  const fileName = `resumo_bebedouros_${dataFormatada.replace(/\//g, '-')}.pdf`
+  return new File([blob], fileName, { type: 'application/pdf' })
+}
+
+/**
  * Compartilha um arquivo PDF via Web Share API (redes sociais).
  * Fallback: faz download do arquivo se Web Share não estiver disponível.
  */
