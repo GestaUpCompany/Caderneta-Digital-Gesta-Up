@@ -579,6 +579,22 @@ export default function Home() {
                 MAPA DA FAZENDA
               </span>
             </button>
+
+            {/* Botão Atividades (só aparece se RBAC ativo e funcionário logado) */}
+            {rbacAtivo && funcionarioLogado && (
+              <button
+                onClick={() => navigate('/atividades')}
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30 backdrop-blur-sm"
+                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.1))' }}
+              >
+                <div className="w-40 h-auto flex items-center justify-center">
+                  <ClipboardList className="w-20 h-20 text-indigo-600" strokeWidth={1.5} />
+                </div>
+                <span className="text-base font-bold text-center leading-tight text-gray-900">
+                  ATIVIDADES
+                </span>
+              </button>
+            )}
           </div>
         )}
       </main>

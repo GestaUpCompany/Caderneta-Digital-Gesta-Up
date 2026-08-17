@@ -61,6 +61,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   almoxarifado: 'registros_almoxarifado',
   'leitura-cocho': 'registros_leitura_cocho',
   'trato-confinamento': 'registros_oferta_trato',
+  'atividade-funcionarios': 'atividade_funcionarios',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -73,6 +74,17 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
   }
 
   switch (store) {
+    case 'atividade-funcionarios': {
+      return {
+        id: registro.id,
+        atividade_id: registro.atividadeId,
+        funcionario_id: registro.funcionarioId,
+        status_individual: registro.statusIndividual,
+        inicio_at: registro.inicioAt || null,
+        fim_at: registro.fimAt || null,
+        detalhamento: registro.detalhamento || null,
+      }
+    }
     case 'maternidade':
       return {
         ...baseData,

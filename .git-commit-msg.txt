@@ -1,16 +1,15 @@
-feat: brinco/chip opcionais em morte + observacao de identificacao
+fix: remover teor_ms_dieta do resumo de suplementacao + filtrar premix em formulacoes
 
-Animal sem brinco/chip agora pode ser registrado. Quando ambos estao
-vazios, a observacao de identificacao torna-se obrigatoria para
-justificar a falta. O desconto de cabeca em lote_categorias continua
-funcionando via trigger (usa apenas lote_id + categoria).
+SuplementacaoListaPage: o teor_ms_dieta (ex: 89,04%) era exibido apos o
+nome da formulacao com sufixo "% PV" incorreto. Removido; o nome da
+formulacao ja contem a meta de consumo (ex: "R/S - RAÇÃO ENGORDA TIP 2,0%").
 
-Migracao Supabase: add_observacao_identificacao_to_registros_morte
-(adiciona coluna observacao_identificacao text em registros_morte).
+getFormulacoes: adicionado parametro soTMR que filtra e_premix=false,
+ocultando premixes do seletor de formulacoes em MortePage e
+SuplementacaoPage (premix nao e selecionavel diretamente pelo peao).
 
-Validado na fazenda de testes: morte sem identificacao, observacao
-"Animal perdeu brinco", categoria Boi Gordo descontada em L1, sem
-erros CATEGORIA_NOT_IN_LOTE.
+AGENTS.md: documentada correcao da trigger de notificacao de morte que
+agora exige coordenadas validas (latitude/longitude nao-NULL).
 
 Generated with [Devin](https://devin.ai)
 

@@ -91,6 +91,7 @@ const RelatoriosPage = lazy(() => import('./pages/RelatoriosPage'))
 const RelatorioLoteSeletorPage = lazy(() => import('./pages/RelatorioLoteSeletorPage'))
 const RelatorioLotePage = lazy(() => import('./pages/RelatorioLotePage'))
 const ProgramacaoHojePage = lazy(() => import('./pages/ProgramacaoHojePage'))
+const AtividadesPage = lazy(() => import('./pages/AtividadesPage'))
 
 // Lazy loading do estoque de insumos
 const EstoquePage = lazy(() => import('./pages/estoque-insumos/EstoquePage'))
@@ -448,6 +449,7 @@ function AppInner() {
             <Route path="/modulos/relatorios/lote" element={<RelatorioLoteSeletorPage />} />
             <Route path="/modulos/relatorios/lote/:loteId" element={<RelatorioLotePage />} />
             <Route path="/programacao-hoje" element={<ProgramacaoHojePage />} />
+            <Route path="/atividades" element={<AtividadesPage />} />
 
             {/* Estoque de Insumos */}
             <Route path="/estoque-insumos/estoque" element={<EstoquePage />} />
