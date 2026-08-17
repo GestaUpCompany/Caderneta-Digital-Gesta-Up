@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { FuncionarioRBAC } from '../services/funcionarioAuthService'
-import { validarPinFuncionario } from '../services/funcionarioAuthService'
 
 const LAST_USER_ID_KEY = 'appLock_lastFuncionarioId'
 const LAST_USER_NAME_KEY = 'appLock_lastFuncionarioName'
@@ -14,7 +13,6 @@ export interface AppLockState {
   locked: boolean
   lastFuncionario: FuncionarioRBAC | null
   loading: boolean
-  unlock: (pin: string) => Promise<boolean>
   switchUser: () => void
 }
 
@@ -179,28 +177,30 @@ export function useAppLock({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [fazendaId, funcionariosDisponiveis, funcionarioLogado?.id, onLogin, onLogout])
 
-  const unlock = useCallback(
-    async (pin: string): Promise<boolean> => {
-      const target = lastFuncionario || funcionarioLogado
-      if (!target || !fazendaId) return false
+  // Renova o trust interval durante uso ativo (sem ir a background).
+  // Sem isto, uma sessao longa em foreground fica com lastAccessAt stale
+  // e o app bloqueia surpresa ao ir a background apos 30+ min de uso.
+  useEffect(() => {
+    if (!fazendaId || !funcionarioLogado?.id) return
 
-      const fullFuncionario = funcionariosDisponiveis.find(f => f.id === target.id)
-      const toValidate = fullFuncionario || target
+    let lastRenewal = Date.now()
+    const RENEWAL_INTERVAL_MS = 60 * 1000 // 1 min
 
-      if (!toValidate.pin_hash) {
-        return false
+    function renew() {
+      if (Date.now() - lastRenewal >= RENEWAL_INTERVAL_MS) {
+        updateLastAccessAt()
+        lastRenewal = Date.now()
       }
+    }
 
-      const ok = await validarPinFuncionario(toValidate, pin, fazendaId)
-      if (ok) {
-        onLogin(toValidate)
-        writeLastFuncionario(toValidate)
-        setLocked(false)
-      }
-      return ok
-    },
-    [fazendaId, funcionarioLogado, funcionariosDisponiveis, lastFuncionario, onLogin]
-  )
+    // Renova em eventos de atividade do usuario
+    const events = ['click', 'touchstart', 'keydown', 'scroll'] as const
+    events.forEach((evt) => document.addEventListener(evt, renew, { passive: true }))
+
+    return () => {
+      events.forEach((evt) => document.removeEventListener(evt, renew))
+    }
+  }, [fazendaId, funcionarioLogado?.id])
 
   const switchUser = useCallback(() => {
     writeLastFuncionario(null)
@@ -213,7 +213,6 @@ export function useAppLock({
     locked,
     lastFuncionario: lastFuncionario || funcionarioLogado,
     loading,
-    unlock,
     switchUser,
   }
 }

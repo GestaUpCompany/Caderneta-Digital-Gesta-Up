@@ -36,6 +36,9 @@ export function useFuncionarioAuth(): UseFuncionarioAuthReturn {
   const rbacAtivo = controleAcessoHabilitado && funcionarios.length > 0
   const rbacMisconfigured = controleAcessoHabilitado && !loading && funcionarios.length === 0
 
+  // funcionarioLogado e reconstruido do Redux (sem pin_hash, que e sensivel).
+  // NUNCA usar este objeto para validar PIN. Para validacao de PIN, buscar
+  // sempre o funcionario completo em funcionariosDisponiveis (que tem pin_hash).
   const funcionarioLogado = funcionarioId
     ? {
         id: funcionarioId,

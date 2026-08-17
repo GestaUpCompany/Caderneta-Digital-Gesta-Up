@@ -56,7 +56,7 @@ export default function FuncionarioLoginModal({
   }
 
   const handlePinDigit = (digit: string) => {
-    if (pin.length < 6) {
+    if (pin.length < 4) {
       setPin(prev => prev + digit)
       setError('')
     }
@@ -143,7 +143,7 @@ export default function FuncionarioLoginModal({
             </div>
 
             <div className="flex justify-center gap-3 mb-8">
-              {Array.from({ length: 6 }).map((_, i) => (
+              {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
                   className={`w-4 h-4 rounded-full border-2 ${i < pin.length ? 'bg-yellow-400 border-yellow-400' : 'border-white'}`}

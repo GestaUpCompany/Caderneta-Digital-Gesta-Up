@@ -1,42 +1,46 @@
-import { getFazendaByAcessoId } from './supabaseService'
-
 /**
  * Re-authenticates with Supabase using the acessoId from config
  * This is called automatically on app load if tokens are invalid
+ *
+ * Usa a RPC autenticar_peao_app (SECURITY DEFINER) em vez de ler a tabela peoes
+ * diretamente, para nao expor todos os peoes via RLS publica.
  */
 export async function reauthenticateFarm(acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; logoUrl?: string }> {
   try {
     console.log('[AuthService] Re-authenticating farm with acessoId:', acessoId)
-    
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-    
+
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error('[AuthService] Supabase credentials not configured')
       return { sucesso: false }
     }
-    
-    // Buscar peão na tabela peoes usando anon key (case-insensitive)
-    const peaoResponse = await fetch(`${supabaseUrl}/rest/v1/peoes?fazenda_id=ilike.${acessoId}&ativo=eq.true`, {
+
+    // Buscar dados do peao via RPC (SECURITY DEFINER) para um acesso_id especifico.
+    // A tabela peoes nao tem mais RLS publica; a RPC e o unico caminho.
+    const rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/autenticar_peao_app`, {
+      method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'apikey': supabaseAnonKey,
         'Authorization': `Bearer ${supabaseAnonKey}`,
       },
+      body: JSON.stringify({ p_acesso_id: acessoId }),
     })
 
-    if (!peaoResponse.ok) {
-      console.error('[AuthService] Erro ao buscar peão:', await peaoResponse.text())
+    if (!rpcResponse.ok) {
+      console.error('[AuthService] Erro ao chamar RPC autenticar_peao_app:', await rpcResponse.text())
       return { sucesso: false }
     }
 
-    const peaoData = await peaoResponse.json()
-    if (!peaoData || peaoData.length === 0) {
+    const rpcData = await rpcResponse.json()
+    if (!rpcData || rpcData.success !== true || !rpcData.email || !rpcData.password) {
       console.error('[AuthService] Peão não encontrado para esta fazenda')
       return { sucesso: false }
     }
 
-    const peao = peaoData[0]
-    console.log('[AuthService] Peão encontrado:', peao.email)
+    console.log('[AuthService] Peão encontrado:', rpcData.email)
 
     // Fazer login no Supabase Auth com email/senha do peão
     const loginResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -46,8 +50,8 @@ export async function reauthenticateFarm(acessoId: string): Promise<{ sucesso: b
         'apikey': supabaseAnonKey,
       },
       body: JSON.stringify({
-        email: peao.email,
-        password: peao.password,
+        email: rpcData.email,
+        password: rpcData.password,
       }),
     })
 
@@ -58,16 +62,18 @@ export async function reauthenticateFarm(acessoId: string): Promise<{ sucesso: b
 
     const loginData = await loginResponse.json()
     console.log('[AuthService] Login do peão bem-sucedido, token recebido')
-    
-    // Obter dados da fazenda
-    const fazenda = await getFazendaByAcessoId(acessoId)
-    console.log('[AuthService] Fazenda encontrada:', fazenda)
-    
-    if (fazenda) {
+
+    if (rpcData.fazenda_id) {
       // Salvar token JWT e refresh token no localStorage
       localStorage.setItem('supabase_token', loginData.access_token)
       localStorage.setItem('supabase_refresh_token', loginData.refresh_token || '')
-      return { sucesso: true, fazendaId: fazenda.id, nome: fazenda.nome, token: loginData.access_token, logoUrl: fazenda.logo_url || undefined }
+      return {
+        sucesso: true,
+        fazendaId: rpcData.fazenda_id,
+        nome: rpcData.fazenda_nome,
+        token: loginData.access_token,
+        logoUrl: rpcData.logo_url || undefined,
+      }
     }
   } catch (error) {
     console.error('[AuthService] Erro ao re-authenticar fazenda:', error)
