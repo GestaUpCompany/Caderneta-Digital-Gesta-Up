@@ -20,7 +20,6 @@ export interface AtividadeFuncionarioPWA {
   prioridade: number
   status: string
   setorNome: string | null
-  equipeNome: string | null
   // Sync
   syncStatus: 'pending' | 'synced' | 'error'
   lastModified: number
@@ -78,7 +77,6 @@ export async function fetchAtividadesFuncionario(
     prioridade: row.prioridade,
     status: row.status,
     setorNome: row.setor_nome,
-    equipeNome: row.equipe_nome,
     syncStatus: 'synced' as const,
     lastModified: Date.now(),
   })) as AtividadeFuncionarioPWA[]

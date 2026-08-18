@@ -290,7 +290,6 @@ export default function AtividadesPage() {
                   </span>
                   {af.setorNome && <span>{af.setorNome}</span>}
                   {af.local && <span>📍 {af.local}</span>}
-                  {af.equipeNome && <span>Equipe: {af.equipeNome}</span>}
                 </div>
 
                 {/* Detalhamento se concluída */}
