@@ -1,4 +1,5 @@
 import type { ConsumoSuplementacao } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   consumo: ConsumoSuplementacao[]
@@ -18,7 +19,7 @@ export default function ConsumoLista({ consumo }: Props) {
       {consumo.map((c, i) => (
         <div key={i} className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-gray-500 text-xs">{c.data}</span>
+            <span className="text-gray-500 text-sm">{formatarDataBR(c.data)}</span>
             {c.formulacao && (
               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold truncate max-w-[60%]">
                 {c.formulacao}

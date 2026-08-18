@@ -1,4 +1,5 @@
 import type { CronologiaCategorias } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   cronologia: CronologiaCategorias
@@ -27,7 +28,7 @@ export default function CronologiaTimeline({ cronologia }: Props) {
               <div key={i} className="relative mb-4 last:mb-0">
                 <div className="absolute -left-4 top-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
                 <div className="bg-white rounded-lg p-3 border border-gray-200">
-                  <p className="text-gray-500 text-xs">{t.data_transicao}</p>
+                  <p className="text-gray-500 text-sm">{formatarDataBR(t.data_transicao)}</p>
                   <p className="text-gray-900 font-bold mt-1">
                     <span className="capitalize">{t.categoria_origem || '?'}</span>
                     <span className="text-gray-400 mx-1">→</span>
@@ -57,11 +58,11 @@ export default function CronologiaTimeline({ cronologia }: Props) {
               <div className="grid grid-cols-2 gap-2 text-sm mt-1">
                 <div>
                   <span className="text-gray-500">Início: </span>
-                  <span className="text-gray-900 font-bold">{c.data_inicio}</span>
+                  <span className="text-gray-900 font-bold">{formatarDataBR(c.data_inicio)}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Fim: </span>
-                  <span className="text-gray-900 font-bold">{c.data_fim}</span>
+                  <span className="text-gray-900 font-bold">{formatarDataBR(c.data_fim)}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Cabeças inicial: </span>

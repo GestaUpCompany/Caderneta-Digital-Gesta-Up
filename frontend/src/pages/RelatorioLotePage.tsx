@@ -105,30 +105,54 @@ export default function RelatorioLotePage() {
         {ind && (
           <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-gray-500 font-semibold text-xs uppercase">Visão geral</p>
+              <p className="text-gray-500 font-semibold text-sm uppercase">Visão geral</p>
               {ind.ativo ? (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
+                <span className="text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
                   Ativo
                 </span>
               ) : (
-                <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+                <span className="text-sm bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
                   INATIVO
                 </span>
               )}
             </div>
+
+            {/* Pasto atual em destaque */}
+            {cad?.pasto_nome && (
+              <div className={`mb-3 rounded-xl p-3 border-2 ${ind.ativo ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">📍</span>
+                    <div>
+                      <p className="text-gray-500 font-semibold text-xs uppercase">Pasto atual</p>
+                      <p className="text-gray-900 font-bold text-lg">{cad.pasto_nome}</p>
+                    </div>
+                  </div>
+                  {ind.ativo && (
+                    <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full font-semibold">
+                      Ocupado agora
+                    </span>
+                  )}
+                </div>
+                {cad.pasto_area_ha !== null && (
+                  <p className="text-sm text-gray-500 mt-1 ml-9">{cad.pasto_area_ha} ha</p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-gray-500 font-semibold text-xs uppercase">Ganho de peso/dia</p>
+                <p className="text-gray-500 font-semibold text-sm uppercase">Ganho de peso/dia</p>
                 <p className="text-gray-900 font-bold text-xl">
                   {cad?.gmd ? `${cad.gmd} kg` : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 font-semibold text-xs uppercase">Cabeças</p>
+                <p className="text-gray-500 font-semibold text-sm uppercase">Cabeças</p>
                 <p className="text-[#3b82f6] font-bold text-xl">{ind.cabecas_atual}</p>
               </div>
               <div>
-                <p className="text-gray-500 font-semibold text-xs uppercase">Peso médio</p>
+                <p className="text-gray-500 font-semibold text-sm uppercase">Peso médio</p>
                 <p className="text-gray-900 font-bold text-xl">
                   {ind.peso_medio_atual_kg !== null
                     ? `${ind.peso_medio_atual_kg.toFixed(1)} kg`
@@ -136,7 +160,7 @@ export default function RelatorioLotePage() {
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 font-semibold text-xs uppercase">Idade do lote</p>
+                <p className="text-gray-500 font-semibold text-sm uppercase">Idade do lote</p>
                 <p className="text-gray-900 font-bold text-xl">{ind.idade_lote_dias} dias</p>
               </div>
             </div>
@@ -198,18 +222,15 @@ export default function RelatorioLotePage() {
         </SecaoRelatorio>
 
         <SecaoRelatorio
-          icone="🔄"
-          titulo="Trocas de Categoria"
-          contagem={dados.cronologia_categorias
-            ? (dados.cronologia_categorias.transicoes?.length ?? 0) +
-              (dados.cronologia_categorias.categorias_encerradas?.length ?? 0)
-            : ind?.total_transicoes_categoria}
-          expandida={secaoExpandida === SECOES_RELATORIO_LOTE.CRONOLOGIA}
-          onToggle={() => toggleSecao(SECOES_RELATORIO_LOTE.CRONOLOGIA)}
-          carregando={secaoCarregando === SECOES_RELATORIO_LOTE.CRONOLOGIA}
+          icone="�"
+          titulo="Pastos por onde passou"
+          contagem={dados.linha_tempo_ocupacao?.length ?? ind?.total_pastos_ocupados}
+          expandida={secaoExpandida === SECOES_RELATORIO_LOTE.OCUPACAO}
+          onToggle={() => toggleSecao(SECOES_RELATORIO_LOTE.OCUPACAO)}
+          carregando={secaoCarregando === SECOES_RELATORIO_LOTE.OCUPACAO}
         >
-          {dados.cronologia_categorias && (
-            <CronologiaTimeline cronologia={dados.cronologia_categorias} />
+          {dados.linha_tempo_ocupacao && (
+            <OcupacaoTimeline ocupacao={dados.linha_tempo_ocupacao} />
           )}
         </SecaoRelatorio>
 
@@ -227,15 +248,15 @@ export default function RelatorioLotePage() {
         </SecaoRelatorio>
 
         <SecaoRelatorio
-          icone="📍"
-          titulo="Pastos por onde passou"
-          contagem={dados.linha_tempo_ocupacao?.length ?? ind?.total_pastos_ocupados}
-          expandida={secaoExpandida === SECOES_RELATORIO_LOTE.OCUPACAO}
-          onToggle={() => toggleSecao(SECOES_RELATORIO_LOTE.OCUPACAO)}
-          carregando={secaoCarregando === SECOES_RELATORIO_LOTE.OCUPACAO}
+          icone="🌿"
+          titulo="Consumo"
+          contagem={dados.consumo_suplementacao?.length ?? ind?.total_consumo_registros}
+          expandida={secaoExpandida === SECOES_RELATORIO_LOTE.CONSUMO}
+          onToggle={() => toggleSecao(SECOES_RELATORIO_LOTE.CONSUMO)}
+          carregando={secaoCarregando === SECOES_RELATORIO_LOTE.CONSUMO}
         >
-          {dados.linha_tempo_ocupacao && (
-            <OcupacaoTimeline ocupacao={dados.linha_tempo_ocupacao} />
+          {dados.consumo_suplementacao && (
+            <ConsumoLista consumo={dados.consumo_suplementacao} />
           )}
         </SecaoRelatorio>
 
@@ -286,15 +307,18 @@ export default function RelatorioLotePage() {
         )}
 
         <SecaoRelatorio
-          icone="🌿"
-          titulo="Consumo"
-          contagem={dados.consumo_suplementacao?.length ?? ind?.total_consumo_registros}
-          expandida={secaoExpandida === SECOES_RELATORIO_LOTE.CONSUMO}
-          onToggle={() => toggleSecao(SECOES_RELATORIO_LOTE.CONSUMO)}
-          carregando={secaoCarregando === SECOES_RELATORIO_LOTE.CONSUMO}
+          icone="🔄"
+          titulo="Trocas de Categoria"
+          contagem={dados.cronologia_categorias
+            ? (dados.cronologia_categorias.transicoes?.length ?? 0) +
+              (dados.cronologia_categorias.categorias_encerradas?.length ?? 0)
+            : ind?.total_transicoes_categoria}
+          expandida={secaoExpandida === SECOES_RELATORIO_LOTE.CRONOLOGIA}
+          onToggle={() => toggleSecao(SECOES_RELATORIO_LOTE.CRONOLOGIA)}
+          carregando={secaoCarregando === SECOES_RELATORIO_LOTE.CRONOLOGIA}
         >
-          {dados.consumo_suplementacao && (
-            <ConsumoLista consumo={dados.consumo_suplementacao} />
+          {dados.cronologia_categorias && (
+            <CronologiaTimeline cronologia={dados.cronologia_categorias} />
           )}
         </SecaoRelatorio>
 

@@ -1,4 +1,5 @@
 import type { ReproducaoLote } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   reproducao: ReproducaoLote
@@ -23,7 +24,7 @@ export default function ReproducaoCard({ reproducao }: Props) {
       {reproducao.linhas.map((p, i) => (
         <div key={i} className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-gray-500 text-xs">{p.data}</span>
+            <span className="text-gray-500 text-sm">{formatarDataBR(p.data)}</span>
             {p.tipo_parto && p.tipo_parto.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {p.tipo_parto.map((tp, j) => (

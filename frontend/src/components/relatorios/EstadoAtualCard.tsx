@@ -1,4 +1,5 @@
 import type { EstadoAtualLote } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   estado: EstadoAtualLote
@@ -18,11 +19,11 @@ export default function EstadoAtualCard({ estado }: Props) {
       <div className="bg-white rounded-lg p-3 border border-gray-200">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <p className="text-gray-500 font-semibold text-xs uppercase">Cabeças totais</p>
+            <p className="text-gray-500 font-semibold text-sm uppercase">Cabeças totais</p>
             <p className="text-[#3b82f6] font-bold text-lg">{estado.cabecas_totais} animais</p>
           </div>
           <div>
-            <p className="text-gray-500 font-semibold text-xs uppercase">Peso médio</p>
+            <p className="text-gray-500 font-semibold text-sm uppercase">Peso médio</p>
             <p className="text-gray-900 font-bold text-lg">
               {estado.peso_medio_ponderado ? `${estado.peso_medio_ponderado.toFixed(1)} kg` : '—'}
             </p>
@@ -57,7 +58,7 @@ export default function EstadoAtualCard({ estado }: Props) {
             {cat.data_meta_projetada && (
               <div className="col-span-2">
                 <span className="text-gray-500">Meta projetada: </span>
-                <span className="text-gray-900 font-bold">{cat.data_meta_projetada}</span>
+                <span className="text-gray-900 font-bold">{formatarDataBR(cat.data_meta_projetada)}</span>
                 {cat.dias_restantes_meta !== null && (
                   <span className="text-gray-500 ml-1">({cat.dias_restantes_meta} dias)</span>
                 )}

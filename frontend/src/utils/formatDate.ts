@@ -6,6 +6,27 @@ export function todayBR(): string {
   return `${day}/${month}/${year}`
 }
 
+/**
+ * Converte datas do banco (ISO ou yyyy-mm) para formato brasileiro.
+ * - "2026-08-17" ou "2026-08-17 07:30:00+00" -> "17/08/2026"
+ * - "2026-08" -> "08/2026"
+ * - null/vazio -> "—"
+ */
+export function formatarDataBR(data: string | null | undefined): string {
+  if (!data) return '—'
+  const clean = data.split(' ')[0].split('T')[0]
+  const parts = clean.split('-')
+  if (parts.length === 3) {
+    const [year, month, day] = parts
+    if (year && month && day) return `${day}/${month}/${year}`
+  }
+  if (parts.length === 2) {
+    const [year, month] = parts
+    if (year && month) return `${month}/${year}`
+  }
+  return data
+}
+
 export function isoToBR(iso: string): string {
   if (!iso) return ''
   const [year, month, day] = iso.split('-')

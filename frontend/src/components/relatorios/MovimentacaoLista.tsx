@@ -1,4 +1,5 @@
 import type { MovimentacaoLote } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   movimentacoes: MovimentacaoLote[]
@@ -32,7 +33,7 @@ export default function MovimentacaoLista({ movimentacoes }: Props) {
               >
                 {isEntrada ? '↗️ ENTRADA' : '↘️ SAÍDA'}
               </span>
-              <span className="text-gray-500 text-xs">{mov.data}</span>
+              <span className="text-gray-500 text-sm">{formatarDataBR(mov.data)}</span>
             </div>
             <div className="text-sm grid grid-cols-2 gap-1">
               <div>

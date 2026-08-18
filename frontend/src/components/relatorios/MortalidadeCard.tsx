@@ -1,4 +1,5 @@
 import type { MortalidadeLote } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   mortalidade: MortalidadeLote
@@ -44,7 +45,7 @@ export default function MortalidadeCard({ mortalidade }: Props) {
       {mortalidade.linhas.map((m, i) => (
         <div key={i} className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-gray-500 text-xs">{m.data}</span>
+            <span className="text-gray-500 text-sm">{formatarDataBR(m.data)}</span>
             {m.causa_morte && (
               <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
                 {m.causa_morte}

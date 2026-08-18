@@ -1,4 +1,5 @@
 import type { OcupacaoHistorico } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   ocupacao: OcupacaoHistorico[]
@@ -47,13 +48,13 @@ export default function OcupacaoTimeline({ ocupacao }: Props) {
               <div>
                 <span className="text-gray-500">Entrada: </span>
                 <span className="text-gray-900 font-bold">
-                  {item.data_entrada ? item.data_entrada.split(' ')[0] : '—'}
+                  {formatarDataBR(item.data_entrada)}
                 </span>
               </div>
               <div>
                 <span className="text-gray-500">Saída: </span>
                 <span className="text-gray-900 font-bold">
-                  {item.data_saida ? item.data_saida.split(' ')[0] : '—'}
+                  {formatarDataBR(item.data_saida)}
                 </span>
               </div>
               {dias !== null && (

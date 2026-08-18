@@ -1,4 +1,5 @@
 import type { PlanoNutricional } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   historico: PlanoNutricional[]
@@ -42,11 +43,11 @@ export default function HistoricoNutricionalCard({ historico }: Props) {
             </div>
             <div>
               <span className="text-gray-500">Início: </span>
-              <span className="text-gray-900 font-bold">{plano.data_inicio || '—'}</span>
+              <span className="text-gray-900 font-bold">{formatarDataBR(plano.data_inicio)}</span>
             </div>
             <div>
               <span className="text-gray-500">Fim: </span>
-              <span className="text-gray-900 font-bold">{plano.data_fim || '—'}</span>
+              <span className="text-gray-900 font-bold">{formatarDataBR(plano.data_fim)}</span>
             </div>
             <div>
               <span className="text-gray-500">Peso meta: </span>

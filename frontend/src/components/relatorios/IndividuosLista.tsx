@@ -1,4 +1,5 @@
 import type { IndividuoLote } from '../../types/relatorioLote'
+import { formatarDataBR } from '../../utils/formatDate'
 
 interface Props {
   individuos: IndividuoLote[]
@@ -54,7 +55,7 @@ export default function IndividuosLista({ individuos }: Props) {
             {ind.data_nascimento && (
               <div>
                 <span className="text-gray-500">Nascimento: </span>
-                <span className="text-gray-900 font-bold">{ind.data_nascimento}</span>
+                <span className="text-gray-900 font-bold">{formatarDataBR(ind.data_nascimento)}</span>
               </div>
             )}
             {ind.peso_meta_kg !== null && (
