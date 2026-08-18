@@ -295,7 +295,7 @@ export default function Home() {
                 className="w-14 h-14 object-contain rounded-[22px]"
               />
               {configurado && fazenda && (
-                <div className="rounded-[12px] overflow-hidden flex items-center justify-center h-14 w-auto max-w-[120px] bg-white/0">
+                <div className="rounded-[22px] overflow-hidden flex items-center justify-center h-14 w-auto max-w-[120px] bg-white/0">
                   <img
                     src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
                     alt="Logo Fazenda"
@@ -566,35 +566,37 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Botão Mapa da Fazenda */}
-            <button
-              onClick={() => navigate('/mapa-fazenda')}
-              className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 border border-white/30 backdrop-blur-sm"
-              style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.1))' }}
-            >
-              <div className="w-40 h-auto flex items-center justify-center">
-                <MapPin className="w-20 h-20 text-cyan-600" strokeWidth={1.5} />
-              </div>
-              <span className="text-base font-bold text-center leading-tight text-gray-900">
-                MAPA DA FAZENDA
-              </span>
-            </button>
-
-            {/* Botão Atividades (só aparece se RBAC ativo e funcionário logado) */}
-            {rbacAtivo && funcionarioLogado && (
+            {/* Botão Mapa da Fazenda + Atividades lado a lado */}
+            <div className="grid grid-cols-2 gap-6">
               <button
-                onClick={() => navigate('/atividades')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30 backdrop-blur-sm"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.1))' }}
+                onClick={() => navigate('/mapa-fazenda')}
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 border border-white/30 backdrop-blur-sm"
+                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.1))' }}
               >
                 <div className="w-40 h-auto flex items-center justify-center">
-                  <ClipboardList className="w-20 h-20 text-indigo-600" strokeWidth={1.5} />
+                  <MapPin className="w-20 h-20 text-cyan-600" strokeWidth={1.5} />
                 </div>
                 <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  ATIVIDADES
+                  MAPA DA FAZENDA
                 </span>
               </button>
-            )}
+
+              {/* Botão Atividades (só aparece se RBAC ativo e funcionário logado) */}
+              {rbacAtivo && funcionarioLogado && (
+                <button
+                  onClick={() => navigate('/atividades')}
+                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30 backdrop-blur-sm"
+                  style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.1))' }}
+                >
+                  <div className="w-40 h-auto flex items-center justify-center">
+                    <ClipboardList className="w-20 h-20 text-indigo-600" strokeWidth={1.5} />
+                  </div>
+                  <span className="text-base font-bold text-center leading-tight text-gray-900">
+                    ATIVIDADES
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </main>

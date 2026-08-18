@@ -167,18 +167,12 @@ export async function marcarEmAndamentoLocal(af: AtividadeFuncionarioPWA): Promi
 
 export async function marcarConcluidaLocal(
   af: AtividadeFuncionarioPWA,
-  detalhamento: string
+  detalhamento: string | null
 ): Promise<AtividadeFuncionarioPWA> {
-  const fimAt = new Date().toISOString()
-  const inicioAt = af.inicioAt || fimAt
-  const tempoGasto = Math.floor((new Date(fimAt).getTime() - new Date(inicioAt).getTime()) / 1000)
-
   const updated: AtividadeFuncionarioPWA = {
     ...af,
     statusIndividual: 'concluida',
-    fimAt,
     detalhamento,
-    tempoGastoSegundos: tempoGasto,
     syncStatus: 'pending',
     lastModified: Date.now(),
   }

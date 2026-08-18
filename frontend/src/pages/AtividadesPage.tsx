@@ -1,14 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { requestSyncNow } from '../store/slices/syncSlice'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { RootState } from '../store/store'
-import { ChevronLeft, Clock, CheckCircle, PlayCircle, Share2, WifiOff } from 'lucide-react'
+import { ChevronLeft, Clock, CheckCircle, Share2, WifiOff } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
 import {
   AtividadeFuncionarioPWA,
   getAtividadesOnlineFirst,
-  marcarEmAndamentoLocal,
   marcarConcluidaLocal,
   formatarResumoAtividades,
 } from '../services/atividadesService'
@@ -19,18 +18,6 @@ const PRIORIDADE_CORES: Record<number, string> = {
   1: 'bg-red-500',
   2: 'bg-yellow-400',
   3: 'bg-green-500',
-}
-
-const STATUS_INDIVIDUAL_CORES: Record<string, string> = {
-  pendente: 'bg-gray-100 text-gray-700',
-  em_andamento: 'bg-blue-100 text-blue-700',
-  concluida: 'bg-green-100 text-green-700',
-}
-
-const STATUS_INDIVIDUAL_LABELS: Record<string, string> = {
-  pendente: 'Pendente',
-  em_andamento: 'Em Andamento',
-  concluida: 'Concluída',
 }
 
 const STATUS_ATIVIDADE_CORES: Record<string, string> = {
@@ -60,14 +47,6 @@ function formatarSemana(dataInicio: string): string {
   return `${di}/${mi} - ${df}/${mf}`
 }
 
-function formatarTempo(segundos: number | null): string {
-  if (!segundos) return '-'
-  const h = Math.floor(segundos / 3600)
-  const m = Math.floor((segundos % 3600) / 60)
-  if (h > 0) return `${h}h ${m}min`
-  return `${m}min`
-}
-
 export default function AtividadesPage() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
@@ -81,42 +60,6 @@ export default function AtividadesPage() {
   const [atividadeParaConcluir, setAtividadeParaConcluir] = useState<AtividadeFuncionarioPWA | null>(null)
   const [detalhamento, setDetalhamento] = useState('')
   const [filtro, setFiltro] = useState<'todas' | 'pendentes' | 'em_andamento' | 'concluidas'>('todas')
-  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
-  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const handleIniciarClick = (af: AtividadeFuncionarioPWA) => {
-    if (pendingConfirmId === af.id) {
-      // Segundo toque: confirmar
-      if (confirmTimeoutRef.current) {
-        clearTimeout(confirmTimeoutRef.current)
-        confirmTimeoutRef.current = null
-      }
-      setPendingConfirmId(null)
-      handleMarcarEmAndamento(af)
-    } else {
-      // Primeiro toque: mostrar confirmação
-      setPendingConfirmId(af.id)
-      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
-      confirmTimeoutRef.current = setTimeout(() => {
-        setPendingConfirmId(null)
-        confirmTimeoutRef.current = null
-      }, 3000)
-    }
-  }
-
-  const handleCancelarConfirm = () => {
-    if (confirmTimeoutRef.current) {
-      clearTimeout(confirmTimeoutRef.current)
-      confirmTimeoutRef.current = null
-    }
-    setPendingConfirmId(null)
-  }
-
-  useEffect(() => {
-    return () => {
-      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current)
-    }
-  }, [])
 
   const loadAtividades = useCallback(async () => {
     if (!fazendaId || !funcionarioId) {
@@ -150,18 +93,6 @@ export default function AtividadesPage() {
     }
   }, [])
 
-  const handleMarcarEmAndamento = async (af: AtividadeFuncionarioPWA) => {
-    const updated = await marcarEmAndamentoLocal(af)
-    setAtividades((prev) => prev.map((a) => (a.id === af.id ? updated : a)))
-    // Enfileirar sync e disparar imediatamente
-    try {
-      await enqueueRegistro('atividade-funcionarios', af.id, 'update')
-      dispatch(requestSyncNow())
-    } catch (err) {
-      console.warn('[AtividadesPage] Erro ao enfileirar sync:', err)
-    }
-  }
-
   const handleOpenConcluir = (af: AtividadeFuncionarioPWA) => {
     setAtividadeParaConcluir(af)
     setDetalhamento('')
@@ -170,11 +101,7 @@ export default function AtividadesPage() {
 
   const handleConfirmarConclusao = async () => {
     if (!atividadeParaConcluir) return
-    if (!detalhamento.trim()) {
-      alert('Descreva o que foi feito para concluir a atividade')
-      return
-    }
-    const updated = await marcarConcluidaLocal(atividadeParaConcluir, detalhamento.trim())
+    const updated = await marcarConcluidaLocal(atividadeParaConcluir, detalhamento.trim() || null)
     setAtividades((prev) => prev.map((a) => (a.id === atividadeParaConcluir.id ? updated : a)))
     try {
       await enqueueRegistro('atividade-funcionarios', atividadeParaConcluir.id, 'update')
@@ -192,13 +119,26 @@ export default function AtividadesPage() {
     await compartilharWhatsApp(texto)
   }
 
-  const atividadesFiltradas = atividades.filter((a) => {
-    if (filtro === 'todas') return true
-    if (filtro === 'pendentes') return a.statusIndividual === 'pendente'
-    if (filtro === 'em_andamento') return a.statusIndividual === 'em_andamento'
-    if (filtro === 'concluidas') return a.statusIndividual === 'concluida'
-    return true
-  })
+  const ORDEM_STATUS: Record<string, number> = {
+    atrasado: 0,
+    em_andamento: 1,
+    concluida: 2,
+    pendente: 3,
+  }
+
+  const atividadesFiltradas = atividades
+    .filter((a) => {
+      if (filtro === 'todas') return true
+      if (filtro === 'pendentes') return a.statusIndividual === 'pendente'
+      if (filtro === 'em_andamento') return a.statusIndividual === 'em_andamento'
+      if (filtro === 'concluidas') return a.statusIndividual === 'concluida'
+      return true
+    })
+    .sort((a, b) => {
+      const oa = ORDEM_STATUS[a.statusIndividual] ?? 99
+      const ob = ORDEM_STATUS[b.statusIndividual] ?? 99
+      return oa - ob
+    })
 
   // Gate: se RBAC desativado ou sem funcionário logado
   if (!controleAcessoHabilitado || !funcionarioId) {
@@ -252,7 +192,7 @@ export default function AtividadesPage() {
                 <img
                   src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
                   alt="Logo Fazenda"
-                  className="h-10 w-auto max-w-[80px] object-contain"
+                  className="h-10 w-auto max-w-[80px] object-contain rounded-[16px]"
                 />
               )}
             </div>
@@ -280,7 +220,7 @@ export default function AtividadesPage() {
             <button
               key={f.value}
               onClick={() => setFiltro(f.value)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-center flex items-center justify-center min-w-[80px] ${
                 filtro === f.value
                   ? 'bg-[#23503a] text-white shadow-sm'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -331,16 +271,6 @@ export default function AtividadesPage() {
                   {af.equipeNome && <span>Equipe: {af.equipeNome}</span>}
                 </div>
 
-                {/* Status individual */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_INDIVIDUAL_CORES[af.statusIndividual] || 'bg-gray-100'}`}>
-                    {STATUS_INDIVIDUAL_LABELS[af.statusIndividual] || af.statusIndividual}
-                  </span>
-                  {af.tempoGastoSegundos && (
-                    <span className="text-xs text-gray-500">Tempo: {formatarTempo(af.tempoGastoSegundos)}</span>
-                  )}
-                </div>
-
                 {/* Detalhamento se concluída */}
                 {af.statusIndividual === 'concluida' && af.detalhamento && (
                   <div className="bg-gray-50 rounded-lg p-2 mb-3">
@@ -351,32 +281,11 @@ export default function AtividadesPage() {
 
                 {/* Ações */}
                 <div className="flex gap-2">
-                  {af.statusIndividual === 'pendente' && (
-                    pendingConfirmId === af.id ? (
-                      <div className="flex-1 flex gap-2">
-                        <button
-                          onClick={() => handleIniciarClick(af)}
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors min-h-[44px] animate-pulse"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Confirmar Início
-                        </button>
-                        <button
-                          onClick={handleCancelarConfirm}
-                          className="px-3 bg-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[44px]"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleIniciarClick(af)}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors min-h-[44px]"
-                      >
-                        <PlayCircle className="w-4 h-4" />
-                        Iniciar
-                      </button>
-                    )
+                  {(af.statusIndividual === 'pendente' || af.statusIndividual === 'atrasada') && (
+                    <div className="flex-1 flex items-center justify-center gap-1.5 text-gray-400 py-2.5 text-sm font-medium">
+                      <Clock className="w-4 h-4" />
+                      Aguardando início
+                    </div>
                   )}
                   {af.statusIndividual === 'em_andamento' && (
                     <button
@@ -386,33 +295,6 @@ export default function AtividadesPage() {
                       <CheckCircle className="w-4 h-4" />
                       Concluir
                     </button>
-                  )}
-                  {af.statusIndividual === 'atrasada' && (
-                    pendingConfirmId === af.id ? (
-                      <div className="flex-1 flex gap-2">
-                        <button
-                          onClick={() => handleIniciarClick(af)}
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors min-h-[44px] animate-pulse"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Confirmar Início
-                        </button>
-                        <button
-                          onClick={handleCancelarConfirm}
-                          className="px-3 bg-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[44px]"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleIniciarClick(af)}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-red-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors min-h-[44px]"
-                      >
-                        <PlayCircle className="w-4 h-4" />
-                        Iniciar (Atrasada)
-                      </button>
-                    )
                   )}
                   {af.statusIndividual === 'concluida' && (
                     <div className="flex-1 flex items-center justify-center gap-1.5 text-green-600 py-2.5 text-sm font-medium">
@@ -446,7 +328,7 @@ export default function AtividadesPage() {
             <p className="text-sm text-gray-600 mb-4">{atividadeParaConcluir.titulo}</p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descreva o que foi feito *
+                Descreva o que foi feito (opcional)
               </label>
               <textarea
                 value={detalhamento}

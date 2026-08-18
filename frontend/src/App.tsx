@@ -194,7 +194,7 @@ function AppInner() {
     const handleVisibilityChange = () => {
       if (!document.hidden && navigator.onLine) {
         console.log('[App] App voltou de background, atualizando cache de cadastro')
-        updateCadastroCache(fazendaId).catch((err) => {
+        updateCadastroCache(fazendaId, fazendaId).catch((err) => {
           console.warn('[App] Falha ao atualizar cache on visibility change:', err)
         })
         syncMapaSePreciso(fazendaId).catch((err) => {
@@ -206,7 +206,7 @@ function AppInner() {
     // Atualizar cache quando o dispositivo recupera conectividade
     const handleOnline = () => {
       console.log('[App] Dispositivo online, atualizando cache de cadastro')
-      updateCadastroCache(fazendaId).catch((err) => {
+      updateCadastroCache(fazendaId, fazendaId).catch((err) => {
         console.warn('[App] Falha ao atualizar cache on online event:', err)
       })
       syncMapaSePreciso(fazendaId).catch((err) => {
@@ -236,7 +236,7 @@ function AppInner() {
       const type = event.data?.type
       if (type === 'BG_SYNC_REFRESH_CACHE') {
         console.log('[App] Background Sync: atualizando cache de cadastro')
-        updateCadastroCache(fazendaId).catch((err) => {
+        updateCadastroCache(fazendaId, fazendaId).catch((err) => {
           console.warn('[App] Falha ao atualizar cache via BG Sync:', err)
         })
         syncMapaSePreciso(fazendaId).catch((err) => {
@@ -302,7 +302,7 @@ function AppInner() {
     verificarBackupAutomatico()
     
     // Debug PWA - remover em produção
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       setTimeout(() => {
         console.log('Iniciando debug PWA...')
         checkPWARequirements()

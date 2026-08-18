@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { FuncionarioRBAC } from '../services/funcionarioAuthService'
 
 interface FuncionarioLoginModalProps {
@@ -35,10 +35,29 @@ export default function FuncionarioLoginModal({
   onSwitchUser,
   pinOnly = false,
 }: FuncionarioLoginModalProps) {
-  const [selected, setSelected] = useState<FuncionarioRBAC | null>(lastFuncionario || null)
+  const [selected, setSelected] = useState<FuncionarioRBAC | null>(() => {
+    // lastFuncionario vem do localStorage com pin_hash null.
+    // Substituir pelo objeto completo da lista (que tem pin_hash real)
+    // para que a validacao do PIN funcione na tela de bloqueio.
+    if (lastFuncionario) {
+      const full = funcionarios.find(f => f.id === lastFuncionario.id)
+      return full || lastFuncionario
+    }
+    return null
+  })
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Quando a lista de funcionarios carrega apos o modal ja estar aberto
+  // (race condition com tela de bloqueio), substituir o selected sem
+  // pin_hash pelo objeto completo que tem pin_hash real.
+  useEffect(() => {
+    if (selected && !selected.pin_hash && funcionarios.length > 0) {
+      const full = funcionarios.find(f => f.id === selected.id)
+      if (full) setSelected(full)
+    }
+  }, [selected, funcionarios])
 
   const { validarPinFuncionario } = useMemo(() => {
     return {
@@ -155,13 +174,13 @@ export default function FuncionarioLoginModal({
               <p className="text-center text-red-400 font-bold mb-4">{error}</p>
             )}
 
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-3 gap-3 mb-6 items-start">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
                 <button
                   key={digit}
                   onClick={() => handlePinDigit(digit)}
                   disabled={loading}
-                  className="bg-white text-[#1a3a2a] text-3xl font-black py-5 rounded-2xl active:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50"
+                  className="bg-white text-[#1a3a2a] text-3xl font-black py-5 rounded-2xl active:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
                 >
                   {digit}
                 </button>
@@ -169,21 +188,21 @@ export default function FuncionarioLoginModal({
               <button
                 onClick={handleVoltar}
                 disabled={loading}
-                className="bg-gray-600 text-white text-lg font-bold py-5 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50"
+                className="bg-gray-600 text-white text-sm font-bold py-5 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50 min-h-[72px] leading-tight"
               >
                 {pinOnly ? 'TROCAR USUÁRIO' : 'VOLTAR'}
               </button>
               <button
                 onClick={() => handlePinDigit('0')}
                 disabled={loading}
-                className="bg-white text-[#1a3a2a] text-3xl font-black py-5 rounded-2xl active:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50"
+                className="bg-white text-[#1a3a2a] text-3xl font-black py-5 rounded-2xl active:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
               >
                 0
               </button>
               <button
                 onClick={handleBackspace}
                 disabled={loading}
-                className="bg-gray-600 text-white text-lg font-bold py-5 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50"
+                className="bg-gray-600 text-white text-lg font-bold py-5 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50 min-h-[72px]"
               >
                 APAGAR
               </button>
