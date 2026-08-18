@@ -17,7 +17,6 @@ import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { brWithTimeToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
 import { normalizarNumeroString } from '../utils/formatNumber'
-import { calcularPesoProjetado } from '../utils/pesoProjetado'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -495,24 +494,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
   try {
     const tableName = CADERNETA_TO_SUPABASE_TABLE[store]
     let data = registroToSupabase(store, registro, fazendaId)
-
-    // Recalcular peso_vivo_kg projetado para a data do registro (suplementacao)
-    // O peso gravado localmente pode estar desatualizado se o cron rodou entre
-    // o salvamento e a sincronização, ou se o registro foi retroativo.
-    if (store === 'suplementacao' && (registro as any).loteId && (registro as any).data) {
-      try {
-        const planoParams = await supabaseService.getPlanoNutricionalAtivoByLoteId((registro as any).loteId)
-        if (planoParams) {
-          const pesoProjetado = calcularPesoProjetado((registro as any).data, planoParams)
-          if (pesoProjetado != null) {
-            data = { ...data, peso_vivo_kg: Number(pesoProjetado.toFixed(2)) }
-          }
-        }
-      } catch (error) {
-        console.error('[SYNC] Erro ao recalcular peso projetado para suplementacao:', error)
-        // Mantém o peso gravado localmente como fallback
-      }
-    }
 
     if (store === 'maternidade') {
       console.log('[SYNC DEBUG] Payload maternidade:', JSON.stringify(data, null, 2))
