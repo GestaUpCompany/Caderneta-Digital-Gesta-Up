@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -14,6 +15,7 @@ import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -64,7 +66,8 @@ export default function AlmoxarifadoPage() {
   const logoUrl = useSelector((state: RootState) => state.config.logoUrl)
   const configurado = useSelector((state: RootState) => state.config.configurado)
 
-  const [form, setForm] = useState<FormState>(makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'almoxarifado', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -193,7 +196,7 @@ export default function AlmoxarifadoPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial())
+      limparRascunho()
     }
   }
 
@@ -271,6 +274,11 @@ export default function AlmoxarifadoPage() {
       </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+        <BannerRascunho
+          visible={rascunhoRestaurado}
+          onConfirmar={confirmarRascunho}
+          onDescartar={descartarRascunho}
+        />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
@@ -597,7 +605,7 @@ export default function AlmoxarifadoPage() {
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          <Button onClick={() => limparRascunho()} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>

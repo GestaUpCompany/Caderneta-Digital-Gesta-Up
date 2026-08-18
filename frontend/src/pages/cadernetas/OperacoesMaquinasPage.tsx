@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -11,6 +12,7 @@ import { normalizarNumeroString, normalizarNumero } from '../../utils/formatNumb
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { getMaquinasVeiculosCached, getImplementosCached } from '../../services/cadastroCache'
 import { RootState } from '../../store/store'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 const TIPO_OPERACAO_OPTIONS = [
   { value: 'nutricao', label: 'Nutrição' },
@@ -101,7 +103,8 @@ const makeInitial = (): FormState => ({
 export default function OperacoesMaquinasPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(() => makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'operacoes-maquinas', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -200,7 +203,11 @@ export default function OperacoesMaquinasPage() {
       }
       try {
         const lista = await getMaquinasVeiculosCached(fazendaId)
-        const maquina = lista?.find((m: any) => m.nome === form.maquinaVeiculo) || null
+        if (!lista || lista.length === 0) {
+          // Cache ainda nao carregou: manter valores existentes (rascunho pode ter restaurado)
+          return
+        }
+        const maquina = lista.find((m: any) => m.nome === form.maquinaVeiculo) || null
         if (maquina) {
           setForm(prev => ({ ...prev, maquinaVeiculoId: maquina.id }))
         } else {
@@ -283,7 +290,7 @@ export default function OperacoesMaquinasPage() {
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    setForm(makeInitial())
+    limparRascunho()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -293,12 +300,17 @@ export default function OperacoesMaquinasPage() {
   }
 
   const handleLimpar = () => {
-    setForm(makeInitial())
+    limparRascunho()
     setErrors([])
   }
 
   return (
     <CadernetaLayout title="OP. MÁQUINAS" cadernetaId="operacoes-maquinas">
+      <BannerRascunho
+        visible={rascunhoRestaurado}
+        onConfirmar={confirmarRascunho}
+        onDescartar={descartarRascunho}
+      />
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
       {/* Seção 1: Dados da Operação */}

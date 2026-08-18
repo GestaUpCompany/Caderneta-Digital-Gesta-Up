@@ -35,16 +35,13 @@ const STATUS_ATIVIDADE_LABELS: Record<string, string> = {
   atrasado: 'Atrasado',
 }
 
-function formatarSemana(dataInicio: string): string {
+function formatarDataAtividade(dataInicio: string, dataFim?: string | null): string {
   if (!dataInicio) return ''
-  const [y, m, d] = dataInicio.split('-')
-  const dt = new Date(Number(y), Number(m) - 1, Number(d))
-  const fim = new Date(dt)
-  fim.setDate(dt.getDate() + 6)
-  const di = d
-  const mi = m
-  const df = fim.toISOString().split('T')[0].split('-')[2]
-  const mf = fim.toISOString().split('T')[0].split('-')[1]
+  const [, mi, di] = dataInicio.split('-')
+  if (!dataFim || dataFim === dataInicio) {
+    return `${di}/${mi}`
+  }
+  const [, mf, df] = dataFim.split('-')
   return `${di}/${mi} - ${df}/${mf}`
 }
 
@@ -286,7 +283,7 @@ export default function AtividadesPage() {
                 <div className="flex flex-wrap gap-2 text-base text-gray-500 mb-3">
                   <span className="inline-flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
-                    {formatarSemana(af.dataInicio)}
+                    {formatarDataAtividade(af.dataInicio, af.dataFim)}
                   </span>
                   {af.setorNome && <span>{af.setorNome}</span>}
                   {af.local && <span>📍 {af.local}</span>}

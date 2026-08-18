@@ -4,12 +4,14 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getPluviometrosCached } from '../../services/cadastroCache'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 interface Pluviometro {
   id: string
@@ -46,7 +48,8 @@ const makeInitial = (): FormState => ({
 export default function ClimaPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(makeInitial)
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'clima', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -209,7 +212,7 @@ export default function ClimaPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial())
+      limparRascunho()
     }
   }
 
@@ -226,6 +229,11 @@ export default function ClimaPage() {
   return (
     <>
       <CadernetaLayout title="CLIMA" cadernetaId="clima">
+        <BannerRascunho
+          visible={rascunhoRestaurado}
+          onConfirmar={confirmarRascunho}
+          onDescartar={descartarRascunho}
+        />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
@@ -361,7 +369,7 @@ export default function ClimaPage() {
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR REGISTRO
           </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          <Button onClick={() => limparRascunho()} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>

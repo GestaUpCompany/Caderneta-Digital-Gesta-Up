@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { normalizarNumeroString } from '../../utils/formatNumber'
@@ -13,6 +14,7 @@ import { getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
@@ -75,7 +77,8 @@ const makeInitial = (): FormState => ({
 export default function AbastecimentoPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(() => makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'abastecimento', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -136,7 +139,11 @@ export default function AbastecimentoPage() {
       }
       try {
         const lista = await getMaquinasVeiculosCached(fazendaId)
-        const maquina = lista?.find((m: any) => m.nome === form.maquinaVeiculo) || null
+        if (!lista || lista.length === 0) {
+          // Cache ainda nao carregou: manter valores existentes (rascunho pode ter restaurado)
+          return
+        }
+        const maquina = lista.find((m: any) => m.nome === form.maquinaVeiculo) || null
         if (maquina) {
           setMaquinaVeiculoSelecionada(maquina)
           setForm(prev => ({ ...prev, maquinaVeiculoId: maquina.id, placa: maquina.placa || '' }))
@@ -212,7 +219,7 @@ export default function AbastecimentoPage() {
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    setForm(makeInitial())
+    limparRascunho()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -223,6 +230,11 @@ export default function AbastecimentoPage() {
 
   return (
     <CadernetaLayout title="ABASTECIMENTO" cadernetaId="abastecimento">
+      <BannerRascunho
+        visible={rascunhoRestaurado}
+        onConfirmar={confirmarRascunho}
+        onDescartar={descartarRascunho}
+      />
       {errors.length > 0 && <ValidationMessage errors={errors} />}
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
@@ -346,7 +358,7 @@ export default function AbastecimentoPage() {
         <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
           SALVAR REGISTRO
         </Button>
-        <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+        <Button onClick={() => limparRascunho()} variant="secondary" icon="🧹">
           LIMPAR
         </Button>
       </div>

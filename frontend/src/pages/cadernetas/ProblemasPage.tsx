@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -11,6 +12,7 @@ import CadernetaHeader from '../../components/CadernetaHeader'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { getSetoresCached, getLocaisCached } from '../../services/cadastroCache'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 const SETOR_OPTIONS = [
   { value: 'Gado', label: 'GADO' },
@@ -89,7 +91,8 @@ const makeInitial = (): FormState => ({
 export default function ProblemasPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(makeInitial)
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'problemas', makeInitial })
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
@@ -171,7 +174,7 @@ export default function ProblemasPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial())
+      limparRascunho()
     }
   }
 
@@ -202,6 +205,11 @@ export default function ProblemasPage() {
       </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+        <BannerRascunho
+          visible={rascunhoRestaurado}
+          onConfirmar={confirmarRascunho}
+          onDescartar={descartarRascunho}
+        />
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -405,7 +413,7 @@ export default function ProblemasPage() {
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          <Button onClick={() => limparRascunho()} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>

@@ -4,10 +4,12 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { RootState } from '../../store/store'
 import { getSetoresCached, getLocaisCached } from '../../services/cadastroCache'
 
@@ -51,7 +53,8 @@ const makeInitial = (): FormState => ({
 export default function LimpezaPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(() => makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'limpeza', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -162,7 +165,7 @@ export default function LimpezaPage() {
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    setForm(makeInitial())
+    limparRascunho()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -172,12 +175,17 @@ export default function LimpezaPage() {
   }
 
   const handleLimpar = () => {
-    setForm(makeInitial())
+    limparRascunho()
     setErrors([])
   }
 
   return (
     <CadernetaLayout title="LIMPEZA" cadernetaId="limpeza">
+      <BannerRascunho
+        visible={rascunhoRestaurado}
+        onConfirmar={confirmarRascunho}
+        onDescartar={descartarRascunho}
+      />
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
       {/* Seção 1: Dados Principais */}

@@ -34,7 +34,7 @@ const STORES: CadernetaStore[] = [
 ]
 
 async function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, 23, {
+  return openDB(DB_NAME, 24, {
     upgrade(db) {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) {
@@ -52,6 +52,10 @@ async function getDB(): Promise<IDBPDatabase> {
       if (!db.objectStoreNames.contains('cadastroData')) {
         const cache = db.createObjectStore('cadastroData', { keyPath: 'key' })
         cache.createIndex('timestamp', 'timestamp')
+      }
+      if (!db.objectStoreNames.contains('rascunhos')) {
+        const rascunhos = db.createObjectStore('rascunhos', { keyPath: 'key' })
+        rascunhos.createIndex('updatedAt', 'updatedAt')
       }
     },
   })
@@ -281,4 +285,34 @@ export async function countTestRecords(): Promise<number> {
     total += all.filter(r => r.isTestRecord === true).length
   }
   return total
+}
+
+// ============ RASCUNHOS ============
+
+export interface RascunhoEntry {
+  key: string
+  form: unknown
+  updatedAt: number
+}
+
+export async function salvarRascunho(key: string, form: unknown): Promise<void> {
+  const db = await getDB()
+  await db.put('rascunhos', { key, form, updatedAt: Date.now() } as RascunhoEntry)
+}
+
+export async function lerRascunho<T>(key: string): Promise<T | null> {
+  const db = await getDB()
+  const entry = await db.get('rascunhos', key) as RascunhoEntry | undefined
+  return entry ? (entry.form as T) : null
+}
+
+export async function lerRascunhoComTimestamp(key: string): Promise<{ form: unknown; updatedAt: number } | null> {
+  const db = await getDB()
+  const entry = await db.get('rascunhos', key) as RascunhoEntry | undefined
+  return entry ? { form: entry.form, updatedAt: entry.updatedAt } : null
+}
+
+export async function limparRascunho(key: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('rascunhos', key)
 }

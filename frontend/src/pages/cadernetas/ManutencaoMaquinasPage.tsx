@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -15,6 +16,7 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { normalizarNumeroString } from '../../utils/formatNumber'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 const SN_OPTIONS = [
   { value: 'S', label: 'SIM', icon: '✅' },
@@ -75,7 +77,8 @@ export default function ManutencaoMaquinasPage() {
   const logoUrl = useSelector((state: RootState) => state.config.logoUrl)
   const configurado = useSelector((state: RootState) => state.config.configurado)
 
-  const [form, setForm] = useState<FormState>(makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'manutencao-maquinas', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -144,7 +147,7 @@ export default function ManutencaoMaquinasPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial())
+      limparRascunho()
     }
   }
 
@@ -198,7 +201,11 @@ export default function ManutencaoMaquinasPage() {
       }
       try {
         const lista = await getMaquinasVeiculosCached(fazendaId)
-        const maquina = lista?.find((m: any) => m.nome === form.maquinaVeiculo) || null
+        if (!lista || lista.length === 0) {
+          // Cache ainda nao carregou: manter valores existentes (rascunho pode ter restaurado)
+          return
+        }
+        const maquina = lista.find((m: any) => m.nome === form.maquinaVeiculo) || null
         if (maquina) {
           setForm(prev => ({ ...prev, placa: maquina.placa || '' }))
         } else {
@@ -228,6 +235,11 @@ export default function ManutencaoMaquinasPage() {
       </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+        <BannerRascunho
+          visible={rascunhoRestaurado}
+          onConfirmar={confirmarRascunho}
+          onDescartar={descartarRascunho}
+        />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
@@ -373,7 +385,7 @@ export default function ManutencaoMaquinasPage() {
           <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
+          <Button onClick={() => limparRascunho()} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
         </div>

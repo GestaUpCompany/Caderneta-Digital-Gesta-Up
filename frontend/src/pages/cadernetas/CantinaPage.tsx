@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -11,6 +12,7 @@ import { RootState } from '../../store/store'
 import { getCachedCadastroData, getItensSupermercadoCached } from '../../services/cadastroCache'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 interface ItemSupermercado {
   id: string
@@ -68,7 +70,8 @@ const makeInitial = (): FormState => ({
 export default function CantinaPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(() => makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'cantina', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -151,10 +154,14 @@ export default function CantinaPage() {
         const data = await getItensSupermercadoCached(fazendaId)
         if (data) {
           setItensSupermercadoDisponiveis(data as ItemSupermercado[])
-          setForm(prev => ({
-            ...prev,
-            itens: (data as ItemSupermercado[]).reduce((acc, item) => ({ ...acc, [item.id]: '' }), {} as Record<string, string>)
-          }))
+          // Merge: preserva valores ja preenchidos (rascunho ou digitacao do usuario)
+          setForm(prev => {
+            const novosItens = (data as ItemSupermercado[]).reduce(
+              (acc, item) => ({ ...acc, [item.id]: prev.itens[item.id] ?? '' }),
+              {} as Record<string, string>
+            )
+            return { ...prev, itens: novosItens }
+          })
         }
       } catch (error) {
         console.error('Erro ao carregar itens de supermercado:', error)
@@ -233,7 +240,7 @@ export default function CantinaPage() {
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    setForm(makeInitial())
+    limparRascunho()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -243,12 +250,17 @@ export default function CantinaPage() {
   }
 
   const handleLimpar = () => {
-    setForm(makeInitial())
+    limparRascunho()
     setErrors([])
   }
 
   return (
     <CadernetaLayout title={form.modo === 'marmita' ? 'MARMITA' : 'ALIMENTAÇÃO'} cadernetaId="cantina">
+      <BannerRascunho
+        visible={rascunhoRestaurado}
+        onConfirmar={confirmarRascunho}
+        onDescartar={descartarRascunho}
+      />
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
       {/* Seletor de modo */}
