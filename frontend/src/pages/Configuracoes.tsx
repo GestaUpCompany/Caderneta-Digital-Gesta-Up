@@ -38,7 +38,8 @@ export default function Configuracoes() {
     return newErrors.length === 0
   }
 
-  const validarFazendaNoSupabase = async (acessoId: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean }> => {
+  const validarFazendaNoSupabase = async (acessoIdRaw: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean }> => {
+    const acessoId = acessoIdRaw.toLowerCase()
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
       

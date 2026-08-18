@@ -222,7 +222,7 @@ export default function RelatorioLotePage() {
         </SecaoRelatorio>
 
         <SecaoRelatorio
-          icone="�"
+          icone="📍"
           titulo="Pastos por onde passou"
           contagem={dados.linha_tempo_ocupacao?.length ?? ind?.total_pastos_ocupados}
           expandida={secaoExpandida === SECOES_RELATORIO_LOTE.OCUPACAO}
