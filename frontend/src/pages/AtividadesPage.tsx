@@ -13,6 +13,7 @@ import {
 } from '../services/atividadesService'
 import { compartilharWhatsApp } from '../utils/shareUtils'
 import { enqueueRegistro } from '../services/syncService'
+import { getPrioridadesAtividades } from '../services/supabaseService'
 
 const PRIORIDADE_CORES: Record<number, string> = {
   1: 'bg-red-500',
@@ -60,6 +61,7 @@ export default function AtividadesPage() {
   const [atividadeParaConcluir, setAtividadeParaConcluir] = useState<AtividadeFuncionarioPWA | null>(null)
   const [detalhamento, setDetalhamento] = useState('')
   const [filtro, setFiltro] = useState<'todas' | 'pendentes' | 'em_andamento' | 'concluidas'>('todas')
+  const [prioridades, setPrioridades] = useState<{ nivel: number; nome: string }[]>([])
 
   const loadAtividades = useCallback(async () => {
     if (!fazendaId || !funcionarioId) {
@@ -81,6 +83,13 @@ export default function AtividadesPage() {
   useEffect(() => {
     loadAtividades()
   }, [loadAtividades])
+
+  useEffect(() => {
+    if (!fazendaId) return
+    getPrioridadesAtividades(fazendaId)
+      .then(setPrioridades)
+      .catch((err) => console.warn('[AtividadesPage] Erro ao carregar prioridades:', err))
+  }, [fazendaId])
 
   useEffect(() => {
     const handleOnline = () => setOnline(true)
@@ -231,6 +240,18 @@ export default function AtividadesPage() {
           ))}
         </div>
 
+        {/* Legenda de prioridades */}
+        {prioridades.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+            {prioridades.map((p) => (
+              <span key={p.nivel} className="inline-flex items-center gap-1.5">
+                <span className={`w-3 h-3 rounded-full ${PRIORIDADE_CORES[p.nivel] || 'bg-gray-400'}`} />
+                {p.nome}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Lista */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12">
@@ -248,41 +269,42 @@ export default function AtividadesPage() {
                 {/* Header do card */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-start gap-2 min-w-0 flex-1">
-                    <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1.5 ${PRIORIDADE_CORES[af.prioridade] || 'bg-gray-400'}`} />
+                    <div className={`w-3.5 h-3.5 rounded-full flex-shrink-0 mt-1 ${PRIORIDADE_CORES[af.prioridade] || 'bg-gray-400'}`} />
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-gray-800 text-sm leading-tight">{af.titulo}</h3>
+                      <h3 className="font-semibold text-gray-800 text-base leading-tight">{af.titulo}</h3>
                       {af.descricao && (
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{af.descricao}</p>
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{af.descricao}</p>
                       )}
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${STATUS_ATIVIDADE_CORES[af.status] || 'bg-gray-100'}`}>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${STATUS_ATIVIDADE_CORES[af.status] || 'bg-gray-100'}`}>
                     {STATUS_ATIVIDADE_LABELS[af.status] || af.status}
                   </span>
                 </div>
 
                 {/* Meta */}
-                <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-3">
+                <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-3">
                   <span className="inline-flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                    <Clock className="w-3.5 h-3.5" />
                     {formatarSemana(af.dataInicio)}
                   </span>
                   {af.setorNome && <span>{af.setorNome}</span>}
+                  {af.local && <span>📍 {af.local}</span>}
                   {af.equipeNome && <span>Equipe: {af.equipeNome}</span>}
                 </div>
 
                 {/* Detalhamento se concluída */}
                 {af.statusIndividual === 'concluida' && af.detalhamento && (
                   <div className="bg-gray-50 rounded-lg p-2 mb-3">
-                    <p className="text-xs text-gray-500 font-medium mb-1">Detalhamento:</p>
-                    <p className="text-xs text-gray-700">{af.detalhamento}</p>
+                    <p className="text-sm text-gray-500 font-medium mb-1">Detalhamento:</p>
+                    <p className="text-sm text-gray-700">{af.detalhamento}</p>
                   </div>
                 )}
 
                 {/* Ações */}
                 <div className="flex gap-2">
                   {(af.statusIndividual === 'pendente' || af.statusIndividual === 'atrasada') && (
-                    <div className="flex-1 flex items-center justify-center gap-1.5 text-gray-400 py-2.5 text-sm font-medium">
+                    <div className="flex-1 flex items-center justify-center gap-1.5 text-gray-400 py-2 text-sm font-medium">
                       <Clock className="w-4 h-4" />
                       Aguardando início
                     </div>
@@ -290,14 +312,14 @@ export default function AtividadesPage() {
                   {af.statusIndividual === 'em_andamento' && (
                     <button
                       onClick={() => handleOpenConcluir(af)}
-                      className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+                      className="flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[40px]"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Concluir
                     </button>
                   )}
                   {af.statusIndividual === 'concluida' && (
-                    <div className="flex-1 flex items-center justify-center gap-1.5 text-green-600 py-2.5 text-sm font-medium">
+                    <div className="flex items-center justify-center gap-1.5 text-green-600 py-2 text-sm font-medium">
                       <CheckCircle className="w-4 h-4" />
                       Concluída
                     </div>

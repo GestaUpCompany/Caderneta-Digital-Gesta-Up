@@ -14,6 +14,7 @@ export interface AtividadeFuncionarioPWA {
   // Joined da atividade
   titulo: string
   descricao: string | null
+  local: string | null
   dataInicio: string
   dataFim: string
   prioridade: number
@@ -71,6 +72,7 @@ export async function fetchAtividadesFuncionario(
     tempoGastoSegundos: row.tempo_gasto_segundos,
     titulo: row.titulo,
     descricao: row.descricao,
+    local: row.local,
     dataInicio: row.data_inicio,
     dataFim: row.data_fim,
     prioridade: row.prioridade,

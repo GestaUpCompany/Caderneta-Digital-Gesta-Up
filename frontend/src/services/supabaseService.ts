@@ -2318,6 +2318,19 @@ export async function getRegistrosSaidaInsumos(fazendaId: string, dataInicio?: s
   return data
 }
 
+// ==================== PRIORIDADES DE ATIVIDADES ====================
+
+export async function getPrioridadesAtividades(fazendaId: string): Promise<{ nivel: number; nome: string }[]> {
+  const client = getSupabaseClient()
+  const { data, error } = await (client.from as any)('prioridades_atividades')
+    .select('nivel, nome')
+    .eq('fazenda_id', fazendaId)
+    .order('nivel')
+
+  if (error) throw error
+  return data as { nivel: number; nome: string }[]
+}
+
 export async function createRegistroSaidaInsumos(registro: TablesInsert<'registros_saida_insumos'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
