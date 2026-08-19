@@ -30,6 +30,8 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   problemas: 'Problemas',
   almoxarifado: 'Almoxarifado',
   'atividade-funcionarios': 'Atividades',
+  'atividade-sessoes': 'Sessões de Atividade',
+  'atividade-imprevistos': 'Imprevistos de Atividade',
 }
 
 interface SyncErrorModalProps {

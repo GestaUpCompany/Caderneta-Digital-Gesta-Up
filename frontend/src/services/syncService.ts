@@ -61,6 +61,8 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'leitura-cocho': 'registros_leitura_cocho',
   'trato-confinamento': 'registros_oferta_trato',
   'atividade-funcionarios': 'atividade_funcionarios',
+  'atividade-sessoes': 'atividade_sessoes',
+  'atividade-imprevistos': 'atividade_imprevistos',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -82,6 +84,27 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         inicio_at: registro.inicioAt || null,
         fim_at: registro.fimAt || null,
         detalhamento: registro.detalhamento || null,
+      }
+    }
+    case 'atividade-sessoes': {
+      return {
+        id: registro.id,
+        atividade_funcionario_id: registro.atividadeFuncionarioId,
+        inicio_at: registro.inicioAt || null,
+        fim_at: registro.fimAt || null,
+        duracao_segundos: registro.duracaoSegundos ?? null,
+        trabalhada: registro.trabalhada ?? true,
+        motivo_pausa: registro.motivoPausa || null,
+      }
+    }
+    case 'atividade-imprevistos': {
+      return {
+        id: registro.id,
+        atividade_funcionario_id: registro.atividadeFuncionarioId,
+        tipo: registro.tipo,
+        descricao: registro.descricao || null,
+        ocorrido_at: registro.ocorridoAt || null,
+        impacto_minutos: registro.impactoMinutos ?? null,
       }
     }
     case 'maternidade':
@@ -613,6 +636,22 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           if (afError) throw afError
           break
         }
+        case 'atividade_sessoes': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: sError } = await client
+            .from('atividade_sessoes')
+            .upsert(data)
+          if (sError) throw sError
+          break
+        }
+        case 'atividade_imprevistos': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: iError } = await client
+            .from('atividade_imprevistos')
+            .upsert(data)
+          if (iError) throw iError
+          break
+        }
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {
@@ -693,6 +732,33 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             })
             .eq('id', supabaseId)
           if (afError) throw afError
+          break
+        }
+        case 'atividade_sessoes': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: sError } = await client
+            .from('atividade_sessoes')
+            .update({
+              fim_at: (registro as any).fimAt || null,
+              duracao_segundos: (registro as any).duracaoSegundos ?? null,
+              trabalhada: (registro as any).trabalhada ?? true,
+              motivo_pausa: (registro as any).motivoPausa || null,
+            })
+            .eq('id', supabaseId)
+          if (sError) throw sError
+          break
+        }
+        case 'atividade_imprevistos': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: iError } = await client
+            .from('atividade_imprevistos')
+            .update({
+              tipo: (registro as any).tipo,
+              descricao: (registro as any).descricao || null,
+              impacto_minutos: (registro as any).impactoMinutos ?? null,
+            })
+            .eq('id', supabaseId)
+          if (iError) throw iError
           break
         }
       }

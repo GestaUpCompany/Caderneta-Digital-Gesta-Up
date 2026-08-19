@@ -1,6 +1,7 @@
 import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { saveCadastroData, getCadastroData, saveRegistro, getAllRegistros } from './indexedDB'
 import { Registro } from '../types/cadernetas'
+import { v4 as uuidv4 } from 'uuid'
 
 export interface AtividadeFuncionarioPWA {
   id: string
@@ -25,7 +26,46 @@ export interface AtividadeFuncionarioPWA {
   lastModified: number
 }
 
+export interface AtividadeSessaoLocal {
+  id: string
+  supabaseId?: string
+  atividadeFuncionarioId: string
+  inicioAt: string
+  fimAt: string | null
+  duracaoSegundos: number | null
+  trabalhada: boolean
+  motivoPausa: string | null
+  syncStatus: 'pending' | 'synced' | 'error'
+  lastModified: number
+}
+
+export interface AtividadeImprevistoLocal {
+  id: string
+  supabaseId?: string
+  atividadeFuncionarioId: string
+  tipo: string
+  descricao: string | null
+  ocorridoAt: string
+  impactoMinutos: number | null
+  syncStatus: 'pending' | 'synced' | 'error'
+  lastModified: number
+}
+
+export interface ImprevistoCategoria {
+  id: string
+  nome: string
+}
+
+export interface TempoCalculado {
+  produtivoSeg: number
+  brutoSeg: number
+  temSessaoAberta: boolean
+  inicioSessaoAberta: string | null
+  sessaoAbertaId: string | null
+}
+
 const CACHE_KEY_PREFIX = 'atividades_'
+const CATEGORIAS_CACHE_KEY = 'atividade_imprevisto_categorias_'
 
 function afToRegistro(af: AtividadeFuncionarioPWA): Registro {
   return {
@@ -42,6 +82,39 @@ function afToRegistro(af: AtividadeFuncionarioPWA): Registro {
     fimAt: af.fimAt,
     detalhamento: af.detalhamento,
     tempoGastoSegundos: af.tempoGastoSegundos,
+  } as unknown as Registro
+}
+
+function sessaoToRegistro(s: AtividadeSessaoLocal): Registro {
+  return {
+    id: s.id,
+    supabaseId: s.supabaseId || s.id,
+    version: 1,
+    lastModified: new Date(s.lastModified).toISOString(),
+    syncStatus: s.syncStatus,
+    data: s.inicioAt,
+    atividadeFuncionarioId: s.atividadeFuncionarioId,
+    inicioAt: s.inicioAt,
+    fimAt: s.fimAt,
+    duracaoSegundos: s.duracaoSegundos,
+    trabalhada: s.trabalhada,
+    motivoPausa: s.motivoPausa,
+  } as unknown as Registro
+}
+
+function imprevistoToRegistro(i: AtividadeImprevistoLocal): Registro {
+  return {
+    id: i.id,
+    supabaseId: i.supabaseId || i.id,
+    version: 1,
+    lastModified: new Date(i.lastModified).toISOString(),
+    syncStatus: i.syncStatus,
+    data: i.ocorridoAt,
+    atividadeFuncionarioId: i.atividadeFuncionarioId,
+    tipo: i.tipo,
+    descricao: i.descricao,
+    ocorridoAt: i.ocorridoAt,
+    impactoMinutos: i.impactoMinutos,
   } as unknown as Registro
 }
 
@@ -153,31 +226,324 @@ async function updateCacheAndStore(af: AtividadeFuncionarioPWA): Promise<void> {
   await saveCadastroData(`${CACHE_KEY_PREFIX}${af.funcionarioId}`, { atividades: updatedCache, timestamp: Date.now() })
 }
 
-export async function marcarEmAndamentoLocal(af: AtividadeFuncionarioPWA): Promise<AtividadeFuncionarioPWA> {
+// ============================================================
+// Sessoes: buscar, calcular tempo
+// ============================================================
+
+export async function getSessoesLocal(atividadeFuncionarioId: string): Promise<AtividadeSessaoLocal[]> {
+  try {
+    const all = await getAllRegistros('atividade-sessoes')
+    return all
+      .filter((r) => (r as any).atividadeFuncionarioId === atividadeFuncionarioId)
+      .map((r) => ({
+        id: r.id,
+        supabaseId: (r as any).supabaseId,
+        atividadeFuncionarioId: (r as any).atividadeFuncionarioId,
+        inicioAt: (r as any).inicioAt,
+        fimAt: (r as any).fimAt ?? null,
+        duracaoSegundos: (r as any).duracaoSegundos ?? null,
+        trabalhada: (r as any).trabalhada ?? true,
+        motivoPausa: (r as any).motivoPausa ?? null,
+        syncStatus: r.syncStatus as any,
+        lastModified: new Date(r.lastModified).getTime(),
+      }))
+      .sort((a, b) => a.inicioAt.localeCompare(b.inicioAt))
+  } catch (err) {
+    console.warn('[Atividades] Erro ao buscar sessoes locais:', err)
+    return []
+  }
+}
+
+export async function getImprevistosLocal(atividadeFuncionarioId: string): Promise<AtividadeImprevistoLocal[]> {
+  try {
+    const all = await getAllRegistros('atividade-imprevistos')
+    return all
+      .filter((r) => (r as any).atividadeFuncionarioId === atividadeFuncionarioId)
+      .map((r) => ({
+        id: r.id,
+        supabaseId: (r as any).supabaseId,
+        atividadeFuncionarioId: (r as any).atividadeFuncionarioId,
+        tipo: (r as any).tipo,
+        descricao: (r as any).descricao ?? null,
+        ocorridoAt: (r as any).ocorridoAt,
+        impactoMinutos: (r as any).impactoMinutos ?? null,
+        syncStatus: r.syncStatus as any,
+        lastModified: new Date(r.lastModified).getTime(),
+      }))
+      .sort((a, b) => a.ocorridoAt.localeCompare(b.ocorridoAt))
+  } catch (err) {
+    console.warn('[Atividades] Erro ao buscar imprevistos locais:', err)
+    return []
+  }
+}
+
+/**
+ * Calcula tempo produtivo (só sessões trabalhadas fechadas + sessão aberta atual),
+ * tempo bruto (todas as sessões fechadas + aberta), e info da sessão aberta.
+ */
+export async function calcularTempoLocal(atividadeFuncionarioId: string): Promise<TempoCalculado> {
+  const sessoes = await getSessoesLocal(atividadeFuncionarioId)
+  const now = Date.now()
+  let produtivoSeg = 0
+  let brutoSeg = 0
+  let temSessaoAberta = false
+  let inicioSessaoAberta: string | null = null
+  let sessaoAbertaId: string | null = null
+
+  for (const s of sessoes) {
+    if (s.fimAt) {
+      if (s.duracaoSegundos != null) {
+        brutoSeg += s.duracaoSegundos
+        if (s.trabalhada) produtivoSeg += s.duracaoSegundos
+      }
+    } else {
+      temSessaoAberta = true
+      inicioSessaoAberta = s.inicioAt
+      sessaoAbertaId = s.id
+      const decorrido = Math.floor((now - new Date(s.inicioAt).getTime()) / 1000)
+      if (decorrido > 0) {
+        brutoSeg += decorrido
+        if (s.trabalhada) produtivoSeg += decorrido
+      }
+    }
+  }
+
+  return { produtivoSeg, brutoSeg, temSessaoAberta, inicioSessaoAberta, sessaoAbertaId }
+}
+
+// ============================================================
+// Mutacoes: iniciar, pausar, retomar, concluir, imprevisto
+// ============================================================
+
+/**
+ * Inicia a atividade: status -> em_andamento, cria sessao aberta.
+ * Substitui marcarEmAndamentoLocal (que nao criava sessao).
+ */
+export async function iniciarAtividadeLocal(af: AtividadeFuncionarioPWA): Promise<AtividadeFuncionarioPWA> {
+  const now = new Date().toISOString()
   const updated: AtividadeFuncionarioPWA = {
     ...af,
     statusIndividual: 'em_andamento',
-    inicioAt: new Date().toISOString(),
+    inicioAt: af.inicioAt || now, // mantem primeiro inicio se ja existia
     syncStatus: 'pending',
     lastModified: Date.now(),
+  }
+  await updateCacheAndStore(updated)
+
+  // Criar sessao aberta
+  const sessaoId = uuidv4()
+  const sessao: AtividadeSessaoLocal = {
+    id: sessaoId,
+    supabaseId: sessaoId,
+    atividadeFuncionarioId: af.id,
+    inicioAt: now,
+    fimAt: null,
+    duracaoSegundos: null,
+    trabalhada: true,
+    motivoPausa: null,
+    syncStatus: 'pending',
+    lastModified: Date.now(),
+  }
+  await saveRegistro('atividade-sessoes', sessaoToRegistro(sessao))
+
+  return updated
+}
+
+/**
+ * Pausa a atividade: fecha sessao aberta com duracao calculada, status -> pausada.
+ * trabalhada=true para pausa normal (ex: fim do expediente), false para almoço.
+ */
+export async function pausarAtividadeLocal(
+  af: AtividadeFuncionarioPWA,
+  trabalhada: boolean,
+  motivoPausa?: string
+): Promise<AtividadeFuncionarioPWA> {
+  const now = new Date().toISOString()
+  const nowMs = Date.now()
+
+  // Buscar sessao aberta e fecha-la
+  const sessoes = await getSessoesLocal(af.id)
+  const aberta = sessoes.find((s) => !s.fimAt)
+  if (aberta) {
+    const duracao = Math.floor((nowMs - new Date(aberta.inicioAt).getTime()) / 1000)
+    const fechada: AtividadeSessaoLocal = {
+      ...aberta,
+      fimAt: now,
+      duracaoSegundos: duracao,
+      trabalhada,
+      motivoPausa: motivoPausa || null,
+      syncStatus: 'pending',
+      lastModified: nowMs,
+    }
+    await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
+  }
+
+  const updated: AtividadeFuncionarioPWA = {
+    ...af,
+    statusIndividual: 'pausada',
+    syncStatus: 'pending',
+    lastModified: nowMs,
   }
   await updateCacheAndStore(updated)
   return updated
 }
 
-export async function marcarConcluidaLocal(
-  af: AtividadeFuncionarioPWA,
-  detalhamento: string | null
-): Promise<AtividadeFuncionarioPWA> {
+/**
+ * Retoma atividade pausada: status -> em_andamento, cria nova sessao aberta.
+ */
+export async function retomarAtividadeLocal(af: AtividadeFuncionarioPWA): Promise<AtividadeFuncionarioPWA> {
+  const now = new Date().toISOString()
   const updated: AtividadeFuncionarioPWA = {
     ...af,
-    statusIndividual: 'concluida',
-    detalhamento,
+    statusIndividual: 'em_andamento',
     syncStatus: 'pending',
     lastModified: Date.now(),
   }
   await updateCacheAndStore(updated)
+
+  const sessaoId = uuidv4()
+  const sessao: AtividadeSessaoLocal = {
+    id: sessaoId,
+    supabaseId: sessaoId,
+    atividadeFuncionarioId: af.id,
+    inicioAt: now,
+    fimAt: null,
+    duracaoSegundos: null,
+    trabalhada: true,
+    motivoPausa: null,
+    syncStatus: 'pending',
+    lastModified: Date.now(),
+  }
+  await saveRegistro('atividade-sessoes', sessaoToRegistro(sessao))
+
   return updated
+}
+
+/**
+ * Registra imprevisto anexado ao atividade_funcionario.
+ */
+export async function registrarImprevistoLocal(
+  af: AtividadeFuncionarioPWA,
+  tipo: string,
+  descricao: string | null,
+  impactoMinutos: number | null
+): Promise<void> {
+  const now = new Date().toISOString()
+  const id = uuidv4()
+  const imprevisto: AtividadeImprevistoLocal = {
+    id,
+    supabaseId: id,
+    atividadeFuncionarioId: af.id,
+    tipo,
+    descricao,
+    ocorridoAt: now,
+    impactoMinutos,
+    syncStatus: 'pending',
+    lastModified: Date.now(),
+  }
+  await saveRegistro('atividade-imprevistos', imprevistoToRegistro(imprevisto))
+}
+
+/**
+ * Conclui atividade: fecha sessao aberta se houver, status -> concluida, detalhamento.
+ */
+export async function concluirAtividadeLocal(
+  af: AtividadeFuncionarioPWA,
+  detalhamento: string | null
+): Promise<AtividadeFuncionarioPWA> {
+  const now = new Date().toISOString()
+  const nowMs = Date.now()
+
+  // Fechar sessao aberta se houver
+  const sessoes = await getSessoesLocal(af.id)
+  const aberta = sessoes.find((s) => !s.fimAt)
+  if (aberta) {
+    const duracao = Math.floor((nowMs - new Date(aberta.inicioAt).getTime()) / 1000)
+    const fechada: AtividadeSessaoLocal = {
+      ...aberta,
+      fimAt: now,
+      duracaoSegundos: duracao,
+      syncStatus: 'pending',
+      lastModified: nowMs,
+    }
+    await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
+  }
+
+  // Recalcular tempo produtivo local para refletir imediatamente na UI
+  const tempo = await calcularTempoLocal(af.id)
+
+  const updated: AtividadeFuncionarioPWA = {
+    ...af,
+    statusIndividual: 'concluida',
+    fimAt: now,
+    detalhamento,
+    tempoGastoSegundos: tempo.produtivoSeg,
+    syncStatus: 'pending',
+    lastModified: nowMs,
+  }
+  await updateCacheAndStore(updated)
+  return updated
+}
+
+// ============================================================
+// Categorias de imprevisto (online com cache)
+// ============================================================
+
+export async function getImprevistoCategorias(fazendaId: string): Promise<ImprevistoCategoria[]> {
+  // Tentar cache primeiro
+  const cached = await getCadastroData(`${CATEGORIAS_CACHE_KEY}${fazendaId}`)
+  if (cached && Array.isArray(cached.categorias) && cached.categorias.length > 0) {
+    return cached.categorias as ImprevistoCategoria[]
+  }
+
+  try {
+    const supabase = await getSupabaseClientWithRefresh()
+    if (!supabase) return []
+    const { data, error } = await (supabase as any)
+      .from('atividade_imprevisto_categorias')
+      .select('id, nome')
+      .eq('fazenda_id', fazendaId)
+      .eq('ativo', true)
+      .order('nome', { ascending: true })
+    if (error) throw error
+    const categorias = (data || []) as ImprevistoCategoria[]
+    await saveCadastroData(`${CATEGORIAS_CACHE_KEY}${fazendaId}`, { categorias, timestamp: Date.now() })
+    return categorias
+  } catch (err) {
+    console.warn('[Atividades] Erro ao buscar categorias de imprevisto:', err)
+    return cached?.categorias || []
+  }
+}
+
+// ============================================================
+// Backward compat: marcarEmAndamentoLocal / marcarConcluidaLocal
+// ============================================================
+
+/** @deprecated usar iniciarAtividadeLocal (cria sessao de tempo) */
+export async function marcarEmAndamentoLocal(af: AtividadeFuncionarioPWA): Promise<AtividadeFuncionarioPWA> {
+  return iniciarAtividadeLocal(af)
+}
+
+/** @deprecated usar concluirAtividadeLocal (fecha sessao aberta) */
+export async function marcarConcluidaLocal(
+  af: AtividadeFuncionarioPWA,
+  detalhamento: string | null
+): Promise<AtividadeFuncionarioPWA> {
+  return concluirAtividadeLocal(af, detalhamento)
+}
+
+// ============================================================
+// Formatacao
+// ============================================================
+
+export function formatarTempo(segundos: number): string {
+  if (segundos <= 0) return '0min'
+  const h = Math.floor(segundos / 3600)
+  const m = Math.floor((segundos % 3600) / 60)
+  const s = segundos % 60
+  if (h > 0) return `${h}h${String(m).padStart(2, '0')}min`
+  if (m > 0) return `${m}min${s > 0 ? ` ${s}s` : ''}`
+  return `${s}s`
 }
 
 export function formatarResumoAtividades(atividades: AtividadeFuncionarioPWA[]): string {
@@ -192,9 +558,8 @@ export function formatarResumoAtividades(atividades: AtividadeFuncionarioPWA[]):
     if (a.detalhamento) {
       texto += `   Detalhamento: ${a.detalhamento}\n`
     }
-    if (a.tempoGastoSegundos) {
-      const min = Math.floor(a.tempoGastoSegundos / 60)
-      texto += `   Tempo: ${min}min\n`
+    if (a.tempoGastoSegundos && a.tempoGastoSegundos > 0) {
+      texto += `   Tempo: ${formatarTempo(a.tempoGastoSegundos)}\n`
     }
     texto += `\n`
   })

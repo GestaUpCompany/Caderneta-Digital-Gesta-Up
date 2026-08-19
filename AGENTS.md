@@ -114,6 +114,45 @@ Criar rota `/admin/erros-sync` com:
 
 **Painel Web**: não requer mudanças. As notificações aparecem na rota `/controller/notificacoes` existente. O lote criado na fazenda destino aparece na listagem de lotes normalmente.
 
+## Time tracking de atividades com sessões e imprevistos (19/08/2026)
+
+**Funcionalidade**: o peão pode iniciar, pausar, retomar e concluir atividades com cronômetro real medindo tempo produtivo vs bruto. Pausas podem ser marcadas como não-trabalhadas (ex: almoço) e descontadas do tempo produtivo. Imprevistos categorizados (Chuva/Tempo, Gado escapou, Cerca/instalação, etc.) podem ser registrados durante a execução.
+
+**Princípio**: time tracking por **sessões** (uma linha por par Iniciar/Pausar em `atividade_sessoes`), não cronômetro único. O `tempo_gasto_segundos` em `atividade_funcionarios` deixa de ser campo editável e passa a ser **soma calculada** das sessões trabalhadas, mantida por trigger `trg_recalc_tempo_gasto_af`.
+
+**Schema (migration `20260819140000_atividade_sessoes_imprevistos.sql`, repo Painel Web)**:
+- `atividade_sessoes`: `id`, `atividade_funcionario_id` (FK CASCADE), `inicio_at`, `fim_at` (null=aberta), `duracao_segundos`, `trabalhada` (bool, false=almoço), `motivo_pausa`, `created_at`.
+- `atividade_imprevistos`: `id`, `atividade_funcionario_id` (FK CASCADE), `tipo` (categoria), `descricao`, `ocorrido_at`, `impacto_minutos`, `created_at`.
+- `atividade_imprevisto_categorias`: `id`, `fazenda_id` (FK CASCADE), `nome`, `ativo`, UNIQUE `(fazenda_id, nome)`. Seed de 6 categorias para todas as fazendas + trigger `trg_seed_imprevisto_categorias` para novas.
+- `atividade_funcionarios.status_individual`: domínio passa a incluir `pausada` e `cancelada` (sem constraint nova, é text).
+- Trigger `trg_recalc_tempo_gasto_af` AFTER INSERT/UPDATE/DELETE ON `atividade_sessoes`: recalcula `atividade_funcionarios.tempo_gasto_segundos = SUM(duracao_segundos) WHERE trabalhada=true`.
+- RPCs: `get_sessoes_abertas_by_fazenda(fazenda_id)` e `get_imprevistos_recentes_by_fazenda(fazenda_id, data_inicio)` para o Painel Web.
+- RLS permissiva (igual `atividade_funcionarios`), exceto `atividade_imprevisto_categorias` select com `user_has_fazenda_access`.
+
+**PWA** (`AtividadesPage.tsx` + `atividadesService.ts`):
+- Card mostra cronômetro ao vivo quando `em_andamento` com sessão aberta (`setInterval` 1s, funciona offline via `inicio_at` local).
+- Botões contextuais por estado: **Iniciar** (pendente→em_andamento, cria sessão aberta), **Pausar** (em_andamento→pausada, fecha sessão com `trabalhada=true`), **Almoço** (em_andamento→pausada, fecha sessão com `trabalhada=false`, motivo="Almoço"), **Retomar** (pausada→em_andamento, nova sessão), **Imprevisto** (modal com categoria + descrição + impacto), **Concluir** (fecha sessão aberta + modal de detalhamento + soma tempo).
+- Cada peão controla seu próprio cronômetro independentemente (decisão: independente por peão, não coletivo).
+- Sessões e imprevistos são enfileirados no IndexedDB via `enqueueRegistro` nos stores `atividade-sessoes` e `atividade-imprevistos`, sincronizados como as outras cadernetas.
+- `iniciarAtividadeLocal`, `pausarAtividadeLocal`, `retomarAtividadeLocal`, `concluirAtividadeLocal`, `registrarImprevistoLocal` em `atividadesService.ts`. `marcarEmAndamentoLocal`/`marcarConcluidaLocal` mantidos como wrappers deprecated.
+- `calcularTempoLocal(afId)` retorna `{ produtivoSeg, brutoSeg, temSessaoAberta, inicioSessaoAberta, sessaoAbertaId }` para a UI.
+- `getImprevistoCategorias(fazendaId)` busca do Supabase com cache IndexedDB.
+- Filtro "Pausadas" adicionado à lista de atividades.
+- Card concluído expansível mostra todas as sessões (com tipo trabalhada/não e motivo) e imprevistos.
+- `formatarTempo(segundos)` em `atividadesService.ts` (formato "1h30min", "45min", "30s").
+
+**Painel Web** (`MonitoramentoAtividades.tsx` + `atividadesService.ts`):
+- Seção **"Trabalhando agora"** no topo: sessões abertas em tempo real via `getSessoesAbertasByFazenda`, mostrando funcionário, atividade e tempo decorrido. Click abre o detalhe da atividade.
+- Seção **"Imprevistos recentes"** (últimos 7 dias) via `getImprevistosRecentesByFazenda`: tabela com quando, tipo, atividade, funcionário, descrição, impacto.
+- Modal de detalhe enriquecido: por funcionário, mostra tempo produtivo, badge "gravando" se sessão aberta, lista de sessões (com tipo e motivo) e lista de imprevistos.
+- Subscrição Realtime em `atividade_sessoes` e `atividade_imprevistos` atualiza as seções ao vivo.
+- `iniciarAtividade` (atalho coletivo do controller) agora cria sessão aberta para cada `atividade_funcionario` pendente, além de marcar `em_andamento`.
+- CRUD de categorias de imprevisto em `atividadesService.ts` (`getImprevistoCategorias`, `createImprevistoCategoria`, `updateImprevistoCategoria`, `deleteImprevistoCategoria`).
+
+**Sessões abertas órfãs**: se o peão fecha o app sem pausar/concluir, no próximo `loadAtividades` o card mostra "gravando" com o tempo decorrido desde `inicio_at`. O peão pode "Retomar" (na verdade continua) ou "Pausar agora". O app não fecha sessões automaticamente para não inventar tempo.
+
+**Disparador**: quando mencionar "cronômetro de atividade", "tempo gasto em atividade", "sessões de atividade", "pausar atividade", "imprevisto em atividade", ou "tempo produtivo vs bruto", lembrar que o modelo é por sessões com flag `trabalhada`, e que `tempo_gasto_segundos` é calculado por trigger.
+
 ## Auditoria de código (julho/2026)
 
 Foram identificadas 87 falhas em 4 frentes. As matrizes completas estão abaixo.
