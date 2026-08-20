@@ -32,9 +32,13 @@ export function useFuncionarioAuth(): UseFuncionarioAuthReturn {
 
   const [funcionarios, setFuncionarios] = useState<FuncionarioRBAC[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const rbacAtivo = controleAcessoHabilitado && funcionarios.length > 0
-  const rbacMisconfigured = controleAcessoHabilitado && !loading && funcionarios.length === 0
+  // Só considerar misconfigured se o carregamento sucedeu (não falhou) e
+  // retornou 0 funcionários. Se falhou (rede, timeout, cache vazio),
+  // não bloquear o app com a tela de "nenhum funcionário cadastrado".
+  const rbacMisconfigured = controleAcessoHabilitado && !loading && !loadFailed && funcionarios.length === 0
 
   // funcionarioLogado e reconstruido do Redux (sem pin_hash, que e sensivel).
   // NUNCA usar este objeto para validar PIN. Para validacao de PIN, buscar
@@ -52,21 +56,38 @@ export function useFuncionarioAuth(): UseFuncionarioAuthReturn {
       }
     : null
 
-  const loadFuncionarios = useCallback(async () => {
+  const loadFuncionarios = useCallback(async (isRetry = false) => {
     if (!fazendaId || !controleAcessoHabilitado) {
       setFuncionarios([])
       setLoading(false)
+      setLoadFailed(false)
       return
     }
-    setLoading(true)
+    if (!isRetry) setLoading(true)
+    setLoadFailed(false)
     try {
       const data = await getFuncionariosComAcessoOnlineFirst(fazendaId)
-      setFuncionarios(data || [])
+      const funcionariosData = data || []
+      setFuncionarios(funcionariosData)
+      setLoadFailed(false)
+      // Se retornou vazio sem erro, pode ser que a sessão ainda não estava
+      // pronta no mount (token expirado, RLS bloqueou sem erro).
+      // Tentar uma vez mais após 2 segundos antes de considerar misconfigured.
+      if (funcionariosData.length === 0 && !isRetry) {
+        setTimeout(() => loadFuncionarios(true), 2000)
+      } else {
+        setLoading(false)
+      }
     } catch (err) {
       console.error('[useFuncionarioAuth] Erro ao carregar funcionários:', err)
-      setFuncionarios([])
-    } finally {
-      setLoading(false)
+      if (!isRetry) {
+        // Primeira tentativa falhou: tentar retry antes de desistir
+        setTimeout(() => loadFuncionarios(true), 2000)
+      } else {
+        setFuncionarios([])
+        setLoadFailed(true)
+        setLoading(false)
+      }
     }
   }, [fazendaId, controleAcessoHabilitado])
 

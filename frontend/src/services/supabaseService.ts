@@ -1104,7 +1104,7 @@ export async function createFuncionario(funcionario: TablesInsert<'funcionarios'
 }
 
 export async function getFuncionariosComAcessoApp(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('funcionarios')
     .select('*')

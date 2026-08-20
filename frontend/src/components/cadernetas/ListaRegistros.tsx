@@ -13,7 +13,7 @@ import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/shareUtils'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
-import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached } from '../../services/cadastroCache'
+import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
 import { CADERNETA_DISPLAY_CONFIG } from '../../config/cadernetas/index'
 import { GLOBAL_HIDDEN_FIELDS, FieldConfig } from '../../config/registroDisplayConfig'
 import { SPECIAL_COMPONENTS } from './registroSpecialComponents'
@@ -210,6 +210,33 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
         }
       } catch (error) {
         console.error('Erro ao recalcular métricas para share:', error)
+      }
+    }
+
+    if (caderneta === 'bebedouros' && registroParaCompartilhar.numeroBebedouro && fazendaId) {
+      try {
+        const bebedouro = await getBebedouroByNomeCached(fazendaId, registroParaCompartilhar.numeroBebedouro as string)
+        if (bebedouro) {
+          const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
+          let tempoDesdeLimpeza = 'Sem histórico'
+          if (ultimaDataLimpeza) {
+            const dataLimpeza = new Date(ultimaDataLimpeza)
+            const hoje = new Date()
+            const diffDias = Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24))
+            tempoDesdeLimpeza = `${diffDias} dias`
+          }
+          const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
+          const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'
+          const metaIntervalo = bebedouro.meta_intervalo_limpeza ? `${bebedouro.meta_intervalo_limpeza} dias` : 'Não definida'
+          registroParaShare = {
+            ...registroParaShare,
+            tempoDesdeLimpeza,
+            intervaloMedioLimpezas: intervaloMedioStr,
+            metaIntervaloLimpeza: metaIntervalo,
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao recalcular dados de limpeza para share:', error)
       }
     }
 
