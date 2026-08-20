@@ -128,6 +128,17 @@ async function servePrecachedIndex(): Promise<Response> {
   throw new Error('No cached navigation response available')
 }
 
+// Fallback HTML minimalista: se o precache tambem falhar (race condition
+// durante ativacao do SW), retorna uma pagina que recarrega sozinha
+// apos 1 segundo em vez de deixar o browser mostrar ERR_FAILED.
+function fallbackReloadHtml(): Response {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Atualizando...</title><style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui,sans-serif;background:#1a3a2a;color:#fff;text-align:center}p{font-size:1.25rem}</style></head><body><p>Atualizando o aplicativo...<br>A página vai recarregar automaticamente.</p><script>setTimeout(function(){location.reload()},1000)</script></body></html>`
+  return new Response(html, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  })
+}
+
 registerRoute(
   ({ request }) => request.mode === 'navigate',
   async ({ event, request }) => {
@@ -137,11 +148,19 @@ registerRoute(
       // NetworkFirst trata 404 como resposta válida e a retorna ao browser.
       // Se não for 200, cair no fallback do precache para servir index.html.
       if (!response.ok) {
-        return await servePrecachedIndex()
+        try {
+          return await servePrecachedIndex()
+        } catch {
+          return fallbackReloadHtml()
+        }
       }
       return response
     } catch {
-      return await servePrecachedIndex()
+      try {
+        return await servePrecachedIndex()
+      } catch {
+        return fallbackReloadHtml()
+      }
     }
   }
 )

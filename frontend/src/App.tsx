@@ -29,19 +29,41 @@ import { registerPushSubscription, unregisterPushSubscription } from './services
 import { registerBackgroundSync } from './serviceWorkerRegistration'
 
 // Componente wrapper para tela de reload durante atualização automática
+// e banner de nova versão disponível
 function PWAUpdateModalWrapper() {
-  const { isReloading } = useServiceWorkerUpdate()
-  
-  if (!isReloading) return null
-  
-  return (
-    <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <span className="text-4xl animate-spin">⏳</span>
-        <p className="text-lg font-semibold text-gray-700">Atualizando app...</p>
+  const { isReloading, hasUpdateAvailable, applyUpdate } = useServiceWorkerUpdate()
+
+  // Tela de reload:覆盖 toda a tela enquanto o SW recarrega
+  if (isReloading) {
+    return (
+      <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <span className="text-4xl animate-spin">⏳</span>
+          <p className="text-lg font-semibold text-gray-700">Atualizando app...</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  // Banner discreto no topo: nova versão baixada, usuário decide quando atualizar
+  if (hasUpdateAvailable) {
+    return (
+      <div className="fixed top-0 left-0 right-0 z-[9999] bg-[#1a3a2a] text-white px-4 py-3 flex items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">✨</span>
+          <p className="text-sm font-semibold">Nova versão disponível</p>
+        </div>
+        <button
+          onClick={applyUpdate}
+          className="bg-white text-[#1a3a2a] font-bold text-sm px-4 py-1.5 rounded-lg active:scale-95 transition-transform whitespace-nowrap"
+        >
+          Atualizar
+        </button>
+      </div>
+    )
+  }
+
+  return null
 }
 
 // Lazy loading das cadernetas
