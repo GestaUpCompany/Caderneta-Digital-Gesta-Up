@@ -139,8 +139,8 @@ export function validatePastagens(data: Record<string, unknown>): ValidationResu
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.manejador))
-    errors.push({ field: 'manejador', message: 'Manejador é obrigatório' })
+  // manejador não é validado aqui: é auto-injetado do Redux em api.ts,
+  // que já tem guard próprio retornando mensagem mais útil.
   if (!isNonEmptyString(data.numeroLote))
     errors.push({ field: 'numeroLote', message: 'Número do lote é obrigatório' })
   if (!isNonEmptyString(data.pastoSaida))
@@ -156,13 +156,66 @@ export function validatePastagens(data: Record<string, unknown>): ValidationResu
 
   // Only validate animal categories if gadoContado is "Sim"
   if (data.gadoContado === 'Sim') {
-    const categoriasError = validateCategoriasNumericas(
-      data,
-      ['vaca', 'touro', 'bezerro', 'boiMagro', 'garrote', 'novilha'],
-      'categorias',
-      'Preencha ao menos uma categoria de animal'
-    )
-    if (categoriasError) errors.push(categoriasError)
+    // Validar categorias_detalhes (formato novo) ou campos fixos (fallback)
+    const categoriasDetalhes = data.categorias_detalhes
+    if (Array.isArray(categoriasDetalhes) && categoriasDetalhes.length > 0) {
+      const hasAny = categoriasDetalhes.some((c: any) => Number(c.quant_informada) > 0)
+      if (!hasAny) {
+        errors.push({ field: 'categorias', message: 'Preencha ao menos uma categoria de animal' })
+      }
+    } else {
+      // Fallback: validar campos fixos para registros antigos
+      const categoriasError = validateCategoriasNumericas(
+        data,
+        ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'],
+        'categorias',
+        'Preencha ao menos uma categoria de animal'
+      )
+      if (categoriasError) errors.push(categoriasError)
+    }
+  }
+
+  // Escore do gado (1 a 5, permitindo 0.5)
+  if (!isScaleValue(data.escoreGado, 1, 5, true))
+    errors.push({ field: 'escoreGado', message: 'Escore do gado é obrigatório (1 a 5)' })
+
+  // Escore de fezes (1 a 5)
+  if (!isScaleValue(data.escoreFezes, 1, 5, true))
+    errors.push({ field: 'escoreFezes', message: 'Escore de fezes é obrigatório (1 a 5)' })
+
+  // Número de pessoas no manejo (1 a 5)
+  const numPessoas = Number(data.numeroPessoasManejo) || 0
+  if (numPessoas < 1 || numPessoas > 5)
+    errors.push({ field: 'numeroPessoasManejo', message: 'Número de pessoas no manejo é obrigatório (1 a 5)' })
+
+  // Validar nomes da equipe quando numeroPessoasManejo > 0
+  if (numPessoas > 0) {
+    const nomes = data.equipe_nomes
+    let nomesPreenchidos = 0
+    if (Array.isArray(nomes)) {
+      nomesPreenchidos = nomes.filter((n: any) => typeof n === 'string' && n.trim() !== '').length
+    }
+    if (nomesPreenchidos < numPessoas)
+      errors.push({ field: 'equipeNomes', message: `Preencha o nome de todas as ${numPessoas} pessoas` })
+  }
+
+  // Checklist (campos S/N) - validar apenas se algum campo estiver presente
+  // (indica que o checklist está ativo para a fazenda)
+  const checklistCampos = [
+    { campo: 'bebedourosCochos', label: 'Bebedouros / Cochos' },
+    { campo: 'pastagensTaxaLotacao', label: 'Pastagens / Taxa de lotação' },
+    { campo: 'animaisMachucadosDoentesBichados', label: 'Animais machucados / doentes / bichados' },
+    { campo: 'cercasCochosPorteiras', label: 'Cercas / Cochos / Porteiras' },
+    { campo: 'carrapatosMoscas', label: 'Carrapatos / Moscas' },
+    { campo: 'animaisEntreverados', label: 'Animais entreverados' },
+    { campo: 'animalMorto', label: 'Animal morto' },
+  ]
+  const temChecklist = checklistCampos.some(({ campo }) => data[campo] !== undefined && data[campo] !== '')
+  if (temChecklist) {
+    checklistCampos.forEach(({ campo, label }) => {
+      if (!isSnBoolean(data[campo]))
+        errors.push({ field: campo, message: `${label}: selecione SIM ou NÃO` })
+    })
   }
 
   return { isValid: errors.length === 0, errors }

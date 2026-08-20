@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
@@ -107,6 +107,7 @@ interface FormState {
   escoreFezes: string
   numeroPessoasManejo: string
   equipeNomes: string[]
+  categoriasQuantidades: Record<string, string>
 }
 
 const makeInitial = (): FormState => ({
@@ -153,19 +154,8 @@ const makeInitial = (): FormState => ({
   escoreFezes: '',
   numeroPessoasManejo: '',
   equipeNomes: [],
+  categoriasQuantidades: {},
 })
-
-const CATEGORIAS: { campo: keyof FormState; label: string }[] = [
-  { campo: 'vaca', label: 'VACAS' },
-  { campo: 'touro', label: 'TOUROS' },
-  { campo: 'boiGordo', label: 'BOIS GORDOS' },
-  { campo: 'boiMagro', label: 'BOIS MAGROS' },
-  { campo: 'garrote', label: 'GARROTES' },
-  { campo: 'bezerro', label: 'BEZERROS(AS)' },
-  { campo: 'novilha', label: 'NOVILHAS' },
-  { campo: 'tropa', label: 'TROPAS' },
-  { campo: 'outros', label: 'OUTROS' },
-]
 
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
@@ -176,6 +166,45 @@ function processarCategorias(categorias: string): string[] {
     .split(regex)
     .map(c => c.trim())
     .filter(c => c.length > 0)
+}
+
+// Mapear texto de categoria do banco (lote_categorias.categoria) para campo do form.
+// O banco tem casing inconsistente ("boi gordo" vs "Boi Gordo") e variantes
+// ("bezerra", "bezerro ao pé", "bezerra ao pé") que precisam agrupar em "bezerro".
+function normalizeCategoriaToField(categoria: string): keyof FormState | null {
+  const norm = categoria
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/\s+ao\s+pe\s*/g, '') // remove "ao pé"
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const map: Record<string, keyof FormState> = {
+    'vaca': 'vaca',
+    'vacas': 'vaca',
+    'touro': 'touro',
+    'touros': 'touro',
+    'boi gordo': 'boiGordo',
+    'bois gordo': 'boiGordo',
+    'boi magro': 'boiMagro',
+    'bois magro': 'boiMagro',
+    'garrote': 'garrote',
+    'garrotes': 'garrote',
+    'bezerro': 'bezerro',
+    'bezerros': 'bezerro',
+    'bezerra': 'bezerro',
+    'bezerras': 'bezerro',
+    'novilha': 'novilha',
+    'novilhas': 'novilha',
+    'tropa': 'tropa',
+    'tropas': 'tropa',
+    'outros': 'outros',
+    'outro': 'outros',
+  }
+
+  return map[norm] || null
 }
 
 export default function PastagensPage() {
@@ -218,6 +247,19 @@ export default function PastagensPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Categorias dinamicas: apenas as que existem no lote, com nome real e max de cabecas
+  const categoriasDoLote = useMemo(() => {
+    if (!detalhesLote?.categorias_raw || !Array.isArray(detalhesLote.categorias_raw)) return null
+    const cats = detalhesLote.categorias_raw
+      .map((cat: any) => ({
+        nome: cat.categoria as string,
+        maxCabecas: cat.quant_atual || 0,
+      }))
+      .filter((c: { nome: string; maxCabecas: number }) => c.nome)
+    if (cats.length === 0) return null
+    return cats as { nome: string; maxCabecas: number }[]
+  }, [detalhesLote])
 
   // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
@@ -263,7 +305,7 @@ export default function PastagensPage() {
         setDetalhesPastoSaida(null)
         setOcupacaoSaida(null)
         setOcupacaoModuloSaida(null)
-        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoSaidaId: '' }))
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', pastoSaidaId: '', categoriasQuantidades: {} }))
         setDetalhesLote(null)
         return
       }
@@ -283,7 +325,7 @@ export default function PastagensPage() {
           setDetalhesPastoSaida(null)
           setOcupacaoSaida(null)
           setOcupacaoModuloSaida(null)
-          setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+          setForm(prev => ({ ...prev, numeroLote: '', loteId: '', categoriasQuantidades: {} }))
           setDetalhesLote(null)
           setErrors([{ field: 'pastoSaida', message: 'Este pasto está vazio (não possui lote). Selecione outro pasto.' }])
           set('pastoSaida')('')
@@ -317,7 +359,8 @@ export default function PastagensPage() {
           categorias: categoriasDetalhes.categorias,
           n_cabecas: categoriasDetalhes.quant_atual,
           peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-          qtd_bezerros: categoriasDetalhes.qtd_bezerros
+          qtd_bezerros: categoriasDetalhes.qtd_bezerros,
+          categorias_raw: categoriasDetalhes.categorias_raw
         })
         setForm(prev => ({
           ...prev,
@@ -370,7 +413,7 @@ export default function PastagensPage() {
         setDetalhesPastoSaida(null)
         setOcupacaoSaida(null)
         setOcupacaoModuloSaida(null)
-        setForm(prev => ({ ...prev, numeroLote: '', loteId: '' }))
+        setForm(prev => ({ ...prev, numeroLote: '', loteId: '', categoriasQuantidades: {} }))
         setDetalhesLote(null)
       }
     }
@@ -445,8 +488,8 @@ export default function PastagensPage() {
   }, [form.pastoEntrada, fazendaId])
 
 
-  const total = ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'].reduce(
-    (acc, c) => acc + (Number(form[c as keyof FormState]) || 0), 0
+  const total = Object.values(form.categoriasQuantidades).reduce(
+    (acc, v) => acc + (Number(v) || 0), 0
   )
 
   // Validation rules
@@ -481,12 +524,26 @@ export default function PastagensPage() {
   if (form.gadoContado === 'Sim') {
     validationRules.categorias = {
       custom: () => {
-        const hasAnyValue = ['vaca', 'touro', 'bezerro', 'boiGordo', 'boiMagro', 'garrote', 'novilha', 'tropa', 'outros'].some(
-          (campo) => Number(form[campo as keyof FormState]) > 0
+        const hasAnyValue = Object.values(form.categoriasQuantidades).some(
+          (v) => Number(v) > 0
         )
         if (!hasAnyValue) return 'Preencha pelo menos uma categoria de animais'
         return null
       }
+    }
+    // Validar max de cabecas por categoria quando o lote for conhecido
+    if (categoriasDoLote) {
+      categoriasDoLote.forEach(({ nome, maxCabecas }) => {
+        validationRules[`cat_${nome}`] = {
+          custom: () => {
+            const val = Number(form.categoriasQuantidades[nome]) || 0
+            if (val > maxCabecas) {
+              return `Máximo: ${maxCabecas} cabeças`
+            }
+            return null
+          }
+        }
+      })
     }
   }
 
@@ -517,10 +574,32 @@ export default function PastagensPage() {
 
     // Calcular total de animais baseado na resposta de gadoContado
     let totalAnimais = 0
+    let categoriasDetalhes: { nome: string; quant_atual: number; quant_informada: number }[] = []
+    // Mapa para preencher campos fixos do schema a partir das categorias dinamicas
+    const camposFixos: Record<string, number> = {
+      vaca: 0, touro: 0, bezerro: 0, boiGordo: 0, boiMagro: 0,
+      garrote: 0, novilha: 0, tropa: 0, outros: 0,
+    }
     if (form.gadoContado === 'Sim') {
-      totalAnimais = (Number(form.vaca) || 0) + (Number(form.touro) || 0) + (Number(form.bezerro) || 0) +
-                      (Number(form.boiGordo) || 0) + (Number(form.boiMagro) || 0) + (Number(form.garrote) || 0) +
-                      (Number(form.novilha) || 0) + (Number(form.tropa) || 0) + (Number(form.outros) || 0)
+      if (categoriasDoLote) {
+        categoriasDetalhes = categoriasDoLote.map(({ nome, maxCabecas }) => ({
+          nome,
+          quant_atual: maxCabecas,
+          quant_informada: Number(form.categoriasQuantidades[nome]) || 0,
+        }))
+        totalAnimais = categoriasDetalhes.reduce((acc, c) => acc + c.quant_informada, 0)
+        // Preencher campos fixos para compatibilidade com schema existente
+        for (const c of categoriasDetalhes) {
+          const field = normalizeCategoriaToField(c.nome)
+          if (field && field in camposFixos) {
+            camposFixos[field] += c.quant_informada
+          }
+        }
+      } else {
+        totalAnimais = Object.values(form.categoriasQuantidades).reduce(
+          (acc, v) => acc + (Number(v) || 0), 0
+        )
+      }
     } else if (form.gadoContado === 'Não' && detalhesLote) {
       totalAnimais = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
     }
@@ -543,15 +622,16 @@ export default function PastagensPage() {
       avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
       gadoContado: form.gadoContado,
       totalAnimais: totalAnimais,
-      vaca: form.vaca ? Number(form.vaca) : 0,
-      touro: form.touro ? Number(form.touro) : 0,
-      boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
-      boiMagro: form.boiMagro ? Number(form.boiMagro) : 0,
-      garrote: form.garrote ? Number(form.garrote) : 0,
-      bezerro: form.bezerro ? Number(form.bezerro) : 0,
-      novilha: form.novilha ? Number(form.novilha) : 0,
-      tropa: form.tropa ? Number(form.tropa) : 0,
-      outros: form.outros ? Number(form.outros) : 0,
+      vaca: camposFixos.vaca,
+      touro: camposFixos.touro,
+      boiGordo: camposFixos.boiGordo,
+      boiMagro: camposFixos.boiMagro,
+      garrote: camposFixos.garrote,
+      bezerro: camposFixos.bezerro,
+      novilha: camposFixos.novilha,
+      tropa: camposFixos.tropa,
+      outros: camposFixos.outros,
+      categorias_detalhes: categoriasDetalhes.length > 0 ? categoriasDetalhes : null,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
       bebedourosCochos: form.bebedourosCochos,
       bebedourosCochosObs: form.bebedourosCochosObs,
@@ -737,17 +817,39 @@ export default function PastagensPage() {
                 <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
               )}
               <div className="grid grid-cols-2 gap-3 overflow-hidden">
-                {CATEGORIAS.map(({ campo, label }) => (
-                  <Input
-                    key={campo}
-                    label={label}
-                    placeholder="0"
-                    value={form[campo]}
-                    onChange={setInput(campo)}
-                    inputMode="numeric"
-                    type="number"
-                    min="0"
-                  />
+                {(categoriasDoLote || []).map(({ nome, maxCabecas }) => (
+                  <div key={nome} className="flex flex-col gap-1">
+                    {maxCabecas === 0 ? (
+                      <div className="w-full">
+                        <label className="block text-lg font-bold text-gray-900 mb-2">
+                          <span className="capitalize">{nome} <span className="text-gray-400 font-normal text-base">(0 cab.)</span></span>
+                        </label>
+                        <div className="min-h-[60px] flex items-center justify-center bg-gray-100 border border-gray-200 rounded-2xl text-gray-400 font-semibold text-base">
+                          Sem cabeças para movimentar
+                        </div>
+                      </div>
+                    ) : (
+                      <Input
+                        label={
+                          <span className="capitalize">{nome} <span className="text-black font-bold text-base">({maxCabecas} cab.)</span></span>
+                        }
+                        placeholder="0"
+                        value={form.categoriasQuantidades[nome] || ''}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setForm(prev => ({
+                            ...prev,
+                            categoriasQuantidades: { ...prev.categoriasQuantidades, [nome]: val }
+                          }))
+                        }}
+                        inputMode="numeric"
+                        type="number"
+                        min="0"
+                        max={String(maxCabecas)}
+                        error={getError(`cat_${nome}`)}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
               {total > 0 && (

@@ -159,6 +159,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         boi_magro: Number(registro.boiMagro) || 0,
         garrote: Number(registro.garrote) || 0,
         novilha: Number(registro.novilha) || 0,
+        categorias_detalhes: (registro as any).categorias_detalhes || null,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
         avaliacao_geral: {
           bebedourosCochos: {
