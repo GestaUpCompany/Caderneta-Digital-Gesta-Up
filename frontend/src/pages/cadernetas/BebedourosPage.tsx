@@ -288,6 +288,9 @@ export default function BebedourosPage() {
       pasto: pastosBebedouro && pastosBebedouro.length > 0 ? pastosBebedouro.map(p => p.nome).join(', ') : null,
       pastoId: pastosBebedouro && pastosBebedouro.length === 1 ? pastosBebedouro[0].id : null,
       observacao: form.observacao,
+      tempoDesdeLimpeza: form.tempoDesdeLimpeza,
+      intervaloMedioLimpezas: form.intervaloMedioLimpezas,
+      metaIntervaloLimpeza: form.metaIntervaloLimpeza,
       checklist: checklistAtivo ? {
         agua_suficiente: {
           valor: form.aguaSuficiente === 'Sim',
