@@ -497,55 +497,128 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
  */
 export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
   const client = getSupabaseClient()
-  const { data, error } = await (client as any)
-    .from('lote_categorias')
-    .select(`
-      data_ajuste_peso,
-      peso_vivo_atual_kg_cab,
-      planos_nutricionais!inner (
-        peso_inicio_kg_cab,
-        data_inicio,
-        gmd_planejado,
-        ativo,
-        data_fim,
-        formulacao_id
-      )
-    `)
+
+  // 1. Buscar plano vigente diretamente pelo lote_id (não mais via lote_categorias)
+  const { data: plano, error: planoError } = await (client as any)
+    .from('planos_nutricionais')
+    .select('id, data_inicio, formulacao_id')
     .eq('lote_id', loteId)
     .eq('ativo', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
+    .is('data_fim', null)
+    .single()
 
-  if (error) throw error
-  if (!data || data.length === 0) return null
+  if (planoError || !plano) return null
 
-  const lc = data[0]
-  const planos = lc.planos_nutricionais
-  // planos_nutricionais pode vir como array (join) ou objeto
-  const plano = Array.isArray(planos) ? planos.find((p: any) => p.ativo && !p.data_fim) : planos
-  if (!plano) return null
-
-  // Buscar GMD e nome da formulação associada ao plano
-  let gmdFormulacao: number | null = null
+  // 2. Buscar nome da formulação do plano
   let formulacaoNome: string | null = null
   if (plano.formulacao_id) {
-    const { data: form_data } = await (client as any)
+    const { data: formData } = await (client as any)
       .from('formulacoes')
-      .select('gmd, nome')
+      .select('nome')
       .eq('id', plano.formulacao_id)
       .single()
-    gmdFormulacao = form_data?.gmd ?? null
-    formulacaoNome = form_data?.nome ?? null
+    formulacaoNome = formData?.nome ?? null
   }
 
-  const gmdEfetivo = plano.gmd_planejado != null ? Number(plano.gmd_planejado) : gmdFormulacao
+  // 3. Buscar categorias ativas do lote
+  const { data: categorias, error: catError } = await (client as any)
+    .from('lote_categorias')
+    .select('id, categoria, quant_atual, data_ajuste_peso, peso_vivo_atual_kg_cab')
+    .eq('lote_id', loteId)
+    .eq('ativo', true)
+    .is('data_fim', null)
+
+  if (catError || !categorias || categorias.length === 0) {
+    return {
+      pesoInicioKgCab: null,
+      dataInicio: plano.data_inicio ?? null,
+      gmdEfetivo: null,
+      dataAjustePeso: null,
+      pesoVivoAtualKgCab: null,
+      formulacaoId: plano.formulacao_id ?? null,
+      formulacaoNome,
+    }
+  }
+
+  // 4. Buscar peso_inicio_kg_cab por categoria na personalização deste plano
+  const { data: personalizacao } = await (client as any)
+    .from('plano_categoria_personalizacao')
+    .select('lote_categoria_id, peso_inicio_kg_cab')
+    .eq('plano_id', plano.id)
+    .eq('ativo', true)
+
+  const pcpMap: Record<string, number> = {}
+  ;(personalizacao || []).forEach((p: any) => {
+    if (p.peso_inicio_kg_cab != null) {
+      pcpMap[p.lote_categoria_id] = Number(p.peso_inicio_kg_cab)
+    }
+  })
+
+  // 5. Buscar GMDs por categoria da formulação (fonte de verdade pós-refactor)
+  const { data: gmds } = await (client as any)
+    .from('formulacao_categorias_gmd')
+    .select('categoria, gmd')
+    .eq('formulacao_id', plano.formulacao_id)
+
+  const gmdMap: Record<string, number> = {}
+  ;(gmds || []).forEach((g: any) => {
+    gmdMap[(g.categoria || '').toLowerCase().trim()] = Number(g.gmd)
+  })
+
+  // 6. Calcular médias ponderadas por quant_atual para o lote
+  let totalPesoInicio = 0
+  let totalPesoAtual = 0
+  let totalGmd = 0
+  let totalCabecas = 0
+  let catsComAjuste = 0
+  let catsSemAjuste = 0
+
+  for (const cat of categorias) {
+    const quant = cat.quant_atual || 0
+    if (quant <= 0) continue
+
+    const gmd = gmdMap[(cat.categoria || '').toLowerCase().trim()]
+    if (gmd == null) continue // categoria não coberta pela formulação, GMD NULL
+
+    if (cat.data_ajuste_peso) {
+      catsComAjuste++
+      if (cat.peso_vivo_atual_kg_cab != null) {
+        totalPesoAtual += Number(cat.peso_vivo_atual_kg_cab) * quant
+      }
+    } else {
+      catsSemAjuste++
+      const pesoInicio = pcpMap[cat.id]
+      if (pesoInicio != null) {
+        totalPesoInicio += pesoInicio * quant
+      }
+    }
+
+    totalGmd += gmd * quant
+    totalCabecas += quant
+  }
+
+  if (totalCabecas === 0) {
+    return {
+      pesoInicioKgCab: null,
+      dataInicio: plano.data_inicio ?? null,
+      gmdEfetivo: null,
+      dataAjustePeso: null,
+      pesoVivoAtualKgCab: null,
+      formulacaoId: plano.formulacao_id ?? null,
+      formulacaoNome,
+    }
+  }
+
+  // Se todas as categorias com GMD têm ajuste manual, usar projeção por ajuste.
+  // Senão, usar projeção por peso_inicio (mais comum e mais estável).
+  const usarAjuste = catsComAjuste > 0 && catsSemAjuste === 0
 
   return {
-    pesoInicioKgCab: plano.peso_inicio_kg_cab != null ? Number(plano.peso_inicio_kg_cab) : null,
+    pesoInicioKgCab: usarAjuste ? null : totalPesoInicio / totalCabecas,
     dataInicio: plano.data_inicio ?? null,
-    gmdEfetivo: gmdEfetivo != null ? Number(gmdEfetivo) : null,
-    dataAjustePeso: lc.data_ajuste_peso ?? null,
-    pesoVivoAtualKgCab: lc.peso_vivo_atual_kg_cab != null ? Number(lc.peso_vivo_atual_kg_cab) : null,
+    gmdEfetivo: totalGmd / totalCabecas,
+    dataAjustePeso: usarAjuste ? categorias.find((c: any) => c.data_ajuste_peso)?.data_ajuste_peso ?? null : null,
+    pesoVivoAtualKgCab: usarAjuste ? totalPesoAtual / totalCabecas : null,
     formulacaoId: plano.formulacao_id ?? null,
     formulacaoNome,
   }
