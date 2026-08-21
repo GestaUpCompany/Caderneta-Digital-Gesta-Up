@@ -234,7 +234,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote_id: registro.loteId || null,
         n_cabecas: registro.nCabecasLote ? Number(registro.nCabecasLote) : null,
         qtd_bezerros: registro.qtdBezerrosLote ? Number(registro.qtdBezerrosLote) : null,
-        peso_vivo_kg: registro.pesoVivoKgLote ? Number(registro.pesoVivoKgLote) : null,
+        peso_vivo_kg: null, // Calculado pela trigger/funcão do banco (recalcular_peso_vivo_lote)
         formulacao: registro.formulacao || null,
         categorias: (registro.categoriasString as string) || null,
         leitura: registro.leituraCocho || null,
