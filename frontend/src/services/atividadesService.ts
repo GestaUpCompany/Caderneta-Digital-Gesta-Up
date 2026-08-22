@@ -20,6 +20,7 @@ export interface AtividadeFuncionarioPWA {
   dataFim: string
   prioridade: number
   status: string
+  naoPrevista: boolean
   setorNome: string | null
   // Sync
   syncStatus: 'pending' | 'synced' | 'error'
@@ -149,6 +150,7 @@ export async function fetchAtividadesFuncionario(
     dataFim: row.data_fim,
     prioridade: row.prioridade,
     status: row.status,
+    naoPrevista: row.nao_prevista ?? false,
     setorNome: row.setor_nome,
     syncStatus: 'synced' as const,
     lastModified: Date.now(),
@@ -198,17 +200,27 @@ export async function getAtividadesOnlineFirst(
   funcionarioId: string
 ): Promise<AtividadeFuncionarioPWA[]> {
   try {
+    // Ler cache ANTES do fetch, pois fetchAtividadesFuncionario sobrescreve o cache
+    // com o resultado do servidor, apagando atividades criadas localmente que ainda nao sincronizaram
+    const cachedBefore = await getCachedAtividades(funcionarioId)
+
     const online = await fetchAtividadesFuncionario(fazendaId, funcionarioId)
     // Sobrepor mutacoes locais pendentes sobre os dados online
     const pending = await getLocalPendingMutations()
-    if (pending.size > 0) {
+    const onlineIds = new Set(online.map((a) => a.id))
+
+    // Itens que estavam no cache antes do fetch mas nao no online (criados localmente, sync pendente)
+    const localOnly = cachedBefore.filter((a) => !onlineIds.has(a.id) && a.syncStatus === 'pending')
+
+    if (pending.size > 0 || localOnly.length > 0) {
       const merged = online.map((a) => {
         const local = pending.get(a.id)
         return local ? { ...a, ...local } : a
       })
-      // Atualizar cache com merged
-      await saveCadastroData(`${CACHE_KEY_PREFIX}${funcionarioId}`, { fazendaId, atividades: merged, timestamp: Date.now() })
-      return merged
+      // Adicionar itens locais nao sincronizados no inicio da lista
+      const result = [...localOnly, ...merged]
+      await saveCadastroData(`${CACHE_KEY_PREFIX}${funcionarioId}`, { fazendaId, atividades: result, timestamp: Date.now() })
+      return result
     }
     return online
   } catch (error) {
@@ -220,9 +232,10 @@ export async function getAtividadesOnlineFirst(
 async function updateCacheAndStore(af: AtividadeFuncionarioPWA): Promise<void> {
   // 1. Salvar no store atividade-funcionarios (para o processQueue encontrar)
   await saveRegistro('atividade-funcionarios', afToRegistro(af))
-  // 2. Atualizar cache na cadastroData (para a UI)
+  // 2. Atualizar cache na cadastroData (para a UI) - upsert
   const cached = await getCachedAtividades(af.funcionarioId)
-  const updatedCache = cached.map((a) => (a.id === af.id ? af : a))
+  const idx = cached.findIndex((a) => a.id === af.id)
+  const updatedCache = idx >= 0 ? cached.map((a) => (a.id === af.id ? af : a)) : [af, ...cached]
   await saveCadastroData(`${CACHE_KEY_PREFIX}${af.funcionarioId}`, { atividades: updatedCache, timestamp: Date.now() })
 }
 
@@ -297,9 +310,12 @@ export async function calcularTempoLocal(atividadeFuncionarioId: string): Promis
         if (s.trabalhada) produtivoSeg += s.duracaoSegundos
       }
     } else {
-      temSessaoAberta = true
-      inicioSessaoAberta = s.inicioAt
-      sessaoAbertaId = s.id
+      // Sessao aberta: so conta como "temSessaoAberta" se for trabalhada (cronometro so roda em trabalho)
+      if (s.trabalhada) {
+        temSessaoAberta = true
+        inicioSessaoAberta = s.inicioAt
+        sessaoAbertaId = s.id
+      }
       const decorrido = Math.floor((now - new Date(s.inicioAt).getTime()) / 1000)
       if (decorrido > 0) {
         brutoSeg += decorrido
@@ -314,6 +330,90 @@ export async function calcularTempoLocal(atividadeFuncionarioId: string): Promis
 // ============================================================
 // Mutacoes: iniciar, pausar, retomar, concluir, imprevisto
 // ============================================================
+
+/**
+ * Cria uma atividade nao prevista e ja inicia com sessao aberta.
+ * A atividade fica atribuida ao funcionario que a registrou.
+ */
+export async function criarAtividadeNaoPrevistaLocal(
+  fazendaId: string,
+  funcionarioId: string,
+  titulo: string,
+  descricao: string | null
+): Promise<AtividadeFuncionarioPWA> {
+  const now = new Date().toISOString()
+  const today = now.split('T')[0]
+  const nowMs = Date.now()
+
+  const atividadeId = uuidv4()
+  const afId = uuidv4()
+  const sessaoId = uuidv4()
+
+  // 1. Salvar a atividade no store 'atividades' (para sync com Supabase)
+  const atividadeRegistro: Registro = {
+    id: atividadeId,
+    supabaseId: atividadeId,
+    version: 1,
+    lastModified: now,
+    syncStatus: 'pending',
+    fazendaId,
+    titulo,
+    descricao,
+    dataInicio: today,
+    dataFim: today,
+    prioridade: 3,
+    status: 'em_andamento',
+  } as unknown as Registro
+  await saveRegistro('atividades', atividadeRegistro)
+
+  // 2. Criar atividade_funcionarios com status em_andamento
+  const af: AtividadeFuncionarioPWA = {
+    id: afId,
+    atividadeId,
+    funcionarioId,
+    statusIndividual: 'em_andamento',
+    inicioAt: now,
+    fimAt: null,
+    detalhamento: null,
+    tempoGastoSegundos: 0,
+    titulo,
+    descricao,
+    local: null,
+    dataInicio: today,
+    dataFim: today,
+    prioridade: 3,
+    status: 'em_andamento',
+    naoPrevista: true,
+    setorNome: null,
+    syncStatus: 'pending',
+    lastModified: nowMs,
+  }
+  await saveRegistro('atividade-funcionarios', afToRegistro(af))
+
+  // 3. Criar sessao aberta trabalhada
+  const sessao: AtividadeSessaoLocal = {
+    id: sessaoId,
+    supabaseId: sessaoId,
+    atividadeFuncionarioId: afId,
+    inicioAt: now,
+    fimAt: null,
+    duracaoSegundos: null,
+    trabalhada: true,
+    motivoPausa: null,
+    syncStatus: 'pending',
+    lastModified: nowMs,
+  }
+  await saveRegistro('atividade-sessoes', sessaoToRegistro(sessao))
+
+  // 4. Atualizar cache da UI
+  const cached = await getCachedAtividades(funcionarioId)
+  await saveCadastroData(`${CACHE_KEY_PREFIX}${funcionarioId}`, {
+    atividades: [af, ...cached],
+    timestamp: nowMs,
+  })
+
+  return af
+}
 
 /**
  * Inicia a atividade: status -> em_andamento, cria sessao aberta.
@@ -361,7 +461,7 @@ export async function pausarAtividadeLocal(
   const now = new Date().toISOString()
   const nowMs = Date.now()
 
-  // Buscar sessao aberta e fecha-la
+  // Buscar sessao aberta e fecha-la como TRABALHADA (o tempo ate agora foi trabalho)
   const sessoes = await getSessoesLocal(af.id)
   const aberta = sessoes.find((s) => !s.fimAt)
   if (aberta) {
@@ -370,12 +470,30 @@ export async function pausarAtividadeLocal(
       ...aberta,
       fimAt: now,
       duracaoSegundos: duracao,
-      trabalhada,
-      motivoPausa: motivoPausa || null,
+      trabalhada: true,
+      motivoPausa: null,
       syncStatus: 'pending',
       lastModified: nowMs,
     }
     await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
+  }
+
+  // Se a pausa nao e trabalhada (ex: almoço), abrir uma nova sessao nao trabalhada
+  if (!trabalhada) {
+    const sessaoId = uuidv4()
+    const sessaoPausa: AtividadeSessaoLocal = {
+      id: sessaoId,
+      supabaseId: sessaoId,
+      atividadeFuncionarioId: af.id,
+      inicioAt: now,
+      fimAt: null,
+      duracaoSegundos: null,
+      trabalhada: false,
+      motivoPausa: motivoPausa || null,
+      syncStatus: 'pending',
+      lastModified: nowMs,
+    }
+    await saveRegistro('atividade-sessoes', sessaoToRegistro(sessaoPausa))
   }
 
   const updated: AtividadeFuncionarioPWA = {
@@ -393,11 +511,28 @@ export async function pausarAtividadeLocal(
  */
 export async function retomarAtividadeLocal(af: AtividadeFuncionarioPWA): Promise<AtividadeFuncionarioPWA> {
   const now = new Date().toISOString()
+  const nowMs = Date.now()
+
+  // Fechar qualquer sessao aberta (ex: sessao de almoço/pausa nao trabalhada)
+  const sessoes = await getSessoesLocal(af.id)
+  const aberta = sessoes.find((s) => !s.fimAt)
+  if (aberta) {
+    const duracao = Math.floor((nowMs - new Date(aberta.inicioAt).getTime()) / 1000)
+    const fechada: AtividadeSessaoLocal = {
+      ...aberta,
+      fimAt: now,
+      duracaoSegundos: duracao,
+      syncStatus: 'pending',
+      lastModified: nowMs,
+    }
+    await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
+  }
+
   const updated: AtividadeFuncionarioPWA = {
     ...af,
     statusIndividual: 'em_andamento',
     syncStatus: 'pending',
-    lastModified: Date.now(),
+    lastModified: nowMs,
   }
   await updateCacheAndStore(updated)
 
@@ -412,7 +547,7 @@ export async function retomarAtividadeLocal(af: AtividadeFuncionarioPWA): Promis
     trabalhada: true,
     motivoPausa: null,
     syncStatus: 'pending',
-    lastModified: Date.now(),
+    lastModified: nowMs,
   }
   await saveRegistro('atividade-sessoes', sessaoToRegistro(sessao))
 

@@ -63,6 +63,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'atividade-funcionarios': 'atividade_funcionarios',
   'atividade-sessoes': 'atividade_sessoes',
   'atividade-imprevistos': 'atividade_imprevistos',
+  'atividades': 'atividades',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -105,6 +106,20 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         descricao: registro.descricao || null,
         ocorrido_at: registro.ocorridoAt || null,
         impacto_minutos: registro.impactoMinutos ?? null,
+      }
+    }
+    case 'atividades': {
+      return {
+        id: registro.id,
+        fazenda_id: registro.fazendaId,
+        titulo: registro.titulo,
+        descricao: registro.descricao || null,
+        data_inicio: registro.dataInicio,
+        data_fim: registro.dataFim,
+        prioridade: null,
+        status: registro.status || 'pendente',
+        nao_prevista: true,
+        ativo: true,
       }
     }
     case 'maternidade':
@@ -653,6 +668,14 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           if (iError) throw iError
           break
         }
+        case 'atividades': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: aError } = await client
+            .from('atividades')
+            .upsert(data)
+          if (aError) throw aError
+          break
+        }
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {
@@ -760,6 +783,18 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             })
             .eq('id', supabaseId)
           if (iError) throw iError
+          break
+        }
+        case 'atividades': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: aError } = await client
+            .from('atividades')
+            .update({
+              titulo: (registro as any).titulo,
+              descricao: (registro as any).descricao || null,
+            })
+            .eq('id', supabaseId)
+          if (aError) throw aError
           break
         }
       }

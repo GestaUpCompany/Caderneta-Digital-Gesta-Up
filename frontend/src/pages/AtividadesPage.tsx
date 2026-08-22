@@ -6,6 +6,7 @@ import { RootState } from '../store/store'
 import {
   ChevronLeft, Clock, CheckCircle, Share2, WifiOff,
   Play, Pause, Coffee, AlertTriangle, RotateCcw, ChevronDown, ChevronUp,
+  Plus, X,
 } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
 import {
@@ -26,6 +27,7 @@ import {
   getImprevistoCategorias,
   formatarTempo,
   formatarResumoAtividades,
+  criarAtividadeNaoPrevistaLocal,
 } from '../services/atividadesService'
 import { compartilharWhatsApp } from '../utils/shareUtils'
 import { enqueueRegistro } from '../services/syncService'
@@ -40,7 +42,6 @@ const STATUS_ATIVIDADE_CORES: Record<string, string> = {
   pendente: 'bg-gray-100 text-gray-700',
   em_andamento: 'bg-blue-100 text-blue-700',
   concluido: 'bg-green-100 text-green-700',
-  atrasado: 'bg-red-100 text-red-700',
   pausada: 'bg-amber-100 text-amber-700',
 }
 
@@ -48,7 +49,7 @@ const STATUS_ATIVIDADE_LABELS: Record<string, string> = {
   pendente: 'Pendente',
   em_andamento: 'Em Andamento',
   concluido: 'Concluído',
-  atrasado: 'Atrasado',
+  concluida: 'Concluída',
   pausada: 'Pausada',
 }
 
@@ -149,10 +150,13 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
     setActing(true)
     try {
       const updated = await pausarAtividadeLocal(af, trabalhada, motivo)
-      // Enfileirar update da sessao fechada (a que estava aberta)
       const s = await getSessoesLocal(updated.id)
+      // Enfileirar update da sessao fechada (a que estava aberta, agora trabalhada=true)
       const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
       if (ultimaFechada) await enqueueAndSync('atividade-sessoes', ultimaFechada.id, 'update')
+      // Enfileirar create da nova sessao de pausa aberta (se houver, ex: almoço)
+      const aberta = s.find((x) => !x.fimAt)
+      if (aberta) await enqueueAndSync('atividade-sessoes', aberta.id, 'create')
       await enqueueAndSync('atividade-funcionarios', updated.id, 'update')
       onMutate()
     } finally {
@@ -167,6 +171,10 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
       const updated = await retomarAtividadeLocal(af)
       await enqueueAndSync('atividade-funcionarios', updated.id, 'update')
       const s = await getSessoesLocal(updated.id)
+      // Enfileirar update da sessao de pausa que foi fechada (se houver)
+      const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
+      if (ultimaFechada) await enqueueAndSync('atividade-sessoes', ultimaFechada.id, 'update')
+      // Enfileirar create da nova sessao de trabalho aberta
       const aberta = s.find((x) => !x.fimAt)
       if (aberta) await enqueueAndSync('atividade-sessoes', aberta.id, 'create')
       onMutate()
@@ -200,18 +208,27 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
 
   const temSessoes = sessoes.length > 0
   const temImprevistos = imprevistos.length > 0
-  const podeExpandir = af.statusIndividual === 'concluida' && (temSessoes || temImprevistos)
+  const podeExpandir = af.statusIndividual === 'concluida' && (temSessoes || temImprevistos) && !af.naoPrevista
+
+  const isConcluida = af.statusIndividual === 'concluida'
 
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${isConcluida ? 'p-3' : 'p-4'}`}>
       {/* Header do card */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-start gap-2 min-w-0 flex-1">
           <div className={`w-3.5 h-3.5 rounded-full flex-shrink-0 mt-1 ${PRIORIDADE_CORES[af.prioridade] || 'bg-gray-400'}`} />
           <div className="min-w-0">
-            <h3 className="font-semibold text-gray-800 text-lg leading-tight">{af.titulo}</h3>
+            <h3 className={`font-semibold text-gray-800 leading-tight ${isConcluida ? 'text-base' : 'text-lg'}`}>
+              {af.titulo}
+              {af.naoPrevista && (
+                <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 align-middle">
+                  Não prevista
+                </span>
+              )}
+            </h3>
             {af.descricao && (
-              <p className="text-base text-gray-600 mt-1 line-clamp-2">{af.descricao}</p>
+              <p className={`text-gray-600 mt-1 line-clamp-2 ${isConcluida ? 'text-sm' : 'text-base'}`}>{af.descricao}</p>
             )}
           </div>
         </div>
@@ -221,7 +238,7 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
       </div>
 
       {/* Meta */}
-      <div className="flex flex-wrap gap-2 text-base text-gray-500 mb-3">
+      <div className={`flex flex-wrap gap-2 text-sm text-gray-500 ${af.statusIndividual === 'concluida' ? 'mb-1' : 'mb-3'}`}>
         <span className="inline-flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" />
           {formatarDataAtividade(af.dataInicio, af.dataFim)}
@@ -269,24 +286,25 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
 
       {/* Detalhamento se concluída */}
       {af.statusIndividual === 'concluida' && af.detalhamento && (
-        <div className="bg-gray-50 rounded-lg p-2 mb-3">
-          <p className="text-base text-gray-500 font-medium mb-1">Detalhamento:</p>
-          <p className="text-base text-gray-700">{af.detalhamento}</p>
+        <div className="bg-gray-50 rounded-lg p-2 mb-2">
+          <p className="text-sm text-gray-700">{af.detalhamento}</p>
         </div>
       )}
 
-      {/* Tempo total e resumo de sessoes/imprevistos se concluida */}
+      {/* Tempo total e resumo de sessoes/imprevistos se concluida - compacto inline */}
       {af.statusIndividual === 'concluida' && tempo && tempo.produtivoSeg > 0 && (
-        <div className="bg-green-50 rounded-lg p-2 mb-3">
-          <p className="text-sm text-green-700 font-medium">
-            ⏱ Tempo produtivo: {formatarTempo(tempo.produtivoSeg)}
-            {tempo.brutoSeg !== tempo.produtivoSeg && ` (bruto: ${formatarTempo(tempo.brutoSeg)})`}
-          </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-2">
+          <span className="inline-flex items-center gap-1 text-green-700 font-medium">
+            ⏱ {formatarTempo(tempo.produtivoSeg)}
+          </span>
+          {tempo.brutoSeg !== tempo.produtivoSeg && (
+            <span className="text-gray-400">bruto: {formatarTempo(tempo.brutoSeg)}</span>
+          )}
           {temImprevistos && (
-            <p className="text-xs text-red-600 mt-1 inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 text-red-600">
               <AlertTriangle className="w-3 h-3" />
               {imprevistos.length} imprevisto(s)
-            </p>
+            </span>
           )}
         </div>
       )}
@@ -299,7 +317,7 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
             className="text-sm text-blue-600 font-medium inline-flex items-center gap-1 hover:underline"
           >
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            {expanded ? 'Ocultar detalhes' : 'Ver detalhes (sessões e imprevistos)'}
+            {expanded ? 'Ocultar' : 'Ver detalhes'}
           </button>
           {expanded && (
             <div className="mt-2 space-y-2 text-sm">
@@ -355,40 +373,52 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
         )}
 
         {af.statusIndividual === 'em_andamento' && (
-          <>
-            <button
-              onClick={() => handlePausar(true)}
-              disabled={acting}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-amber-600 text-white px-3 py-2.5 rounded-lg text-base font-medium hover:bg-amber-700 transition-colors min-h-[44px] disabled:opacity-50"
-            >
-              <Pause className="w-4 h-4" />
-              Pausar
-            </button>
-            <button
-              onClick={() => handlePausar(false, 'Almoço')}
-              disabled={acting}
-              className="flex items-center justify-center gap-1.5 bg-amber-100 text-amber-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-amber-200 transition-colors min-h-[44px] disabled:opacity-50"
-              title="Pausar para almoço (não conta como tempo trabalhado)"
-            >
-              <Coffee className="w-4 h-4" />
-              Almoço
-            </button>
-            <button
-              onClick={handleImprevisto}
-              className="flex items-center justify-center gap-1.5 bg-red-100 text-red-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-red-200 transition-colors min-h-[44px]"
-              title="Registrar imprevisto"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              Imprevisto
-            </button>
-            <button
-              onClick={handleConcluir}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px]"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Concluir
-            </button>
-          </>
+          af.naoPrevista ? (
+            <>
+              <button
+                onClick={handleConcluir}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Concluir
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => handlePausar(true)}
+                disabled={acting}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-amber-600 text-white px-3 py-2.5 rounded-lg text-base font-medium hover:bg-amber-700 transition-colors min-h-[44px] disabled:opacity-50"
+              >
+                <Pause className="w-4 h-4" />
+                Pausar
+              </button>
+              <button
+                onClick={() => handlePausar(false, 'Almoço')}
+                disabled={acting}
+                className="flex items-center justify-center gap-1.5 bg-amber-100 text-amber-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-amber-200 transition-colors min-h-[44px] disabled:opacity-50"
+                title="Pausar para almoço (não conta como tempo trabalhado)"
+              >
+                <Coffee className="w-4 h-4" />
+                Almoço
+              </button>
+              <button
+                onClick={handleImprevisto}
+                className="flex items-center justify-center gap-1.5 bg-red-100 text-red-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-red-200 transition-colors min-h-[44px]"
+                title="Registrar imprevisto"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Imprevisto
+              </button>
+              <button
+                onClick={handleConcluir}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Concluir
+              </button>
+            </>
+          )
         )}
 
         {af.statusIndividual === 'pausada' && (
@@ -419,12 +449,6 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
           </>
         )}
 
-        {af.statusIndividual === 'concluida' && (
-          <div className="flex items-center justify-center gap-1.5 text-green-600 py-2 text-base font-medium w-full">
-            <CheckCircle className="w-4 h-4" />
-            Concluída
-          </div>
-        )}
       </div>
     </div>
   )
@@ -549,6 +573,10 @@ export default function AtividadesPage() {
   const [atividadeParaImprevisto, setAtividadeParaImprevisto] = useState<AtividadeFuncionarioPWA | null>(null)
   const [filtro, setFiltro] = useState<'todas' | 'pendentes' | 'em_andamento' | 'pausadas' | 'concluidas'>('todas')
   const [categorias, setCategorias] = useState<ImprevistoCategoria[]>([])
+  const [showNaoPrevistaModal, setShowNaoPrevistaModal] = useState(false)
+  const [novaAtividadeTitulo, setNovaAtividadeTitulo] = useState('')
+  const [novaAtividadeDesc, setNovaAtividadeDesc] = useState('')
+  const [criandoAtividade, setCriandoAtividade] = useState(false)
 
   const loadAtividades = useCallback(async () => {
     if (!fazendaId || !funcionarioId) {
@@ -641,12 +669,39 @@ export default function AtividadesPage() {
     await compartilharWhatsApp(texto)
   }
 
+  const handleCriarNaoPrevista = async () => {
+    if (!fazendaId || !funcionarioId || !novaAtividadeTitulo.trim()) return
+    setCriandoAtividade(true)
+    try {
+      const af = await criarAtividadeNaoPrevistaLocal(
+        fazendaId,
+        funcionarioId,
+        novaAtividadeTitulo.trim(),
+        novaAtividadeDesc.trim() || null
+      )
+      // Enfileirar sync dos 3 registros criados
+      await enqueueRegistro('atividades', af.atividadeId, 'create')
+      await enqueueRegistro('atividade-funcionarios', af.id, 'create')
+      const sessoes = await getSessoesLocal(af.id)
+      const aberta = sessoes.find((s) => !s.fimAt)
+      if (aberta) await enqueueRegistro('atividade-sessoes', aberta.id, 'create')
+      dispatch(requestSyncNow())
+      setShowNaoPrevistaModal(false)
+      setNovaAtividadeTitulo('')
+      setNovaAtividadeDesc('')
+      loadAtividades()
+    } catch (err) {
+      console.error('[AtividadesPage] Erro ao criar atividade nao prevista:', err)
+    } finally {
+      setCriandoAtividade(false)
+    }
+  }
+
   const ORDEM_STATUS: Record<string, number> = {
-    atrasado: 0,
-    em_andamento: 1,
-    pausada: 2,
-    concluida: 3,
-    pendente: 4,
+    em_andamento: 0,
+    pausada: 1,
+    concluida: 2,
+    pendente: 3,
   }
 
   const atividadesFiltradas = atividades
@@ -724,7 +779,7 @@ export default function AtividadesPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 flex flex-col gap-4 desktop-container">
+      <main className="flex-1 p-4 flex flex-col gap-3 desktop-container">
         {/* Offline banner */}
         {!online && (
           <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
@@ -733,8 +788,17 @@ export default function AtividadesPage() {
           </div>
         )}
 
+        {/* Botao: atividade nao prevista */}
+        <button
+          onClick={() => setShowNaoPrevistaModal(true)}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors min-h-[48px] shadow-md"
+        >
+          <Plus className="w-5 h-5" />
+          Atividade não prevista
+        </button>
+
         {/* Filtros */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        <div className="flex flex-wrap gap-2 justify-center">
           {([
             { value: 'todas', label: 'Todas' },
             { value: 'pendentes', label: 'Pendentes' },
@@ -767,7 +831,7 @@ export default function AtividadesPage() {
             <p className="text-gray-600">Nenhuma atividade encontrada</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {atividadesFiltradas.map((af) => (
               <AtividadeCard
                 key={af.id}
@@ -784,9 +848,9 @@ export default function AtividadesPage() {
         {atividades.some((a) => a.statusIndividual === 'concluida') && (
           <button
             onClick={handleCompartilhar}
-            className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-green-700 transition-colors min-h-[48px] shadow-md"
+            className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors min-h-[44px]"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-4 h-4" />
             Compartilhar Resumo
           </button>
         )}
@@ -836,6 +900,65 @@ export default function AtividadesPage() {
         onClose={() => { setAtividadeParaImprevisto(null) }}
         onConfirm={handleConfirmarImprevisto}
       />
+
+      {/* Modal: atividade nao prevista */}
+      {showNaoPrevistaModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Atividade não prevista</h2>
+              <button
+                onClick={() => { setShowNaoPrevistaModal(false); setNovaAtividadeTitulo(''); setNovaAtividadeDesc('') }}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Título *</label>
+                <input
+                  type="text"
+                  value={novaAtividadeTitulo}
+                  onChange={(e) => setNovaAtividadeTitulo(e.target.value)}
+                  placeholder="Ex: Consertar cerca do pasto 3"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                  autoFocus
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Descrição (opcional)</label>
+                <textarea
+                  value={novaAtividadeDesc}
+                  onChange={(e) => setNovaAtividadeDesc(e.target.value)}
+                  placeholder="Detalhes do que foi feito..."
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base resize-none"
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700">
+                A atividade será iniciada automaticamente com cronômetro rodando.
+              </div>
+              <button
+                onClick={handleCriarNaoPrevista}
+                disabled={!novaAtividadeTitulo.trim() || criandoAtividade}
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {criandoAtividade ? (
+                  <span className="animate-spin text-lg">⏳</span>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5" />
+                    Iniciar atividade
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
