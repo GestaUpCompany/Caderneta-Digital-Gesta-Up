@@ -343,7 +343,36 @@ export default function BebedourosPage() {
         }
       }
 
-      setRegistroSalvo(result.registro)
+      // Enriquecer registro com histórico de limpeza para o texto compartilhado
+      let registroParaShare = result.registro as any
+      if (form.numeroBebedouro && fazendaId) {
+        try {
+          const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
+          if (bebedouro) {
+            const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
+            let tempoDesdeLimpeza = 'Sem histórico'
+            if (ultimaDataLimpeza) {
+              const dataLimpeza = new Date(ultimaDataLimpeza)
+              const hoje = new Date()
+              const diffDias = Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24))
+              tempoDesdeLimpeza = `${diffDias} dias`
+            }
+            const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
+            const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'
+            const metaIntervalo = bebedouro.meta_intervalo_limpeza ? `${bebedouro.meta_intervalo_limpeza} dias` : 'Não definida'
+            registroParaShare = {
+              ...registroParaShare,
+              tempoDesdeLimpeza,
+              intervaloMedioLimpezas: intervaloMedioStr,
+              metaIntervaloLimpeza: metaIntervalo,
+            }
+          }
+        } catch (error) {
+          console.error('[BebedourosPage] Erro ao enriquecer histórico para share:', error)
+        }
+      }
+
+      setRegistroSalvo(registroParaShare)
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
