@@ -8,13 +8,24 @@ import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoBebedouros, compartilharPdf } from '../../utils/pdfUtils'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
+import { getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached } from '../../services/cadastroCache'
+
+const CHECKLIST_LABELS: Record<string, string> = {
+  agua_suficiente: 'Quantidade de água inadequada',
+  vazao_bebedouro_ideal: 'Vazão da bóia não ideal',
+  aterro_acesso_bebedouro_ideal: 'Aterro/acesso inadequado',
+  espacamento_bebedouro_ideal: 'Espaçamento do bebedouro não ideal',
+  boia_protecao_boas_condicoes: 'Bóia e proteção em más condições',
+}
+
+const LEITURA_EMOJI: Record<number, string> = { 1: '🟢', 2: '🟡', 3: '🔴' }
 
 export default function BebedourosListaPage() {
   const [mostrarModalResumo, setMostrarModalResumo] = useState(false)
   const [dataResumo, setDataResumo] = useState(todayBR())
   const [gerando, setGerando] = useState(false)
   const [todosRegistros, setTodosRegistros] = useState<Registro[]>([])
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId } = useSelector((state: RootState) => state.config)
 
   const carregarRegistros = useCallback(async () => {
     const lista = await listarRegistros('bebedouros')
@@ -50,7 +61,6 @@ export default function BebedourosListaPage() {
         return
       }
 
-      // Calcular estatísticas
       const totalInspecoes = registrosDoDia.length
       const bebedourosInspecionados = new Set<string>()
       let leiturasBoas = 0
@@ -58,15 +68,10 @@ export default function BebedourosListaPage() {
       let leiturasCriticas = 0
       const problemasChecklist: { bebedouro: string; label: string; observacao: string }[] = []
 
-      const CHECKLIST_LABELS: Record<string, string> = {
-        agua_suficiente: 'Quantidade de água inadequada',
-        vazao_bebedouro_ideal: 'Vazão da bóia não ideal',
-        aterro_acesso_bebedouro_ideal: 'Aterro/acesso inadequado',
-        espacamento_bebedouro_ideal: 'Espaçamento do bebedouro não ideal',
-        boia_protecao_boas_condicoes: 'Bóia e proteção em más condições',
-      }
+      // Agrupar por bebedouro
+      const porBebedouro: { nome: string; leitura: number; responsavel: string; problemas: { label: string; observacao: string }[] }[] = []
 
-      registrosDoDia.forEach((r) => {
+      for (const r of registrosDoDia) {
         const nome = String(r.numeroBebedouro || '—')
         bebedourosInspecionados.add(nome)
 
@@ -75,42 +80,96 @@ export default function BebedourosListaPage() {
         else if (leitura === 2) leiturasAtencao++
         else if (leitura === 3) leiturasCriticas++
 
+        const problemas: { label: string; observacao: string }[] = []
         if (r.checklist && typeof r.checklist === 'object') {
           for (const [campo, label] of Object.entries(CHECKLIST_LABELS)) {
             const item = (r.checklist as any)[campo]
             if (item && item.valor === false) {
-              problemasChecklist.push({
-                bebedouro: nome,
-                label,
-                observacao: String(item.observacao || ''),
-              })
+              problemas.push({ label, observacao: String(item.observacao || '') })
+              problemasChecklist.push({ bebedouro: nome, label, observacao: String(item.observacao || '') })
             }
           }
         }
-      })
+
+        porBebedouro.push({
+          nome,
+          leitura,
+          responsavel: String(r.nomeUsuario || r.responsavel || '—'),
+          problemas,
+        })
+      }
+
+      // Buscar histórico de limpeza para cada bebedouro
+      const detalhesLimpeza: { nome: string; tempoDesdeLimpeza: string; metaDias: number | null }[] = []
+      if (fazendaId) {
+        for (const b of porBebedouro) {
+          try {
+            const bebedouro = await getBebedouroByNomeCached(fazendaId, b.nome)
+            if (bebedouro) {
+              const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
+              let tempoDesdeLimpeza = 'Sem histórico'
+              if (ultimaDataLimpeza) {
+                const dataLimpeza = new Date(ultimaDataLimpeza)
+                const hoje = new Date()
+                const mesmoDia = dataLimpeza.toDateString() === hoje.toDateString()
+                const diffDias = Math.max(1, Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24)))
+                tempoDesdeLimpeza = mesmoDia ? 'limpo hoje' : `há ${diffDias} dias`
+              }
+              detalhesLimpeza.push({
+                nome: b.nome,
+                tempoDesdeLimpeza,
+                metaDias: bebedouro.meta_intervalo_limpeza || null,
+              })
+            } else {
+              detalhesLimpeza.push({ nome: b.nome, tempoDesdeLimpeza: 'Sem histórico', metaDias: null })
+            }
+          } catch {
+            detalhesLimpeza.push({ nome: b.nome, tempoDesdeLimpeza: 'Sem histórico', metaDias: null })
+          }
+        }
+      }
 
       // Montar resumo
       const partes: string[] = []
       partes.push(`📋 *RESUMO DIÁRIO — BEBEDOUROS*`)
       partes.push(`📅 Data: *${dataResumo.split(' ')[0]}*`)
       partes.push('')
-      partes.push(`Total de inspeções: *${totalInspecoes}*`)
-      partes.push(`Bebedouros inspecionados: *${bebedourosInspecionados.size}*`)
+      partes.push(`Inspeções: *${totalInspecoes}* | Bebedouros: *${bebedourosInspecionados.size}*`)
+      partes.push(`🟢 ${leiturasBoas} | 🟡 ${leiturasAtencao} | 🔴 ${leiturasCriticas}`)
       partes.push('')
-      partes.push(`*Leituras:*`)
-      partes.push(`🟢 Bom (1): *${leiturasBoas}*`)
-      partes.push(`🟡 Atenção (2): *${leiturasAtencao}*`)
-      partes.push(`🔴 Crítico (3): *${leiturasCriticas}*`)
 
+      // Linha por bebedouro
+      for (const b of porBebedouro) {
+        const emoji = LEITURA_EMOJI[b.leitura] || '⚪'
+        const limpeza = detalhesLimpeza.find((d) => d.nome === b.nome)
+        const metaStr = limpeza?.metaDias ? `meta: ${limpeza.metaDias}` : ''
+        const tempoStr = limpeza?.tempoDesdeLimpeza || ''
+        const dentroMeta = limpeza?.metaDias && limpeza.tempoDesdeLimpeza !== 'Sem histórico'
+          ? (() => {
+              const dias = limpeza.tempoDesdeLimpeza === 'limpo hoje'
+                ? 0
+                : parseInt(limpeza.tempoDesdeLimpeza.replace(/\D/g, ''))
+              return dias <= (limpeza.metaDias || 0)
+            })()
+          : false
+
+        let linha = `${emoji} ${b.nome} — ${tempoStr}`
+        if (metaStr) linha += ` (${metaStr}${dentroMeta ? ' ✓' : ''})`
+        const probLabels = b.problemas.map((p) => p.label).join('; ')
+        if (probLabels) linha += ` ⚠️ ${probLabels}`
+
+        partes.push(linha)
+      }
+
+      // Resumo de problemas
       if (problemasChecklist.length > 0) {
         partes.push('')
-        partes.push(`*Problemas identificados (${problemasChecklist.length}):*`)
-        problemasChecklist.forEach((p) => {
-          partes.push(`⚠️ ${p.bebedouro}: ${p.label}`)
-          if (p.observacao) {
-            partes.push(`   Obs: ${p.observacao}`)
-          }
-        })
+        partes.push(`*Problemas (${problemasChecklist.length}):*`)
+        for (const p of problemasChecklist) {
+          let linha = `⚠️ ${p.bebedouro}: ${p.label}`
+          if (p.observacao) linha += ` (${p.observacao})`
+          partes.push(linha)
+        }
       }
 
       const textoCompleto = partes.join('\n')
