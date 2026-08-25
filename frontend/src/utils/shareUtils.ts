@@ -14,7 +14,7 @@ export function formatarTempoDesdeLimpeza(ultimaDataLimpeza: string | null): str
   const mesmoDia = dataLimpeza.toDateString() === hoje.toDateString()
   if (mesmoDia) return 'limpo hoje'
   const diffDias = Math.max(1, Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24)))
-  return `há ${diffDias} dias`
+  return `há ${diffDias} ${diffDias === 1 ? 'dia' : 'dias'}`
 }
 
 // Fields where "Sim" should have a warning icon (negative when true)
@@ -400,9 +400,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.tempoDesdeLimpeza || registro.intervaloMedioLimpezas || registro.metaIntervaloLimpeza) {
       texto += `\nHISTÓRICO\n`
       if (registro.tempoDesdeLimpeza) {
-        const tempo = registro.tempoDesdeLimpeza
-        const tempoFormatado = tempo === 'Sem histórico' || tempo === 'limpo hoje' ? tempo : `há ${tempo}`
-        texto += `ÚLTIMA LIMPEZA: *${tempoFormatado}*\n`
+        // formatarTempoDesdeLimpeza já retorna "há N dia(s)", "limpo hoje" ou "Sem histórico"
+        texto += `ÚLTIMA LIMPEZA: *${registro.tempoDesdeLimpeza}*\n`
       }
       if (registro.intervaloMedioLimpezas) {
         texto += `INTERVALO MÉDIO: *${registro.intervaloMedioLimpezas}*\n`

@@ -114,5 +114,8 @@ Thumbs.db
 backend/config/google-credentials.json
 !backend/config/google-credentials.example.json
 
+# Vite timestamp temp files
+vite.config.ts.timestamp-*.mjs
+
 # Export files
 *.csv
