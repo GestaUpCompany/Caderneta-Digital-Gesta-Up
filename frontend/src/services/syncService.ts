@@ -85,6 +85,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         inicio_at: registro.inicioAt || null,
         fim_at: registro.fimAt || null,
         detalhamento: registro.detalhamento || null,
+        latitude: (registro as any).latitude ?? null,
+        longitude: (registro as any).longitude ?? null,
+        gps_accuracy: (registro as any).gpsAccuracy ?? null,
       }
     }
     case 'atividade-sessoes': {
@@ -564,6 +567,32 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       }
     }
 
+    // Upload de foto para conclusao de atividades
+    if (store === 'atividade-funcionarios' && (registro as any).fotoBase64) {
+      try {
+        const { base64ToBlob } = await import('../utils/photoCompress')
+        const blob = base64ToBlob((registro as any).fotoBase64)
+        const fotoPath = `${fazendaId}/${registro.id}/foto.jpg`
+        const client = await getSupabaseClientWithRefresh() as any
+        const { error: uploadError } = await client
+          .storage
+          .from('fotos-atividades')
+          .upload(fotoPath, blob, { contentType: 'image/jpeg', upsert: true })
+
+        if (uploadError) {
+          console.error('[SYNC] Erro ao fazer upload da foto de atividade:', uploadError)
+        } else {
+          const { data: urlData } = client
+            .storage
+            .from('fotos-atividades')
+            .getPublicUrl(fotoPath)
+          data = { ...data, foto_url: urlData.publicUrl }
+        }
+      } catch (uploadErr) {
+        console.error('[SYNC] Exceção ao fazer upload da foto de atividade:', uploadErr)
+      }
+    }
+
     if (operation === 'create') {
       switch (tableName) {
         case 'registros_maternidade':
@@ -753,6 +782,10 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
               inicio_at: (registro as any).inicioAt || null,
               fim_at: (registro as any).fimAt || null,
               detalhamento: (registro as any).detalhamento || null,
+              foto_url: (data as any).foto_url ?? undefined,
+              latitude: (registro as any).latitude ?? null,
+              longitude: (registro as any).longitude ?? null,
+              gps_accuracy: (registro as any).gpsAccuracy ?? null,
             })
             .eq('id', supabaseId)
           if (afError) throw afError

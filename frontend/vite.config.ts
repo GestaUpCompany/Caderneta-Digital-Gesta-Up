@@ -6,6 +6,7 @@ export default defineConfig({
   base: '/Caderneta-Digital-Gesta-Up/',
   server: {
     allowedHosts: true,
+    hmr: false,
   },
   plugins: [
     react(),

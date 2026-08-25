@@ -31,6 +31,7 @@ import {
 } from '../services/atividadesService'
 import { compartilharWhatsApp } from '../utils/shareUtils'
 import { enqueueRegistro } from '../services/syncService'
+import { usePhotoGps } from '../hooks/usePhotoGps'
 
 const PRIORIDADE_CORES: Record<number, string> = {
   1: 'bg-red-500',
@@ -215,36 +216,34 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-100 ${isConcluida ? 'p-3' : 'p-4'}`}>
       {/* Header do card */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-start gap-2 min-w-0 flex-1">
-          <div className={`w-3.5 h-3.5 rounded-full flex-shrink-0 mt-1 ${PRIORIDADE_CORES[af.prioridade] || 'bg-gray-400'}`} />
-          <div className="min-w-0">
+      <div className="flex gap-2.5 mb-2">
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${PRIORIDADE_CORES[af.prioridade] || 'bg-gray-400'}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2 mb-0.5">
             <h3 className={`font-semibold text-gray-800 leading-tight ${isConcluida ? 'text-base' : 'text-lg'}`}>
               {af.titulo}
-              {af.naoPrevista && (
-                <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 align-middle">
-                  Não prevista
-                </span>
-              )}
             </h3>
-            {af.descricao && (
-              <p className={`text-gray-600 mt-1 line-clamp-2 ${isConcluida ? 'text-sm' : 'text-base'}`}>{af.descricao}</p>
-            )}
+            <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${STATUS_ATIVIDADE_CORES[af.statusIndividual] || STATUS_ATIVIDADE_CORES[af.status] || 'bg-gray-100'}`}>
+              {STATUS_ATIVIDADE_LABELS[af.statusIndividual] || af.statusIndividual}
+            </span>
           </div>
+          {af.naoPrevista && (
+            <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 mb-1">
+              Não prevista
+            </span>
+          )}
+          <div className={`flex flex-wrap gap-2 text-sm text-gray-500 ${af.statusIndividual === 'concluida' ? 'mb-1' : 'mb-2'}`}>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              {formatarDataAtividade(af.dataInicio, af.dataFim)}
+            </span>
+            {af.setorNome && <span>{af.setorNome}</span>}
+            {af.local && <span>📍 {af.local}</span>}
+          </div>
+          {af.descricao && (
+            <p className={`text-gray-600 line-clamp-2 ${isConcluida ? 'text-sm' : 'text-base'}`}>{af.descricao}</p>
+          )}
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-sm font-medium flex-shrink-0 ${STATUS_ATIVIDADE_CORES[af.statusIndividual] || STATUS_ATIVIDADE_CORES[af.status] || 'bg-gray-100'}`}>
-          {STATUS_ATIVIDADE_LABELS[af.statusIndividual] || af.statusIndividual}
-        </span>
-      </div>
-
-      {/* Meta */}
-      <div className={`flex flex-wrap gap-2 text-sm text-gray-500 ${af.statusIndividual === 'concluida' ? 'mb-1' : 'mb-3'}`}>
-        <span className="inline-flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
-          {formatarDataAtividade(af.dataInicio, af.dataFim)}
-        </span>
-        {af.setorNome && <span>{af.setorNome}</span>}
-        {af.local && <span>📍 {af.local}</span>}
       </div>
 
       {/* Cronometro ao vivo (em_andamento ou pausada com sessoes) */}
@@ -288,6 +287,23 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
       {af.statusIndividual === 'concluida' && af.detalhamento && (
         <div className="bg-gray-50 rounded-lg p-2 mb-2">
           <p className="text-sm text-gray-700">{af.detalhamento}</p>
+        </div>
+      )}
+
+      {/* Foto e coordenada se concluída com foto */}
+      {af.statusIndividual === 'concluida' && af.fotoUrl && (
+        <div className="mb-2 flex flex-col items-center gap-1">
+          <img
+            src={af.fotoUrl}
+            alt="Foto da atividade"
+            className="w-full max-w-[200px] rounded-lg border border-gray-200"
+            loading="lazy"
+          />
+          {af.latitude !== null && af.longitude !== null && (
+            <p className="text-xs text-gray-500 inline-flex items-center gap-1">
+              📍 {af.latitude.toFixed(4)}, {af.longitude.toFixed(4)}
+            </p>
+          )}
         </div>
       )}
 
@@ -578,6 +594,23 @@ export default function AtividadesPage() {
   const [novaAtividadeDesc, setNovaAtividadeDesc] = useState('')
   const [criandoAtividade, setCriandoAtividade] = useState(false)
 
+  // Hook de foto + GPS para conclusao de atividade (foto opcional, GPS automatico)
+  const {
+    fotoBase64,
+    latitude,
+    longitude,
+    gpsAccuracy,
+    capturandoFoto,
+    capturandoGps,
+    fotoErro,
+    gpsErro,
+    capturarFoto,
+    capturarGps,
+    limpar: limparFotoGps,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ gpsObrigatorio: false })
+
   const loadAtividades = useCallback(async () => {
     if (!fazendaId || !funcionarioId) {
       setAtividades([])
@@ -606,6 +639,21 @@ export default function AtividadesPage() {
       .catch((err) => console.warn('[AtividadesPage] Erro ao carregar categorias:', err))
   }, [fazendaId])
 
+  // Auto-retry GPS enquanto o modal de conclusao estiver aberto e o GPS nao foi capturado
+  useEffect(() => {
+    if (!showDetalhamentoModal) return
+    if (latitude !== null && longitude !== null) return
+    if (capturandoGps) return
+    // So re-tenta se ja houve erro (primeira tentativa e disparada no handleOpenConcluir)
+    if (!gpsErro) return
+
+    const timer = setTimeout(() => {
+      capturarGps()
+    }, 4000)
+
+    return () => clearTimeout(timer)
+  }, [showDetalhamentoModal, latitude, longitude, capturandoGps, gpsErro, capturarGps])
+
   useEffect(() => {
     const handleOnline = () => setOnline(true)
     const handleOffline = () => setOnline(false)
@@ -617,15 +665,82 @@ export default function AtividadesPage() {
     }
   }, [])
 
-  const handleOpenConcluir = (af: AtividadeFuncionarioPWA) => {
-    setAtividadeParaConcluir(af)
+  const [conclusaoPausouTimer, setConclusaoPausouTimer] = useState(false)
+
+  const handleOpenConcluir = async (af: AtividadeFuncionarioPWA) => {
     setDetalhamento('')
+    limparFotoGps()
     setShowDetalhamentoModal(true)
+    // GPS automatico em background (nao bloqueia o modal)
+    capturarGps()
+
+    // Pausar o cronometro enquanto o modal estiver aberto
+    // Apenas se a atividade estiver em_andamento (tem sessao aberta rodando)
+    if (af.statusIndividual === 'em_andamento') {
+      setConclusaoPausouTimer(true)
+      try {
+        const paused = await pausarAtividadeLocal(af, true)
+        setAtividadeParaConcluir(paused)
+        setAtividades((prev) => prev.map((a) => (a.id === paused.id ? paused : a)))
+        await enqueueRegistro('atividade-funcionarios', paused.id, 'update')
+        const s = await getSessoesLocal(paused.id)
+        const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
+        if (ultimaFechada) await enqueueRegistro('atividade-sessoes', ultimaFechada.id, 'update')
+        dispatch(requestSyncNow())
+      } catch (err) {
+        console.warn('[AtividadesPage] Erro ao pausar para conclusao:', err)
+        setAtividadeParaConcluir(af)
+      }
+    } else {
+      setConclusaoPausouTimer(false)
+      setAtividadeParaConcluir(af)
+    }
+  }
+
+  const handleCancelarConclusao = async () => {
+    const af = atividadeParaConcluir
+    setShowDetalhamentoModal(false)
+    setAtividadeParaConcluir(null)
+    setDetalhamento('')
+    limparFotoGps()
+
+    // Retomar o cronometro se a atividade foi pausada ao abrir o modal
+    if (af && conclusaoPausouTimer) {
+      setConclusaoPausouTimer(false)
+      try {
+        const resumed = await retomarAtividadeLocal(af)
+        setAtividades((prev) => prev.map((a) => (a.id === resumed.id ? resumed : a)))
+        await enqueueRegistro('atividade-funcionarios', resumed.id, 'update')
+        const s = await getSessoesLocal(resumed.id)
+        const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
+        if (ultimaFechada) await enqueueRegistro('atividade-sessoes', ultimaFechada.id, 'update')
+        const aberta = s.find((x) => !x.fimAt)
+        if (aberta) await enqueueRegistro('atividade-sessoes', aberta.id, 'create')
+        dispatch(requestSyncNow())
+      } catch (err) {
+        console.warn('[AtividadesPage] Erro ao retomar apos cancelar conclusao:', err)
+      }
+    }
+  }
+
+  const handleTirarFotoConclusao = async () => {
+    await capturarFoto()
+  }
+
+  const handleFileInputConclusao = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await handleFileInputChange(e)
   }
 
   const handleConfirmarConclusao = async () => {
     if (!atividadeParaConcluir) return
-    const updated = await concluirAtividadeLocal(atividadeParaConcluir, detalhamento.trim() || null)
+    const updated = await concluirAtividadeLocal(
+      atividadeParaConcluir,
+      detalhamento.trim() || null,
+      fotoBase64,
+      latitude,
+      longitude,
+      gpsAccuracy
+    )
     setAtividades((prev) => prev.map((a) => (a.id === atividadeParaConcluir.id ? updated : a)))
     try {
       // Enfileirar update do af e das sessoes fechadas
@@ -640,6 +755,8 @@ export default function AtividadesPage() {
     setShowDetalhamentoModal(false)
     setAtividadeParaConcluir(null)
     setDetalhamento('')
+    limparFotoGps()
+    setConclusaoPausouTimer(false)
   }
 
   const handleOpenImprevisto = (af: AtividadeFuncionarioPWA) => {
@@ -859,9 +976,92 @@ export default function AtividadesPage() {
       {/* Modal de detalhamento (conclusão) */}
       {showDetalhamentoModal && atividadeParaConcluir && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Concluir Atividade</h3>
             <p className="text-sm text-gray-600 mb-4">{atividadeParaConcluir.titulo}</p>
+
+            {/* GPS status */}
+            <div className="mb-4">
+              {capturandoGps ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm text-blue-800">
+                  <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Capturando localização...</span>
+                </div>
+              ) : latitude !== null && longitude !== null ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 text-sm text-green-800">
+                  <span>📍</span>
+                  <div>
+                    <p className="font-semibold">Localização capturada</p>
+                    <p className="text-xs text-green-700">
+                      {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                      {gpsAccuracy ? ` (precisão: ~${Math.round(gpsAccuracy)}m)` : ''}
+                    </p>
+                  </div>
+                </div>
+              ) : gpsErro ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-center gap-2">
+                  <span>📍</span>
+                  <span>Ligue o GPS do celular.</span>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Foto opcional - bloqueada se GPS nao capturado */}
+            <div className="mb-4">
+              {fotoBase64 ? (
+                <div className="flex flex-col gap-2">
+                  <img
+                    src={`data:image/jpeg;base64,${fotoBase64}`}
+                    alt="Foto da atividade"
+                    className="w-full max-w-xs rounded-xl border-2 border-gray-200 mx-auto"
+                  />
+                  <button
+                    onClick={() => limparFotoGps()}
+                    className="text-sm text-red-600 font-medium hover:underline text-center"
+                  >
+                    Remover foto
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {(() => {
+                    const gpsOk = latitude !== null && longitude !== null
+                    const gpsAguardando = capturandoGps
+                    return (
+                      <>
+                        <button
+                          onClick={handleTirarFotoConclusao}
+                          disabled={capturandoFoto || !gpsOk}
+                          className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {capturandoFoto ? (
+                            <><span className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" /> Capturando...</>
+                          ) : gpsAguardando ? (
+                            <><span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> Aguardando localização...</>
+                          ) : gpsOk ? (
+                            <><span>📷</span> Tirar foto (opcional)</>
+                          ) : (
+                            <><span>📷</span> GPS necessário para foto</>
+                          )}
+                        </button>
+                        {fotoErro && (
+                          <p className="text-xs text-red-600 text-center">{fotoErro}</p>
+                        )}
+                      </>
+                    )
+                  })()}
+                  <input
+                    ref={fotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileInputConclusao}
+                    className="hidden"
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Descreva o que foi feito (opcional)
@@ -883,7 +1083,7 @@ export default function AtividadesPage() {
                 Confirmar Conclusão
               </button>
               <button
-                onClick={() => { setShowDetalhamentoModal(false); setAtividadeParaConcluir(null); setDetalhamento('') }}
+                onClick={handleCancelarConclusao}
                 className="px-4 bg-gray-200 text-gray-700 py-3 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[48px]"
               >
                 Cancelar

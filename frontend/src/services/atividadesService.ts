@@ -12,6 +12,11 @@ export interface AtividadeFuncionarioPWA {
   fimAt: string | null
   detalhamento: string | null
   tempoGastoSegundos: number | null
+  fotoBase64: string | null
+  fotoUrl: string | null
+  latitude: number | null
+  longitude: number | null
+  gpsAccuracy: number | null
   // Joined da atividade
   titulo: string
   descricao: string | null
@@ -83,6 +88,11 @@ function afToRegistro(af: AtividadeFuncionarioPWA): Registro {
     fimAt: af.fimAt,
     detalhamento: af.detalhamento,
     tempoGastoSegundos: af.tempoGastoSegundos,
+    fotoBase64: af.fotoBase64,
+    fotoUrl: af.fotoUrl,
+    latitude: af.latitude,
+    longitude: af.longitude,
+    gpsAccuracy: af.gpsAccuracy,
   } as unknown as Registro
 }
 
@@ -143,6 +153,11 @@ export async function fetchAtividadesFuncionario(
     fimAt: row.fim_at,
     detalhamento: row.detalhamento,
     tempoGastoSegundos: row.tempo_gasto_segundos,
+    fotoBase64: null,
+    fotoUrl: row.foto_url ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    gpsAccuracy: row.gps_accuracy ?? null,
     titulo: row.titulo,
     descricao: row.descricao,
     local: row.local,
@@ -185,6 +200,10 @@ async function getLocalPendingMutations(): Promise<Map<string, Partial<Atividade
           fimAt: (reg as any).fimAt,
           detalhamento: (reg as any).detalhamento,
           tempoGastoSegundos: (reg as any).tempoGastoSegundos,
+          fotoUrl: (reg as any).fotoUrl ?? null,
+          latitude: (reg as any).latitude ?? null,
+          longitude: (reg as any).longitude ?? null,
+          gpsAccuracy: (reg as any).gpsAccuracy ?? null,
           syncStatus: 'pending',
         })
       }
@@ -376,6 +395,11 @@ export async function criarAtividadeNaoPrevistaLocal(
     fimAt: null,
     detalhamento: null,
     tempoGastoSegundos: 0,
+    fotoBase64: null,
+    fotoUrl: null,
+    latitude: null,
+    longitude: null,
+    gpsAccuracy: null,
     titulo,
     descricao,
     local: null,
@@ -581,10 +605,15 @@ export async function registrarImprevistoLocal(
 
 /**
  * Conclui atividade: fecha sessao aberta se houver, status -> concluida, detalhamento.
+ * Aceita foto (base64) e coordenadas GPS opcionais.
  */
 export async function concluirAtividadeLocal(
   af: AtividadeFuncionarioPWA,
-  detalhamento: string | null
+  detalhamento: string | null,
+  fotoBase64?: string | null,
+  latitude?: number | null,
+  longitude?: number | null,
+  gpsAccuracy?: number | null
 ): Promise<AtividadeFuncionarioPWA> {
   const now = new Date().toISOString()
   const nowMs = Date.now()
@@ -613,6 +642,10 @@ export async function concluirAtividadeLocal(
     fimAt: now,
     detalhamento,
     tempoGastoSegundos: tempo.produtivoSeg,
+    fotoBase64: fotoBase64 ?? null,
+    latitude: latitude ?? null,
+    longitude: longitude ?? null,
+    gpsAccuracy: gpsAccuracy ?? null,
     syncStatus: 'pending',
     lastModified: nowMs,
   }
