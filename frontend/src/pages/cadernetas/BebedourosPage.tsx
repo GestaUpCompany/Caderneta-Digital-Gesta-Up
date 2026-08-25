@@ -7,6 +7,7 @@ import PdfModal from '../../components/PdfModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData, getBebedourosCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached, getPastosByBebedouroCached } from '../../services/cadastroCache'
 import { createHistoricoLimpeza } from '../../services/supabaseService'
@@ -193,14 +194,7 @@ export default function BebedourosPage() {
 
         // Calcular tempo desde última limpeza
         const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
-        let tempoDesdeLimpeza = 'Sem histórico'
-        if (ultimaDataLimpeza) {
-          const dataLimpeza = new Date(ultimaDataLimpeza)
-          const hoje = new Date()
-          const diffMs = hoje.getTime() - dataLimpeza.getTime()
-          const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-          tempoDesdeLimpeza = `${diffDias} dias`
-        }
+        const tempoDesdeLimpeza = formatarTempoDesdeLimpeza(ultimaDataLimpeza)
 
         // Calcular intervalo médio de limpezas
         const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
@@ -350,13 +344,7 @@ export default function BebedourosPage() {
           const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
           if (bebedouro) {
             const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
-            let tempoDesdeLimpeza = 'Sem histórico'
-            if (ultimaDataLimpeza) {
-              const dataLimpeza = new Date(ultimaDataLimpeza)
-              const hoje = new Date()
-              const diffDias = Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24))
-              tempoDesdeLimpeza = `${diffDias} dias`
-            }
+            const tempoDesdeLimpeza = formatarTempoDesdeLimpeza(ultimaDataLimpeza)
             const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
             const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'
             const metaIntervalo = bebedouro.meta_intervalo_limpeza ? `${bebedouro.meta_intervalo_limpeza} dias` : 'Não definida'

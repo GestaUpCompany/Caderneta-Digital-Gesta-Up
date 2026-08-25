@@ -11,7 +11,7 @@ import DatePickerIcon from '../ui/DatePickerIcon'
 import { ChevronLeft, List } from 'lucide-react'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
-import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/shareUtils'
+import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
 import { CADERNETA_DISPLAY_CONFIG } from '../../config/cadernetas/index'
@@ -218,13 +218,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
         const bebedouro = await getBebedouroByNomeCached(fazendaId, registroParaCompartilhar.numeroBebedouro as string)
         if (bebedouro) {
           const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
-          let tempoDesdeLimpeza = 'Sem histórico'
-          if (ultimaDataLimpeza) {
-            const dataLimpeza = new Date(ultimaDataLimpeza)
-            const hoje = new Date()
-            const diffDias = Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24))
-            tempoDesdeLimpeza = `${diffDias} dias`
-          }
+          const tempoDesdeLimpeza = formatarTempoDesdeLimpeza(ultimaDataLimpeza)
           const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
           const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'
           const metaIntervalo = bebedouro.meta_intervalo_limpeza ? `${bebedouro.meta_intervalo_limpeza} dias` : 'Não definida'

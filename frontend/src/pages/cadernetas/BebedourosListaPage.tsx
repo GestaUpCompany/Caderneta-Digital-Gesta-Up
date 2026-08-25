@@ -4,7 +4,7 @@ import ListaRegistros from '../../components/cadernetas/ListaRegistros'
 import { Button } from '../../components/ui'
 import DatePickerIcon from '../../components/ui/DatePickerIcon'
 import { listarRegistros } from '../../services/api'
-import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
+import { compartilharWhatsApp, Registro, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { gerarPdfResumoBebedouros, compartilharPdf } from '../../utils/pdfUtils'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -107,17 +107,9 @@ export default function BebedourosListaPage() {
             const bebedouro = await getBebedouroByNomeCached(fazendaId, b.nome)
             if (bebedouro) {
               const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
-              let tempoDesdeLimpeza = 'Sem histórico'
-              if (ultimaDataLimpeza) {
-                const dataLimpeza = new Date(ultimaDataLimpeza)
-                const hoje = new Date()
-                const mesmoDia = dataLimpeza.toDateString() === hoje.toDateString()
-                const diffDias = Math.max(1, Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24)))
-                tempoDesdeLimpeza = mesmoDia ? 'limpo hoje' : `há ${diffDias} dias`
-              }
               detalhesLimpeza.push({
                 nome: b.nome,
-                tempoDesdeLimpeza,
+                tempoDesdeLimpeza: formatarTempoDesdeLimpeza(ultimaDataLimpeza),
                 metaDias: bebedouro.meta_intervalo_limpeza || null,
               })
             } else {

@@ -2,6 +2,21 @@ import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
 import { formatarNumeroBR } from './formatNumber'
 
+/**
+ * Calcula o tempo desde a última limpeza formatado para exibição.
+ * Retorna "limpo hoje" quando a data é do mesmo dia do calendário,
+ * "há N dias" caso contrário (mínimo 1), ou "Sem histórico" se não há data.
+ */
+export function formatarTempoDesdeLimpeza(ultimaDataLimpeza: string | null): string {
+  if (!ultimaDataLimpeza) return 'Sem histórico'
+  const dataLimpeza = new Date(ultimaDataLimpeza)
+  const hoje = new Date()
+  const mesmoDia = dataLimpeza.toDateString() === hoje.toDateString()
+  if (mesmoDia) return 'limpo hoje'
+  const diffDias = Math.max(1, Math.floor((hoje.getTime() - dataLimpeza.getTime()) / (1000 * 60 * 60 * 24)))
+  return `há ${diffDias} dias`
+}
+
 // Fields where "Sim" should have a warning icon (negative when true)
 const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
   pastagens: [
@@ -386,7 +401,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `\nHISTÓRICO\n`
       if (registro.tempoDesdeLimpeza) {
         const tempo = registro.tempoDesdeLimpeza
-        const tempoFormatado = tempo === 'Sem histórico' ? 'Sem histórico' : `há ${tempo}`
+        const tempoFormatado = tempo === 'Sem histórico' || tempo === 'limpo hoje' ? tempo : `há ${tempo}`
         texto += `ÚLTIMA LIMPEZA: *${tempoFormatado}*\n`
       }
       if (registro.intervaloMedioLimpezas) {

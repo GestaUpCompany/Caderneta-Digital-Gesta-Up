@@ -41,7 +41,9 @@ export default function BebedouroDetalhesCard({
       return null
     }
 
-    const tempoDias = parseInt(tempoDesdeLimpeza.replace(' dias', ''))
+    const tempoDias = tempoDesdeLimpeza === 'limpo hoje'
+      ? 0
+      : parseInt(tempoDesdeLimpeza.replace(' dias', ''))
     const metaDias = parseInt(metaIntervaloLimpeza.replace(' dias', ''))
 
     if (isNaN(tempoDias) || isNaN(metaDias) || metaDias === 0) {
