@@ -1463,6 +1463,35 @@ export async function getUltimaDataLimpezaBebedouro(fazendaId: string, bebedouro
   return data?.data_limpeza || null
 }
 
+/**
+ * Busca a última limpeza ANTERIOR a uma data de referência.
+ * Como todo registro de bebedouro é uma limpeza, "última limpeza" num registro
+ * significa a limpeza imediatamente anterior a ele, não a mais recente do banco.
+ * @param dataReferencia Formato YYYY-MM-DD
+ */
+export async function getUltimaDataLimpezaBebedouroAntesDe(
+  fazendaId: string,
+  bebedouroId: string,
+  dataReferencia: string
+): Promise<string | null> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('historico_limpezas_bebedouros')
+    .select('data_limpeza')
+    .eq('fazenda_id', fazendaId)
+    .eq('bebedouro_id', bebedouroId)
+    .lt('data_limpeza', dataReferencia)
+    .order('data_limpeza', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error && error.code !== 'PGRST116') {
+    throw error
+  }
+
+  return data?.data_limpeza || null
+}
+
 export async function getIntervaloMedioLimpezas(fazendaId: string, bebedouroId: string): Promise<number> {
   const client = getSupabaseClient()
   const { data, error } = await client

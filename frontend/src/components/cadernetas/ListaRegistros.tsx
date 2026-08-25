@@ -13,7 +13,7 @@ import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
-import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
+import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroAntesDeCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
 import { CADERNETA_DISPLAY_CONFIG } from '../../config/cadernetas/index'
 import { GLOBAL_HIDDEN_FIELDS, FieldConfig } from '../../config/registroDisplayConfig'
 import { SPECIAL_COMPONENTS } from './registroSpecialComponents'
@@ -217,7 +217,9 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
       try {
         const bebedouro = await getBebedouroByNomeCached(fazendaId, registroParaCompartilhar.numeroBebedouro as string)
         if (bebedouro) {
-          const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id)
+          const [dia, mes, ano] = (registroParaCompartilhar.data as string).split('/')
+          const dataRef = `${ano}-${mes}-${dia}`
+          const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId, bebedouro.id, dataRef)
           const tempoDesdeLimpeza = formatarTempoDesdeLimpeza(ultimaDataLimpeza)
           const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
           const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'

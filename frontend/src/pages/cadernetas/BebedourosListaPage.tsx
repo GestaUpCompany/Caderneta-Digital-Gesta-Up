@@ -61,12 +61,10 @@ export default function BebedourosListaPage() {
         return
       }
 
-      const totalInspecoes = registrosDoDia.length
       const bebedourosInspecionados = new Set<string>()
       let leiturasBoas = 0
       let leiturasAtencao = 0
       let leiturasCriticas = 0
-      const problemasChecklist: { bebedouro: string; label: string; observacao: string }[] = []
 
       // Agrupar por bebedouro
       const porBebedouro: { nome: string; leitura: number; responsavel: string; problemas: { label: string; observacao: string }[] }[] = []
@@ -86,7 +84,6 @@ export default function BebedourosListaPage() {
             const item = (r.checklist as any)[campo]
             if (item && item.valor === false) {
               problemas.push({ label, observacao: String(item.observacao || '') })
-              problemasChecklist.push({ bebedouro: nome, label, observacao: String(item.observacao || '') })
             }
           }
         }
@@ -123,10 +120,12 @@ export default function BebedourosListaPage() {
 
       // Montar resumo
       const partes: string[] = []
-      partes.push(`📋 *RESUMO DIÁRIO — BEBEDOUROS*`)
-      partes.push(`📅 Data: *${dataResumo.split(' ')[0]}*`)
+      partes.push(`📋 RESUMO DIÁRIO — BEBEDOUROS`)
+      partes.push(`📅 Data: ${dataResumo.split(' ')[0]}`)
       partes.push('')
-      partes.push(`Inspeções: *${totalInspecoes}* | Bebedouros: *${bebedourosInspecionados.size}*`)
+      partes.push(`Bebedouros: ${bebedourosInspecionados.size}`)
+      partes.push('')
+      partes.push(`Leituras:`)
       partes.push(`🟢 ${leiturasBoas} | 🟡 ${leiturasAtencao} | 🔴 ${leiturasCriticas}`)
       partes.push('')
 
@@ -151,17 +150,11 @@ export default function BebedourosListaPage() {
         if (probLabels) linha += ` ⚠️ ${probLabels}`
 
         partes.push(linha)
-      }
-
-      // Resumo de problemas
-      if (problemasChecklist.length > 0) {
-        partes.push('')
-        partes.push(`*Problemas (${problemasChecklist.length}):*`)
-        for (const p of problemasChecklist) {
-          let linha = `⚠️ ${p.bebedouro}: ${p.label}`
-          if (p.observacao) linha += ` (${p.observacao})`
-          partes.push(linha)
+        // Observações de problemas (uma por linha)
+        for (const p of b.problemas) {
+          if (p.observacao) partes.push(`Obs: ${p.observacao}`)
         }
+        partes.push('')
       }
 
       const textoCompleto = partes.join('\n')

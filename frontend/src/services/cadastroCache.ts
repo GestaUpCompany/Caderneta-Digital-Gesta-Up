@@ -1648,6 +1648,31 @@ export async function getUltimaDataLimpezaBebedouroCached(fazendaId: string, beb
 }
 
 /**
+ * Versão cached de getUltimaDataLimpezaBebedouroAntesDe.
+ * Busca a última limpeza anterior à data de referência (formato YYYY-MM-DD).
+ */
+export async function getUltimaDataLimpezaBebedouroAntesDeCached(
+  fazendaId: string,
+  bebedouroId: string,
+  dataReferencia: string
+): Promise<string | null> {
+  const key = buildKey('ultima-limpeza-bebedouro-antes', fazendaId, bebedouroId, dataReferencia)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached !== undefined && cached !== null) ? cached as string : null
+  }
+
+  try {
+    const data = await supabaseService.getUltimaDataLimpezaBebedouroAntesDe(fazendaId, bebedouroId, dataReferencia)
+    setCachedQuery(key, data ?? '')
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca intervalo médio de limpezas do bebedouro com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
