@@ -11,7 +11,6 @@ export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
-  const [showDownloadBanner, setShowDownloadBanner] = useState(false)
 
   useEffect(() => {
     // Verifica se já está instalado
@@ -20,63 +19,51 @@ export default function InstallPrompt() {
       return
     }
 
-    // Verifica se o usuário já rejeitou o prompt
-    const promptDismissed = localStorage.getItem('install-prompt-dismissed')
-    if (promptDismissed) {
-      const dismissedTime = parseInt(promptDismissed, 10)
-      const oneWeek = 7 * 24 * 60 * 60 * 1000
-      if (Date.now() - dismissedTime < oneWeek) {
-        return
-      }
-    }
-
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
+    // Ler evento capturado globalmente em main.tsx
+    const globalPrompt = (window as any).__deferredInstallPrompt as BeforeInstallPromptEvent | null
+    if (globalPrompt) {
+      setDeferredPrompt(globalPrompt)
       setShowPrompt(true)
     }
 
-    window.addEventListener('beforeinstallprompt', handler)
+    // Escutar evento de instalação disponível (disparado por main.tsx)
+    const handleAvailable = () => {
+      const prompt = (window as any).__deferredInstallPrompt as BeforeInstallPromptEvent | null
+      if (prompt) {
+        setDeferredPrompt(prompt)
+        setShowPrompt(true)
+      }
+    }
+    window.addEventListener('install-prompt-available', handleAvailable)
+
+    // Escutar instalação concluída
+    const handleInstalled = () => {
+      setIsInstalled(true)
+      setShowPrompt(false)
+      setDeferredPrompt(null)
+    }
+    window.addEventListener('app-installed', handleInstalled)
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('install-prompt-available', handleAvailable)
+      window.removeEventListener('app-installed', handleInstalled)
     }
   }, [])
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return
+    const prompt = deferredPrompt || (window as any).__deferredInstallPrompt as BeforeInstallPromptEvent | null
+    if (!prompt) return
 
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
+    prompt.prompt()
+    const { outcome } = await prompt.userChoice
 
     if (outcome === 'accepted') {
       setIsInstalled(true)
-      setShowDownloadBanner(true)
     }
 
     setDeferredPrompt(null)
     setShowPrompt(false)
-  }
-
-  if (showDownloadBanner) {
-    return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-          <div className="flex flex-col items-center text-center gap-4">
-            <span className="text-5xl">⬇️</span>
-            <p className="text-gray-900 font-bold text-lg leading-snug">
-              O download será iniciado em breve.
-            </p>
-            <p className="text-gray-600 text-sm">
-              O aplicativo <strong>Manej'Us 360</strong> será instalado automaticamente no seu dispositivo.
-            </p>
-            <Button onClick={() => setShowDownloadBanner(false)} variant="primary" fullWidth>
-              OK
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
+    ;(window as any).__deferredInstallPrompt = null
   }
 
   if (!showPrompt || isInstalled) return null

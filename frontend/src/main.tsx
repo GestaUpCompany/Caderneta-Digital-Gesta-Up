@@ -18,6 +18,21 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 
+// Capturar beforeinstallprompt globalmente, antes do React montar
+// Garante que o evento nunca seja perdido mesmo se disparar durante o splash
+;(window as any).__deferredInstallPrompt = null
+window.addEventListener('beforeinstallprompt', (e: Event) => {
+  e.preventDefault()
+  ;(window as any).__deferredInstallPrompt = e
+  window.dispatchEvent(new CustomEvent('install-prompt-available'))
+})
+
+// Detectar instalação concluída
+window.addEventListener('appinstalled', () => {
+  ;(window as any).__deferredInstallPrompt = null
+  window.dispatchEvent(new CustomEvent('app-installed'))
+})
+
 // Registrar Service Worker
 registerServiceWorker()
 
