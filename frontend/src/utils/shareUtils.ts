@@ -1538,8 +1538,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           texto += `TOTAL: *${registro.totalAnimais} animais*\n`
         }
       } else if (registro.gadoContado === 'Não') {
-        // Se não foi contado, mostrar total do lote
-        const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
+        // Se não foi contado, usar totalAnimais salvo no registro (calculado no PastagensPage)
+        const totalLote = Number(registro.totalAnimais) || 0
         texto += `CABEÇAS MANEJADAS: *${totalLote} animais*\n`
       }
       texto += `\n`
