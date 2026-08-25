@@ -6,7 +6,7 @@ import SyncErrorModal from './SyncErrorModal'
 const STATUS_CONFIG = {
   online: { bg: 'bg-green-700', icon: '✅', label: 'SINCRONIZADO' },
   offline: { bg: 'bg-gray-700', icon: '📵', label: 'SEM INTERNET' },
-  syncing: { bg: 'bg-blue-700', icon: '🔄', label: 'SINCRONIZANDO...' },
+  syncing: { bg: 'bg-blue-700', icon: '🔄', label: 'SINCRONIZANDO' },
   conflict: { bg: 'bg-yellow-500', icon: '⚠️', label: 'CONFLITO' },
   error: { bg: 'bg-red-700', icon: '❌', label: 'ERRO' },
 } as const
@@ -24,8 +24,8 @@ export default function SyncStatusBar() {
     window.location.reload()
   }
 
-  // Só mostrar quando houver erro ou offline
-  if (status !== 'error' && status !== 'offline') {
+  // Mostrar quando: offline, erro, sincronizando, ou online com pendentes
+  if (status === 'online' && pendingCount === 0) {
     return null
   }
 
@@ -37,7 +37,9 @@ export default function SyncStatusBar() {
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-base">{config.icon}</span>
+            <span className={`text-base ${status === 'syncing' ? 'animate-spin' : ''}`}>
+              {config.icon}
+            </span>
             <span className="text-sm font-bold">{config.label}</span>
             {pendingCount > 0 && (
               <span className="bg-white text-gray-900 text-xs font-bold px-2 py-0.5 rounded-full">
@@ -57,6 +59,18 @@ export default function SyncStatusBar() {
         {status === 'offline' && (
           <p className="text-[12px] mt-1 opacity-90">
             Não se preocupe, use o aplicativo à vontade. Nenhum registro será perdido.
+          </p>
+        )}
+
+        {status === 'syncing' && pendingCount > 0 && (
+          <p className="text-[12px] mt-1 opacity-90">
+            Enviando registros ao servidor... {pendingCount} restante{pendingCount > 1 ? 's' : ''}
+          </p>
+        )}
+
+        {status === 'online' && pendingCount > 0 && (
+          <p className="text-[12px] mt-1 opacity-90">
+            Aguardando sincronização de {pendingCount} registro{pendingCount > 1 ? 's' : ''}...
           </p>
         )}
       </div>

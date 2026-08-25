@@ -59,7 +59,9 @@ export function useSync() {
         return
       }
 
-      const { synced, failed } = await processQueue(fazendaId)
+      const { synced, failed } = await processQueue(fazendaId, (remaining) => {
+        dispatch(setPendingCount(remaining))
+      })
 
       if (failed > 0) {
         dispatch(setError(`${failed} registro(s) não sincronizados. Tentando novamente...`))

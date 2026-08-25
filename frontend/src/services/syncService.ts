@@ -887,18 +887,24 @@ export async function logSyncError(data: LogSyncErrorData): Promise<void> {
   }
 }
 
-export async function processQueue(fazendaId?: string): Promise<{ synced: number; failed: number; skipped: number }> {
+export async function processQueue(
+  fazendaId?: string,
+  onProgress?: (remaining: number) => void
+): Promise<{ synced: number; failed: number; skipped: number }> {
   const queue = await getSyncQueue()
   let synced = 0
   let failed = 0
   let skipped = 0
   const now = Date.now()
+  let remaining = queue.length
 
   for (const item of queue) {
     if (item.retryCount >= MAX_RETRY_COUNT) {
       await removeFromSyncQueue(item.id)
       await updateSyncStatus(item.store, item.registroId, 'error')
       failed++
+      remaining--
+      onProgress?.(remaining)
       continue
     }
 
@@ -906,10 +912,12 @@ export async function processQueue(fazendaId?: string): Promise<{ synced: number
       skipped++
       continue
     }
-    
+
     const registro = await getRegistro(item.store, item.registroId)
     if (!registro) {
       await removeFromSyncQueue(item.id)
+      remaining--
+      onProgress?.(remaining)
       continue
     }
 
@@ -923,6 +931,8 @@ export async function processQueue(fazendaId?: string): Promise<{ synced: number
 
       await removeFromSyncQueue(item.id)
       synced++
+      remaining--
+      onProgress?.(remaining)
     } catch (err) {
       console.error(`[SYNC] Erro ao sincronizar ${item.store}/${item.registroId}:`, err)
       item.retryCount++
