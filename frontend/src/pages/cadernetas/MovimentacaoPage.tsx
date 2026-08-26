@@ -458,13 +458,6 @@ export default function MovimentacaoPage() {
         return
       }
 
-      // Validar brinco/chip apenas se o total for exatamente 1 cabeça
-      if (totalCabecas === 1 && !form.brinco.trim() && !form.chip.trim()) {
-        setErrors([{ field: 'brinco', message: 'Brinco ou Chip é obrigatório quando for 1 cabeça' }])
-        scrollToFirstError([{ field: 'brinco', message: 'Brinco ou Chip é obrigatório quando for 1 cabeça' }])
-        return
-      }
-
       // Criar um registro de movimentação por categoria
       const resultados: { success: boolean; errors?: any[]; registro?: any }[] = []
       for (const c of categoriasParaMover) {
@@ -607,23 +600,6 @@ export default function MovimentacaoPage() {
                 <p className="text-sm text-gray-500">
                   Total a movimentar: {totalCabecas} cabeças
                 </p>
-              )}
-              {/* Identificação - apenas se total for 1 cabeça */}
-              {totalCabecas === 1 && (
-                <>
-                  <Input
-                    label="BRINCO"
-                    placeholder="Ex: 2023-145"
-                    value={form.brinco}
-                    onChange={setInput('brinco')}
-                  />
-                  <Input
-                    label="CHIP"
-                    placeholder="Ex: 123456789"
-                    value={form.chip}
-                    onChange={setInput('chip')}
-                  />
-                </>
               )}
             </>
           ) : (
