@@ -4,7 +4,7 @@ import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
-import { ClipboardList, Sun, Moon, Settings, MapPin } from 'lucide-react'
+import { ClipboardList, Sun, Moon, Settings } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
 
 import { VERSICULOS, Versiculo } from '../config/versiculos'
@@ -573,9 +573,7 @@ export default function Home() {
                 className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 border border-white/30 backdrop-blur-sm"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.1))' }}
               >
-                <div className="w-40 h-auto flex items-center justify-center">
-                  <MapPin className="w-20 h-20 text-cyan-600" strokeWidth={1.5} />
-                </div>
+                <img src={`${BASE}home/mapa-fazenda.png`} alt="Mapa da Fazenda" className="w-40 h-auto object-contain rounded-[32px]" />
                 <span className="text-base font-bold text-center leading-tight text-gray-900">
                   MAPA DA FAZENDA
                 </span>
@@ -588,9 +586,7 @@ export default function Home() {
                   className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30 backdrop-blur-sm"
                   style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.1))' }}
                 >
-                  <div className="w-40 h-auto flex items-center justify-center">
-                    <ClipboardList className="w-20 h-20 text-indigo-600" strokeWidth={1.5} />
-                  </div>
+                  <img src={`${BASE}home/atividades.png`} alt="Atividades" className="w-40 h-auto object-contain rounded-[32px]" />
                   <span className="text-base font-bold text-center leading-tight text-gray-900">
                     ATIVIDADES
                   </span>
