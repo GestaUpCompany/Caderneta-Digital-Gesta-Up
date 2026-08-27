@@ -9,6 +9,7 @@ interface CategoriaLote {
   categoria: string
   quant_atual: number | null
   peso_vivo_kg: number | null
+  peso_vivo_atual_kg_cab?: number | null
 }
 
 interface LoteDetalhes {
@@ -129,7 +130,7 @@ export function calcularCmsPorJanelas(
   }
 
   const ordenados = ordenarRegistrosPorData(registrosSuplementacao)
-  if (ordenados.length < 2) {
+  if (ordenados.length === 0) {
     return { ontem: null, anteontem: null, tresDiasAtras: null, dezDias: null, geral: null }
   }
 
@@ -138,12 +139,18 @@ export function calcularCmsPorJanelas(
 
   const intervalos: { inicio: Date; fim: Date; dias: number; kgCocho: number; cms: number | null }[] = []
 
-  for (let i = 0; i < ordenados.length - 1; i++) {
+  for (let i = 0; i < ordenados.length; i++) {
     const atual = ordenados[i]
-    const proximo = ordenados[i + 1]
     const inicio = parseDataRegistro(atual.data)
-    const fim = parseDataRegistro(proximo.data)
-    if (!inicio || !fim) continue
+    if (!inicio) continue
+
+    let fim: Date | null
+    if (i < ordenados.length - 1) {
+      fim = parseDataRegistro(ordenados[i + 1].data)
+    } else {
+      fim = new Date(hoje)
+    }
+    if (!fim) continue
 
     const diffMs = fim.getTime() - inicio.getTime()
     const dias = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)))
@@ -221,7 +228,7 @@ function calcularPesoVivoMedio(detalhesLote: LoteDetalhes): number | null {
   categorias.forEach(cat => {
     if (isCategoriaExcluida(cat.categoria)) return
     const quant = cat.quant_atual || 0
-    const peso = cat.peso_vivo_kg || 0
+    const peso = (cat.peso_vivo_atual_kg_cab ?? cat.peso_vivo_kg) || 0
     if (quant > 0 && peso > 0) {
       pesoTotal += peso * quant
       quantTotal += quant

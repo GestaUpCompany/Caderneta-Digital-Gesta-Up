@@ -37,6 +37,8 @@ interface LoteItem {
   teorMsDieta: number | null
   leituraAnterior: number | null
   leituraAnteriorId: string | null
+  leituraAnteriorN2: number | null
+  leituraAnteriorN3: number | null
   tratoAnterior: number | null
   nota: string
   notaSalva: boolean
@@ -81,6 +83,23 @@ function capitalizarIniciais(texto: string): string {
     .join(' ')
 }
 
+function getNotaColor(nota: number): { dot: string; border: string; bg: string; text: string } {
+  switch (nota) {
+    case -1:
+      return { dot: 'bg-red-500', border: 'border-red-500', bg: 'bg-red-50', text: 'text-red-700' }
+    case 0:
+      return { dot: 'bg-yellow-500', border: 'border-yellow-500', bg: 'bg-yellow-50', text: 'text-yellow-700' }
+    case 1:
+      return { dot: 'bg-green-500', border: 'border-green-500', bg: 'bg-green-50', text: 'text-green-700' }
+    case 2:
+      return { dot: 'bg-yellow-500', border: 'border-yellow-500', bg: 'bg-yellow-50', text: 'text-yellow-700' }
+    case 3:
+      return { dot: 'bg-red-500', border: 'border-red-500', bg: 'bg-red-50', text: 'text-red-700' }
+    default:
+      return { dot: 'bg-gray-300', border: 'border-gray-300', bg: 'bg-gray-50', text: 'text-gray-700' }
+  }
+}
+
 function parseDataBR(data: string): Date | null {
   const [day, month, year] = data.split('/').map(Number)
   if (!day || !month || !year) return null
@@ -105,7 +124,7 @@ export default function LeituraCochoPage() {
   const [totalLotesSemCurral, setTotalLotesSemCurral] = useState(0)
   const [notasConfig, setNotasConfig] = useState<NotaConfig[]>([])
   const listaRef = useRef<HTMLDivElement>(null)
-  const inputRefs = useRef<Record<string, HTMLSelectElement | null>>({})
+  const inputRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
     async function carregarDadosIniciais() {
@@ -242,6 +261,8 @@ export default function LeituraCochoPage() {
             )
             const leituraAnterior = leitOrdenados[0]?.leitura_cocho ?? null
             const leituraAnteriorId = leitOrdenados[0]?.nota_config_id ?? null
+            const leituraAnteriorN2 = leitOrdenados[1]?.leitura_cocho ?? null
+            const leituraAnteriorN3 = leitOrdenados[2]?.leitura_cocho ?? null
 
             // Kg Cocho: prioriza suplementação; se não houver, usa o total do último trato de confinamento
             const tratoAnterior: number | null =
@@ -279,6 +300,8 @@ export default function LeituraCochoPage() {
               teorMsDieta,
               leituraAnterior,
               leituraAnteriorId,
+              leituraAnteriorN2,
+              leituraAnteriorN3,
               tratoAnterior,
               nota: '',
               notaSalva: false,
@@ -440,7 +463,7 @@ export default function LeituraCochoPage() {
   }, [])
 
   const handleNotaKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLSelectElement>, _id: string) => {
+    (e: React.KeyboardEvent<HTMLDivElement>, _id: string) => {
       if (e.key === 'Enter') {
         e.preventDefault()
         navegarLote('proximo')
@@ -602,10 +625,10 @@ export default function LeituraCochoPage() {
                             : 'border-gray-200 bg-white hover:border-gray-300'
                         }`}
                       >
-                        {/* Linha 1: Curral | Lote + Dieta */}
-                        <div className="flex items-center justify-between gap-2 mb-1">
+                        {/* Linha 1: Curral | Lote (alinhados no topo) */}
+                        <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="min-w-0 flex-1">
-                            <span className="text-base font-bold text-gray-900 truncate">
+                            <span className="text-base font-bold text-gray-900 truncate block">
                               {lote.curral || '—'}
                             </span>
                             <span className="text-xs text-gray-500 truncate block">
@@ -613,91 +636,158 @@ export default function LeituraCochoPage() {
                             </span>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className="text-base font-bold text-[#1a3a2a]">{lote.nome}</span>
+                            <span className="text-base font-bold text-[#1a3a2a] block">{lote.nome}</span>
                           </div>
                         </div>
 
-                        {/* Linha 2: Cab | PV | Período | Categorias (inline compacto) */}
-                        <div className="text-sm text-gray-700 mb-2 truncate">
+                        {/* Linha 2: Cab | PV | Período */}
+                        <div className="text-sm text-gray-700 mb-1">
                           <span className="font-bold text-gray-500">Cab: </span>
                           <span className="font-bold text-gray-900 mr-2">{lote.quantidade ?? '—'}</span>
-                          <span className="font-bold text-gray-500">PV: </span>
+                          <span className="font-bold text-gray-500">Peso: </span>
                           <span className="font-bold text-gray-900 mr-2">{formatarNumero(lote.pesoVivoKg, 2)} kg</span>
-                          <span className="font-bold text-gray-500">Per: </span>
-                          <span className="font-bold text-gray-900 mr-2">{lote.periodoDias ?? '—'} d</span>
-                          {lote.categorias && (
-                            <>
-                              <span className="font-bold text-gray-500">Cat: </span>
-                              <span className="font-bold text-gray-900">
-                                {lote.categorias
-                                  .split(',')
-                                  .map((c) => c.trim())
-                                  .filter(Boolean)
-                                  .map((c) => capitalizarIniciais(c))
-                                  .join(', ')}
-                              </span>
-                            </>
-                          )}
+                          <span className="font-bold text-gray-500">Período: </span>
+                          <span className="font-bold text-gray-900">{lote.periodoDias ?? '—'} d</span>
                         </div>
 
-                        {/* Linha 3: Leitura anterior | Kg Cocho | Nota */}
-                        <div className="flex items-end justify-between gap-3 border-t border-gray-100 pt-2">
-                          <div className="flex items-end gap-4">
-                            <div>
+                        {/* Linha 3: Categorias em linha própria */}
+                        {lote.categorias && (
+                          <div className="text-sm text-gray-700 mb-2">
+                            <span className="font-bold text-gray-500">Categoria: </span>
+                            <span className="font-bold text-gray-900">
+                              {lote.categorias
+                                .split(',')
+                                .map((c) => c.trim())
+                                .filter(Boolean)
+                                .map((c) => capitalizarIniciais(c))
+                                .join(', ')}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Linha 4: CMS (% PV) compacto em uma linha */}
+                        <div className="border-t border-gray-100 pt-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[0.55rem] font-bold text-gray-400 uppercase tracking-wider shrink-0 [writing-mode:vertical-lr] rotate-180 text-center">
+                              CMS (%PV)
+                            </span>
+                            <div className="flex justify-between gap-1 flex-1 text-center">
+                              <div>
+                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">1d</span>
+                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.ontem)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">2d</span>
+                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.anteontem)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">3d</span>
+                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.tresDiasAtras)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">10d</span>
+                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.dezDias)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">Geral</span>
+                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.geral)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Linha 5: Leitura anterior n-3, n-2, n-1 | Kg Cocho */}
+                        <div className="relative flex items-center gap-2 border-t border-gray-100 pt-2 mb-2">
+                          <span className="text-[0.55rem] font-bold text-gray-400 uppercase tracking-wider shrink-0 [writing-mode:vertical-lr] rotate-180 text-center">
+                            Leitura
+                          </span>
+                          <div className="relative flex items-end gap-4 flex-1">
+                            <div className="text-center">
                               <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
-                                Leitura
+                                3d
+                              </span>
+                              <span className="text-base font-bold text-gray-900">
+                                {lote.leituraAnteriorN3 !== null ? lote.leituraAnteriorN3 : '—'}
+                              </span>
+                            </div>
+                            <div className="text-center">
+                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                                2d
+                              </span>
+                              <span className="text-base font-bold text-gray-900">
+                                {lote.leituraAnteriorN2 !== null ? lote.leituraAnteriorN2 : '—'}
+                              </span>
+                            </div>
+                            <div className="text-center">
+                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
+                                1d
                               </span>
                               <span className="text-base font-bold text-gray-900">
                                 {lote.leituraAnterior !== null ? lote.leituraAnterior : '—'}
                               </span>
                             </div>
-                            <div>
+                            <div className="absolute left-1/2 -translate-x-1/2">
                               <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
-                                Kg Cocho
+                                KG COCHO
                               </span>
                               <span className="text-base font-bold text-gray-900">
                                 {formatarNumeroMilhar(lote.tratoAnterior)}
                               </span>
                             </div>
                           </div>
-                          <div className="shrink-0 flex flex-col items-center">
-                            <span className="text-[0.65rem] font-bold text-yellow-600 uppercase tracking-wider block mb-1">
+                        </div>
+
+                        {/* Linha 6: Nota como lista de botões com círculos coloridos */}
+                        <div
+                          ref={(el) => (inputRefs.current[lote.id] = el)}
+                          tabIndex={-1}
+                          onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="border-t border-gray-100 pt-2"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-[0.65rem] font-bold text-yellow-600 uppercase tracking-wider">
                               Nota
                             </span>
-                            <div className="relative">
-                              <select
-                                ref={(el) => (inputRefs.current[lote.id] = el)}
-                                value={lote.nota}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => handleNotaChange(lote.id, e.target.value)}
-                                onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
-                                className={`w-20 h-12 text-center text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-pointer ${
-                                  lote.erroSalvar
-                                    ? 'border-red-500 bg-red-50 text-red-700'
-                                    : lote.notaSalva
-                                      ? 'border-green-500 bg-green-50 text-green-700'
-                                      : 'border-yellow-500 bg-white text-gray-900 focus:border-yellow-600'
-                                }`}
-                              >
-                                <option value="">—</option>
-                                {notasConfig.map((config) => (
-                                  <option key={config.id} value={config.id}>
-                                    {config.nota}
-                                  </option>
-                                ))}
-                              </select>
+                            <div className="flex items-center gap-1.5">
                               {lote.salvando && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                                <span className="w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                               )}
                               {lote.notaSalva && !lote.salvando && (
-                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                <span className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                                   <Check className="w-3 h-3 text-white" />
                                 </span>
                               )}
                               {lote.erroSalvar && !lote.salvando && (
-                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">!</span>
+                                <span className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">!</span>
                               )}
                             </div>
+                          </div>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {notasConfig.map((config) => {
+                              const cor = getNotaColor(config.nota)
+                              const isSelected = lote.nota === config.id
+                              return (
+                                <button
+                                  key={config.id}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleNotaChange(lote.id, isSelected ? '' : config.id)
+                                  }}
+                                  className={`flex flex-col items-center justify-center py-1.5 rounded-lg border-2 transition-colors active:scale-95 min-w-0 ${
+                                    isSelected
+                                      ? `${cor.border} ${cor.bg}`
+                                      : 'border-gray-200 bg-white hover:border-gray-300'
+                                  }`}
+                                >
+                                  <span className={`w-3 h-3 rounded-full ${cor.dot} mb-0.5`} />
+                                  <span className={`text-sm font-bold ${isSelected ? cor.text : 'text-gray-700'}`}>
+                                    {config.nota}
+                                  </span>
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
 
@@ -712,35 +802,6 @@ export default function LeituraCochoPage() {
                             </div>
                           )
                         })()}
-
-                        {/* Linha 6: CMS (% PV) inline compacto */}
-                        <div className="border-t border-gray-100 pt-2 mt-2">
-                          <div className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                            CMS (% PV)
-                          </div>
-                          <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm">
-                            <span>
-                              <span className="text-gray-500">1d: </span>
-                              <span className="font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.ontem)}</span>
-                            </span>
-                            <span>
-                              <span className="text-gray-500">2d: </span>
-                              <span className="font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.anteontem)}</span>
-                            </span>
-                            <span>
-                              <span className="text-gray-500">3d: </span>
-                              <span className="font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.tresDiasAtras)}</span>
-                            </span>
-                            <span>
-                              <span className="text-gray-500">10d: </span>
-                              <span className="font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.dezDias)}</span>
-                            </span>
-                            <span>
-                              <span className="text-gray-500">Geral: </span>
-                              <span className="font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.geral)}</span>
-                            </span>
-                          </div>
-                        </div>
                       </div>
                     )
                   })
