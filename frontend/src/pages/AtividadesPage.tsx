@@ -27,7 +27,7 @@ import {
   getImprevistoCategorias,
   formatarTempo,
   formatarResumoAtividades,
-  criarAtividadeNaoPrevistaLocal,
+  criarAtividadeNaoPrevistaConcluidaLocal,
 } from '../services/atividadesService'
 import { compartilharWhatsApp } from '../utils/shareUtils'
 import { enqueueRegistro } from '../services/syncService'
@@ -639,12 +639,12 @@ export default function AtividadesPage() {
       .catch((err) => console.warn('[AtividadesPage] Erro ao carregar categorias:', err))
   }, [fazendaId])
 
-  // Auto-retry GPS enquanto o modal de conclusao estiver aberto e o GPS nao foi capturado
+  // Auto-retry GPS enquanto o modal de conclusao ou de atividade nao prevista estiver aberto
   useEffect(() => {
-    if (!showDetalhamentoModal) return
+    if (!showDetalhamentoModal && !showNaoPrevistaModal) return
     if (latitude !== null && longitude !== null) return
     if (capturandoGps) return
-    // So re-tenta se ja houve erro (primeira tentativa e disparada no handleOpenConcluir)
+    // So re-tenta se ja houve erro (primeira tentativa e disparada na abertura do modal)
     if (!gpsErro) return
 
     const timer = setTimeout(() => {
@@ -652,7 +652,16 @@ export default function AtividadesPage() {
     }, 4000)
 
     return () => clearTimeout(timer)
-  }, [showDetalhamentoModal, latitude, longitude, capturandoGps, gpsErro, capturarGps])
+  }, [showDetalhamentoModal, showNaoPrevistaModal, latitude, longitude, capturandoGps, gpsErro, capturarGps])
+
+  // Disparar captura de GPS ao abrir o modal de atividade nao prevista
+  useEffect(() => {
+    if (showNaoPrevistaModal) {
+      limparFotoGps()
+      capturarGps()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNaoPrevistaModal])
 
   useEffect(() => {
     const handleOnline = () => setOnline(true)
@@ -790,22 +799,24 @@ export default function AtividadesPage() {
     if (!fazendaId || !funcionarioId || !novaAtividadeTitulo.trim()) return
     setCriandoAtividade(true)
     try {
-      const af = await criarAtividadeNaoPrevistaLocal(
+      const af = await criarAtividadeNaoPrevistaConcluidaLocal(
         fazendaId,
         funcionarioId,
         novaAtividadeTitulo.trim(),
-        novaAtividadeDesc.trim() || null
+        novaAtividadeDesc.trim() || null,
+        fotoBase64,
+        latitude,
+        longitude,
+        gpsAccuracy
       )
-      // Enfileirar sync dos 3 registros criados
+      // Enfileirar sync dos 2 registros criados (atividades + atividade-funcionarios, sem sessoes)
       await enqueueRegistro('atividades', af.atividadeId, 'create')
       await enqueueRegistro('atividade-funcionarios', af.id, 'create')
-      const sessoes = await getSessoesLocal(af.id)
-      const aberta = sessoes.find((s) => !s.fimAt)
-      if (aberta) await enqueueRegistro('atividade-sessoes', aberta.id, 'create')
       dispatch(requestSyncNow())
       setShowNaoPrevistaModal(false)
       setNovaAtividadeTitulo('')
       setNovaAtividadeDesc('')
+      limparFotoGps()
       loadAtividades()
     } catch (err) {
       console.error('[AtividadesPage] Erro ao criar atividade nao prevista:', err)
@@ -1101,14 +1112,14 @@ export default function AtividadesPage() {
         onConfirm={handleConfirmarImprevisto}
       />
 
-      {/* Modal: atividade nao prevista */}
+      {/* Modal: atividade nao prevista (registro pontual, sem cronometro) */}
       {showNaoPrevistaModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full">
+          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">Atividade não prevista</h2>
               <button
-                onClick={() => { setShowNaoPrevistaModal(false); setNovaAtividadeTitulo(''); setNovaAtividadeDesc('') }}
+                onClick={() => { setShowNaoPrevistaModal(false); setNovaAtividadeTitulo(''); setNovaAtividadeDesc(''); limparFotoGps() }}
                 className="text-gray-400 hover:text-gray-600 p-1"
               >
                 <X className="w-5 h-5" />
@@ -1138,20 +1149,103 @@ export default function AtividadesPage() {
                   maxLength={500}
                 />
               </div>
+
+              {/* GPS status */}
+              <div>
+                {capturandoGps ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm text-blue-800">
+                    <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span>Capturando localização...</span>
+                  </div>
+                ) : latitude !== null && longitude !== null ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 text-sm text-green-800">
+                    <span>📍</span>
+                    <div>
+                      <p className="font-semibold">Localização capturada</p>
+                      <p className="text-xs text-green-700">
+                        {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                        {gpsAccuracy ? ` (precisão: ~${Math.round(gpsAccuracy)}m)` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ) : gpsErro ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 flex items-center gap-2">
+                    <span>📍</span>
+                    <span>Ligue o GPS do celular.</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Foto opcional - bloqueada se GPS nao capturado */}
+              <div>
+                {fotoBase64 ? (
+                  <div className="flex flex-col gap-2">
+                    <img
+                      src={`data:image/jpeg;base64,${fotoBase64}`}
+                      alt="Foto da atividade"
+                      className="w-full max-w-xs rounded-xl border-2 border-gray-200 mx-auto"
+                    />
+                    <button
+                      onClick={() => limparFotoGps()}
+                      className="text-sm text-red-600 font-medium hover:underline text-center"
+                    >
+                      Remover foto
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {(() => {
+                      const gpsOk = latitude !== null && longitude !== null
+                      const gpsAguardando = capturandoGps
+                      return (
+                        <>
+                          <button
+                            onClick={capturarFoto}
+                            disabled={capturandoFoto || !gpsOk}
+                            className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {capturandoFoto ? (
+                              <><span className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" /> Capturando...</>
+                            ) : gpsAguardando ? (
+                              <><span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> Aguardando localização...</>
+                            ) : gpsOk ? (
+                              <><span>📷</span> Tirar foto (opcional)</>
+                            ) : (
+                              <><span>📷</span> GPS necessário para foto</>
+                            )}
+                          </button>
+                          {fotoErro && (
+                            <p className="text-xs text-red-600 text-center">{fotoErro}</p>
+                          )}
+                        </>
+                      )
+                    })()}
+                    <input
+                      ref={fotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700">
-                A atividade será iniciada automaticamente com cronômetro rodando.
+                A atividade será registrada como concluída, sem cronômetro.
               </div>
               <button
                 onClick={handleCriarNaoPrevista}
                 disabled={!novaAtividadeTitulo.trim() || criandoAtividade}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-green-700 transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {criandoAtividade ? (
                   <span className="animate-spin text-lg">⏳</span>
                 ) : (
                   <>
-                    <Play className="w-5 h-5" />
-                    Iniciar atividade
+                    <CheckCircle className="w-5 h-5" />
+                    Registrar atividade
                   </>
                 )}
               </button>

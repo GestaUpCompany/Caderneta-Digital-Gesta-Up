@@ -92,7 +92,7 @@ export default function LoteDetalhesCard({ detalhes, processarCategorias, metaRo
               if (!hasRecord) {
                 return (
                   <p className="font-bold text-blue-600">
-                    ℹ️ Primeiro rodeio · Meta: {metaDias} dia{plural(metaDias)}
+                    Primeiro rodeio · Meta: {metaDias} dia{plural(metaDias)}
                   </p>
                 )
               }

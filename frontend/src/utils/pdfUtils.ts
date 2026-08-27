@@ -3,6 +3,19 @@ import { Registro } from './shareUtils'
 import { LOGO_URL } from './constants'
 import { formatarNumeroBR } from './formatNumber'
 
+/** Desenha o título de marca "Gesta'Up - Manej'Us 360" com o "360" em dourado (#EAB309). */
+function drawBrandTitle(doc: jsPDF, x: number, y: number): void {
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  const prefix = "Gesta'Up - Manej'Us "
+  doc.setTextColor(255, 255, 255)
+  doc.text(prefix, x, y)
+  const prefixWidth = doc.getTextWidth(prefix)
+  doc.setTextColor(234, 179, 9) // #EAB309
+  doc.text('360', x + prefixWidth, y)
+  doc.setTextColor(255, 255, 255)
+}
+
 interface MedicaoPluviometro {
   pluviometro_nome?: string
   pluviometroNome?: string
@@ -57,10 +70,7 @@ export async function gerarPdfResumoClima(
 
   // Título (deslocado para a direita para não sobrepor a logo)
   const titleX = logoX + logoSize + 5
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
+  drawBrandTitle(doc, titleX, 12)
 
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
@@ -350,10 +360,7 @@ export async function gerarPdfResumoMaternidade(
   }
 
   const titleX = logoX + logoSize + 5
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
+  drawBrandTitle(doc, titleX, 12)
 
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
@@ -622,10 +629,7 @@ export async function gerarPdfResumoSuplementacao(
   }
 
   const titleX = logoX + logoSize + 5
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
+  drawBrandTitle(doc, titleX, 12)
 
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
@@ -945,10 +949,7 @@ export async function gerarPdfResumoRodeio(
   }
 
   const titleX = logoX + logoSize + 5
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text("Gesta'Up — Cadernetas Digitais", titleX, 12)
+  drawBrandTitle(doc, titleX, 12)
 
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
@@ -1284,10 +1285,7 @@ export async function gerarPdfResumoBebedouros(
   }
 
   const titleX = logoX + logoSize + 5
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text("Gesta'Up - Cadernetas Digitais", titleX, 12)
+  drawBrandTitle(doc, titleX, 12)
 
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')

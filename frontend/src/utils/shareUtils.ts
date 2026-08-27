@@ -1309,7 +1309,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       const plural = (n: number) => n > 1 ? 's' : ''
       let metaTexto = ''
       if (!metaRodeio.hasRecord) {
-        metaTexto = `ℹ️ Primeiro rodeio · Meta: ${metaRodeio.metaDias} dia${plural(metaRodeio.metaDias)}`
+        metaTexto = `Primeiro rodeio · Meta: ${metaRodeio.metaDias} dia${plural(metaRodeio.metaDias)}`
       } else if (metaRodeio.isDentroMeta) {
         if (metaRodeio.diasAteProximo === 0) {
           metaTexto = `✅ Em dia · Próximo rodeio: HOJE`

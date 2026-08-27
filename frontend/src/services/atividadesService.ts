@@ -351,14 +351,19 @@ export async function calcularTempoLocal(atividadeFuncionarioId: string): Promis
 // ============================================================
 
 /**
- * Cria uma atividade nao prevista e ja inicia com sessao aberta.
- * A atividade fica atribuida ao funcionario que a registrou.
+ * Cria uma atividade nao prevista ja concluida, sem cronometro nem sessoes.
+ * Registro pontual feito no fim do dia: titulo + descricao + foto/GPS opcionais.
+ * Nao cria atividade_sessoes (atividade pontual sem medicao de tempo).
  */
-export async function criarAtividadeNaoPrevistaLocal(
+export async function criarAtividadeNaoPrevistaConcluidaLocal(
   fazendaId: string,
   funcionarioId: string,
   titulo: string,
-  descricao: string | null
+  descricao: string | null,
+  fotoBase64?: string | null,
+  latitude?: number | null,
+  longitude?: number | null,
+  gpsAccuracy?: number | null
 ): Promise<AtividadeFuncionarioPWA> {
   const now = new Date().toISOString()
   const today = now.split('T')[0]
@@ -366,7 +371,6 @@ export async function criarAtividadeNaoPrevistaLocal(
 
   const atividadeId = uuidv4()
   const afId = uuidv4()
-  const sessaoId = uuidv4()
 
   // 1. Salvar a atividade no store 'atividades' (para sync com Supabase)
   const atividadeRegistro: Registro = {
@@ -381,32 +385,32 @@ export async function criarAtividadeNaoPrevistaLocal(
     dataInicio: today,
     dataFim: today,
     prioridade: 3,
-    status: 'em_andamento',
+    status: 'concluida',
   } as unknown as Registro
   await saveRegistro('atividades', atividadeRegistro)
 
-  // 2. Criar atividade_funcionarios com status em_andamento
+  // 2. Criar atividade_funcionarios ja concluida (sem sessoes)
   const af: AtividadeFuncionarioPWA = {
     id: afId,
     atividadeId,
     funcionarioId,
-    statusIndividual: 'em_andamento',
+    statusIndividual: 'concluida',
     inicioAt: now,
-    fimAt: null,
+    fimAt: now,
     detalhamento: null,
     tempoGastoSegundos: 0,
-    fotoBase64: null,
+    fotoBase64: fotoBase64 ?? null,
     fotoUrl: null,
-    latitude: null,
-    longitude: null,
-    gpsAccuracy: null,
+    latitude: latitude ?? null,
+    longitude: longitude ?? null,
+    gpsAccuracy: gpsAccuracy ?? null,
     titulo,
     descricao,
     local: null,
     dataInicio: today,
     dataFim: today,
     prioridade: 3,
-    status: 'em_andamento',
+    status: 'concluida',
     naoPrevista: true,
     setorNome: null,
     syncStatus: 'pending',
@@ -414,22 +418,7 @@ export async function criarAtividadeNaoPrevistaLocal(
   }
   await saveRegistro('atividade-funcionarios', afToRegistro(af))
 
-  // 3. Criar sessao aberta trabalhada
-  const sessao: AtividadeSessaoLocal = {
-    id: sessaoId,
-    supabaseId: sessaoId,
-    atividadeFuncionarioId: afId,
-    inicioAt: now,
-    fimAt: null,
-    duracaoSegundos: null,
-    trabalhada: true,
-    motivoPausa: null,
-    syncStatus: 'pending',
-    lastModified: nowMs,
-  }
-  await saveRegistro('atividade-sessoes', sessaoToRegistro(sessao))
-
-  // 4. Atualizar cache da UI
+  // 3. Atualizar cache da UI (sem criar atividade-sessoes)
   const cached = await getCachedAtividades(funcionarioId)
   await saveCadastroData(`${CACHE_KEY_PREFIX}${funcionarioId}`, {
     atividades: [af, ...cached],
