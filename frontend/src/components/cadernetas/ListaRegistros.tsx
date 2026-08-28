@@ -217,7 +217,9 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
       try {
         const bebedouro = await getBebedouroByNomeCached(fazendaId, registroParaCompartilhar.numeroBebedouro as string)
         if (bebedouro) {
-          const [dia, mes, ano] = (registroParaCompartilhar.data as string).split('/')
+          // registro.data pode incluir hora ("DD/MM/YYYY HH:MM"); descartar antes do split
+          const dataSemHora = (registroParaCompartilhar.data as string).split(' ')[0]
+          const [dia, mes, ano] = dataSemHora.split('/')
           const dataRef = `${ano}-${mes}-${dia}`
           const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId, bebedouro.id, dataRef)
           const tempoDesdeLimpeza = formatarTempoDesdeLimpeza(ultimaDataLimpeza)

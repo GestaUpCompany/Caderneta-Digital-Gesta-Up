@@ -193,7 +193,8 @@ export default function BebedourosPage() {
         }
 
         // Calcular tempo desde última limpeza (anterior à data do registro)
-        const [dia, mes, ano] = form.data.split('/')
+        const dataSemHora = form.data.split(' ')[0]
+        const [dia, mes, ano] = dataSemHora.split('/')
         const dataRef = `${ano}-${mes}-${dia}`
         const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId, bebedouro.id, dataRef)
         const tempoDesdeLimpeza = formatarTempoDesdeLimpeza(ultimaDataLimpeza)
