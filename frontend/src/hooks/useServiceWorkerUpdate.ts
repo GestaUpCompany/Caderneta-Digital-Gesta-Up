@@ -8,11 +8,6 @@ export function useServiceWorkerUpdate() {
   const skipWaitingSent = useRef(false)
   // Registration corrente, compartilhada entre forceCheck e handlers.
   const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null)
-  // Se true, o SW já estava waiting quando o app abriu (pode reload imediato).
-  // Se false, o SW foi baixado durante esta sessão (pedir confirmação).
-  const wasWaitingOnMount = useRef(false)
-  // Controla se o mount já verificou SW waiting existente.
-  const mountCheckDone = useRef(false)
 
   // Aplica SW em estado waiting: envia SKIP_WAITING e marca flag para
   // que o controllerchange dispare o reload.
@@ -22,6 +17,15 @@ export function useServiceWorkerUpdate() {
     if (registration?.waiting && !skipWaitingSent.current) {
       skipWaitingSent.current = true
       registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+    } else if (!registration?.waiting) {
+      // Sem SW waiting (já foi ativado por outro motivo): recarregar direto.
+      setIsReloading(true)
+      setHasUpdateAvailable(false)
+      setTimeout(() => {
+        window.location.reload()
+        // Fallback para iOS PWA standalone onde reload() pode nao funcionar
+        setTimeout(() => { window.location.href = window.location.href }, 2000)
+      }, 500)
     }
   }, [])
 
@@ -30,30 +34,22 @@ export function useServiceWorkerUpdate() {
     navigator.serviceWorker.getRegistrations().then(registrations => {
       registrations.forEach(registration => {
         swRegistrationRef.current = registration
-        // Aplicar SW waiting imediatamente APENAS se já estava waiting
-        // no mount (usuário ainda não começou a usar o app).
-        // Se foi baixado durante a sessão, mostrar banner em vez de reload.
+        // Se já existe SW waiting, mostrar banner (não auto-aplicar).
         if (registration.waiting) {
-          if (wasWaitingOnMount.current && mountCheckDone.current) {
-            applyWaitingSW()
-          } else if (!mountCheckDone.current) {
-            // Primeira verificação no mount: SW já estava waiting, pode aplicar.
-            wasWaitingOnMount.current = true
-            mountCheckDone.current = true
-            applyWaitingSW()
-          }
+          setHasUpdateAvailable(true)
         }
         // Disparar verificação de update contra o servidor.
         registration.update().then(() => {
           // Após update(), reavaliar waiting: o update pode ter promovido
           // um worker recém-baixado a waiting de forma síncrona.
-          // NÃO aplicar automaticamente: será pego pelo updatefound handler
-          // ou pela próxima verificação, que decide via banner.
           swRegistrationRef.current = registration
+          if (registration.waiting) {
+            setHasUpdateAvailable(true)
+          }
         }).catch(() => {})
       })
     })
-  }, [applyWaitingSW])
+  }, [])
 
   // Usuário clicou "Atualizar" no banner: aplica o SW waiting.
   const applyUpdate = useCallback(() => {
@@ -78,17 +74,14 @@ export function useServiceWorkerUpdate() {
       })
     }
 
-    // Auto-aplicar SW waiting na abertura do app (sem interromper o usuário).
-    // Cobertura para SW que ficou waiting de uma sessão anterior.
+    // Verificar SW waiting na abertura do app.
+    // SEMPRE mostrar banner (não auto-aplicar): garante comportamento
+    // consistente entre Android (que costuma ter SW waiting no mount)
+    // e iOS (que descobre updates durante a sessão).
     navigator.serviceWorker.getRegistration().then(registration => {
       swRegistrationRef.current = registration ?? null
       if (registration?.waiting) {
-        // SW já estava waiting antes do app abrir: reload imediato é seguro.
-        wasWaitingOnMount.current = true
-        mountCheckDone.current = true
-        applyWaitingSW()
-      } else {
-        mountCheckDone.current = true
+        setHasUpdateAvailable(true)
       }
       if (registration) {
         registration.addEventListener('updatefound', handleUpdateFound)
@@ -98,13 +91,19 @@ export function useServiceWorkerUpdate() {
     // Quando o SW assume o controle (controllerchange), recarregar.
     // Só recarrega se nós dispararmos SKIP_WAITING; ativação por outro
     // motivo não interfere no uso.
-    // Pequeno atraso (300ms) para garantir que o activate event do SW
-    // terminou de purgar caches e fazer clients.claim() antes do reload.
+    // Atraso de 500ms para garantir que o activate event do SW terminou
+    // de purgar caches e fazer clients.claim() antes do reload.
+    // Fallback com location.href para iOS PWA standalone onde reload()
+    // pode nao disparar navegacao corretamente.
     const handleControllerChange = () => {
       if (skipWaitingSent.current) {
         setIsReloading(true)
         setHasUpdateAvailable(false)
-        setTimeout(() => window.location.reload(), 300)
+        setTimeout(() => {
+          window.location.reload()
+          // Se reload() nao funcionar (iOS PWA standalone), tentar location.href
+          setTimeout(() => { window.location.href = window.location.href }, 2000)
+        }, 500)
       }
     }
 
@@ -143,7 +142,7 @@ export function useServiceWorkerUpdate() {
       const reg = swRegistrationRef.current
       if (reg) reg.removeEventListener('updatefound', handleUpdateFound)
     }
-  }, [forceCheck, applyWaitingSW])
+  }, [forceCheck])
 
   return {
     isReloading,

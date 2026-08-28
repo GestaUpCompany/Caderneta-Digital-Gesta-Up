@@ -448,6 +448,244 @@ export async function getLoteCategorias(loteId: string) {
   return data as any[]
 }
 
+/**
+ * Busca lote_categorias de todos os lotes de uma fazenda em uma única query.
+ * Retorna um mapa lote_id -> categorias[].
+ * Substitui N queries individuais por 1 query batch.
+ */
+export async function getLoteCategoriasBatch(fazendaId: string): Promise<Record<string, any[]>> {
+  const client = getSupabaseClient()
+  const { data, error } = await (client as any)
+    .from('lote_categorias')
+    .select('*, lotes!inner(fazenda_id)')
+    .eq('lotes.fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .order('categoria')
+
+  if (error) throw error
+  const map: Record<string, any[]> = {}
+  ;(data || []).forEach((cat: any) => {
+    const loteId = cat.lote_id
+    if (!map[loteId]) map[loteId] = []
+    map[loteId].push(cat)
+  })
+  return map
+}
+
+/**
+ * Busca todos os registros de rodeio de uma fazenda, agrupados por lote_id.
+ * Para cada lote, pega apenas a data mais recente.
+ * Substitui N queries getLastRodeioDate por 1 query batch.
+ */
+export async function getLastRodeioDateBatch(fazendaId: string): Promise<Record<string, string | null>> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('registros_rodeio')
+    .select('lote_id, data')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+
+  if (error) throw error
+  const map: Record<string, string | null> = {}
+  ;(data || []).forEach((r: any) => {
+    if (r.lote_id && !(r.lote_id in map)) {
+      map[r.lote_id] = r.data
+    }
+  })
+  return map
+}
+
+/**
+ * Busca registros de suplementação de uma fazenda agrupados por lote_id.
+ * Substitui N queries getRegistrosSuplementacaoByLote por 1 query batch.
+ */
+export async function getRegistrosSuplementacaoBatch(fazendaId: string): Promise<Record<string, any[]>> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('registros_suplementacao')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+
+  if (error) throw error
+  const map: Record<string, any[]> = {}
+  ;(data || []).forEach((r: any) => {
+    if (r.lote_id) {
+      if (!map[r.lote_id]) map[r.lote_id] = []
+      map[r.lote_id].push(r)
+    }
+  })
+  return map
+}
+
+/**
+ * Busca registros de leitura de cocho de uma fazenda agrupados por lote_id.
+ * Substitui N queries getRegistrosLeituraCochoByLote por 1 query batch.
+ */
+export async function getRegistrosLeituraCochoBatch(fazendaId: string): Promise<Record<string, any[]>> {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await client
+    .from('registros_leitura_cocho')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+
+  if (error) throw error
+  const map: Record<string, any[]> = {}
+  ;(data || []).forEach((r: any) => {
+    if (r.lote_id) {
+      if (!map[r.lote_id]) map[r.lote_id] = []
+      map[r.lote_id].push(r)
+    }
+  })
+  return map
+}
+
+/**
+ * Busca registros de oferta de trato de uma fazenda, agrupados por lote_id.
+ * Para cada lote, calcula o total_kg do dia mais recente.
+ * Substitui N queries getUltimoTratoTotalByLote por 1 query batch.
+ */
+export async function getUltimoTratoTotalBatch(fazendaId: string): Promise<Record<string, { data: string; total_kg: number } | null>> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: result, error } = await client
+    .from('registros_oferta_trato')
+    .select('lote_id, data, kg_ofertado_real')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .not('kg_ofertado_real', 'is', null)
+    .order('data', { ascending: false })
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  if (!result || result.length === 0) return {}
+
+  // Agrupar por lote_id, depois por data, pegar o dia mais recente de cada lote
+  const porLote: Record<string, any[]> = {}
+  result.forEach((r: any) => {
+    if (r.lote_id) {
+      if (!porLote[r.lote_id]) porLote[r.lote_id] = []
+      porLote[r.lote_id].push(r)
+    }
+  })
+
+  const map: Record<string, { data: string; total_kg: number } | null> = {}
+  for (const [loteId, registros] of Object.entries(porLote)) {
+    const dataMaisRecente = registros[0].data
+    const tratosDoDia = registros.filter((r: any) => r.data === dataMaisRecente)
+    const totalKg = tratosDoDia.reduce((sum: number, r: any) => sum + (Number(r.kg_ofertado_real) || 0), 0)
+    map[loteId] = { data: dataMaisRecente, total_kg: totalKg }
+  }
+  return map
+}
+
+/**
+ * Busca planos nutricionais ativos de todos os lotes de uma fazenda em uma única query.
+ * Retorna um mapa lote_id -> plano.
+ *
+ * NOTA: Esta função busca apenas os dados básicos do plano (id, data_inicio, formulacao_id).
+ * O cálculo completo de pesoInicioKgCab, gmdEfetivo e pesoVivoAtualKgCab exige queries
+ * adicionais em plano_categoria_personalizacao e formulacao_categorias_gmd que não são
+ * batchable sem replicar toda a lógica de getPlanoNutricionalAtivoByLoteId.
+ * Para o warm cache, os lotes que têm plano ativo são identificados aqui, e a função
+ * individual é chamada em paralelo para cada um (no warmAllCadastroCache) para obter
+ * os dados completos. Os lotes sem plano ativo não precisam de query individual.
+ */
+export async function getPlanosNutricionaisAtivosBatch(fazendaId: string): Promise<Record<string, any>> {
+  const client = getSupabaseClient()
+  const { data: planos, error } = await (client as any)
+    .from('planos_nutricionais')
+    .select('id, data_inicio, formulacao_id, lote_id')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .is('data_fim', null)
+
+  if (error) throw error
+  if (!planos || planos.length === 0) return {}
+
+  // Retornar apenas os dados básicos; o cálculo completo será feito pela função individual
+  const map: Record<string, any> = {}
+  planos.forEach((plano: any) => {
+    map[plano.lote_id] = {
+      lote_id: plano.lote_id,
+      plano_id: plano.id,
+      data_inicio: plano.data_inicio,
+      formulacao_id: plano.formulacao_id,
+      // Campos abaixo serão preenchidos pela função individual
+      pesoInicioKgCab: null,
+      gmdEfetivo: null,
+      dataAjustePeso: null,
+      pesoVivoAtualKgCab: null,
+      formulacaoNome: null,
+      _needsFullFetch: true,
+    }
+  })
+  return map
+}
+
+/**
+ * Busca registros de pastagens de uma fazenda para calcular última entrada,
+ * última saída e último status de todos os pastos em uma única query.
+ * Substitui 3N queries (entrada + saída + status por pasto) por 1 query batch.
+ */
+export async function getPastosUltimasDatasBatch(
+  fazendaId: string
+): Promise<{
+  ultimaEntrada: Record<string, string | null>
+  ultimaSaida: Record<string, string | null>
+  ultimoStatus: Record<string, 'entrada' | 'saida' | null>
+}> {
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('registros_pastagens')
+    .select('pasto_entrada, pasto_saida, created_at')
+    .eq('fazenda_id', fazendaId)
+    .not('created_at', 'is', null)
+    .order('created_at', { ascending: false })
+
+  if (error && error.code !== 'PGRST116') throw error
+
+  const ultimaEntrada: Record<string, string | null> = {}
+  const ultimaSaida: Record<string, string | null> = {}
+
+  // Primeira passagem: popular ultimaEntrada e ultimaSaida
+  // Data ordenada DESC, então o primeiro registro encontrado para cada pasto é o mais recente
+  ;(data || []).forEach((r: any) => {
+    if (r.pasto_entrada && !(r.pasto_entrada in ultimaEntrada)) {
+      ultimaEntrada[r.pasto_entrada] = r.created_at
+    }
+    if (r.pasto_saida && !(r.pasto_saida in ultimaSaida)) {
+      ultimaSaida[r.pasto_saida] = r.created_at
+    }
+  })
+
+  // Segunda passagem: calcular ultimoStatus comparando timestamps
+  // (só pode ser feito depois que ambos os maps estão totalmente populados)
+  const ultimoStatus: Record<string, 'entrada' | 'saida' | null> = {}
+  const allPastos = new Set([...Object.keys(ultimaEntrada), ...Object.keys(ultimaSaida)])
+  for (const pastoNome of allPastos) {
+    const entradaTime = ultimaEntrada[pastoNome]
+    const saidaTime = ultimaSaida[pastoNome]
+    if (!entradaTime && !saidaTime) {
+      ultimoStatus[pastoNome] = null
+    } else if (!entradaTime) {
+      ultimoStatus[pastoNome] = 'saida'
+    } else if (!saidaTime) {
+      ultimoStatus[pastoNome] = 'entrada'
+    } else {
+      // Comparar timestamps (mesma lógica do getUltimoStatusPasto original)
+      const entradaTs = new Date(entradaTime).getTime()
+      const saidaTs = new Date(saidaTime).getTime()
+      ultimoStatus[pastoNome] = entradaTs > saidaTs ? 'entrada' : 'saida'
+    }
+  }
+
+  return { ultimaEntrada, ultimaSaida, ultimoStatus }
+}
+
 export async function getLoteDetalhesComCategorias(loteId: string) {
   const categorias = await getLoteCategorias(loteId)
   

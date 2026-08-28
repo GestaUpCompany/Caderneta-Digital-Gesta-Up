@@ -123,6 +123,21 @@ export function useSync() {
     }
   }, [syncRequestId, configurado, fazendaId, runSync])
 
+  // Listener: SW disparou Background Sync (sync-registros) quando a conexão retornou.
+  // O SW envia BG_SYNC_REGISTROS para clients ativos; se o app estiver em background,
+  // isso acelera o sync em vez de esperar o próximo tick do polling de 10s.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'BG_SYNC_REGISTROS') {
+        console.log('[useSync] BG_SYNC_REGISTROS recebido, disparando sync')
+        runSync()
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handleSWMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage)
+  }, [runSync])
+
   useEffect(() => {
     updatePendingCount()
   }, [updatePendingCount])
