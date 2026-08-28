@@ -374,7 +374,21 @@ export default function RodeioPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      setRegistroSalvo({ ...result.registro, metaRodeio: metaRodeioInfo })
+      // Recalcular metaRodeio considerando o rodeio recém-salvo como o último.
+      // O metaRodeioInfo atual foi calculado na seleção do lote, antes do save,
+      // e reflete o rodeio anterior, não o de hoje. Sem isso, o texto
+      // compartilhado mostra "Próximo rodeio: HOJE" mesmo após registrar hoje.
+      const metaDias = detalhesLote?.meta_intervalo_rodeio_dias || 0
+      const metaRodeioAtualizado = metaDias > 0
+        ? {
+            metaDias,
+            diasDesdeUltimo: 0,
+            diasAteProximo: metaDias,
+            isDentroMeta: true,
+            hasRecord: true,
+          }
+        : metaRodeioInfo
+      setRegistroSalvo({ ...result.registro, metaRodeio: metaRodeioAtualizado })
       setShowSuccessModal(true)
       setForm(makeInitial())
     }
