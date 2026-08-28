@@ -188,6 +188,7 @@ export interface ReproducaoLote {
     peso_cria_kg: number | null
     id_brinco_cria: string | null
     id_brinco_mae: string | null
+    id_brinco_mae_adotiva: string | null
     escore_matriz: string | null
     docilidade_matriz: number | null
     observacao_parto: string | null

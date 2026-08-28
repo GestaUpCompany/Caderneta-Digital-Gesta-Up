@@ -151,6 +151,13 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         escore_matriz: registro.escoreMatriz || null,
         docilidade_matriz: registro.docilidadeMatriz ? Number(registro.docilidadeMatriz) : null,
         parto_vinculo_id: registro.partoVinculoId || null,
+        // Mãe adotiva (guacho)
+        individuo_id_mae_adotiva: registro.individuoIdMaeAdotiva || null,
+        id_manejo_mae_adotiva: registro.idManejoMaeAdotiva || null,
+        id_brinco_mae_adotiva: registro.idBrincoMaeAdotiva || null,
+        id_chip_mae_adotiva: registro.idChipMaeAdotiva || null,
+        categoria_mae_adotiva: registro.categoriaMaeAdotiva || null,
+        raca_mae_adotiva: registro.racaMaeAdotiva || null,
       }
     case 'pastagens':
       return {

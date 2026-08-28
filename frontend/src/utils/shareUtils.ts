@@ -1673,6 +1673,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       if (registro.docilidadeMatriz) {
         texto += `DOCILIDADE MATRIZ: *${registro.docilidadeMatriz}*\n`
       }
+      // Mãe adotiva (guacho)
+      if (registro.individuoIdMaeAdotiva || registro.idManejoMaeAdotiva || registro.idBrincoMaeAdotiva || registro.idChipMaeAdotiva) {
+        texto += `\nMÃE ADOTIVA (GUACHO)\n`
+        if (registro.idManejoMaeAdotiva) texto += `ID MANEJO ADOTIVA: *${registro.idManejoMaeAdotiva}*\n`
+        if (registro.idBrincoMaeAdotiva) texto += `ID BRINCO ADOTIVA: *${registro.idBrincoMaeAdotiva}*\n`
+        if (registro.idChipMaeAdotiva) texto += `ID CHIP ADOTIVA: *${registro.idChipMaeAdotiva}*\n`
+        if (registro.categoriaMaeAdotiva) texto += `CATEGORIA ADOTIVA: *${registro.categoriaMaeAdotiva}*\n`
+        if (registro.racaMaeAdotiva) texto += `RAÇA ADOTIVA: *${registro.racaMaeAdotiva}*\n`
+      }
       texto += `\n`
 
       // Seção: IDENTIFICAÇÃO DA CRIA

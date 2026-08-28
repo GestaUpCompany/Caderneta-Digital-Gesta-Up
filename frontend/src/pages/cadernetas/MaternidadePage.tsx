@@ -106,6 +106,7 @@ interface FormState {
   pastoId: string
   // Parto
   tipoParto: string[]
+  partoAuxiliado: boolean
   problemasParto: string[]
   gemelos: boolean
   gemelosNatimorto: boolean
@@ -140,6 +141,20 @@ interface FormState {
   docilidadeMatriz: string
   racaMae: string
   categoriaAnimalMae: string
+  // Mãe adotiva (guacho 1ª cria)
+  idManejoMaeAdotiva: string
+  idBrincoMaeAdotiva: string
+  idChipMaeAdotiva: string
+  individuoIdMaeAdotiva: string
+  categoriaMaeAdotiva: string
+  racaMaeAdotiva: string
+  // Mãe adotiva (guacho 2ª cria)
+  idManejoMaeAdotiva2: string
+  idBrincoMaeAdotiva2: string
+  idChipMaeAdotiva2: string
+  individuoIdMaeAdotiva2: string
+  categoriaMaeAdotiva2: string
+  racaMaeAdotiva2: string
 }
 
 const makeInitial = (): FormState => ({
@@ -148,6 +163,7 @@ const makeInitial = (): FormState => ({
   loteId: '',
   pastoId: '',
   tipoParto: [],
+  partoAuxiliado: false,
   problemasParto: [],
   gemelos: false,
   gemelosNatimorto: false,
@@ -179,6 +195,18 @@ const makeInitial = (): FormState => ({
   docilidadeMatriz: '',
   racaMae: '',
   categoriaAnimalMae: '',
+  idManejoMaeAdotiva: '',
+  idBrincoMaeAdotiva: '',
+  idChipMaeAdotiva: '',
+  individuoIdMaeAdotiva: '',
+  categoriaMaeAdotiva: '',
+  racaMaeAdotiva: '',
+  idManejoMaeAdotiva2: '',
+  idBrincoMaeAdotiva2: '',
+  idChipMaeAdotiva2: '',
+  individuoIdMaeAdotiva2: '',
+  categoriaMaeAdotiva2: '',
+  racaMaeAdotiva2: '',
 })
 
 export default function MaternidadePage() {
@@ -279,6 +307,64 @@ export default function MaternidadePage() {
         return null
       }
     },
+
+    // Mãe adotiva (guacho 1ª cria)
+    idManejoMaeAdotiva: {
+      custom: (value: string) => {
+        if (form.guachoCria) {
+          const hasManejo = value && value.trim() !== ''
+          const hasBrinco = form.idBrincoMaeAdotiva && form.idBrincoMaeAdotiva.trim() !== ''
+          const hasChip = form.idChipMaeAdotiva && form.idChipMaeAdotiva.trim() !== ''
+          if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip da mãe adotiva'
+        }
+        return null
+      }
+    },
+    racaMaeAdotiva: {
+      custom: (value: string) => {
+        if (form.guachoCria && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+          if (!value || value.trim() === '') return 'Raça da mãe adotiva é obrigatória'
+        }
+        return null
+      }
+    },
+    categoriaMaeAdotiva: {
+      custom: (value: string) => {
+        if (form.guachoCria && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+          if (!value || value.trim() === '') return 'Classificação da matriz adotiva é obrigatória'
+        }
+        return null
+      }
+    },
+
+    // Mãe adotiva (guacho 2ª cria)
+    idManejoMaeAdotiva2: {
+      custom: (value: string) => {
+        if (form.guachoCria2) {
+          const hasManejo = value && value.trim() !== ''
+          const hasBrinco = form.idBrincoMaeAdotiva2 && form.idBrincoMaeAdotiva2.trim() !== ''
+          const hasChip = form.idChipMaeAdotiva2 && form.idChipMaeAdotiva2.trim() !== ''
+          if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip da mãe adotiva da 2ª cria'
+        }
+        return null
+      }
+    },
+    racaMaeAdotiva2: {
+      custom: (value: string) => {
+        if (form.guachoCria2 && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
+          if (!value || value.trim() === '') return 'Raça da mãe adotiva da 2ª cria é obrigatória'
+        }
+        return null
+      }
+    },
+    categoriaMaeAdotiva2: {
+      custom: (value: string) => {
+        if (form.guachoCria2 && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
+          if (!value || value.trim() === '') return 'Classificação da matriz adotiva da 2ª cria é obrigatória'
+        }
+        return null
+      }
+    },
   }
 
   const { isValid, errors: validationErrors } = useFormValidation(form, validationRules)
@@ -304,10 +390,32 @@ export default function MaternidadePage() {
   }
 
   const handleTipoPartoChange = (newTipoParto: string[]) => {
-    setForm(prev => ({
-      ...prev,
-      tipoParto: newTipoParto
-    }))
+    setForm(prev => {
+      const prevParto = prev.tipoParto
+      // Exclusão mútua: Normal e Cesárea não podem coexistir
+      // Se selecionou Cesárea, remove Normal (e consequentemente Auxiliado)
+      if (newTipoParto.includes('Cesárea') && !prevParto.includes('Cesárea')) {
+        return {
+          ...prev,
+          tipoParto: ['Cesárea'],
+          partoAuxiliado: false,
+        }
+      }
+      // Se selecionou Normal enquanto Cesárea estava marcada, remove Cesárea
+      if (newTipoParto.includes('Normal') && prevParto.includes('Cesárea')) {
+        return {
+          ...prev,
+          tipoParto: ['Normal'],
+          partoAuxiliado: prev.partoAuxiliado,
+        }
+      }
+      // Fluxo normal: desmarcar auxiliado se Normal foi removido
+      return {
+        ...prev,
+        tipoParto: newTipoParto,
+        partoAuxiliado: newTipoParto.includes('Normal') ? prev.partoAuxiliado : false,
+      }
+    })
   }
 
   const handleProblemasPartoChange = (newProblemas: string[]) => {
@@ -336,11 +444,27 @@ export default function MaternidadePage() {
   }
 
   const handleGuachoCriaToggle = (checked: boolean) => {
-    setForm(prev => ({ ...prev, guachoCria: checked }))
+    setForm(prev => ({
+      ...prev,
+      guachoCria: checked,
+      // Limpar campos da adotiva ao desmarcar
+      ...(checked ? {} : {
+        idManejoMaeAdotiva: '', idBrincoMaeAdotiva: '', idChipMaeAdotiva: '',
+        individuoIdMaeAdotiva: '', categoriaMaeAdotiva: '', racaMaeAdotiva: '',
+      })
+    }))
   }
 
   const handleGuachoCria2Toggle = (checked: boolean) => {
-    setForm(prev => ({ ...prev, guachoCria2: checked }))
+    setForm(prev => ({
+      ...prev,
+      guachoCria2: checked,
+      // Limpar campos da adotiva ao desmarcar
+      ...(checked ? {} : {
+        idManejoMaeAdotiva2: '', idBrincoMaeAdotiva2: '', idChipMaeAdotiva2: '',
+        individuoIdMaeAdotiva2: '', categoriaMaeAdotiva2: '', racaMaeAdotiva2: '',
+      })
+    }))
   }
 
   const getError = (field: string) => {
@@ -468,8 +592,12 @@ export default function MaternidadePage() {
       ...(form.guachoCria2 ? ['Guacho'] : []),
     ].join(' | ')
 
-    // Tipo de parto: incluir 'Gêmeos' se marcado
-    const tipoPartoFinal = form.gemelos ? [...form.tipoParto, 'Gêmeos'] : form.tipoParto
+    // Tipo de parto: incluir 'Auxiliado' se marcado e 'Gêmeos' se marcado
+    const tipoPartoFinal = [
+      ...form.tipoParto,
+      ...(form.partoAuxiliado ? ['Auxiliado'] : []),
+      ...(form.gemelos ? ['Gêmeos'] : []),
+    ]
 
     // Criar indivíduo da mãe se ela não existir na base (nova mãe via modal NOVO)
     let individuoIdMaeFinal = form.individuoIdMae
@@ -500,6 +628,65 @@ export default function MaternidadePage() {
       }
     }
 
+    // Criar indivíduo da mãe adotiva (guacho 1ª cria) se não existir na base
+    // A categoria deriva da classificação: Nulípara → Vaca Vazia, demais → Vaca Parida
+    const categoriaAdotiva = (cat: string) => cat === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'
+    let individuoIdMaeAdotivaFinal = form.individuoIdMaeAdotiva
+    if (form.guachoCria && !individuoIdMaeAdotivaFinal && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+      if (testModeAtivo) {
+        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe adotiva no Supabase')
+      } else {
+        try {
+          const novaAdotiva = await createIndividuo({
+            fazenda_id: fazendaId,
+            id_manejo: form.idManejoMaeAdotiva || null,
+            id_brinco: form.idBrincoMaeAdotiva || null,
+            id_chip: form.idChipMaeAdotiva || null,
+            sexo: 'Fêmea',
+            raca: form.racaMaeAdotiva || null,
+            categoria: categoriaAdotiva(form.categoriaMaeAdotiva),
+            classificacao_matriz: form.categoriaMaeAdotiva || null,
+            status: 'Vivo',
+            data_nascimento: null,
+            lote_atual: form.loteId || null,
+            pasto_atual: form.pastoId || null,
+            origem: 'Cadastro Manual',
+          })
+          individuoIdMaeAdotivaFinal = novaAdotiva?.id || ''
+        } catch (err) {
+          console.error('Erro ao criar indivíduo da mãe adotiva:', err)
+        }
+      }
+    }
+
+    // Criar indivíduo da mãe adotiva (guacho 2ª cria) se não existir na base
+    let individuoIdMaeAdotiva2Final = form.individuoIdMaeAdotiva2
+    if (form.guachoCria2 && !individuoIdMaeAdotiva2Final && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
+      if (testModeAtivo) {
+        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe adotiva 2 no Supabase')
+      } else {
+        try {
+          const novaAdotiva2 = await createIndividuo({
+            fazenda_id: fazendaId,
+            id_manejo: form.idManejoMaeAdotiva2 || null,
+            id_brinco: form.idBrincoMaeAdotiva2 || null,
+            id_chip: form.idChipMaeAdotiva2 || null,
+            sexo: 'Fêmea',
+            raca: form.racaMaeAdotiva2 || null,
+            categoria: categoriaAdotiva(form.categoriaMaeAdotiva2),
+            classificacao_matriz: form.categoriaMaeAdotiva2 || null,
+            data_nascimento: null,
+            lote_atual: form.loteId || null,
+            pasto_atual: form.pastoId || null,
+            origem: 'Cadastro Manual',
+          })
+          individuoIdMaeAdotiva2Final = novaAdotiva2?.id || ''
+        } catch (err) {
+          console.error('Erro ao criar indivíduo da mãe adotiva 2:', err)
+        }
+      }
+    }
+
     // Função auxiliar para criar indivíduo de uma cria
     const criarIndividuoCria = async (dadosCria: {
       idProvisorio: string
@@ -508,6 +695,7 @@ export default function MaternidadePage() {
       sexo: string
       raca: string
       peso: string
+      maeAdotivaId?: string
     }): Promise<string> => {
       if (testModeAtivo) {
         console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da cria no Supabase')
@@ -530,6 +718,7 @@ export default function MaternidadePage() {
           origem: 'Nascimento',
           data_entrada_fazenda: dataNascimentoIso || null,
           mae: individuoIdMaeFinal || null,
+          mae_adotiva_id: dadosCria.maeAdotivaId || null,
           id_brinco_mae: form.idBrincoMae || null,
           id_chip_mae: form.idChipMae || null,
           lote_atual: form.loteId || null,
@@ -553,6 +742,7 @@ export default function MaternidadePage() {
       sexo: form.sexo,
       raca: form.raca,
       peso: form.pesoCria,
+      maeAdotivaId: form.guachoCria ? (individuoIdMaeAdotivaFinal || undefined) : undefined,
     })
 
     // Criar indivíduo da 2ª cria (se gêmeos e 2ª cria viva)
@@ -565,6 +755,7 @@ export default function MaternidadePage() {
         sexo: form.sexo2,
         raca: form.raca2,
         peso: form.pesoCria2,
+        maeAdotivaId: form.guachoCria2 ? (individuoIdMaeAdotiva2Final || undefined) : undefined,
       })
     }
 
@@ -601,6 +792,13 @@ export default function MaternidadePage() {
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
       docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
       partoVinculoId,
+      // Mãe adotiva (guacho)
+      individuoIdMaeAdotiva: form.guachoCria ? (individuoIdMaeAdotivaFinal || null) : null,
+      idManejoMaeAdotiva: form.guachoCria ? form.idManejoMaeAdotiva : null,
+      idBrincoMaeAdotiva: form.guachoCria ? form.idBrincoMaeAdotiva : null,
+      idChipMaeAdotiva: form.guachoCria ? form.idChipMaeAdotiva : null,
+      categoriaMaeAdotiva: form.guachoCria ? form.categoriaMaeAdotiva : null,
+      racaMaeAdotiva: form.guachoCria ? form.racaMaeAdotiva : null,
       usuario: usuario,
     })
 
@@ -639,6 +837,13 @@ export default function MaternidadePage() {
           escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
           docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
           partoVinculoId,
+          // Mãe adotiva (guacho 2ª cria)
+          individuoIdMaeAdotiva: form.guachoCria2 ? (individuoIdMaeAdotiva2Final || null) : null,
+          idManejoMaeAdotiva: form.guachoCria2 ? form.idManejoMaeAdotiva2 : null,
+          idBrincoMaeAdotiva: form.guachoCria2 ? form.idBrincoMaeAdotiva2 : null,
+          idChipMaeAdotiva: form.guachoCria2 ? form.idChipMaeAdotiva2 : null,
+          categoriaMaeAdotiva: form.guachoCria2 ? form.categoriaMaeAdotiva2 : null,
+          racaMaeAdotiva: form.guachoCria2 ? form.racaMaeAdotiva2 : null,
         })
       } catch (err) {
         console.error('Erro ao salvar registro da 2ª cria (gêmeos):', err)
@@ -908,6 +1113,29 @@ export default function MaternidadePage() {
             dataField="tipoParto"
           />
 
+          {/* Sub-opção: Auxiliado (apenas quando Normal está selecionado) */}
+          {form.tipoParto.includes('Normal') && (
+            <div className="ml-2">
+              <label className={`
+                cursor-pointer rounded-xl border-2 px-4 py-2.5
+                transition-all active:scale-95
+                flex items-center justify-center gap-2
+                ${form.partoAuxiliado
+                  ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
+                  : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
+              `}>
+                <input
+                  type="checkbox"
+                  checked={form.partoAuxiliado}
+                  onChange={(e) => setForm(prev => ({ ...prev, partoAuxiliado: e.target.checked }))}
+                  className="sr-only"
+                />
+                <span className="text-2xl sm:text-3xl">🤝</span>
+                <span className="text-sm font-bold tracking-tight">AUXILIADO</span>
+              </label>
+            </div>
+          )}
+
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-base font-bold text-gray-900 mb-3">PROBLEMAS DE PARTO <span className="text-sm font-normal text-gray-500">(opcional)</span></h3>
             <CheckboxGroup
@@ -1086,7 +1314,78 @@ export default function MaternidadePage() {
               />
               <span className="text-base font-bold tracking-tight">GUACHO</span>
             </label>
+            <p className="text-xs text-gray-500 mt-2">
+              Bezerro abandonado pela mãe biológica e adotado por outra. Informe a mãe adotiva abaixo.
+            </p>
           </div>
+
+          {/* Mãe adotiva da 1ª cria (visível apenas quando guacho) */}
+          {form.guachoCria && (
+            <div className="bg-green-50 rounded-xl p-4 border border-green-200 flex flex-col gap-4">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-base font-bold text-green-800">MÃE ADOTIVA</span>
+              </div>
+              <AnimalIdentifier
+                fazendaId={fazendaId}
+                valueManejo={form.idManejoMaeAdotiva}
+                valueBrinco={form.idBrincoMaeAdotiva}
+                valueChip={form.idChipMaeAdotiva}
+                onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
+                  setForm(prev => ({
+                    ...prev,
+                    idManejoMaeAdotiva: idManejo,
+                    idBrincoMaeAdotiva: idBrinco,
+                    idChipMaeAdotiva: idChip,
+                    individuoIdMaeAdotiva: individuoId || '',
+                    // Preencher raça e classificação do animal existente
+                    racaMaeAdotiva: animalData?.raca || '',
+                    categoriaMaeAdotiva: animalData?.classificacao_matriz || '',
+                  }))
+                }}
+                required={true}
+                showAnimalCard={true}
+              />
+              {/* Dados da nova mãe adotiva (quando não encontrada na base) */}
+              {!form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva) && (
+                <>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500 font-medium">SEXO</p>
+                      <p className="text-gray-900 font-bold">Fêmea</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 font-medium">STATUS</p>
+                      <p className="text-gray-900 font-bold">Vivo</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 font-medium">CATEGORIA</p>
+                      <p className="text-gray-900 font-bold">{form.categoriaMaeAdotiva === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'}</p>
+                    </div>
+                  </div>
+                  <Radio
+                    name="racaMaeAdotiva"
+                    label={<span>RAÇA <span className="text-red-500">*</span></span>}
+                    options={racasDisponiveis.length > 0
+                      ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
+                      : RACAS_PADRAO}
+                    value={form.racaMaeAdotiva}
+                    onChange={set('racaMaeAdotiva')}
+                    error={getError('racaMaeAdotiva')}
+                    gridCols={2}
+                  />
+                  <Radio
+                    name="categoriaMaeAdotiva"
+                    label={<span>CLASSIFICAÇÃO DA MATRIZ ADOTIVA <span className="text-red-500">*</span></span>}
+                    options={CATEGORIAS_MAE}
+                    value={form.categoriaMaeAdotiva}
+                    onChange={set('categoriaMaeAdotiva')}
+                    error={getError('categoriaMaeAdotiva')}
+                    gridCols={2}
+                  />
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Seção 5: 2ª Cria (condicional - apenas para gêmeos) */}
@@ -1182,7 +1481,78 @@ export default function MaternidadePage() {
                     />
                     <span className="text-base font-bold tracking-tight">GUACHO</span>
                   </label>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Bezerro abandonado pela mãe biológica e adotado por outra. Informe a mãe adotiva abaixo.
+                  </p>
                 </div>
+
+                {/* Mãe adotiva da 2ª cria (visível apenas quando guacho) */}
+                {form.guachoCria2 && (
+                  <div className="bg-green-50 rounded-xl p-4 border border-green-200 flex flex-col gap-4">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-base font-bold text-green-800">MÃE ADOTIVA DA 2ª CRIA</span>
+                    </div>
+                    <AnimalIdentifier
+                      fazendaId={fazendaId}
+                      valueManejo={form.idManejoMaeAdotiva2}
+                      valueBrinco={form.idBrincoMaeAdotiva2}
+                      valueChip={form.idChipMaeAdotiva2}
+                      onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
+                        setForm(prev => ({
+                          ...prev,
+                          idManejoMaeAdotiva2: idManejo,
+                          idBrincoMaeAdotiva2: idBrinco,
+                          idChipMaeAdotiva2: idChip,
+                          individuoIdMaeAdotiva2: individuoId || '',
+                          // Preencher raça e classificação do animal existente
+                          racaMaeAdotiva2: animalData?.raca || '',
+                          categoriaMaeAdotiva2: animalData?.classificacao_matriz || '',
+                        }))
+                      }}
+                      required={true}
+                      showAnimalCard={true}
+                    />
+                    {/* Dados da nova mãe adotiva (quando não encontrada na base) */}
+                    {!form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2) && (
+                      <>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-gray-500 font-medium">SEXO</p>
+                            <p className="text-gray-900 font-bold">Fêmea</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 font-medium">STATUS</p>
+                            <p className="text-gray-900 font-bold">Vivo</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 font-medium">CATEGORIA</p>
+                            <p className="text-gray-900 font-bold">{form.categoriaMaeAdotiva2 === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'}</p>
+                          </div>
+                        </div>
+                        <Radio
+                          name="racaMaeAdotiva2"
+                          label={<span>RAÇA <span className="text-red-500">*</span></span>}
+                          options={racasDisponiveis.length > 0
+                            ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
+                            : RACAS_PADRAO}
+                          value={form.racaMaeAdotiva2}
+                          onChange={set('racaMaeAdotiva2')}
+                          error={getError('racaMaeAdotiva2')}
+                          gridCols={2}
+                        />
+                        <Radio
+                          name="categoriaMaeAdotiva2"
+                          label={<span>CLASSIFICAÇÃO DA MATRIZ ADOTIVA <span className="text-red-500">*</span></span>}
+                          options={CATEGORIAS_MAE}
+                          value={form.categoriaMaeAdotiva2}
+                          onChange={set('categoriaMaeAdotiva2')}
+                          error={getError('categoriaMaeAdotiva2')}
+                          gridCols={2}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
               </>
             )}
 

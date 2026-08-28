@@ -397,3 +397,25 @@ graph.path ou 	urf.shortestPath), edi��o de geometrias no PWA (s� no Paine
 - @capacitor/geolocation precisa de permiss�o de localiza��o no AndroidManifest.xml e Info.plist.
 
 Disparador: quando mencionar "mapa KML", "georreferenciamento", "pastos no mapa", "GPS no PWA", "MapLibre", "PostGIS", "geometria de pasto", "dist�ncia at� pasto", ou retomar a implementa��o de mapas, ler esta se��o e o GestaUp-Cadernetas-Gestao/docs/ARQUITETURA_MAPA_KML.md.
+## Mae adotiva para guacho (28/08/2026)
+
+**Funcionalidade**: o checkbox GUACHO em MaternidadePage agora identifica o bezerro abandonado pela mae biologica e adotado por outra vaca. A mae adotiva e selecionada via AnimalIdentifier, com criacao de individuo quando nao existe na base (mesmo padrao da biologica: categoria Vaca Parida, classificacao de matriz selecionavel, raca auto-preenchida da raca da cria correspondente).
+
+**Schema (migration $(Get-Date -Format 'yyyyMMddHHmmss')_add_mae_adotiva.sql, aplicada via MCP)**:
+- individuos.mae_adotiva_id (UUID, FK self-reference individuos_mae_adotiva_id_fkey, ON DELETE SET NULL). A biologica continua em mae.
+- egistros_maternidade: 6 colunas novas (individuo_id_mae_adotiva, id_manejo_mae_adotiva, id_brinco_mae_adotiva, id_chip_mae_adotiva, categoria_mae_adotiva, aca_mae_adotiva).
+- Indice idx_individuos_mae_adotiva para consultas de adocoes.
+
+**PWA (MaternidadePage.tsx)**:
+- Checkbox GUACHO da 1a cria revela AnimalIdentifier + bloco de nova mae adotiva (raca, classificacao de matriz).
+- Mesmo para 2a cria quando gemeos.
+- Raca da adotiva e auto-preenchida com a raca da cria correspondente ao marcar o checkbox.
+- criarIndividuoCria recebe maeAdotivaId e grava em individuos.mae_adotiva_id.
+- salvarRegistro envia os 6 campos de adotiva no payload.
+- syncService mapeia para individuo_id_mae_adotiva, id_manejo_mae_adotiva, etc.
+- Validacao: quando guacho, pelo menos um ID da adotiva e obrigatorio; raca e classificacao de matriz sao obrigatorias se a adotiva for nova.
+- A observacao 'Guacho' continua sendo adicionada para compatibilidade com listagens/PDFs legados.
+
+**Painel Web**: a RPC get_relatorio_lote_ciclo_vida precisa ser atualizada para incluir id_brinco_mae_adotiva no resultado da secao de reproducao. O tipo TS ReproducaoLote.linhas ja tem o campo opcional.
+
+**Disparador**: quando mencionar guacho, mae adotiva, bezerro abandonado, adocao de bezerro, ou mae_adotiva_id, lembrar que o sistema agora vincula estruturalmente a mae adotiva via FK em individuos.

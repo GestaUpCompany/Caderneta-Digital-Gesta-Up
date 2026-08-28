@@ -69,6 +69,12 @@ export default function ReproducaoCard({ reproducao }: Props) {
                 <span className="text-gray-900 font-bold">{p.id_brinco_mae}</span>
               </div>
             )}
+            {p.id_brinco_mae_adotiva && (
+              <div>
+                <span className="text-gray-500">Brinco mãe adotiva: </span>
+                <span className="text-gray-900 font-bold">{p.id_brinco_mae_adotiva}</span>
+              </div>
+            )}
             {p.id_brinco_cria && (
               <div>
                 <span className="text-gray-500">Brinco cria: </span>

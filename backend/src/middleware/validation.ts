@@ -21,6 +21,12 @@ const schemas: Record<string, Joi.ObjectSchema> = {
     idChipMae: Joi.string().allow('', null),
     individuoIdMae: Joi.string().uuid().allow('', null),
     individuoIdCria: Joi.string().uuid().allow('', null),
+    individuoIdMaeAdotiva: Joi.string().uuid().allow('', null),
+    idManejoMaeAdotiva: Joi.string().allow('', null),
+    idBrincoMaeAdotiva: Joi.string().allow('', null),
+    idChipMaeAdotiva: Joi.string().allow('', null),
+    categoriaMaeAdotiva: Joi.string().allow('', null),
+    racaMaeAdotiva: Joi.string().allow('', null),
     categoriaMae: Joi.string().valid('Nulípara', 'Primípara', 'Secundípara', 'Multípara').required(),
   }).or('idManejoMae', 'idBrincoMae', 'idChipMae'),
 

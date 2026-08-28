@@ -131,6 +131,16 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
   if (!isNonEmptyString(data.categoriaMae))
     errors.push({ field: 'categoriaMae', message: 'Categoria da mãe é obrigatória' })
 
+  // Mãe adotiva (guacho): pelo menos um ID da adotiva é obrigatório
+  const guachoCria = data.guachoCria === true || data.guachoCria === 'true'
+  if (guachoCria) {
+    const hasManejoAdotiva = isNonEmptyString(data.idManejoMaeAdotiva)
+    const hasBrincoAdotiva = isNonEmptyString(data.idBrincoMaeAdotiva)
+    const hasChipAdotiva = isNonEmptyString(data.idChipMaeAdotiva)
+    if (!hasManejoAdotiva && !hasBrincoAdotiva && !hasChipAdotiva)
+      errors.push({ field: 'idManejoMaeAdotiva', message: 'Preencha o ID Manejo, Brinco ou Chip da mãe adotiva' })
+  }
+
   return { isValid: errors.length === 0, errors }
 }
 

@@ -879,6 +879,7 @@ export type Database = {
           idade_atual_meses: number | null
           lote_atual: string | null
           mae: string | null
+          mae_adotiva_id: string | null
           numero_partos: number | null
           origem: string | null
           pai: string | null
@@ -941,6 +942,7 @@ export type Database = {
           idade_atual_meses?: number | null
           lote_atual?: string | null
           mae?: string | null
+          mae_adotiva_id?: string | null
           numero_partos?: number | null
           origem?: string | null
           pai?: string | null
@@ -1003,6 +1005,7 @@ export type Database = {
           idade_atual_meses?: number | null
           lote_atual?: string | null
           mae?: string | null
+          mae_adotiva_id?: string | null
           numero_partos?: number | null
           origem?: string | null
           pai?: string | null
@@ -1061,6 +1064,13 @@ export type Database = {
           {
             foreignKeyName: "individuos_mae_fkey"
             columns: ["mae"]
+            isOneToOne: false
+            referencedRelation: "individuos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "individuos_mae_adotiva_id_fkey"
+            columns: ["mae_adotiva_id"]
             isOneToOne: false
             referencedRelation: "individuos"
             referencedColumns: ["id"]
@@ -3685,6 +3695,7 @@ export type Database = {
       registros_maternidade: {
         Row: {
           categoria_mae: string | null
+          categoria_mae_adotiva: string | null
           created_at: string | null
           data: string
           deleted_at: string | null
@@ -3694,12 +3705,16 @@ export type Database = {
           id: string
           id_brinco_cria: string | null
           id_brinco_mae: string | null
+          id_brinco_mae_adotiva: string | null
           id_chip_cria: string | null
           id_chip_mae: string | null
+          id_chip_mae_adotiva: string | null
           id_manejo_mae: string | null
+          id_manejo_mae_adotiva: string | null
           id_provisorio_cria: string | null
           individuo_id_cria: string | null
           individuo_id_mae: string | null
+          individuo_id_mae_adotiva: string | null
           lote: string | null
           lote_id: string | null
           nome_usuario: string | null
@@ -3709,6 +3724,7 @@ export type Database = {
           parto_vinculo_id: string | null
           peso_cria_kg: number | null
           raca: string | null
+          raca_mae_adotiva: string | null
           sexo: string | null
           sync_status: string | null
           tipo_parto: Json | null
@@ -3718,6 +3734,7 @@ export type Database = {
         }
         Insert: {
           categoria_mae?: string | null
+          categoria_mae_adotiva?: string | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
@@ -3727,12 +3744,16 @@ export type Database = {
           id?: string
           id_brinco_cria?: string | null
           id_brinco_mae?: string | null
+          id_brinco_mae_adotiva?: string | null
           id_chip_cria?: string | null
           id_chip_mae?: string | null
+          id_chip_mae_adotiva?: string | null
           id_manejo_mae?: string | null
+          id_manejo_mae_adotiva?: string | null
           id_provisorio_cria?: string | null
           individuo_id_cria?: string | null
           individuo_id_mae?: string | null
+          individuo_id_mae_adotiva?: string | null
           lote?: string | null
           lote_id?: string | null
           nome_usuario?: string | null
@@ -3742,6 +3763,7 @@ export type Database = {
           parto_vinculo_id?: string | null
           peso_cria_kg?: number | null
           raca?: string | null
+          raca_mae_adotiva?: string | null
           sexo?: string | null
           sync_status?: string | null
           tipo_parto?: Json | null
@@ -3751,6 +3773,7 @@ export type Database = {
         }
         Update: {
           categoria_mae?: string | null
+          categoria_mae_adotiva?: string | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null
@@ -3760,12 +3783,16 @@ export type Database = {
           id?: string
           id_brinco_cria?: string | null
           id_brinco_mae?: string | null
+          id_brinco_mae_adotiva?: string | null
           id_chip_cria?: string | null
           id_chip_mae?: string | null
+          id_chip_mae_adotiva?: string | null
           id_manejo_mae?: string | null
+          id_manejo_mae_adotiva?: string | null
           id_provisorio_cria?: string | null
           individuo_id_cria?: string | null
           individuo_id_mae?: string | null
+          individuo_id_mae_adotiva?: string | null
           lote?: string | null
           lote_id?: string | null
           nome_usuario?: string | null
@@ -3775,6 +3802,7 @@ export type Database = {
           parto_vinculo_id?: string | null
           peso_cria_kg?: number | null
           raca?: string | null
+          raca_mae_adotiva?: string | null
           sexo?: string | null
           sync_status?: string | null
           tipo_parto?: Json | null
@@ -3800,6 +3828,13 @@ export type Database = {
           {
             foreignKeyName: "registros_maternidade_individuo_id_mae_fkey"
             columns: ["individuo_id_mae"]
+            isOneToOne: false
+            referencedRelation: "individuos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_maternidade_individuo_id_mae_adotiva_fkey"
+            columns: ["individuo_id_mae_adotiva"]
             isOneToOne: false
             referencedRelation: "individuos"
             referencedColumns: ["id"]
