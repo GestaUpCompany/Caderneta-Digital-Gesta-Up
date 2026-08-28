@@ -6,6 +6,7 @@ import WelcomePage from './pages/WelcomePage'
 import SyncStatusBar from './components/SyncStatusBar'
 import ConflictModal from './components/ConflictModal'
 import InstallPrompt from './components/InstallPrompt'
+import CadastroSyncOverlay from './components/CadastroSyncOverlay'
 import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate'
 import PageLoader from './components/PageLoader'
 import { useSync } from './hooks/useSync'
@@ -27,6 +28,28 @@ import { useStoragePersistence } from './hooks/useStoragePersistence'
 import TestModeBanner from './components/TestModeBanner'
 import { registerPushSubscription, unregisterPushSubscription } from './services/pushNotificationService'
 import { registerBackgroundSync } from './serviceWorkerRegistration'
+import { incorporateCacheFromSW } from './services/cadastroCache'
+
+// Envia config (token, refresh_token, fazenda_id, supabase_url, anon_key) ao SW.
+// O SW persiste em IndexedDB própria e usa para fazer fetch de cadastro em background.
+function sendConfigToSW(fazendaId: string | undefined) {
+  if (!('serviceWorker' in navigator)) return
+  const token = localStorage.getItem('supabase_token')
+  const refreshToken = localStorage.getItem('supabase_refresh_token')
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!token || !supabaseUrl || !anonKey) return
+  navigator.serviceWorker.ready.then((reg) => {
+    reg.active?.postMessage({
+      type: 'SET_SW_CONFIG',
+      token,
+      refreshToken,
+      fazendaId,
+      supabaseUrl,
+      anonKey,
+    })
+  }).catch(() => {})
+}
 
 // Componente wrapper para tela de reload durante atualização automática
 // e banner de nova versão disponível
@@ -177,7 +200,16 @@ function AppInner() {
       const previousFazendaId = previousFazendaIdRef.current
       const trocouFazenda = previousFazendaId && previousFazendaId !== fazendaId
 
+      // Incorporar cache do SW (Cache API) antes de inicializar do Dexie.
+      // Se o SW fez fetch em background enquanto o app estava fechado, os dados
+      // frescos estão no Cache API e são incorporados ao Dexie instantaneamente.
+      incorporateCacheFromSW(fazendaId).catch((err) => {
+        console.warn('[App] Falha ao incorporar cache do SW:', err)
+      })
+
       initializeCadastroCache(fazendaId)
+      // Enviar config ao SW para que ele possa fazer fetch de cadastro em background
+      sendConfigToSW(fazendaId)
       // Sincronizar mapa da fazenda (verifica versão antes de baixar)
       syncMapaSePreciso(fazendaId).catch((err) => {
         console.warn('[App] Falha ao sincronizar mapa:', err)
@@ -205,6 +237,19 @@ function AppInner() {
       previousFazendaIdRef.current = fazendaId
     }
   }, [fazendaId, isFarmInactive])
+
+  // Re-enviar config ao SW quando o app volta de background.
+  // O token pode ter sido refreshed enquanto o app esteve aberto em background,
+  // e o SW precisa do token fresco para o próximo Periodic Sync.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && fazendaId) {
+        sendConfigToSW(fazendaId)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [fazendaId])
 
   // Camada 1: Foreground sync do cache de cadastro
   // Atualiza o cache automaticamente quando o app volta de background ou recupera conexão
@@ -264,9 +309,15 @@ function AppInner() {
         syncMapaSePreciso(fazendaId).catch((err) => {
           console.warn('[App] Falha ao sincronizar mapa via BG Sync:', err)
         })
+      } else if (type === 'BG_CACHE_UPDATED') {
+        // SW terminou fetch de cadastro em background e salvou no Cache API.
+        // Incorporar ao Dexie imediatamente se o app estiver aberto.
+        console.log('[App] SW terminou cache em background, incorporando...')
+        incorporateCacheFromSW(fazendaId).catch((err) => {
+          console.warn('[App] Falha ao incorporar cache do SW:', err)
+        })
       }
       // BG_SYNC_REGISTROS é tratado pelo useSync (fila de registros)
-      // Não é necessário duplicar aqui; o useSync já faz polling de 10s
     }
 
     navigator.serviceWorker.addEventListener('message', handleSWMessage)
@@ -432,6 +483,7 @@ function AppInner() {
       <>
         <FarmInactiveBlock nome={farmNome} />
         <PWAUpdateModalWrapper />
+        <CadastroSyncOverlay />
         {currentConflict && (
           <ConflictModal
             conflict={currentConflict}
@@ -565,6 +617,7 @@ function AppInner() {
         </Suspense>
       </div>
       <PWAUpdateModalWrapper />
+      <CadastroSyncOverlay />
       {currentConflict && (
         <ConflictModal
           conflict={currentConflict}

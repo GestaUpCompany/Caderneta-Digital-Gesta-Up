@@ -9,7 +9,8 @@ import { LOGO_URL, getFarmLogo } from '../utils/constants'
 
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
-import { syncAllCadastroData } from '../services/cadastroCache'
+import { syncAllCadastroData, setCadastroCacheTimestamp, getCadastroCacheTimestamp } from '../services/cadastroCache'
+import { setCadastroSyncState } from '../services/cadastroSyncState'
 import {
   shouldInvalidateCache,
   setRbacVersaoCache,
@@ -31,9 +32,51 @@ export default function Home() {
   const [syncErrors, setSyncErrors] = useState<string[]>([])
   const [completedItems, setCompletedItems] = useState<string[]>([])
   const LAST_SYNC_KEY = 'ultimo-aquecimento-cache'
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
-    return localStorage.getItem(LAST_SYNC_KEY)
-  })
+  // Timestamp numérico da última atualização (manual ou SW em background).
+  // Atualizado no mount, após sync manual, e quando o SW notifica BG_CACHE_UPDATED.
+  const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(() => getCadastroCacheTimestamp())
+
+  // Formata timestamp como "há X min" / "há X h" / "há X dias"
+  function formatTimeAgo(ts: number): string {
+    const diffMs = Date.now() - ts
+    const diffMin = Math.floor(diffMs / 60000)
+    if (diffMin < 1) return 'agora mesmo'
+    if (diffMin < 60) return `há ${diffMin} min`
+    const diffH = Math.floor(diffMin / 60)
+    if (diffH < 24) return `há ${diffH}h`
+    const diffDays = Math.floor(diffH / 24)
+    return `há ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`
+  }
+
+  // Cor do indicador: verde (<1h), neutro (<12h), amarelo (>12h ou sem dados)
+  function getTimestampColor(ts: number | null): string {
+    if (!ts) return 'text-amber-600'
+    const diffMin = (Date.now() - ts) / 60000
+    if (diffMin < 60) return 'text-green-600'
+    if (diffMin < 720) return 'text-gray-600'
+    return 'text-amber-600'
+  }
+
+  // Atualizar timestamp periodicamente (a cada minuto) para refletir "há X min"
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCacheTimestamp(getCadastroCacheTimestamp())
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Listener: SW terminou cache em background (Periodic Sync ou Background Sync).
+  // Atualiza o timestamp do indicador para refletir a atualização automática.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'BG_CACHE_UPDATED') {
+        setCacheTimestamp(event.data.timestamp || Date.now())
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handleSWMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage)
+  }, [])
 
   // Buscar logoUrl diretamente do banco usando acessoId
   useEffect(() => {
@@ -163,10 +206,12 @@ export default function Home() {
     setSyncProgress(null)
     setSyncErrors([])
     setCompletedItems([])
+    setCadastroSyncState({ active: true, current: 0, total: 0, item: '' })
 
     try {
       const result = await syncAllCadastroData(fazendaId, (current, total, item) => {
         setSyncProgress({ current, total, item })
+        setCadastroSyncState({ current, total, item })
         setCompletedItems(prev => {
           const next = [...prev, item]
           // Manter apenas os últimos 5 itens para não poluir a UI
@@ -182,8 +227,9 @@ export default function Home() {
           day: '2-digit', month: '2-digit',
           hour: '2-digit', minute: '2-digit'
         })
-        setLastSyncTime(timestamp)
         localStorage.setItem(LAST_SYNC_KEY, timestamp)
+        setCadastroCacheTimestamp()
+        setCacheTimestamp(Date.now())
       }
     } catch (error) {
       console.error('Erro ao sincronizar:', error)
@@ -191,6 +237,7 @@ export default function Home() {
     } finally {
       setSyncing(false)
       setSyncProgress(null)
+      setCadastroSyncState({ active: false, current: 0, total: 0, item: '' })
     }
   }
 
@@ -397,7 +444,6 @@ export default function Home() {
                   <>
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm font-semibold text-gray-900">Atualizando dados para uso offline...</p>
-                      <span className="text-xs text-gray-500">{syncProgress.current}/{syncProgress.total}</span>
                     </div>
                     {/* Progress Bar */}
                     <div className="w-full bg-gray-200 rounded-full h-2 mb-3 overflow-hidden">
@@ -458,16 +504,48 @@ export default function Home() {
                   </>
                 )}
 
-                {!syncing && syncErrors.length === 0 && syncProgress === null && (
-                  <div className="flex items-center gap-2 py-1">
-                    <svg className="w-4 h-4 text-green-600 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <p className="text-xs text-gray-600">
-                      Última atualização: <span className="font-medium text-gray-800">{lastSyncTime || 'Nunca atualizado'}</span>
-                    </p>
-                  </div>
-                )}
+                {!syncing && syncErrors.length === 0 && syncProgress === null && (() => {
+                  const hoursSinceUpdate = cacheTimestamp ? (Date.now() - cacheTimestamp) / 3600000 : 999
+                  const isCritical = hoursSinceUpdate >= 48
+                  const isStale = hoursSinceUpdate >= 24
+                  const iconColor = isCritical ? 'text-red-600' : isStale ? 'text-orange-600' : 'text-green-600'
+                  const textColor = isCritical ? 'text-red-700' : isStale ? 'text-orange-700' : 'text-gray-600'
+                  const labelColor = isCritical ? 'text-red-800' : isStale ? 'text-orange-800' : getTimestampColor(cacheTimestamp)
+                  const timeLabel = cacheTimestamp ? formatTimeAgo(cacheTimestamp) : 'Nunca atualizado'
+                  return (
+                    <div className="py-1">
+                      <div className="flex items-center gap-2">
+                        {isStale ? (
+                          <svg className={`w-4 h-4 flex-shrink-0 ${iconColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className={`w-4 h-4 flex-shrink-0 ${iconColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        <p className={`text-sm ${textColor}`}>
+                          {isCritical ? <>Última atualização <span className="font-bold">{timeLabel}</span>!</> : isStale ? 'Dados desatualizados' : 'Dados atualizados'}{' '}
+                          {!isCritical && (
+                            <span className={`font-semibold ${labelColor}`}>
+                              {timeLabel}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {isStale && (
+                        <p className={`text-xs mt-1 ml-6 ${isCritical ? 'text-red-600' : 'text-orange-600'}`}>
+                          Antes de ir ao pasto, clique em Atualizar Dados.
+                        </p>
+                      )}
+                      {!cacheTimestamp && (
+                        <p className="text-xs mt-1 ml-6 text-orange-600">
+                          Clique em Atualizar Dados para baixar tudo que precisa para trabalhar offline.
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             )}
           </div>
