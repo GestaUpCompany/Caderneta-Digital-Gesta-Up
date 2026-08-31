@@ -33,7 +33,7 @@ const MOTIVOS = [
   { value: 'Doação', label: 'DOAÇÃO', icon: '🎁' },
 ]
 
-const TIPO_SAIDA = [
+const TIPO_SAIDA_BASE = [
   { value: 'Enfermaria', label: 'Enfermaria', icon: '' },
   { value: 'Apartação', label: 'Apartação', icon: '' },
   { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
@@ -41,6 +41,9 @@ const TIPO_SAIDA = [
   { value: 'Transferência', label: 'Transferência', icon: '' },
   { value: 'Novo Lote', label: 'Novo Lote', icon: '' },
 ]
+
+// "Novo Lote" disponível apenas para a Fazenda Marcon
+const FAZENDA_NOVO_LOTE_HABILITADO = 'c4d13f1f-a785-4bcd-8e72-4ac4b28ee034'
 
 const SISTEMA_PRODUCAO_OPTS = [
   { value: 'Cria', label: 'Cria' },
@@ -125,6 +128,9 @@ const makeInitial = (): FormState => ({
 export default function MovimentacaoPage() {
   const navigate = useNavigate()
   const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const tipoSaidaOptions = fazendaId === FAZENDA_NOVO_LOTE_HABILITADO
+    ? TIPO_SAIDA_BASE
+    : TIPO_SAIDA_BASE.filter(o => o.value !== 'Novo Lote')
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -949,7 +955,7 @@ export default function MovimentacaoPage() {
                 <>
                   <Radio
                     name="subtipo"
-                    options={TIPO_SAIDA}
+                    options={tipoSaidaOptions}
                     value={form.subtipo}
                     onChange={(val) => { setForm((p) => ({ ...p, subtipo: val, loteDestino: '' })); if (errors.length > 0) setErrors([]) }}
                     error={getError('subtipo')}
