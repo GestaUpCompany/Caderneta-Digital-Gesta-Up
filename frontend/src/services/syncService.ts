@@ -894,6 +894,97 @@ export async function logSyncError(data: LogSyncErrorData): Promise<void> {
   }
 }
 
+// ============================================================
+// Novo Lote: sync para solicitacoes_novo_lote + polling de status
+// ============================================================
+
+/**
+ * Envia uma solicitação de Novo Lote para a tabela solicitacoes_novo_lote.
+ * Em vez de criar registros_movimentacao, cria uma solicitação pendente
+ * que o controller aprovará no Painel Web.
+ */
+async function syncNovoLoteToSupabase(
+  registro: Registro,
+  fazendaId: string
+): Promise<string> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const r = registro as any
+
+  const payload = {
+    fazenda_id: fazendaId,
+    lote_origem_id: r.loteOrigemId,
+    lote_origem_nome: r.loteOrigem || '',
+    dados_lote_proposto: r.dadosLoteProposto,
+    categorias: r.categoriasSnapshot,
+    dados_movimentacao: r.dadosMovimentacao,
+    status: 'pendente',
+    dispositivo_id: r.dispositivoId || null,
+    app_version: r.appVersion || null,
+    platform: r.platform || null,
+  }
+
+  const { data, error } = await client
+    .from('solicitacoes_novo_lote')
+    .insert(payload)
+    .select('id')
+    .single()
+
+  if (error) throw error
+  return data.id
+}
+
+/**
+ * Faz polling do status das solicitações de Novo Lote pendentes.
+ * Para cada registro local com syncStatus='pending_approval', consulta
+ * solicitacoes_novo_lote e atualiza o status local:
+ * - 'aprovada' → syncStatus='synced'
+ * - 'rejeitada' → syncStatus='rejected', guarda motivo_rejeicao
+ */
+export async function pollSolicitacoesNovoLote(_fazendaId: string): Promise<number> {
+  const movimentacoes = await getAllRegistros('movimentacao')
+  const pendentes = movimentacoes.filter(
+    (r: any) => r.syncStatus === 'pending_approval' && r.supabaseId
+  )
+
+  if (pendentes.length === 0) return 0
+
+  const solicitacaoIds = pendentes.map((r: any) => r.supabaseId)
+
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('solicitacoes_novo_lote')
+    .select('id, status, motivo_rejeicao, lote_criado_id')
+    .in('id', solicitacaoIds)
+
+  if (error || !data) return 0
+
+  let updated = 0
+  for (const sol of data) {
+    const registro = pendentes.find((r: any) => r.supabaseId === sol.id)
+    if (!registro) continue
+
+    if (sol.status === 'aprovada') {
+      await updateSyncStatus('movimentacao', registro.id, 'synced')
+      await updateRegistro('movimentacao', registro.id, {
+        ...registro,
+        syncStatus: 'synced',
+        loteCriadoId: sol.lote_criado_id,
+      } as any)
+      updated++
+    } else if (sol.status === 'rejeitada') {
+      await updateSyncStatus('movimentacao', registro.id, 'rejected')
+      await updateRegistro('movimentacao', registro.id, {
+        ...registro,
+        syncStatus: 'rejected',
+        motivoRejeicao: sol.motivo_rejeicao || null,
+      } as any)
+      updated++
+    }
+  }
+
+  return updated
+}
+
 export async function processQueue(
   fazendaId?: string,
   onProgress?: (remaining: number) => void
@@ -931,9 +1022,22 @@ export async function processQueue(
     try {
       // Gravar no Supabase
       if (fazendaId) {
-        await syncToSupabase(item.store, registro, fazendaId, item.operation)
-        await updateSyncStatus(item.store, item.registroId, 'synced')
-        console.log(`[SUPABASE] Registro sincronizado com sucesso: ${item.store}/${item.registroId}`)
+        // Caso especial: Novo Lote (movimentacao com subtipo='Novo Lote')
+        // Envia para solicitacoes_novo_lote em vez de registros_movimentacao
+        if (item.store === 'movimentacao' && (registro as any).subtipo === 'Novo Lote') {
+          const solicitacaoId = await syncNovoLoteToSupabase(registro, fazendaId)
+          await updateSyncStatus(item.store, item.registroId, 'pending_approval')
+          await updateRegistro(item.store, item.registroId, {
+            ...registro,
+            syncStatus: 'pending_approval',
+            supabaseId: solicitacaoId,
+          } as any)
+          console.log(`[SUPABASE] Solicitação de Novo Lote enviada: ${item.store}/${item.registroId} -> solicitacao ${solicitacaoId}`)
+        } else {
+          await syncToSupabase(item.store, registro, fazendaId, item.operation)
+          await updateSyncStatus(item.store, item.registroId, 'synced')
+          console.log(`[SUPABASE] Registro sincronizado com sucesso: ${item.store}/${item.registroId}`)
+        }
       }
 
       await removeFromSyncQueue(item.id)

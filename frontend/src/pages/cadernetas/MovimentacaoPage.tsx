@@ -5,6 +5,8 @@ import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } 
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { saveRegistro as saveRegistroIDB } from '../../services/indexedDB'
+import { enqueueRegistro } from '../../services/syncService'
+import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { generateId, generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -16,11 +18,13 @@ import {
   getLoteDetalhesComCategoriasCached,
   getFazendasDoMesmoGrupoCached,
   getLotesAtivosCached,
+  getCurraisCached,
 } from '../../services/cadastroCache'
-import { transferirLoteEntreFazendas } from '../../services/supabaseService'
+import { transferirLoteEntreFazendas, getPastos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { useFormValidation } from '../../hooks/useFormValidation'
 
 const MOTIVOS = [
   { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
@@ -34,7 +38,24 @@ const TIPO_SAIDA = [
   { value: 'Apartação', label: 'Apartação', icon: '' },
   { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
   { value: 'Venda', label: 'Venda', icon: '' },
-  { value: 'Transferência', label: 'Transferência', icon: '🔄' },
+  { value: 'Transferência', label: 'Transferência', icon: '' },
+  { value: 'Novo Lote', label: 'Novo Lote', icon: '' },
+]
+
+const SISTEMA_PRODUCAO_OPTS = [
+  { value: 'Cria', label: 'Cria' },
+  { value: 'Confinamento', label: 'Confinamento' },
+  { value: 'Engorda', label: 'Engorda' },
+  { value: 'Recria', label: 'Recria' },
+  { value: 'RIP', label: 'RIP' },
+  { value: 'Sequestro', label: 'Sequestro' },
+  { value: 'TIP', label: 'TIP' },
+]
+
+const DESTINO_OPTS = [
+  { value: 'corte', label: 'Abate' },
+  { value: 'reprodução', label: 'Reprodução' },
+  { value: 'enfermaria', label: 'Enfermaria' },
 ]
 
 const TIPO_ENTRADA = [
@@ -68,6 +89,14 @@ interface FormState {
   causaObservacao: string
   fazendaDestinoId: string
   fazendaDestinoNome: string
+  // Campos para Novo Lote
+  nomeNovoLote: string
+  sistemaProducaoNovoLote: string
+  destinoNovoLote: string
+  pastoIdNovoLote: string
+  pastoNomeNovoLote: string
+  curralIdNovoLote: string
+  curralNomeNovoLote: string
 }
 
 const makeInitial = (): FormState => ({
@@ -84,6 +113,13 @@ const makeInitial = (): FormState => ({
   causaObservacao: '',
   fazendaDestinoId: '',
   fazendaDestinoNome: '',
+  nomeNovoLote: '',
+  sistemaProducaoNovoLote: '',
+  destinoNovoLote: '',
+  pastoIdNovoLote: '',
+  pastoNomeNovoLote: '',
+  curralIdNovoLote: '',
+  curralNomeNovoLote: '',
 })
 
 export default function MovimentacaoPage() {
@@ -100,13 +136,70 @@ export default function MovimentacaoPage() {
   const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([])
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
   const [fazendasDoGrupo, setFazendasDoGrupo] = useState<{ id: string; nome: string }[]>([])
+  const [pastosDisponiveis, setPastosDisponiveis] = useState<{ id: string; nome: string }[]>([])
+  const [curraisDisponiveis, setCurraisDisponiveis] = useState<{ id: string; nome: string }[]>([])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setForm((prev) => ({ ...prev, [field]: val } as FormState))
+    if (errors.length > 0) setErrors([])
   }
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  // Validation rules condicionais por motivo/subtipo
+  const validationRules: any = {
+    data: { required: true },
+    motivoMovimentacao: { required: true },
+  }
+
+  // loteOrigem obrigatório exceto Doação
+  if (form.motivoMovimentacao !== 'Doação') {
+    validationRules.loteOrigem = { required: true }
+  }
+
+  // subtipo obrigatório quando motivo é Saída
+  if (form.motivoMovimentacao === 'Saída') {
+    validationRules.subtipo = { required: true }
+  }
+
+  // loteDestino obrigatório para Consumo, Entrevero, e Saída exceto Transferência e Novo Lote
+  if (form.motivoMovimentacao === 'Consumo' || form.motivoMovimentacao === 'Entrevero') {
+    validationRules.loteDestino = { required: true }
+  } else if (form.motivoMovimentacao === 'Saída' && form.subtipo !== 'Transferência' && form.subtipo !== 'Novo Lote') {
+    validationRules.loteDestino = { required: true }
+  }
+
+  // Transferência entre fazendas: fazendaDestinoId obrigatório
+  if (form.motivoMovimentacao === 'Saída' && form.subtipo === 'Transferência') {
+    validationRules.fazendaDestinoId = { required: true }
+  }
+
+  // Novo Lote: campos específicos obrigatórios
+  if (form.motivoMovimentacao === 'Saída' && form.subtipo === 'Novo Lote') {
+    validationRules.nomeNovoLote = { required: true }
+    validationRules.sistemaProducaoNovoLote = { required: true }
+    validationRules.destinoNovoLote = { required: true }
+    if (form.sistemaProducaoNovoLote === 'Confinamento') {
+      validationRules.curralIdNovoLote = { required: true }
+    } else if (form.sistemaProducaoNovoLote) {
+      validationRules.pastoIdNovoLote = { required: true }
+    }
+  }
+
+  // Cabeças por categoria: pelo menos uma > 0 (exceto Doação)
+  if (form.motivoMovimentacao !== 'Doação' && form.loteOrigem) {
+    validationRules.cabecasPorCategoria = {
+      custom: (_value: any, formState: any) => {
+        const vals = Object.values(formState.cabecasPorCategoria || {})
+        if (vals.length === 0) return 'Informe pelo menos uma quantidade de cabeças'
+        const hasAny = vals.some((v: any) => Number(v) > 0)
+        return hasAny ? null : 'Informe pelo menos uma quantidade de cabeças'
+      },
+    }
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
 
   const setCabecasCategoria = (categoria: string, valor: string) => {
     // Trava: impedir valor maior que o disponível na categoria
@@ -177,6 +270,22 @@ export default function MovimentacaoPage() {
         } catch (error) {
           // Erro silencioso: se a fazenda não tem grupo_id, a função retorna []
           setFazendasDoGrupo([])
+        }
+      }
+
+      // Carregar pastos e currais (para Novo Lote)
+      if (fazendaId) {
+        try {
+          const pastosData = await getPastos(fazendaId)
+          setPastosDisponiveis((pastosData || []).map((p: any) => ({ id: p.id, nome: p.nome })))
+        } catch (error) {
+          setPastosDisponiveis([])
+        }
+        try {
+          const curraisData = await getCurraisCached(fazendaId)
+          setCurraisDisponiveis((curraisData || []).map((c: any) => ({ id: c.id, nome: c.nome })))
+        } catch (error) {
+          setCurraisDisponiveis([])
         }
       }
     }
@@ -301,8 +410,8 @@ export default function MovimentacaoPage() {
         }
       }
 
-      // Validar que destino não está vazio (exceto Transferência, que tem fluxo próprio)
-      if (form.motivoMovimentacao !== 'Saída' || form.subtipo !== 'Transferência') {
+      // Validar que destino não está vazio (exceto Transferência e Novo Lote, que têm fluxo próprio)
+      if (!(form.motivoMovimentacao === 'Saída' && (form.subtipo === 'Transferência' || form.subtipo === 'Novo Lote'))) {
         if (!destinoFinal || destinoFinal.trim() === '') {
           setErrors([{ field: 'loteDestino', message: 'Selecione o destino da movimentação' }])
           window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -430,6 +539,177 @@ export default function MovimentacaoPage() {
           setErrors([{ field: 'general', message: error?.message || 'Erro ao transferir lote. Tente novamente.' }])
           window.scrollTo({ top: 0, behavior: 'smooth' })
         }
+        return
+      }
+
+      // Caso especial: Novo Lote (Saída com criação pendente de aprovação)
+      if (form.motivoMovimentacao === 'Saída' && form.subtipo === 'Novo Lote') {
+        // Validar campos do novo lote
+        if (!form.nomeNovoLote.trim()) {
+          setErrors([{ field: 'nomeNovoLote', message: 'Informe o nome do novo lote' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+        if (!form.sistemaProducaoNovoLote) {
+          setErrors([{ field: 'sistemaProducaoNovoLote', message: 'Selecione o sistema de produção' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+        if (!form.destinoNovoLote) {
+          setErrors([{ field: 'destinoNovoLote', message: 'Selecione o destino' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+        const isConfinamentoNL = form.sistemaProducaoNovoLote === 'Confinamento'
+        if (isConfinamentoNL && !form.curralIdNovoLote) {
+          setErrors([{ field: 'curralIdNovoLote', message: 'Selecione o curral' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+        if (!isConfinamentoNL && !form.pastoIdNovoLote) {
+          setErrors([{ field: 'pastoIdNovoLote', message: 'Selecione o pasto' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+
+        // Coletar categorias com quantidade > 0
+        const categoriasRawNL = detalhesLoteOrigem?.categorias_raw || []
+        const categoriasParaMoverNL = categoriasRawNL
+          .map((cat: any) => ({
+            categoria: cat.categoria,
+            numeroCabecas: Number(form.cabecasPorCategoria[cat.categoria] || 0),
+            maxCabecas: cat.quant_atual || 0,
+          }))
+          .filter((c: any) => c.numeroCabecas > 0)
+
+        if (categoriasParaMoverNL.length === 0) {
+          setErrors([{ field: 'cabecasPorCategoria', message: 'Informe pelo menos uma quantidade de cabeças por categoria' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+
+        const excedeNL = categoriasParaMoverNL.find((c: any) => c.numeroCabecas > c.maxCabecas)
+        if (excedeNL) {
+          const msg = `Quantidade de ${excedeNL.categoria} (${excedeNL.numeroCabecas}) excede o disponível no lote (${excedeNL.maxCabecas})`
+          setErrors([{ field: `cabecas_${excedeNL.categoria}`, message: msg }])
+          scrollToFirstError([{ field: `cabecas_${excedeNL.categoria}`, message: msg }])
+          return
+        }
+
+        // Montar snapshot completo de cada categoria (sem gmd)
+        // quant_inicial = quant_atual = cabeças movimentadas
+        // data_pesagem = data da movimentação
+        const categoriasSnapshot = categoriasParaMoverNL.map((c: any) => {
+          const catOrigem = categoriasRawNL.find((cr: any) => cr.categoria === c.categoria)
+          return {
+            categoria: c.categoria,
+            numero_cabecas: c.numeroCabecas,
+            quant_inicial: c.numeroCabecas,
+            quant_atual: c.numeroCabecas,
+            data_pesagem: form.data.split('/').reverse().join('-'),
+            raca: catOrigem?.raca || null,
+            sexo: catOrigem?.sexo || null,
+            idade: catOrigem?.idade || null,
+            peso_entrada_kg_cab: catOrigem?.peso_entrada_kg_cab || null,
+            peso_entrada_arrobas: catOrigem?.peso_entrada_arrobas || null,
+            peso_vivo_atual_kg_cab: catOrigem?.peso_vivo_atual_kg_cab || null,
+            peso_vivo_meta_kg_cab: catOrigem?.peso_vivo_meta_kg_cab || null,
+            peso_vivo_atual_arroba_cab: catOrigem?.peso_vivo_atual_arroba_cab || null,
+            rc_inicial: catOrigem?.rc_inicial || null,
+            rc_final: catOrigem?.rc_final || null,
+            rc_atual: catOrigem?.rc_atual || null,
+            periodo: catOrigem?.periodo || null,
+            dias_restantes_meta: catOrigem?.dias_restantes_meta || null,
+            data_meta_projetada: catOrigem?.data_meta_projetada || null,
+            estrategia_nutricional: catOrigem?.estrategia_nutricional || null,
+            qtd_bezerros: catOrigem?.qtd_bezerros || null,
+            consumo_meta_porcentagem_pesovivo: catOrigem?.consumo_meta_porcentagem_pesovivo || null,
+            peso_venda_meta_arroba: catOrigem?.peso_venda_meta_arroba || null,
+            margem_lucro_percent: catOrigem?.margem_lucro_percent || null,
+            preco_custo_reais_arroba: catOrigem?.preco_custo_reais_arroba || null,
+            preco_custo_cab: catOrigem?.preco_custo_cab || null,
+            preco_venda_projetado_reais_arroba: catOrigem?.preco_venda_projetado_reais_arroba || null,
+            preco_venda_sugerido_cab: catOrigem?.preco_venda_sugerido_cab || null,
+            producao_atual_arroba_cab: catOrigem?.producao_atual_arroba_cab || null,
+            producao_projetada_arroba_cab: catOrigem?.producao_projetada_arroba_cab || null,
+            preco_entrada_reais_arroba: catOrigem?.preco_entrada_reais_arroba || null,
+            faturamento_projetado_reais_lote_categoria: catOrigem?.faturamento_projetado_reais_lote_categoria || null,
+            venda_total_arroba_lote_categoria: catOrigem?.venda_total_arroba_lote_categoria || null,
+            agio_percent: catOrigem?.agio_percent || null,
+            custo_frete_reais_cab: catOrigem?.custo_frete_reais_cab || null,
+            custo_comissao_reais_cab: catOrigem?.custo_comissao_reais_cab || null,
+            custo_sanidade_reais_cab: catOrigem?.custo_sanidade_reais_cab || null,
+            custo_identificacao_rastreabilidade_reais_cab: catOrigem?.custo_identificacao_rastreabilidade_reais_cab || null,
+            custo_total_entrada_reais_cab: catOrigem?.custo_total_entrada_reais_cab || null,
+            custo_total_entrada_reais_lote: catOrigem?.custo_total_entrada_reais_lote || null,
+            preco_entrada_reais_kg: catOrigem?.preco_entrada_reais_kg || null,
+            preco_entrada_reais_cab: catOrigem?.preco_entrada_reais_cab || null,
+            custo_operacional_reais_cab_dia: catOrigem?.custo_operacional_reais_cab_dia || null,
+          }
+        })
+
+        const dadosLoteProposto = {
+          nome: form.nomeNovoLote.trim(),
+          pasto_id: isConfinamentoNL ? null : form.pastoIdNovoLote,
+          curral_id: isConfinamentoNL ? form.curralIdNovoLote : null,
+          sistema_producao: form.sistemaProducaoNovoLote,
+          destino: form.destinoNovoLote,
+        }
+
+        const dadosMovimentacao = {
+          data: form.data,
+          usuario: usuario,
+          motivo: 'Saída',
+          subtipo: 'Novo Lote',
+          causa_observacao: form.causaObservacao || null,
+        }
+
+        // Salvar no IndexedDB com syncStatus='pending'
+        // O syncService fará o upload para solicitacoes_novo_lote
+        const totalCabecasNL = categoriasParaMoverNL.reduce((sum: number, c: any) => sum + c.numeroCabecas, 0)
+        const registroLocal = {
+          id: generateId(),
+          data: `${form.data} ${new Date().toTimeString().slice(0, 5)}`,
+          loteOrigem: form.loteOrigem,
+          loteOrigemId: form.loteOrigemId,
+          loteDestino: form.nomeNovoLote.trim(),
+          loteDestinoId: '',
+          motivoMovimentacao: 'Saída',
+          subtipo: 'Novo Lote',
+          numeroCabecas: totalCabecasNL,
+          categoria: categoriasParaMoverNL.map((c: any) => c.categoria).join(', '),
+          usuario: usuario,
+          responsavel: usuario,
+          brinco: '',
+          chip: '',
+          causaObservacao: form.causaObservacao || '',
+          syncStatus: 'pending' as const,
+          version: generateVersion(),
+          lastModified: getCurrentTimestamp(),
+          // Campos extras para a solicitação de novo lote
+          dadosLoteProposto,
+          categoriasSnapshot,
+          dadosMovimentacao,
+        }
+
+        try {
+          await saveRegistroIDB('movimentacao', registroLocal as any)
+          await enqueueRegistro('movimentacao', registroLocal.id, 'create')
+          registerBackgroundSync('sync-registros').catch(() => {})
+        } catch (err) {
+          console.error('[MovimentacaoPage] Erro ao salvar solicitação de novo lote:', err)
+          setErrors([{ field: 'general', message: 'Erro ao salvar solicitação. Tente novamente.' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+
+        setRegistroSalvo({
+          tipo: 'novo_lote',
+          nomeNovoLote: form.nomeNovoLote.trim(),
+          totalCabecas: totalCabecasNL,
+        })
+        setShowSuccessModal(true)
+        setForm(makeInitial())
         return
       }
 
@@ -616,7 +896,7 @@ export default function MovimentacaoPage() {
             name="motivoMovimentacao"
             options={MOTIVOS}
             value={form.motivoMovimentacao}
-            onChange={(val) => setForm((p) => ({ ...p, motivoMovimentacao: val }))}
+            onChange={(val) => { setForm((p) => ({ ...p, motivoMovimentacao: val })); if (errors.length > 0) setErrors([]) }}
             error={getError('motivoMovimentacao')}
             gridCols={2}
           />
@@ -671,7 +951,7 @@ export default function MovimentacaoPage() {
                     name="subtipo"
                     options={TIPO_SAIDA}
                     value={form.subtipo}
-                    onChange={(val) => setForm((p) => ({ ...p, subtipo: val, loteDestino: '' }))}
+                    onChange={(val) => { setForm((p) => ({ ...p, subtipo: val, loteDestino: '' })); if (errors.length > 0) setErrors([]) }}
                     error={getError('subtipo')}
                     direction="vertical"
                   />
@@ -734,6 +1014,119 @@ export default function MovimentacaoPage() {
                         </p>
                       </div>
                     </>
+                  ) : form.subtipo === 'Novo Lote' ? (
+                    <>
+                      <div className="p-4 bg-amber-50 rounded-xl">
+                        <p className="text-sm text-amber-900">
+                          <strong>Novo Lote:</strong> as cabeças serão movimentadas para um novo lote que será criado após aprovação do controller no Manej'Us. O lote origem será ajustado (parcial ou totalmente). A criação fica pendente até a aprovação.
+                        </p>
+                      </div>
+                      <Input
+                        label="NOME DO NOVO LOTE"
+                        placeholder=""
+                        value={form.nomeNovoLote}
+                        onChange={setInput('nomeNovoLote')}
+                        error={getError('nomeNovoLote')}
+                        id="nomeNovoLote"
+                      />
+                      <div>
+                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                          SISTEMA DE PRODUÇÃO
+                        </label>
+                        <select
+                          value={form.sistemaProducaoNovoLote}
+                          onChange={(e) => { setForm((p) => ({ ...p, sistemaProducaoNovoLote: e.target.value, pastoIdNovoLote: '', pastoNomeNovoLote: '', curralIdNovoLote: '', curralNomeNovoLote: '' })); if (errors.length > 0) setErrors([]) }}
+                          className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
+                        >
+                          <option value="">Selecione</option>
+                          {SISTEMA_PRODUCAO_OPTS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        {getError('sistemaProducaoNovoLote') && (
+                          <p className="text-sm font-semibold text-red-700 mt-1">{getError('sistemaProducaoNovoLote')}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                          DESTINO
+                        </label>
+                        <select
+                          value={form.destinoNovoLote}
+                          onChange={(e) => { setForm((p) => ({ ...p, destinoNovoLote: e.target.value })); if (errors.length > 0) setErrors([]) }}
+                          className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
+                        >
+                          <option value="">Selecione</option>
+                          {DESTINO_OPTS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        {getError('destinoNovoLote') && (
+                          <p className="text-sm font-semibold text-red-700 mt-1">{getError('destinoNovoLote')}</p>
+                        )}
+                      </div>
+                      {form.sistemaProducaoNovoLote === 'Confinamento' ? (
+                        <div>
+                          <label className="block text-sm font-bold text-gray-900 mb-2">
+                            CURRAL
+                          </label>
+                          {curraisDisponiveis.length > 0 ? (
+                            <select
+                              value={form.curralIdNovoLote}
+                              onChange={(e) => {
+                                const curral = curraisDisponiveis.find(c => c.id === e.target.value)
+                                setForm((p) => ({ ...p, curralIdNovoLote: e.target.value, curralNomeNovoLote: curral?.nome || '' }))
+                                if (errors.length > 0) setErrors([])
+                              }}
+                              className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
+                            >
+                              <option value="">Selecione</option>
+                              {curraisDisponiveis.map(c => (
+                                <option key={c.id} value={c.id}>{c.nome}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">Nenhum curral disponível.</p>
+                          )}
+                          {getError('curralIdNovoLote') && (
+                            <p className="text-sm font-semibold text-red-700 mt-1">{getError('curralIdNovoLote')}</p>
+                          )}
+                        </div>
+                      ) : form.sistemaProducaoNovoLote ? (
+                        <div>
+                          <label className="block text-sm font-bold text-gray-900 mb-2">
+                            PASTO
+                          </label>
+                          {pastosDisponiveis.length > 0 ? (
+                            <select
+                              value={form.pastoIdNovoLote}
+                              onChange={(e) => {
+                                const pasto = pastosDisponiveis.find(p => p.id === e.target.value)
+                                setForm((p) => ({ ...p, pastoIdNovoLote: e.target.value, pastoNomeNovoLote: pasto?.nome || '' }))
+                                if (errors.length > 0) setErrors([])
+                              }}
+                              className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
+                            >
+                              <option value="">Selecione</option>
+                              {pastosDisponiveis.map(p => (
+                                <option key={p.id} value={p.id}>{p.nome}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">Nenhum pasto disponível.</p>
+                          )}
+                          {getError('pastoIdNovoLote') && (
+                            <p className="text-sm font-semibold text-red-700 mt-1">{getError('pastoIdNovoLote')}</p>
+                          )}
+                        </div>
+                      ) : null}
+                      <Input
+                        label="CAUSA / OBSERVAÇÃO:"
+                        placeholder="Descreva detalhes da movimentação"
+                        value={form.causaObservacao}
+                        onChange={setInput('causaObservacao')}
+                      />
+                    </>
                   ) : null}
                 </>
               ) : form.motivoMovimentacao === 'Entrada' ? (
@@ -742,7 +1135,7 @@ export default function MovimentacaoPage() {
                     name="subtipo"
                     options={TIPO_ENTRADA}
                     value={form.subtipo}
-                    onChange={(val) => setForm((p) => ({ ...p, subtipo: val, loteDestino: '' }))}
+                    onChange={(val) => { setForm((p) => ({ ...p, subtipo: val, loteDestino: '' })); if (errors.length > 0) setErrors([]) }}
                     error={getError('subtipo')}
                     gridCols={3}
                   />
@@ -860,12 +1253,17 @@ export default function MovimentacaoPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾">
+          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
             SALVAR
           </Button>
           <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
             LIMPAR
           </Button>
+          {!isValid && form.motivoMovimentacao && (
+            <p className="text-base text-gray-600 text-center">
+              <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+            </p>
+          )}
         </div>
       </main>
 
@@ -874,9 +1272,9 @@ export default function MovimentacaoPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName={registroSalvo?.tipo === 'transferencia' ? 'Transferência' : 'Movimentação'}
+        cadernetaName={registroSalvo?.tipo === 'transferencia' ? 'Transferência' : registroSalvo?.tipo === 'novo_lote' ? 'Novo Lote' : 'Movimentação'}
         registro={registroSalvo}
-        caderneta={registroSalvo?.tipo === 'transferencia' ? undefined : 'movimentacao'}
+        caderneta={registroSalvo?.tipo === 'transferencia' || registroSalvo?.tipo === 'novo_lote' ? undefined : 'movimentacao'}
       />
     </div>
   )

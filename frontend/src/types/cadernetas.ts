@@ -1,4 +1,4 @@
-export type SyncStatus = 'pending' | 'synced' | 'conflict' | 'error'
+export type SyncStatus = 'pending' | 'synced' | 'conflict' | 'error' | 'pending_approval' | 'rejected'
 
 export interface Registro {
   id: string

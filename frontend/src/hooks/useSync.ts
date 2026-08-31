@@ -8,7 +8,7 @@ import {
   setSyncProgress,
   setError,
 } from '../store/slices/syncSlice'
-import { processQueue } from '../services/syncService'
+import { processQueue, pollSolicitacoesNovoLote } from '../services/syncService'
 import { getSyncQueue } from '../services/indexedDB'
 import { reauthenticateFarm, isTokenValid } from '../services/authService'
 import { SYNC_CHECK_INTERVAL_MS } from '../utils/constants'
@@ -53,6 +53,13 @@ export function useSync() {
       const total = queue.length
 
       if (total === 0) {
+        // Mesmo com fila vazia, fazer polling de solicitações de Novo Lote
+        // para capturar aprovações/rejeições do Painel Web
+        try {
+          await pollSolicitacoesNovoLote(fazendaId)
+        } catch (e) {
+          console.warn('[useSync] Polling de solicitações Novo Lote falhou:', e)
+        }
         dispatch(setStatus('online'))
         dispatch(setLastSync(new Date().toISOString()))
         isRunning.current = false
@@ -69,6 +76,13 @@ export function useSync() {
 
       if (synced > 0) {
         dispatch(setLastSync(new Date().toISOString()))
+      }
+
+      // Polling de solicitações de Novo Lote (aprovações/rejeições)
+      try {
+        await pollSolicitacoesNovoLote(fazendaId)
+      } catch (e) {
+        console.warn('[useSync] Polling de solicitações Novo Lote falhou:', e)
       }
 
       await updatePendingCount()

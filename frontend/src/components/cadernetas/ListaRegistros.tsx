@@ -31,6 +31,13 @@ const statusLabel: Record<string, string> = {
   synced: '✅',
   conflict: '⚠️',
   error: '❌',
+  pending_approval: '🕐',
+  rejected: '🚫',
+}
+
+const statusText: Record<string, string> = {
+  pending_approval: 'Aguardando aprovação',
+  rejected: 'Rejeitado',
 }
 
 const formatFieldValue = (key: string, value: unknown): string => {
@@ -471,6 +478,22 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                   </div>
                   <span className="text-xs text-gray-400 font-mono">{(registro.id as string).slice(0, 8)}</span>
                 </div>
+
+                {(registro.syncStatus === 'pending_approval' || registro.syncStatus === 'rejected') && (
+                  <div className={`mb-3 p-3 rounded-xl text-sm font-semibold ${registro.syncStatus === 'pending_approval' ? 'bg-amber-50 text-amber-900 border border-amber-300' : 'bg-red-50 text-red-900 border border-red-300'}`}>
+                    <p>{statusText[registro.syncStatus]}</p>
+                    {registro.syncStatus === 'pending_approval' && (registro as any).subtipo === 'Novo Lote' && (
+                      <p className="text-xs mt-1 opacity-80">
+                        Solicitação de criação do lote &quot;{(registro as any).loteDestino || ''}&quot; enviada ao Painel Web.
+                      </p>
+                    )}
+                    {registro.syncStatus === 'rejected' && (registro as any).motivoRejeicao && (
+                      <p className="text-xs mt-1 opacity-90">
+                        Motivo: {(registro as any).motivoRejeicao}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {(() => {
                     const config = CADERNETA_DISPLAY_CONFIG[caderneta]

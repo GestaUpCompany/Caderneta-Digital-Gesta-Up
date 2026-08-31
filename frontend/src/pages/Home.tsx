@@ -533,11 +533,6 @@ export default function Home() {
                           )}
                         </p>
                       </div>
-                      {isStale && (
-                        <p className={`text-xs mt-1 ml-6 ${isCritical ? 'text-red-600' : 'text-orange-600'}`}>
-                          Antes de ir ao pasto, clique em Atualizar Dados.
-                        </p>
-                      )}
                       {!cacheTimestamp && (
                         <p className="text-xs mt-1 ml-6 text-orange-600">
                           Clique em Atualizar Dados para baixar tudo que precisa para trabalhar offline.
