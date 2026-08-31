@@ -483,7 +483,7 @@ export default function LeituraCochoPage() {
     <CadernetaLayout
       title="Leitura de Cocho"
       cadernetaId="leitura-cocho"
-      onBack={() => navigate('/')}
+      onBack={() => navigate('/modulos/cadernetas')}
     >
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">

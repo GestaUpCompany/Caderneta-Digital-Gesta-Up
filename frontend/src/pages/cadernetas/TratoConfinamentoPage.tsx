@@ -6,6 +6,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
+import { salvarRascunho, lerRascunho, limparRascunho } from '../../services/indexedDB'
 import {
   getLoteDetalhesComCategoriasCached,
   getCurraisCached,
@@ -17,6 +18,7 @@ import {
   getCachedCadastroData,
   getNotasLeituraCochoConfigCached,
   getLoteByNomeCached,
+  getLinhasConfinamentoCached,
 } from '../../services/cadastroCache'
 import {
   getLotes,
@@ -34,6 +36,8 @@ interface NotaConfig {
 interface CurralTrato {
   curralId: string
   curralNome: string
+  linhaId: string | null
+  linhaNome: string | null
   loteId: string | null
   loteNome: string | null
   formulacaoNome: string | null
@@ -51,6 +55,7 @@ interface CurralTrato {
   tratosConcluidos: boolean
   // estado de UI
   salvo: boolean
+  rascunhoSalvo: boolean
   salvando: boolean
   erroSalvar: boolean
   // dados de exibição do lote
@@ -108,8 +113,11 @@ export default function TratoConfinamentoPage() {
   const [tiposDisponiveis, setTiposDisponiveis] = useState<string[]>([])
   const [tipoSelecionado, setTipoSelecionado] = useState<string>('engorda')
   const [programacao, setProgramacao] = useState<ProgramacaoData | null>(null)
-  const [salvandoLote, setSalvandoLote] = useState(false)
-  const listaRef = useRef<HTMLDivElement>(null)
+  const [linhas, setLinhas] = useState<{ id: string; nome: string }[]>([])
+  const [linhaSelecionada, setLinhaSelecionada] = useState<string | null>(null)
+  const [curralSelecionado, setCurralSelecionado] = useState<string | null>(null)
+  const [showRevisarModal, setShowRevisarModal] = useState(false)
+  const [salvandoFim, setSalvandoFim] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // Carregamento inicial: notas config e tipos disponíveis
@@ -182,11 +190,19 @@ export default function TratoConfinamentoPage() {
         }
       }
 
-      const [progCompleta, curraisData, registrosDoDia] = await Promise.all([
+      const [progCompleta, curraisData, registrosDoDia, linhasData] = await Promise.all([
         getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
         getCurraisCached(fazendaId),
         getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
+        getLinhasConfinamentoCached(fazendaId),
       ])
+
+      // Carregar linhas de confinamento
+      const linhasList = (linhasData || [])
+        .filter((l: any) => l.ativo !== false)
+        .map((l: any) => ({ id: l.id, nome: l.nome }))
+        .sort((a: any, b: any) => a.nome.localeCompare(b.nome, 'pt-BR'))
+      setLinhas(linhasList)
 
       // Se não há programação ativa para o tipo, mostra mensagem
       if (!progCompleta.programacao) {
@@ -231,6 +247,12 @@ export default function TratoConfinamentoPage() {
         }
       }
 
+      // Mapa de linha_id -> nome
+      const linhaNomePorId = new Map<string, string>()
+      for (const l of linhasList) {
+        linhaNomePorId.set(l.id, l.nome)
+      }
+
       // Agrupa registros do dia por curral_id
       const registrosPorCurral = new Map<string, any[]>()
       for (const r of registrosDoDia) {
@@ -244,6 +266,8 @@ export default function TratoConfinamentoPage() {
         Array.from(curraisIdsDaProgramacao).map(async (curralId) => {
           const curralInfo = curraisPorId.get(curralId)
           const curralNome = curralInfo?.nome || curralId
+          const linhaId = curralInfo?.linha_id || null
+          const linhaNome = linhaId ? (linhaNomePorId.get(linhaId) || null) : null
           const loteId = curralInfo?.lote_id || null
           const lote = loteId ? lotesPorId.get(loteId) : null
           const loteNome = lote?.nome || null
@@ -395,6 +419,8 @@ export default function TratoConfinamentoPage() {
           return {
             curralId,
             curralNome,
+            linhaId,
+            linhaNome,
             loteId,
             loteNome,
             formulacaoNome,
@@ -411,6 +437,7 @@ export default function TratoConfinamentoPage() {
             isDia1,
             tratosConcluidos,
             salvo: registroExistente?.kg_ofertado_real != null,
+            rascunhoSalvo: false,
             salvando: false,
             erroSalvar: false,
             nCabecas,
@@ -422,7 +449,34 @@ export default function TratoConfinamentoPage() {
 
       // Ordena por nome do curral
       curraisTratoList.sort((a, b) => a.curralNome.localeCompare(b.curralNome, 'pt-BR'))
+
+      // Carregar rascunho salvo
+      const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
+      const rascunhoData = await lerRascunho<Record<string, string>>(rascunhoKey)
+      if (rascunhoData) {
+        for (const curral of curraisTratoList) {
+          const valorRascunho = rascunhoData[curral.curralId]
+          if (valorRascunho !== undefined && valorRascunho !== '' && !curral.salvo) {
+            curral.kgReal = valorRascunho
+            curral.rascunhoSalvo = true
+          }
+        }
+      }
+
       setCurrais(curraisTratoList)
+
+      // Auto-selecionar primeira linha e primeiro curral
+      if (linhasList.length > 0) {
+        const primeiraLinhaId = linhasList[0].id
+        setLinhaSelecionada(primeiraLinhaId)
+        const primeiroCurralDaLinha = curraisTratoList.find(
+          (c) => c.linhaId === primeiraLinhaId
+        )
+        setCurralSelecionado(primeiroCurralDaLinha?.curralId || curraisTratoList[0]?.curralId || null)
+      } else {
+        setLinhaSelecionada(null)
+        setCurralSelecionado(curraisTratoList[0]?.curralId || null)
+      }
     } catch (error) {
       console.error('Erro ao carregar dados do trato:', error)
       setErro('Erro ao carregar dados. Tente novamente.')
@@ -438,177 +492,193 @@ export default function TratoConfinamentoPage() {
   // Focar no primeiro input após carregar (apenas na transição de carregando -> pronto)
   const carregandoRef = useRef(true)
   useEffect(() => {
-    // Só foca quando termina o carregamento (carregando vai de true -> false)
-    if (carregandoRef.current && !carregando && currais.length > 0 && !currais[0].tratosConcluidos) {
-      const primeiro = currais[0]
-      setTimeout(() => {
-        inputRefs.current[primeiro.curralId]?.focus()
-      }, 200)
+    // Foca no input do curral selecionado quando termina o carregamento
+    if (carregandoRef.current && !carregando && curralSelecionado) {
+      const curral = currais.find((c) => c.curralId === curralSelecionado)
+      if (curral && !curral.tratosConcluidos) {
+        setTimeout(() => {
+          inputRefs.current[curral.curralId]?.focus()
+        }, 200)
+      }
     }
     carregandoRef.current = carregando
-  }, [carregando, currais])
+  }, [carregando, currais, curralSelecionado])
+
+  // Focar no input quando troca de curral selecionado
+  useEffect(() => {
+    if (!carregando && curralSelecionado) {
+      const curral = currais.find((c) => c.curralId === curralSelecionado)
+      if (curral && !curral.tratosConcluidos) {
+        setTimeout(() => {
+          inputRefs.current[curral.curralId]?.focus()
+        }, 100)
+      }
+    }
+  }, [curralSelecionado])
 
   const atualizarKgReal = useCallback((curralId: string, valor: string) => {
     setCurrais((prev) =>
       prev.map((c) =>
-        c.curralId === curralId ? { ...c, kgReal: valor, salvo: false, erroSalvar: false } : c
+        c.curralId === curralId ? { ...c, kgReal: valor, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
       )
     )
   }, [])
 
-  const salvarTrato = useCallback(
+  // Salvar rascunho do trato (não envia ao Supabase)
+  const salvarTratoRascunho = useCallback(
     async (curralId: string): Promise<boolean> => {
       const curral = currais.find((c) => c.curralId === curralId)
       if (!curral || !fazendaId) return false
       if (curral.kgReal === '' || curral.tratosConcluidos) return false
 
+      // Marcar como rascunho salvo (verde + check)
       setCurrais((prev) =>
-        prev.map((c) => (c.curralId === curralId ? { ...c, salvando: true, erroSalvar: false } : c))
+        prev.map((c) =>
+          c.curralId === curralId ? { ...c, rascunhoSalvo: true, erroSalvar: false } : c
+        )
       )
 
+      // Persistir no IndexedDB
       try {
-        const result = await salvarRegistro('trato-confinamento', {
-          data: data,
-          responsavel: usuario,
-          usuario: usuario,
-          curral: curral.curralNome,
-          curralId: curral.curralId,
-          numeroLote: curral.loteNome || '',
-          loteId: curral.loteId || '',
-          ordemTrato: String(curral.ordemTrato),
-          kgPlanejado: curral.kgPlanejado !== null ? String(curral.kgPlanejado) : '',
-          kgReal: curral.kgReal,
-          leituraCochoNota: curral.leituraCochoNota !== null ? String(curral.leituraCochoNota) : '',
-          programacaoId: programacao?.programacaoId || '',
-        })
+        const dataISO = brToDateISO(data)
+        const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
+        const rascunhoAtual = await lerRascunho<Record<string, string>>(rascunhoKey) || {}
+        rascunhoAtual[curralId] = curral.kgReal
+        await salvarRascunho(rascunhoKey, rascunhoAtual)
+      } catch (error) {
+        console.error('Erro ao salvar rascunho do trato:', error)
+      }
+      return true
+    },
+    [currais, fazendaId, data, tipoSelecionado]
+  )
 
-        if (!result.success) {
+  // Salvar todos os rascunhos de uma vez (envia ao Supabase)
+  const salvarTodosDoRascunho = useCallback(
+    async (): Promise<boolean> => {
+      const curraisComRascunho = currais.filter((c) => c.rascunhoSalvo && !c.salvo && c.kgReal !== '')
+      if (curraisComRascunho.length === 0) return false
+
+      setSalvandoFim(true)
+      let todosOk = true
+
+      for (const curral of curraisComRascunho) {
+        setCurrais((prev) =>
+          prev.map((c) => (c.curralId === curral.curralId ? { ...c, salvando: true, erroSalvar: false } : c))
+        )
+
+        try {
+          const result = await salvarRegistro('trato-confinamento', {
+            data: data,
+            responsavel: usuario,
+            usuario: usuario,
+            curral: curral.curralNome,
+            curralId: curral.curralId,
+            numeroLote: curral.loteNome || '',
+            loteId: curral.loteId || '',
+            ordemTrato: String(curral.ordemTrato),
+            kgPlanejado: curral.kgPlanejado !== null ? String(curral.kgPlanejado) : '',
+            kgReal: curral.kgReal,
+            leituraCochoNota: curral.leituraCochoNota !== null ? String(curral.leituraCochoNota) : '',
+            programacaoId: programacao?.programacaoId || '',
+          })
+
+          if (!result.success) {
+            todosOk = false
+            setCurrais((prev) =>
+              prev.map((c) =>
+                c.curralId === curral.curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
+              )
+            )
+          } else {
+            setCurrais((prev) =>
+              prev.map((c) =>
+                c.curralId === curral.curralId
+                  ? { ...c, salvando: false, salvo: true, rascunhoSalvo: false, erroSalvar: false }
+                  : c
+              )
+            )
+          }
+        } catch (error) {
+          console.error('Erro ao salvar trato:', error)
+          todosOk = false
           setCurrais((prev) =>
             prev.map((c) =>
-              c.curralId === curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
+              c.curralId === curral.curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
             )
           )
-          return false
         }
-
-        setCurrais((prev) =>
-          prev.map((c) =>
-            c.curralId === curralId ? { ...c, salvando: false, salvo: true, erroSalvar: false } : c
-          )
-        )
-        return true
-      } catch (error) {
-        console.error('Erro ao salvar trato:', error)
-        setCurrais((prev) =>
-          prev.map((c) =>
-            c.curralId === curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
-          )
-        )
-        return false
       }
+
+      // Limpar rascunho se todos salvaram
+      if (todosOk && fazendaId) {
+        const dataISO = brToDateISO(data)
+        const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
+        await limparRascunho(rascunhoKey)
+      }
+
+      setSalvandoFim(false)
+      return todosOk
     },
-    [currais, fazendaId, data, usuario, programacao]
+    [currais, fazendaId, data, usuario, programacao, tipoSelecionado]
   )
 
   const handleKgRealKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>, curralId: string) => {
       if (e.key === 'Enter') {
         e.preventDefault()
-        // Salva o trato atual e avança para o próximo
-        salvarTrato(curralId)
-        const index = currais.findIndex((c) => c.curralId === curralId)
-        if (index >= 0 && index < currais.length - 1) {
-          const proximo = currais[index + 1]
+        // Salva o rascunho do trato atual e avança para o próximo curral da mesma linha
+        salvarTratoRascunho(curralId)
+        const curraisDaLinha = currais.filter(
+          (c) => !linhaSelecionada || c.linhaId === linhaSelecionada
+        )
+        const index = curraisDaLinha.findIndex((c) => c.curralId === curralId)
+        if (index >= 0 && index < curraisDaLinha.length - 1) {
+          const proximo = curraisDaLinha[index + 1]
+          setCurralSelecionado(proximo.curralId)
           setTimeout(() => {
             inputRefs.current[proximo.curralId]?.focus()
           }, 150)
         }
       }
     },
-    [salvarTrato, currais]
-  )
-
-  const avancarProximoTrato = useCallback(
-    (curralIds: Set<string>) => {
-      if (!programacao) return
-      setCurrais((prev) =>
-        prev.map((c) => {
-          if (!curralIds.has(c.curralId)) return c
-          const novaOrdem = c.ordemTrato + 1
-          const tratosConcluidos = novaOrdem > c.quantidadeTratos
-          if (tratosConcluidos) {
-            return { ...c, ordemTrato: novaOrdem, tratosConcluidos, kgReal: '', salvo: false, erroSalvar: false }
-          }
-          const tratoAtual = programacao.percentuais.find((p) => p.ordem_trato === novaOrdem)
-          const percentualTrato = tratoAtual?.percentual ?? 0
-          const horarioSugerido = tratoAtual?.horario_sugerido ?? null
-          const kgPlanejado = c.kgBaseDia !== null ? c.kgBaseDia * (percentualTrato / 100) : null
-          return {
-            ...c,
-            ordemTrato: novaOrdem,
-            tratosConcluidos,
-            percentualTrato,
-            horarioSugerido,
-            kgPlanejado,
-            kgReal: '',
-            salvo: false,
-            erroSalvar: false,
-          }
-        })
-      )
-    },
-    [programacao]
+    [salvarTratoRascunho, currais, linhaSelecionada]
   )
 
   const salvarTodosPendentes = useCallback(async () => {
     const pendentes = currais.filter(
-      (c) => c.kgReal !== '' && !c.salvo && !c.salvando && !c.tratosConcluidos
+      (c) => c.kgReal !== '' && !c.rascunhoSalvo && !c.salvo && !c.salvando && !c.tratosConcluidos
     )
     if (pendentes.length === 0) return
 
-    setSalvandoLote(true)
-    setCurrais((prev) =>
-      prev.map((c) =>
-        pendentes.some((p) => p.curralId === c.curralId)
-          ? { ...c, salvando: true, erroSalvar: false }
-          : c
-      )
-    )
-
-    const resultados = await Promise.all(pendentes.map((c) => salvarTrato(c.curralId)))
-    setSalvandoLote(false)
-
-    // Atualização otimista: avança os currais salvos para o próximo trato
-    // sem depender de reload do Supabase (o sync é assíncrono e pode não ter
-    // completado ainda). Recalcula kgPlanejado com o percentual do novo trato.
-    const todosSalvos = resultados.every((r) => r === true)
-    if (todosSalvos) {
-      avancarProximoTrato(new Set(pendentes.map((p) => p.curralId)))
+    // Salvar todos como rascunho
+    for (const c of pendentes) {
+      await salvarTratoRascunho(c.curralId)
     }
-  }, [currais, salvarTrato, avancarProximoTrato])
+  }, [currais, salvarTratoRascunho])
 
   const limparKgReais = useCallback(() => {
     setCurrais((prev) =>
-      prev.map((c) => ({ ...c, kgReal: '', salvo: false, erroSalvar: false }))
+      prev.map((c) => ({ ...c, kgReal: '', salvo: false, rascunhoSalvo: false, erroSalvar: false }))
     )
-  }, [])
+    if (fazendaId) {
+      const dataISO = brToDateISO(data)
+      const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
+      limparRascunho(rascunhoKey)
+    }
+  }, [fazendaId, data, tipoSelecionado])
 
   const tratosPendentes = useMemo(
     () =>
-      currais.filter((c) => c.kgReal !== '' && !c.salvo && !c.salvando && !c.tratosConcluidos)
+      currais.filter((c) => c.kgReal !== '' && !c.rascunhoSalvo && !c.salvo && !c.salvando && !c.tratosConcluidos)
         .length,
     [currais]
   )
 
-  // Detecta se todos os currais foram salvos individualmente (via Enter) e
-  // precisam avançar para o próximo trato. Nesse estado, o botão "SALVAR TRATOS"
-  // fica desabilitado (tratosPendentes === 0) mas a contagem ainda não avançou.
-  const todosSalvosSemAvancar = useMemo(
-    () =>
-      currais.length > 0 &&
-      tratosPendentes === 0 &&
-      currais.every((c) => c.salvo && !c.tratosConcluidos),
-    [currais, tratosPendentes]
+  // Rascunhos prontos para revisar e salvar
+  const rascunhosPendentes = useMemo(
+    () => currais.filter((c) => c.rascunhoSalvo && !c.salvo && !c.tratosConcluidos).length,
+    [currais]
   )
 
   const tiposVisiveis = TIPOS_PROGRAMACAO.filter((t) => tiposDisponiveis.includes(t.value))
@@ -617,65 +687,77 @@ export default function TratoConfinamentoPage() {
     <CadernetaLayout
       title="Trato Confinamento"
       cadernetaId="trato-confinamento"
-      onBack={() => navigate('/')}
+      onBack={() => navigate('/modulos/cadernetas')}
     >
       {/* Seção 1: Dados Principais */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-          <div className="flex items-center gap-2 shrink-0">
-            {usuario && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                <span>👤</span>
-                <span>{usuario}</span>
-              </span>
-            )}
-            <DatePicker value={data} onChange={setData} compact inline />
-          </div>
+      <div className="bg-white rounded-2xl p-2 shadow-sm border border-gray-100 flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-bold text-gray-900 whitespace-nowrap">1. Dados principais</h2>
+          {usuario && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-semibold bg-gray-100 rounded-full px-2.5 py-0.5 whitespace-nowrap">
+              <span>👤</span>
+              <span>{usuario}</span>
+            </span>
+          )}
+        </div>
+        <div className="flex justify-center">
+          <DatePicker value={data} onChange={setData} compact inline />
         </div>
       </div>
 
       {/* Seção 2: Tratos */}
       <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
         {/* Cabeçalho fixo da seção */}
-        <div className="px-4 py-3 bg-[#1a3a2a] text-white">
-          <div className="mb-2">
-            <h2 className="text-lg font-black tracking-tight">2. TRATOS</h2>
-            {programacao && (
-              <p className="text-sm text-white/70">
-                {programacao.quantidadeTratos} tratos/dia · Tipo:{' '}
-                {TIPOS_PROGRAMACAO.find((t) => t.value === tipoSelecionado)?.label}
-                {programacao.percentuais.some((p) => p.horario_sugerido) && (
-                  <> · Horários: {programacao.percentuais
-                    .filter((p) => p.horario_sugerido)
-                    .map((p) => p.horario_sugerido!.slice(0, 5))
-                    .join(' · ')}</>
-                )}
-              </p>
+        <div className="px-4 py-2.5 bg-[#1a3a2a] text-white">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-base font-black tracking-tight">2. TRATOS</h2>
+            {/* Seletor de tipo */}
+            {tiposVisiveis.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                {tiposVisiveis.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setTipoSelecionado(t.value)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                      tipoSelecionado === t.value
+                        ? 'bg-yellow-400 text-[#1a3a2a]'
+                        : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-          {/* Seletor de tipo */}
-          {tiposVisiveis.length > 1 && (
-            <div className="flex items-center gap-2 mt-2">
-              {tiposVisiveis.map((t) => (
+
+          {/* Seletor de linha */}
+          {programacao && linhas.length > 0 && !carregando && (
+            <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-0.5">
+              {linhas.map((linha) => (
                 <button
-                  key={t.value}
+                  key={linha.id}
                   type="button"
-                  onClick={() => setTipoSelecionado(t.value)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-                    tipoSelecionado === t.value
-                      ? 'bg-yellow-400 text-[#1a3a2a]'
+                  onClick={() => {
+                    setLinhaSelecionada(linha.id)
+                    const primeiro = currais.find((c) => c.linhaId === linha.id)
+                    setCurralSelecionado(primeiro?.curralId || null)
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                    linhaSelecionada === linha.id
+                      ? 'bg-white text-[#1a3a2a]'
                       : 'bg-white/10 text-white hover:bg-white/20'
                   }`}
                 >
-                  {t.label}
+                  {linha.nome}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        <div className="p-6 flex flex-col gap-4">
+        <div className="p-3 flex flex-col gap-3">
           {!programacao ? (
             <div className="p-8 text-center text-gray-500">
               {carregando ? (
@@ -689,214 +771,207 @@ export default function TratoConfinamentoPage() {
                 </>
               )}
             </div>
+          ) : carregando ? (
+            <div className="p-8 text-center text-gray-500">Carregando currais...</div>
+          ) : erro ? (
+            <div className="p-8 text-center text-red-600">{erro}</div>
+          ) : currais.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              Nenhum curral na programação deste tipo.
+            </div>
           ) : (
             <>
-              <p className="text-sm text-gray-500">
-                Digite a quantidade real (kg) tratada em cada curral. O valor previsto é calculado
-                automaticamente com base na programação e na leitura de cocho do dia anterior.
-              </p>
-
-              <div
-                ref={listaRef}
-                className="flex flex-col gap-2 max-h-[55vh] overflow-y-auto -mx-1 px-1 pb-1"
-              >
-                {carregando ? (
-                  <div className="p-8 text-center text-gray-500">Carregando currais...</div>
-                ) : erro ? (
-                  <div className="p-8 text-center text-red-600">{erro}</div>
-                ) : currais.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    Nenhum curral na programação deste tipo.
-                  </div>
-                ) : (
-                  currais.map((curral) => (
-                    <div
+              {/* Cards horizontais de currais da linha selecionada */}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {currais
+                  .filter((c) => !linhaSelecionada || c.linhaId === linhaSelecionada)
+                  .map((curral) => (
+                    <button
                       key={curral.curralId}
-                      id={`curral-card-${curral.curralId}`}
-                      className={`rounded-2xl border-2 p-3 transition-all ${
-                        curral.erroSalvar
-                          ? 'border-red-300 bg-red-50'
-                          : curral.salvo
-                            ? 'border-green-300 bg-green-50'
-                            : 'border-gray-200 bg-white'
+                      type="button"
+                      onClick={() => setCurralSelecionado(curral.curralId)}
+                      className={`shrink-0 rounded-xl border-2 px-3 py-1.5 transition-all text-center min-w-[3rem] ${
+                        curralSelecionado === curral.curralId
+                          ? curral.erroSalvar
+                            ? 'border-red-500 bg-red-50'
+                            : (curral.salvo || curral.rascunhoSalvo)
+                              ? 'border-green-500 bg-green-50'
+                              : 'border-yellow-500 bg-yellow-50'
+                          : curral.erroSalvar
+                            ? 'border-red-200 bg-white'
+                            : (curral.salvo || curral.rascunhoSalvo)
+                              ? 'border-green-200 bg-white'
+                              : 'border-gray-200 bg-white'
                       }`}
                     >
-                      {/* Linha 1: Curral | Lote + Formulação */}
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <div className="min-w-0 flex-1">
-                          <span className="text-base font-bold text-gray-900 truncate block">
-                            {curral.curralNome}
-                          </span>
-                          <span className="text-xs text-gray-500 truncate block">
-                            {curral.formulacaoNome || '—'}
-                          </span>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-base font-bold text-[#1a3a2a]">
-                            {curral.loteNome || '—'}
-                          </span>
-                        </div>
-                      </div>
+                      <span className="text-sm font-bold text-gray-900 block leading-tight">
+                        {curral.curralNome}
+                      </span>
+                    </button>
+                  ))}
+              </div>
 
-                      {/* Linha 2: Cab | PV | Categorias (inline compacto) */}
+              {/* Card detalhado do curral selecionado */}
+              {(() => {
+                const curral = currais.find((c) => c.curralId === curralSelecionado)
+                if (!curral) return null
+                return (
+                  <div
+                    id={`curral-card-${curral.curralId}`}
+                    className={`rounded-2xl border-2 p-3 transition-all ${
+                      curral.erroSalvar
+                        ? 'border-red-300 bg-red-50'
+                        : (curral.salvo || curral.rascunhoSalvo)
+                          ? 'border-green-300 bg-green-50'
+                          : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    {/* Linha 1: Curral | Lote + Formulação */}
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-base font-bold text-gray-900 truncate block">
+                          {curral.curralNome}
+                        </span>
+                        <span className="text-xs text-gray-500 truncate block">
+                          {curral.formulacaoNome || '—'}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-base font-bold text-[#1a3a2a]">
+                          {curral.loteNome || '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Linha 2: Cab | PV */}
+                    <div className="text-sm text-gray-700 mb-1 truncate">
+                      <span className="font-bold text-gray-500">Cab: </span>
+                      <span className="font-bold text-gray-900 mr-2">
+                        {curral.nCabecas ?? '—'}
+                      </span>
+                      <span className="font-bold text-gray-500">Peso: </span>
+                      <span className="font-bold text-gray-900 mr-2">
+                        {curral.pesoVivoKg != null
+                          ? `${formatarKg(curral.pesoVivoKg, 0)} kg`
+                          : '—'}
+                      </span>
+                    </div>
+                    {curral.categorias && (
                       <div className="text-sm text-gray-700 mb-2 truncate">
-                        <span className="font-bold text-gray-500">Cab: </span>
-                        <span className="font-bold text-gray-900 mr-2">
-                          {curral.nCabecas ?? '—'}
+                        <span className="font-bold text-gray-500">Cat: </span>
+                        <span className="font-bold text-gray-900">
+                          {curral.categorias
+                            .split(',')
+                            .map((c) => c.trim())
+                            .filter(Boolean)
+                            .map((c) => capitalizarIniciais(c))
+                            .join(', ')}
                         </span>
-                        <span className="font-bold text-gray-500">PV: </span>
-                        <span className="font-bold text-gray-900 mr-2">
-                          {curral.pesoVivoKg != null
-                            ? `${formatarKg(curral.pesoVivoKg, 0)} kg`
-                            : '—'}
-                        </span>
-                        {curral.categorias && (
-                          <>
-                            <span className="font-bold text-gray-500">Cat: </span>
-                            <span className="font-bold text-gray-900">
-                              {curral.categorias
-                                .split(',')
-                                .map((c) => c.trim())
-                                .filter(Boolean)
-                                .map((c) => capitalizarIniciais(c))
-                                .join(', ')}
-                            </span>
-                          </>
-                        )}
                       </div>
+                    )}
 
-                      {/* Linha 3: Trato Nº | Previsto | Real */}
-                      {curral.tratosConcluidos ? (
-                        <div className="border-t border-gray-100 pt-2 mt-2">
-                          <div className="flex items-center justify-center gap-2 py-2 text-green-700 font-bold">
-                            <Check className="w-5 h-5" />
-                            <span>
-                              Tratos do dia concluídos ({curral.quantidadeTratos}/{curral.quantidadeTratos})
-                            </span>
-                          </div>
+                    {/* Linha 3: Trato Nº | Previsto | Real */}
+                    {curral.tratosConcluidos ? (
+                      <div className="border-t border-gray-100 pt-2 mt-2">
+                        <div className="flex items-center justify-center gap-2 py-2 text-green-700 font-bold">
+                          <Check className="w-5 h-5" />
+                          <span>
+                            Tratos do dia concluídos ({curral.quantidadeTratos}/{curral.quantidadeTratos})
+                          </span>
                         </div>
-                      ) : (
-                        <div className="flex items-start justify-between gap-2 border-t border-gray-100 pt-2">
-                          <div className="flex items-start gap-3 sm:gap-6 min-w-0 flex-1">
-                            <div className="min-w-[3rem] sm:min-w-[4rem] flex flex-col">
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
-                                Trato
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-2 border-t border-gray-100 pt-2">
+                        <div className="flex items-start gap-3 sm:gap-6 min-w-0 flex-1">
+                          <div className="min-w-[3rem] sm:min-w-[4rem] flex flex-col">
+                            <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
+                              Trato
+                            </span>
+                            <span className="text-sm sm:text-base font-bold text-gray-900 leading-tight">
+                              {curral.ordemTrato}º de {curral.quantidadeTratos}
+                            </span>
+                            {curral.horarioSugerido && (
+                              <span className="text-[0.65rem] sm:text-xs font-semibold text-blue-600 leading-tight mt-0.5">
+                                {curral.horarioSugerido.slice(0, 5)}h
                               </span>
-                              <span className="text-sm sm:text-base font-bold text-gray-900 leading-tight">
-                                {curral.ordemTrato}º de {curral.quantidadeTratos}
-                              </span>
-                              {curral.horarioSugerido && (
-                                <span className="text-[0.65rem] sm:text-xs font-semibold text-blue-600 leading-tight mt-0.5">
-                                  {curral.horarioSugerido.slice(0, 5)}h
-                                </span>
-                              )}
-                            </div>
-                            <div className="min-w-[4rem] sm:min-w-[5rem] flex flex-col">
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
-                                Previsto
-                              </span>
-                              <span className="text-sm sm:text-base font-bold text-[#1a3a2a] leading-tight">
-                                {formatarKg(curral.kgPlanejado)} kg
-                              </span>
-                            </div>
-                            {curral.leituraCochoNota !== null && (
-                              <div className="min-w-[4rem] sm:min-w-[5rem] flex flex-col">
-                                <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
-                                  Leitura
-                                </span>
-                                <span className="text-sm sm:text-base font-bold text-gray-900 leading-tight">
-                                  {curral.leituraCochoNota}
-                                  {curral.leituraPercentualAjuste !== null && (
-                                    <span
-                                      className={`text-[0.65rem] sm:text-xs ml-1 ${
-                                        curral.leituraPercentualAjuste > 0
-                                          ? 'text-green-600'
-                                          : curral.leituraPercentualAjuste < 0
-                                            ? 'text-red-600'
-                                            : 'text-gray-500'
-                                      }`}
-                                    >
-                                      ({curral.leituraPercentualAjuste > 0 ? '+' : ''}
-                                      {curral.leituraPercentualAjuste}%)
-                                    </span>
-                                  )}
-                                </span>
-                              </div>
                             )}
                           </div>
-                          <div className="shrink-0 flex flex-col items-center">
-                            <span className="text-[0.65rem] font-bold text-yellow-600 uppercase tracking-wider block mb-1">
-                              Real (kg)
+                          <div className="min-w-[4rem] sm:min-w-[5rem] flex flex-col">
+                            <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
+                              Previsto
                             </span>
-                            <div className="relative">
-                              <input
-                                ref={(el) => (inputRefs.current[curral.curralId] = el)}
-                                type="number"
-                                inputMode="decimal"
-                                step="0.1"
-                                min="0"
-                                value={curral.kgReal}
-                                onChange={(e) => atualizarKgReal(curral.curralId, e.target.value)}
-                                onKeyDown={(e) => handleKgRealKeyDown(e, curral.curralId)}
-                                placeholder="—"
-                                className={`w-20 h-11 sm:w-24 sm:h-12 text-center text-lg sm:text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-text ${
-                                  curral.erroSalvar
-                                    ? 'border-red-500 bg-red-50 text-red-700'
-                                    : curral.salvo
-                                      ? 'border-green-500 bg-green-50 text-green-700'
-                                      : 'border-yellow-500 bg-white text-gray-900 focus:border-yellow-600'
-                                }`}
-                              />
-                              {curral.salvando && (
-                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
-                              )}
-                              {curral.salvo && !curral.salvando && (
-                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                  <Check className="w-3 h-3 text-white" />
-                                </span>
-                              )}
-                              {curral.erroSalvar && !curral.salvando && (
-                                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                  !
-                                </span>
-                              )}
-                            </div>
+                            <span className="text-sm sm:text-base font-bold text-[#1a3a2a] leading-tight">
+                              {formatarKg(curral.kgPlanejado)} kg
+                            </span>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Detalhe do cálculo (colapsado, discreto) */}
-                      {!curral.tratosConcluidos && (
-                        <div className="mt-2 rounded-lg bg-gray-50 border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 font-medium leading-snug">
-                          {curral.isDia1 ? (
-                            <>
-                              <span className="font-bold">Dia 1:</span> {formatarKg(curral.kgBaseDia)}{' '}
-                              kg/dia (programação) × {curral.percentualTrato}% ={' '}
-                              {formatarKg(curral.kgPlanejado)} kg
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-bold">Dia 2+:</span> real dia anterior{' '}
-                              {formatarKg(curral.totalRealDiaAnterior)} kg
-                              {curral.leituraPercentualAjuste !== null &&
-                                curral.leituraPercentualAjuste !== 0 && (
-                                  <>
-                                    {' '}
-                                    × (1{' '}
-                                    {curral.leituraPercentualAjuste > 0 ? '+' : ''}
-                                    {curral.leituraPercentualAjuste / 100})
-                                  </>
-                                )}{' '}
-                              = {formatarKg(curral.kgBaseDia)} kg/dia × {curral.percentualTrato}% ={' '}
-                              {formatarKg(curral.kgPlanejado)} kg
-                            </>
+                          {curral.leituraCochoNota !== null && (
+                            <div className="min-w-[4rem] sm:min-w-[5rem] flex flex-col">
+                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block leading-none mb-1">
+                                Leitura
+                              </span>
+                              <span className="text-sm sm:text-base font-bold text-gray-900 leading-tight">
+                                {curral.leituraCochoNota}
+                                {curral.leituraPercentualAjuste !== null && (
+                                  <span
+                                    className={`text-[0.65rem] sm:text-xs ml-1 ${
+                                      curral.leituraPercentualAjuste > 0
+                                        ? 'text-green-600'
+                                        : curral.leituraPercentualAjuste < 0
+                                          ? 'text-red-600'
+                                          : 'text-gray-500'
+                                    }`}
+                                  >
+                                    ({curral.leituraPercentualAjuste > 0 ? '+' : ''}
+                                    {curral.leituraPercentualAjuste}%)
+                                  </span>
+                                )}
+                              </span>
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
+                        <div className="shrink-0 flex flex-col items-center">
+                          <span className="text-[0.65rem] font-bold text-yellow-600 uppercase tracking-wider block mb-1">
+                            Real (kg)
+                          </span>
+                          <div className="relative">
+                            <input
+                              ref={(el) => (inputRefs.current[curral.curralId] = el)}
+                              type="number"
+                              inputMode="decimal"
+                              step="0.1"
+                              min="0"
+                              value={curral.kgReal}
+                              onChange={(e) => atualizarKgReal(curral.curralId, e.target.value)}
+                              onKeyDown={(e) => handleKgRealKeyDown(e, curral.curralId)}
+                              placeholder="—"
+                              className={`w-20 h-11 sm:w-24 sm:h-12 text-center text-lg sm:text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-text ${
+                                curral.erroSalvar
+                                  ? 'border-red-500 bg-red-50 text-red-700'
+                                  : (curral.salvo || curral.rascunhoSalvo)
+                                    ? 'border-green-500 bg-green-50 text-green-700'
+                                    : 'border-yellow-500 bg-white text-gray-900 focus:border-yellow-600'
+                              }`}
+                            />
+                            {curral.salvando && (
+                              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                            )}
+                            {(curral.salvo || curral.rascunhoSalvo) && !curral.salvando && (
+                              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                <Check className="w-3 h-3 text-white" />
+                              </span>
+                            )}
+                            {curral.erroSalvar && !curral.salvando && (
+                              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                !
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </>
           )}
         </div>
@@ -904,38 +979,122 @@ export default function TratoConfinamentoPage() {
 
       {programacao && currais.length > 0 && (
         <div className="flex flex-col gap-3 desktop-form-container">
-          {todosSalvosSemAvancar ? (
-            <button
-              onClick={() => avancarProximoTrato(new Set(currais.map((c) => c.curralId)))}
-              className="font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-            >
-              PRÓXIMO TRATO →
-            </button>
-          ) : (
-            <button
-              onClick={salvarTodosPendentes}
-              disabled={salvandoLote || tratosPendentes === 0}
-              className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
-                salvandoLote
-                  ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
-                  : tratosPendentes === 0
-                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                    : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
-              }`}
-            >
-              {salvandoLote
-                ? 'SALVANDO...'
-                : tratosPendentes > 0
-                  ? `SALVAR TRATOS (${tratosPendentes})`
-                  : 'SALVAR TRATOS'}
-            </button>
-          )}
+          <button
+            onClick={salvarTodosPendentes}
+            disabled={tratosPendentes === 0}
+            className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
+              tratosPendentes === 0
+                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                : 'bg-yellow-500 text-[#1a3a2a] border-yellow-500 hover:bg-yellow-600'
+            }`}
+          >
+            {tratosPendentes > 0
+              ? `SALVAR RASCUNHOS (${tratosPendentes})`
+              : 'TODOS SALVOS'}
+          </button>
+          <button
+            onClick={() => setShowRevisarModal(true)}
+            disabled={rascunhosPendentes === 0}
+            className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
+              rascunhosPendentes === 0
+                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
+            }`}
+          >
+            {rascunhosPendentes > 0
+              ? `REVISAR E SALVAR (${rascunhosPendentes})`
+              : 'REVISAR E SALVAR'}
+          </button>
           <button
             onClick={limparKgReais}
             className="bg-gray-200 text-gray-700 font-bold text-base px-6 py-3 rounded-2xl border-2 border-gray-300 hover:bg-gray-300 transition-colors active:scale-95"
           >
-            🧹 LIMPAR KG REAIS
+            🧹 LIMPAR TRATOS
           </button>
+        </div>
+      )}
+
+      {/* Modal de Revisão */}
+      {showRevisarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 bg-[#1a3a2a] text-white">
+              <h2 className="text-lg font-black">Revisar Tratos</h2>
+              <p className="text-sm text-white/70 mt-0.5">
+                Confira os valores antes de salvar definitivamente.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+              {currais.filter((c) => c.kgReal !== '' && !c.tratosConcluidos).length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  Nenhum valor digitado para revisar.
+                </div>
+              ) : (
+                currais
+                  .filter((c) => c.kgReal !== '' && !c.tratosConcluidos)
+                  .map((curral) => (
+                    <div
+                      key={curral.curralId}
+                      className={`rounded-xl border-2 px-3 py-2.5 flex items-center justify-between gap-3 ${
+                        curral.salvo
+                          ? 'border-green-300 bg-green-50'
+                          : curral.rascunhoSalvo
+                            ? 'border-yellow-300 bg-yellow-50'
+                            : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-bold text-gray-900 block truncate">
+                          Curral {curral.curralNome}
+                        </span>
+                        <span className="text-xs text-gray-500 block truncate">
+                          {curral.loteNome || '—'} · Trato {curral.ordemTrato}º
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-lg font-bold text-[#1a3a2a]">
+                          {curral.kgReal} kg
+                        </span>
+                        {curral.salvo ? (
+                          <span className="text-[0.65rem] font-bold text-green-600 block">salvo</span>
+                        ) : curral.rascunhoSalvo ? (
+                          <span className="text-[0.65rem] font-bold text-yellow-600 block">rascunho</span>
+                        ) : (
+                          <span className="text-[0.65rem] font-bold text-gray-400 block">não salvo</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="p-4 flex gap-3 border-t border-gray-100">
+              <button
+                onClick={() => setShowRevisarModal(false)}
+                disabled={salvandoFim}
+                className="flex-1 font-bold text-base px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors active:scale-95 disabled:opacity-50"
+              >
+                CANCELAR
+              </button>
+              <button
+                onClick={async () => {
+                  const ok = await salvarTodosDoRascunho()
+                  if (ok) {
+                    setShowRevisarModal(false)
+                  }
+                }}
+                disabled={salvandoFim || rascunhosPendentes === 0}
+                className={`flex-1 font-bold text-base px-4 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
+                  salvandoFim
+                    ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
+                    : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
+                }`}
+              >
+                {salvandoFim ? 'SALVANDO...' : 'SALVAR'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </CadernetaLayout>

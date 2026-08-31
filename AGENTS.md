@@ -403,7 +403,9 @@ Disparador: quando mencionar "mapa KML", "georreferenciamento", "pastos no mapa"
 
 **Schema (migration $(Get-Date -Format 'yyyyMMddHHmmss')_add_mae_adotiva.sql, aplicada via MCP)**:
 - individuos.mae_adotiva_id (UUID, FK self-reference individuos_mae_adotiva_id_fkey, ON DELETE SET NULL). A biologica continua em mae.
-- egistros_maternidade: 6 colunas novas (individuo_id_mae_adotiva, id_manejo_mae_adotiva, id_brinco_mae_adotiva, id_chip_mae_adotiva, categoria_mae_adotiva, aca_mae_adotiva).
+- 
+egistros_maternidade: 6 colunas novas (individuo_id_mae_adotiva, id_manejo_mae_adotiva, id_brinco_mae_adotiva, id_chip_mae_adotiva, categoria_mae_adotiva, 
+aca_mae_adotiva).
 - Indice idx_individuos_mae_adotiva para consultas de adocoes.
 
 **PWA (MaternidadePage.tsx)**:
@@ -419,3 +421,19 @@ Disparador: quando mencionar "mapa KML", "georreferenciamento", "pastos no mapa"
 **Painel Web**: a RPC get_relatorio_lote_ciclo_vida precisa ser atualizada para incluir id_brinco_mae_adotiva no resultado da secao de reproducao. O tipo TS ReproducaoLote.linhas ja tem o campo opcional.
 
 **Disparador**: quando mencionar guacho, mae adotiva, bezerro abandonado, adocao de bezerro, ou mae_adotiva_id, lembrar que o sistema agora vincula estruturalmente a mae adotiva via FK em individuos.
+
+## Fluxo de migrations estruturais (obrigatório) — adicionado em 2026-08-31
+
+Migrations estruturais (CREATE/ALTER TABLE, triggers, policies, índices, functions) devem seguir este fluxo rigorosamente:
+
+1. Escrever o arquivo local em `supabase/migrations/<timestamp>_<nome>.sql` no repo do Painel Web (`GestaUp-Cadernetas-Gestao`), que é o repo responsável pelo schema.
+2. Rodar `supabase db push` no Painel Web para aplicar e registrar em `schema_migrations`.
+3. Commitar e pushar o arquivo no Painel Web.
+
+NÃO usar `apply_migration` do MCP para migrations estruturais. O MCP aplica o SQL no banco mas registra com timestamp de execução (não o do nome do arquivo), criando divergência entre local e remoto que quebra o `db push` em execuções futuras. Se `db push` falhar com "Remote migration versions not found in local migrations directory", criar placeholder local com o version remoto e rodar `supabase migration repair --status applied <version>` para os que já estão no banco.
+
+Migrations pontuais (dados operacionais: resets, backfills, deletes por fazenda) continuam sendo aplicadas via MCP sem arquivo local, conforme regra existente.
+
+O PWA (`Caderneta-Digital-Gesta-Up`) não cria nem aplica migrations diretamente. Mudanças de schema que afetam o PWA (novas colunas, novas tabelas, triggers) são feitas no Painel Web e o PWA apenas consome o resultado via `syncService.ts` e queries Supabase.
+
+**Disparador**: antes de criar ou aplicar qualquer migration estrutural, ler esta seção.
