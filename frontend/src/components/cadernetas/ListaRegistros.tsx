@@ -246,7 +246,8 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     }
 
     const texto = formatarRegistroComoTexto(registroParaShare, caderneta, registros)
-    compartilharWhatsApp(texto)
+    const foto = (registroParaShare as any).fotoBase64 as string | null | undefined
+    compartilharWhatsApp(texto, foto)
     setMostrarModalCompartilhar(false)
     setRegistroParaCompartilhar(null)
   }

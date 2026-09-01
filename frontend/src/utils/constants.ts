@@ -64,7 +64,7 @@ export const CADERNETAS = [
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', disponivel: true, grupo: 'Nutrição' },
-  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Nutrição' },
+  { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', disponivel: true, grupo: 'Nutrição' },
   { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '🌽', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#A0522D', disponivel: true, grupo: 'Nutrição' },
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES DE MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas & Combustível' },
@@ -83,9 +83,9 @@ export const CADERNETAS = [
 export const CADERNETA_GRUPO_ORDEM = [
   'Gado & Pastagens',
   'Nutrição',
+  'Infraestrutura & Geral',
   'Máquinas & Combustível',
   'Insumos & Estoque',
-  'Infraestrutura & Geral',
 ] as const
 
 export const CADERNETA_GRUPO_CORES: Record<string, string> = {

@@ -1,6 +1,7 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
 import { formatarNumeroBR } from './formatNumber'
+import { base64ToBlob } from './photoCompress'
 
 /**
  * Calcula o tempo desde a última limpeza formatado para exibição.
@@ -1821,9 +1822,42 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   return texto
 }
 
-export const compartilharWhatsApp = async (texto: string) => {
+export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | null) => {
   const textoCodificado = encodeURIComponent(texto)
   const url = `https://wa.me/?text=${textoCodificado}`
+
+  // Se houver foto, tentar anexa-la via Web Share API (files)
+  if (fotoBase64) {
+    try {
+      const blob = base64ToBlob(fotoBase64)
+      const file = new File([blob], 'foto_morte.jpg', { type: 'image/jpeg' })
+      const nav = navigator as any
+
+      if (typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+        await nav.share({
+          title: 'Compartilhar Registro',
+          text: texto,
+          files: [file],
+        })
+        return
+      }
+      // Dispositivo nao suporta anexar arquivo: compartilha texto e avisa
+      if (nav.share) {
+        try {
+          await nav.share({ title: 'Compartilhar Registro', text: texto })
+        } catch {
+          window.open(url, '_blank')
+        }
+      } else {
+        window.open(url, '_blank')
+      }
+      alert('Este dispositivo não suporta anexar foto no compartilhamento. A foto foi omitida.')
+      return
+    } catch (err) {
+      // Falhou o share com arquivo; cair para texto only
+      console.error('[share] Erro ao compartilhar com foto:', err)
+    }
+  }
 
   if (navigator.share) {
     try {
@@ -1838,4 +1872,4 @@ export const compartilharWhatsApp = async (texto: string) => {
   } else {
     window.open(url, '_blank')
   }
-} 
+}

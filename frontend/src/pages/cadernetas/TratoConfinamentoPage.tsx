@@ -576,18 +576,20 @@ export default function TratoConfinamentoPage() {
   }, [data, tipoSelecionado, fazendaId, salvarTratoRascunho])
 
   const atualizarKgReal = useCallback((curralId: string, valor: string) => {
+    // Sanitizar: manter apenas digitos, ponto e virgula (bloqueia letras)
+    const valorSanitizado = valor.replace(/[^0-9.,]/g, '')
     setCurrais((prev) =>
       prev.map((c) =>
-        c.curralId === curralId ? { ...c, kgReal: valor, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
+        c.curralId === curralId ? { ...c, kgReal: valorSanitizado, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
       )
     )
     // Autosave debounced: cancela timer anterior e agenda novo
     const prevTimer = debounceTimers.current[curralId]
     if (prevTimer) clearTimeout(prevTimer)
-    if (valor === '') return
+    if (valorSanitizado === '') return
     debounceTimers.current[curralId] = setTimeout(() => {
       delete debounceTimers.current[curralId]
-      void salvarTratoRascunho(curralId, valor)
+      void salvarTratoRascunho(curralId, valorSanitizado)
     }, 500)
   }, [salvarTratoRascunho])
 
@@ -992,8 +994,18 @@ export default function TratoConfinamentoPage() {
                               min="0"
                               value={curral.kgReal}
                               onChange={(e) => atualizarKgReal(curral.curralId, e.target.value)}
-                              onKeyDown={(e) => handleKgRealKeyDown(e, curral.curralId)}
-                              placeholder="—"
+                              onKeyDown={(e) => {
+                                // Bloqueia teclas de letras (permite ctrl/alt/meta + qualquer coisa)
+                                if (
+                                  /^[a-zA-Z]$/.test(e.key) &&
+                                  !e.ctrlKey && !e.altKey && !e.metaKey
+                                ) {
+                                  e.preventDefault()
+                                  return
+                                }
+                                handleKgRealKeyDown(e, curral.curralId)
+                              }}
+                              placeholder=""
                               className={`w-20 h-11 sm:w-24 sm:h-12 text-center text-lg sm:text-xl font-bold border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-text ${
                                 curral.erroSalvar
                                   ? 'border-red-500 bg-red-50 text-red-700'

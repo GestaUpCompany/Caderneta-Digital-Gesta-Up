@@ -25,7 +25,8 @@ export default function SuccessModal({
   const handleShare = async () => {
     if (registro && caderneta) {
       const texto = formatarRegistroComoTexto(registro, caderneta)
-      await compartilharWhatsApp(texto)
+      const foto = (registro as any).fotoBase64 as string | null | undefined
+      await compartilharWhatsApp(texto, foto)
     }
   }
 
