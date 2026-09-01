@@ -19,6 +19,7 @@ import {
   getLoteByNomeCached,
 } from '../../services/cadastroCache'
 import { getLotes, getNotasLeituraCochoConfig } from '../../services/supabaseService'
+import { salvarRascunho, lerRascunho, limparRascunho } from '../../services/indexedDB'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
 import { ChevronLeft, ChevronRight, Check, ArrowLeft } from 'lucide-react'
 interface NotaConfig {
@@ -104,6 +105,12 @@ function parseDataBR(data: string): Date | null {
   const [day, month, year] = data.split('/').map(Number)
   if (!day || !month || !year) return null
   return new Date(Date.UTC(year, month - 1, day))
+}
+
+function brToDateISO(dataBR: string): string {
+  const [day, month, year] = dataBR.split(' ')[0].split('/').map(Number)
+  if (!day || !month || !year) return ''
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 function diferencaDias(inicio: Date, fim: Date): number {
@@ -323,6 +330,20 @@ export default function LeituraCochoPage() {
 
         const semCurral = lotesData.length - lotesValidos.length
         setTotalLotesSemCurral(semCurral > 0 ? semCurral : 0)
+
+        // Carregar rascunho salvo (notas clicadas mas ainda nao enviadas ao Supabase)
+        const dataISO = brToDateISO(todayBR())
+        const rascunhoKey = `leitura-cocho-rascunho-${fazendaId}-${dataISO}`
+        const rascunhoData = await lerRascunho<Record<string, string>>(rascunhoKey)
+        if (rascunhoData) {
+          for (const lote of lotesFiltrados) {
+            const notaRascunho = rascunhoData[lote.id]
+            if (notaRascunho !== undefined && notaRascunho !== '' && !lote.notaSalva) {
+              lote.nota = notaRascunho
+            }
+          }
+        }
+
         setLotes(lotesFiltrados)
         setLinhaSelecionadaId(null)
         setLoteSelecionadoId(null)
@@ -428,11 +449,26 @@ export default function LeituraCochoPage() {
     [lotes, fazendaId, data, usuario, notasConfig]
   )
 
+  // Autosave de rascunho: a cada clique numa nota, persiste no IndexedDB.
+  // Como o clique é um evento discreto (nao é digitação contínua), nao precisa debounce.
   const handleNotaChange = useCallback(
     (id: string, valor: string) => {
       atualizarNota(id, valor)
+      if (!fazendaId) return
+      const dataISO = brToDateISO(data)
+      if (!dataISO) return
+      const rascunhoKey = `leitura-cocho-rascunho-${fazendaId}-${dataISO}`
+      lerRascunho<Record<string, string>>(rascunhoKey).then((atual) => {
+        const rascunhoAtual = atual || {}
+        if (valor === '') {
+          delete rascunhoAtual[id]
+        } else {
+          rascunhoAtual[id] = valor
+        }
+        salvarRascunho(rascunhoKey, rascunhoAtual)
+      })
     },
-    [atualizarNota]
+    [atualizarNota, fazendaId, data]
   )
 
   const [salvandoLinha, setSalvandoLinha] = useState(false)
@@ -451,12 +487,41 @@ export default function LeituraCochoPage() {
     )
 
     await Promise.all(pendentes.map((l) => salvarNota(l.id, l.nota)))
+
+    // Limpar rascunho dos lotes que salvaram com sucesso
+    if (fazendaId) {
+      const dataISO = brToDateISO(data)
+      if (dataISO) {
+        const rascunhoKey = `leitura-cocho-rascunho-${fazendaId}-${dataISO}`
+        const rascunhoAtual = await lerRascunho<Record<string, string>>(rascunhoKey)
+        if (rascunhoAtual) {
+          const lotesSalvos = lotesDaLinha.filter((l) => l.notaSalva)
+          const novoRascunho = { ...rascunhoAtual }
+          for (const l of lotesSalvos) {
+            delete novoRascunho[l.id]
+          }
+          if (Object.keys(novoRascunho).length === 0) {
+            await limparRascunho(rascunhoKey)
+          } else {
+            await salvarRascunho(rascunhoKey, novoRascunho)
+          }
+        }
+      }
+    }
+
     setSalvandoLinha(false)
-  }, [lotesDaLinha, salvarNota])
+  }, [lotesDaLinha, salvarNota, fazendaId, data])
 
   const limparNotas = useCallback(() => {
     setLotes((prev) => prev.map((l) => ({ ...l, nota: '', notaSalva: false, erroSalvar: false })))
-  }, [])
+    if (fazendaId) {
+      const dataISO = brToDateISO(data)
+      if (dataISO) {
+        const rascunhoKey = `leitura-cocho-rascunho-${fazendaId}-${dataISO}`
+        limparRascunho(rascunhoKey)
+      }
+    }
+  }, [fazendaId, data])
 
   const handleNotaKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>, _id: string) => {
