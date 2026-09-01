@@ -119,6 +119,10 @@ export default function TratoConfinamentoPage() {
   const [showRevisarModal, setShowRevisarModal] = useState(false)
   const [salvandoFim, setSalvandoFim] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  // Espelho de currais para leitura síncrona em flush/cleanup (sem depender de re-render)
+  const curraisRef = useRef<CurralTrato[]>([])
+  // Timers de debounce de autosave por curralId
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   // Carregamento inicial: notas config e tipos disponíveis
   useEffect(() => {
@@ -516,20 +520,15 @@ export default function TratoConfinamentoPage() {
     }
   }, [curralSelecionado])
 
-  const atualizarKgReal = useCallback((curralId: string, valor: string) => {
-    setCurrais((prev) =>
-      prev.map((c) =>
-        c.curralId === curralId ? { ...c, kgReal: valor, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
-      )
-    )
-  }, [])
-
-  // Salvar rascunho do trato (não envia ao Supabase)
+  // Salvar rascunho do trato (não envia ao Supabase).
+  // Recebe o valor explicitamente para funcionar imediatamente após setCurrais,
+  // sem depender do estado ainda não commitado pelo React.
   const salvarTratoRascunho = useCallback(
-    async (curralId: string): Promise<boolean> => {
-      const curral = currais.find((c) => c.curralId === curralId)
-      if (!curral || !fazendaId) return false
-      if (curral.kgReal === '' || curral.tratosConcluidos) return false
+    async (curralId: string, valorKg: string): Promise<boolean> => {
+      if (!fazendaId) return false
+      if (valorKg === '' ) return false
+      const curral = curraisRef.current.find((c) => c.curralId === curralId)
+      if (!curral || curral.tratosConcluidos) return false
 
       // Marcar como rascunho salvo (verde + check)
       setCurrais((prev) =>
@@ -543,15 +542,54 @@ export default function TratoConfinamentoPage() {
         const dataISO = brToDateISO(data)
         const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
         const rascunhoAtual = await lerRascunho<Record<string, string>>(rascunhoKey) || {}
-        rascunhoAtual[curralId] = curral.kgReal
+        rascunhoAtual[curralId] = valorKg
         await salvarRascunho(rascunhoKey, rascunhoAtual)
       } catch (error) {
         console.error('Erro ao salvar rascunho do trato:', error)
       }
       return true
     },
-    [currais, fazendaId, data, tipoSelecionado]
+    [fazendaId, data, tipoSelecionado]
   )
+
+  // Sincroniza espelho de currais para leitura síncrona em flush/cleanup
+  useEffect(() => {
+    curraisRef.current = currais
+  }, [currais])
+
+  // Flush do autosave: dispara salvamentos pendentes antes de recarregar (troca de
+  // data/tipo/fazenda) ou desmontar o componente. Roda o cleanup antes da reexecução
+  // de carregarDados, garantindo que valores digitados nos últimos 500ms não se percam.
+  useEffect(() => {
+    return () => {
+      const timers = debounceTimers.current
+      const curraisAtuais = curraisRef.current
+      for (const curralId of Object.keys(timers)) {
+        clearTimeout(timers[curralId])
+        delete timers[curralId]
+        const curral = curraisAtuais.find((c) => c.curralId === curralId)
+        if (curral && curral.kgReal !== '' && !curral.tratosConcluidos) {
+          void salvarTratoRascunho(curralId, curral.kgReal)
+        }
+      }
+    }
+  }, [data, tipoSelecionado, fazendaId, salvarTratoRascunho])
+
+  const atualizarKgReal = useCallback((curralId: string, valor: string) => {
+    setCurrais((prev) =>
+      prev.map((c) =>
+        c.curralId === curralId ? { ...c, kgReal: valor, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
+      )
+    )
+    // Autosave debounced: cancela timer anterior e agenda novo
+    const prevTimer = debounceTimers.current[curralId]
+    if (prevTimer) clearTimeout(prevTimer)
+    if (valor === '') return
+    debounceTimers.current[curralId] = setTimeout(() => {
+      delete debounceTimers.current[curralId]
+      void salvarTratoRascunho(curralId, valor)
+    }, 500)
+  }, [salvarTratoRascunho])
 
   // Salvar todos os rascunhos de uma vez (envia ao Supabase)
   const salvarTodosDoRascunho = useCallback(
@@ -591,12 +629,35 @@ export default function TratoConfinamentoPage() {
               )
             )
           } else {
+            // Após salvar com sucesso: avança para o próximo trato do curral,
+            // limpa kgReal e recalcula planejado/percentual/horário. O rascunho
+            // do IndexedDB é removido em lote abaixo (limparRascunho) se todos ok.
             setCurrais((prev) =>
-              prev.map((c) =>
-                c.curralId === curral.curralId
-                  ? { ...c, salvando: false, salvo: true, rascunhoSalvo: false, erroSalvar: false }
-                  : c
-              )
+              prev.map((c) => {
+                if (c.curralId !== curral.curralId) return c
+                const novoOrdem = c.ordemTrato + 1
+                const novoTratoConcluidos = novoOrdem > c.quantidadeTratos
+                const novoTrato = programacao?.percentuais.find(
+                  (p) => p.ordem_trato === novoOrdem
+                )
+                const novoPercentual = novoTrato?.percentual ?? 0
+                const novoHorario = novoTrato?.horario_sugerido ?? null
+                const novoKgPlanejado =
+                  c.kgBaseDia !== null ? c.kgBaseDia * (novoPercentual / 100) : null
+                return {
+                  ...c,
+                  salvando: false,
+                  salvo: false,
+                  rascunhoSalvo: false,
+                  erroSalvar: false,
+                  ordemTrato: novoOrdem,
+                  tratosConcluidos: novoTratoConcluidos,
+                  percentualTrato: novoPercentual,
+                  horarioSugerido: novoHorario,
+                  kgPlanejado: novoKgPlanejado,
+                  kgReal: '',
+                }
+              })
             )
           }
         } catch (error) {
@@ -627,8 +688,16 @@ export default function TratoConfinamentoPage() {
     (e: React.KeyboardEvent<HTMLInputElement>, curralId: string) => {
       if (e.key === 'Enter') {
         e.preventDefault()
-        // Salva o rascunho do trato atual e avança para o próximo curral da mesma linha
-        salvarTratoRascunho(curralId)
+        // Flush imediato do autosave do curral atual antes de avançar
+        const timer = debounceTimers.current[curralId]
+        if (timer) {
+          clearTimeout(timer)
+          delete debounceTimers.current[curralId]
+        }
+        const curral = currais.find((c) => c.curralId === curralId)
+        if (curral && curral.kgReal !== '' && !curral.tratosConcluidos) {
+          void salvarTratoRascunho(curralId, curral.kgReal)
+        }
         const curraisDaLinha = currais.filter(
           (c) => !linhaSelecionada || c.linhaId === linhaSelecionada
         )
@@ -645,18 +714,6 @@ export default function TratoConfinamentoPage() {
     [salvarTratoRascunho, currais, linhaSelecionada]
   )
 
-  const salvarTodosPendentes = useCallback(async () => {
-    const pendentes = currais.filter(
-      (c) => c.kgReal !== '' && !c.rascunhoSalvo && !c.salvo && !c.salvando && !c.tratosConcluidos
-    )
-    if (pendentes.length === 0) return
-
-    // Salvar todos como rascunho
-    for (const c of pendentes) {
-      await salvarTratoRascunho(c.curralId)
-    }
-  }, [currais, salvarTratoRascunho])
-
   const limparKgReais = useCallback(() => {
     setCurrais((prev) =>
       prev.map((c) => ({ ...c, kgReal: '', salvo: false, rascunhoSalvo: false, erroSalvar: false }))
@@ -667,13 +724,6 @@ export default function TratoConfinamentoPage() {
       limparRascunho(rascunhoKey)
     }
   }, [fazendaId, data, tipoSelecionado])
-
-  const tratosPendentes = useMemo(
-    () =>
-      currais.filter((c) => c.kgReal !== '' && !c.rascunhoSalvo && !c.salvo && !c.salvando && !c.tratosConcluidos)
-        .length,
-    [currais]
-  )
 
   // Rascunhos prontos para revisar e salvar
   const rascunhosPendentes = useMemo(
@@ -980,19 +1030,6 @@ export default function TratoConfinamentoPage() {
       {programacao && currais.length > 0 && (
         <div className="flex flex-col gap-3 desktop-form-container">
           <button
-            onClick={salvarTodosPendentes}
-            disabled={tratosPendentes === 0}
-            className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
-              tratosPendentes === 0
-                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                : 'bg-yellow-500 text-[#1a3a2a] border-yellow-500 hover:bg-yellow-600'
-            }`}
-          >
-            {tratosPendentes > 0
-              ? `SALVAR RASCUNHOS (${tratosPendentes})`
-              : 'TODOS SALVOS'}
-          </button>
-          <button
             onClick={() => setShowRevisarModal(true)}
             disabled={rascunhosPendentes === 0}
             className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
@@ -1056,13 +1093,6 @@ export default function TratoConfinamentoPage() {
                         <span className="text-lg font-bold text-[#1a3a2a]">
                           {curral.kgReal} kg
                         </span>
-                        {curral.salvo ? (
-                          <span className="text-[0.65rem] font-bold text-green-600 block">salvo</span>
-                        ) : curral.rascunhoSalvo ? (
-                          <span className="text-[0.65rem] font-bold text-yellow-600 block">rascunho</span>
-                        ) : (
-                          <span className="text-[0.65rem] font-bold text-gray-400 block">não salvo</span>
-                        )}
                       </div>
                     </div>
                   ))
