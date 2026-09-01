@@ -355,10 +355,6 @@ export default function LeituraCochoPage() {
 
   const selecionarLote = useCallback((id: string) => {
     setLoteSelecionadoId(id)
-    const elemento = document.getElementById(`lote-card-${id}`)
-    if (elemento) {
-      elemento.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
   }, [])
 
   const navegarLote = useCallback(
@@ -598,31 +594,60 @@ export default function LeituraCochoPage() {
             </>
           ) : (
             <>
-              <p className="text-sm text-gray-500">
-                Toque em um curral para carregar os dados e lançar a nota.
-              </p>
-
-              <div ref={listaRef} className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto -mx-1 px-1 pb-1">
-                {carregando ? (
-                  <div className="p-8 text-center text-gray-500">Carregando currais...</div>
-                ) : erro ? (
-                  <div className="p-8 text-center text-red-600">{erro}</div>
-                ) : lotesDaLinha.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    Nenhum curral com lote associado nesta linha.
+              {carregando ? (
+                <div className="p-8 text-center text-gray-500">Carregando currais...</div>
+              ) : erro ? (
+                <div className="p-8 text-center text-red-600">{erro}</div>
+              ) : lotesDaLinha.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  Nenhum curral com lote associado nesta linha.
+                </div>
+              ) : (
+                <>
+                  {/* Chips horizontais de currais */}
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {lotesDaLinha.map((lote) => {
+                      const selecionado = lote.id === loteSelecionadoId
+                      return (
+                        <button
+                          key={lote.id}
+                          type="button"
+                          onClick={() => selecionarLote(lote.id)}
+                          className={`shrink-0 rounded-xl border-2 px-3 py-1.5 transition-all text-center min-w-[3rem] ${
+                            selecionado
+                              ? lote.erroSalvar
+                                ? 'border-red-500 bg-red-50'
+                                : lote.notaSalva
+                                  ? 'border-green-500 bg-green-50'
+                                  : 'border-yellow-500 bg-yellow-50'
+                              : lote.erroSalvar
+                                ? 'border-red-200 bg-white'
+                                : lote.notaSalva
+                                  ? 'border-green-200 bg-white'
+                                  : 'border-gray-200 bg-white'
+                          }`}
+                        >
+                          <span className="text-sm font-bold text-gray-900 block leading-tight">
+                            {lote.curral || '—'}
+                          </span>
+                        </button>
+                      )
+                    })}
                   </div>
-                ) : (
-                  lotesDaLinha.map((lote) => {
-                    const selecionado = lote.id === loteSelecionadoId
+
+                  {/* Card detalhado do curral selecionado */}
+                  {(() => {
+                    const lote = lotesDaLinha.find((l) => l.id === loteSelecionadoId)
+                    if (!lote) return null
                     return (
                       <div
-                        key={lote.id}
                         id={`lote-card-${lote.id}`}
-                        onClick={() => selecionarLote(lote.id)}
-                        className={`rounded-2xl border-2 p-3 cursor-pointer transition-all ${
-                          selecionado
-                            ? 'border-yellow-500 bg-yellow-50 shadow-md'
-                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        className={`rounded-2xl border-2 p-3 transition-all ${
+                          lote.erroSalvar
+                            ? 'border-red-300 bg-red-50'
+                            : lote.notaSalva
+                              ? 'border-green-300 bg-green-50'
+                              : 'border-gray-200 bg-white'
                         }`}
                       >
                         {/* Linha 1: Curral | Lote (alinhados no topo) */}
@@ -742,7 +767,6 @@ export default function LeituraCochoPage() {
                           ref={(el) => (inputRefs.current[lote.id] = el)}
                           tabIndex={-1}
                           onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
-                          onClick={(e) => e.stopPropagation()}
                           className="border-t border-gray-100 pt-2"
                         >
                           <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -771,10 +795,7 @@ export default function LeituraCochoPage() {
                                 <button
                                   key={config.id}
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleNotaChange(lote.id, isSelected ? '' : config.id)
-                                  }}
+                                  onClick={() => handleNotaChange(lote.id, isSelected ? '' : config.id)}
                                   className={`flex flex-col items-center justify-center py-1.5 rounded-lg border-2 transition-colors active:scale-95 min-w-0 ${
                                     isSelected
                                       ? `${cor.border} ${cor.bg}`
@@ -804,9 +825,9 @@ export default function LeituraCochoPage() {
                         })()}
                       </div>
                     )
-                  })
-                )}
-              </div>
+                  })()}
+                </>
+              )}
             </>
           )}
         </div>
