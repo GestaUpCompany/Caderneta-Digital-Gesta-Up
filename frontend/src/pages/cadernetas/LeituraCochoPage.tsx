@@ -43,6 +43,7 @@ interface LoteItem {
   tratoAnterior: number | null
   nota: string
   notaSalva: boolean
+  rascunhoSalvo: boolean
   salvando: boolean
   erroSalvar: boolean
   quantidade: number | null
@@ -312,6 +313,7 @@ export default function LeituraCochoPage() {
               tratoAnterior,
               nota: '',
               notaSalva: false,
+              rascunhoSalvo: false,
               salvando: false,
               erroSalvar: false,
               quantidade: detalhes?.quant_atual ?? lote.n_cabecas ?? null,
@@ -340,6 +342,7 @@ export default function LeituraCochoPage() {
             const notaRascunho = rascunhoData[lote.id]
             if (notaRascunho !== undefined && notaRascunho !== '' && !lote.notaSalva) {
               lote.nota = notaRascunho
+              lote.rascunhoSalvo = true
             }
           }
         }
@@ -396,7 +399,7 @@ export default function LeituraCochoPage() {
 
   const atualizarNota = useCallback((id: string, valor: string) => {
     setLotes((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, nota: valor, notaSalva: false, erroSalvar: false } : l))
+      prev.map((l) => (l.id === id ? { ...l, nota: valor, notaSalva: false, rascunhoSalvo: false, erroSalvar: false } : l))
     )
   }, [])
 
@@ -435,7 +438,7 @@ export default function LeituraCochoPage() {
         setLotes((prev) =>
           prev.map((l) =>
             l.id === id
-              ? { ...l, notaSalva: true, salvando: false, erroSalvar: false, leituraAnterior: notaNumero, leituraAnteriorId: notaConfigId }
+              ? { ...l, notaSalva: true, rascunhoSalvo: false, salvando: false, erroSalvar: false, leituraAnterior: notaNumero, leituraAnteriorId: notaConfigId }
               : l
           )
         )
@@ -466,6 +469,10 @@ export default function LeituraCochoPage() {
           rascunhoAtual[id] = valor
         }
         salvarRascunho(rascunhoKey, rascunhoAtual)
+        // Marcar como rascunho salvo (verde + check)
+        setLotes((prev) =>
+          prev.map((l) => (l.id === id ? { ...l, rascunhoSalvo: valor !== '' } : l))
+        )
       })
     },
     [atualizarNota, fazendaId, data]
@@ -513,7 +520,7 @@ export default function LeituraCochoPage() {
   }, [lotesDaLinha, salvarNota, fazendaId, data])
 
   const limparNotas = useCallback(() => {
-    setLotes((prev) => prev.map((l) => ({ ...l, nota: '', notaSalva: false, erroSalvar: false })))
+    setLotes((prev) => prev.map((l) => ({ ...l, nota: '', notaSalva: false, rascunhoSalvo: false, erroSalvar: false })))
     if (fazendaId) {
       const dataISO = brToDateISO(data)
       if (dataISO) {
@@ -682,12 +689,12 @@ export default function LeituraCochoPage() {
                             selecionado
                               ? lote.erroSalvar
                                 ? 'border-red-500 bg-red-50'
-                                : lote.notaSalva
+                                : (lote.notaSalva || lote.rascunhoSalvo)
                                   ? 'border-green-500 bg-green-50'
                                   : 'border-yellow-500 bg-yellow-50'
                               : lote.erroSalvar
                                 ? 'border-red-200 bg-white'
-                                : lote.notaSalva
+                                : (lote.notaSalva || lote.rascunhoSalvo)
                                   ? 'border-green-200 bg-white'
                                   : 'border-gray-200 bg-white'
                           }`}
@@ -710,7 +717,7 @@ export default function LeituraCochoPage() {
                         className={`rounded-2xl border-2 p-3 transition-all ${
                           lote.erroSalvar
                             ? 'border-red-300 bg-red-50'
-                            : lote.notaSalva
+                            : (lote.notaSalva || lote.rascunhoSalvo)
                               ? 'border-green-300 bg-green-50'
                               : 'border-gray-200 bg-white'
                         }`}
@@ -842,7 +849,7 @@ export default function LeituraCochoPage() {
                               {lote.salvando && (
                                 <span className="w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                               )}
-                              {lote.notaSalva && !lote.salvando && (
+                              {(lote.notaSalva || lote.rascunhoSalvo) && !lote.salvando && (
                                 <span className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                                   <Check className="w-3 h-3 text-white" />
                                 </span>
