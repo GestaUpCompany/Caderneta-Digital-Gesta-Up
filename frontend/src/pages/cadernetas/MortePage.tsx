@@ -223,7 +223,6 @@ export default function MortePage() {
     sexo: { required: true },
     raca: { required: true },
     idade: { required: true },
-    pesoVivo: { required: true },
     causaMorte: { required: true },
     ...Object.fromEntries(DIAGNOSTICOS.map(d => [d.campo, { required: true }])),
   }
@@ -595,7 +594,7 @@ export default function MortePage() {
             gridCols={2}
           />
           <Input
-            label={<span>PESO VIVO (kg) <span className="text-red-500">*</span></span>}
+            label="PESO VIVO (kg)"
             placeholder="Ex: 450"
             value={form.pesoVivo}
             onChange={setInput('pesoVivo')}

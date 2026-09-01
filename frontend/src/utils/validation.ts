@@ -413,8 +413,6 @@ export function validateMorte(data: Record<string, unknown>): ValidationResult {
     errors.push({ field: 'racaOutros', message: 'Especifique a raça quando selecionar OUTROS' })
   if (!isNonEmptyString(data.idade))
     errors.push({ field: 'idade', message: 'Idade é obrigatória' })
-  if (!isPositiveNumber(data.pesoVivo))
-    errors.push({ field: 'pesoVivo', message: 'Peso vivo é obrigatório' })
   if (!isNonEmptyString(data.causaMorte))
     errors.push({ field: 'causaMorte', message: 'Causa da morte é obrigatória' })
   if (data.causaMorte === 'Outros' && !isNonEmptyString(data.causaMorteOutros))
