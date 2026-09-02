@@ -46,7 +46,7 @@ export default function CadernetaHeader({
 
   return (
     <header
-      className={`sticky top-0 z-20 bg-[#163b2b] text-white shadow-[0_4px_20px_rgba(0,0,0,0.16)] ${className}`}
+      className={`sticky top-0 z-20 bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.16)] ${className}`}
     >
       <div className="px-4 py-3 desktop-form-container">
         <div className="relative flex h-12 items-center justify-center">

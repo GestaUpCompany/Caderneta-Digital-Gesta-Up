@@ -21,7 +21,7 @@ import {
 import { getLotes, getNotasLeituraCochoConfig } from '../../services/supabaseService'
 import { salvarRascunho, lerRascunho, limparRascunho } from '../../services/indexedDB'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
-import { ChevronLeft, ChevronRight, Check, ArrowLeft } from 'lucide-react'
+import { Brush, Check, Save } from 'lucide-react'
 interface NotaConfig {
   id: string
   nota: number
@@ -129,9 +129,7 @@ export default function LeituraCochoPage() {
   const [loteSelecionadoId, setLoteSelecionadoId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
-  const [totalLotesSemCurral, setTotalLotesSemCurral] = useState(0)
   const [notasConfig, setNotasConfig] = useState<NotaConfig[]>([])
-  const listaRef = useRef<HTMLDivElement>(null)
   const inputRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
@@ -330,9 +328,6 @@ export default function LeituraCochoPage() {
           .filter((l) => l.linhaId !== null)
           .sort((a, b) => a.curral.localeCompare(b.curral, 'pt-BR'))
 
-        const semCurral = lotesData.length - lotesValidos.length
-        setTotalLotesSemCurral(semCurral > 0 ? semCurral : 0)
-
         // Carregar rascunho salvo (notas clicadas mas ainda nao enviadas ao Supabase)
         const dataISO = brToDateISO(todayBR())
         const rascunhoKey = `leitura-cocho-rascunho-${fazendaId}-${dataISO}`
@@ -348,8 +343,12 @@ export default function LeituraCochoPage() {
         }
 
         setLotes(lotesFiltrados)
-        setLinhaSelecionadaId(null)
-        setLoteSelecionadoId(null)
+        const primeiraLinha = linhasMapeadas.find((linha) => lotesFiltrados.some((lote) => lote.linhaId === linha.id))
+        const primeiroLote = primeiraLinha
+          ? lotesFiltrados.find((lote) => lote.linhaId === primeiraLinha.id)
+          : lotesFiltrados[0]
+        setLinhaSelecionadaId(primeiraLinha?.id || primeiroLote?.linhaId || null)
+        setLoteSelecionadoId(primeiroLote?.id || null)
       } catch (error) {
         console.error('Erro ao carregar dados da leitura de cocho:', error)
         setErro('Erro ao carregar dados. Tente novamente.')
@@ -364,11 +363,6 @@ export default function LeituraCochoPage() {
   const lotesDaLinha = useMemo(
     () => lotes.filter((l) => l.linhaId === linhaSelecionadaId),
     [lotes, linhaSelecionadaId]
-  )
-
-  const linhaSelecionada = useMemo(
-    () => linhas.find((l) => l.id === linhaSelecionadaId) || null,
-    [linhas, linhaSelecionadaId]
   )
 
   const selecionarLinha = useCallback((id: string) => {
@@ -540,174 +534,123 @@ export default function LeituraCochoPage() {
     [navegarLote]
   )
 
-  const indiceSelecionado = lotesDaLinha.findIndex((l) => l.id === loteSelecionadoId)
-
   const notasPendentes = useMemo(
     () => lotesDaLinha.filter((l) => l.nota !== '' && !l.notaSalva && !l.salvando).length,
     [lotesDaLinha]
   )
+
+  const bottomContent = linhas.length > 0 && lotes.length > 0 ? (
+    <div className="flex flex-col gap-3 pb-3">
+      <div className="relative">
+        <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
+          Linha
+        </span>
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 pr-8 scrollbar-none">
+          {linhas.map((linha) => (
+            <button
+              key={linha.id}
+              type="button"
+              onClick={() => selecionarLinha(linha.id)}
+              className={`!min-h-[52px] shrink-0 rounded-xl border px-5 py-3 text-sm font-bold whitespace-nowrap transition-colors ${
+                linhaSelecionadaId === linha.id
+                  ? 'border-[#1a3a2a] bg-[#1a3a2a] text-white'
+                  : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {linha.nome}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative">
+        <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
+          Curral
+        </span>
+        <div className="flex gap-2 overflow-x-auto pb-1 pr-8 scrollbar-none">
+          {lotesDaLinha.map((lote) => (
+            <button
+              key={lote.id}
+              type="button"
+              onClick={() => selecionarLote(lote.id)}
+              className={`!min-h-[52px] shrink-0 rounded-xl border-2 px-4 py-3 text-center transition-all ${
+                loteSelecionadoId === lote.id
+                  ? lote.erroSalvar
+                    ? 'border-red-500 bg-red-50'
+                    : (lote.notaSalva || lote.rascunhoSalvo)
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-[#1a3a2a] bg-[#e8f1ec]'
+                  : lote.erroSalvar
+                    ? 'border-red-200 bg-white'
+                    : (lote.notaSalva || lote.rascunhoSalvo)
+                      ? 'border-green-200 bg-white'
+                      : 'border-gray-200 bg-white'
+              }`}
+            >
+              <span className="block text-sm font-bold leading-tight text-gray-900">
+                {lote.curral || '—'}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-2 border-t border-gray-200 pt-3">
+        <div className="flex gap-2">
+          <button
+            onClick={salvarNotasLinha}
+            disabled={salvandoLinha || notasPendentes === 0}
+            className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.99] ${
+              salvandoLinha
+                ? 'cursor-not-allowed border-gray-300 bg-gray-300 text-gray-500'
+                : notasPendentes === 0
+                  ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                  : 'border-[#1a3a2a] bg-[#1a3a2a] text-white hover:bg-[#245038]'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Save className="h-4 w-4" strokeWidth={2.5} />
+              {salvandoLinha ? 'SALVANDO...' : 'SALVAR'}
+            </span>
+          </button>
+          <button
+            onClick={limparNotas}
+            className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Brush className="h-4 w-4" strokeWidth={2.5} />
+              LIMPAR
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
 
   return (
     <CadernetaLayout
       title="Leitura de Cocho"
       cadernetaId="leitura-cocho"
       onBack={() => navigate('/modulos/cadernetas')}
+      dateContent={
+        <DatePicker value={data} onChange={setData} compact inline variant="header" />
+      }
+      bottomContent={bottomContent}
     >
-      {/* Seção 1: Dados Principais */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-          <div className="flex items-center gap-2 shrink-0">
-            {usuario && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                <span>👤</span>
-                <span>{usuario}</span>
-              </span>
-            )}
-            <DatePicker value={data} onChange={setData} compact inline />
-          </div>
-        </div>
-      </div>
-
       {/* Seção 2: Linhas / Currais */}
       <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-        {/* Cabeçalho fixo da seção */}
-        <div className="px-4 py-3 bg-[#1a3a2a] text-white">
-          <div className="mb-2">
-            <h2 className="text-lg font-black tracking-tight">2. LEITURA DE COCHO</h2>
-            {linhaSelecionada ? (
-              <p className="text-xl font-bold text-yellow-400 truncate">
-                {linhaSelecionada.nome}
-              </p>
-            ) : (
-              <p className="text-sm text-white/70">Selecione uma linha</p>
-            )}
-          </div>
-          {linhaSelecionada && (
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => navegarLote('anterior')}
-                disabled={indiceSelecionado === 0}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-white/10 active:bg-white/20 disabled:opacity-30 transition-colors text-sm font-bold"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Anterior
-              </button>
-              <button
-                type="button"
-                onClick={() => navegarLote('proximo')}
-                disabled={indiceSelecionado === lotesDaLinha.length - 1}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-white/10 active:bg-white/20 disabled:opacity-30 transition-colors text-sm font-bold"
-              >
-                Próximo
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setLinhaSelecionadaId(null)}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-white/10 active:bg-white/20 transition-colors text-sm font-bold ml-auto"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Trocar linha
-              </button>
+        <div className="p-3 flex flex-col gap-4">
+          {carregando ? (
+            <div className="p-8 text-center text-gray-500">Carregando currais...</div>
+          ) : erro ? (
+            <div className="p-8 text-center text-red-600">{erro}</div>
+          ) : lotes.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              Nenhum curral com lote associado foi encontrado.
             </div>
-          )}
-        </div>
-
-        <div className="p-6 flex flex-col gap-4">
-          {!linhaSelecionada ? (
-            <>
-              <p className="text-sm text-gray-500">
-                Toque em uma linha para ver os currais e lançar as notas.
-              </p>
-              {totalLotesSemCurral > 0 && (
-                <p className="text-xs text-gray-400 italic">
-                  {totalLotesSemCurral} lote(s) sem curral associado não aparecem na lista.
-                </p>
-              )}
-
-              <div ref={listaRef} className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto -mx-1 px-1 pb-1">
-                {carregando ? (
-                  <div className="p-8 text-center text-gray-500">Carregando linhas...</div>
-                ) : erro ? (
-                  <div className="p-8 text-center text-red-600">{erro}</div>
-                ) : linhas.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    Nenhuma linha de confinamento encontrada.
-                  </div>
-                ) : (
-                  linhas.map((linha) => {
-                    const lotesDaLinhaCount = lotes.filter((l) => l.linhaId === linha.id).length
-                    return (
-                      <div
-                        key={linha.id}
-                        onClick={() => selecionarLinha(linha.id)}
-                        className="rounded-2xl border-2 border-gray-200 bg-white hover:border-yellow-500 hover:bg-yellow-50 p-4 cursor-pointer transition-all"
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-base font-bold text-[#1a3a2a] truncate">
-                            {linha.nome}
-                          </span>
-                          <span className="text-xs font-semibold text-gray-500 shrink-0">
-                            {lotesDaLinhaCount === 1 ? '1 curral' : `${lotesDaLinhaCount} currais`}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-600 truncate">
-                          {linha.curralNomes.length > 0
-                            ? linha.curralNomes.join(' · ')
-                            : 'Sem currais'}
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </>
           ) : (
             <>
-              {carregando ? (
-                <div className="p-8 text-center text-gray-500">Carregando currais...</div>
-              ) : erro ? (
-                <div className="p-8 text-center text-red-600">{erro}</div>
-              ) : lotesDaLinha.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
-                  Nenhum curral com lote associado nesta linha.
-                </div>
-              ) : (
-                <>
-                  {/* Chips horizontais de currais */}
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {lotesDaLinha.map((lote) => {
-                      const selecionado = lote.id === loteSelecionadoId
-                      return (
-                        <button
-                          key={lote.id}
-                          type="button"
-                          onClick={() => selecionarLote(lote.id)}
-                          className={`shrink-0 rounded-xl border-2 px-3 py-1.5 transition-all text-center min-w-[3rem] ${
-                            selecionado
-                              ? lote.erroSalvar
-                                ? 'border-red-500 bg-red-50'
-                                : (lote.notaSalva || lote.rascunhoSalvo)
-                                  ? 'border-green-500 bg-green-50'
-                                  : 'border-yellow-500 bg-yellow-50'
-                              : lote.erroSalvar
-                                ? 'border-red-200 bg-white'
-                                : (lote.notaSalva || lote.rascunhoSalvo)
-                                  ? 'border-green-200 bg-white'
-                                  : 'border-gray-200 bg-white'
-                          }`}
-                        >
-                          <span className="text-sm font-bold text-gray-900 block leading-tight">
-                            {lote.curral || '—'}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Card detalhado do curral selecionado */}
+              {/* Card detalhado do curral selecionado */}
                   {(() => {
                     const lote = lotesDaLinha.find((l) => l.id === loteSelecionadoId)
                     if (!lote) return null
@@ -728,7 +671,7 @@ export default function LeituraCochoPage() {
                             <span className="text-base font-bold text-gray-900 truncate block">
                               {lote.curral || '—'}
                             </span>
-                            <span className="text-xs text-gray-500 truncate block">
+                            <span className="text-sm font-bold text-gray-500 truncate block">
                               {lote.dieta || '—'}
                             </span>
                           </div>
@@ -898,40 +841,12 @@ export default function LeituraCochoPage() {
                       </div>
                     )
                   })()}
-                </>
-              )}
             </>
           )}
         </div>
       </div>
 
-      {linhaSelecionada && (
-        <div className="flex flex-col gap-3 desktop-form-container">
-          <button
-            onClick={salvarNotasLinha}
-            disabled={salvandoLinha || notasPendentes === 0}
-            className={`font-bold text-base px-6 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
-              salvandoLinha
-                ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
-                : notasPendentes === 0
-                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
-            }`}
-          >
-            {salvandoLinha
-              ? 'SALVANDO...'
-              : notasPendentes > 0
-                ? `SALVAR NOTAS (${notasPendentes})`
-                : 'SALVAR NOTAS'}
-          </button>
-          <button
-            onClick={limparNotas}
-            className="bg-gray-200 text-gray-700 font-bold text-base px-6 py-3 rounded-2xl border-2 border-gray-300 hover:bg-gray-300 transition-colors active:scale-95"
-          >
-            🧹 LIMPAR NOTAS
-          </button>
-        </div>
-      )}
+
     </CadernetaLayout>
   )
 }

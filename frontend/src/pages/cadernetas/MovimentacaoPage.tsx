@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { saveRegistro as saveRegistroIDB } from '../../services/indexedDB'
@@ -1244,14 +1245,33 @@ export default function MovimentacaoPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-3">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
-            SALVAR
-          </Button>
-          <Button onClick={() => setForm(makeInitial())} variant="secondary" icon="🧹">
-            LIMPAR
-          </Button>
-          {!isValid && form.motivoMovimentacao && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleSalvar}
+            disabled={salvando || !isValid}
+            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
+              salvando || !isValid
+                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Save className="h-5 w-5" strokeWidth={2.5} />
+              {salvando ? 'SALVANDO...' : 'SALVAR'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setForm(makeInitial())}
+            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Brush className="h-4 w-4" strokeWidth={2.5} />
+              LIMPAR
+            </span>
+          </button>
+          {!isValid && (
             <p className="text-base text-gray-600 text-center">
               <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
             </p>

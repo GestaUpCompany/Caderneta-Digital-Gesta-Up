@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea, SearchableModal } from '../../components/ui'
+import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -180,7 +181,11 @@ export default function LimpezaPage() {
   }
 
   return (
-    <CadernetaLayout title="LIMPEZA" cadernetaId="limpeza">
+    <CadernetaLayout
+      title="LIMPEZA"
+      cadernetaId="limpeza"
+      dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
+    >
       <BannerRascunho
         visible={rascunhoRestaurado}
         onConfirmar={confirmarRascunho}
@@ -191,16 +196,8 @@ export default function LimpezaPage() {
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="section-title">1. DADOS DA LIMPEZA</h2>
-          <div className="flex items-center gap-2 shrink-0">
-            {usuario && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                <span>👤</span>
-                <span>{usuario}</span>
-              </span>
-            )}
-            <DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} compact inline />
-          </div>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA LIMPEZA</h2>
+
         </div>
         <div>
           <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">N° EQUIPE <span className="text-red-500">*</span></label>
@@ -302,13 +299,32 @@ export default function LimpezaPage() {
       </div>
 
       {/* Ações */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
-        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth disabled={!isValid}>
-          SALVAR
-        </Button>
-        <Button onClick={handleLimpar} variant="secondary" icon="🧹" fullWidth>
-          LIMPAR
-        </Button>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={handleSalvar}
+          disabled={salvando || !isValid}
+          className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
+            salvando || !isValid
+              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+              : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
+          }`}
+        >
+          <span className="inline-flex items-center justify-center gap-2">
+            <Save className="h-5 w-5" strokeWidth={2.5} />
+            {salvando ? 'SALVANDO...' : 'SALVAR'}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={handleLimpar}
+          className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+        >
+          <span className="inline-flex items-center justify-center gap-2">
+            <Brush className="h-4 w-4" strokeWidth={2.5} />
+            LIMPAR
+          </span>
+        </button>
       </div>
       {!isValid && (
         <p className="text-base text-gray-600 text-center">

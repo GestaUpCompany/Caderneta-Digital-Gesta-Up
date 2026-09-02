@@ -14,16 +14,26 @@ interface CadernetaLayoutProps {
   showRegistrosButton?: boolean
   onBack?: () => void
   extraHeaderContent?: ReactNode
+  dateContent?: ReactNode
+  centerContent?: ReactNode
+  leftContent?: ReactNode
+  rightContent?: ReactNode
+  bottomContent?: ReactNode
 }
 
 export default function CadernetaLayout({
   title,
   cadernetaId,
   children,
-  showLogos = true,
+  showLogos = false,
   showRegistrosButton = true,
   onBack,
   extraHeaderContent,
+  dateContent,
+  centerContent,
+  leftContent,
+  rightContent,
+  bottomContent,
 }: CadernetaLayoutProps) {
   const { acessoId, fazenda } = useSelector((state: RootState) => state.config)
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
@@ -60,11 +70,15 @@ export default function CadernetaLayout({
         onBack={onBack}
         showRegistros={showRegistrosButton}
         extraHeaderContent={extraHeaderContent}
+        dateContent={dateContent}
+        centerContent={centerContent}
+        leftContent={leftContent}
+        rightContent={rightContent}
       />
 
       {/* Logos não sticky */}
       {showLogos && (
-        <div className="bg-[#1a3a2a] text-white px-4 py-5 border-b border-white/5">
+        <div className="bg-gradient-to-b from-[#1a3a2a] to-[#163b2b] text-white px-4 py-5 border-b border-white/5">
           <div className="flex items-center justify-center gap-8 desktop-form-container">
             <FarmLogo type="both" size="medium" logoUrl={logoUrl} farmName={fazenda} />
           </div>
@@ -72,9 +86,17 @@ export default function CadernetaLayout({
       )}
 
       {/* Conteúdo principal */}
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+      <main className={`flex-1 p-4 flex flex-col gap-5 desktop-form-container ${bottomContent ? 'pb-80' : 'pb-8'}`}>
         {children}
       </main>
+
+      {bottomContent && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
+          <div className="desktop-form-container">
+            {bottomContent}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

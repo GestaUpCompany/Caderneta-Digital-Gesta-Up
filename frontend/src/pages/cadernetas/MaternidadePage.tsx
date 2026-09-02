@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
+import { Brush, Save } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, CheckboxGroup, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, Radio, CheckboxGroup, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR, brToIso } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import FarmLogo from '../../components/FarmLogo'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getLoteByNomeCached,
@@ -211,7 +211,7 @@ const makeInitial = (): FormState => ({
 
 export default function MaternidadePage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, logoUrl, testModeAtivo } = useSelector((state: RootState) => state.config)
+  const { usuario, fazendaId, testModeAtivo } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
   const [animalIdentifierKey, setAnimalIdentifierKey] = useState(0)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
@@ -884,50 +884,25 @@ export default function MaternidadePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader title="MATERNIDADE" cadernetaId="maternidade" />
-
-      {/* Logos não sticky */}
-      <div className="bg-[#1a3a2a] text-white px-4 py-5">
-        <div className="flex items-center justify-center gap-8 desktop-form-container">
-          <FarmLogo
-            farmName={fazenda}
-            logoUrl={logoUrl}
-            type="both"
-            size="medium"
-          />
-        </div>
-      </div>
-
-      {/* Botão de PDF POP */}
-      <div className="bg-[#1a3a2a] text-white px-4 py-3">
-        <div className="desktop-form-container">
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP MATERNIDADE</span>
-          </button>
-        </div>
-      </div>
+      <CadernetaHeader
+        title="MATERNIDADE"
+        cadernetaId="maternidade"
+        dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
+      />
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
+        <button
+          onClick={() => setShowPdfModal(true)}
+          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+        >
+          <span className="text-xl">📄</span>
+          <span>POP MATERNIDADE</span>
+        </button>
+
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-            <div className="flex items-center gap-2 shrink-0">
-              {usuario && (
-                <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                  <span>👤</span>
-                  <span>{usuario}</span>
-                </span>
-              )}
-              <DatePicker value={form.data} onChange={set('data')} error={getError('data')} compact inline />
-            </div>
-          </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
@@ -958,7 +933,7 @@ export default function MaternidadePage() {
 
         {/* Seção 2: Dados da Mãe */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. IDENTIFICAÇÃO DA MÃE</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. IDENTIFICAÇÃO DA MÃE</h2>
           {hasIndividuos === true && (
             <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
               💡 <strong>Não encontrou a mãe?</strong> Clique em qualquer um dos 3 campos de busca abaixo, vá em <strong>NOVO</strong> no final da tela que se abrir e informe o ID Manejo, Brinco e/ou Chip para cadastrá-la automaticamente.
@@ -1100,7 +1075,7 @@ export default function MaternidadePage() {
 
         {/* Seção 3: Parto */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. PARTO <span className="text-red-500">*</span></h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PARTO <span className="text-red-500">*</span></h2>
           <CheckboxGroup
             label=""
             options={TIPOS_PARTO}
@@ -1226,7 +1201,7 @@ export default function MaternidadePage() {
 
         {/* Seção 4: 1ª Cria (identificação + sexo + raça + primeiros cuidados) */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. 1ª CRIA</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. 1ª CRIA</h2>
           <Input
             label={<span>ID PROVISÓRIO <span className="text-red-500">*</span></span>}
             placeholder="Ex: 2023-145"
@@ -1391,7 +1366,7 @@ export default function MaternidadePage() {
         {/* Seção 5: 2ª Cria (condicional - apenas para gêmeos) */}
         {form.gemelos && (
           <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-[#1a3a2a] flex flex-col gap-5">
-            <h2 className="text-lg font-black text-[#1a3a2a] tracking-tight">5. 2ª CRIA (GÊMEOS)</h2>
+            <h2 className="text-lg font-black text-[#1a3a2a] tracking-tight">4. 2ª CRIA (GÊMEOS)</h2>
 
             {/* Campos de identificação: apenas se 2ª cria viva */}
             {!form.gemelosNatimorto && (
@@ -1569,13 +1544,32 @@ export default function MaternidadePage() {
         )}
 
         {/* Ações */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
-          <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" fullWidth disabled={!isValid}>
-            SALVAR
-          </Button>
-          <Button onClick={handleLimpar} variant="secondary" icon="🧹" fullWidth>
-            LIMPAR
-          </Button>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleSalvar}
+            disabled={salvando || !isValid}
+            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
+              salvando || !isValid
+                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Save className="h-5 w-5" strokeWidth={2.5} />
+              {salvando ? 'SALVANDO...' : 'SALVAR'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={handleLimpar}
+            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Brush className="h-4 w-4" strokeWidth={2.5} />
+              LIMPAR
+            </span>
+          </button>
         </div>
         {!isValid && (
           <p className="text-base text-gray-600 text-center">

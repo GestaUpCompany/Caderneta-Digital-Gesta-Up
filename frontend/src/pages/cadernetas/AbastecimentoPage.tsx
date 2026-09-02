@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -15,6 +15,7 @@ import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { Brush, Save } from 'lucide-react'
 
 const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
@@ -76,7 +77,7 @@ const makeInitial = (): FormState => ({
 
 export default function AbastecimentoPage() {
   const navigate = useNavigate()
-  const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
+  const { fazendaId } = useSelector((state: RootState) => state.config)
   const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
     useRascunhoForm<FormState>({ rascunhoKey: 'abastecimento', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
@@ -229,7 +230,11 @@ export default function AbastecimentoPage() {
   }
 
   return (
-    <CadernetaLayout title="ABASTECIMENTO" cadernetaId="abastecimento">
+    <CadernetaLayout
+      title="ABASTECIMENTO"
+      cadernetaId="abastecimento"
+      dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
+    >
       <BannerRascunho
         visible={rascunhoRestaurado}
         onConfirmar={confirmarRascunho}
@@ -239,16 +244,8 @@ export default function AbastecimentoPage() {
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="section-title">1. DADOS DO ABASTECIMENTO</h2>
-          <div className="flex items-center gap-2 shrink-0">
-            {usuario && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                <span>👤</span>
-                <span>{usuario}</span>
-              </span>
-            )}
-            <DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} error={getError('data')} compact inline />
-          </div>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DO ABASTECIMENTO</h2>
+
         </div>
         <>
           <SearchableModal
@@ -354,13 +351,32 @@ export default function AbastecimentoPage() {
         />
       </div>
 
-      <div className="flex flex-col gap-3">
-        <Button onClick={handleSalvar} variant="success" loading={salvando} icon="💾" disabled={!isValid}>
-          SALVAR REGISTRO
-        </Button>
-        <Button onClick={() => limparRascunho()} variant="secondary" icon="🧹">
-          LIMPAR
-        </Button>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={handleSalvar}
+          disabled={salvando || !isValid}
+          className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
+            salvando || !isValid
+              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+              : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
+          }`}
+        >
+          <span className="inline-flex items-center justify-center gap-2">
+            <Save className="h-5 w-5" strokeWidth={2.5} />
+            {salvando ? 'SALVANDO...' : 'SALVAR'}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => limparRascunho()}
+          className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+        >
+          <span className="inline-flex items-center justify-center gap-2">
+            <Brush className="h-4 w-4" strokeWidth={2.5} />
+            LIMPAR
+          </span>
+        </button>
       </div>
       {!isValid && (
         <p className="text-base text-gray-600 text-center">
