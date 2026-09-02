@@ -318,7 +318,7 @@ export default function Home() {
         <div className="relative px-3 py-3 desktop-container">
           <button
             onClick={() => navigate('/configuracoes')}
-            className="absolute right-3 top-3 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors w-10 h-10 backdrop-blur-sm"
+            className="absolute right-3 top-3 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors w-10 h-10"
             aria-label="Configurações"
           >
             <Settings className="w-5 h-5" strokeWidth={2} />
@@ -590,7 +590,7 @@ export default function Home() {
               {/* Botão Cadernetas */}
               <button
                 onClick={() => navigate('/modulos/cadernetas')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-green-500/20 border border-white/30 backdrop-blur-sm"
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-green-500/20 border border-white/30"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))' }}
               >
                 <img src={`${BASE}home/cadernetas.png`} alt="Cadernetas" className="w-40 h-auto object-contain rounded-[32px]" />
@@ -602,7 +602,7 @@ export default function Home() {
               {/* Botão Checklists */}
               <button
                 onClick={() => navigate('/modulos/checklists')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30 backdrop-blur-sm"
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.1))' }}
               >
                 <img src={`${BASE}home/checklists.png`} alt="Checklists" className="w-40 h-auto object-contain rounded-[32px]" />
@@ -617,7 +617,7 @@ export default function Home() {
               {/* Botão Cadastros */}
               <button
                 onClick={() => navigate('/configuracoes')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30 backdrop-blur-sm"
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))' }}
               >
                 <img src={`${BASE}home/cadastro.png`} alt="Cadastros" className="w-40 h-auto object-contain rounded-[32px]" />
@@ -629,7 +629,7 @@ export default function Home() {
               {/* Botão Relatórios */}
               <button
                 onClick={() => navigate('/modulos/relatorios')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30 backdrop-blur-sm"
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.1))' }}
               >
                 <img src={`${BASE}home/relatorios.png`} alt="Relatórios" className="w-40 h-auto object-contain rounded-[32px]" />
@@ -643,7 +643,7 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-6">
               <button
                 onClick={() => navigate('/mapa-fazenda')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 border border-white/30 backdrop-blur-sm"
+                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 border border-white/30"
                 style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.1))' }}
               >
                 <img src={`${BASE}home/mapa-fazenda.png`} alt="Mapa da Fazenda" className="w-40 h-auto object-contain rounded-[32px]" />
@@ -656,7 +656,7 @@ export default function Home() {
               {rbacAtivo && funcionarioLogado && (
                 <button
                   onClick={() => navigate('/atividades')}
-                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30 backdrop-blur-sm"
+                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30"
                   style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.1))' }}
                 >
                   <img src={`${BASE}home/atividades.png`} alt="Atividades" className="w-40 h-auto object-contain rounded-[32px]" />

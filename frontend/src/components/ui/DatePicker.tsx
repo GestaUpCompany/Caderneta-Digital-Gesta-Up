@@ -132,7 +132,7 @@ export default function DatePicker({
 
   const buttonClassName = inline
     ? variant === 'header'
-      ? 'flex h-8 !min-h-0 !min-w-0 items-center gap-1 rounded-lg border border-white/25 bg-white/10 px-2 text-white shadow-inner shadow-black/5 backdrop-blur-sm transition-all hover:bg-white/15 active:scale-[0.99]'
+      ? 'flex h-8 !min-h-0 !min-w-0 items-center gap-1 rounded-lg border border-white/25 bg-white/10 px-2 text-white shadow-inner shadow-black/5 transition-all hover:bg-white/15 active:scale-[0.99]'
       : 'rounded-xl border-2 border-gray-300 bg-white px-2 py-1 flex items-center gap-1 transition-all active:scale-[0.99]'
     : 'w-full rounded-2xl border-2 border-gray-900 bg-white text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99] ' + (compact ? 'px-3 py-2 flex items-center justify-between gap-2' : 'rounded-3xl px-5 py-4')
 

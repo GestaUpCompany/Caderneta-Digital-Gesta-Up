@@ -278,7 +278,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px] backdrop-blur-sm"
+              className="flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px]"
               aria-label="Voltar"
             >
               <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />

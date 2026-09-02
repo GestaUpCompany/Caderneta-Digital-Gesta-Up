@@ -855,7 +855,7 @@ export default function AtividadesPage() {
           <div className="relative px-3 py-3 desktop-container">
             <button
               onClick={() => navigate('/')}
-              className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px] backdrop-blur-sm"
+              className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px]"
             >
               <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
               <span>Voltar</span>
@@ -885,7 +885,7 @@ export default function AtividadesPage() {
         <div className="relative px-3 py-3 desktop-container">
           <button
             onClick={() => navigate('/')}
-            className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px] backdrop-blur-sm"
+            className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px]"
           >
             <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
             <span>Voltar</span>

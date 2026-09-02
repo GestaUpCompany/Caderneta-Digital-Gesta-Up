@@ -11,6 +11,9 @@
     @apply bg-gray-100 text-gray-900 font-sans;
     font-size: 18px;
     line-height: 1.5;
+    /* Previne flickering branco em iOS Safari */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   button {
@@ -20,6 +23,14 @@
 
   input, select, textarea {
     @apply min-h-[60px] text-lg;
+  }
+
+  /* Fix flickering branco em iOS Safari com position sticky/fixed */
+  header, [class*="sticky"], [class*="fixed"] {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 }
 
