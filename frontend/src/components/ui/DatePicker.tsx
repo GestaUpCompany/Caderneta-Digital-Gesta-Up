@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { todayBR } from '../../utils/formatDate'
 
 const MONTH_NAMES = [
@@ -28,6 +29,7 @@ interface DatePickerProps {
   id?: string
   compact?: boolean
   inline?: boolean
+  variant?: 'default' | 'header'
 }
 
 const formatToBR = (date: Date) =>
@@ -51,6 +53,7 @@ export default function DatePicker({
   id,
   compact = false,
   inline = false,
+  variant = 'default',
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -128,7 +131,9 @@ export default function DatePicker({
   const containerWidth = inline ? 'inline-block' : (fullWidth ? 'w-full' : 'inline-block')
 
   const buttonClassName = inline
-    ? 'rounded-xl border-2 border-gray-300 bg-white px-2 py-1 flex items-center gap-1 transition-all active:scale-[0.99]'
+    ? variant === 'header'
+      ? 'flex h-8 !min-h-0 !min-w-0 items-center gap-1 rounded-lg border border-white/25 bg-white/10 px-2 text-white shadow-inner shadow-black/5 backdrop-blur-sm transition-all hover:bg-white/15 active:scale-[0.99]'
+      : 'rounded-xl border-2 border-gray-300 bg-white px-2 py-1 flex items-center gap-1 transition-all active:scale-[0.99]'
     : 'w-full rounded-2xl border-2 border-gray-900 bg-white text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99] ' + (compact ? 'px-3 py-2 flex items-center justify-between gap-2' : 'rounded-3xl px-5 py-4')
 
   return (
@@ -148,7 +153,7 @@ export default function DatePicker({
         {inline ? (
           <>
             <svg
-              className="h-4 w-4 text-gray-500"
+              className={`h-3.5 w-3.5 ${variant === 'header' ? 'text-white/75' : 'text-gray-500'}`}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -159,13 +164,13 @@ export default function DatePicker({
               <rect x="3" y="4" width="18" height="18" rx="4" />
               <path d="M16 2v4M8 2v4M3 10h18" />
             </svg>
-            <span className="text-sm font-bold text-gray-900">{inputValue}</span>
+            <span className={`text-xs font-bold ${variant === 'header' ? 'text-white' : 'text-gray-900'}`}>{inputValue}</span>
           </>
         ) : compact ? (
           <>
-            <span className="text-sm font-bold text-gray-900">{inputValue}</span>
+            <span className={`text-sm font-bold ${variant === 'header' ? 'text-white' : 'text-gray-900'}`}>{inputValue}</span>
             <svg
-              className="h-4 w-4 text-gray-600"
+              className={`h-4 w-4 ${variant === 'header' ? 'text-white/75' : 'text-gray-600'}`}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -212,108 +217,111 @@ export default function DatePicker({
         <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>
       )}
 
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 px-4 py-6 sm:items-center"
-          onClick={() => setIsOpen(false)}
-        >
+      {isOpen &&
+        createPortal(
           <div
-            className="w-full max-w-md rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
-            onClick={event => event.stopPropagation()}
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 px-4 py-6 sm:items-center"
+            onClick={() => setIsOpen(false)}
           >
-            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  aria-label="Mês anterior"
-                  onClick={() => changeMonth(-1)}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 text-gray-700 transition-colors hover:border-gray-900"
-                >
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M15 6l-6 6 6 6" />
-                  </svg>
-                </button>
-                <div className="text-center">
-                  <p className="text-[0.6rem] font-semibold uppercase tracking-[0.5em] text-gray-400">
-                    Escolha a data
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-gray-900">
-                    {MONTH_NAMES[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                  </p>
+            <div
+              className="w-full max-w-md rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    aria-label="Mês anterior"
+                    onClick={() => changeMonth(-1)}
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 text-gray-700 transition-colors hover:border-gray-900"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M15 6l-6 6 6 6" />
+                    </svg>
+                  </button>
+                  <div className="text-center">
+                    <p className="text-[0.6rem] font-semibold uppercase tracking-[0.5em] text-gray-400">
+                      Escolha a data
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-gray-900">
+                      {MONTH_NAMES[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Próximo mês"
+                    onClick={() => changeMonth(1)}
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 text-gray-700 transition-colors hover:border-gray-900"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  aria-label="Próximo mês"
-                  onClick={() => changeMonth(1)}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 text-gray-700 transition-colors hover:border-gray-900"
-                >
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M9 6l6 6-6 6" />
-                  </svg>
-                </button>
+              </div>
+
+              <div className="px-6 pb-6 pt-4">
+                <div className="grid grid-cols-7 gap-2 text-center text-[0.6rem] font-black uppercase tracking-[0.25em] text-gray-400">
+                  {WEEK_DAYS.map(day => (
+                    <span key={day}>{day}</span>
+                  ))}
+                </div>
+
+                <div className="mt-3 grid grid-cols-7 gap-2">
+                  {calendarDays.map((day, index) => {
+                    if (!day) {
+                      return <div key={`empty-${index}`} className="min-h-[48px]" aria-hidden="true" />
+                    }
+
+                    const selected = selectedDate && isSameDay(day, selectedDate)
+                    const isCurrentDay = isSameDay(day, today)
+
+                    const baseClasses = 'min-h-[48px] rounded-2xl text-sm font-semibold flex flex-col items-center justify-center transition-all duration-150'
+                    const stateClasses = selected
+                      ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/20 scale-[1.02]'
+                      : 'bg-slate-50 text-gray-900 hover:bg-slate-100 active:scale-95'
+                    const todayClasses = !selected && isCurrentDay ? 'ring-2 ring-yellow-300' : ''
+
+                    return (
+                      <button
+                        key={day.toISOString()}
+                        type="button"
+                        onClick={() => handleDateSelection(day)}
+                        className={`${baseClasses} ${stateClasses} ${todayClasses}`}
+                      >
+                        <span>{day.getDate()}</span>
+                        {isCurrentDay && !selected && (
+                          <span className="mt-0.5 text-[0.5rem] font-black uppercase tracking-[0.3em] text-yellow-500">
+                            Hoje
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-5 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleToday}
+                    className="flex-1 rounded-2xl border border-gray-900 py-3 text-sm font-black uppercase tracking-[0.3em] text-gray-900"
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="flex-1 rounded-2xl bg-gray-900 py-3 text-sm font-black uppercase tracking-[0.3em] text-white"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </div>
             </div>
-
-            <div className="px-6 pb-6 pt-4">
-              <div className="grid grid-cols-7 gap-2 text-center text-[0.6rem] font-black uppercase tracking-[0.25em] text-gray-400">
-                {WEEK_DAYS.map(day => (
-                  <span key={day}>{day}</span>
-                ))}
-              </div>
-
-              <div className="mt-3 grid grid-cols-7 gap-2">
-                {calendarDays.map((day, index) => {
-                  if (!day) {
-                    return <div key={`empty-${index}`} className="min-h-[48px]" aria-hidden="true" />
-                  }
-
-                  const selected = selectedDate && isSameDay(day, selectedDate)
-                  const isCurrentDay = isSameDay(day, today)
-
-                  const baseClasses = 'min-h-[48px] rounded-2xl text-sm font-semibold flex flex-col items-center justify-center transition-all duration-150'
-                  const stateClasses = selected
-                    ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/20 scale-[1.02]'
-                    : 'bg-slate-50 text-gray-900 hover:bg-slate-100 active:scale-95'
-                  const todayClasses = !selected && isCurrentDay ? 'ring-2 ring-yellow-300' : ''
-
-                  return (
-                    <button
-                      key={day.toISOString()}
-                      type="button"
-                      onClick={() => handleDateSelection(day)}
-                      className={`${baseClasses} ${stateClasses} ${todayClasses}`}
-                    >
-                      <span>{day.getDate()}</span>
-                      {isCurrentDay && !selected && (
-                        <span className="mt-0.5 text-[0.5rem] font-black uppercase tracking-[0.3em] text-yellow-500">
-                          Hoje
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleToday}
-                  className="flex-1 rounded-2xl border border-gray-900 py-3 text-sm font-black uppercase tracking-[0.3em] text-gray-900"
-                >
-                  Hoje
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="flex-1 rounded-2xl bg-gray-900 py-3 text-sm font-black uppercase tracking-[0.3em] text-white"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )
+      }
     </div>
   )
 }
