@@ -35,8 +35,6 @@ export function useSync() {
     }
 
     isRunning.current = true
-    dispatch(setStatus('syncing'))
-    dispatch(setSyncProgress(0))
     dispatch(setError(null))
 
     try {
@@ -65,6 +63,10 @@ export function useSync() {
         isRunning.current = false
         return
       }
+
+      // So exibe banner "sincronizando" se houver registros para enviar
+      dispatch(setStatus('syncing'))
+      dispatch(setSyncProgress(0))
 
       const { synced, failed } = await processQueue(fazendaId, (remaining) => {
         dispatch(setPendingCount(remaining))
