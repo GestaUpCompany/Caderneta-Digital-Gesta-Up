@@ -10,7 +10,6 @@ import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { generateId, generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import FarmLogo from '../../components/FarmLogo'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getCachedCadastroData,
@@ -127,7 +126,7 @@ const makeInitial = (): FormState => ({
 
 export default function MovimentacaoPage() {
   const navigate = useNavigate()
-  const { usuario, fazenda, fazendaId, logoUrl } = useSelector((state: RootState) => state.config)
+  const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
   const tipoSaidaOptions = fazendaId === FAZENDA_NOVO_LOTE_HABILITADO
     ? TIPO_SAIDA_BASE
     : TIPO_SAIDA_BASE.filter(o => o.value !== 'Novo Lote')
@@ -169,10 +168,17 @@ export default function MovimentacaoPage() {
     validationRules.subtipo = { required: true }
   }
 
-  // loteDestino obrigatório para Consumo, Entrevero, e Saída exceto Transferência e Novo Lote
+  // loteDestino obrigatório para Consumo, Entrevero, e Saída exceto Transferência, Novo Lote, Enfermaria e Venda
+  // (Enfermaria e Venda têm destino automático = subtipo, sem seletor de lote na UI)
   if (form.motivoMovimentacao === 'Consumo' || form.motivoMovimentacao === 'Entrevero') {
     validationRules.loteDestino = { required: true }
-  } else if (form.motivoMovimentacao === 'Saída' && form.subtipo !== 'Transferência' && form.subtipo !== 'Novo Lote') {
+  } else if (
+    form.motivoMovimentacao === 'Saída' &&
+    form.subtipo !== 'Transferência' &&
+    form.subtipo !== 'Novo Lote' &&
+    form.subtipo !== 'Enfermaria' &&
+    form.subtipo !== 'Venda'
+  ) {
     validationRules.loteDestino = { required: true }
   }
 
@@ -799,37 +805,17 @@ export default function MovimentacaoPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader title="MOVIMENTAÇÃO" cadernetaId="movimentacao" />
-
-      {/* Logos não sticky */}
-      <div className="bg-[#1a3a2a] text-white px-4 py-5">
-        <div className="flex items-center justify-center gap-8 desktop-form-container">
-          <FarmLogo
-            farmName={fazenda}
-            logoUrl={logoUrl}
-            type="both"
-            size="medium"
-          />
-        </div>
-      </div>
+      <CadernetaHeader
+        title="MOVIMENTAÇÃO"
+        cadernetaId="movimentacao"
+        dateContent={<DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} variant="header" compact inline />}
+      />
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="section-title">1. DADOS PRINCIPAIS</h2>
-            <div className="flex items-center gap-2 shrink-0">
-              {usuario && (
-                <span className="inline-flex items-center gap-1.5 text-sm text-gray-600 font-semibold bg-gray-100 rounded-full px-3 py-1 whitespace-nowrap">
-                  <span>👤</span>
-                  <span>{usuario}</span>
-                </span>
-              )}
-              <DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} error={getError('data')} compact inline />
-            </div>
-          </div>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
               label="PASTO/LOTE"
@@ -861,7 +847,7 @@ export default function MovimentacaoPage() {
 
         {/* Seção 2: Quantificação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. QUANTIFICAÇÃO</h2>
           {detalhesLoteOrigem?.categorias_raw && detalhesLoteOrigem.categorias_raw.length > 0 ? (
             <>
               {getError('cabecasPorCategoria') && (
@@ -897,7 +883,7 @@ export default function MovimentacaoPage() {
 
         {/* Seção 3: Motivo da Movimentação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. MOTIVO DA MOVIMENTAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. MOTIVO DA MOVIMENTAÇÃO</h2>
           <Radio
             name="motivoMovimentacao"
             options={MOTIVOS}
