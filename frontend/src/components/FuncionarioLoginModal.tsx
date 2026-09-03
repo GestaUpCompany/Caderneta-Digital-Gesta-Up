@@ -152,74 +152,82 @@ export default function FuncionarioLoginModal({
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-sm">
-            <div className="flex flex-col items-center mb-8">
-              <div className={`w-24 h-24 rounded-full ${stringToColor(selected.id)} flex items-center justify-center text-white text-3xl font-black shadow-lg mb-4`}>
+          <div className="w-full max-w-sm flex flex-col flex-1">
+            <div className="flex-1 flex flex-col items-center pt-8">
+              <div className={`w-24 h-24 rounded-full ${stringToColor(selected.id)} flex items-center justify-center text-white text-3xl font-black shadow-lg ring-4 ring-white/10`}>
                 {getInitials(selected.nome)}
               </div>
-              <h2 className="text-2xl font-black text-white text-center">{selected.nome}</h2>
-              <p className="text-yellow-400 text-sm font-semibold mt-1">Digite seu PIN</p>
-            </div>
+              <h2 className="text-2xl font-semibold text-white text-center mt-4">{selected.nome}</h2>
+              <p className="text-white/60 text-sm font-medium mt-1">Digite seu PIN</p>
 
-            <div className="flex justify-center gap-3 mb-8">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-4 h-4 rounded-full border-2 ${i < pin.length ? 'bg-yellow-400 border-yellow-400' : 'border-white'}`}
-                />
-              ))}
-            </div>
-
-            {error && (
-              <p className="text-center text-red-400 font-bold mb-4">{error}</p>
-            )}
-
-            <div className="grid grid-cols-3 gap-3 mb-6 items-start">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+              <div className="flex flex-col items-center mt-8 mb-4">
+                <div className="flex gap-4 mb-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                        i < pin.length ? 'bg-white scale-110' : 'border-2 border-white/30 scale-100'
+                      }`}
+                    />
+                  ))}
+                </div>
                 <button
-                  key={digit}
-                  onClick={() => handlePinDigit(digit)}
-                  disabled={loading}
-                  className="bg-white text-[#1a3a2a] text-3xl font-black py-5 rounded-2xl active:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
+                  onClick={handleClear}
+                  disabled={loading || pin.length === 0}
+                  className="text-xs font-medium text-white/40 hover:text-white/80 disabled:opacity-30 transition-colors"
                 >
-                  {digit}
+                  Limpar
                 </button>
-              ))}
-              <button
-                onClick={handleVoltar}
-                disabled={loading}
-                className="bg-gray-600 text-white text-sm font-bold py-5 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50 min-h-[72px] leading-tight"
-              >
-                {pinOnly ? 'TROCAR USUÁRIO' : 'VOLTAR'}
-              </button>
-              <button
-                onClick={() => handlePinDigit('0')}
-                disabled={loading}
-                className="bg-white text-[#1a3a2a] text-3xl font-black py-5 rounded-2xl active:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
-              >
-                0
-              </button>
-              <button
-                onClick={handleBackspace}
-                disabled={loading}
-                className="bg-gray-600 text-white text-lg font-bold py-5 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50 min-h-[72px]"
-              >
-                APAGAR
-              </button>
+              </div>
+
+              {error && (
+                <p className="text-center text-red-300 text-sm font-medium mb-4 bg-red-500/10 px-4 py-2 rounded-xl">
+                  {error}
+                </p>
+              )}
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleClear}
-                disabled={loading || pin.length === 0}
-                className="flex-1 bg-gray-600 text-white font-bold py-4 rounded-2xl active:bg-gray-500 transition-all disabled:opacity-50"
-              >
-                LIMPAR
-              </button>
+            <div className="pb-4">
+              <div className="bg-white/5 rounded-3xl border border-white/10 p-5 mb-5">
+                <div className="grid grid-cols-3 gap-3">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                    <button
+                      key={digit}
+                      onClick={() => handlePinDigit(digit)}
+                      disabled={loading}
+                      className="bg-white/5 text-white text-2xl font-medium py-5 rounded-2xl active:bg-white/20 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
+                    >
+                      {digit}
+                    </button>
+                  ))}
+                  <button
+                    onClick={handleVoltar}
+                    disabled={loading}
+                    className="bg-white/10 text-white text-xs font-bold py-5 rounded-2xl active:bg-white/20 transition-all disabled:opacity-50 min-h-[72px] leading-tight"
+                  >
+                    {pinOnly ? 'TROCAR USUÁRIO' : 'VOLTAR'}
+                  </button>
+                  <button
+                    onClick={() => handlePinDigit('0')}
+                    disabled={loading}
+                    className="bg-white/5 text-white text-2xl font-medium py-5 rounded-2xl active:bg-white/20 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
+                  >
+                    0
+                  </button>
+                  <button
+                    onClick={handleBackspace}
+                    disabled={loading}
+                    className="bg-amber-500/15 text-white text-base font-bold py-5 rounded-2xl active:bg-amber-500/25 transition-all disabled:opacity-50 min-h-[72px]"
+                  >
+                    APAGAR
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={handleConfirm}
                 disabled={loading || pin.length < 4}
-                className="flex-1 bg-yellow-400 text-[#1a3a2a] font-black py-4 rounded-2xl active:bg-yellow-300 transition-all disabled:opacity-50"
+                className="w-full bg-yellow-400 text-[#1a3a2a] text-lg font-bold py-4 rounded-2xl active:bg-yellow-300 transition-all disabled:opacity-50"
               >
                 {loading ? '...' : 'ENTRAR'}
               </button>
