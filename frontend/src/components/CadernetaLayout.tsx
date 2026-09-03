@@ -91,8 +91,8 @@ export default function CadernetaLayout({
       </main>
 
       {bottomContent && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white px-4 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] pb-[env(safe-area-inset-bottom)]">
-          <div className="desktop-form-container">
+        <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-0 pb-[env(safe-area-inset-bottom)] lg:px-4 lg:pb-4">
+          <div className="desktop-form-container border-t border-gray-200 bg-white px-4 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] lg:rounded-t-2xl lg:border">
             {bottomContent}
           </div>
         </div>
