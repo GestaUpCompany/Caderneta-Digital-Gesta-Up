@@ -19,6 +19,7 @@ import {
   getFazendasDoMesmoGrupoCached,
   getLotesAtivosCached,
   getCurraisCached,
+  getRacasCached,
 } from '../../services/cadastroCache'
 import { transferirLoteEntreFazendas, getPastos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -29,6 +30,7 @@ import { useFormValidation } from '../../hooks/useFormValidation'
 const MOTIVOS = [
   { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
   { value: 'Saída', label: 'SAÍDA', icon: '📤' },
+  { value: 'Entrada', label: 'ENTRADA', icon: '📥' },
   { value: 'Entrevero', label: 'ENTREVERO', icon: '🔀' },
   { value: 'Doação', label: 'DOAÇÃO', icon: '🎁' },
 ]
@@ -61,11 +63,19 @@ const DESTINO_OPTS = [
   { value: 'enfermaria', label: 'Enfermaria' },
 ]
 
-const TIPO_ENTRADA = [
-  { value: 'Compras', label: 'Compras', icon: '' },
-  { value: 'Apartação', label: 'Apartação', icon: '' },
-  { value: 'Refugo de Cocho', label: 'Refugo de Cocho', icon: '' },
-]
+// Categorias disponíveis para Entrada conforme destino do lote
+const CATEGORIAS_ABATE = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Boi Magro', 'Boi Gordo', 'Vaca']
+const CATEGORIAS_REPRODUCAO = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Tourinho', 'Touro', 'Vaca']
+const CATEGORIAS_ENFERMARIA = [...new Set([...CATEGORIAS_ABATE, ...CATEGORIAS_REPRODUCAO])]
+
+function getCategoriasPorDestino(destino: string | null | undefined): string[] {
+  if (!destino) return []
+  const d = destino.toLowerCase()
+  if (d === 'corte') return CATEGORIAS_ABATE
+  if (d === 'reprodução' || d === 'reproducao') return CATEGORIAS_REPRODUCAO
+  if (d === 'enfermaria') return CATEGORIAS_ENFERMARIA
+  return []
+}
 
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
@@ -100,6 +110,16 @@ interface FormState {
   pastoNomeNovoLote: string
   curralIdNovoLote: string
   curralNomeNovoLote: string
+  // Campos para Entrada
+  dataEntrada: string
+  categoriasEntrada: Record<string, {
+    selecionada: boolean
+    cabecas: string
+    pesoAtual: string
+    raca: string
+    sexo: string
+    idade: string
+  }>
 }
 
 const makeInitial = (): FormState => ({
@@ -123,6 +143,8 @@ const makeInitial = (): FormState => ({
   pastoNomeNovoLote: '',
   curralIdNovoLote: '',
   curralNomeNovoLote: '',
+  dataEntrada: todayBR(),
+  categoriasEntrada: {},
 })
 
 export default function MovimentacaoPage() {
@@ -139,11 +161,11 @@ export default function MovimentacaoPage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [frigorificosDisponiveis, setFrigorificosDisponiveis] = useState<string[]>([])
-  const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([])
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
   const [fazendasDoGrupo, setFazendasDoGrupo] = useState<{ id: string; nome: string }[]>([])
   const [pastosDisponiveis, setPastosDisponiveis] = useState<{ id: string; nome: string }[]>([])
   const [curraisDisponiveis, setCurraisDisponiveis] = useState<{ id: string; nome: string }[]>([])
+  const [racasDisponiveis, setRacasDisponiveis] = useState<{ id: string; nome: string }[]>([])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -200,14 +222,36 @@ export default function MovimentacaoPage() {
     }
   }
 
-  // Cabeças por categoria: pelo menos uma > 0 (exceto Doação)
-  if (form.motivoMovimentacao !== 'Doação' && form.loteOrigem) {
+  // Cabeças por categoria: pelo menos uma > 0 (exceto Doação e Entrada, que tem validação própria)
+  if (form.motivoMovimentacao !== 'Doação' && form.motivoMovimentacao !== 'Entrada' && form.loteOrigem) {
     validationRules.cabecasPorCategoria = {
       custom: (_value: any, formState: any) => {
         const vals = Object.values(formState.cabecasPorCategoria || {})
         if (vals.length === 0) return 'Informe pelo menos uma quantidade de cabeças'
         const hasAny = vals.some((v: any) => Number(v) > 0)
         return hasAny ? null : 'Informe pelo menos uma quantidade de cabeças'
+      },
+    }
+  }
+
+  // Entrada: validar campos obrigatórios por categoria selecionada
+  if (form.motivoMovimentacao === 'Entrada' && form.loteOrigem) {
+    validationRules.categoriasEntrada = {
+      custom: (_value: any, formState: any) => {
+        const entradas = Object.entries(formState.categoriasEntrada || {}) as [string, any][]
+        const selecionadas = entradas.filter(([, v]) => v.selecionada && Number(v.cabecas) > 0)
+        if (selecionadas.length === 0) return 'Selecione pelo menos uma categoria com quantidade de cabeças'
+        const catsExistentes = (detalhesLoteOrigem?.categorias_raw || []) as any[]
+        for (const [categoria, v] of selecionadas) {
+          if (!v.pesoAtual || Number(v.pesoAtual) <= 0) return `Peso médio atual é obrigatório para ${categoria}`
+          const existe = catsExistentes.some((c: any) => c.categoria.toLowerCase() === categoria.toLowerCase())
+          if (!existe) {
+            if (!v.raca) return `Raça é obrigatória para ${categoria} (categoria nova)`
+            if (!v.sexo) return `Sexo é obrigatório para ${categoria} (categoria nova)`
+            if (!v.idade || Number(v.idade) <= 0) return `Idade é obrigatória para ${categoria} (categoria nova)`
+          }
+        }
+        return null
       },
     }
   }
@@ -272,7 +316,6 @@ export default function MovimentacaoPage() {
       const cache = await getCachedCadastroData()
       if (cache) {
         setFrigorificosDisponiveis(cache.frigorificos || [])
-        setFornecedoresDisponiveis(cache.fornecedores || [])
       }
 
       // Carregar fazendas do mesmo grupo (para Transferência entre fazendas)
@@ -300,6 +343,12 @@ export default function MovimentacaoPage() {
         } catch (error) {
           setCurraisDisponiveis([])
         }
+        try {
+          const racasData = await getRacasCached(fazendaId)
+          setRacasDisponiveis((racasData || []).map((r: any) => ({ id: r.id, nome: r.nome })))
+        } catch (error) {
+          setRacasDisponiveis([])
+        }
       }
     }
     loadData()
@@ -313,7 +362,6 @@ export default function MovimentacaoPage() {
         setLotesDisponiveis(data.lotes || [])
         setLotesPastoMap(data.lotesPastoMap || {})
         setFrigorificosDisponiveis(data.frigorificos || [])
-        setFornecedoresDisponiveis(data.fornecedores || [])
       }
     })
 
@@ -423,8 +471,8 @@ export default function MovimentacaoPage() {
         }
       }
 
-      // Validar que destino não está vazio (exceto Transferência e Novo Lote, que têm fluxo próprio)
-      if (!(form.motivoMovimentacao === 'Saída' && (form.subtipo === 'Transferência' || form.subtipo === 'Novo Lote'))) {
+      // Validar que destino não está vazio (exceto Transferência, Novo Lote e Entrada, que têm fluxo próprio)
+      if (!(form.motivoMovimentacao === 'Saída' && (form.subtipo === 'Transferência' || form.subtipo === 'Novo Lote')) && form.motivoMovimentacao !== 'Entrada') {
         if (!destinoFinal || destinoFinal.trim() === '') {
           setErrors([{ field: 'loteDestino', message: 'Selecione o destino da movimentação' }])
           window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -457,6 +505,96 @@ export default function MovimentacaoPage() {
           scrollToFirstError(result.errors)
         } else {
           setRegistroSalvo(result.registro)
+          setShowSuccessModal(true)
+          setForm(makeInitial())
+        }
+        return
+      }
+
+      // Caso especial: Entrada de animais (lote do topo = destino)
+      if (form.motivoMovimentacao === 'Entrada') {
+        const categoriasSelecionadas = Object.entries(form.categoriasEntrada)
+          .filter(([, v]) => v.selecionada && Number(v.cabecas) > 0)
+          .map(([categoria, v]) => {
+            const catExistente = detalhesLoteOrigem?.categorias_raw?.find(
+              (c: any) => c.categoria.toLowerCase() === categoria.toLowerCase()
+            )
+            return {
+              categoria,
+              cabecas: Number(v.cabecas),
+              pesoAtual: Number(v.pesoAtual),
+              raca: v.raca || null,
+              sexo: v.sexo || null,
+              idade: v.idade ? Number(v.idade) : null,
+              existeNoLote: !!catExistente,
+            }
+          })
+
+        if (categoriasSelecionadas.length === 0) {
+          setErrors([{ field: 'categoriasEntrada', message: 'Selecione pelo menos uma categoria com quantidade de cabeças' }])
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+
+        // Validar campos obrigatórios
+        const errosEntrada: { field: string; message: string }[] = []
+        for (const c of categoriasSelecionadas) {
+          if (!c.pesoAtual || c.pesoAtual <= 0) {
+            errosEntrada.push({ field: `entrada_peso_${c.categoria}`, message: `Peso médio atual é obrigatório para ${c.categoria}` })
+          }
+          if (!c.existeNoLote) {
+            if (!c.raca) {
+              errosEntrada.push({ field: `entrada_raca_${c.categoria}`, message: `Raça é obrigatória para ${c.categoria} (categoria nova)` })
+            }
+            if (!c.sexo) {
+              errosEntrada.push({ field: `entrada_sexo_${c.categoria}`, message: `Sexo é obrigatório para ${c.categoria} (categoria nova)` })
+            }
+            if (!c.idade || c.idade <= 0) {
+              errosEntrada.push({ field: `entrada_idade_${c.categoria}`, message: `Idade é obrigatória para ${c.categoria} (categoria nova)` })
+            }
+          }
+        }
+        if (errosEntrada.length > 0) {
+          setErrors(errosEntrada)
+          scrollToFirstError(errosEntrada)
+          return
+        }
+
+        // Criar um registro de movimentação por categoria
+        const resultadosEntrada: { success: boolean; errors?: any[]; registro?: any }[] = []
+        for (const c of categoriasSelecionadas) {
+          const result = await salvarRegistro('movimentacao', {
+            data: form.dataEntrada,
+            responsavel: usuario,
+            usuario: usuario,
+            loteOrigem: form.loteOrigem,
+            loteOrigemId: form.loteOrigemId,
+            loteDestino: '',
+            loteDestinoId: '',
+            numeroCabecas: c.cabecas,
+            maxCabecasLote: null,
+            categoria: c.categoria,
+            motivoMovimentacao: 'Entrada',
+            subtipo: null,
+            brinco: '',
+            chip: '',
+            causaObservacao: form.causaObservacao,
+            pesoVivoAtualKg: c.pesoAtual,
+            raca: c.existeNoLote ? null : c.raca,
+            sexo: c.existeNoLote ? null : c.sexo,
+            idade: c.existeNoLote ? null : c.idade,
+          })
+          resultadosEntrada.push(result)
+          if (!result.success && result.errors) break
+        }
+
+        const falhouEntrada = resultadosEntrada.find(r => !r.success)
+        if (falhouEntrada && falhouEntrada.errors) {
+          setErrors(falhouEntrada.errors)
+          scrollToFirstError(falhouEntrada.errors)
+        } else {
+          const ultimoRegistroEntrada = resultadosEntrada[resultadosEntrada.length - 1]?.registro
+          setRegistroSalvo(ultimoRegistroEntrada)
           setShowSuccessModal(true)
           setForm(makeInitial())
         }
@@ -846,45 +984,9 @@ export default function MovimentacaoPage() {
           )}
         </div>
 
-        {/* Seção 2: Quantificação */}
+        {/* Seção 2: Motivo da Movimentação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. QUANTIFICAÇÃO</h2>
-          {detalhesLoteOrigem?.categorias_raw && detalhesLoteOrigem.categorias_raw.length > 0 ? (
-            <>
-              {getError('cabecasPorCategoria') && (
-                <p className="text-base font-semibold text-red-700">⚠️ {getError('cabecasPorCategoria')}</p>
-              )}
-              {detalhesLoteOrigem.categorias_raw.map((cat: any) => (
-                <div key={cat.categoria} className="flex flex-col gap-1">
-                  <Input
-                    label={`${cat.categoria.toUpperCase()} (Disp.: ${cat.quant_atual || 0})`}
-                    placeholder="Ex: 25"
-                    value={form.cabecasPorCategoria[cat.categoria] || ''}
-                    onChange={(e) => setCabecasCategoria(cat.categoria, e.target.value)}
-                    error={getError(`cabecas_${cat.categoria}`)}
-                    inputMode="numeric"
-                    type="number"
-                    min="0"
-                    max={String(cat.quant_atual || 0)}
-                  />
-                </div>
-              ))}
-              {totalCabecas > 0 && (
-                <p className="text-sm text-gray-500">
-                  Total a movimentar: {totalCabecas} cabeças
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-gray-500 italic">
-              {form.loteOrigem ? 'Nenhuma categoria encontrada neste lote.' : 'Selecione um lote para ver as categorias disponíveis.'}
-            </p>
-          )}
-        </div>
-
-        {/* Seção 3: Motivo da Movimentação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. MOTIVO DA MOVIMENTAÇÃO</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. MOTIVO DA MOVIMENTAÇÃO</h2>
           <Radio
             name="motivoMovimentacao"
             options={MOTIVOS}
@@ -902,7 +1004,7 @@ export default function MovimentacaoPage() {
                   </div>
                   <Input
                     label="CAUSA / OBSERVAÇÃO:"
-                    placeholder="Descreva detalhes da movimentação"
+                    placeholder=""
                     value={form.causaObservacao}
                     onChange={setInput('causaObservacao')}
                   />
@@ -933,7 +1035,7 @@ export default function MovimentacaoPage() {
                   )}
                   <Input
                     label="CAUSA / OBSERVAÇÃO:"
-                    placeholder="Descreva detalhes da movimentação"
+                    placeholder=""
                     value={form.causaObservacao}
                     onChange={setInput('causaObservacao')}
                   />
@@ -975,7 +1077,7 @@ export default function MovimentacaoPage() {
                       )}
                       <Input
                         label="CAUSA / OBSERVAÇÃO:"
-                        placeholder="Descreva detalhes da movimentação"
+                        placeholder=""
                         value={form.causaObservacao}
                         onChange={setInput('causaObservacao')}
                       />
@@ -1115,7 +1217,7 @@ export default function MovimentacaoPage() {
                       ) : null}
                       <Input
                         label="CAUSA / OBSERVAÇÃO:"
-                        placeholder="Descreva detalhes da movimentação"
+                        placeholder=""
                         value={form.causaObservacao}
                         onChange={setInput('causaObservacao')}
                       />
@@ -1124,78 +1226,138 @@ export default function MovimentacaoPage() {
                 </>
               ) : form.motivoMovimentacao === 'Entrada' ? (
                 <>
-                  <Radio
-                    name="subtipo"
-                    options={TIPO_ENTRADA}
-                    value={form.subtipo}
-                    onChange={(val) => { setForm((p) => ({ ...p, subtipo: val, loteDestino: '' })); if (errors.length > 0) setErrors([]) }}
-                    error={getError('subtipo')}
-                    gridCols={3}
+                  <div className="p-4 bg-blue-50 rounded-xl">
+                    <p className="text-sm text-blue-900">
+                      <strong>Entrada de animais:</strong> o lote selecionado no topo será o destino. Informe a data de entrada e as categorias que estão chegando.
+                    </p>
+                  </div>
+                  <DatePicker
+                    label="DATA DE ENTRADA"
+                    value={form.dataEntrada}
+                    onChange={(val) => setForm((p) => ({ ...p, dataEntrada: val }))}
+                    compact
                   />
-                  {form.subtipo === 'Compras' ? (
+                  {getCategoriasPorDestino(detalhesLoteOrigem?.destino).length > 0 ? (
                     <>
-                      {fornecedoresDisponiveis.length > 0 ? (
-                        <SearchableModal
-                          label="SELECIONE O FORNECEDOR:"
-                          value={form.loteDestino}
-                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
-                          error={getError('loteDestino')}
-                          options={fornecedoresDisponiveis}
-                          placeholder="Buscar fornecedor..."
-                          id="loteDestino"
-                          name="loteDestino"
-                        />
-                      ) : (
-                        <Input
-                          label="SELECIONE O FORNECEDOR:"
-                          placeholder="Carregando..."
-                          value={form.loteDestino}
-                          onChange={setInput('loteDestino')}
-                          error={getError('loteDestino')}
-                          disabled
-                          id="loteDestino"
-                        />
-                      )}
+                      {getCategoriasPorDestino(detalhesLoteOrigem?.destino).map((categoria) => {
+                        const catExistente = detalhesLoteOrigem?.categorias_raw?.find(
+                          (c: any) => c.categoria.toLowerCase() === categoria.toLowerCase()
+                        )
+                        const catState = form.categoriasEntrada[categoria] || {
+                          selecionada: false, cabecas: '', pesoAtual: '', raca: '', sexo: '', idade: ''
+                        }
+                        const setCatState = (patch: Partial<typeof catState>) => {
+                          setForm((p) => ({
+                            ...p,
+                            categoriasEntrada: {
+                              ...p.categoriasEntrada,
+                              [categoria]: { ...catState, ...patch },
+                            },
+                          }))
+                          if (errors.length > 0) setErrors([])
+                        }
+                        return (
+                          <div key={categoria} className="flex flex-col gap-2 border border-gray-200 rounded-xl p-4">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={catState.selecionada}
+                                onChange={(e) => setCatState({ selecionada: e.target.checked })}
+                                className="w-5 h-5 accent-green-600"
+                              />
+                              <span className="text-base font-bold text-gray-900">{categoria.toUpperCase()}</span>
+                              {catExistente && (
+                                <span className="text-sm text-gray-500">
+                                  (já existe: {catExistente.quant_atual || 0} cab, {catExistente.peso_vivo_atual_kg_cab || 0} kg)
+                                </span>
+                              )}
+                            </label>
+                            {catState.selecionada && (
+                              <div className="flex flex-col gap-3 pl-8">
+                                <Input
+                                  label="QUANTIDADE DE CABEÇAS"
+                                  placeholder="Ex: 30"
+                                  value={catState.cabecas}
+                                  onChange={(e) => setCatState({ cabecas: e.target.value })}
+                                  error={getError(`entrada_cabecas_${categoria}`)}
+                                  inputMode="numeric"
+                                  type="number"
+                                  min="0"
+                                />
+                                <Input
+                                  label="PESO MÉDIO ATUAL (kg)"
+                                  placeholder="Ex: 440"
+                                  value={catState.pesoAtual}
+                                  onChange={(e) => setCatState({ pesoAtual: e.target.value })}
+                                  error={getError(`entrada_peso_${categoria}`)}
+                                  inputMode="numeric"
+                                  type="number"
+                                  min="0"
+                                />
+                                {!catExistente && (
+                                  <>
+                                    <div>
+                                      <label className="block text-lg font-bold text-gray-900 mb-2">RAÇA</label>
+                                      <select
+                                        value={catState.raca}
+                                        onChange={(e) => setCatState({ raca: e.target.value })}
+                                        className={`w-full px-3 py-3 min-h-[44px] border rounded-xl focus:outline-none focus:border-accent text-base ${getError(`entrada_raca_${categoria}`) ? 'border-red-500' : 'border-gray-200'}`}
+                                      >
+                                        <option value="">Selecione</option>
+                                        {racasDisponiveis.map((r) => (
+                                          <option key={r.id} value={r.nome}>{r.nome}</option>
+                                        ))}
+                                      </select>
+                                      {getError(`entrada_raca_${categoria}`) && (
+                                        <p className="mt-1 text-sm font-semibold text-red-600">{getError(`entrada_raca_${categoria}`)}</p>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <label className="block text-lg font-bold text-gray-900 mb-2">SEXO</label>
+                                      <select
+                                        value={catState.sexo}
+                                        onChange={(e) => setCatState({ sexo: e.target.value })}
+                                        className={`w-full px-3 py-3 min-h-[44px] border rounded-xl focus:outline-none focus:border-accent text-base ${getError(`entrada_sexo_${categoria}`) ? 'border-red-500' : 'border-gray-200'}`}
+                                      >
+                                        <option value="">Selecione</option>
+                                        <option value="macho">Macho</option>
+                                        <option value="fêmea">Fêmea</option>
+                                      </select>
+                                      {getError(`entrada_sexo_${categoria}`) && (
+                                        <p className="mt-1 text-sm font-semibold text-red-600">{getError(`entrada_sexo_${categoria}`)}</p>
+                                      )}
+                                    </div>
+                                    <Input
+                                      label="IDADE (meses)"
+                                      placeholder="Ex: 24"
+                                      value={catState.idade}
+                                      onChange={(e) => setCatState({ idade: e.target.value })}
+                                      error={getError(`entrada_idade_${categoria}`)}
+                                      inputMode="numeric"
+                                      type="number"
+                                      min="0"
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                       <Input
                         label="CAUSA / OBSERVAÇÃO:"
-                        placeholder="Descreva detalhes da movimentação"
+                        placeholder="Descreva detalhes da entrada (opcional)"
                         value={form.causaObservacao}
                         onChange={setInput('causaObservacao')}
                       />
                     </>
-                  ) : form.subtipo === 'Apartação' || form.subtipo === 'Refugo de Cocho' ? (
-                    <>
-                      {lotesDisponiveis.length > 0 ? (
-                        <SearchableModal
-                          label="SELECIONE O PASTO/LOTE:"
-                          value={form.loteDestino}
-                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
-                          error={getError('loteDestino')}
-                          options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
-                          secondaryText={(lote) => lotesPastoMap[lote] || ''}
-                          placeholder="Buscar pasto ou lote..."
-                          id="loteDestino"
-                          name="loteDestino"
-                        />
-                      ) : (
-                        <Input
-                          label="SELECIONE O LOTE:"
-                          placeholder="Carregando..."
-                          value={form.loteDestino}
-                          onChange={setInput('loteDestino')}
-                          error={getError('loteDestino')}
-                          disabled
-                          id="loteDestino"
-                        />
-                      )}
-                      <Input
-                        label="CAUSA / OBSERVAÇÃO:"
-                        placeholder="Descreva detalhes da movimentação"
-                        value={form.causaObservacao}
-                        onChange={setInput('causaObservacao')}
-                      />
-                    </>
-                  ) : null}
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">
+                      {form.loteOrigem
+                        ? 'Este lote não tem destino definido (corte, reprodução ou enfermaria). Defina o destino do lote no painel web para habilitar a entrada.'
+                        : 'Selecione um lote para ver as categorias disponíveis.'}
+                    </p>
+                  )}
                 </>
               ) : form.motivoMovimentacao === 'Entrevero' ? (
                 <>
@@ -1221,7 +1383,7 @@ export default function MovimentacaoPage() {
                   )}
                   <Input
                     label="CAUSA / OBSERVAÇÃO:"
-                    placeholder="Descreva detalhes da movimentação"
+                    placeholder=""
                     value={form.causaObservacao}
                     onChange={setInput('causaObservacao')}
                   />
@@ -1230,7 +1392,7 @@ export default function MovimentacaoPage() {
                 <>
                   <Input
                     label="OBSERVAÇÃO:"
-                    placeholder="Descreva detalhes da doação (opcional)"
+                    placeholder=""
                     value={form.causaObservacao}
                     onChange={setInput('causaObservacao')}
                   />
@@ -1244,6 +1406,44 @@ export default function MovimentacaoPage() {
             </div>
           )}
         </div>
+
+        {/* Seção 3: Quantificação (oculta para Entrada, que tem formulário próprio) */}
+        {form.motivoMovimentacao !== 'Entrada' && (
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
+          {detalhesLoteOrigem?.categorias_raw && detalhesLoteOrigem.categorias_raw.length > 0 ? (
+            <>
+              {getError('cabecasPorCategoria') && (
+                <p className="text-base font-semibold text-red-700">⚠️ {getError('cabecasPorCategoria')}</p>
+              )}
+              {detalhesLoteOrigem.categorias_raw.map((cat: any) => (
+                <div key={cat.categoria} className="flex flex-col gap-1">
+                  <Input
+                    label={`${cat.categoria.toUpperCase()} (Disp.: ${cat.quant_atual || 0})`}
+                    placeholder="Ex: 25"
+                    value={form.cabecasPorCategoria[cat.categoria] || ''}
+                    onChange={(e) => setCabecasCategoria(cat.categoria, e.target.value)}
+                    error={getError(`cabecas_${cat.categoria}`)}
+                    inputMode="numeric"
+                    type="number"
+                    min="0"
+                    max={String(cat.quant_atual || 0)}
+                  />
+                </div>
+              ))}
+              {totalCabecas > 0 && (
+                <p className="text-sm text-gray-500">
+                  Total a movimentar: {totalCabecas} cabeças
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 italic">
+              {form.loteOrigem ? 'Nenhuma categoria encontrada neste lote.' : 'Selecione um lote para ver as categorias disponíveis.'}
+            </p>
+          )}
+        </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <button

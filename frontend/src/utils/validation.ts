@@ -353,6 +353,19 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
     return { isValid: errors.length === 0, errors }
   }
 
+  // Para Entrada, validar lote (destino), categoria e cabeças (não exige loteDestino nem maxCabecasLote)
+  if (motivo === 'Entrada') {
+    if (!isNonEmptyString(data.loteOrigem))
+      errors.push({ field: 'loteOrigem', message: 'Lote de destino é obrigatório' })
+    if (!isNonEmptyString(data.motivoMovimentacao))
+      errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
+    if (!isNonEmptyString(data.categoria))
+      errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
+    if (!isPositiveNumber(data.numeroCabecas) || Number(data.numeroCabecas) === 0)
+      errors.push({ field: 'numeroCabecas', message: 'Número de cabeças deve ser maior que zero' })
+    return { isValid: errors.length === 0, errors }
+  }
+
   // Para outros motivos, validar campos normalmente
   if (!isNonEmptyString(data.loteOrigem))
     errors.push({ field: 'loteOrigem', message: 'Lote de origem é obrigatório' })
