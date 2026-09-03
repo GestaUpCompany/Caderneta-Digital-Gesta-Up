@@ -801,10 +801,10 @@ export async function gerarPdfResumoSuplementacao(
         y += 6
 
         if (metricas.consumoMedioGeralPercentPV != null) {
-          labelValue('CMS geral (%PV):', `${formatBRNum(metricas.consumoMedioGeralPercentPV, 2)}%`, 4)
+          labelValue('CMS geral (%PV):', `${formatBRNum(metricas.consumoMedioGeralPercentPV, 3)}%`, 4)
         }
         if (metricas.consumoMedio30DiasPercentPV != null) {
-          labelValue('CMS 30 dias (%PV):', `${formatBRNum(metricas.consumoMedio30DiasPercentPV, 2)}%`, 4)
+          labelValue('CMS 30 dias (%PV):', `${formatBRNum(metricas.consumoMedio30DiasPercentPV, 3)}%`, 4)
         }
         if (metricas.consumoMedioGeralKgMN != null) {
           labelValue('CMN geral (kg/MN):', `${formatBRNum(metricas.consumoMedioGeralKgMN, 3)} kg`, 4)

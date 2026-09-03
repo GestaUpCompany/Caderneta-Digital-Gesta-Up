@@ -703,10 +703,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (temConsumo) {
       texto += `\nHISTÓRICO DE CONSUMO\n`
       if (registro.consumoMedioGeralPercentPV !== null && registro.consumoMedioGeralPercentPV !== undefined) {
-        texto += `CMS Geral (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(2).replace('.', ',')}%*\n`
+        texto += `CMS Geral (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*\n`
       }
       if (registro.consumoMedio30DiasPercentPV !== null && registro.consumoMedio30DiasPercentPV !== undefined) {
-        texto += `CMS 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(2).replace('.', ',')}%*\n`
+        texto += `CMS 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*\n`
       }
       if (registro.consumoMedioGeralKgMN !== null && registro.consumoMedioGeralKgMN !== undefined) {
         texto += `CMN Geral (kg/MN): *${Number(registro.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*\n`
@@ -830,13 +830,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       }
       texto += `%PV/cab/dia\n`
       if (registro.consumoMedioMsPctPVDesdeFormacao !== null && registro.consumoMedioMsPctPVDesdeFormacao !== undefined) {
-        texto += `   • Desde formação: *${Number(registro.consumoMedioMsPctPVDesdeFormacao).toFixed(2).replace('.', ',')}*\n`
+        texto += `   • Desde formação: *${Number(registro.consumoMedioMsPctPVDesdeFormacao).toFixed(3).replace('.', ',')}*\n`
       }
       if (registro.consumoMedioMsPctPVUltimos10Dias !== null && registro.consumoMedioMsPctPVUltimos10Dias !== undefined) {
-        texto += `   • Últimos 10 dias: *${Number(registro.consumoMedioMsPctPVUltimos10Dias).toFixed(2).replace('.', ',')}*\n`
+        texto += `   • Últimos 10 dias: *${Number(registro.consumoMedioMsPctPVUltimos10Dias).toFixed(3).replace('.', ',')}*\n`
       }
       if (registro.consumoMsPctPVDiaAnterior !== null && registro.consumoMsPctPVDiaAnterior !== undefined) {
-        texto += `   • Dia anterior: *${Number(registro.consumoMsPctPVDiaAnterior).toFixed(2).replace('.', ',')}*\n`
+        texto += `   • Dia anterior: *${Number(registro.consumoMsPctPVDiaAnterior).toFixed(3).replace('.', ',')}*\n`
       }
     }
 

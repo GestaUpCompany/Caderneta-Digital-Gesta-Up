@@ -211,10 +211,10 @@ export default function SuplementacaoListaPage() {
           partes.push('')
           partes.push(`HISTÓRICO DE CONSUMO`)
           if (metricas!.consumoMedioGeralPercentPV != null) {
-            partes.push(`CMS Geral (%PV): *${Number(metricas!.consumoMedioGeralPercentPV).toFixed(2).replace('.', ',')}%*`)
+            partes.push(`CMS Geral (%PV): *${Number(metricas!.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*`)
           }
           if (metricas!.consumoMedio30DiasPercentPV != null) {
-            partes.push(`CMS 30 DIAS (%PV): *${Number(metricas!.consumoMedio30DiasPercentPV).toFixed(2).replace('.', ',')}%*`)
+            partes.push(`CMS 30 DIAS (%PV): *${Number(metricas!.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*`)
           }
           if (metricas!.consumoMedioGeralKgMN != null) {
             partes.push(`CMN Geral (kg/MN): *${Number(metricas!.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*`)

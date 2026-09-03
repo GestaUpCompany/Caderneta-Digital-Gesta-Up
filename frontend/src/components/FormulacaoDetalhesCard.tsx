@@ -75,13 +75,13 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
           <div>
             <p className="text-gray-500 font-semibold">CONSUMO MÉDIO GERAL (%PV)</p>
             <p className="text-gray-900 font-bold">
-              {formatNumber(detalhes.consumoMedioGeralPercentPV, 2)}{formatNumber(detalhes.consumoMedioGeralPercentPV, 2) !== null && '%'}
+              {formatNumber(detalhes.consumoMedioGeralPercentPV, 3)}{formatNumber(detalhes.consumoMedioGeralPercentPV, 3) !== null && '%'}
             </p>
           </div>
           <div>
             <p className="text-gray-500 font-semibold">CONSUMO MÉDIO 30 DIAS (%PV)</p>
             <p className="text-gray-900 font-bold">
-              {formatNumber(detalhes.consumoMedio30DiasPercentPV, 2)}{formatNumber(detalhes.consumoMedio30DiasPercentPV, 2) !== null && '%'}
+              {formatNumber(detalhes.consumoMedio30DiasPercentPV, 3)}{formatNumber(detalhes.consumoMedio30DiasPercentPV, 3) !== null && '%'}
             </p>
           </div>
           <div>

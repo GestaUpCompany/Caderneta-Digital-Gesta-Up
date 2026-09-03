@@ -44,9 +44,32 @@ function diasEntre(dataAlvo: Date, dataReferencia: Date, clampZero: boolean = fa
 }
 
 /**
+ * Normaliza uma string de data para um objeto Date.
+ * Aceita formato brasileiro (DD/MM/YYYY, podendo incluir HH:MM) e ISO (YYYY-MM-DD).
+ * new Date("02/09/2026") interpreta como MM/DD/YYYY em motores JS, o que troca
+ * dia e mês quando o dia é <= 12. Esta função evita essa ambiguidade.
+ */
+function parseDataRegistro(dataStr: string): Date | null {
+  if (!dataStr) return null
+  const parteData = dataStr.substring(0, 10)
+  if (parteData.includes('/')) {
+    const [dia, mes, ano] = parteData.split('/').map(Number)
+    if (!dia || !mes || !ano) return null
+    return new Date(ano, mes - 1, dia)
+  }
+  if (parteData.includes('-')) {
+    const [ano, mes, dia] = parteData.split('-').map(Number)
+    if (!ano || !mes || !dia) return null
+    return new Date(ano, mes - 1, dia)
+  }
+  const fallback = new Date(dataStr)
+  return isNaN(fallback.getTime()) ? null : fallback
+}
+
+/**
  * Calcula o peso vivo projetado para a data do registro.
  *
- * @param dataRegistro ISO date (string) do campo "data" do registro
+ * @param dataRegistro String de data do campo "data" do registro (DD/MM/YYYY ou ISO)
  * @param params Parâmetros do plano nutricional ativo + lote_categorias
  * @returns peso projetado em kg, ou null se não houver dados suficientes
  */
@@ -64,8 +87,11 @@ export function calcularPesoProjetado(
 
   if (!dataRegistro) return null
 
-  const dataReg = new Date(dataRegistro)
-  if (isNaN(dataReg.getTime())) return null
+  // O campo "data" vem do DatePicker no formato DD/MM/YYYY (brasileiro).
+  // new Date("02/09/2026") interpreta como MM/DD/YYYY (Feb 9 ao invés de Sep 2),
+  // produzindo peso projetado errado. Normalizar para ISO antes de criar Date.
+  const dataReg = parseDataRegistro(dataRegistro)
+  if (dataReg === null || isNaN(dataReg.getTime())) return null
 
   // Se houve ajuste manual de peso, projetar a partir de hoje.
   // peso_vivo_atual_kg_cab é o peso projetado para hoje (o cron incrementa diariamente).
@@ -79,8 +105,8 @@ export function calcularPesoProjetado(
 
   // Projeção padrão: peso_inicio + gmd * dias_desde_data_inicio
   if (pesoInicioKgCab != null && dataInicio && gmdEfetivo != null) {
-    const dataIni = new Date(dataInicio)
-    if (isNaN(dataIni.getTime())) return null
+    const dataIni = parseDataRegistro(dataInicio)
+    if (!dataIni || isNaN(dataIni.getTime())) return null
     const dias = diasEntre(dataReg, dataIni, true)
     return pesoInicioKgCab + gmdEfetivo * dias
   }

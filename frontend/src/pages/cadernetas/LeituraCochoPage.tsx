@@ -61,7 +61,7 @@ interface LinhaItem {
 
 function formatarPercentual(valor: number | null): string {
   if (valor === null || valor === undefined) return '—'
-  return `${valor.toFixed(2).replace('.', ',')}%`
+  return `${valor.toFixed(3).replace('.', ',')}%`
 }
 
 function formatarNumero(valor: number | null, casas = 2): string {

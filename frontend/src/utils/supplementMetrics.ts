@@ -9,6 +9,11 @@ function round2(value: number | null | undefined): number | null {
   return Math.round(value * 100) / 100
 }
 
+function round4(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || !isFinite(value)) return null
+  return Math.round(value * 10000) / 10000
+}
+
 interface RegistroSuplementacao {
   id?: string
   data: string
@@ -265,12 +270,12 @@ export function calcularMetricasSuplementacao(
   }
 
   return {
-    consumoMedioGeralPercentPV: round2(consumoMedioGeralPercentPV),
-    consumoMedio30DiasPercentPV: round2(consumoMedio30DiasPercentPV),
-    consumoMedioGeralKgMN: round2(consumoMedioGeralKgMN),
-    consumoMedio30DiasKgMN: round2(consumoMedio30DiasKgMN),
-    consumoMedioGeralKgMS: round2(consumoMedioGeralKgMS),
-    consumoMedio30DiasKgMS: round2(consumoMedio30DiasKgMS),
+    consumoMedioGeralPercentPV: round4(consumoMedioGeralPercentPV),
+    consumoMedio30DiasPercentPV: round4(consumoMedio30DiasPercentPV),
+    consumoMedioGeralKgMN: round4(consumoMedioGeralKgMN),
+    consumoMedio30DiasKgMN: round4(consumoMedio30DiasKgMN),
+    consumoMedioGeralKgMS: round4(consumoMedioGeralKgMS),
+    consumoMedio30DiasKgMS: round4(consumoMedio30DiasKgMS),
     custoMedioReaisCabDia: round2(custoMedioReaisCabDia),
     categoriasNaoElegiveis: categoriasNaoElegiveis.length > 0 ? categoriasNaoElegiveis : undefined
   }

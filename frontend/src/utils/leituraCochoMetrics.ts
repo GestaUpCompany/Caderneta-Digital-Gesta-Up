@@ -1,8 +1,8 @@
 import { isoToBR } from './formatDate'
 
-function round2(value: number | null | undefined): number | null {
+function round4(value: number | null | undefined): number | null {
   if (value === null || value === undefined || !isFinite(value)) return null
-  return Math.round(value * 100) / 100
+  return Math.round(value * 10000) / 10000
 }
 
 interface CategoriaLote {
@@ -205,11 +205,11 @@ export function calcularCmsPorJanelas(
   }
 
   return {
-    ontem: round2(cmsNaData(ontem)),
-    anteontem: round2(cmsNaData(anteontem)),
-    tresDiasAtras: round2(cmsNaData(tresDiasAtras)),
-    dezDias: valores10Dias.length > 0 ? round2(valores10Dias.reduce((a, b) => a + b, 0) / valores10Dias.length) : null,
-    geral: valoresGeral.length > 0 ? round2(valoresGeral.reduce((a, b) => a + b, 0) / valoresGeral.length) : null,
+    ontem: round4(cmsNaData(ontem)),
+    anteontem: round4(cmsNaData(anteontem)),
+    tresDiasAtras: round4(cmsNaData(tresDiasAtras)),
+    dezDias: valores10Dias.length > 0 ? round4(valores10Dias.reduce((a, b) => a + b, 0) / valores10Dias.length) : null,
+    geral: valoresGeral.length > 0 ? round4(valoresGeral.reduce((a, b) => a + b, 0) / valoresGeral.length) : null,
   }
 }
 
@@ -424,12 +424,12 @@ export async function calcularMetricasLeituraCocho(
     }))
 
   return {
-    mediaConsumoMsKgDesdeFormacao: round2(mediaKgDesdeFormacao),
-    mediaConsumoMsKgUltimos10Dias: round2(mediaKg10Dias),
-    consumoMsKgDiaAnterior: round2(consumoKgOntem),
-    mediaConsumoMsPctPVDesdeFormacao: round2(mediaPctDesdeFormacao),
-    mediaConsumoMsPctPVUltimos10Dias: round2(mediaPct10Dias),
-    consumoMsPctPVDiaAnterior: round2(consumoPctOntem),
+    mediaConsumoMsKgDesdeFormacao: round4(mediaKgDesdeFormacao),
+    mediaConsumoMsKgUltimos10Dias: round4(mediaKg10Dias),
+    consumoMsKgDiaAnterior: round4(consumoKgOntem),
+    mediaConsumoMsPctPVDesdeFormacao: round4(mediaPctDesdeFormacao),
+    mediaConsumoMsPctPVUltimos10Dias: round4(mediaPct10Dias),
+    consumoMsPctPVDiaAnterior: round4(consumoPctOntem),
     leiturasUltimos3Dias,
     mensagem: null,
   }
