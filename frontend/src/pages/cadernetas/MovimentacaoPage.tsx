@@ -48,6 +48,7 @@ const TIPO_SAIDA_BASE = [
 const FAZENDAS_NOVO_LOTE_HABILITADO = [
   'c4d13f1f-a785-4bcd-8e72-4ac4b28ee034', // Fazenda Marcon
   'f8be22c5-12e9-4bda-a813-fae8cb3d47ec',
+  'd649c65e-16ab-4b77-a84b-df937aa41cc3', // Fazenda Gesta'Up (teste)
 ]
 
 const SISTEMA_PRODUCAO_OPTS = [
@@ -859,8 +860,16 @@ export default function MovimentacaoPage() {
 
         setRegistroSalvo({
           tipo: 'novo_lote',
+          data: `${form.data} ${new Date().toTimeString().slice(0, 5)}`,
           nomeNovoLote: form.nomeNovoLote.trim(),
           totalCabecas: totalCabecasNL,
+          loteOrigem: form.loteOrigem,
+          sistemaProducaoNovoLote: form.sistemaProducaoNovoLote,
+          destinoNovoLote: form.destinoNovoLote,
+          pastoNomeNovoLote: form.pastoNomeNovoLote,
+          curralNomeNovoLote: form.curralNomeNovoLote,
+          categoriasParaMover: categoriasParaMoverNL,
+          causaObservacao: form.causaObservacao || '',
         })
         setShowSuccessModal(true)
         setForm(makeInitial())
@@ -1489,7 +1498,7 @@ export default function MovimentacaoPage() {
         onExit={handleExit}
         cadernetaName={registroSalvo?.tipo === 'transferencia' ? 'Transferência' : registroSalvo?.tipo === 'novo_lote' ? 'Novo Lote' : 'Movimentação'}
         registro={registroSalvo}
-        caderneta={registroSalvo?.tipo === 'transferencia' || registroSalvo?.tipo === 'novo_lote' ? undefined : 'movimentacao'}
+        caderneta={registroSalvo?.tipo === 'transferencia' ? undefined : registroSalvo?.tipo === 'novo_lote' ? 'novo_lote' : 'movimentacao'}
       />
     </div>
   )

@@ -1498,6 +1498,44 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.setorResolve) {
       texto += `SETOR QUE RESOLVE: *${registro.setorResolve}*\n`
     }
+  } else if (caderneta === 'novo_lote') {
+    // Cabeçalho
+    texto += `LOTE ORIGEM: *${registro.loteOrigem || '—'}*\n`
+    texto += `NOVO LOTE: *${registro.nomeNovoLote || '—'}*\n`
+    texto += `SISTEMA DE PRODUÇÃO: *${registro.sistemaProducaoNovoLote || '—'}*\n`
+    // Destino: pasto (se não for confinamento) ou curral (se for)
+    const isConfinamentoNL = registro.sistemaProducaoNovoLote === 'Confinamento'
+    const destinoNome = isConfinamentoNL
+      ? registro.curralNomeNovoLote
+      : registro.pastoNomeNovoLote
+    if (destinoNome) {
+      texto += `DESTINO: *${isConfinamentoNL ? 'Curral' : 'Pasto'} ${destinoNome}*\n`
+    }
+    texto += `\n`
+
+    // Categorias movimentadas
+    const categorias = registro.categoriasParaMover
+    if (Array.isArray(categorias) && categorias.length > 0) {
+      texto += `CATEGORIAS\n`
+      categorias.forEach((cat: any) => {
+        const label = (LABELS_BY_CADERNETA['movimentacao']?.[cat.categoria] as string) || cat.categoria?.toUpperCase() || '—'
+        texto += `${label}: *${cat.numeroCabecas}*\n`
+      })
+      texto += `\n`
+    }
+
+    // Total
+    if (registro.totalCabecas) {
+      texto += `TOTAL: *${registro.totalCabecas} cabeças*\n`
+    }
+
+    // Aviso de aprovação pendente
+    texto += `\n⚠️ Aguardando aprovação do controller no Manej'Us\n`
+
+    // Observação
+    if (registro.causaObservacao && String(registro.causaObservacao).trim() !== '') {
+      texto += `\nOBSERVAÇÃO: *${registro.causaObservacao}*\n`
+    }
   } else {
     // Para pastagens, usar estrutura organizada
     if (caderneta === 'pastagens') {
