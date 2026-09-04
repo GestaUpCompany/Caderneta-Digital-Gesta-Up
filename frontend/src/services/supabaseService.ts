@@ -641,10 +641,10 @@ export async function getPastosUltimasDatasBatch(
   const client = getSupabaseClient()
   const { data, error } = await client
     .from('registros_pastagens')
-    .select('pasto_entrada, pasto_saida, created_at')
+    .select('pasto_entrada, pasto_saida, data')
     .eq('fazenda_id', fazendaId)
-    .not('created_at', 'is', null)
-    .order('created_at', { ascending: false })
+    .not('data', 'is', null)
+    .order('data', { ascending: false })
 
   if (error && error.code !== 'PGRST116') throw error
 
@@ -655,10 +655,10 @@ export async function getPastosUltimasDatasBatch(
   // Data ordenada DESC, então o primeiro registro encontrado para cada pasto é o mais recente
   ;(data || []).forEach((r: any) => {
     if (r.pasto_entrada && !(r.pasto_entrada in ultimaEntrada)) {
-      ultimaEntrada[r.pasto_entrada] = r.created_at
+      ultimaEntrada[r.pasto_entrada] = r.data
     }
     if (r.pasto_saida && !(r.pasto_saida in ultimaSaida)) {
-      ultimaSaida[r.pasto_saida] = r.created_at
+      ultimaSaida[r.pasto_saida] = r.data
     }
   })
 
@@ -1527,90 +1527,90 @@ export async function getUltimaDataPastoEntrada(fazendaId: string, nomePasto: st
   const client = getSupabaseClient()
   const { data, error } = await client
     .from('registros_pastagens')
-    .select('created_at')
+    .select('data')
     .eq('fazenda_id', fazendaId)
     .eq('pasto_entrada', nomePasto)
-    .not('created_at', 'is', null)
-    .order('created_at', { ascending: false })
+    .not('data', 'is', null)
+    .order('data', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
     throw error
   }
-  
-  return data?.created_at || null
+
+  return data?.data || null
 }
 
 export async function getUltimaDataPastoSaida(fazendaId: string, nomePasto: string): Promise<string | null> {
   const client = getSupabaseClient()
   const { data, error } = await client
     .from('registros_pastagens')
-    .select('created_at')
+    .select('data')
     .eq('fazenda_id', fazendaId)
     .eq('pasto_saida', nomePasto)
-    .not('created_at', 'is', null)
-    .order('created_at', { ascending: false })
+    .not('data', 'is', null)
+    .order('data', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
     throw error
   }
-  
-  return data?.created_at || null
+
+  return data?.data || null
 }
 
 export async function getUltimoStatusPasto(fazendaId: string, nomePasto: string): Promise<'entrada' | 'saida' | null> {
   const client = getSupabaseClient()
-  
+
   // Buscar o último registro onde o pasto aparece como entrada
   const { data: entradaData, error: entradaError } = await client
     .from('registros_pastagens')
-    .select('created_at')
+    .select('data')
     .eq('fazenda_id', fazendaId)
     .eq('pasto_entrada', nomePasto)
-    .not('created_at', 'is', null)
-    .order('created_at', { ascending: false })
+    .not('data', 'is', null)
+    .order('data', { ascending: false })
     .limit(1)
     .maybeSingle()
-  
+
   if (entradaError && entradaError.code !== 'PGRST116') {
     throw entradaError
   }
-  
+
   // Buscar o último registro onde o pasto aparece como saída
   const { data: saidaData, error: saidaError } = await client
     .from('registros_pastagens')
-    .select('created_at')
+    .select('data')
     .eq('fazenda_id', fazendaId)
     .eq('pasto_saida', nomePasto)
-    .not('created_at', 'is', null)
-    .order('created_at', { ascending: false })
+    .not('data', 'is', null)
+    .order('data', { ascending: false })
     .limit(1)
     .maybeSingle()
-  
+
   if (saidaError && saidaError.code !== 'PGRST116') {
     throw saidaError
   }
-  
+
   // Comparar as datas para determinar qual foi o último registro
   if (!entradaData && !saidaData) {
     return null // Primeira vez que o pasto é usado
   }
-  
+
   if (!entradaData) {
     return 'saida' // Só tem registro de saída
   }
-  
+
   if (!saidaData) {
     return 'entrada' // Só tem registro de entrada
   }
-  
+
   // Comparar timestamps
-  const entradaTimestamp = new Date(entradaData.created_at).getTime()
-  const saidaTimestamp = new Date(saidaData.created_at).getTime()
-  
+  const entradaTimestamp = new Date(entradaData.data).getTime()
+  const saidaTimestamp = new Date(saidaData.data).getTime()
+
   return entradaTimestamp > saidaTimestamp ? 'entrada' : 'saida'
 }
 

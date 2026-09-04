@@ -60,7 +60,10 @@ export async function salvarRegistro(
   // Capturar hora atual no fuso da fazenda e concatenar com data
   const timezone = await getFarmTimezone()
   const horaAtual = getCurrentTimeInTimezone(timezone)
-  const dataComHora = `${dataComUsuario.data as string} ${horaAtual.slice(0, 5)}`
+  // Se o payload traz horarioManejo (ex: PastagensPage), usar esse horário em vez da hora atual
+  const horarioManejo = (dataComUsuario.horarioManejo as string) || ''
+  const horarioEfetivo = horarioManejo.trim() !== '' ? horarioManejo.trim().slice(0, 5) : horaAtual.slice(0, 5)
+  const dataComHora = `${dataComUsuario.data as string} ${horarioEfetivo}`
 
   const registro = {
     ...dataComUsuario,

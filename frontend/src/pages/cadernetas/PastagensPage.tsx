@@ -9,7 +9,7 @@ import PdfModal from '../../components/PdfModal'
 import PastoDetalhesCard from '../../components/PastoDetalhesCard'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { salvarRegistro } from '../../services/api'
-import { todayBR } from '../../utils/formatDate'
+import { todayBR, getCurrentTimeInTimezone } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
@@ -65,6 +65,7 @@ const INVERTED_DIAGNOSTICOS = [
 
 interface FormState {
   data: string
+  horarioManejo: string
   numeroLote: string
   loteId: string
   pastoSaida: string
@@ -112,6 +113,7 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
+  horarioManejo: getCurrentTimeInTimezone().slice(0, 5),
   numeroLote: '',
   loteId: '',
   pastoSaida: '',
@@ -606,6 +608,7 @@ export default function PastagensPage() {
 
     const result = await salvarRegistro('pastagens', {
       data: form.data,
+      horarioManejo: form.horarioManejo,
       manejador: usuario,
       usuario: usuario,
       numeroLote: form.numeroLote,
@@ -686,6 +689,12 @@ export default function PastagensPage() {
         {/* Seção 2: Entrada e Saída */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ENTRADA E SAÍDA</h2>
+          <Input
+            label="HORÁRIO DO MANEJO"
+            type="time"
+            value={form.horarioManejo}
+            onChange={setInput('horarioManejo')}
+          />
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>PASTO DE SAÍDA <span className="text-red-500">*</span></span>}

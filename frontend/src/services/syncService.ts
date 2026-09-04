@@ -163,6 +163,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
+        horario_manejo: (registro as any).horarioManejo || null,
         manejador: registro.manejador || null,
         lote: registro.numeroLote || null,
         lote_id: registro.loteId || null,
