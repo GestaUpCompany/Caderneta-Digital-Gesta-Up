@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, Button } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -17,6 +17,13 @@ interface ItemSupermercado {
   id: string
   nome: string
   unidade_medida: string
+}
+
+interface ItemCantina {
+  itemId: string
+  nome: string
+  unidade_medida: string
+  quantidade: string
 }
 
 const COZINHEIRAS_OPTIONS = [
@@ -38,7 +45,7 @@ interface FormState {
   numeroLanches: string
   numeroRefeicoesAlmoco: string
   numeroRefeicoesJantar: string
-  itens: Record<string, string>
+  itens: ItemCantina[]
   // Marmita
   fornecedor: string
   quantidadeMarmitas: string
@@ -58,12 +65,19 @@ const makeInitial = (): FormState => ({
   numeroLanches: '',
   numeroRefeicoesAlmoco: '',
   numeroRefeicoesJantar: '',
-  itens: {},
+  itens: [],
   fornecedor: '',
   quantidadeMarmitas: '',
   precoUnitario: '',
   destinatario: '',
   observacao: '',
+})
+
+const makeInitialItem = (): ItemCantina => ({
+  itemId: '',
+  nome: '',
+  unidade_medida: '',
+  quantidade: '',
 })
 
 export default function CantinaPage() {
@@ -76,12 +90,13 @@ export default function CantinaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [itensSupermercadoDisponiveis, setItensSupermercadoDisponiveis] = useState<ItemSupermercado[]>([])
+  const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
+  const [itemEditando, setItemEditando] = useState<ItemCantina | null>(null)
+  const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
+  const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-  const setItem = (item: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, itens: { ...prev.itens, [item]: e.target.value } }))
 
   const setQuemAjudou = (index: number, value: string) =>
     setForm((prev) => {
@@ -91,6 +106,65 @@ export default function CantinaPage() {
     })
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  const handleAdicionarItem = () => {
+    setItemEditando(makeInitialItem())
+    setItemEditandoIndex(null)
+    setItemErrors(new Set())
+    setMostrarFormularioItem(true)
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+  }
+
+  const handleEditarItem = (index: number) => {
+    setItemEditando({ ...form.itens[index] })
+    setItemEditandoIndex(index)
+    setItemErrors(new Set())
+    setMostrarFormularioItem(true)
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+  }
+
+  const handleSalvarItem = () => {
+    if (!itemEditando) return
+
+    const errors = new Set<string>()
+    if (!itemEditando.itemId) errors.add('itemId')
+    if (!itemEditando.quantidade) errors.add('quantidade')
+
+    if (errors.size > 0) {
+      setItemErrors(errors)
+      return
+    }
+
+    if (itemEditandoIndex !== null) {
+      setForm(prev => ({
+        ...prev,
+        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? { ...itemEditando } : item)
+      }))
+    } else {
+      setForm(prev => ({
+        ...prev,
+        itens: [...prev.itens, { ...itemEditando }]
+      }))
+    }
+    setItemEditando(null)
+    setItemEditandoIndex(null)
+    setMostrarFormularioItem(false)
+    setItemErrors(new Set())
+  }
+
+  const handleRemoverItem = (index: number) => {
+    setForm(prev => ({
+      ...prev,
+      itens: prev.itens.filter((_, i) => i !== index)
+    }))
+  }
+
+  // Itens já adicionados (para desabilitar no seletor)
+  const itensJaAdicionados = new Set(
+    form.itens
+      .filter((_, i) => i !== itemEditandoIndex)
+      .map(item => item.itemId)
+  )
 
   // Validation rules (dinâmico por modo)
   const validationRules: any = useMemo(() => {
@@ -105,11 +179,10 @@ export default function CantinaPage() {
           return hasAnyRefeicao ? null : 'Pelo menos uma refeição deve ser informada'
         }
       }
-      // At least 1 item must be filled
+      // At least 1 item must be added
       base.itens = {
         custom: (_value: any, form: any) => {
-          const hasAnyItem = Object.values(form.itens).some(val => val && val !== '')
-          return hasAnyItem ? null : 'Pelo menos um item deve ser informado'
+          return form.itens && form.itens.length > 0 ? null : 'Adicione pelo menos um item'
         }
       }
       // Add validation for quemAjudou fields
@@ -152,14 +225,6 @@ export default function CantinaPage() {
         const data = await getItensSupermercadoCached(fazendaId)
         if (data) {
           setItensSupermercadoDisponiveis(data as ItemSupermercado[])
-          // Merge: preserva valores ja preenchidos pelo usuario
-          setForm(prev => {
-            const novosItens = (data as ItemSupermercado[]).reduce(
-              (acc, item) => ({ ...acc, [item.id]: prev.itens[item.id] ?? '' }),
-              {} as Record<string, string>
-            )
-            return { ...prev, itens: novosItens }
-          })
         }
       } catch (error) {
         console.error('Erro ao carregar itens de supermercado:', error)
@@ -196,12 +261,11 @@ export default function CantinaPage() {
     setSalvando(true)
     setErrors([])
 
-    // Converter IDs de itens para nomes com unidade para armazenamento
+    // Converter itens do array para formato de armazenamento (nome (unidade) -> quantidade)
     const itensStorage: Record<string, string> = {}
-    Object.entries(form.itens).forEach(([itemId, value]) => {
-      const item = itensSupermercadoDisponiveis.find(i => i.id === itemId)
-      if (item && value) {
-        itensStorage[`${item.nome} (${item.unidade_medida})`] = value
+    form.itens.forEach((item) => {
+      if (item.quantidade) {
+        itensStorage[`${item.nome} (${item.unidade_medida})`] = item.quantidade
       }
     })
 
@@ -328,21 +392,150 @@ export default function CantinaPage() {
       {/* Seção 3: Itens */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO DE ITENS <span className="text-red-500">*</span></h2>
-        {itensSupermercadoDisponiveis.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">Nenhum item cadastrado no sistema</p>
-        ) : (
-          <div className="flex flex-col gap-4 items-stretch">
-            {itensSupermercadoDisponiveis.map((item) => (
-              <Input 
-                key={item.id} 
-                label={`${item.nome.toUpperCase()} (${item.unidade_medida})`}
-                type="number" 
-                placeholder="Quantidade"
-                value={form.itens[item.id] || ''} 
-                onChange={setItem(item.id)} 
-                error={getError(`itens.${item.id}`)} 
-              />
+
+        {/* Lista de itens adicionados */}
+        {form.itens.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {form.itens.map((item, index) => (
+              <div key={index} className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <p className="text-lg font-bold text-gray-800 uppercase">{item.nome}</p>
+                    <p className="text-lg text-gray-900">Quantidade: {item.quantidade} {item.unidade_medida}</p>
+                  </div>
+                  <div className="flex gap-2 ml-2">
+                    <button
+                      onClick={() => handleEditarItem(index)}
+                      className="text-blue-500 text-2xl"
+                      title="Editar item"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={() => handleRemoverItem(index)}
+                      className="text-red-500 text-2xl"
+                      title="Remover item"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              </div>
             ))}
+          </div>
+        )}
+
+        {/* Botão para adicionar item ou formulário inline */}
+        {!mostrarFormularioItem ? (
+          <Button
+            onClick={handleAdicionarItem}
+            variant="secondary"
+            icon="➕"
+            fullWidth
+          >
+            ADICIONAR ITEM
+          </Button>
+        ) : (
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 flex flex-col gap-4">
+            <h3 className="text-base font-bold text-gray-900">
+              {itemEditandoIndex !== null ? 'EDITAR ITEM' : 'NOVO ITEM'}
+            </h3>
+
+            {itemErrors.size > 0 && (
+              <ValidationMessage
+                errors={Array.from(itemErrors).map(field => ({
+                  field,
+                  message: 'Preencha todos os campos obrigatórios'
+                }))}
+              />
+            )}
+
+            {/* Seleção de item */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
+              <div className="grid grid-cols-2 gap-2">
+                {itensSupermercadoDisponiveis.length > 0 ? (
+                  itensSupermercadoDisponiveis.map((item) => {
+                    const jaAdicionado = itensJaAdicionados.has(item.id)
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={jaAdicionado}
+                        onClick={() => {
+                          setItemEditando(prev => prev ? {
+                            ...prev,
+                            itemId: item.id,
+                            nome: item.nome,
+                            unidade_medida: item.unidade_medida,
+                          } : null)
+                          setItemErrors(prev => {
+                            const newErrors = new Set(prev)
+                            newErrors.delete('itemId')
+                            return newErrors
+                          })
+                        }}
+                        className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                          itemEditando?.itemId === item.id
+                            ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                            : jaAdicionado
+                            ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
+                            : itemErrors.has('itemId')
+                            ? 'border-red-500 bg-red-50 text-red-700'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        {item.nome} ({item.unidade_medida})
+                      </button>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-gray-500 col-span-2">Nenhum item cadastrado no sistema</p>
+                )}
+              </div>
+            </div>
+
+            <Input
+              label="QUANTIDADE"
+              type="number"
+              placeholder="Informe a quantidade"
+              value={itemEditando?.quantidade || ''}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '')
+                setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
+                setItemErrors(prev => {
+                  const newErrors = new Set(prev)
+                  newErrors.delete('quantidade')
+                  return newErrors
+                })
+              }}
+              error={itemErrors.has('quantidade') ? 'Campo obrigatório' : undefined}
+            />
+
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setMostrarFormularioItem(false)
+                  setItemEditando(null)
+                  setItemEditandoIndex(null)
+                }}
+                variant="secondary"
+                icon="✕"
+                fullWidth
+                size="sm"
+              >
+                CANCELAR
+              </Button>
+              <Button
+                onClick={handleSalvarItem}
+                variant="success"
+                icon="✓"
+                fullWidth
+                size="sm"
+              >
+                CONFIRMAR
+              </Button>
+            </div>
           </div>
         )}
       </div>
