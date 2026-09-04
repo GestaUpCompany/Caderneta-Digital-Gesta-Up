@@ -885,12 +885,20 @@ export default function AtividadesPage() {
   }
 
   const ORDEM_STATUS: Record<string, number> = {
-    em_andamento: 0,
-    pausada: 1,
-    pendente: 2,
-    justificada: 3,
-    concluida: 4,
+    pendente: 0,
+    em_andamento: 1,
+    pausada: 2,
+    concluida: 3,
+    justificada: 4,
   }
+
+  const GRUPOS_INFO: { status: string; label: string; cor: string; borda: string }[] = [
+    { status: 'pendente', label: 'Pendentes', cor: 'text-gray-700', borda: 'border-gray-300' },
+    { status: 'em_andamento', label: 'Em Andamento', cor: 'text-blue-700', borda: 'border-blue-300' },
+    { status: 'pausada', label: 'Pausadas', cor: 'text-amber-700', borda: 'border-amber-300' },
+    { status: 'concluida', label: 'Concluídas', cor: 'text-green-700', borda: 'border-green-300' },
+    { status: 'justificada', label: 'Justificadas', cor: 'text-orange-700', borda: 'border-orange-300' },
+  ]
 
   const atividadesFiltradas = atividades
     .filter((a) => {
@@ -905,10 +913,25 @@ export default function AtividadesPage() {
       return true
     })
     .sort((a, b) => {
+      // 1) Grupo de status
       const oa = ORDEM_STATUS[a.statusIndividual] ?? 99
       const ob = ORDEM_STATUS[b.statusIndividual] ?? 99
-      return oa - ob
+      if (oa !== ob) return oa - ob
+      // 2) Prioridade (1=urgente primeiro)
+      if (a.prioridade !== b.prioridade) return a.prioridade - b.prioridade
+      // 3) Data de vencimento (mais próxima primeiro)
+      return (a.dataFim || '9999-12-31').localeCompare(b.dataFim || '9999-12-31')
     })
+
+  // Agrupar por status para renderizar com cabeçalhos quando "Todas" estiver ativo
+  const gruposVisiveis = filtroStatus === 'todas'
+    ? GRUPOS_INFO
+        .map((g) => ({
+          ...g,
+          items: atividadesFiltradas.filter((a) => a.statusIndividual === g.status),
+        }))
+        .filter((g) => g.items.length > 0)
+    : []
 
   // Gate: se RBAC desativado ou sem funcionário logado
   if (!controleAcessoHabilitado || !funcionarioId) {
@@ -1029,6 +1052,29 @@ export default function AtividadesPage() {
         ) : atividadesFiltradas.length === 0 ? (
           <div className="bg-white rounded-xl p-8 shadow-sm text-center">
             <p className="text-gray-600">Nenhuma atividade encontrada</p>
+          </div>
+        ) : gruposVisiveis.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {gruposVisiveis.map((grupo) => (
+              <div key={grupo.status}>
+                <div className={`flex items-center gap-2 mb-2 pb-1 border-b ${grupo.borda}`}>
+                  <span className={`text-sm font-bold ${grupo.cor}`}>{grupo.label}</span>
+                  <span className={`text-xs font-medium ${grupo.cor} opacity-70`}>({grupo.items.length})</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {grupo.items.map((af) => (
+                    <AtividadeCard
+                      key={af.id}
+                      af={af}
+                      onConcluir={handleOpenConcluir}
+                      onImprevisto={handleOpenImprevisto}
+                      onJustificar={handleOpenJustificar}
+                      onMutate={loadAtividades}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
