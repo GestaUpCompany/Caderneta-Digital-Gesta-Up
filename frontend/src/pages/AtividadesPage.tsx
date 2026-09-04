@@ -26,6 +26,8 @@ import {
   getImprevistosLocal,
   calcularTempoLocal,
   getImprevistoCategorias,
+  getPrioridadesAtividades,
+  PrioridadeAtividade,
   formatarTempo,
   formatarResumoAtividades,
   criarAtividadeNaoPrevistaConcluidaLocal,
@@ -618,8 +620,10 @@ export default function AtividadesPage() {
   const [atividadeParaImprevisto, setAtividadeParaImprevisto] = useState<AtividadeFuncionarioPWA | null>(null)
   const [atividadeParaJustificar, setAtividadeParaJustificar] = useState<AtividadeFuncionarioPWA | null>(null)
   const [justificativaTexto, setJustificativaTexto] = useState('')
-  const [filtro, setFiltro] = useState<'todas' | 'pendentes' | 'em_andamento' | 'pausadas' | 'justificadas' | 'concluidas'>('todas')
+  const [filtroStatus, setFiltroStatus] = useState<'todas' | 'pendentes' | 'em_andamento' | 'pausadas' | 'justificadas' | 'concluidas'>('todas')
+  const [filtroPrioridade, setFiltroPrioridade] = useState<number | ''>('')
   const [categorias, setCategorias] = useState<ImprevistoCategoria[]>([])
+  const [prioridades, setPrioridades] = useState<PrioridadeAtividade[]>([])
   const [showNaoPrevistaModal, setShowNaoPrevistaModal] = useState(false)
   const [novaAtividadeTitulo, setNovaAtividadeTitulo] = useState('')
   const [novaAtividadeDesc, setNovaAtividadeDesc] = useState('')
@@ -668,6 +672,9 @@ export default function AtividadesPage() {
     getImprevistoCategorias(fazendaId)
       .then(setCategorias)
       .catch((err) => console.warn('[AtividadesPage] Erro ao carregar categorias:', err))
+    getPrioridadesAtividades(fazendaId)
+      .then(setPrioridades)
+      .catch((err) => console.warn('[AtividadesPage] Erro ao carregar prioridades:', err))
   }, [fazendaId])
 
   // Auto-retry GPS enquanto o modal de conclusao ou de atividade nao prevista estiver aberto
@@ -887,12 +894,14 @@ export default function AtividadesPage() {
 
   const atividadesFiltradas = atividades
     .filter((a) => {
-      if (filtro === 'todas') return true
-      if (filtro === 'pendentes') return a.statusIndividual === 'pendente'
-      if (filtro === 'em_andamento') return a.statusIndividual === 'em_andamento'
-      if (filtro === 'pausadas') return a.statusIndividual === 'pausada'
-      if (filtro === 'concluidas') return a.statusIndividual === 'concluida'
-      if (filtro === 'justificadas') return a.statusIndividual === 'justificada'
+      if (filtroStatus !== 'todas') {
+        if (filtroStatus === 'pendentes' && a.statusIndividual !== 'pendente') return false
+        if (filtroStatus === 'em_andamento' && a.statusIndividual !== 'em_andamento') return false
+        if (filtroStatus === 'pausadas' && a.statusIndividual !== 'pausada') return false
+        if (filtroStatus === 'concluidas' && a.statusIndividual !== 'concluida') return false
+        if (filtroStatus === 'justificadas' && a.statusIndividual !== 'justificada') return false
+      }
+      if (filtroPrioridade !== '' && a.prioridade !== filtroPrioridade) return false
       return true
     })
     .sort((a, b) => {
@@ -980,27 +989,35 @@ export default function AtividadesPage() {
         </button>
 
         {/* Filtros */}
-        <div className="flex flex-wrap gap-2 justify-center">
-          {([
-            { value: 'todas', label: 'Todas' },
-            { value: 'pendentes', label: 'Pendentes' },
-            { value: 'em_andamento', label: 'Em Andamento' },
-            { value: 'pausadas', label: 'Pausadas' },
-            { value: 'justificadas', label: 'Justificadas' },
-            { value: 'concluidas', label: 'Concluídas' },
-          ] as const).map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFiltro(f.value)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-center flex items-center justify-center min-w-[80px] ${
-                filtro === f.value
-                  ? 'bg-[#23503a] text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex-1 min-w-[140px]">
+            <select
+              value={filtroStatus}
+              onChange={(e) => setFiltroStatus(e.target.value as typeof filtroStatus)}
+              className="w-full px-3 py-2.5 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#23503a]/20 focus:border-[#23503a] min-h-[44px]"
             >
-              {f.label}
-            </button>
-          ))}
+              <option value="todas">Todos os status</option>
+              <option value="pendentes">Pendentes</option>
+              <option value="em_andamento">Em Andamento</option>
+              <option value="pausadas">Pausadas</option>
+              <option value="justificadas">Justificadas</option>
+              <option value="concluidas">Concluídas</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[140px]">
+            <select
+              value={filtroPrioridade}
+              onChange={(e) => setFiltroPrioridade(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full px-3 py-2.5 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#23503a]/20 focus:border-[#23503a] min-h-[44px]"
+            >
+              <option value="">Todas as prioridades</option>
+              {prioridades.map((p) => (
+                <option key={p.nivel} value={p.nivel}>
+                  {p.nivel === 1 ? '🔴' : p.nivel === 2 ? '🟡' : '🟢'} {p.nome}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Lista */}

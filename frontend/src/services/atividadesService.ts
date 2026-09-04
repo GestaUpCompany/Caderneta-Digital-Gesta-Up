@@ -703,6 +703,41 @@ export async function getImprevistoCategorias(fazendaId: string): Promise<Imprev
 }
 
 // ============================================================
+// Prioridades de atividades (online com cache)
+// ============================================================
+
+export interface PrioridadeAtividade {
+  id: string
+  nivel: number
+  nome: string
+}
+
+const PRIORIDADES_CACHE_KEY = 'atividade_prioridades_'
+
+export async function getPrioridadesAtividades(fazendaId: string): Promise<PrioridadeAtividade[]> {
+  const cached = await getCadastroData(`${PRIORIDADES_CACHE_KEY}${fazendaId}`)
+  if (cached && Array.isArray(cached.prioridades) && cached.prioridades.length > 0) {
+    return cached.prioridades as PrioridadeAtividade[]
+  }
+  try {
+    const supabase = await getSupabaseClientWithRefresh()
+    if (!supabase) return []
+    const { data, error } = await (supabase as any)
+      .from('prioridades_atividades')
+      .select('id, nivel, nome')
+      .eq('fazenda_id', fazendaId)
+      .order('nivel', { ascending: true })
+    if (error) throw error
+    const prioridades = (data || []) as PrioridadeAtividade[]
+    await saveCadastroData(`${PRIORIDADES_CACHE_KEY}${fazendaId}`, { prioridades, timestamp: Date.now() })
+    return prioridades
+  } catch (err) {
+    console.warn('[Atividades] Erro ao buscar prioridades:', err)
+    return cached?.prioridades || []
+  }
+}
+
+// ============================================================
 // Backward compat: marcarEmAndamentoLocal / marcarConcluidaLocal
 // ============================================================
 
