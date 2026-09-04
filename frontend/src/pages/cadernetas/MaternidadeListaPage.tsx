@@ -8,13 +8,14 @@ import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoMaternidade, compartilharPdf } from '../../utils/pdfUtils'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
+import { getFazendasDoMesmoGrupoCached } from '../../services/cadastroCache'
 
 export default function MaternidadeListaPage() {
   const [mostrarModalResumo, setMostrarModalResumo] = useState(false)
   const [dataResumo, setDataResumo] = useState(todayBR())
   const [gerando, setGerando] = useState(false)
   const [todosRegistros, setTodosRegistros] = useState<Registro[]>([])
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId } = useSelector((state: RootState) => state.config)
 
   const carregarRegistros = useCallback(async () => {
     const lista = await listarRegistros('maternidade')
@@ -95,6 +96,11 @@ export default function MaternidadeListaPage() {
       // Montar resumo
       const partes: string[] = []
       partes.push(`📋 *RESUMO DIÁRIO — MATERNIDADE*`)
+      // Incluir nome da fazenda quando pertence a um grupo
+      const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
+      if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
+        partes.push(`Fazenda: *${fazenda}*`)
+      }
       partes.push(`📅 Data: *${dataResumo.split(' ')[0]}*`)
       partes.push('')
       partes.push(`Total de nascimentos: *${totalNascimentos}*`)

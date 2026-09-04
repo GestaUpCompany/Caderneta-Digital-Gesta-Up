@@ -8,7 +8,7 @@ import { compartilharWhatsApp, Registro, formatarTempoDesdeLimpeza } from '../..
 import { gerarPdfResumoBebedouros, compartilharPdf } from '../../utils/pdfUtils'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import { getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached } from '../../services/cadastroCache'
+import { getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroCached, getFazendasDoMesmoGrupoCached } from '../../services/cadastroCache'
 
 const CHECKLIST_LABELS: Record<string, string> = {
   agua_suficiente: 'Quantidade de água inadequada',
@@ -121,6 +121,11 @@ export default function BebedourosListaPage() {
       // Montar resumo
       const partes: string[] = []
       partes.push(`📋 RESUMO DIÁRIO — BEBEDOUROS`)
+      // Incluir nome da fazenda quando pertence a um grupo
+      const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
+      if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
+        partes.push(`Fazenda: *${fazenda}*`)
+      }
       partes.push(`📅 Data: ${dataResumo.split(' ')[0]}`)
       partes.push('')
       partes.push(`Bebedouros: ${bebedourosInspecionados.size}`)

@@ -28,9 +28,9 @@ import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
 const MOTIVOS = [
-  { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
-  { value: 'Saída', label: 'SAÍDA', icon: '📤' },
   { value: 'Entrada', label: 'ENTRADA', icon: '📥' },
+  { value: 'Saída', label: 'SAÍDA', icon: '📤' },
+  { value: 'Consumo', label: 'CONSUMO', icon: '🍖' },
   { value: 'Entrevero', label: 'ENTREVERO', icon: '🔀' },
   { value: 'Doação', label: 'DOAÇÃO', icon: '🎁' },
 ]
@@ -44,8 +44,11 @@ const TIPO_SAIDA_BASE = [
   { value: 'Novo Lote', label: 'Novo Lote', icon: '' },
 ]
 
-// "Novo Lote" disponível apenas para a Fazenda Marcon
-const FAZENDA_NOVO_LOTE_HABILITADO = 'c4d13f1f-a785-4bcd-8e72-4ac4b28ee034'
+// "Novo Lote" disponível apenas para fazendas específicas
+const FAZENDAS_NOVO_LOTE_HABILITADO = [
+  'c4d13f1f-a785-4bcd-8e72-4ac4b28ee034', // Fazenda Marcon
+  'f8be22c5-12e9-4bda-a813-fae8cb3d47ec',
+]
 
 const SISTEMA_PRODUCAO_OPTS = [
   { value: 'Cria', label: 'Cria' },
@@ -150,7 +153,7 @@ const makeInitial = (): FormState => ({
 export default function MovimentacaoPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
-  const tipoSaidaOptions = fazendaId === FAZENDA_NOVO_LOTE_HABILITADO
+  const tipoSaidaOptions = FAZENDAS_NOVO_LOTE_HABILITADO.includes(fazendaId)
     ? TIPO_SAIDA_BASE
     : TIPO_SAIDA_BASE.filter(o => o.value !== 'Novo Lote')
   const [form, setForm] = useState<FormState>(makeInitial)

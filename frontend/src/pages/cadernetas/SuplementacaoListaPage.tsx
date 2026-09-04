@@ -9,7 +9,7 @@ import { gerarPdfResumoSuplementacao, compartilharPdf } from '../../utils/pdfUti
 import { todayBR } from '../../utils/formatDate'
 import { formatarNumeroBR } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
-import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached } from '../../services/cadastroCache'
+import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getFazendasDoMesmoGrupoCached } from '../../services/cadastroCache'
 import { RootState } from '../../store/store'
 
 interface MetricasShare {
@@ -138,6 +138,11 @@ export default function SuplementacaoListaPage() {
 
       // Cabeçalho fixo
       partes.push(`📋 *SUPLEMENTAÇÃO*`)
+      // Incluir nome da fazenda quando pertence a um grupo
+      const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
+      if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
+        partes.push(`Fazenda: *${fazenda}*`)
+      }
       partes.push(`📅 Data: *${dataBase}*`)
       partes.push('')
 

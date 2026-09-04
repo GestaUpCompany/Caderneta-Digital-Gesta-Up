@@ -8,6 +8,7 @@ import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoRodeio, compartilharPdf } from '../../utils/pdfUtils'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
+import { getFazendasDoMesmoGrupoCached } from '../../services/cadastroCache'
 
 const CATEGORIAS_CAMPOS: { key: string; label: string }[] = [
   { key: 'vaca', label: 'VACAS' },
@@ -91,7 +92,7 @@ export default function RodeioListaPage() {
   const [dataResumo, setDataResumo] = useState(todayBR())
   const [gerando, setGerando] = useState(false)
   const [todosRegistros, setTodosRegistros] = useState<Registro[]>([])
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId } = useSelector((state: RootState) => state.config)
 
   const carregarRegistros = useCallback(async () => {
     const lista = await listarRegistros('rodeio')
@@ -132,6 +133,11 @@ export default function RodeioListaPage() {
 
       // Cabeçalho
       partes.push(`📋 *RESUMO DIÁRIO — RODEIO*`)
+      // Incluir nome da fazenda quando pertence a um grupo
+      const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
+      if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
+        partes.push(`Fazenda: *${fazenda}*`)
+      }
       partes.push(`📅 Data: *${dataBase}*`)
       partes.push('')
 
