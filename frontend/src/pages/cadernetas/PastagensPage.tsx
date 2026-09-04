@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, TimeInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
@@ -247,6 +247,9 @@ export default function PastagensPage() {
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const setTimeInput = (field: keyof FormState) => (value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
@@ -689,11 +692,10 @@ export default function PastagensPage() {
         {/* Seção 2: Entrada e Saída */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ENTRADA E SAÍDA</h2>
-          <Input
+          <TimeInput
             label="HORÁRIO DO MANEJO"
-            type="time"
             value={form.horarioManejo}
-            onChange={setInput('horarioManejo')}
+            onChange={setTimeInput('horarioManejo')}
           />
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal

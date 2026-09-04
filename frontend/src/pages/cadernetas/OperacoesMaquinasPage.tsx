@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage, Radio, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, TimeInput } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -240,6 +240,9 @@ export default function OperacoesMaquinasPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
+  const setTimeInput = (field: keyof FormState) => (value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }))
+
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const handleSalvar = async () => {
@@ -351,8 +354,8 @@ export default function OperacoesMaquinasPage() {
         ) : (
           <Input label="IMPLEMENTO UTILIZADO?" placeholder="Implemento utilizado" value={form.implementoUtilizado} onChange={setInput('implementoUtilizado')} />
         )}
-        <Input label="HORA INICIAL?" type="time" value={form.horaInicial} onChange={setInput('horaInicial')} />
-        <Input label="HORA FINAL?" type="time" value={form.horaFinal} onChange={setInput('horaFinal')} />
+        <TimeInput label="HORA INICIAL?" value={form.horaInicial} onChange={setTimeInput('horaInicial')} />
+        <TimeInput label="HORA FINAL?" value={form.horaFinal} onChange={setTimeInput('horaFinal')} />
         <Input 
           label="TOTAL HORAS TRABALHADAS" 
           placeholder="" 

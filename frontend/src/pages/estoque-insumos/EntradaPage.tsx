@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import FarmLogo from '../../components/FarmLogo'
-import { Input, Select, DatePicker, Button } from '../../components/ui'
+import { Input, Select, DatePicker, Button, TimeInput } from '../../components/ui'
 
 interface FormData {
   dataEntrada: string
@@ -80,9 +80,9 @@ export default function EntradaPage() {
   }, [isHorarioManual])
 
   // Marca horário como manual quando usuário altera
-  const handleHorarioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHorarioChange = (value: string) => {
     setIsHorarioManual(true)
-    setForm({ ...form, horario: e.target.value })
+    setForm({ ...form, horario: value })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,12 +169,10 @@ export default function EntradaPage() {
                 <label className="block text-lg font-bold text-gray-900 mb-2">
                   HORÁRIO *
                 </label>
-                <input
-                  type="time"
+                <TimeInput
+                  label="HORÁRIO *"
                   value={form.horario}
                   onChange={handleHorarioChange}
-                  required
-                  className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                 />
                 {!isHorarioManual && (
                   <p className="mt-1 text-sm text-gray-500">Atualiza automaticamente</p>

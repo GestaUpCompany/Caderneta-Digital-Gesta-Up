@@ -7,7 +7,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { store } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
-import { Input, DatePicker, Button, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, Button, ValidationMessage, SearchableModal, TimeInput } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -209,9 +209,9 @@ export default function EntradaInsumosPage() {
   }, [isHorarioManual])
 
   // Marca horário como manual quando usuário altera
-  const handleHorarioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHorarioChange = (value: string) => {
     setIsHorarioManual(true)
-    setForm({ ...form, horario: e.target.value })
+    setForm({ ...form, horario: value })
   }
 
   const handleSalvar = async () => {
@@ -342,12 +342,10 @@ export default function EntradaInsumosPage() {
                 <label className="block text-lg font-bold text-gray-900 mb-2">
                   HORÁRIO *
                 </label>
-                <input
-                  type="time"
+                <TimeInput
+                  label="HORÁRIO *"
                   value={form.horario}
                   onChange={handleHorarioChange}
-                  required
-                  className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                 />
                 {!isHorarioManual && (
                   <p className="mt-1 text-sm text-gray-500">Atualiza automaticamente</p>

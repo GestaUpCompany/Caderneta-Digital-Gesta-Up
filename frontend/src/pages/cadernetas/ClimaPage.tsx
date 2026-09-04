@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, TimeInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -302,11 +302,10 @@ export default function ClimaPage() {
                         ✕
                       </button>
                     </div>
-                    <Input
+                    <TimeInput
                       label={<span>HORÁRIO <span className="text-red-500">*</span></span>}
-                      type="time"
                       value={medicao.horario}
-                      onChange={(e) => handleHorarioChange(medicao.pluviometroId, e.target.value)}
+                      onChange={(v) => handleHorarioChange(medicao.pluviometroId, v)}
                       error={getError(`horario_${medicao.pluviometroId}`)}
                     />
                     <Input

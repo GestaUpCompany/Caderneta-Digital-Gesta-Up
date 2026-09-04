@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea, SearchableModal, TimeInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -114,6 +114,9 @@ export default function LimpezaPage() {
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const setTimeInput = (field: keyof FormState) => (value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }))
 
   const setTarefa = (optionValue: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({
@@ -244,8 +247,8 @@ export default function LimpezaPage() {
         ) : (
           <Input label={<span>QUAL LOCAL? <span className="text-red-500">*</span></span>} placeholder="Carregando..." value={form.local} onChange={setInput('local')} error={getError('local')} disabled />
         )}
-        <Input label={<span>HORA DE INÍCIO? <span className="text-red-500">*</span></span>} type="time" value={form.horaInicio} onChange={setInput('horaInicio')} error={getError('horaInicio')} />
-        <Input label={<span>HORA FINAL? <span className="text-red-500">*</span></span>} type="time" value={form.horaFinal} onChange={setInput('horaFinal')} error={getError('horaFinal')} />
+        <TimeInput label={<span>HORA DE INÍCIO? <span className="text-red-500">*</span></span>} value={form.horaInicio} onChange={setTimeInput('horaInicio')} error={getError('horaInicio')} />
+        <TimeInput label={<span>HORA FINAL? <span className="text-red-500">*</span></span>} value={form.horaFinal} onChange={setTimeInput('horaFinal')} error={getError('horaFinal')} />
         {form.horaInicio && form.horaFinal && (
           <Input
             label="TEMPO TOTAL"
