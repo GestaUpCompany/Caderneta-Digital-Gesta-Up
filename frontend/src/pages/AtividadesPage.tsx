@@ -6,7 +6,7 @@ import { RootState } from '../store/store'
 import {
   ChevronLeft, Clock, CheckCircle, Share2, WifiOff,
   Play, Pause, Coffee, AlertTriangle, RotateCcw, ChevronDown, ChevronUp,
-  Plus, X,
+  Plus, X, MessageSquareText,
 } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
 import {
@@ -20,6 +20,7 @@ import {
   pausarAtividadeLocal,
   retomarAtividadeLocal,
   concluirAtividadeLocal,
+  justificarAtividadeLocal,
   registrarImprevistoLocal,
   getSessoesLocal,
   getImprevistosLocal,
@@ -44,6 +45,7 @@ const STATUS_ATIVIDADE_CORES: Record<string, string> = {
   em_andamento: 'bg-blue-100 text-blue-700',
   concluido: 'bg-green-100 text-green-700',
   pausada: 'bg-amber-100 text-amber-700',
+  justificada: 'bg-orange-100 text-orange-700',
 }
 
 const STATUS_ATIVIDADE_LABELS: Record<string, string> = {
@@ -52,6 +54,7 @@ const STATUS_ATIVIDADE_LABELS: Record<string, string> = {
   concluido: 'Concluído',
   concluida: 'Concluída',
   pausada: 'Pausada',
+  justificada: 'Justificada',
 }
 
 function formatarDataAtividade(dataInicio: string, dataFim?: string | null): string {
@@ -78,10 +81,11 @@ interface AtividadeCardProps {
   af: AtividadeFuncionarioPWA
   onConcluir: (af: AtividadeFuncionarioPWA) => void
   onImprevisto: (af: AtividadeFuncionarioPWA) => void
+  onJustificar: (af: AtividadeFuncionarioPWA) => void
   onMutate: () => void
 }
 
-function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCardProps) {
+function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }: AtividadeCardProps) {
   const dispatch = useDispatch()
   const [tempo, setTempo] = useState<TempoCalculado | null>(null)
   const [sessoes, setSessoes] = useState<AtividadeSessaoLocal[]>([])
@@ -192,6 +196,10 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
     onImprevisto(af)
   }
 
+  const handleJustificar = () => {
+    onJustificar(af)
+  }
+
   // Tempo exibido no cronometro: produtivo acumulado + decorrido da sessao aberta
   const tempoExibido = (() => {
     if (!tempo) return 0
@@ -290,6 +298,14 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
         </div>
       )}
 
+      {/* Justificativa se justificada */}
+      {af.statusIndividual === 'justificada' && af.justificativa && (
+        <div className="bg-orange-50 rounded-lg p-2 mb-2">
+          <p className="text-xs font-semibold text-orange-700 mb-0.5">Justificativa</p>
+          <p className="text-sm text-gray-700">{af.justificativa}</p>
+        </div>
+      )}
+
       {/* Foto e coordenada se concluída com foto */}
       {af.statusIndividual === 'concluida' && af.fotoUrl && (
         <div className="mb-2 flex flex-col items-center gap-1">
@@ -378,14 +394,27 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onMutate }: AtividadeCard
       {/* Ações */}
       <div className="flex flex-wrap gap-2">
         {(af.statusIndividual === 'pendente' || af.statusIndividual === 'atrasada') && (
-          <button
-            onClick={handleIniciar}
-            disabled={acting}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-blue-700 transition-colors min-h-[44px] disabled:opacity-50"
-          >
-            <Play className="w-4 h-4" />
-            Iniciar
-          </button>
+          <>
+            <button
+              onClick={handleIniciar}
+              disabled={acting}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-blue-700 transition-colors min-h-[44px] disabled:opacity-50"
+            >
+              <Play className="w-4 h-4" />
+              Iniciar
+            </button>
+            {!af.inicioAt && (
+              <button
+                onClick={handleJustificar}
+                disabled={acting}
+                className="flex items-center justify-center gap-1.5 bg-orange-100 text-orange-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-orange-200 transition-colors min-h-[44px] disabled:opacity-50"
+                title="Justificar não execução"
+              >
+                <MessageSquareText className="w-4 h-4" />
+                Justificar
+              </button>
+            )}
+          </>
         )}
 
         {af.statusIndividual === 'em_andamento' && (
@@ -587,7 +616,9 @@ export default function AtividadesPage() {
   const [atividadeParaConcluir, setAtividadeParaConcluir] = useState<AtividadeFuncionarioPWA | null>(null)
   const [detalhamento, setDetalhamento] = useState('')
   const [atividadeParaImprevisto, setAtividadeParaImprevisto] = useState<AtividadeFuncionarioPWA | null>(null)
-  const [filtro, setFiltro] = useState<'todas' | 'pendentes' | 'em_andamento' | 'pausadas' | 'concluidas'>('todas')
+  const [atividadeParaJustificar, setAtividadeParaJustificar] = useState<AtividadeFuncionarioPWA | null>(null)
+  const [justificativaTexto, setJustificativaTexto] = useState('')
+  const [filtro, setFiltro] = useState<'todas' | 'pendentes' | 'em_andamento' | 'pausadas' | 'justificadas' | 'concluidas'>('todas')
   const [categorias, setCategorias] = useState<ImprevistoCategoria[]>([])
   const [showNaoPrevistaModal, setShowNaoPrevistaModal] = useState(false)
   const [novaAtividadeTitulo, setNovaAtividadeTitulo] = useState('')
@@ -790,6 +821,27 @@ export default function AtividadesPage() {
     loadAtividades()
   }
 
+  const handleOpenJustificar = (af: AtividadeFuncionarioPWA) => {
+    setAtividadeParaJustificar(af)
+    setJustificativaTexto('')
+  }
+
+  const handleConfirmarJustificar = async () => {
+    if (!atividadeParaJustificar) return
+    const texto = justificativaTexto.trim()
+    if (texto.length < 10) return
+    const updated = await justificarAtividadeLocal(atividadeParaJustificar, texto)
+    setAtividades((prev) => prev.map((a) => (a.id === atividadeParaJustificar.id ? updated : a)))
+    try {
+      await enqueueRegistro('atividade-funcionarios', updated.id, 'update')
+      dispatch(requestSyncNow())
+    } catch (err) {
+      console.warn('[AtividadesPage] Erro ao enfileirar sync:', err)
+    }
+    setAtividadeParaJustificar(null)
+    setJustificativaTexto('')
+  }
+
   const handleCompartilhar = async () => {
     const texto = formatarResumoAtividades(atividades)
     await compartilharWhatsApp(texto)
@@ -828,8 +880,9 @@ export default function AtividadesPage() {
   const ORDEM_STATUS: Record<string, number> = {
     em_andamento: 0,
     pausada: 1,
-    concluida: 2,
-    pendente: 3,
+    pendente: 2,
+    justificada: 3,
+    concluida: 4,
   }
 
   const atividadesFiltradas = atividades
@@ -839,6 +892,7 @@ export default function AtividadesPage() {
       if (filtro === 'em_andamento') return a.statusIndividual === 'em_andamento'
       if (filtro === 'pausadas') return a.statusIndividual === 'pausada'
       if (filtro === 'concluidas') return a.statusIndividual === 'concluida'
+      if (filtro === 'justificadas') return a.statusIndividual === 'justificada'
       return true
     })
     .sort((a, b) => {
@@ -932,6 +986,7 @@ export default function AtividadesPage() {
             { value: 'pendentes', label: 'Pendentes' },
             { value: 'em_andamento', label: 'Em Andamento' },
             { value: 'pausadas', label: 'Pausadas' },
+            { value: 'justificadas', label: 'Justificadas' },
             { value: 'concluidas', label: 'Concluídas' },
           ] as const).map((f) => (
             <button
@@ -966,6 +1021,7 @@ export default function AtividadesPage() {
                 af={af}
                 onConcluir={handleOpenConcluir}
                 onImprevisto={handleOpenImprevisto}
+                onJustificar={handleOpenJustificar}
                 onMutate={loadAtividades}
               />
             ))}
@@ -1250,6 +1306,56 @@ export default function AtividadesPage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de justificativa */}
+      {atividadeParaJustificar && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Justificar não execução</h2>
+              <button
+                onClick={() => { setAtividadeParaJustificar(null); setJustificativaTexto('') }}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm font-semibold text-gray-800">{atividadeParaJustificar.titulo}</p>
+              {atividadeParaJustificar.descricao && (
+                <p className="text-xs text-gray-600 mt-0.5">{atividadeParaJustificar.descricao}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Por que não foi possível executar? <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={justificativaTexto}
+                onChange={(e) => setJustificativaTexto(e.target.value)}
+                placeholder="Ex: Chuva forte impossibilitou saída a campo. Material não chegou..."
+                rows={4}
+                className="w-full p-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 resize-none"
+                autoFocus
+              />
+              {justificativaTexto.trim().length > 0 && justificativaTexto.trim().length < 10 && (
+                <p className="text-xs text-orange-600 mt-1">Mínimo de 10 caracteres</p>
+              )}
+            </div>
+            <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 text-sm text-orange-700">
+              A atividade será marcada como justificada e não poderá ser iniciada. Apenas o gestor pode reabri-la pelo painel.
+            </div>
+            <button
+              onClick={handleConfirmarJustificar}
+              disabled={justificativaTexto.trim().length < 10}
+              className="w-full flex items-center justify-center gap-2 bg-orange-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-orange-700 transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MessageSquareText className="w-5 h-5" />
+              Confirmar justificativa
+            </button>
           </div>
         </div>
       )}

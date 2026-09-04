@@ -11,6 +11,8 @@ export interface AtividadeFuncionarioPWA {
   inicioAt: string | null
   fimAt: string | null
   detalhamento: string | null
+  justificativa: string | null
+  justificadaAt: string | null
   tempoGastoSegundos: number | null
   fotoBase64: string | null
   fotoUrl: string | null
@@ -87,6 +89,8 @@ function afToRegistro(af: AtividadeFuncionarioPWA): Registro {
     inicioAt: af.inicioAt,
     fimAt: af.fimAt,
     detalhamento: af.detalhamento,
+    justificativa: af.justificativa,
+    justificadaAt: af.justificadaAt,
     tempoGastoSegundos: af.tempoGastoSegundos,
     fotoBase64: af.fotoBase64,
     fotoUrl: af.fotoUrl,
@@ -152,6 +156,8 @@ export async function fetchAtividadesFuncionario(
     inicioAt: row.inicio_at,
     fimAt: row.fim_at,
     detalhamento: row.detalhamento,
+    justificativa: row.justificativa ?? null,
+    justificadaAt: row.justificada_at ?? null,
     tempoGastoSegundos: row.tempo_gasto_segundos,
     fotoBase64: null,
     fotoUrl: row.foto_url ?? null,
@@ -398,6 +404,8 @@ export async function criarAtividadeNaoPrevistaConcluidaLocal(
     inicioAt: now,
     fimAt: now,
     detalhamento: null,
+    justificativa: null,
+    justificadaAt: null,
     tempoGastoSegundos: 0,
     fotoBase64: fotoBase64 ?? null,
     fotoUrl: null,
@@ -637,6 +645,28 @@ export async function concluirAtividadeLocal(
     gpsAccuracy: gpsAccuracy ?? null,
     syncStatus: 'pending',
     lastModified: nowMs,
+  }
+  await updateCacheAndStore(updated)
+  return updated
+}
+
+/**
+ * Justifica a nao-execucao de atividade pendente/atrasada que nunca foi iniciada.
+ * status -> justificada, grava justificativa e justificada_at.
+ * So pode ser chamada se inicioAt === null (atividade nunca iniciada).
+ */
+export async function justificarAtividadeLocal(
+  af: AtividadeFuncionarioPWA,
+  justificativa: string
+): Promise<AtividadeFuncionarioPWA> {
+  const now = new Date().toISOString()
+  const updated: AtividadeFuncionarioPWA = {
+    ...af,
+    statusIndividual: 'justificada',
+    justificativa,
+    justificadaAt: now,
+    syncStatus: 'pending',
+    lastModified: Date.now(),
   }
   await updateCacheAndStore(updated)
   return updated
