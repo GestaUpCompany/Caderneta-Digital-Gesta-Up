@@ -10,7 +10,6 @@ import {
   getLoteDetalhesComCategoriasCached,
   getRegistrosSuplementacaoByLoteCached,
   getRegistrosLeituraCochoByLoteCached,
-  getUltimoTratoTotalByLoteCached,
   getCurraisCached,
   getLinhasConfinamentoCached,
   getFormulacaoByNomeCached,
@@ -223,10 +222,9 @@ export default function LeituraCochoPage() {
         const lotesEnriquecidos = await Promise.all(
           lotesData.map(async (lote: any) => {
             const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
-            const [registrosSuplementacao, registrosLeitura, ultimoTrato] = await Promise.all([
+            const [registrosSuplementacao, registrosLeitura] = await Promise.all([
               getRegistrosSuplementacaoByLoteCached(fazendaId, lote.id),
               getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id),
-              getUltimoTratoTotalByLoteCached(fazendaId, lote.id),
             ])
 
             const curralInfo = lote.id ? curraisPorLote.get(lote.id) : null
@@ -270,9 +268,14 @@ export default function LeituraCochoPage() {
             const leituraAnteriorN2 = leitOrdenados[1]?.leitura_cocho ?? null
             const leituraAnteriorN3 = leitOrdenados[2]?.leitura_cocho ?? null
 
-            // Kg Cocho: prioriza suplementação; se não houver, usa o total do último trato de confinamento
-            const tratoAnterior: number | null =
-              supOrdenados[0]?.kg_cocho ?? ultimoTrato?.total_kg ?? null
+            // Kg Cocho: soma de todos os registros de suplementação do dia mais recente com registro
+            let tratoAnterior: number | null = null
+            if (supOrdenados.length > 0) {
+              const diaMaisRecente = String(supOrdenados[0].data).slice(0, 10)
+              const tratosDoDia = supOrdenados.filter((r: any) => String(r.data).slice(0, 10) === diaMaisRecente)
+              const soma = tratosDoDia.reduce((sum: number, r: any) => sum + (Number(r.kg_cocho) || 0), 0)
+              tratoAnterior = soma > 0 ? soma : null
+            }
 
             let periodoDias: number | null = null
             if (supOrdenados.length >= 2) {

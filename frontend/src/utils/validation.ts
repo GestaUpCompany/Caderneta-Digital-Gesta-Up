@@ -22,6 +22,21 @@ function isValidDate(value: string): boolean {
   )
 }
 
+function isValidDateWithTime(value: string): boolean {
+  if (!value) return false
+  const regex = /^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2})?$/
+  if (!regex.test(value)) return false
+  const [datePart] = value.split(' ')
+  const [day, month, year] = datePart.split('/').map(Number)
+  const date = new Date(year, month - 1, day)
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day &&
+    date <= new Date()
+  )
+}
+
 function isPositiveNumber(value: unknown): boolean {
   if (value === null || value === undefined || value === '') return false
   const num = Number(value)
@@ -500,6 +515,30 @@ export function validateTratoConfinamento(data: Record<string, unknown>): Valida
   return { isValid: errors.length === 0, errors }
 }
 
+export function validateFabricaConfinamento(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDateWithTime(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.tipo))
+    errors.push({ field: 'tipo', message: 'Sistema de produção é obrigatório' })
+  if (!isNonEmptyString(data.formulacaoId))
+    errors.push({ field: 'formulacaoId', message: 'Dieta é obrigatória' })
+  if (!isNonEmptyString(data.vagaoId))
+    errors.push({ field: 'vagaoId', message: 'Vagão é obrigatório' })
+  const ordem = Number(data.ordemTrato)
+  if (!Number.isFinite(ordem) || ordem < 1)
+    errors.push({ field: 'ordemTrato', message: 'Ordem do trato deve ser um número inteiro maior que zero' })
+  const totalPrevisto = Number(data.totalPrevisto)
+  if (!Number.isFinite(totalPrevisto) || totalPrevisto <= 0)
+    errors.push({ field: 'totalPrevisto', message: 'Total previsto deve ser maior que zero' })
+  const totalProduzido = Number(data.totalProduzido)
+  if (!Number.isFinite(totalProduzido) || totalProduzido < 0)
+    errors.push({ field: 'totalProduzido', message: 'Total produzido deve ser um número não negativo' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
 export function validateAbastecimento(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -800,7 +839,7 @@ export function validateAlmoxarifado(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento'
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -823,6 +862,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   almoxarifado: validateAlmoxarifado,
   'leitura-cocho': validateLeituraCocho,
   'trato-confinamento': validateTratoConfinamento,
+  'fabrica-confinamento': validateFabricaConfinamento,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

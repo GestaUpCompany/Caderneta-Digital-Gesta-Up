@@ -60,6 +60,8 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   almoxarifado: 'registros_almoxarifado',
   'leitura-cocho': 'registros_leitura_cocho',
   'trato-confinamento': 'registros_oferta_trato',
+  'fabrica-confinamento': 'registros_fabrica_confinamento',
+  'fabrica-confinamento-insumos': 'registros_fabrica_confinamento_insumos',
   'atividade-funcionarios': 'atividade_funcionarios',
   'atividade-sessoes': 'atividade_sessoes',
   'atividade-imprevistos': 'atividade_imprevistos',
@@ -537,6 +539,36 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         programacao_id: registro.programacaoId || null,
       }
     }
+    case 'fabrica-confinamento': {
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        ordem_trato: Number(registro.ordemTrato) || null,
+        tipo: registro.tipo || 'engorda',
+        formulacao_id: registro.formulacaoId || null,
+        vagao_id: registro.vagaoId || null,
+        total_previsto: registro.totalPrevisto !== '' && registro.totalPrevisto !== null && registro.totalPrevisto !== undefined
+          ? Number(registro.totalPrevisto)
+          : 0,
+        total_produzido: registro.totalProduzido !== '' && registro.totalProduzido !== null && registro.totalProduzido !== undefined
+          ? Number(registro.totalProduzido)
+          : 0,
+        concluido: Boolean(registro.concluido),
+      }
+    }
+    case 'fabrica-confinamento-insumos': {
+      return {
+        registro_id: registro.registroId || null,
+        insumo_id: registro.insumoId || null,
+        kg_previsto: registro.kgPrevisto !== '' && registro.kgPrevisto !== null && registro.kgPrevisto !== undefined
+          ? Number(registro.kgPrevisto)
+          : 0,
+        kg_produzido: registro.kgProduzido !== '' && registro.kgProduzido !== null && registro.kgProduzido !== undefined
+          ? Number(registro.kgProduzido)
+          : 0,
+        ordem: Number(registro.ordem) || 0,
+      }
+    }
     default:
       return baseData
   }
@@ -684,6 +716,40 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_oferta_trato':
           await supabaseService.createRegistroOfertaTrato(data)
           break
+        case 'registros_fabrica_confinamento': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { data: fcData, error: fcError } = await client
+            .from('registros_fabrica_confinamento')
+            .insert(data)
+            .select()
+            .single()
+          if (fcError) throw fcError
+          // Atualizar registro local com ID do Supabase
+          await updateRegistro('fabrica-confinamento', registro.id, {
+            ...registro,
+            supabaseId: fcData.id,
+            syncStatus: 'synced'
+          })
+          // Atualizar insumos filhos com o novo ID do Supabase
+          const insumosFilhos = await getAllRegistros('fabrica-confinamento-insumos')
+          for (const insumo of insumosFilhos) {
+            if (insumo.registroId === registro.id) {
+              await updateRegistro('fabrica-confinamento-insumos', insumo.id, {
+                ...insumo,
+                registroId: fcData.id
+              })
+            }
+          }
+          break
+        }
+        case 'registros_fabrica_confinamento_insumos': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: fciError } = await client
+            .from('registros_fabrica_confinamento_insumos')
+            .insert(data)
+          if (fciError) throw fciError
+          break
+        }
         case 'atividade_funcionarios': {
           const client = await getSupabaseClientWithRefresh() as any
           const { error: afError } = await client
@@ -784,6 +850,24 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_oferta_trato':
           await supabaseService.updateRegistroOfertaTrato(supabaseId, data)
           break
+        case 'registros_fabrica_confinamento': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: fcError } = await client
+            .from('registros_fabrica_confinamento')
+            .update(data)
+            .eq('id', supabaseId)
+          if (fcError) throw fcError
+          break
+        }
+        case 'registros_fabrica_confinamento_insumos': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: fciError } = await client
+            .from('registros_fabrica_confinamento_insumos')
+            .update(data)
+            .eq('id', supabaseId)
+          if (fciError) throw fciError
+          break
+        }
         case 'atividade_funcionarios': {
           const client = await getSupabaseClientWithRefresh() as any
           const { error: afError } = await client

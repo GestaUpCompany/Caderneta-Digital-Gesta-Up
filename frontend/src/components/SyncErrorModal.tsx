@@ -20,6 +20,8 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   cantina: 'Cantina',
   'leitura-cocho': 'Leitura de Cocho',
   'trato-confinamento': 'Trato Confinamento',
+  'fabrica-confinamento': 'Fábrica Confinamento',
+  'fabrica-confinamento-insumos': 'Insumos da Fábrica Confinamento',
   'entrada-insumos': 'Entrada de Insumos',
   'entrada-insumos-itens': 'Itens de Entrada de Insumos',
   'saida-insumos': 'Saída de Insumos',

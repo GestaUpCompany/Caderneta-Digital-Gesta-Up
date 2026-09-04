@@ -32,7 +32,7 @@ export default function ModulosMenuPage() {
     'entrada-insumos': [FAZENDA_INSUMOS],
     'saida-insumos': [FAZENDA_INSUMOS],
   }
-  const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento']
+  const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
 
   const cadernetasPermitidas = useMemo(() => {
     let lista = CADERNETAS
