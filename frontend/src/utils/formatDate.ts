@@ -37,7 +37,7 @@ export function isoToBR(iso: string): string {
 export function brToIso(br: string): string {
   if (!br) return ''
   const [day, month, year] = br.split('/')
-  return `${year}-${month}-${day}`
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }
 
 export const DEFAULT_FARM_TIMEZONE = 'America/Cuiaba'

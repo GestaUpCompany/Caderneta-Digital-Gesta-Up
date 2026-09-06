@@ -180,7 +180,7 @@ Quando o valor local é vazio/zero, envia `null`. Se a coluna não aceita null, 
 
 **Verificacao (05/09/2026)**: consultado `information_schema.columns` em `registros_operacoes_maquinas`. As cinco colunas (`hora_inicial`, `hora_final`, `odometro_horimetro_inicial`, `odometro_horimetro_final`, `total_odometro_horimetro`) sao todas `is_nullable: YES`, tipo `text`. INSERT de teste na fazenda de testes com NULL em todas as cinco colunas foi aceito sem erro `23502`. O bug nao se manifesta. O codigo em `syncService.ts:431-433` que envia `null` quando o valor e vazio esta correto. Registro de teste removido.
 
-### Bug 15, `brToIso` não faz padStart em dia e mês
+### Bug 15, `brToIso` não faz padStart em dia e mês (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Transversal (todas as cadernetas que usam `brToIso` para converter data)
@@ -188,7 +188,7 @@ Quando o valor local é vazio/zero, envia `null`. Se a coluna não aceita null, 
 - **Afeta Painel Web**: Sim, data mal formatada no banco
 - **Arquivo**: `frontend/src/utils/formatDate.ts:37-41`
 
-Input `"5/8/2026"` gera `"2026-8-5"`, que não é ISO 8601 válido. Pode ser rejeitado ou interpretado incorretamente.
+Input `"5/8/2026"` gera `"2026-8-5"`, que não é ISO 8601 válido. Pode ser rejeitado ou interpretado incorretamente. Correção: adicionado `padStart(2, '0')` em dia e mês. Nota: `brToIso` só é usado em `MaternidadePage.tsx:706` para `individuos`, e o input sempre vem do DatePicker com zero à esquerda, mas a correção é defesa em profundidade. O sync para `registros_*` usa `brWithTimeToIso` que já faz `padStart`. Não precisa de backfill nem coordenação com Painel Web.
 
 ### Bug 16, `brWithTimeToIso` retorna string vazia em vez de null
 
