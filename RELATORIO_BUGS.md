@@ -168,7 +168,7 @@ O PWA nao tem fluxo de edicao/exclusao de suplementacao na UI. O `updateRegistro
 
 `quantidade: registro.quantidade || null` transforma `0` em `null`. Se a coluna `quantidade` é NOT NULL, o Supabase rejeita com `23502`.
 
-### Bug 14, `odometro_horimetro_*` null em coluna NOT NULL
+### Bug 14, `odometro_horimetro_*` null em coluna NOT NULL (NAO CONFIRMADO 05/09/2026 - colunas sao nullable)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Operações de Máquinas (`operacoes-maquinas`)
@@ -177,6 +177,8 @@ O PWA nao tem fluxo de edicao/exclusao de suplementacao na UI. O `updateRegistro
 - **Arquivo**: `frontend/src/services/syncService.ts:430-432`
 
 Quando o valor local é vazio/zero, envia `null`. Se a coluna não aceita null, rejeita com `23502`.
+
+**Verificacao (05/09/2026)**: consultado `information_schema.columns` em `registros_operacoes_maquinas`. As cinco colunas (`hora_inicial`, `hora_final`, `odometro_horimetro_inicial`, `odometro_horimetro_final`, `total_odometro_horimetro`) sao todas `is_nullable: YES`, tipo `text`. INSERT de teste na fazenda de testes com NULL em todas as cinco colunas foi aceito sem erro `23502`. O bug nao se manifesta. O codigo em `syncService.ts:431-433` que envia `null` quando o valor e vazio esta correto. Registro de teste removido.
 
 ### Bug 15, `brToIso` não faz padStart em dia e mês
 
