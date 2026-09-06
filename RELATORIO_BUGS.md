@@ -120,7 +120,7 @@ Fluxos de Entrada e movimentação comum salvam categoria por categoria. Se uma 
 
 `salvarTodosDoRascunho` só limpa o rascunho se todos os currais salvarem. Se um falhar, currais já salvos ficam no rascunho e podem ser reenviados, duplicando registros.
 
-### Bug 10, Pastagens: `categoriasQuantidades` não é resetado ao trocar pasto de saída
+### Bug 10, Pastagens: `categoriasQuantidades` não é resetado ao trocar pasto de saída (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P1
 - **Caderneta de origem**: Pastagens (`pastagens`)
@@ -128,7 +128,7 @@ Fluxos de Entrada e movimentação comum salvam categoria por categoria. Se uma 
 - **Afeta Painel Web**: Sim, dados errados no banco
 - **Arquivo**: `frontend/src/pages/cadernetas/PastagensPage.tsx:353-355`
 
-Ao trocar pasto de saída válido, `setForm` atualiza `pastoSaidaId`, `pastoSaidaAreaUtil`, `pastoSaidaEspecie` mas não zera `categoriasQuantidades`. Contagens do pasto anterior persistem. Só zera em erro/empty (linhas 313, 333, 421).
+Ao trocar pasto de saída válido, `setForm` atualiza `pastoSaidaId`, `pastoSaidaAreaUtil`, `pastoSaidaEspecie` mas não zera `categoriasQuantidades`. Contagens do pasto anterior persistem. Só zera em erro/empty (linhas 313, 333, 421). Correção: incluido `categoriasQuantidades: {}` no `setForm` da linha 370, zerando as quantidades ao carregar o lote do pasto novo.
 
 ### Bug 11, Leituras Supabase sem refresh de token
 

@@ -370,7 +370,8 @@ export default function PastagensPage() {
         setForm(prev => ({
           ...prev,
           numeroLote: lotePrincipal.nome || '',
-          loteId: lotePrincipal.id
+          loteId: lotePrincipal.id,
+          categoriasQuantidades: {}
         }))
 
         // Buscar métricas de ocupação atual
