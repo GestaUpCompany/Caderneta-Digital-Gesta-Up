@@ -140,7 +140,7 @@ Ao trocar pasto de saída válido, `setForm` atualiza `pastoSaidaId`, `pastoSaid
 
 Todas as consultas de leitura usavam `getSupabaseClient()` sem verificar expiração do JWT. Se expirou, `getLotes`, `getPastos`, `getLoteCategoriasBatch`, `getFormulacaoById`, `getInsumosByFormulacao` etc. retornavam 401/403 silenciosamente. O peão lançava sobre cache obsoleto. Correção: eliminada a função `getSupabaseClient()` de todo o código de leitura. Todas as 71 chamadas em `supabaseService.ts` e 1 em `execucaoRotinaService.ts` foram trocadas por `await getSupabaseClientWithRefresh()`, que verifica a expiração do JWT e faz refresh antes de retornar o cliente. Offline com token válido funciona igual (não tenta refresh). Offline com token expirado tenta refresh, falha, e retorna cliente anônimo, mesmo comportamento anterior. A função `getSupabaseClient()` permanece exportada em `supabaseClient.ts` mas não é mais usada.
 
-### Bug 12, Suplementação: PWA usa insert/update direto, Painel usa RPCs
+### Bug 12, Suplementação: PWA usa insert/update direto, Painel usa RPCs (RECLASSIFICADO 05/09/2026 - nao e bug do PWA, e gap de schema)
 
 - **Severidade**: P1
 - **Caderneta de origem**: Suplementação (`suplementacao`)
@@ -148,7 +148,11 @@ Todas as consultas de leitura usavam `getSupabaseClient()` sem verificar expira�
 - **Afeta Painel Web**: Sim, inconsistência de cálculo de `peso_vivo`
 - **Arquivos**: `frontend/src/services/syncService.ts:621-623` (PWA) vs `GestaUp-Cadernetas-Gestao/src/pages/cadernetas/SuplementacaoDetalhes.tsx:219-261` (Painel)
 
-O Painel edita/exclui suplementação via RPCs `editar_registro_suplementacao` e `excluir_registro_suplementacao` que provavelmente recalculam `peso_vivo`. O PWA faz insert/update direto sem essas RPCs, podendo deixar o registro em estado inconsistente. Exige avaliação conjunta antes de mudar.
+**Analise detalhada**: o relatorio original era parcialmente incorreto. O PWA envia `peso_vivo_kg: null` explicitamente em `syncService.ts:266` (comentario: "Calculado pela trigger/funcão do banco"), delegando o calculo para o banco. A trigger `trigger_consumo_registro_anterior` (AFTER INSERT) recalcula o consumo do registro anterior da serie (lote + formulacao), mas nao calcula `peso_vivo_kg` do registro novo. O `peso_vivo_kg` so e calculado por `recalcular_pesos_suplementacao_historico`, chamada pela RPC `editar_registro_suplementacao` do Painel Web ou por cron job. Portanto, registros inseridos pelo PWA ficam com `peso_vivo_kg = NULL` ate que alguem edite um registro do mesmo lote no Painel Web ou o cron job rode.
+
+O PWA nao tem fluxo de edicao/exclusao de suplementacao na UI. O `updateRegistroSuplementacao` em `syncService.ts:762` so e chamado se houver `operation: 'update'` na fila de sync, o que nao acontece no fluxo normal. As RPCs `editar_registro_suplementacao` e `excluir_registro_suplementacao` sao exclusivas do Painel Web e nao precisam ser replicadas no PWA.
+
+**Conclusao**: nao e bug do PWA. O problema real e que `peso_vivo_kg` nao e calculado no INSERT por nenhuma trigger, deixando registros do PWA com NULL ate intervencao externa. A correcao deve ser uma trigger AFTER INSERT que chame `recalcular_pesos_suplementacao_historico` para o lote do registro novo, ou um cron job mais frequente. Mudanca de schema no banco compartilhado, exige avaliacao conjunta com o Painel Web. Movido para a secao de divergencias de contrato.
 
 ---
 
@@ -301,6 +305,7 @@ O PWA grava em `logs_sync_errors` via `logSyncError` em `syncService.ts:876`, ma
 | Painel não consome `gado_contado` e `equipe_nomes` de rodeio | Rodeio | Baixa | Painel |
 | Painel não exibe `foto_url` de atividades | Atividades | Baixa | Painel |
 | PWA não chama RPC `set_audit_context` | Todas (auditoria) | Média | PWA |
+| `peso_vivo_kg` não calculado no INSERT de suplementação (trigger só calcula consumo do anterior, peso só vem via RPC de edição do Painel ou cron job) | Suplementação | Alta | Banco/Schema |
 | Painel sem tipos gerados do Supabase (usa `any`) | Todas | Média | Painel |
 
 ---
@@ -359,6 +364,6 @@ O PWA grava em `logs_sync_errors` via `logSyncError` em `syncService.ts:876`, ma
 
 ### Exigem avaliação conjunta com o Painel Web (tocam schema ou contrato)
 
-1. **Bug 3** (idempotência): exige migração coordenada com o Painel Web (adicionar `local_id` nas tabelas + `upsert` com `onConflict`).
-2. **Bug 12** (suplementação RPCs): exige replicar lógica das RPCs no PWA ou migrar PWA para usar as RPCs.
+1. **Bug 3** (idempotência): exige migração coordenada com o Painel Web (adicionar `local_id` nas tabelas + `upsert` com `onConflict`). **CORRIGIDO 05/09/2026**.
+2. **Bug 12** (suplementação `peso_vivo_kg`): reclassificado. Não é bug do PWA, é gap de schema. O PWA envia `peso_vivo_kg: null` e delega ao banco. A correção deve ser uma trigger AFTER INSERT que chame `recalcular_pesos_suplementacao_historico`, ou cron job mais frequente. Mudança de schema no banco compartilhado, exige avaliação conjunta com o Painel Web.
 3. **Bug 25** (tela de auditoria): exige implementação no Painel Web.
