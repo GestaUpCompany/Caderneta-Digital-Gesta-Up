@@ -130,7 +130,7 @@ Fluxos de Entrada e movimentação comum salvam categoria por categoria. Se uma 
 
 Ao trocar pasto de saída válido, `setForm` atualiza `pastoSaidaId`, `pastoSaidaAreaUtil`, `pastoSaidaEspecie` mas não zera `categoriasQuantidades`. Contagens do pasto anterior persistem. Só zera em erro/empty (linhas 313, 333, 421). Correção: incluido `categoriasQuantidades: {}` no `setForm` da linha 370, zerando as quantidades ao carregar o lote do pasto novo.
 
-### Bug 11, Leituras Supabase sem refresh de token
+### Bug 11, Leituras Supabase sem refresh de token (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P1
 - **Caderneta de origem**: Transversal (todas as cadernetas que leem lotes, pastos, categorias, formulações, insumos)
@@ -138,7 +138,7 @@ Ao trocar pasto de saída válido, `setForm` atualiza `pastoSaidaId`, `pastoSaid
 - **Afeta Painel Web**: Indireto, dados lançados sobre cache obsoleto
 - **Arquivo**: `frontend/src/services/supabaseService.ts` (dezenas de funções que usam `getSupabaseClient()`)
 
-Todas as consultas de leitura usam `getSupabaseClient()` sem verificar expiração do JWT. Se expirou, `getLotes`, `getPastos`, `getLoteCategoriasBatch`, `getFormulacaoById`, `getInsumosByFormulacao` etc. retornam 401/403 silenciosamente. O peão lança sobre cache obsoleto.
+Todas as consultas de leitura usavam `getSupabaseClient()` sem verificar expiração do JWT. Se expirou, `getLotes`, `getPastos`, `getLoteCategoriasBatch`, `getFormulacaoById`, `getInsumosByFormulacao` etc. retornavam 401/403 silenciosamente. O peão lançava sobre cache obsoleto. Correção: eliminada a função `getSupabaseClient()` de todo o código de leitura. Todas as 71 chamadas em `supabaseService.ts` e 1 em `execucaoRotinaService.ts` foram trocadas por `await getSupabaseClientWithRefresh()`, que verifica a expiração do JWT e faz refresh antes de retornar o cliente. Offline com token válido funciona igual (não tenta refresh). Offline com token expirado tenta refresh, falha, e retorna cliente anônimo, mesmo comportamento anterior. A função `getSupabaseClient()` permanece exportada em `supabaseClient.ts` mas não é mais usada.
 
 ### Bug 12, Suplementação: PWA usa insert/update direto, Painel usa RPCs
 

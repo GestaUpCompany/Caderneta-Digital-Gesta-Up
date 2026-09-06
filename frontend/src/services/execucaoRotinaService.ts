@@ -1,5 +1,5 @@
 import { saveCadastroData, getCadastroData } from './indexedDB'
-import { getSupabaseClient } from './supabaseClient'
+import { getSupabaseClientWithRefresh } from './supabaseClient'
 import {
   ExecucaoRotina,
   StatusExecucao,
@@ -186,7 +186,7 @@ async function salvarExecucoesLocal(
 }
 
 async function sincronizarExecucao(execucao: ExecucaoRotina): Promise<void> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const payload = {
     id: execucao.id,
     fazenda_id: execucao.fazenda_id,

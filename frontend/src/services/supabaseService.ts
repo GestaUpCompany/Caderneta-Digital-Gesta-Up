@@ -1,4 +1,4 @@
-import { supabase, getSupabaseClient, getSupabaseClientWithRefresh } from './supabaseClient'
+import { supabase, getSupabaseClientWithRefresh } from './supabaseClient'
 import type { TablesInsert, TablesUpdate } from '../types/supabase'
 import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/relatorioLote'
 
@@ -176,7 +176,7 @@ export async function updateFazenda(id: string, fazenda: TablesUpdate<'fazendas'
 // ==================== PASTOS ====================
 
 export async function getPastos(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('pastos')
     .select('*')
@@ -226,7 +226,7 @@ export async function deletePasto(id: string) {
 // ==================== CURRAIS ====================
 
 export async function getCurrais(fazendaId: string): Promise<any[]> {
-  const client = getSupabaseClient() as any
+  const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('currais')
     .select('*')
@@ -241,7 +241,7 @@ export async function getCurrais(fazendaId: string): Promise<any[]> {
 // ==================== LINHAS CONFINAMENTO ====================
 
 export async function getLinhasConfinamento(fazendaId: string): Promise<any[]> {
-  const client = getSupabaseClient() as any
+  const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('linhas_confinamento')
     .select('*')
@@ -256,7 +256,7 @@ export async function getLinhasConfinamento(fazendaId: string): Promise<any[]> {
 // ==================== LOTES ====================
 
 export async function getLotes(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('lotes')
     .select('*')
@@ -269,7 +269,7 @@ export async function getLotes(fazendaId: string) {
 }
 
 export async function getLotesByPastoId(fazendaId: string, pastoId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('lotes')
     .select('*, pastos(nome), meta_intervalo_rodeio_dias, data_proximo_rodeio')
@@ -285,7 +285,7 @@ export async function getLotesByPastoId(fazendaId: string, pastoId: string) {
 // ==================== SETORES ====================
 
 export async function getSetores(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('setores')
     .select('*')
@@ -298,7 +298,7 @@ export async function getSetores(fazendaId: string) {
 }
 
 export async function getImplementos(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('implementos')
     .select('*')
@@ -310,7 +310,7 @@ export async function getImplementos(fazendaId: string) {
 }
 
 export async function getTratamentos(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('tratamentos')
     .select('*')
@@ -325,7 +325,7 @@ export async function getTratamentos(fazendaId: string) {
 // ==================== RAÇAS ====================
 
 export async function getRacas(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('racas')
     .select('*')
@@ -340,7 +340,7 @@ export async function getRacas(fazendaId: string) {
 // ==================== LOCAIS ====================
 
 export async function getLocais(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('locais')
     .select('*')
@@ -353,7 +353,7 @@ export async function getLocais(fazendaId: string) {
 }
 
 export async function getLoteByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('lotes')
     .select('*, pastos(nome), meta_intervalo_rodeio_dias, data_proximo_rodeio')
@@ -369,7 +369,7 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
 }
 
 export async function getLoteById(loteId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('lotes')
     .select('*, pastos(nome), meta_intervalo_rodeio_dias, data_proximo_rodeio')
@@ -382,7 +382,7 @@ export async function getLoteById(loteId: string) {
 }
 
 export async function getLastRodeioDate(loteId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('registros_rodeio')
     .select('data')
@@ -397,7 +397,7 @@ export async function getLastRodeioDate(loteId: string) {
 }
 
 export async function getMaquinasVeiculos(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('maquinas_veiculos')
     .select('id, nome, tipo, categoria, modelo, placa, ano, tipo_combustivel, capacidade, horimetro, quilometragem, custo_hora, custo_km, operador_padrao, status')
@@ -409,7 +409,7 @@ export async function getMaquinasVeiculos(fazendaId: string) {
 }
 
 export async function getMaquinaVeiculoByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('maquinas_veiculos')
     .select('*')
@@ -422,7 +422,7 @@ export async function getMaquinaVeiculoByNome(fazendaId: string, nome: string) {
 }
 
 export async function createLote(lote: TablesInsert<'lotes'>) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('lotes')
     .insert(lote)
@@ -436,7 +436,7 @@ export async function createLote(lote: TablesInsert<'lotes'>) {
 // ==================== LOTE CATEGORIAS ====================
 
 export async function getLoteCategorias(loteId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('lote_categorias')
     .select('*')
@@ -454,7 +454,7 @@ export async function getLoteCategorias(loteId: string) {
  * Substitui N queries individuais por 1 query batch.
  */
 export async function getLoteCategoriasBatch(fazendaId: string): Promise<Record<string, any[]>> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('lote_categorias')
     .select('*, lotes!inner(fazenda_id)')
@@ -478,7 +478,7 @@ export async function getLoteCategoriasBatch(fazendaId: string): Promise<Record<
  * Substitui N queries getLastRodeioDate por 1 query batch.
  */
 export async function getLastRodeioDateBatch(fazendaId: string): Promise<Record<string, string | null>> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('registros_rodeio')
     .select('lote_id, data')
@@ -501,7 +501,7 @@ export async function getLastRodeioDateBatch(fazendaId: string): Promise<Record<
  * Substitui N queries getRegistrosSuplementacaoByLote por 1 query batch.
  */
 export async function getRegistrosSuplementacaoBatch(fazendaId: string): Promise<Record<string, any[]>> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('registros_suplementacao')
     .select('*')
@@ -595,7 +595,7 @@ export async function getUltimoTratoTotalBatch(fazendaId: string): Promise<Recor
  * os dados completos. Os lotes sem plano ativo não precisam de query individual.
  */
 export async function getPlanosNutricionaisAtivosBatch(fazendaId: string): Promise<Record<string, any>> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data: planos, error } = await (client as any)
     .from('planos_nutricionais')
     .select('id, data_inicio, formulacao_id, lote_id')
@@ -638,7 +638,7 @@ export async function getPastosUltimasDatasBatch(
   ultimaSaida: Record<string, string | null>
   ultimoStatus: Record<string, 'entrada' | 'saida' | null>
 }> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('registros_pastagens')
     .select('pasto_entrada, pasto_saida, data')
@@ -734,7 +734,7 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
  * ou null se o lote não tem plano ativo.
  */
 export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
 
   // 1. Buscar plano vigente diretamente pelo lote_id (não mais via lote_categorias)
   const { data: plano, error: planoError } = await (client as any)
@@ -888,7 +888,7 @@ export async function deleteLote(id: string) {
 // ==================== CATEGORIAS ====================
 
 export async function getFaixasCategorias(fazendaId: string, sexo?: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   let query = (client as any)
     .from('faixas_categorias')
     .select('*')
@@ -904,7 +904,7 @@ export async function getFaixasCategorias(fazendaId: string, sexo?: string) {
 }
 
 export async function getCategorias(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('categorias')
     .select('*')
@@ -979,7 +979,7 @@ export async function buscarIndividuoPorIdGenerico(fazendaId: string, idDigitado
 }
 
 export async function createIndividuo(individuo: any) {
-  const client = getSupabaseClient() as any
+  const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('individuos')
     .insert(individuo)
@@ -993,7 +993,7 @@ export async function createIndividuo(individuo: any) {
 // ==================== CAUSAS DE MORTE ====================
 
 export async function getCausasMorte(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('causas_morte')
     .select('*')
@@ -1008,7 +1008,7 @@ export async function getCausasMorte(fazendaId: string) {
 // ==================== MEDICAMENTOS ====================
 
 export async function getMedicamentos(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('medicamentos')
     .select('*')
@@ -1024,7 +1024,7 @@ export async function getMedicamentos(fazendaId: string) {
 // ==================== INSUMOS ====================
 
 export async function getInsumos(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('insumos')
     .select('*')
@@ -1037,7 +1037,7 @@ export async function getInsumos(fazendaId: string) {
 }
 
 export async function getInsumosNomes(fazendaId: string): Promise<string[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('insumos')
     .select('nome')
@@ -1075,7 +1075,7 @@ export async function updateInsumo(id: string, insumo: TablesUpdate<'insumos'>) 
 }
 
 export async function getInsumoByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('insumos')
     .select('*')
@@ -1113,7 +1113,7 @@ export async function getEspacamentoIdealCocho(fazendaId: string, produtoTipo: s
 // ==================== FORMULAÇÕES ====================
 
 export async function getFormulacoes(fazendaId: string, soTMR?: boolean): Promise<any[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   let query = (client as any)
     .from('formulacoes')
     .select('*')
@@ -1131,7 +1131,7 @@ export async function getFormulacoes(fazendaId: string, soTMR?: boolean): Promis
 }
 
 export async function getFormulacaoByNome(fazendaId: string, nome: string): Promise<any | null> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('formulacoes')
     .select('*')
@@ -1145,7 +1145,7 @@ export async function getFormulacaoByNome(fazendaId: string, nome: string): Prom
 }
 
 export async function getFormulacaoById(id: string): Promise<any | null> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('formulacoes')
     .select('*')
@@ -1184,7 +1184,7 @@ export async function updateEntradaInsumosItem(id: string, item: TablesUpdate<'e
 // ==================== MINERAL ====================
 
 export async function getMineral(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('mineral')
     .select('*')
@@ -1197,7 +1197,7 @@ export async function getMineral(fazendaId: string) {
 }
 
 export async function getMineralNomes(fazendaId: string): Promise<string[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('mineral')
     .select('nome')
@@ -1222,7 +1222,7 @@ export async function createMineral(mineral: any) {
 }
 
 export async function getMineralByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('mineral')
     .select('*')
@@ -1238,7 +1238,7 @@ export async function getMineralByNome(fazendaId: string, nome: string) {
 // ==================== PROTEINADO ====================
 
 export async function getProteinado(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('proteinado')
     .select('*')
@@ -1251,7 +1251,7 @@ export async function getProteinado(fazendaId: string) {
 }
 
 export async function getProteinadoNomes(fazendaId: string): Promise<string[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('proteinado')
     .select('nome')
@@ -1276,7 +1276,7 @@ export async function createProteinado(proteinado: any) {
 }
 
 export async function getProteinadoByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('proteinado')
     .select('*')
@@ -1292,7 +1292,7 @@ export async function getProteinadoByNome(fazendaId: string, nome: string) {
 // ==================== RACAO ====================
 
 export async function getRacao(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('racao')
     .select('*')
@@ -1305,7 +1305,7 @@ export async function getRacao(fazendaId: string) {
 }
 
 export async function getRacaoNomes(fazendaId: string): Promise<string[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('racao')
     .select('nome')
@@ -1330,7 +1330,7 @@ export async function createRacao(racao: any) {
 }
 
 export async function getRacaoByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('racao')
     .select('*')
@@ -1346,7 +1346,7 @@ export async function getRacaoByNome(fazendaId: string, nome: string) {
 // ==================== FORMULAÇÕES (antes: DIETAS) ====================
 
 export async function getFormulacoesDietas(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('formulacoes')
     .select('*')
@@ -1359,7 +1359,7 @@ export async function getFormulacoesDietas(fazendaId: string) {
 }
 
 export async function getDietasNomes(fazendaId: string): Promise<string[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('formulacoes')
     .select('nome')
@@ -1390,7 +1390,7 @@ export const createDieta = createFormulacao
 // ==================== FUNCIONARIOS ====================
 
 export async function getFuncionarios(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('funcionarios')
     .select('*')
@@ -1431,7 +1431,7 @@ export async function getFuncionariosComAcessoApp(fazendaId: string) {
 // ==================== CHECKLIST REGRAS ====================
 
 export async function getChecklistRegras(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('checklist_regras')
     .select('*')
@@ -1446,7 +1446,7 @@ export async function getChecklistRegras(fazendaId: string) {
 // ==================== ROTINAS ====================
 
 export async function getRotinas(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('rotinas')
     .select('*')
@@ -1461,7 +1461,7 @@ export async function getRotinas(fazendaId: string) {
 // ==================== ITENS ALMOXARIFADO ====================
 
 export async function getItensAlmoxarifado(fazendaId: string, classificacao?: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   let query = client
     .from('itens_almoxarifado')
     .select('*')
@@ -1481,7 +1481,7 @@ export async function getItensAlmoxarifado(fazendaId: string, classificacao?: st
 }
 
 export async function getClassificacoesAlmoxarifado(fazendaId: string): Promise<string[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('itens_almoxarifado')
     .select('classificacao')
@@ -1498,7 +1498,7 @@ export async function getClassificacoesAlmoxarifado(fazendaId: string): Promise<
 // ==================== FRIGORIFICOS ====================
 
 export async function getFrigorificos(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('frigorificos')
     .select('*')
@@ -1511,7 +1511,7 @@ export async function getFrigorificos(fazendaId: string) {
 }
 
 export async function getFornecedores(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('fornecedores')
     .select('*')
@@ -1524,7 +1524,7 @@ export async function getFornecedores(fazendaId: string) {
 }
 
 export async function getUltimaDataPastoEntrada(fazendaId: string, nomePasto: string): Promise<string | null> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('registros_pastagens')
     .select('data')
@@ -1543,7 +1543,7 @@ export async function getUltimaDataPastoEntrada(fazendaId: string, nomePasto: st
 }
 
 export async function getUltimaDataPastoSaida(fazendaId: string, nomePasto: string): Promise<string | null> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('registros_pastagens')
     .select('data')
@@ -1562,7 +1562,7 @@ export async function getUltimaDataPastoSaida(fazendaId: string, nomePasto: stri
 }
 
 export async function getUltimoStatusPasto(fazendaId: string, nomePasto: string): Promise<'entrada' | 'saida' | null> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
 
   // Buscar o último registro onde o pasto aparece como entrada
   const { data: entradaData, error: entradaError } = await client
@@ -1615,7 +1615,7 @@ export async function getUltimoStatusPasto(fazendaId: string, nomePasto: string)
 }
 
 export async function getOcupacaoAtualPorLotePasto(loteId: string, pastoId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('v_lote_pasto_ocupacao_atual')
     .select('*')
@@ -1628,7 +1628,7 @@ export async function getOcupacaoAtualPorLotePasto(loteId: string, pastoId: stri
 }
 
 export async function getOcupacaoAtualPorLoteModulo(loteId: string, moduloId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('v_lote_modulo_ocupacao_atual')
     .select('*')
@@ -1641,7 +1641,7 @@ export async function getOcupacaoAtualPorLoteModulo(loteId: string, moduloId: st
 }
 
 export async function getPastoByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('pastos')
     .select('*')
@@ -1657,7 +1657,7 @@ export async function getPastoByNome(fazendaId: string, nome: string) {
 // ==================== BEBEDOUROS ====================
 
 export async function getBebedouros(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('bebedouros')
     .select('*')
@@ -1670,7 +1670,7 @@ export async function getBebedouros(fazendaId: string) {
 }
 
 export async function getBebedouroByNome(fazendaId: string, nome: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('bebedouros')
     .select('*')
@@ -1684,7 +1684,7 @@ export async function getBebedouroByNome(fazendaId: string, nome: string) {
 }
 
 export async function getUltimaDataLimpezaBebedouro(fazendaId: string, bebedouroId: string): Promise<string | null> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('historico_limpezas_bebedouros')
     .select('data_limpeza')
@@ -1712,7 +1712,7 @@ export async function getUltimaDataLimpezaBebedouroAntesDe(
   bebedouroId: string,
   dataReferencia: string
 ): Promise<string | null> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('historico_limpezas_bebedouros')
     .select('data_limpeza')
@@ -1731,7 +1731,7 @@ export async function getUltimaDataLimpezaBebedouroAntesDe(
 }
 
 export async function getIntervaloMedioLimpezas(fazendaId: string, bebedouroId: string): Promise<number> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('historico_limpezas_bebedouros')
     .select('data_limpeza')
@@ -1765,7 +1765,7 @@ export async function createHistoricoLimpeza(
   responsavel?: string,
   observacao?: string
 ) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('historico_limpezas_bebedouros')
     .insert({
@@ -1840,7 +1840,7 @@ export async function deleteRegistroMaternidade(id: string) {
 }
 
 export async function getContagemPartosVaca(fazendaId: string, idBrincoMae?: string, idChipMae?: string, idManejoMae?: string): Promise<number> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
 
   let query = client
     .from('registros_maternidade')
@@ -1980,7 +1980,7 @@ export async function deleteRegistroRodeio(id: string) {
 // ==================== REGISTROS SUPLEMENTACAO ====================
 
 export async function getRegistrosSuplementacao(fazendaId: string, dataInicio?: string, dataFim?: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   let query = client
     .from('registros_suplementacao')
     .select('*')
@@ -2001,7 +2001,7 @@ export async function getRegistrosSuplementacao(fazendaId: string, dataInicio?: 
 }
 
 export async function getRegistrosSuplementacaoByLote(fazendaId: string, loteId: string, dataInicio?: string, dataFim?: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   let query = client
     .from('registros_suplementacao')
     .select('*')
@@ -2430,7 +2430,7 @@ export async function getPastosByBebedouro(
   fazendaId: string,
   bebedouroId: string
 ): Promise<{ id: string; nome: string }[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('pasto_bebedouros')
     .select('pasto_id, pastos!inner(id, nome, ativo, fazenda_id)')
@@ -2661,7 +2661,7 @@ export async function getRegistrosSaidaInsumos(fazendaId: string, dataInicio?: s
 // ==================== PRIORIDADES DE ATIVIDADES ====================
 
 export async function getPrioridadesAtividades(fazendaId: string): Promise<{ nivel: number; nome: string }[]> {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client.from as any)('prioridades_atividades')
     .select('nivel, nome')
     .eq('fazenda_id', fazendaId)
@@ -2723,7 +2723,7 @@ export async function createRegistroAlmoxarifado(registro: any) {
 // ==================== PLUVIÔMETROS ====================
 
 export async function getPluviometros(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client
     .from('pluviometros')
     .select('*')
@@ -2738,7 +2738,7 @@ export async function getPluviometros(fazendaId: string) {
 // ==================== ITENS SUPERMERCADO (CANTINA) ====================
 
 export async function getItensSupermercado(fazendaId: string) {
-  const client = getSupabaseClient()
+  const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
     .from('itens_supermercado')
     .select('*')
