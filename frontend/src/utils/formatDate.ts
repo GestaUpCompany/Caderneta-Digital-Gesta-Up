@@ -101,8 +101,8 @@ export function getTimezoneOffsetIso(
 export function brWithTimeToIso(
   br: string,
   timezone: string = DEFAULT_FARM_TIMEZONE
-): string {
-  if (!br) return ''
+): string | null {
+  if (!br) return null
   // Formato esperado: "14/05/2026 09:47" (farm timezone)
   const [datePart, timePart] = br.split(' ')
   const [day, month, year] = datePart.split('/')
@@ -112,7 +112,7 @@ export function brWithTimeToIso(
     .padStart(2, '0')}:${minutes.padStart(2, '0')}:00`
 
   const date = new Date(`${localIso}Z`)
-  if (isNaN(date.getTime())) return ''
+  if (isNaN(date.getTime())) return null
 
   const offset = getTimezoneOffsetIso(date, timezone)
   return `${localIso}${offset}`

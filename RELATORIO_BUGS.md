@@ -190,7 +190,7 @@ Quando o valor local é vazio/zero, envia `null`. Se a coluna não aceita null, 
 
 Input `"5/8/2026"` gera `"2026-8-5"`, que não é ISO 8601 válido. Pode ser rejeitado ou interpretado incorretamente. Correção: adicionado `padStart(2, '0')` em dia e mês. Nota: `brToIso` só é usado em `MaternidadePage.tsx:706` para `individuos`, e o input sempre vem do DatePicker com zero à esquerda, mas a correção é defesa em profundidade. O sync para `registros_*` usa `brWithTimeToIso` que já faz `padStart`. Não precisa de backfill nem coordenação com Painel Web.
 
-### Bug 16, `brWithTimeToIso` retorna string vazia em vez de null
+### Bug 16, `brWithTimeToIso` retorna string vazia em vez de null (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Transversal (todas as cadernetas que usam `brWithTimeToIso`)
@@ -198,7 +198,7 @@ Input `"5/8/2026"` gera `"2026-8-5"`, que não é ISO 8601 válido. Pode ser rej
 - **Afeta Painel Web**: Sim, registro rejeitado pelo Supabase
 - **Arquivo**: `frontend/src/utils/formatDate.ts:105`
 
-Data vazia vira `''` no payload. Para `timestamptz` NOT NULL, gera `invalid input syntax for type timestamp`.
+Data vazia vira `''` no payload. Para `timestamptz` NOT NULL, gera `invalid input syntax for type timestamp`. Correção: trocado `return ''` por `return null` nos dois pontos de saída (input vazio e data inválida) e tipo de retorno mudado para `string | null`. Os 20 callers atribuem o resultado diretamente a propriedades do payload do Supabase, onde `null` é válido. Não precisa de backfill nem coordenação com Painel Web.
 
 ### Bug 17, `equipe_nomes` string JSON em pastagens vs array em rodeio
 
