@@ -100,7 +100,7 @@ Rascunho carrega com `brToDateISO(todayBR())` em vez da `data` selecionada. O `u
 
 Ao trocar lote origem válido, `setForm` atualiza `loteOrigemId` mas não zera `cabecasPorCategoria`. Quantidades do lote anterior permanecem e podem ser salvas no lote novo. Só zera quando o lote é limpo (linha 380). Correção: incluido `cabecasPorCategoria: {}` no `setForm` da linha 400, zerando as quantidades ao trocar de lote válido.
 
-### Bug 8, Movimentacao: salvamento categoria a categoria sem rollback
+### Bug 8, Movimentacao: salvamento categoria a categoria sem rollback (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P1
 - **Caderneta de origem**: Movimentação (`movimentacao`), incluindo subtipos Entrada, Saída, Transferência
@@ -108,7 +108,7 @@ Ao trocar lote origem válido, `setForm` atualiza `loteOrigemId` mas não zera `
 - **Afeta Painel Web**: Sim, dados inconsistentes no banco
 - **Arquivos**: `frontend/src/pages/cadernetas/MovimentacaoPage.tsx:568-605` (Entrada) e `904-937` (fluxo comum)
 
-Fluxos de Entrada e movimentação comum salvam categoria por categoria. Se uma falha no meio, as anteriores já foram persistidas, deixando lotes com quantidades parciais e inconsistentes.
+Fluxos de Entrada e movimentação comum salvam categoria por categoria. Se uma falha no meio, as anteriores já foram persistidas, deixando lotes com quantidades parciais e inconsistentes. Correção: adicionado rollback nos dois fluxos (Entrada linhas 567-614, fluxo comum linhas 914-961). Se uma categoria falha, as já salvas são removidas do IndexedDB com `deleteRegistro` e da fila de sync com `removeFromSyncQueueByRegistroId`, garantindo atomicidade da intenção do usuário no estado local. A pré-validação existente (linhas 544-565 para Entrada, 880-902 para fluxo comum) já cobre o caso comum de erro de validação antes de qualquer persistência. O rollback cobre o caso raro de falha de I/O do IndexedDB no meio do loop.
 
 ### Bug 9, TratoConfinamento: rascunho não limpa em falha parcial
 

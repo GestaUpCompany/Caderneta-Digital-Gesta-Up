@@ -5,7 +5,7 @@ import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '..
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
-import { saveRegistro as saveRegistroIDB } from '../../services/indexedDB'
+import { saveRegistro as saveRegistroIDB, deleteRegistro, removeFromSyncQueueByRegistroId } from '../../services/indexedDB'
 import { enqueueRegistro } from '../../services/syncService'
 import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { generateId, generateVersion, getCurrentTimestamp } from '../../utils/generateId'
@@ -566,6 +566,7 @@ export default function MovimentacaoPage() {
 
         // Criar um registro de movimentação por categoria
         const resultadosEntrada: { success: boolean; errors?: any[]; registro?: any }[] = []
+        const salvosEntrada: string[] = []
         for (const c of categoriasSelecionadas) {
           const result = await salvarRegistro('movimentacao', {
             data: form.dataEntrada,
@@ -589,7 +590,16 @@ export default function MovimentacaoPage() {
             idade: c.existeNoLote ? null : c.idade,
           })
           resultadosEntrada.push(result)
-          if (!result.success && result.errors) break
+          if (result.success && result.registro) {
+            salvosEntrada.push(result.registro.id)
+          } else if (!result.success && result.errors) {
+            // Rollback: remover categorias ja persistidas para evitar duplicatas no reenvio
+            for (const id of salvosEntrada) {
+              await deleteRegistro('movimentacao', id)
+              await removeFromSyncQueueByRegistroId(id)
+            }
+            break
+          }
         }
 
         const falhouEntrada = resultadosEntrada.find(r => !r.success)
@@ -903,6 +913,7 @@ export default function MovimentacaoPage() {
 
       // Criar um registro de movimentação por categoria
       const resultados: { success: boolean; errors?: any[]; registro?: any }[] = []
+      const salvos: string[] = []
       for (const c of categoriasParaMover) {
         const result = await salvarRegistro('movimentacao', {
           data: form.data,
@@ -922,7 +933,16 @@ export default function MovimentacaoPage() {
           causaObservacao: form.causaObservacao,
         })
         resultados.push(result)
-        if (!result.success && result.errors) break
+        if (result.success && result.registro) {
+          salvos.push(result.registro.id)
+        } else if (!result.success && result.errors) {
+          // Rollback: remover categorias ja persistidas para evitar duplicatas no reenvio
+          for (const id of salvos) {
+            await deleteRegistro('movimentacao', id)
+            await removeFromSyncQueueByRegistroId(id)
+          }
+          break
+        }
       }
 
       const falhou = resultados.find(r => !r.success)
