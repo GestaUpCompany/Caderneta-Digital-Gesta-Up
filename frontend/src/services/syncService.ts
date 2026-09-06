@@ -1088,16 +1088,25 @@ export async function processQueue(
 
       // Logar falha no Supabase (tabela logs_sync_errors permite INSERT anon)
       if (fazendaId) {
-        const payload = registroToSupabase(item.store, registro, fazendaId)
-        await logSyncError({
-          fazendaId,
-          store: item.store,
-          registroId: item.registroId,
-          operation: item.operation,
-          error: err,
-          retryCount: item.retryCount,
-          payload,
-        })
+        let payload: any = null
+        try {
+          payload = registroToSupabase(item.store, registro, fazendaId)
+        } catch (logErr) {
+          console.error(`[SYNC] Falha ao montar payload do log para ${item.store}/${item.registroId}:`, logErr)
+        }
+        try {
+          await logSyncError({
+            fazendaId,
+            store: item.store,
+            registroId: item.registroId,
+            operation: item.operation,
+            error: err,
+            retryCount: item.retryCount,
+            payload,
+          })
+        } catch (logErr) {
+          console.error(`[SYNC] Falha ao gravar log de erro para ${item.store}/${item.registroId}:`, logErr)
+        }
       }
     }
   }

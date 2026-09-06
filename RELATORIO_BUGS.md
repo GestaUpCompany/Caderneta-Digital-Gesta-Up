@@ -210,7 +210,7 @@ Data vazia vira `''` no payload. Para `timestamptz` NOT NULL, gera `invalid inpu
 
 Pastagens faz `JSON.stringify` (vira string no jsonb), rodeio passa direto (vai array). Mesma coluna com formas diferentes quebra leitura unificada. Correção: pastagens agora passa o array direto como rodeio. Coluna é `jsonb` em ambas as tabelas. Rodeio já gravava como array (`jsonb_typeof = 'array'`). Pastagens não tinha dados existentes com `equipe_nomes`, então não precisa de backfill. Painel Web já lidava com ambos os formatos (`Array.isArray(value) ? value.join(', ') : value`), mas agora só recebe array.
 
-### Bug 18, `processQueue` catch pode abortar fila
+### Bug 18, `processQueue` catch pode abortar fila (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Transversal (afeta toda a fila de sync)
@@ -218,7 +218,7 @@ Pastagens faz `JSON.stringify` (vira string no jsonb), rodeio passa direto (vai 
 - **Afeta Painel Web**: Não diretamente (local)
 - **Arquivo**: `frontend/src/services/syncService.ts:1065`
 
-No catch, chama `registroToSupabase` para montar payload do log sem try/catch. Se a conversão lançar, o loop quebra e itens seguintes não são processados.
+No catch, chama `registroToSupabase` para montar payload do log sem try/catch. Se a conversão lançar, o loop quebra e itens seguintes não são processados. Correção: envolvido `registroToSupabase` e `logSyncError` em try/catch separados dentro do catch externo. Se o payload não pode ser montado, o log é enviado sem payload. Se o log falha, o erro é console.error mas o loop continua. O item já foi recolocado na fila com `addToSyncQueue` e `retryCount` incrementado antes do bloco de log, então o registro não se perde.
 
 ### Bug 19, Share: `Number()` sem normalizar vírgula brasileira
 
