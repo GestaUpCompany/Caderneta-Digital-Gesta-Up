@@ -1,6 +1,6 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
-import { formatarNumeroBR } from './formatNumber'
+import { formatarNumeroBR, normalizarNumero } from './formatNumber'
 import { base64ToBlob } from './photoCompress'
 
 /**
@@ -447,7 +447,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `DADOS DA MARMITA\n`
       texto += `FORNECEDOR: *${registro.fornecedor || '—'}*\n`
       texto += `QUANTIDADE: *${registro.quantidadeMarmitas || '—'}*\n`
-      const preco = registro.precoUnitario ? Number(registro.precoUnitario) : null
+      const preco = registro.precoUnitario ? normalizarNumero(registro.precoUnitario as any) : null
       texto += `PREÇO UNITÁRIO: *${preco !== null ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '—'}*\n`
       if (registro.quantidadeMarmitas && preco !== null) {
         const total = Number(registro.quantidadeMarmitas) * preco
@@ -1105,8 +1105,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
     // Temperatura média formatada com 2 casas decimais
     if (registro.temperaturaMedia !== null && registro.temperaturaMedia !== undefined && registro.temperaturaMedia !== '') {
-      const tempMediaNum = Number(registro.temperaturaMedia)
-      if (!isNaN(tempMediaNum)) {
+      const tempMediaNum = normalizarNumero(registro.temperaturaMedia as any)
+      if (tempMediaNum !== null) {
         texto += `\nTEMPERATURA MÉDIA: *${tempMediaNum.toFixed(2).replace('.', ',')}°C*\n`
       }
     }
@@ -1810,13 +1810,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   if (caderneta === 'pastagens') {
     // Calcular total informado (soma de todas as categorias)
     const totalInformado = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].reduce((total, key) => {
-      const value = Number(registro[key]) || 0
+      const value = normalizarNumero(registro[key] as any) || 0
       return total + value
     }, 0)
-    
+
     // Calcular total do lote (n_cabecas + qtd_bezerros)
-    const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
-    
+    const totalLote = (normalizarNumero(registro.n_cabecas as any) || 0) + (normalizarNumero(registro.qtd_bezerros as any) || 0)
+
     // Verificar se há divergência
     if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {
       const diferenca = totalInformado - totalLote
@@ -1829,12 +1829,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   if (caderneta === 'rodeio') {
     // Calcular total informado (soma de todas as categorias)
     const totalInformado = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].reduce((total, key) => {
-      const value = Number(registro[key]) || 0
+      const value = normalizarNumero(registro[key] as any) || 0
       return total + value
     }, 0)
-    
+
     // Calcular total do lote (n_cabecas + qtd_bezerros)
-    const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
+    const totalLote = (normalizarNumero(registro.n_cabecas as any) || 0) + (normalizarNumero(registro.qtd_bezerros as any) || 0)
     
     // Verificar se há divergência
     if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {

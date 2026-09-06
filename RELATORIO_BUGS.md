@@ -220,7 +220,7 @@ Pastagens faz `JSON.stringify` (vira string no jsonb), rodeio passa direto (vai 
 
 No catch, chama `registroToSupabase` para montar payload do log sem try/catch. Se a conversão lançar, o loop quebra e itens seguintes não são processados. Correção: envolvido `registroToSupabase` e `logSyncError` em try/catch separados dentro do catch externo. Se o payload não pode ser montado, o log é enviado sem payload. Se o log falha, o erro é console.error mas o loop continua. O item já foi recolocado na fila com `addToSyncQueue` e `retryCount` incrementado antes do bloco de log, então o registro não se perde.
 
-### Bug 19, Share: `Number()` sem normalizar vírgula brasileira
+### Bug 19, Share: `Number()` sem normalizar vírgula brasileira (CORRIGIDO 06/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Cantina (preço unitário), Clima (temperatura média), Pastagens e Rodeio (divergência de cabeças)
@@ -228,7 +228,7 @@ No catch, chama `registroToSupabase` para montar payload do log sem try/catch. S
 - **Afeta Painel Web**: Não (texto de WhatsApp local)
 - **Arquivos**: `frontend/src/utils/shareUtils.ts:450, 1067, 1118, 1822-1847`
 
-Campos como `precoUnitario`, `temperaturaMedia`, divergência de cabeças usam `Number()` direto. Valor `"15,50"` vira `NaN` e é omitido do texto compartilhado.
+Campos como `precoUnitario`, `temperaturaMedia`, divergência de cabeças usam `Number()` direto. Valor `"15,50"` vira `NaN` e é omitido do texto compartilhado. Correção: trocado `Number()` por `normalizarNumero()` (de `formatNumber.ts`) em todos os 4 pontos. `normalizarNumero` aceita string brasileira ("15,50", "4.770,3"), retorna `number | null`. No caso da temperatura, trocado `!isNaN(tempMediaNum)` por `tempMediaNum !== null` já que `normalizarNumero` retorna null em vez de NaN. Sem backfill, sem coordenação com Painel Web (texto de WhatsApp local).
 
 ### Bug 20, ConflictModal remove conflito local mesmo se resolve falhar
 
