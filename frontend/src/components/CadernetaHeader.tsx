@@ -91,7 +91,7 @@ export default function CadernetaHeader({
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2">
+        <div className={`mt-3 flex items-center gap-2 ${dateContent ? 'justify-between' : 'justify-center'}`}>
           <h1 className="min-w-0 whitespace-nowrap text-lg font-extrabold leading-tight tracking-tight">{title}</h1>
           {dateContent && <div className="shrink-0">{dateContent}</div>}
         </div>

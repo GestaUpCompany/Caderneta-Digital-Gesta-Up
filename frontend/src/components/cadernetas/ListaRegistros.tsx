@@ -477,7 +477,6 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                     <span className="text-xl">{statusLabel[registro.syncStatus] ?? '⏳'}</span>
                     <span className="text-base font-bold text-gray-800">{registro.data as string}</span>
                   </div>
-                  <span className="text-xs text-gray-400 font-mono">{(registro.id as string).slice(0, 8)}</span>
                 </div>
 
                 {(registro.syncStatus === 'pending_approval' || registro.syncStatus === 'rejected') && (
@@ -842,6 +841,32 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                         const value = registro[key]
                         if (value !== null && value !== undefined && value !== '') {
                           camposNormais.push([key, value])
+                        }
+                      })
+                    } else if (caderneta === 'fabrica-confinamento') {
+                      const ordemFabrica = [
+                        'ordemTrato',
+                        'totalPrevisto',
+                        'totalProduzido',
+                      ]
+                      const labelsFabrica: Record<string, string> = {
+                        ordemTrato: 'Trato',
+                        totalPrevisto: 'Total Previsto',
+                        totalProduzido: 'Total Produzido',
+                      }
+                      ordemFabrica.forEach(key => {
+                        const value = registro[key]
+                        if (value !== null && value !== undefined && value !== '') {
+                          const label = labelsFabrica[key] || key
+                          let displayValue = String(value)
+                          if (key === 'totalPrevisto' || key === 'totalProduzido') {
+                            const num = Number(String(value).replace(',', '.'))
+                            displayValue = `${num.toFixed(1).replace('.', ',')} kg`
+                          }
+                          if (key === 'ordemTrato') {
+                            displayValue = `Trato ${value}`
+                          }
+                          camposNormais.push([label, displayValue])
                         }
                       })
                     } else {

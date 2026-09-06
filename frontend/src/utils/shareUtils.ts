@@ -191,6 +191,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       value !== undefined &&
       value !== ''
     ) {
+      // Fábrica Confinamento: todos os campos são tratados no bloco dedicado abaixo
+      if (caderneta === 'fabrica-confinamento') {
+        return
+      }
       // Ignorar campo data duplicado no rodeio
       if (caderneta === 'rodeio' && key === 'data') {
         return
@@ -1720,6 +1724,32 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       }
       if (registro.tratamento) {
         texto += `TRATAMENTO: *${registro.tratamento}*\n`
+      }
+    } else if (caderneta === 'fabrica-confinamento') {
+      // Responsável
+      if (registro.usuario) {
+        texto += `RESPONSÁVEL: *${registro.usuario}*\n`
+      }
+      // Dieta (formulacao)
+      if (registro.formulacaoNome) {
+        texto += `DIETA: *${registro.formulacaoNome}*\n`
+      }
+      // Vagão
+      if (registro.vagaoNome) {
+        texto += `VAGÃO: *${registro.vagaoNome}*\n`
+      }
+      // Trato
+      if (registro.ordemTrato !== null && registro.ordemTrato !== undefined && registro.ordemTrato !== '') {
+        texto += `TRATO: *${registro.ordemTrato}*\n`
+      }
+      // Totais
+      if (registro.totalPrevisto !== null && registro.totalPrevisto !== undefined && registro.totalPrevisto !== '') {
+        const v = Number(String(registro.totalPrevisto).replace(',', '.')).toFixed(1).replace('.', ',')
+        texto += `TOTAL PREVISTO: *${v} kg*\n`
+      }
+      if (registro.totalProduzido !== null && registro.totalProduzido !== undefined && registro.totalProduzido !== '') {
+        const v = Number(String(registro.totalProduzido).replace(',', '.')).toFixed(1).replace('.', ',')
+        texto += `TOTAL PRODUZIDO: *${v} kg*\n`
       }
     } else {
       // Para outras cadernetas, manter o fluxo normal

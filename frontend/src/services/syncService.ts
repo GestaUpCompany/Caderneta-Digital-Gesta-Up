@@ -553,7 +553,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         total_produzido: registro.totalProduzido !== '' && registro.totalProduzido !== null && registro.totalProduzido !== undefined
           ? Number(registro.totalProduzido)
           : 0,
-        concluido: Boolean(registro.concluido),
+        concluido: registro.concluido === true || registro.concluido === 'true',
       }
     }
     case 'fabrica-confinamento-insumos': {
@@ -718,26 +718,43 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_fabrica_confinamento': {
           const client = await getSupabaseClientWithRefresh() as any
-          const { data: fcData, error: fcError } = await client
-            .from('registros_fabrica_confinamento')
-            .insert(data)
-            .select()
-            .single()
-          if (fcError) throw fcError
-          // Atualizar registro local com ID do Supabase
-          await updateRegistro('fabrica-confinamento', registro.id, {
-            ...registro,
-            supabaseId: fcData.id,
-            syncStatus: 'synced'
-          })
-          // Atualizar insumos filhos com o novo ID do Supabase
-          const insumosFilhos = await getAllRegistros('fabrica-confinamento-insumos')
-          for (const insumo of insumosFilhos) {
-            if (insumo.registroId === registro.id) {
-              await updateRegistro('fabrica-confinamento-insumos', insumo.id, {
-                ...insumo,
-                registroId: fcData.id
+          if (registro.supabaseId) {
+            // Update de registro existente (produção parcial complementar)
+            const { error: fcError } = await client
+              .from('registros_fabrica_confinamento')
+              .update({
+                total_produzido: data.total_produzido,
+                concluido: data.concluido,
               })
+              .eq('id', registro.supabaseId)
+            if (fcError) throw fcError
+            await updateRegistro('fabrica-confinamento', registro.id, {
+              ...registro,
+              syncStatus: 'synced'
+            })
+          } else {
+            // Insert de novo registro
+            const { data: fcData, error: fcError } = await client
+              .from('registros_fabrica_confinamento')
+              .insert(data)
+              .select()
+              .single()
+            if (fcError) throw fcError
+            // Atualizar registro local com ID do Supabase
+            await updateRegistro('fabrica-confinamento', registro.id, {
+              ...registro,
+              supabaseId: fcData.id,
+              syncStatus: 'synced'
+            })
+            // Atualizar insumos filhos com o novo ID do Supabase
+            const insumosFilhos = await getAllRegistros('fabrica-confinamento-insumos')
+            for (const insumo of insumosFilhos) {
+              if (insumo.registroId === registro.id) {
+                await updateRegistro('fabrica-confinamento-insumos', insumo.id, {
+                  ...insumo,
+                  registroId: fcData.id
+                })
+              }
             }
           }
           break

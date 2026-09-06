@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { DatePicker } from '../../components/ui'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { generateId } from '../../utils/generateId'
-import { saveRegistro as saveRegistroIDB } from '../../services/indexedDB'
+import { saveRegistro as saveRegistroIDB, getRegistro, updateRegistro, getAllRegistros } from '../../services/indexedDB'
 import { enqueueRegistro } from '../../services/syncService'
 import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
@@ -25,7 +24,7 @@ import {
 } from '../../services/cadastroCache'
 import { getLotes, getFormulacaoById } from '../../services/supabaseService'
 import { getSupabaseClientWithRefresh } from '../../services/supabaseClient'
-import { Brush, Save, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { Brush, Save, AlertCircle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
 import { LOGO_URL } from '../../utils/constants'
 
 interface Vagao {
@@ -195,7 +194,7 @@ async function getRegistrosFabricaDoDia(
 export default function FabricaConfinamentoPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
-  const [data, setData] = useState<string>(todayBR())
+  const [data] = useState<string>(todayBR())
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -213,7 +212,9 @@ export default function FabricaConfinamentoPage() {
   const [ordemTratoAtual, setOrdemTratoAtual] = useState<number>(1)
   const [totalPrevisto, setTotalPrevisto] = useState<number>(0)
   const [jaProduzidoNoTrato, setJaProduzidoNoTrato] = useState<number>(0)
+  const [registroFabricaNaoConcluidoId, setRegistroFabricaNaoConcluidoId] = useState<string | null>(null)
   const [todosCurraisTratadosNoTratoAnterior, setTodosCurraisTratadosNoTratoAnterior] = useState<boolean>(true)
+  const [todosTratosConcluidos, setTodosTratosConcluidos] = useState<boolean>(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
   const [totalProduzido, setTotalProduzido] = useState<string>('')
   const [kgProduzidoPorInsumo, setKgProduzidoPorInsumo] = useState<Record<string, string>>({})
@@ -421,8 +422,8 @@ export default function FabricaConfinamentoPage() {
         // Só incluir currais cujo lote usa a dieta selecionada
         if (formulacaoId !== dietaSelecionadaId) continue
 
-        // Buscar nome da formulação se não veio
-        if (!formulacaoNome && formulacaoId) {
+        // Buscar nome da formulação se não veio (pular se offline)
+        if (!formulacaoNome && formulacaoId && navigator.onLine) {
           try {
             const form = await getFormulacaoById(formulacaoId)
             formulacaoNome = form?.nome || null
@@ -454,12 +455,13 @@ export default function FabricaConfinamentoPage() {
         )
         const isDia1 = registrosAnteriores.length === 0
 
-        // Calcular total real do dia anterior
+        // Calcular total real do dia anterior (soma de todos os tratos do dia mais recente)
         let totalRealDiaAnterior: number | null = null
         if (!isDia1 && registrosAnteriores.length > 0) {
-          const dataAnteriorMaisRecente = registrosAnteriores[0].data
+          // Agrupar por data (dia), pegar o dia mais recente
+          const dataAnteriorMaisRecente = (registrosAnteriores[0].data || '').slice(0, 10)
           const tratosDiaAnterior = registrosAnteriores.filter(
-            (r: any) => r.data === dataAnteriorMaisRecente
+            (r: any) => (r.data || '').slice(0, 10) === dataAnteriorMaisRecente
           )
           totalRealDiaAnterior = tratosDiaAnterior.reduce(
             (sum: number, r: any) => sum + (Number(r.kg_ofertado_real) || 0),
@@ -504,19 +506,52 @@ export default function FabricaConfinamentoPage() {
       }
       let ordemAtual = Math.min(maxOrdemFeita + 1, qtdTratos)
 
-      // Buscar registros de fábrica do dia
+      // Buscar registros de fábrica do dia (pular se offline, usa Supabase direto)
       let registrosFabrica: RegistroFabricaExistente[] = []
-      try {
-        registrosFabrica = await getRegistrosFabricaDoDia(fazendaId, dataISO, tipoSelecionado, dietaSelecionadaId)
-      } catch {
-        // offline ou erro, seguir sem registros de fábrica
+      if (navigator.onLine) {
+        try {
+          registrosFabrica = await getRegistrosFabricaDoDia(fazendaId, dataISO, tipoSelecionado, dietaSelecionadaId)
+        } catch {
+          // offline ou erro, seguir sem registros de fábrica
+        }
+      } else {
+        // Offline: buscar registros locais no IndexedDB
+        try {
+          const registrosLocais = await getAllRegistros('fabrica-confinamento')
+          const dataISOComp = dataISO
+          registrosFabrica = (registrosLocais as any[])
+            .filter((r) => {
+              const rData = (r.data || '').slice(0, 10)
+              return rData === dataISOComp && r.tipo === tipoSelecionado && r.formulacaoId === dietaSelecionadaId
+            })
+            .map((r) => ({
+              id: r.supabaseId || r.id,
+              ordem_trato: r.ordemTrato,
+              total_previsto: Number(r.totalPrevisto) || 0,
+              total_produzido: Number(r.totalProduzido) || 0,
+              concluido: r.concluido === true || r.concluido === 'true',
+            }))
+            .sort((a, b) => a.ordem_trato - b.ordem_trato)
+        } catch {
+          // ignorar
+        }
       }
 
       // Se há registros de fábrica com total_produzido < total_previsto, o trato atual é esse
       const tratoNaoConcluido = registrosFabrica.find((r) => !r.concluido)
       if (tratoNaoConcluido) {
         ordemAtual = tratoNaoConcluido.ordem_trato
+        // Buscar o registro local no IndexedDB pelo supabaseId para obter o ID local
+        const registrosLocais = await getAllRegistros('fabrica-confinamento')
+        const registroLocal = registrosLocais.find((r: any) => r.supabaseId === tratoNaoConcluido.id)
+        setRegistroFabricaNaoConcluidoId(registroLocal ? registroLocal.id : null)
+      } else {
+        setRegistroFabricaNaoConcluidoId(null)
       }
+
+      // Verificar se todos os tratos do dia foram concluídos
+      const todosConcluidos = maxOrdemFeita >= qtdTratos && !tratoNaoConcluido
+      setTodosTratosConcluidos(todosConcluidos)
 
       setOrdemTratoAtual(ordemAtual)
 
@@ -547,15 +582,15 @@ export default function FabricaConfinamentoPage() {
       // Se for o último trato, compensar: previsto = total_do_dia - soma_dos_tratos_anteriores
       const isUltimoTrato = ordemAtual === qtdTratos
       if (isUltimoTrato && !isDia1ParaTodos(curraisDaDieta)) {
-        // Calcular total do dia para cada curral e subtrair o já produzido
+        // Calcular total do dia para cada curral e subtrair o já distribuído nos tratos anteriores
         for (const curral of curraisDaDieta) {
           if (curral.kgBaseDia !== null) {
             const totalDiaCurral = curral.kgBaseDia
             const tratosDoDia = registrosPorCurral.get(curral.curralId) || []
-            const jaProduzido = tratosDoDia
-              .filter((t) => t.kg_ofertado_real !== null)
+            const jaDistribuido = tratosDoDia
+              .filter((t) => t.kg_ofertado_real !== null && Number(t.ordem_trato) < ordemAtual)
               .reduce((sum: number, t: any) => sum + (Number(t.kg_ofertado_real) || 0), 0)
-            curral.kgPlanejado = Math.max(0, totalDiaCurral - jaProduzido)
+            curral.kgPlanejado = Math.max(0, totalDiaCurral - jaDistribuido)
           }
         }
       }
@@ -574,8 +609,15 @@ export default function FabricaConfinamentoPage() {
 
       setTotalPrevisto(somaPrevisto)
 
-      // Carregar insumos da formulação
-      const insumosData = await getInsumosByFormulacao(dietaSelecionadaId)
+      // Carregar insumos da formulação (pular se offline, já que não é cached)
+      let insumosData: InsumoFormulacao[] = []
+      if (navigator.onLine) {
+        try {
+          insumosData = await getInsumosByFormulacao(dietaSelecionadaId)
+        } catch {
+          // erro de rede, seguir com insumos vazios
+        }
+      }
       setInsumos(insumosData)
 
       // Resetar campos de produção
@@ -592,6 +634,15 @@ export default function FabricaConfinamentoPage() {
 
   useEffect(() => {
     carregarDados()
+  }, [carregarDados])
+
+  // Auto-recarregar quando voltar online (leitura de cocho pode ter chegado)
+  useEffect(() => {
+    const handleOnline = () => {
+      carregarDados()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
   }, [carregarDados])
 
   // Capacidade do vagão selecionado
@@ -638,8 +689,9 @@ export default function FabricaConfinamentoPage() {
     if (totalProduzidoNum <= 0) return false
     if (excedeCapacidade) return false
     if (!todosCurraisTratadosNoTratoAnterior) return false
+    if (todosTratosConcluidos) return false
     return true
-  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, excedeCapacidade, todosCurraisTratadosNoTratoAnterior])
+  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, excedeCapacidade, todosCurraisTratadosNoTratoAnterior, todosTratosConcluidos])
 
   const handleTotalProduzidoChange = useCallback((valor: string) => {
     const sanitizado = valor.replace(/[^0-9.,]/g, '')
@@ -656,34 +708,60 @@ export default function FabricaConfinamentoPage() {
     setSalvando(true)
     setSucesso(false)
     try {
-      const concluido = totalProduzidoNum >= (totalPrevisto - jaProduzidoNoTrato - 0.5)
+      const novoTotalProduzido = jaProduzidoNoTrato + totalProduzidoNum
+      const concluido = novoTotalProduzido >= (totalPrevisto - 0.5)
 
-      // Salvar registro master
-      const result = await salvarRegistro('fabrica-confinamento', {
-        data: data,
-        responsavel: usuario,
-        usuario: usuario,
-        tipo: tipoSelecionado,
-        formulacaoId: dietaSelecionadaId,
-        vagaoId: vagaoSelecionadoId,
-        ordemTrato: String(ordemTratoAtual),
-        totalPrevisto: String(totalPrevisto),
-        totalProduzido: String(totalProduzidoNum),
-        concluido: String(concluido),
-      })
+      let registroId: string
 
-      if (!result.success || !result.registro) {
-        setErro('Erro ao salvar produção. Tente novamente.')
-        setSalvando(false)
-        return
+      if (registroFabricaNaoConcluidoId) {
+        // Atualizar registro existente (produção parcial complementar)
+        const registroExistente = await getRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId)
+        if (!registroExistente) {
+          setErro('Registro de produção parcial não encontrado. Tente novamente.')
+          setSalvando(false)
+          return
+        }
+        await updateRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId, {
+          totalProduzido: String(novoTotalProduzido),
+          concluido: String(concluido),
+          syncStatus: 'pending',
+        })
+        await enqueueRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId, 'update')
+        registroId = registroFabricaNaoConcluidoId
+      } else {
+        // Criar novo registro master
+        const dietaNome = dietasDisponiveis.find((d) => d.id === dietaSelecionadaId)?.nome || ''
+        const result = await salvarRegistro('fabrica-confinamento', {
+          data: data,
+          responsavel: usuario,
+          usuario: usuario,
+          tipo: tipoSelecionado,
+          formulacaoId: dietaSelecionadaId,
+          formulacaoNome: dietaNome,
+          vagaoId: vagaoSelecionadoId,
+          vagaoNome: vagaoSelecionado?.nome || '',
+          ordemTrato: String(ordemTratoAtual),
+          totalPrevisto: String(totalPrevisto),
+          totalProduzido: String(totalProduzidoNum),
+          concluido: String(concluido),
+        })
+
+        if (!result.success || !result.registro) {
+          setErro('Erro ao salvar produção. Tente novamente.')
+          setSalvando(false)
+          return
+        }
+        registroId = result.registro.id
       }
-
-      const registroId = result.registro.id
 
       // Data com hora para os insumos (salvos direto no IndexedDB, sem passar por salvarRegistro)
       const timezone = DEFAULT_FARM_TIMEZONE
       const horaAtual = getCurrentTimeInTimezone(timezone)
       const dataComHoraInsumos = `${data} ${horaAtual.slice(0, 5)}`
+
+      // Buscar o supabaseId do registro master para usar nos insumos
+      const registroMaster = await getRegistro('fabrica-confinamento', registroId)
+      const insumoRegistroId = registroMaster?.supabaseId || registroId
 
       // Salvar insumos como registros separados no IndexedDB + enfileirar sync
       for (const insumo of insumos) {
@@ -695,7 +773,7 @@ export default function FabricaConfinamentoPage() {
           id: generateId(),
           data: dataComHoraInsumos,
           usuario,
-          registroId,
+          registroId: insumoRegistroId,
           insumoId: insumo.insumo_id,
           kgPrevisto: kgPrev,
           kgProduzido: kgProd,
@@ -724,7 +802,7 @@ export default function FabricaConfinamentoPage() {
     } finally {
       setSalvando(false)
     }
-  }, [fazendaId, podeSalvar, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, ordemTratoAtual, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, insumos, kgPrevistoPorInsumo, kgProduzidoPorInsumo, carregarDados])
+  }, [fazendaId, podeSalvar, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, ordemTratoAtual, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgProduzidoPorInsumo, carregarDados])
 
   const handleLimpar = useCallback(() => {
     setTotalProduzido('')
@@ -780,14 +858,15 @@ export default function FabricaConfinamentoPage() {
           className="h-11 w-11 shrink-0 rounded-xl object-contain shadow-lg shadow-black/10"
         />
       }
-      dateContent={
-        <DatePicker
-          value={data}
-          onChange={setData}
-          compact
-          inline
-          variant="header"
-        />
+      rightContent={
+        <button
+          onClick={() => carregarDados()}
+          disabled={carregando}
+          className="flex h-10 !min-h-0 !min-w-0 items-center gap-1.5 rounded-full bg-white/10 px-3 text-sm font-semibold transition-colors hover:bg-white/20 active:bg-white/25 disabled:opacity-50"
+          aria-label="Atualizar"
+        >
+          <RefreshCw className={`h-5 w-5 ${carregando ? 'animate-spin' : ''}`} strokeWidth={2.3} />
+        </button>
       }
       bottomContent={bottomContent}
     >
@@ -909,6 +988,16 @@ export default function FabricaConfinamentoPage() {
                 </div>
               </div>
 
+              {/* Aviso: todos os tratos do dia foram concluídos */}
+              {todosTratosConcluidos && (
+                <div className="rounded-xl bg-green-50 border border-green-200 p-3 flex items-start gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                  <p className="text-sm font-bold text-green-800">
+                    Todos os {quantidadeTratos} tratos do dia foram concluídos. Nenhuma produção pendente.
+                  </p>
+                </div>
+              )}
+
               {/* Aviso: trato anterior não concluído em todos os currais */}
               {!todosCurraisTratadosNoTratoAnterior && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
@@ -916,6 +1005,16 @@ export default function FabricaConfinamentoPage() {
                   <p className="text-sm font-bold text-amber-800">
                     Trato {ordemTratoAtual - 1} ainda não foi registrado em todos os currais.
                     Conclua a distribuição no Trato Confinamento antes de fabricar o próximo.
+                  </p>
+                </div>
+              )}
+
+              {/* Aviso: trato atual com produção parcial não concluída */}
+              {tratoNaoConcluidoJaIniciado && faltamKg > 0 && (
+                <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                  <p className="text-sm font-bold text-blue-800">
+                    Trato {ordemTratoAtual} em aberto. Faltam produzir {formatarKg(faltamKg, 1)} kg para avançar ao próximo trato.
                   </p>
                 </div>
               )}
