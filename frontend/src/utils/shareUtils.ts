@@ -1046,34 +1046,24 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       'animalBicheira',
     ]
 
-    const invertedWarningFields = INVERTED_WARNING_FIELDS[caderneta] || []
-
-    // Check if any diagnostic has problematic response
+    // Check if any diagnostic has positive (problematic) response
     const hasDiagnosticos = ordemDiagnosticos.some(key => {
       const data = (registro.diagnosticos as any)?.[key]
-      if (!data || data.valor === null || data.valor === undefined || data.valor === '') return false
-      const isSim = data.valor === 'S' || data.valor === true
-      const isInverted = invertedWarningFields.includes(key)
-      return isInverted ? !isSim : isSim
+      const isSim = data && (data.valor === 'S' || data.valor === true)
+      return isSim
     })
 
     if (hasDiagnosticos) {
       texto += '\nDIAGNÓSTICOS\n'
       ordemDiagnosticos.forEach(key => {
         const data = (registro.diagnosticos as any)?.[key]
-        if (data && data.valor !== null && data.valor !== undefined && data.valor !== '') {
-          const isSim = data.valor === 'S' || data.valor === true
-          const isInverted = invertedWarningFields.includes(key)
-          const isProblematic = isInverted ? !isSim : isSim
-          
-          // Only show problematic responses
-          if (isProblematic) {
-            let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-            const valorFormatado = isSim ? 'Sim' : 'Não'
-            texto += `⚠️ ${label}: *${valorFormatado}*\n`
-            if (data.observacao && data.observacao !== '') {
-              texto += `  OBS: *${data.observacao}*\n`
-            }
+        const isSim = data && (data.valor === 'S' || data.valor === true)
+        // Only show positive (problematic) responses
+        if (isSim) {
+          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          texto += `⚠️ ${label}: *Sim*\n`
+          if (data.observacao && data.observacao !== '') {
+            texto += `  OBS: *${data.observacao}*\n`
           }
         }
       })

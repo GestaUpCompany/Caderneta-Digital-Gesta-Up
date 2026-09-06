@@ -70,6 +70,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
 function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string): any {
   const baseData = {
     fazenda_id: fazendaId,
+    local_id: registro.id,
     nome_usuario: registro.usuario || registro.responsavel || null,
     sync_status: 'synced',
     version: registro.version || 1,
@@ -608,49 +609,85 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
     }
 
     if (operation === 'create') {
+      // Tabelas com local_id: upsert idempotente + captura de supabaseId
+      const upsertTables = new Set([
+        'registros_maternidade', 'registros_pastagens', 'registros_rodeio',
+        'registros_suplementacao', 'registros_bebedouros', 'registros_movimentacao',
+        'registros_enfermaria', 'registros_morte', 'registros_clima',
+        'registros_abastecimento', 'registros_alimentacao', 'registros_limpeza',
+        'registros_operacoes_maquinas', 'registros_manutencao_maquinas',
+        'registros_problemas', 'registros_almoxarifado', 'registros_leitura_cocho',
+        'registros_oferta_trato',
+      ])
+      const tableNameStr = Array.isArray(tableName) ? tableName[0] : tableName
+      if (upsertTables.has(tableNameStr)) {
+        let result: any
+        switch (tableNameStr) {
+          case 'registros_maternidade':
+            result = await supabaseService.createRegistroMaternidade(data)
+            break
+          case 'registros_pastagens':
+            result = await supabaseService.createRegistroPastagens(data)
+            break
+          case 'registros_rodeio':
+            result = await supabaseService.createRegistroRodeio(data)
+            break
+          case 'registros_suplementacao':
+            result = await supabaseService.createRegistroSuplementacao(data)
+            break
+          case 'registros_bebedouros':
+            result = await supabaseService.createRegistroBebedouros(data)
+            break
+          case 'registros_movimentacao':
+            result = await supabaseService.createRegistroMovimentacao(data)
+            break
+          case 'registros_enfermaria':
+            result = await supabaseService.createRegistroEnfermaria(data)
+            break
+          case 'registros_morte':
+            result = await supabaseService.createRegistroMorte(data)
+            break
+          case 'registros_clima':
+            result = await supabaseService.createRegistroClima(data)
+            break
+          case 'registros_abastecimento':
+            result = await supabaseService.createRegistroAbastecimento(data)
+            break
+          case 'registros_alimentacao':
+            result = await supabaseService.createRegistroCantina(data)
+            break
+          case 'registros_limpeza':
+            result = await supabaseService.createRegistroLimpeza(data)
+            break
+          case 'registros_operacoes_maquinas':
+            result = await supabaseService.createRegistroOperacoesMaquinas(data)
+            break
+          case 'registros_manutencao_maquinas':
+            result = await supabaseService.createRegistroManutencaoMaquinas(data)
+            break
+          case 'registros_problemas':
+            result = await supabaseService.createRegistroProblemas(data)
+            break
+          case 'registros_almoxarifado':
+            result = await supabaseService.createRegistroAlmoxarifado(data)
+            break
+          case 'registros_leitura_cocho':
+            result = await supabaseService.createRegistroLeituraCocho(data)
+            break
+          case 'registros_oferta_trato':
+            result = await supabaseService.createRegistroOfertaTrato(data)
+            break
+        }
+        // Capturar supabaseId retornado e gravar localmente
+        if (result && result.id) {
+          await updateRegistro(store, registro.id, {
+            ...registro,
+            supabaseId: result.id,
+            syncStatus: 'synced'
+          })
+        }
+      } else {
       switch (tableName) {
-        case 'registros_maternidade':
-          await supabaseService.createRegistroMaternidade(data)
-          break
-        case 'registros_pastagens':
-          await supabaseService.createRegistroPastagens(data)
-          break
-        case 'registros_rodeio':
-          await supabaseService.createRegistroRodeio(data)
-          break
-        case 'registros_suplementacao':
-          await supabaseService.createRegistroSuplementacao(data)
-          break
-        case 'registros_bebedouros':
-          await supabaseService.createRegistroBebedouros(data)
-          break
-        case 'registros_movimentacao':
-          await supabaseService.createRegistroMovimentacao(data)
-          break
-        case 'registros_enfermaria':
-          await supabaseService.createRegistroEnfermaria(data)
-          break
-        case 'registros_morte':
-          await supabaseService.createRegistroMorte(data)
-          break
-        case 'registros_clima':
-          await supabaseService.createRegistroClima(data)
-          break
-        case 'registros_abastecimento':
-          await supabaseService.createRegistroAbastecimento(data)
-          break
-        case 'registros_alimentacao':
-          await supabaseService.createRegistroCantina(data)
-          break
-        case 'registros_limpeza':
-          await supabaseService.createRegistroLimpeza(data)
-          break
-        case 'registros_operacoes_maquinas':
-          await supabaseService.createRegistroOperacoesMaquinas(data)
-          break
-        case 'registros_manutencao_maquinas':
-          await supabaseService.createRegistroManutencaoMaquinas(data)
-          break
         case 'registros_entrada_insumos':
           const entradaResult = await supabaseService.createRegistroEntradaInsumos(data)
           // Atualizar registro local com ID do Supabase
@@ -674,18 +711,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_saida_insumos':
           await supabaseService.createRegistroSaidaInsumos(data)
-          break
-        case 'registros_problemas':
-          await supabaseService.createRegistroProblemas(data)
-          break
-        case 'registros_almoxarifado':
-          await supabaseService.createRegistroAlmoxarifado(data)
-          break
-        case 'registros_leitura_cocho':
-          await supabaseService.createRegistroLeituraCocho(data)
-          break
-        case 'registros_oferta_trato':
-          await supabaseService.createRegistroOfertaTrato(data)
           break
         case 'atividade_funcionarios': {
           const client = await getSupabaseClientWithRefresh() as any
@@ -719,6 +744,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           if (aError) throw aError
           break
         }
+      }
       }
       console.log(`[SUPABASE] Registro criado com sucesso em ${tableName}`)
     } else if (operation === 'update' && registro.supabaseId) {

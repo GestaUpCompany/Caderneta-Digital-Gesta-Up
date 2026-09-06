@@ -1808,7 +1808,7 @@ export async function createRegistroMaternidade(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_maternidade')
-    .insert(registro as any)
+    .upsert(registro as any, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -1889,7 +1889,7 @@ export async function createRegistroPastagens(registro: TablesInsert<'registros_
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_pastagens')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -1946,7 +1946,7 @@ export async function createRegistroRodeio(registro: TablesInsert<'registros_rod
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_rodeio')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2026,7 +2026,7 @@ export async function createRegistroSuplementacao(registro: TablesInsert<'regist
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_suplementacao')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2083,7 +2083,7 @@ export async function createRegistroBebedouros(registro: TablesInsert<'registros
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_bebedouros')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2140,7 +2140,7 @@ export async function createRegistroMovimentacao(registro: TablesInsert<'registr
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_movimentacao')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2197,7 +2197,7 @@ export async function createRegistroEnfermaria(registro: TablesInsert<'registros
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_enfermaria')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2234,7 +2234,7 @@ export async function createRegistroClima(registro: TablesInsert<'registros_clim
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_clima')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2261,7 +2261,7 @@ export async function createRegistroProblemas(registro: TablesInsert<'registros_
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_problemas')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2288,7 +2288,7 @@ export async function createRegistroAbastecimento(registro: TablesInsert<'regist
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_abastecimento')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2315,7 +2315,7 @@ export async function createRegistroCantina(registro: TablesInsert<'registros_al
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_alimentacao')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2342,7 +2342,7 @@ export async function createRegistroMorte(registro: TablesInsert<'registros_mort
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_morte')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2389,7 +2389,7 @@ export async function createRegistroLimpeza(registro: TablesInsert<'registros_li
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_limpeza')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2503,7 +2503,7 @@ export async function createRegistroManutencaoMaquinas(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_manutencao_maquinas' as any)
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2538,7 +2538,7 @@ export async function createRegistroOperacoesMaquinas(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_operacoes_maquinas')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2712,7 +2712,7 @@ export async function createRegistroAlmoxarifado(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_almoxarifado')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2808,7 +2808,7 @@ export async function createRegistroLeituraCocho(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_leitura_cocho')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -3017,7 +3017,7 @@ export async function createRegistroOfertaTrato(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_oferta_trato')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
