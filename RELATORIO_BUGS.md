@@ -230,7 +230,7 @@ No catch, chama `registroToSupabase` para montar payload do log sem try/catch. S
 
 Campos como `precoUnitario`, `temperaturaMedia`, divergência de cabeças usam `Number()` direto. Valor `"15,50"` vira `NaN` e é omitido do texto compartilhado. Correção: trocado `Number()` por `normalizarNumero()` (de `formatNumber.ts`) em todos os 4 pontos. `normalizarNumero` aceita string brasileira ("15,50", "4.770,3"), retorna `number | null`. No caso da temperatura, trocado `!isNaN(tempMediaNum)` por `tempMediaNum !== null` já que `normalizarNumero` retorna null em vez de NaN. Sem backfill, sem coordenação com Painel Web (texto de WhatsApp local).
 
-### Bug 20, ConflictModal remove conflito local mesmo se resolve falhar
+### Bug 20, ConflictModal remove conflito local mesmo se resolve falhar (CORRIGIDO 06/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Transversal (qualquer caderneta com conflito de sync)
@@ -238,9 +238,9 @@ Campos como `precoUnitario`, `temperaturaMedia`, divergência de cabeças usam `
 - **Afeta Painel Web**: Não (local)
 - **Arquivo**: `frontend/src/components/ConflictModal.tsx:42-47`
 
-`resolveConflict` sem try/catch, `removeLocalConflict` executa em seguida. Se resolve falhar, o conflito some sem ser resolvido.
+`resolveConflict` sem try/catch, `removeLocalConflict` executa em seguida. Se resolve falhar, o conflito some sem ser resolvido. Correção: `resolveConflict`, `removeLocalConflict` e `onResolved` agora estão dentro de try/catch. Se resolve falha, o conflito não é removido, o usuário vê alerta de erro e os botões são reabilitados (`setLoading(false)` no catch). Sem backfill, sem coordenação com Painel Web.
 
-### Bug 21, AtividadesPage: handlers sem try/catch
+### Bug 21, AtividadesPage: handlers sem try/catch (CORRIGIDO 06/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Atividades (`atividade-funcionarios`, `atividade-imprevistos`)
@@ -248,9 +248,9 @@ Campos como `precoUnitario`, `temperaturaMedia`, divergência de cabeças usam `
 - **Afeta Painel Web**: Não (local)
 - **Arquivo**: `frontend/src/pages/AtividadesPage.tsx:781-790, 813-829`
 
-`concluirAtividadeLocal` e `registrarImprevistoLocal` sem try/catch. Em falha, modal fica aberto e usuário sem feedback.
+`concluirAtividadeLocal` e `registrarImprevistoLocal` sem try/catch. Em falha, modal fica aberto e usuário sem feedback. Correção: ambos os handlers agora envolvem a chamada local em try/catch. Se falha, o erro é logado, o usuário vê um alerta, e o handler retorna sem fechar o modal nem limpar o estado. O bloco de enqueue de sync permanece com try/catch separado (best-effort). Sem backfill, sem coordenação com Painel Web.
 
-### Bug 22, Tipos PWA desatualizados em relação ao payload real
+### Bug 22, Tipos PWA desatualizados em relação ao payload real (CORRIGIDO 06/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Morte (falta `foto_url`, `latitude`, `longitude`, `gps_accuracy`)
@@ -258,13 +258,13 @@ Campos como `precoUnitario`, `temperaturaMedia`, divergência de cabeças usam `
 - **Afeta Painel Web**: Indireto (risco de falhas silenciosas de TypeScript)
 - **Arquivo**: `frontend/src/types/cadernetas.ts:163-196`
 
-`RegistroMorte` não declara `foto_url`, `latitude`, `longitude`, `gps_accuracy` que são enviados ao Supabase em `syncService.ts:353-355`.
+`RegistroMorte` não declara `foto_url`, `latitude`, `longitude`, `gps_accuracy` que são enviados ao Supabase em `syncService.ts:353-355`. Correção: adicionado `fotoUrl?: string | null` ao tipo `RegistroMorte` (o tipo já tinha `latitude`, `longitude`, `gpsAccuracy`). Removido os casts `(registro as any)` em `syncService.ts:354-356` para usar os campos tipados diretamente (`registro.latitude`, `registro.longitude`, `registro.gpsAccuracy`). O base type `Registro` tem `[key: string]: unknown`, então o acesso é type-safe. Sem backfill, sem coordenação com Painel Web.
 
 ---
 
 ## P3, Baixos
 
-### Bug 23, IndexedDB: transações de leitura por índice sem `await tx.done`
+### Bug 23, IndexedDB: transações de leitura por índice sem `await tx.done` (CORRIGIDO 06/09/2026)
 
 - **Severidade**: P3
 - **Caderneta de origem**: Transversal (afeta contagem de pendentes e listagens)
@@ -272,9 +272,9 @@ Campos como `precoUnitario`, `temperaturaMedia`, divergência de cabeças usam `
 - **Afeta Painel Web**: Não (local)
 - **Arquivo**: `frontend/src/services/indexedDB.ts:87, 199`
 
-Pode causar `TransactionInactiveError` em navegadores Android antigos.
+Pode causar `TransactionInactiveError` em navegadores Android antigos. Correção: `getRegistrosPendentes`, `getRegistrosComErro` e `countPending` agora criam a transação explicitamente com `db.transaction(store, 'readonly')`, aguardam a operação (`getAll`/`count`) e então fazem `await tx.done` antes de retornar. Isso garante que a transação permaneça ativa durante toda a leitura do índice. Sem backfill, sem coordenação com Painel Web.
 
-### Bug 24, Home: redirect sem verificar rota atual
+### Bug 24, Home: redirect sem verificar rota atual (CORRIGIDO 06/09/2026)
 
 - **Severidade**: P3
 - **Caderneta de origem**: Transversal (navegação inicial)
@@ -282,7 +282,7 @@ Pode causar `TransactionInactiveError` em navegadores Android antigos.
 - **Afeta Painel Web**: Não (local)
 - **Arquivo**: `frontend/src/pages/Home.tsx:102-112`
 
-Redirecionamento indesejado em cenários edge do PWA com fallback para `/`.
+Redirecionamento indesejado em cenários edge do PWA com fallback para `/`. Correção: o `useEffect` de primeiro acesso agora verifica `configurado` antes de redirecionar. Se o app já está configurado, o redirect para `/configuracoes` não ocorre mesmo se a flag `primeiro-acesso` não existe no `localStorage` (ex: localStorage limpo, reinstall, outro navegador). `configurado` foi adicionado ao array de dependências do `useEffect`. Sem backfill, sem coordenação com Painel Web.
 
 ### Bug 25, `logs_sync_errors` sem tela de auditoria no Painel Web
 

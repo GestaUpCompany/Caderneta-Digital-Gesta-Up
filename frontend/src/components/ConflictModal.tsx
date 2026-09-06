@@ -41,10 +41,15 @@ export default function ConflictModal({ conflict, onResolved }: Props) {
 
   async function handleResolve(resolution: 'local' | 'remote') {
     setLoading(true)
-    await resolveConflict(conflict, resolution)
-    removeLocalConflict(conflict.id)
-    setLoading(false)
-    onResolved()
+    try {
+      await resolveConflict(conflict, resolution)
+      removeLocalConflict(conflict.id)
+      onResolved()
+    } catch (err) {
+      console.error('[CONFLICT] Falha ao resolver conflito:', err)
+      alert('Falha ao resolver o conflito. Tente novamente.')
+      setLoading(false)
+    }
   }
 
   return (

@@ -780,14 +780,21 @@ export default function AtividadesPage() {
 
   const handleConfirmarConclusao = async () => {
     if (!atividadeParaConcluir) return
-    const updated = await concluirAtividadeLocal(
-      atividadeParaConcluir,
-      detalhamento.trim() || null,
-      fotoBase64,
-      latitude,
-      longitude,
-      gpsAccuracy
-    )
+    let updated: AtividadeFuncionarioPWA
+    try {
+      updated = await concluirAtividadeLocal(
+        atividadeParaConcluir,
+        detalhamento.trim() || null,
+        fotoBase64,
+        latitude,
+        longitude,
+        gpsAccuracy
+      )
+    } catch (err) {
+      console.error('[AtividadesPage] Erro ao concluir atividade:', err)
+      alert('Falha ao concluir a atividade. Tente novamente.')
+      return
+    }
     setAtividades((prev) => prev.map((a) => (a.id === atividadeParaConcluir.id ? updated : a)))
     try {
       // Enfileirar update do af e das sessoes fechadas
@@ -812,7 +819,13 @@ export default function AtividadesPage() {
 
   const handleConfirmarImprevisto = async (tipo: string, descricao: string | null, impactoMin: number | null) => {
     if (!atividadeParaImprevisto) return
-    await registrarImprevistoLocal(atividadeParaImprevisto, tipo, descricao, impactoMin)
+    try {
+      await registrarImprevistoLocal(atividadeParaImprevisto, tipo, descricao, impactoMin)
+    } catch (err) {
+      console.error('[AtividadesPage] Erro ao registrar imprevisto:', err)
+      alert('Falha ao registrar imprevisto. Tente novamente.')
+      return
+    }
     try {
       const imprevistos = await getImprevistosLocal(atividadeParaImprevisto.id)
       const ultimo = imprevistos.sort((a, b) => b.ocorridoAt.localeCompare(a.ocorridoAt))[0]

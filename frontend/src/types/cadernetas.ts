@@ -190,6 +190,7 @@ export interface RegistroMorte extends Registro {
     }
   }
   fotoBase64?: string | null
+  fotoUrl?: string | null
   latitude?: number | null
   longitude?: number | null
   gpsAccuracy?: number | null

@@ -84,14 +84,18 @@ export async function getAllRegistros(store: CadernetaStore): Promise<Registro[]
 
 export async function getRegistrosPendentes(store: CadernetaStore): Promise<Registro[]> {
   const db = await getDB()
-  const index = db.transaction(store).store.index('syncStatus')
-  return index.getAll('pending')
+  const tx = db.transaction(store, 'readonly')
+  const result = await tx.store.index('syncStatus').getAll('pending')
+  await tx.done
+  return result
 }
 
 export async function getRegistrosComErro(store: CadernetaStore): Promise<Registro[]> {
   const db = await getDB()
-  const index = db.transaction(store).store.index('syncStatus')
-  return index.getAll('error')
+  const tx = db.transaction(store, 'readonly')
+  const result = await tx.store.index('syncStatus').getAll('error')
+  await tx.done
+  return result
 }
 
 export async function getAllRegistrosComErro(): Promise<{ store: CadernetaStore; registros: Registro[] }[]> {
@@ -196,8 +200,9 @@ export async function countPending(): Promise<number> {
   const db = await getDB()
   let total = 0
   for (const store of STORES) {
-    const index = db.transaction(store).store.index('syncStatus')
-    const count = await index.count('pending')
+    const tx = db.transaction(store, 'readonly')
+    const count = await tx.store.index('syncStatus').count('pending')
+    await tx.done
     total += count
   }
   return total

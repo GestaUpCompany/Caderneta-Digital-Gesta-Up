@@ -100,16 +100,18 @@ export default function Home() {
 
   // Verificar primeiro acesso e redirecionar automaticamente
   useEffect(() => {
-    const primeiroAcesso = localStorage.getItem('primeiro-acesso')
+    if (!configurado) {
+      const primeiroAcesso = localStorage.getItem('primeiro-acesso')
 
-    if (!primeiroAcesso) {
-      // Marcar que o primeiro acesso foi feito
-      localStorage.setItem('primeiro-acesso', 'true')
+      if (!primeiroAcesso) {
+        // Marcar que o primeiro acesso foi feito
+        localStorage.setItem('primeiro-acesso', 'true')
 
-      // Redirecionar automaticamente para configurações
-      navigate('/configuracoes')
+        // Redirecionar automaticamente para configurações
+        navigate('/configuracoes')
+      }
     }
-  }, [navigate])
+  }, [navigate, configurado])
 
   // Lógica de saudação contextual
   const [greeting, setGreeting] = useState('')

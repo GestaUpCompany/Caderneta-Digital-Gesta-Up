@@ -351,9 +351,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         nutricao_atual: registro.nutricaoAtual || null,
         nutricao_anterior: registro.nutricaoAnterior || null,
         diagnosticos: registro.diagnosticos || {},
-        latitude: (registro as any).latitude ?? null,
-        longitude: (registro as any).longitude ?? null,
-        gps_accuracy: (registro as any).gpsAccuracy ?? null,
+        latitude: registro.latitude ?? null,
+        longitude: registro.longitude ?? null,
+        gps_accuracy: registro.gpsAccuracy ?? null,
       }
     case 'clima':
       return {
