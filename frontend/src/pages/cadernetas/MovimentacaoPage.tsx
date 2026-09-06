@@ -396,8 +396,8 @@ export default function MovimentacaoPage() {
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
           })
-          // Armazenar o ID do lote origem
-          setForm(prev => ({ ...prev, loteOrigemId: lote.id }))
+          // Armazenar o ID do lote origem e zerar categorias do lote anterior
+          setForm(prev => ({ ...prev, loteOrigemId: lote.id, cabecasPorCategoria: {} }))
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote origem:', error)

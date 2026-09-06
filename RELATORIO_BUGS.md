@@ -90,7 +90,7 @@ O `id` local gerado por `generateId` não é UUID, então `registroToSupabase` o
 
 Rascunho carrega com `brToDateISO(todayBR())` em vez da `data` selecionada. O `useEffect` depende só de `[fazendaId]`, não de `data`. Mudar a data no DatePicker não recarrega lotes nem rascunho, mas o salvamento usa a data nova, permitindo lançar leituras sem dados daquele dia.
 
-### Bug 7, Movimentacao: `cabecasPorCategoria` não é resetado ao trocar lote origem
+### Bug 7, Movimentacao: `cabecasPorCategoria` não é resetado ao trocar lote origem (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P1
 - **Caderneta de origem**: Movimentação (`movimentacao`)
@@ -98,7 +98,7 @@ Rascunho carrega com `brToDateISO(todayBR())` em vez da `data` selecionada. O `u
 - **Afeta Painel Web**: Sim, dados errados no banco
 - **Arquivo**: `frontend/src/pages/cadernetas/MovimentacaoPage.tsx:400`
 
-Ao trocar lote origem válido, `setForm` atualiza `loteOrigemId` mas não zera `cabecasPorCategoria`. Quantidades do lote anterior permanecem e podem ser salvas no lote novo. Só zera quando o lote é limpo (linha 380).
+Ao trocar lote origem válido, `setForm` atualiza `loteOrigemId` mas não zera `cabecasPorCategoria`. Quantidades do lote anterior permanecem e podem ser salvas no lote novo. Só zera quando o lote é limpo (linha 380). Correção: incluido `cabecasPorCategoria: {}` no `setForm` da linha 400, zerando as quantidades ao trocar de lote válido.
 
 ### Bug 8, Movimentacao: salvamento categoria a categoria sem rollback
 
