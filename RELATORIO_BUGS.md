@@ -200,7 +200,7 @@ Input `"5/8/2026"` gera `"2026-8-5"`, que não é ISO 8601 válido. Pode ser rej
 
 Data vazia vira `''` no payload. Para `timestamptz` NOT NULL, gera `invalid input syntax for type timestamp`. Correção: trocado `return ''` por `return null` nos dois pontos de saída (input vazio e data inválida) e tipo de retorno mudado para `string | null`. Os 20 callers atribuem o resultado diretamente a propriedades do payload do Supabase, onde `null` é válido. Não precisa de backfill nem coordenação com Painel Web.
 
-### Bug 17, `equipe_nomes` string JSON em pastagens vs array em rodeio
+### Bug 17, `equipe_nomes` string JSON em pastagens vs array em rodeio (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P2
 - **Caderneta de origem**: Pastagens, Rodeio
@@ -208,7 +208,7 @@ Data vazia vira `''` no payload. Para `timestamptz` NOT NULL, gera `invalid inpu
 - **Afeta Painel Web**: Sim, se consome `equipe_nomes` em listagens ou relatórios
 - **Arquivos**: `frontend/src/services/syncService.ts:224` (pastagens) vs `245` (rodeio)
 
-Pastagens faz `JSON.stringify` (vira string no jsonb), rodeio passa direto (vai array). Mesma coluna com formas diferentes quebra leitura unificada.
+Pastagens faz `JSON.stringify` (vira string no jsonb), rodeio passa direto (vai array). Mesma coluna com formas diferentes quebra leitura unificada. Correção: pastagens agora passa o array direto como rodeio. Coluna é `jsonb` em ambas as tabelas. Rodeio já gravava como array (`jsonb_typeof = 'array'`). Pastagens não tinha dados existentes com `equipe_nomes`, então não precisa de backfill. Painel Web já lidava com ambos os formatos (`Array.isArray(value) ? value.join(', ') : value`), mas agora só recebe array.
 
 ### Bug 18, `processQueue` catch pode abortar fila
 

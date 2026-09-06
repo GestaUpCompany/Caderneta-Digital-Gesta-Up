@@ -222,7 +222,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         },
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
-        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? JSON.stringify(registro.equipeNomes) : null,
+        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,
       }
     case 'rodeio':
       return {
