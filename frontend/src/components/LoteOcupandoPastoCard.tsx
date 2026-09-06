@@ -52,11 +52,11 @@ export default function LoteOcupandoPastoCard({ detalhes, processarCategorias }:
         </div>
         <div>
           <p className="text-gray-500 font-semibold">N° CABEÇAS</p>
-          <p className="text-gray-900 font-bold">{detalhes.n_cabecas !== undefined ? detalhes.n_cabecas : '-'}</p>
+          <p className="text-gray-900 font-bold">{detalhes.n_cabecas != null ? detalhes.n_cabecas : '-'}</p>
         </div>
         <div>
           <p className="text-gray-500 font-semibold">PESO VIVO ATUAL(kg)</p>
-          <p className="text-gray-900 font-bold">{detalhes.peso_vivo_kg !== undefined ? detalhes.peso_vivo_kg.toFixed(2) : '-'}</p>
+          <p className="text-gray-900 font-bold">{detalhes.peso_vivo_kg != null ? detalhes.peso_vivo_kg.toFixed(2) : '-'}</p>
         </div>
         <div className="col-span-2">
           <p className="text-gray-500 font-semibold">TOTAL CABEÇAS</p>

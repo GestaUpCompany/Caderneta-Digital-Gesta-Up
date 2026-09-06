@@ -70,7 +70,7 @@ O `id` local gerado por `generateId` não é UUID, então `registroToSupabase` o
 
 ## P1, Altos
 
-### Bug 5, Crash de UI quando `peso_vivo_kg` é null
+### Bug 5, Crash de UI quando `peso_vivo_kg` é null (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P1
 - **Caderneta de origem**: Transversal (qualquer caderneta que abre card de lote: suplementacao, leitura-cocho, trato-confinamento, pastagens, rodeio, movimentacao, maternidade, enfermaria, morte)
@@ -78,7 +78,7 @@ O `id` local gerado por `generateId` não é UUID, então `registroToSupabase` o
 - **Afeta Painel Web**: Não (UI do PWA)
 - **Arquivos**: `frontend/src/components/LoteDetalhesCard.tsx:71`, `frontend/src/components/LoteOcupandoPastoCard.tsx:59`
 
-`detalhes.peso_vivo_kg !== undefined ? detalhes.peso_vivo_kg.toFixed(2) : '-'`. Se o banco retorna `null`, `null !== undefined` é `true`, então executa `null.toFixed(2)` e crasha o card. Correção: trocar `!== undefined` por `!= null`.
+`detalhes.peso_vivo_kg !== undefined ? detalhes.peso_vivo_kg.toFixed(2) : '-'`. Se o banco retorna `null`, `null !== undefined` é `true`, então executa `null.toFixed(2)` e crasha o card. Correção: trocar `!== undefined` por `!= null` em `LoteDetalhesCard.tsx:71`, `LoteOcupandoPastoCard.tsx:55` (n_cabecas) e `LoteOcupandoPastoCard.tsx:59` (peso_vivo_kg).
 
 ### Bug 6, LeituraCocho: rascunho e useEffect não acompanham data selecionada
 
