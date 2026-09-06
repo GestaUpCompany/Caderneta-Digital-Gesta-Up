@@ -44,11 +44,16 @@ async function refreshAccessToken(): Promise<string | null> {
     })
 
     if (!response.ok) {
-      console.error('Erro ao refresh token:', await response.text())
-      // Clear invalid tokens
-      localStorage.removeItem('supabase_token')
-      localStorage.removeItem('supabase_refresh_token')
-      stopTokenRefresh()
+      const statusCode = response.status
+      console.error('Erro ao refresh token:', statusCode, await response.text())
+      // So limpar tokens em erro de auth definitivo (400 = refresh token invalido/expirado,
+      // 401 = nao autorizado, 403 = proibido). Erros 5xx, timeout e rede instavel sao
+      // transitorios: manter tokens atuais para que proximas tentativas usem o cliente autenticado.
+      if (statusCode === 400 || statusCode === 401 || statusCode === 403) {
+        localStorage.removeItem('supabase_token')
+        localStorage.removeItem('supabase_refresh_token')
+        stopTokenRefresh()
+      }
       return null
     }
 

@@ -21,7 +21,7 @@ Cada bug indica a(s) caderneta(s) onde foi encontrado (origem) e a(s) cadernetas
 
 ## P0, Críticos
 
-### Bug 1, `insumos-por-saida` nunca sincroniza para o Supabase
+### Bug 1, `insumos-por-saida` nunca sincroniza para o Supabase (NAO CORRIGIDO - tela em desenvolvimento)
 
 - **Severidade**: P0
 - **Caderneta de origem**: Saída de Insumos (`saida-insumos` / `insumos-por-saida`)
@@ -42,7 +42,7 @@ A store `insumos-por-saida` é mapeada para a tabela `insumos_por_saida` na linh
 
 O block de morte usava a lógica de avaliação geral (`isInverted ? !isSim : isSim`) que serve para pastagens/rodeio (campos como "BEBEDOUROS OK?" onde "Não" é problema). Em morte, os campos são diagnósticos clínicos ("ALGUMA SECREÇÃO NOS ORIFÍCIOS?") onde "Sim" é sempre o alerta. A lógica invertida fazia `animalSozinho: Sim` (problema) ser omitido e `animalSozinho: Não` (normal) ser exibido como alerta. A correção alinhou com o padrão do enfermaria (linhas 900-920): mostrar apenas quando `isSim`, ignorando a distinção invertido/não-invertido. Nota: a análise original do subagent sugeria trocar para `isInverted ? isSim : !isSim`, mas isso quebraria 17 dos 19 campos de diagnóstico onde "Sim" é o problemático.
 
-### Bug 3, Falta de idempotência gera duplicatas em quase todas as cadernetas
+### Bug 3, Falta de idempotência gera duplicatas em quase todas as cadernetas (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P0
 - **Caderneta de origem**: Todas que usam `createRegistro*` (maternidade, pastagens, rodeio, suplementacao, bebedouros, movimentacao, enfermaria, morte, clima, abastecimento, cantina, limpeza, operacoes-maquinas, manutencao-maquinas, saida-insumos, problemas, almoxarifado, leitura-cocho, trato-confinamento)
@@ -50,9 +50,11 @@ O block de morte usava a lógica de avaliação geral (`isInverted ? !isSim : is
 - **Afeta Painel Web**: Sim, duplicatas corrompem relatórios e disparam triggers de `quant_atual` duas vezes
 - **Arquivos**: `frontend/src/services/syncService.ts` (todos os cases de `createRegistro*`), `frontend/src/services/supabaseService.ts` (`.insert` sem `upsert`), `frontend/src/services/api.ts:185`
 
-O `id` local gerado por `generateId` não é UUID, então `registroToSupabase` omite o `id` para a maioria das tabelas e o Supabase gera um UUID remoto. O `supabaseId` retornado pelo `.select().single()` é descartado, exceto para `entrada-insumos` (linhas 655-661). Em timeout/retry/reenvio, o registro é recriado como novo INSERT, gerando duplicata. A correção estrutural exige adicionar coluna `local_id` nas tabelas + `upsert` com `onConflict`, migração coordenada com o Painel Web.
+O `id` local gerado por `generateId` não é UUID, então `registroToSupabase` omite o `id` para a maioria das tabelas e o Supabase gera um UUID remoto. O `supabaseId` retornado pelo `.select().single()` é descartado, exceto para `entrada-insumos` (linhas 655-661). Em timeout/retry/reenvio, o registro é recriado como novo INSERT, gerando duplicata.
 
-### Bug 4, Refresh de token invalida sessão em falha transitória
+**Correção aplicada**: adicionada coluna `local_id text` + unique index (nao-partial, PostgreSQL permite multiplos NULLs) em 18 tabelas de registros seguras via migration `20260905200000_add_local_id_idempotencia.sql`. O `registroToSupabase` agora inclui `local_id: registro.id` no payload. As 18 funcoes `createRegistro*` em `supabaseService.ts` foram trocadas de `.insert()` para `.upsert(..., { onConflict: 'local_id' })` com `.select().single()` para capturar o UUID retornado. O `syncService.ts` grava o `supabaseId` retornado no IndexedDB local. Tabelas de insumos (entrada/saida + itens) ficam de fora porque as telas estao em desenvolvimento e seus triggers de estoque exigem design separado. Migration aplicada em producao e registrada em `supabase_migrations.schema_migrations`. Testado na fazenda de testes: upsert com mesmo `local_id` faz UPDATE (nao duplica), e multiplos INSERTs com `local_id=NULL` (Painel Web) coexistem sem conflito.
+
+### Bug 4, Refresh de token invalida sessão em falha transitória (CORRIGIDO 05/09/2026)
 
 - **Severidade**: P0
 - **Caderneta de origem**: Transversal (afeta todas as cadernetas que sincronizam)
@@ -61,6 +63,8 @@ O `id` local gerado por `generateId` não é UUID, então `registroToSupabase` o
 - **Arquivo**: `frontend/src/services/supabaseClient.ts:46-52`
 
 `refreshAccessToken` apaga `supabase_token` e `supabase_refresh_token` sempre que `!response.ok`, incluindo 5xx, timeout e rede instável. O peão fica deslogado sem aviso e escritas subsequentes usam cliente anônimo, falhando na RLS silenciosamente. O correto seria manter o token atual enquanto válido e só limpar em erro de auth definitivo (401/403).
+
+**Correção aplicada**: o bloco `!response.ok` agora verifica o status code. So limpa tokens em `400` (refresh token invalido/expirado), `401` (nao autorizado) ou `403` (proibido), que sao erros de auth definitivos. Erros `5xx`, timeout e falhas de rede retornam `null` mas mantem os tokens no localStorage, permitindo que proximas tentativas usem o cliente autenticado em vez do anonimo.
 
 ---
 
