@@ -824,11 +824,10 @@ export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
         totalPesoAtual += Number(cat.peso_vivo_atual_kg_cab) * quant
       }
     } else {
-      catsSemAjuste++
       const pesoInicio = pcpMap[cat.id]
-      if (pesoInicio != null) {
-        totalPesoInicio += pesoInicio * quant
-      }
+      if (pesoInicio == null) continue // sem peso_inicio na personalizacao, nao pode projetar esta categoria
+      catsSemAjuste++
+      totalPesoInicio += pesoInicio * quant
     }
 
     totalGmd += gmd * quant
