@@ -20,6 +20,7 @@ import FuncionarioLoginModal from '../components/FuncionarioLoginModal'
 import LongPressButton from '../components/LongPressButton'
 import { useFuncionarioAuth } from '../hooks/useFuncionarioAuth'
 import { useAppLock } from '../hooks/useAppLock'
+import { useCadastroSyncState } from '../hooks/useCadastroSyncState'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -27,6 +28,7 @@ export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId } = useSelector((state: RootState) => state.config)
+  const { active: cadastroSyncActive } = useCadastroSyncState()
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null)
   const [syncErrors, setSyncErrors] = useState<string[]>([])
@@ -439,8 +441,8 @@ export default function Home() {
               )}
             </button>
 
-            {/* Sync Status Card */}
-            {(syncing || syncErrors.length > 0 || (!syncing && syncErrors.length === 0 && syncProgress === null)) && (
+            {/* Sync Status Card: oculto enquanto o overlay global de cadastro bloqueia a tela */}
+            {!cadastroSyncActive && (syncing || syncErrors.length > 0 || (!syncing && syncErrors.length === 0 && syncProgress === null)) && (
               <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
                 {syncing && syncProgress && (
                   <>
