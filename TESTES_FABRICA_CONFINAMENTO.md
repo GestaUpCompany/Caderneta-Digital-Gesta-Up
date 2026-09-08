@@ -341,31 +341,32 @@
 - [x] Limpar leituras de cocho do dia anterior
 - [x] Recarregar Fábrica Confinamento
 - [x] `kgBaseDia` = total real do dia anterior (sem ajuste, fatorAjuste = 1)
-- [x] Trato final com compensação: 1,8 kg (apenas A2 tem pequena sobra)
+- [x] Trato final com compensação: 550,1 kg (soma dos restos de cada curral após tratos 1-3)
 
-**Resultado (05/09/2026)**:
+**Resultado (07/09/2026)**:
 - Leituras de cocho removidas do Supabase
-- Fábrica recarregada: trato 4 de 4, total previsto 1,8 kg
+- Fábrica recarregada: trato 4 de 4, total previsto 550,1 kg
 - Sem leitura, kgBaseDia = total real do dia anterior (808,95 para Lote A, 566,27 para Lote D)
-- Compensação: A1=0, A2=1,8 (diferença de 1,8 kg do trato 4 distribuído a menos), D1=0, D2=0
+- Compensação: A1=161,79, A2=161,79 (808,95 - 647,16), D1=113,25, D2=113,25 (566,27 - 453,02)
+- O trato final subtrai apenas os tratos anteriores (ordem_trato < ordemAtual), não o trato corrente
 - Confirma que sem leitura o sistema segue o total do dia anterior sem ajuste
 
 ### TC-21 — Leitura chega no meio do dia: compensação no último trato
 
 **Modelo**: o operador começa o dia sem leitura (segue dia anterior). A leitura chega após o trato 2. O operador recarrega a tela (botão Atualizar ou auto-sync online). O `kgBaseDia` muda. Os tratos 1-2 já foram produzidos com o base antigo. O trato 4 compensa a diferença entre o novo total diário e o já produzido.
 
-- [x] Sem leitura: total previsto 1,8 kg (TC-20)
+- [x] Sem leitura: total previsto 550,1 kg (TC-20)
 - [x] Inserir leitura de cocho (nota 0, +5% Lote A; nota 2, -5% Lote D) no Supabase
 - [x] Recarregar Fábrica (botão Atualizar)
 - [x] `kgBaseDia` muda (Lote A +5%, Lote D -5%)
-- [x] Trato 4: previsto = novo total diário ajustado - já distribuído = 82,7 kg (compensa a diferença)
-- [x] O trato 4 não fica negativo (Math.max(0, ...)): Lote D = 0 kg porque distribuído excede novo total
+- [x] Trato 4: previsto = novo total diário ajustado - já distribuído = 574,4 kg (compensa a diferença)
+- [x] O trato 4 não fica negativo (Math.max(0, ...))
 
-**Resultado (05/09/2026)**:
-- Sem leitura: total previsto 1,8 kg (fatorAjuste = 1)
-- Com leitura (+5% Lote A, -5% Lote D): total previsto 82,7 kg (fatorAjuste aplicado)
+**Resultado (07/09/2026)**:
+- Sem leitura: total previsto 550,1 kg (fatorAjuste = 1)
+- Com leitura (+5% Lote A, -5% Lote D): total previsto 574,4 kg (fatorAjuste aplicado)
 - O trato final compensa automaticamente a diferença quando a leitura chega
-- Math.max(0, ...) garante que o trato não fica negativo (Lote D = 0)
+- Math.max(0, ...) garante que o trato não fica negativo
 
 ### TC-22 — Produção parcial com complemento offline
 
