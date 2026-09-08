@@ -102,6 +102,7 @@ export default function SuplementacaoListaPage() {
           kg_cocho: r.kgCocho ? Number(r.kgCocho) : null,
           kg_deposito: r.kgDeposito ? Number(r.kgDeposito) : null,
           formulacao: r.formulacao,
+          n_cabecas: r.nCabecasLote ? Number(r.nCabecasLote) : null,
         }))
 
       const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao, registro.id)

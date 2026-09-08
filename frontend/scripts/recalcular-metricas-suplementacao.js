@@ -56,7 +56,7 @@ function filtrarRegistrosPorFormulacao(registros, nomeFormulacao) {
   return registros.filter(reg => reg.formulacao === nomeFormulacao)
 }
 
-function calcularIntervalosTratos(registros) {
+function calcularIntervalosTratos(registros, fallbackCabecas) {
   const ordenados = ordenarRegistrosPorData(registros)
   const intervalos = []
 
@@ -67,13 +67,20 @@ function calcularIntervalosTratos(registros) {
     const fim = dataSemHoraUTC(proximo.data)
     const dias = diferencaDias(inicio, fim)
     const kgCocho = Number(atual.kg_cocho) || 0
+    const nCabecas = atual.n_cabecas && Number(atual.n_cabecas) > 0
+      ? Number(atual.n_cabecas)
+      : fallbackCabecas
+    const consumoDiarioMN = kgCocho / dias
+    const consumoDiarioPorAnimal = nCabecas > 0 ? consumoDiarioMN / nCabecas : consumoDiarioMN
 
     intervalos.push({
       inicio,
       fim,
       dias,
       kgCocho,
-      consumoDiarioMN: kgCocho / dias,
+      nCabecas,
+      consumoDiarioMN,
+      consumoDiarioPorAnimal,
     })
   }
 
@@ -81,7 +88,7 @@ function calcularIntervalosTratos(registros) {
 }
 
 function calcularMediaPorDiasCobertos(intervalos, dataInicio, dataFim) {
-  let totalMN = 0
+  let totalPorAnimal = 0
   let diasCobertos = 0
 
   const atual = new Date(dataInicio)
@@ -90,13 +97,13 @@ function calcularMediaPorDiasCobertos(intervalos, dataInicio, dataFim) {
       int => atual >= int.inicio && atual < int.fim
     )
     if (intervalo) {
-      totalMN += intervalo.consumoDiarioMN
+      totalPorAnimal += intervalo.consumoDiarioPorAnimal
       diasCobertos++
     }
     atual.setUTCDate(atual.getUTCDate() + 1)
   }
 
-  return diasCobertos > 0 ? totalMN / diasCobertos : null
+  return diasCobertos > 0 ? totalPorAnimal / diasCobertos : null
 }
 
 function calcularMetricasSuplementacao(categorias, registros, formulacao, registroAtualId) {
@@ -148,7 +155,9 @@ function calcularMetricasSuplementacao(categorias, registros, formulacao, regist
   }
 
   // Intervalos considerando todos os registros do lote, independente da formulação
-  const intervalos = calcularIntervalosTratos(registros)
+  // O fallback (animaisElegiveis atuais do lote) é usado quando um registro histórico
+  // não possui n_cabecas registrado (registros muito antigos).
+  const intervalos = calcularIntervalosTratos(registros, animaisElegiveis)
 
   if (intervalos.length === 0) {
     return {
@@ -163,34 +172,21 @@ function calcularMetricasSuplementacao(categorias, registros, formulacao, regist
     }
   }
 
-  // Consumo geral: individual do registro atual, baseado no intervalo até o próximo
-  // O último registro do lote não tem consumo (null)
-  const ordenados = ordenarRegistrosPorData(registros)
-  let consumoMedioGeralKgMN = null
+  // Média geral: cobre do primeiro trato até o início do último trato (métrica do lote)
+  const dataInicioGeral = intervalos[0].inicio
+  const dataFimGeral = intervalos[intervalos.length - 1].fim
+  const mediaMNGeral = calcularMediaPorDiasCobertos(intervalos, dataInicioGeral, dataFimGeral)
 
-  if (registroAtualId) {
-    const idx = ordenados.findIndex(r => r.id === registroAtualId)
-    if (idx >= 0 && idx < ordenados.length - 1) {
-      const atual = ordenados[idx]
-      const proximo = ordenados[idx + 1]
-      const inicio = dataSemHoraUTC(atual.data)
-      const fim = dataSemHoraUTC(proximo.data)
-      const dias = diferencaDias(inicio, fim)
-      const kgCocho = Number(atual.kg_cocho) || 0
-      consumoMedioGeralKgMN = (kgCocho / dias) / animaisElegiveis
-    }
-  }
+  const consumoMedioGeralKgMN = mediaMNGeral
 
-  // Média 30 dias: média dos consumos diários dos últimos 30 dias (métrica do lote)
+  // Média 30 dias: cobre os últimos 30 dias até hoje (métrica do lote)
   const hoje = new Date()
   hoje.setUTCHours(0, 0, 0, 0)
   const inicio30Dias = new Date(hoje)
   inicio30Dias.setUTCDate(hoje.getUTCDate() - 30)
   const mediaMN30Dias = calcularMediaPorDiasCobertos(intervalos, inicio30Dias, hoje)
 
-  const consumoMedio30DiasKgMN = mediaMN30Dias !== null
-    ? mediaMN30Dias / animaisElegiveis
-    : null
+  const consumoMedio30DiasKgMN = mediaMN30Dias
 
   const teorMs = formulacao.teor_ms_dieta
   const fatorMs = teorMs ? teorMs / 100 : null
@@ -291,6 +287,7 @@ async function main() {
       kg_cocho: reg.kg_cocho,
       kg_deposito: reg.kg_deposito,
       formulacao: reg.formulacao,
+      n_cabecas: reg.n_cabecas,
     })
   })
 

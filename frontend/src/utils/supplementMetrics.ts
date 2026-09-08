@@ -20,6 +20,7 @@ interface RegistroSuplementacao {
   kg_cocho: number | null
   kg_deposito: number | null
   formulacao: string | null
+  n_cabecas?: number | null
 }
 
 interface Formulacao {
@@ -50,7 +51,9 @@ interface IntervaloTrato {
   fim: Date
   dias: number
   kgCocho: number
+  nCabecas: number
   consumoDiarioMN: number
+  consumoDiarioPorAnimal: number
 }
 
 // Todas as categorias são consideradas elegíveis (incluindo bezerros)
@@ -107,7 +110,8 @@ function calcularPesoVivoMedio(categorias: LoteCategoria[]): number | null {
 }
 
 function calcularIntervalosTratos(
-  registros: RegistroSuplementacao[]
+  registros: RegistroSuplementacao[],
+  fallbackCabecas: number
 ): IntervaloTrato[] {
   const ordenados = ordenarRegistrosPorData(registros)
   const intervalos: IntervaloTrato[] = []
@@ -119,13 +123,21 @@ function calcularIntervalosTratos(
     const fim = dataSemHoraUTC(proximo.data)
     const dias = diferencaDias(inicio, fim)
     const kgCocho = atual.kg_cocho || 0
+    // Usa o n_cabecas registrado no trato de origem do intervalo (snapshot do
+    // número de animais naquele período). Se o registro não tiver n_cabecas
+    // (registros antigos ou importados sem o campo), cai no fallback do lote.
+    const nCabecas = atual.n_cabecas && atual.n_cabecas > 0 ? atual.n_cabecas : fallbackCabecas
+    const consumoDiarioMN = kgCocho / dias
+    const consumoDiarioPorAnimal = nCabecas > 0 ? consumoDiarioMN / nCabecas : consumoDiarioMN
 
     intervalos.push({
       inicio,
       fim,
       dias,
       kgCocho,
-      consumoDiarioMN: kgCocho / dias
+      nCabecas,
+      consumoDiarioMN,
+      consumoDiarioPorAnimal,
     })
   }
 
@@ -137,7 +149,7 @@ function calcularMediaPorDiasCobertos(
   dataInicio: Date,
   dataFim: Date
 ): number | null {
-  let totalMN = 0
+  let totalPorAnimal = 0
   let diasCobertos = 0
 
   const atual = new Date(dataInicio)
@@ -146,13 +158,13 @@ function calcularMediaPorDiasCobertos(
       int => atual >= int.inicio && atual < int.fim
     )
     if (intervalo) {
-      totalMN += intervalo.consumoDiarioMN
+      totalPorAnimal += intervalo.consumoDiarioPorAnimal
       diasCobertos++
     }
     atual.setUTCDate(atual.getUTCDate() + 1)
   }
 
-  return diasCobertos > 0 ? totalMN / diasCobertos : null
+  return diasCobertos > 0 ? totalPorAnimal / diasCobertos : null
 }
 
 function nullMetrics(
@@ -214,7 +226,9 @@ export function calcularMetricasSuplementacao(
   }
 
   // Calcular intervalos considerando todos os registros do lote, independente da formulação
-  const intervalos = calcularIntervalosTratos(registros)
+  // O fallback (animaisElegiveis atuais do lote) é usado quando um registro histórico
+  // não possui n_cabecas registrado (registros muito antigos).
+  const intervalos = calcularIntervalosTratos(registros, animaisElegiveis)
 
   if (intervalos.length === 0) {
     return nullMetrics(
@@ -228,9 +242,7 @@ export function calcularMetricasSuplementacao(
   const dataFimGeral = intervalos[intervalos.length - 1].fim
   const mediaMNGeral = calcularMediaPorDiasCobertos(intervalos, dataInicioGeral, dataFimGeral)
 
-  const consumoMedioGeralKgMN = mediaMNGeral !== null && animaisElegiveis > 0
-    ? mediaMNGeral / animaisElegiveis
-    : null
+  const consumoMedioGeralKgMN = mediaMNGeral
 
   // Média 30 dias: cobre os últimos 30 dias até hoje (métrica do lote, mesma para todos os registros em MN)
   const hoje = new Date()
@@ -239,9 +251,7 @@ export function calcularMetricasSuplementacao(
   inicio30Dias.setUTCDate(hoje.getUTCDate() - 30)
   const mediaMN30Dias = calcularMediaPorDiasCobertos(intervalos, inicio30Dias, hoje)
 
-  const consumoMedio30DiasKgMN = mediaMN30Dias !== null && animaisElegiveis > 0
-    ? mediaMN30Dias / animaisElegiveis
-    : null
+  const consumoMedio30DiasKgMN = mediaMN30Dias
 
   // Cálculos de MS e %PV
   const teorMs = formulacao.teor_ms_dieta
