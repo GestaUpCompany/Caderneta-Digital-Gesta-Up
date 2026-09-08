@@ -98,7 +98,7 @@ export default function ProgramacaoHojePage() {
     'entrada-insumos': [FAZENDA_INSUMOS],
     'saida-insumos': [FAZENDA_INSUMOS],
   }
-  const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento']
+  const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
 
   const programacaoMap = new Map(programacao.map((id) => [id, true]))
   const cadernetasProgramadas = CADERNETAS.filter(

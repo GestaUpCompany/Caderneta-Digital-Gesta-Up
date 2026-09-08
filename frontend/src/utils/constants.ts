@@ -66,6 +66,7 @@ export const CADERNETAS = [
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', disponivel: true, grupo: 'Confinamento' },
   { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '🌽', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#A0522D', disponivel: true, grupo: 'Confinamento' },
+  { id: 'fabrica-confinamento', label: 'FÁBRICA CONFINAMENTO', emoji: '🏭', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#8B4513', disponivel: true, grupo: 'Confinamento' },
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES DE MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas & Combustível' },
   { id: 'manutencao-maquinas', label: 'MANUTENÇÃO DE MÁQUINAS', emoji: '🔧', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', disponivel: true, grupo: 'Máquinas & Combustível' },
   { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', disponivel: true, grupo: 'Máquinas & Combustível' },

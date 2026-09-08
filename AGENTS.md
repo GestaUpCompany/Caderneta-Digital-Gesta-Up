@@ -31,6 +31,23 @@ Projeto Supabase: `nrwljcvhwbezmoummxbl` ("Cadernetas Digitais")
 
 ## Débitos técnicos pendentes
 
+### Sync de insumos da Fábrica Confinamento (RESOLVIDO 04/09/2026)
+
+**Problema**: os insumos de `fabrica-confinamento-insumos` não sincronizavam para o Supabase. O `registro_id` no IndexedDB apontava para o ID local (formato `xxxxxxxx-timestamp`, não-UUID), enquanto o Supabase gerava um UUID próprio para o registro master em `registros_fabrica_confinamento`. A FK `registro_id` violada causava erro silencioso e os insumos ficavam presos na sync queue com retry infinito.
+
+**Causa raiz**: o case `registros_fabrica_confinamento` em `syncToSupabase` usava `.upsert(data)` sem `.select()`, não capturando o UUID retornado pelo Supabase. O case `registros_fabrica_confinamento_insumos` enviava `id: registro.id` (não-UUID) no payload, que o Supabase rejeitava.
+
+**Correção aplicada** (`syncService.ts`):
+1. Master: trocado `upsert` por `.insert(data).select().single()`, capturando o UUID retornado. Após insert, atualiza o registro local com `supabaseId` e atualiza todos os insumos filhos trocando `registroId` local pelo UUID do Supabase (mesmo padrão já usado em `entrada-insumos`, linhas 684-701).
+2. Insumos: removido `id: registro.id` do payload em `registroToSupabase` (Supabase gera o UUID). Trocado `upsert` por `insert` no sync.
+3. `validateFabricaConfinamento`: adicionado `isValidDateWithTime` que aceita `DD/MM/AAAA HH:mm` (o `salvarRegistro` concatena a hora antes de validar).
+4. `handleSalvar` em `FabricaConfinamentoPage.tsx`: removida duplicação de hora (passa `data` sem hora para o master; a concatenação para os insumos é feita separadamente).
+5. `concluido`: adicionada tolerância de 0,5 kg na comparação `totalProduzidoNum >= totalPrevisto - jaProduzidoNoTrato` para evitar false por diferença de arredondamento.
+
+**Validação** (fazenda `d649c65e-16ab-4b77-a84b-df937aa41cc3`): produzido trato 1 de Terminação Boi (825,1 kg), master sincronizou com `concluido = true`, 3 insumos sincronizaram com `registro_id` apontando para o UUID do master, sync queue vazia.
+
+**Débito não resolvido por essa mudança**: idempotência via `local_id` nas 21 tabelas de registros continua pendente. Se o sync do master suceder mas a resposta se perder antes de atualizar os insumos, a janela de risco permanece. A correção estrutural exige adicionar coluna `local_id` + `upsert` com `onConflict`, migração coordenada com o Painel Web.
+
 ### Tela de auditoria de erros de sync no Painel Web (rota /admin)
 
 **Contexto**: a tabela `logs_sync_errors` no Supabase já é gravada pelo PWA (via `logSyncError` em syncService.ts) e agora também por triggers do banco (ver abaixo). Mas não existe nenhuma interface para ler essa tabela. Hoje só é acessível via SQL direto no Supabase Studio, o que impede auditoria operacional por alguém não-técnico.
