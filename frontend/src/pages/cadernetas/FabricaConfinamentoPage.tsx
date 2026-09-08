@@ -858,7 +858,7 @@ export default function FabricaConfinamentoPage() {
           className="h-11 w-11 shrink-0 rounded-xl object-contain shadow-lg shadow-black/10"
         />
       }
-      rightContent={
+      titleRowRightContent={
         <button
           onClick={() => carregarDados()}
           disabled={carregando}

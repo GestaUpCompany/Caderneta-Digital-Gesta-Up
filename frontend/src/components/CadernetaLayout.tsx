@@ -18,6 +18,7 @@ interface CadernetaLayoutProps {
   centerContent?: ReactNode
   leftContent?: ReactNode
   rightContent?: ReactNode
+  titleRowRightContent?: ReactNode
   bottomContent?: ReactNode
 }
 
@@ -33,6 +34,7 @@ export default function CadernetaLayout({
   centerContent,
   leftContent,
   rightContent,
+  titleRowRightContent,
   bottomContent,
 }: CadernetaLayoutProps) {
   const { acessoId, fazenda } = useSelector((state: RootState) => state.config)
@@ -74,6 +76,7 @@ export default function CadernetaLayout({
         centerContent={centerContent}
         leftContent={leftContent}
         rightContent={rightContent}
+        titleRowRightContent={titleRowRightContent}
       />
 
       {/* Logos não sticky */}

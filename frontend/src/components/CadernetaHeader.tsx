@@ -13,6 +13,7 @@ interface CadernetaHeaderProps {
   centerContent?: ReactNode
   leftContent?: ReactNode
   rightContent?: ReactNode
+  titleRowRightContent?: ReactNode
   className?: string
 }
 
@@ -26,6 +27,7 @@ export default function CadernetaHeader({
   centerContent,
   leftContent,
   rightContent,
+  titleRowRightContent,
   className = '',
 }: CadernetaHeaderProps) {
   const navigate = useNavigate()
@@ -91,9 +93,12 @@ export default function CadernetaHeader({
           </div>
         </div>
 
-        <div className={`mt-3 flex items-center gap-2 ${dateContent ? 'justify-between' : 'justify-center'}`}>
+        <div className={`relative mt-3 flex items-center gap-2 ${dateContent ? 'justify-between' : 'justify-center'}`}>
           <h1 className="min-w-0 whitespace-nowrap text-lg font-extrabold leading-tight tracking-tight">{title}</h1>
           {dateContent && <div className="shrink-0">{dateContent}</div>}
+          {titleRowRightContent && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">{titleRowRightContent}</div>
+          )}
         </div>
 
         {extraHeaderContent}
