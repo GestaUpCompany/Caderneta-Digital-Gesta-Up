@@ -16,7 +16,7 @@ import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { brWithTimeToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
-import { normalizarNumeroString } from '../utils/formatNumber'
+import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -532,10 +532,10 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote_id: registro.loteId || null,
         ordem_trato: Number(registro.ordemTrato) || null,
         kg_planejado: registro.kgPlanejado !== '' && registro.kgPlanejado !== null && registro.kgPlanejado !== undefined
-          ? Number(registro.kgPlanejado)
+          ? normalizarNumero(registro.kgPlanejado as string)
           : null,
         kg_ofertado_real: registro.kgReal !== '' && registro.kgReal !== null && registro.kgReal !== undefined
-          ? Number(registro.kgReal)
+          ? normalizarNumero(registro.kgReal as string)
           : null,
         leitura_cocho_nota: registro.leituraCochoNota !== '' && registro.leituraCochoNota !== null && registro.leituraCochoNota !== undefined
           ? Number(registro.leituraCochoNota)
@@ -552,23 +552,24 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         formulacao_id: registro.formulacaoId || null,
         vagao_id: registro.vagaoId || null,
         total_previsto: registro.totalPrevisto !== '' && registro.totalPrevisto !== null && registro.totalPrevisto !== undefined
-          ? Number(registro.totalPrevisto)
+          ? (normalizarNumero(registro.totalPrevisto as string | number) ?? 0)
           : 0,
         total_produzido: registro.totalProduzido !== '' && registro.totalProduzido !== null && registro.totalProduzido !== undefined
-          ? Number(registro.totalProduzido)
+          ? (normalizarNumero(registro.totalProduzido as string | number) ?? 0)
           : 0,
         concluido: registro.concluido === true || registro.concluido === 'true',
       }
     }
     case 'fabrica-confinamento-insumos': {
       return {
+        local_id: registro.id,
         registro_id: registro.registroId || null,
         insumo_id: registro.insumoId || null,
         kg_previsto: registro.kgPrevisto !== '' && registro.kgPrevisto !== null && registro.kgPrevisto !== undefined
-          ? Number(registro.kgPrevisto)
+          ? (normalizarNumero(registro.kgPrevisto as string | number) ?? 0)
           : 0,
         kg_produzido: registro.kgProduzido !== '' && registro.kgProduzido !== null && registro.kgProduzido !== undefined
-          ? Number(registro.kgProduzido)
+          ? (normalizarNumero(registro.kgProduzido as string | number) ?? 0)
           : 0,
         ordem: Number(registro.ordem) || 0,
       }

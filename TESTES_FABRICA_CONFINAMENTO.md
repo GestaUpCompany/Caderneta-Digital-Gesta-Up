@@ -3,12 +3,14 @@
 > Roteiro vivo. Cada caso deve ser testado individualmente, validando tela e fluxo.
 > Marcar `[x]` quando passar, `[ ]` quando pendente, `[~]` quando em progresso.
 > Adicionar novos casos abaixo dos existentes conforme surgirem.
+>
+> Os casos TC-01 a TC-28 registram uma bateria histórica executada com a programação 30/25/25/20. A bateria atual e independente, descrita em “Roteiro operacional independente”, usa 30/20/20/30 e deve ser a referência para os próximos testes.
 
 ## Contexto
 
 - **Fazenda de testes**: `d649c65e-16ab-4b77-a84b-df937aa41cc3` (Fazenda Gesta'Up)
 - **Tela**: `/caderneta/fabrica-confinamento`
-- **Pré-requisito**: 4 lotes ativos, 8 currais, 3 dietas, 3 vagões, programação 4 tratos/dia (30/25/25/20%)
+- **Pré-requisito**: 4 lotes ativos, 8 currais, 3 dietas, 3 vagões, programação 4 tratos/dia (30/20/20/30%)
 
 ## Casos de teste
 
@@ -559,3 +561,363 @@ Adicione novos casos abaixo desta linha, seguindo o formato:
 - [ ] passo 1
 - [ ] passo 2
 ```
+
+---
+
+# Roteiro operacional independente para testes manuais
+
+Esta seção é a bateria recomendada para a próxima rodada de testes. Cada roteiro abaixo é autônomo: deve começar com sua própria preparação, usar uma data de teste própria e terminar com sua própria verificação. O resultado do Roteiro A não é pré-requisito para o Roteiro B, e assim por diante.
+
+## Ambiente preparado
+
+A fazenda de testes foi preparada com os seguintes dados cadastrais:
+
+- Fazenda: Fazenda Gesta'Up, ID `d649c65e-16ab-4b77-a84b-df937aa41cc3`.
+- Registros operacionais de fábrica, trato e leitura de cocho removidos antes desta bateria.
+- Lote A, Curral A1: Terminação Boi.
+- Lote B, Curral B1: Recria Garrote.
+- Lote C, Curral C1: Terminação Novilha.
+- Lote D, Curral D1: Terminação Boi.
+- Currais A2, B2, C2 e D2 desativados para manter a relação 1:1 entre lote e curral.
+- Quatro tratos por dia: 30%, 20%, 20% e 30%.
+- Dietas ativas: Terminação Boi, Recria Garrote e Terminação Novilha.
+- Vagões ativos: Menta 2500, Kuhn Profile 12.2 DS e Storti Mix 16.
+- Notas de cocho configuradas: -1 = +10%, 0 = +5%, 1 = 0%, 2 = -5% e 3 = -10%.
+- Horários da programação: trato 1 às 07:00, trato 2 às 11:00, trato 3 às 15:00 e trato 4 às 18:00.
+- Totais esperados no primeiro dia para Terminação Boi: T1 = 412,6 kg, T2 = 275,0 kg, T3 = 275,0 kg e T4 = 412,6 kg.
+- Totais esperados no primeiro dia para Recria Garrote: T1 = 143,1 kg, T2 = 95,4 kg, T3 = 95,4 kg e T4 = 143,1 kg.
+- Totais esperados no primeiro dia para Terminação Novilha: T1 = 92,1 kg, T2 = 61,4 kg, T3 = 61,4 kg e T4 = 92,1 kg.
+
+### Verificação de praticabilidade dos valores de MN
+
+Os valores da programação foram conferidos por curral, usando o número de cabeças e o peso vivo médio registrados no snapshot da programação. A leitura correta é de matéria natural (MN) por curral e por dia, não de kg por cabeça.
+
+| Dieta/lotes | Cabeças por curral | Peso médio | MN/dia por curral | MN/cabeça/dia | Estimativa de MS/cabeça/dia | MS como % do peso |
+|---|---:|---:|---:|---:|---:|---:|
+| Terminação Boi, A e D | 50 / 35 | 500 / 400 kg | 808,95 / 566,27 kg | 16,18 / 16,18 kg | 9,26 / 9,26 kg | 1,85% / 2,31% |
+| Recria Garrote, B | 40 | 320 kg | 477,04 kg | 11,93 kg | 5,24 kg | 1,64% |
+| Terminação Novilha, C | 30 | 380 kg | 306,87 kg | 10,23 kg | 4,86 kg | 1,28% |
+
+A estimativa de MS usa os teores cadastrados e a composição de cada dieta: Terminação Boi = 57,20% de MS, Recria Garrote = 43,90% e Terminação Novilha = 47,45%. Os totais de 300 a 800 kg por curral são operacionais e compatíveis com vagões de 2.500 kg ou maiores. Para os lotes A e D, os consumos estimados também estão em faixa plausível para confinamento. A Terminação Novilha merece validação nutricional específica, porque 1,28% do peso vivo em MS é baixo para uma novilha em terminação se o lote estiver em confinamento total; isso pode ser intencional se houver outra fonte de consumo ou se o valor de `kg_mn_dia` for apenas uma base de teste.
+
+Esta conclusão valida a grandeza operacional para o teste, mas não substitui a conferência do nutricionista responsável. Durante os testes, registrar se o operador considera o valor praticável e se a sobra observada no cocho confirma a oferta.
+
+### Preparação obrigatória antes de qualquer roteiro
+
+1. Confirmar que o usuário está na Fazenda Gesta'Up.
+2. Limpar os registros operacionais do roteiro anterior, incluindo fábrica, insumos produzidos, trato e leitura de cocho.
+3. Limpar os stores de confinamento do IndexedDB no dispositivo que será usado no roteiro, ou remover os dados do site e recarregar o PWA.
+4. Fazer uma carga online dos cadastros e aguardar a confirmação de dados atualizados para uso offline.
+5. Anotar a data de teste escolhida. Não reutilizar a mesma data de outro roteiro.
+6. Ao terminar, guardar evidências da tela e da consulta de conferência. Não corrigir manualmente os registros antes de registrar o resultado.
+
+Se a limpeza exigir uma operação técnica, ela deve ser feita apenas na fazenda de testes. O operador manual não deve apagar registros de produção de uma fazenda real.
+
+## Roteiro A — Fábrica isolada, produção online
+
+**Objetivo**: validar a fábrica sem depender de trato ou leitura de cocho.
+
+**Preparação própria**: executar a preparação obrigatória, escolher a dieta Terminação Boi e confirmar que não existem registros de trato ou leitura na data.
+
+### Referência de valores por curral — Terminação Boi (30/20/20/30)
+
+A tela da fábrica mostra apenas a contagem de currais e o total previsto, sem listar os nomes ou valores individuais. Esta tabela serve para conferência manual durante o teste.
+
+| Curral | Lote | kg MN/dia | T1 (30%) | T2 (20%) | T3 (20%) | T4 (30%) |
+|---|---|---:|---:|---:|---:|---:|
+| A1 | Lote A | 808,95 | 242,7 | 161,8 | 161,8 | 242,7 |
+| D1 | Lote D | 566,27 | 169,9 | 113,3 | 113,3 | 169,9 |
+| **Total** | | **1.375,22** | **412,6** | **275,0** | **275,0** | **412,6** |
+
+### Passos
+
+1. Abrir Fábrica Confinamento.
+2. Selecionar dieta Terminação Boi.
+3. Confirmar na tela: trato atual "1 de 4", currais "4" e total previsto "825,1 kg".
+4. Selecionar o vagão Menta 2500. A tela mostra "Capacidade do vagão: 2.500 kg" em cinza abaixo do campo de total produzido.
+5. Digitar `3000` no campo Total Produzido. A borda do campo fica vermelha e aparece a mensagem "Excede a capacidade do vagão (2.500 kg)". O botão SALVAR fica desabilitado.
+6. Limpar o campo e digitar `825,1`. A mensagem de erro desaparece e o SALVAR habilita.
+7. Preencher os kg produzidos por insumo conforme a tabela abaixo e salvar.
+
+   | Insumo | % MN | Previsto | Produzido |
+   |---|---:|---:|---:|
+   | Silagem de Milho | 79,47% | 655,7 | 655,7 |
+   | Milho Grão Moído | 15,80% | 130,4 | 130,4 |
+   | Núcleo Mineral Bovino | 4,73% | 39,0 | 39,0 |
+
+8. Recarregar a tela. Confirmar que o trato 1 permanece registrado e concluído, sem mensagem de "trato em aberto".
+9. Avançar para o trato 2. Digitar `400` no Total Produzido, preencher os insumos proporcionalmente e salvar.
+10. Recarregar. Confirmar que o trato continua aberto, mostra "Já produzido neste trato: 400,0 kg" e "Faltam produzir 150,1 kg".
+11. Digitar `550,1` no Total Produzido (complemento), preencher os insumos e salvar. Confirmar que a complementação atualiza o registro existente, sem criar outro master para o mesmo trato.
+12. Tentar produzir novamente o trato 2 já concluído. A operação deve ser bloqueada ou claramente impedida.
+13. Confirmar que a fábrica não avança para o trato 3 apenas porque produziu. O avanço depende da distribuição correspondente no Trato Confinamento.
+14. Verificar a tela de Registros e confirmar os estados de produção parcial, completo e sincronizado.
+
+**Resultado esperado**: a fábrica calcula, salva, reabre e complementa produções corretamente, sem depender de registros de trato ou leitura. O aviso de capacidade do vagão aparece e bloqueia o salvamento quando o total excede o limite.
+
+## Roteiro B — Trato isolado, distribuição online sem registro de fábrica
+
+**Objetivo**: validar que o operador do trato consegue trabalhar com o plano, mesmo quando a fábrica ainda não lançou sua produção.
+
+**Preparação própria**: executar a preparação obrigatória, carregar o cache online e deixar a tabela de fábrica vazia na data do roteiro.
+
+### Referência de valores por curral — Terminação Boi, trato 1 (30%)
+
+A tela do Trato Confinamento mostra cada curral com seu nome e kg planejado individualmente. Estes são os valores esperados para o trato 1 sem leitura de cocho.
+
+| Curral | Lote | kg planejado T1 (30%) |
+|---|---|---:|
+| A1 | Lote A | 242,7 |
+| A2 | Lote A | 242,7 |
+| D1 | Lote D | 169,9 |
+| D2 | Lote D | 169,9 |
+
+### Passos
+
+1. Abrir Trato Confinamento.
+2. Confirmar que A1, A2, D1 e D2 aparecem com os valores planejados da tabela acima.
+3. Selecionar A1, digitar `242,7` no campo de kg real e salvar. Confirmar persistência local e sincronização.
+4. Sair e voltar à tela. Confirmar que A1 está registrado e os demais currais continuam pendentes.
+5. Tentar repetir A1 no mesmo trato. A tela deve bloquear a duplicidade ou informar que já foi distribuído.
+6. Distribuir A2 com `242,7`, D1 com `169,9` e D2 com `169,9`.
+7. Confirmar que a conclusão de todos os currais libera o próximo trato na fábrica, depois de atualizar os dados.
+8. Repetir o fluxo para o trato 2 (20%), usando `200` em A1 em vez de `161,8`, registrando a justificativa operacional. Os demais currais seguem o planejado: A2 = 161,8, D1 = 113,3, D2 = 113,3.
+9. Abrir Registros e confirmar os oito registros de distribuição (4 do trato 1 + 4 do trato 2), seus estados de sincronização e suas quantidades reais.
+
+**Resultado esperado**: o trato opera a partir do plano cacheado, não espera um registro da fábrica e não permite duplicação de distribuição.
+
+> **Débito técnico**: o passo 9 (abrir Registros e confirmar os oito registros de distribuição) não pôde ser executado porque não existe tela de lista de registros para Trato Confinamento nem para Leitura de Cocho. O botão "Registros" no header dessas telas redireciona para a Home. Criar as rotas `/caderneta/trato-confinamento/lista` e `/caderneta/leitura-cocho/lista` reusando o componente `ListaRegistros` (ou equivalente) para essas duas cadernetas.
+
+## Roteiro C — Leitura de cocho isolada
+
+**Objetivo**: validar todas as notas, a associação com lote/curral e a disponibilidade da leitura para os outros fluxos.
+
+**Preparação própria**: executar a preparação obrigatória sem criar registros de fábrica ou trato na data do roteiro.
+
+1. Abrir Leitura de Cocho.
+2. Registrar nota -1 em A1, nota 0 em A2, nota 1 em B1, nota 2 em C1 e nota 3 em D1.
+3. Confirmar na tela a descrição e o percentual de cada nota: +10%, +5%, 0%, -5% e -10%.
+4. Salvar cada leitura e confirmar o estado de sincronização.
+5. Recarregar a tela e confirmar que as leituras permanecem associadas aos respectivos lotes e currais.
+6. Corrigir uma leitura antes do ciclo seguinte, se a tela permitir edição, e confirmar que a versão mais recente prevalece sem duplicidade indevida.
+7. Abrir a lista de registros e conferir data, curral, lote, nota e sincronização.
+8. Verificar que a leitura não altera retrospectivamente um trato já distribuído.
+
+**Resultado esperado**: todas as notas são registradas com o significado correto, permanecem disponíveis no cache e só influenciam cálculos de tratos futuros.
+
+### Resultado da execução (08/09/2026)
+
+| Passo | Verificação | Resultado |
+|---|---|---|
+| 1 | Abrir Leitura de Cocho | OK, tela mostra 4 currais (A2, B2, C1, D2), um por lote |
+| 2 | Registrar notas -1, 0, 1, 2 | OK, A2=-1, B2=0, C1=1, D2=2 |
+| 3 | Confirmar descrição e percentual | OK: -1="Aumentar 10%", 0="Aumentar 5%", 1="Manter", 2="Diminuir 5%", 3="Diminuir 10%" |
+| 4 | Salvar e confirmar sync | OK, 4 registros synced no Supabase |
+| 5 | Recarregar e confirmar persistência | OK, todas as leituras permanecem associadas aos currais/lotes |
+| 6 | Corrigir leitura (D2 de 2 para 3) | **BUG**: criou novo registro em vez de atualizar. 5 registros no Supabase (D2 aparece 2x: nota 2 e nota 3) |
+| 7 | Abrir lista de registros | **Débito técnico**: tela de registros não existe para Leitura de Cocho |
+| 8 | Leitura não altera trato já distribuído | OK por design (não há tratos distribuídos no teste, mas a leitura só influencia tratos futuros) |
+
+**Bug 5: Leitura de Cocho permite duplicidade ao re-salvar o mesmo curral no mesmo dia, RESOLVIDO**
+
+**Sintoma**: ao selecionar um curral que já tinha leitura salva e clicar em outra nota + SALVAR, a tela criava um novo registro em vez de atualizar o existente.
+
+**Correção aplicada**: a tela identifica leituras já existentes para o curral na data atual, marca o registro como concluído, desabilita os botões de nota e exibe "Leitura já registrada para este curral hoje. Nova leitura bloqueada.". A função de salvamento também mantém uma verificação adicional no IndexedDB antes de enfileirar qualquer novo registro.
+
+**Validação**: após tentar alterar a nota do Curral A2, o Supabase permaneceu com apenas um registro para o curral e a tela não permitiu nova seleção ou salvamento.
+
+**Arquivo**: `frontend/src/pages/cadernetas/LeituraCochoPage.tsx`.
+
+## Roteiro D — Ciclo normal completo, leitura antes da fábrica
+
+**Objetivo**: validar o fluxo integrado do dia seguinte, começando com os tratos do dia anterior já concluídos, passando pela leitura de cocho da manhã, pela fábrica e terminando no trato.
+
+**Preparação própria**: executar a preparação obrigatória. Antes de iniciar a nova data, criar um conjunto completo de registros do dia anterior, com os quatro tratos produzidos e distribuídos. Depois escolher uma nova data de teste, sem registros operacionais, para representar a manhã seguinte. A leitura dessa nova data deve ajustar os valores previstos desse próprio dia.
+
+### Referência de valores ajustados para o trato 1
+
+A fábrica mostra um total agregado para a dieta. A distribuição individual deve ser conferida no Trato Confinamento, usando esta tabela:
+
+| Curral | Lote | Base MN/dia | Nota | Ajuste | Trato 1 (30%) |
+|---|---|---:|---:|---:|---:|
+| A1 | Lote A | 808,95 | 0 | +5% | 254,8 kg |
+| D1 | Lote D | 566,27 | 2 | -5% | 161,4 kg |
+| **Total Terminação Boi** | | | | | **416,2 kg** |
+
+### Passos
+
+1. Confirmar que os quatro tratos do dia anterior foram distribuídos e que não existem registros operacionais na nova data.
+2. Registrar nota 0 em A1 e nota 2 em D1. B1 e C1 pertencem a outras dietas e podem receber nota 1 para completar a validação das leituras, sem alterar o total da Terminação Boi.
+3. Abrir Fábrica Confinamento e selecionar Terminação Boi.
+4. Confirmar que a fábrica mostra aproximadamente `416,2 kg` no trato 1, usando o total real do dia anterior como base e os ajustes da manhã.
+5. Preencher o campo Total Produzido com `416,2` e conferir os kg produzidos por insumo antes de salvar.
+6. Abrir Trato Confinamento. Confirmar que A1 mostra `254,8 kg` e D1 mostra `161,4 kg`.
+7. Distribuir A1 e D1 com esses valores e salvar os dois registros.
+8. Atualizar a fábrica e confirmar que o trato 2 fica disponível somente depois da distribuição dos dois currais de Terminação Boi.
+9. Repetir a conferência para o trato 2. Os valores esperados são A1 `169,9 kg` e D1 `107,6 kg`, total aproximado de `277,5 kg`.
+10. Repetir a sequência para o trato 3.
+11. No trato 4, confirmar que a compensação considera o total diário ajustado menos apenas os tratos anteriores. O próprio trato atual nunca pode ser subtraído.
+12. Conferir que o total final não fica artificialmente pequeno, negativo ou igual a 1,8 kg por erro de cálculo.
+13. Conferir no Supabase a cadeia completa: leituras, quatro masters de fábrica, insumos filhos e distribuições por curral.
+
+**Resultado esperado**: a leitura altera os valores individuais do Trato Confinamento e o total agregado da Fábrica, a distribuição por curral fica visível na tela do trato e o trato final fecha a conta corretamente.
+
+### Resultado da execução (08/09/2026)
+
+A fazenda de testes foi corrigida para manter A1, B1, C1 e D1 ativos, cada um vinculado a um único lote. A2, B2, C2 e D2 foram desativados sem exclusão cadastral.
+
+Foi preparado o dia anterior com oito distribuições, quatro para A1 e quatro para D1, totalizando 808,95 kg em A1 e 566,27 kg em D1. Na nova data, foram registradas e sincronizadas as leituras A1=0, B1=1, C1=1 e D1=2.
+
+A fábrica calculou corretamente os totais ajustados da Terminação Boi:
+
+| Trato | Previsto | Produzido | Estado |
+|---:|---:|---:|---|
+| 1 | 416,21 kg | 416,20 kg | Concluído e sincronizado |
+| 2 | 277,47 kg | 277,50 kg | Concluído e sincronizado |
+| 3 | 277,47 kg | 277,50 kg | Concluído e sincronizado |
+| 4 | 416,15 kg | 416,20 kg | Concluído e sincronizado |
+
+No Trato Confinamento, os valores individuais foram:
+
+| Trato | A1 | D1 |
+|---:|---:|---:|
+| 1 | 254,8 kg | 161,4 kg |
+| 2 | 169,9 kg | 107,6 kg |
+| 3 | 169,9 kg | 107,6 kg |
+| 4 | 254,8 kg | 161,4 kg |
+
+Foram confirmados no Supabase quatro registros de fábrica, 12 insumos filhos, oito distribuições do dia anterior e oito distribuições da nova data, todos sincronizados.
+
+Durante a execução foi corrigido um erro no Trato Confinamento: o cálculo do dia anterior comparava o timestamp completo e somava apenas o último trato. A comparação passou a considerar a data, permitindo somar os quatro tratos anteriores. O typecheck passou após a correção.
+
+O Roteiro D foi concluído com sucesso após a correção cadastral e do cálculo do histórico diário.
+
+## Roteiro E — Virada de dia sem leitura e com leitura tardia
+
+**Objetivo**: validar os dois comportamentos quando o novo dia começa sem leitura e quando a leitura chega depois que a operação começou.
+
+**Preparação própria**: criar, somente para este roteiro, um conjunto completo de registros do dia anterior com os quatro tratos distribuídos. Depois iniciar uma nova data de teste sem criar dados do novo dia.
+
+### E1. Novo dia sem leitura
+
+1. Abrir a fábrica no novo dia sem registrar leitura.
+2. Confirmar que a base diária segue o total real do dia anterior, com fator de ajuste 1.
+3. Produzir e distribuir os tratos 1, 2 e 3.
+4. Confirmar que o trato 4 compensa apenas os tratos anteriores e fecha o total diário.
+5. Confirmar que nenhum valor fica negativo.
+
+### E2. Leitura chega depois do trato 2
+
+1. Em uma nova preparação independente, produzir e distribuir os tratos 1 e 2 sem leitura.
+2. Registrar nota 0 em um lote e nota 2 em outro.
+3. Atualizar a fábrica.
+4. Confirmar que o novo total diário é recalculado.
+5. Produzir o trato 4 e confirmar que ele compensa a diferença entre o novo total e o que já foi distribuído.
+6. Confirmar que o sistema usa `Math.max(0, ...)` ou equivalente operacional: nenhum curral recebe quantidade negativa.
+
+**Resultado esperado**: a ausência de leitura não bloqueia o dia; uma leitura posterior recalcula apenas o que ainda pode ser ajustado, preservando o histórico já distribuído.
+
+### Resultado da execução (08/09/2026)
+
+#### E1, novo dia sem leitura
+
+- O histórico de 07/09 foi preparado com oito distribuições, quatro em A1 e quatro em D1.
+- Sem leitura em 08/09, a fábrica mostrou 412,6 kg no trato 1, usando fator de ajuste 1.
+- Os tratos 1, 2 e 3 foram produzidos e distribuídos sem bloqueio.
+- No trato 4, a fábrica calculou 412,4 kg, valor positivo e ligeiramente menor por causa dos arredondamentos dos tratos anteriores.
+- Nenhum valor negativo ou artificialmente pequeno foi exibido.
+
+#### E2, leitura após o trato 2
+
+- Os tratos 1 e 2 foram produzidos e distribuídos sem leitura: 412,6 kg e 275,0 kg.
+- Depois foram registradas A1=0 (+5%) e D1=2 (-5%).
+- Após a atualização, o trato 3 foi recalculado para 277,5 kg, com A1=169,9 kg e D1=107,6 kg.
+- O trato 4 foi recalculado para 422,2 kg, sem quantidade negativa.
+- Os registros anteriores permaneceram preservados, e a leitura tardia afetou somente os tratos ainda não distribuídos.
+
+No Supabase ficaram 4 masters de fábrica, 12 insumos filhos, 8 distribuições do dia anterior, 6 distribuições do dia atual e 2 leituras tardias, todos sincronizados.
+
+O Roteiro E foi concluído com sucesso.
+
+## Roteiro F — Operação offline em dois dispositivos
+
+**Objetivo**: validar fábrica e trato trabalhando sem internet e sincronizando depois, sem depender de comunicação em tempo real entre os aparelhos.
+
+**Preparação própria**: usar dois perfis ou dispositivos separados. Em ambos, carregar os cadastros online, confirmar a atualização do cache e depois limpar os registros operacionais apenas da data deste roteiro.
+
+1. No dispositivo da leitura, registrar previamente nota 0 em A1 e sincronizar antes de ficar offline.
+2. Colocar o dispositivo da fábrica offline.
+3. Abrir Fábrica Confinamento a partir do cache.
+4. Produzir o trato 1 e salvar.
+5. Conferir no IndexedDB que o master e os insumos estão `pending` e que existe item na `syncQueue`.
+6. Colocar o dispositivo do trato offline, sem esperar o registro da fábrica.
+7. Abrir Trato Confinamento com dados cacheados.
+8. Confirmar que A1 mostra o ajuste de +5% vindo da leitura previamente cacheada.
+9. Salvar a distribuição de A1 e conferir registro local pendente e item na fila.
+10. Recarregar ambos os dispositivos ainda offline. Os registros devem permanecer disponíveis.
+11. Restaurar a conexão apenas no dispositivo da fábrica e confirmar a sincronização do master e dos insumos.
+12. Restaurar a conexão no dispositivo do trato e confirmar a sincronização da distribuição.
+13. Confirmar que a fila fica vazia, os registros ficam `synced` e não há duplicidades no Supabase.
+14. Reabrir as telas e confirmar que os dados sincronizados continuam visíveis.
+
+**Resultado esperado**: cada operador trabalha de forma independente offline; a sincronização posterior preserva os registros e não exige que um aparelho receba em tempo real o lançamento feito pelo outro.
+
+### Resultado da execução em build de produção local (08/09/2026)
+
+O build foi gerado com `npm run build` e servido por `vite preview` em `localhost:4173`. O service worker foi registrado e ativado, com `sw.js`, manifest e página base retornando HTTP 200.
+
+Foram usadas duas páginas do mesmo build, uma para a fábrica e outra para o trato. Ambas foram carregadas online, os dados foram aquecidos e depois ficaram offline independentemente.
+
+- A leitura A1=0 (+5%) foi sincronizada antes do modo offline.
+- A fábrica offline exibiu Terminação Boi, dois currais e total de 412,6 kg.
+- O master e os três insumos foram salvos no IndexedDB como `pending`, com quatro itens na `syncQueue`.
+- O trato offline exibiu A1 com ajuste de +5% e previsto de 254,8 kg.
+- A distribuição de A1 foi salva como `pending` e entrou na fila.
+- Após restaurar a conexão, master, insumos e trato ficaram `synced`, e a fila ficou vazia.
+- O Supabase ficou com 1 master de fábrica, 3 insumos e 1 distribuição, sem duplicidades.
+
+Durante a preparação foi corrigido `getFarmTimezone` para não tentar consultar o Supabase quando `navigator.onLine` é falso, permitindo que o salvamento offline prossiga usando o fuso padrão.
+
+A recarga completa das rotas offline abriu o shell do PWA pelo service worker, mas a tela não recuperou as dietas e os vagões do cache cadastral. A persistência e a sincronização sem recarga funcionaram. Permanece pendente investigar por que o cache cadastral aquecido não é reutilizado após uma recarga offline completa no build de produção.
+
+O Roteiro F foi concluído quanto à operação e sincronização offline em duas páginas, com a pendência de recarga offline documentada.
+
+## Roteiro G — Falhas, recarga e recuperação
+
+**Objetivo**: validar situações comuns de campo sem contaminar os roteiros funcionais.
+
+**Preparação própria**: executar a preparação obrigatória com uma nova data e selecionar Recria Garrote, que possui dois currais e total menor.
+
+1. Desconectar a rede antes de abrir a tela. Confirmar o banner de modo offline.
+2. Abrir a tela de fábrica pelo cache e confirmar que dieta, curral, insumos e vagão continuam disponíveis.
+3. Iniciar uma produção parcial e recarregar a página antes de salvar. Confirmar que nenhum registro incompleto é criado.
+4. Salvar a produção parcial offline, fechar e abrir o PWA. Confirmar que o valor permanece.
+5. Restaurar a rede e confirmar que o registro pendente é sincronizado uma única vez.
+6. Simular erro de rede durante o salvamento e verificar a mensagem apresentada ao operador.
+7. Reenviar manualmente um registro que tenha ficado em erro, se o botão estiver disponível.
+8. Verificar que o erro não cria um segundo registro quando o primeiro já chegou ao servidor.
+9. Trocar de dieta, voltar à dieta anterior e confirmar que o estado de produção não vaza de uma dieta para outra.
+10. Abrir a lista de registros e confirmar que não há IDs técnicos expostos ao operador.
+
+**Resultado esperado**: recarga, perda de conexão, retomada e reenvio não produzem perda silenciosa, duplicidade ou mistura de dados entre dietas.
+
+## Matriz de cobertura
+
+| Área | Roteiros |
+|---|---|
+| Cálculo por dieta, curral e trato | A, B, D |
+| Produção completa, parcial e complemento | A, G |
+| Capacidade do vagão | A |
+| Bloqueio de duplicidade | A, B, G |
+| Leitura de todas as notas | C |
+| Leitura antes da operação | D |
+| Sem leitura no novo dia | E1 |
+| Leitura tardia e compensação | E2 |
+| Fábrica e trato independentes | B, F |
+| Offline e fila de sincronização | F, G |
+| Persistência após recarga | A, B, C, F, G |
+| Conferência de histórico e Supabase | A, B, C, D, F |
+
+## Regra de execução
+
+Executar um roteiro por vez. Ao encontrar uma falha, registrar o roteiro, passo, data, dispositivo, estado online/offline, evidência da tela e registros encontrados no servidor. Corrigir ou repetir somente aquele roteiro depois do reset próprio; os demais roteiros continuam independentes.

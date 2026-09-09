@@ -216,7 +216,7 @@ export async function aguardarSyncConcluido(
 async function getFarmTimezone(): Promise<string> {
   const state = store.getState()
   const acessoId = state.config.acessoId
-  if (!acessoId) return DEFAULT_FARM_TIMEZONE
+  if (!acessoId || !navigator.onLine) return DEFAULT_FARM_TIMEZONE
   try {
     const fazenda = await getFazendaByAcessoId(acessoId)
     return fazenda?.timezone ?? DEFAULT_FARM_TIMEZONE

@@ -10,19 +10,26 @@ import { saveRegistro as saveRegistroIDB, getRegistro, updateRegistro, getAllReg
 import { enqueueRegistro } from '../../services/syncService'
 import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
+import { normalizarNumero } from '../../utils/formatNumber'
 import {
   getProgramacaoTratosCompletaCached,
   getTiposProgramacaoTratosCached,
   getRegistrosOfertaTratoByFazendaDataCached,
   getRegistrosOfertaTratoAnterioresCached,
   getCurraisCached,
+  getVagoesCached,
   getLoteDetalhesComCategoriasCached,
   getRegistrosLeituraCochoByLoteCached,
   getNotasLeituraCochoConfigCached,
   getCachedCadastroData,
-  getLoteByNomeCached,
+  loadQueryCacheFromIndexedDB,
+  getFormulacaoByIdCached,
+  getLoteByNomeFromCacheOnly,
+  getLoteDetalhesFromCacheOnly,
+  getFormulacaoByIdFromCacheOnly,
+  getInsumosByFormulacaoCached,
 } from '../../services/cadastroCache'
-import { getLotes, getFormulacaoById } from '../../services/supabaseService'
+import { getLotes } from '../../services/supabaseService'
 import { getSupabaseClientWithRefresh } from '../../services/supabaseClient'
 import { Brush, Save, AlertCircle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
 import { LOGO_URL } from '../../utils/constants'
@@ -96,68 +103,6 @@ function capitalizarIniciais(texto: string): string {
 }
 
 /**
- * Busca vagoes ativos da fazenda.
- */
-async function getVagoes(fazendaId: string): Promise<Vagao[]> {
-  const client = await getSupabaseClientWithRefresh() as any
-  const { data, error } = await client
-    .from('vagoes')
-    .select('id, nome, marca, modelo, capacidade_kg, ativo, deleted_at')
-    .eq('fazenda_id', fazendaId)
-    .eq('ativo', true)
-    .is('deleted_at', null)
-    .order('nome')
-  if (error) throw error
-  return (data || []).map((v: any) => ({
-    id: v.id,
-    nome: v.nome || `${v.marca} ${v.modelo}`,
-    marca: v.marca,
-    modelo: v.modelo,
-    capacidade_kg: v.capacidade_kg ? Number(v.capacidade_kg) : null,
-  }))
-}
-
-/**
- * Busca insumos de uma formulação com JOIN em insumos.
- * Retorna array com formula_teor_ms, teor_ms e formula_mn_percent calculado.
- */
-async function getInsumosByFormulacao(formulacaoId: string): Promise<InsumoFormulacao[]> {
-  const client = await getSupabaseClientWithRefresh() as any
-  const { data, error } = await client
-    .from('formulacao_insumos')
-    .select(`
-      formula_teor_ms,
-      ordem,
-      insumo:insumos!insumo_id(id, nome, teor_ms)
-    `)
-    .eq('formulacao_id', formulacaoId)
-    .order('ordem', { ascending: true })
-  if (error) throw error
-
-  const items = (data || []).map((row: any) => ({
-    insumo_id: row.insumo?.id || '',
-    nome: row.insumo?.nome || '',
-    teor_ms: row.insumo?.teor_ms ? Number(row.insumo.teor_ms) : 0,
-    formula_teor_ms: Number(row.formula_teor_ms) || 0,
-    formula_mn_percent: 0,
-    ordem: row.ordem || 0,
-  }))
-
-  // Calcular formula_mn_percent: (formula_teor_ms / teor_ms) normalizado para 100%
-  const totalBruta = items.reduce((sum: number, i: InsumoFormulacao) => {
-    const ms = i.teor_ms / 100
-    return sum + (ms > 0 ? i.formula_teor_ms / ms : 0)
-  }, 0)
-
-  return items.map((i: InsumoFormulacao) => {
-    const ms = i.teor_ms / 100
-    const mnBruta = ms > 0 ? i.formula_teor_ms / ms : 0
-    const mnPercent = totalBruta > 0 ? (mnBruta / totalBruta) * 100 : 0
-    return { ...i, formula_mn_percent: mnPercent }
-  })
-}
-
-/**
  * Busca registros de fábrica já salvos no Supabase para o dia/tipo/dieta.
  */
 async function getRegistrosFabricaDoDia(
@@ -226,9 +171,10 @@ export default function FabricaConfinamentoPage() {
     async function carregarInicial() {
       if (!fazendaId) return
       try {
+        await loadQueryCacheFromIndexedDB()
         const [tiposData, vagoesData] = await Promise.all([
           getTiposProgramacaoTratosCached(fazendaId),
-          getVagoes(fazendaId),
+          getVagoesCached(fazendaId),
         ])
         const tipos = (tiposData || []).filter((t: string) =>
           TIPOS_PROGRAMACAO.some((tp) => tp.value === t)
@@ -253,22 +199,32 @@ export default function FabricaConfinamentoPage() {
   const carregarDietas = useCallback(async () => {
     if (!fazendaId) return
     try {
+      await loadQueryCacheFromIndexedDB()
       // Buscar lotes com sistema_producao = 'Confinamento'
       let lotesData: any[] | null = null
+      let usedFallback = false
       if (navigator.onLine) {
         try {
-          const allLotes = await getLotes(fazendaId)
+          // Timeout rápido: se a rede não responder em 3s, usa cache
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 3000)
+          )
+          const allLotes = await Promise.race([
+            getLotes(fazendaId),
+            timeoutPromise,
+          ])
           lotesData = (allLotes || []).filter((l: any) => l.sistema_producao === 'Confinamento')
         } catch {
           lotesData = null
         }
       }
       if (!lotesData || lotesData.length === 0) {
-        // Fallback offline: buscar lotes no cache e filtrar
+        // Fallback offline: buscar lotes no cache e filtrar (sem tentar online)
+        usedFallback = true
         const cache = await getCachedCadastroData()
         if (cache && cache.lotes && cache.lotes.length > 0) {
           const lotesFromCache = await Promise.all(
-            cache.lotes.map((nome: string) => getLoteByNomeCached(fazendaId, nome))
+            cache.lotes.map((nome: string) => getLoteByNomeFromCacheOnly(fazendaId, nome))
           )
           lotesData = lotesFromCache.filter((l: any) => l !== null && l.sistema_producao === 'Confinamento')
         }
@@ -283,18 +239,22 @@ export default function FabricaConfinamentoPage() {
       const formulacoesMap = new Map<string, string>() // id -> nome
       for (const lote of lotesData) {
         try {
-          const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
+          // Se getLotes falhou (fallback), usar cache-only para detalhes também
+          const detalhes = usedFallback
+            ? await getLoteDetalhesFromCacheOnly(lote.id)
+            : await getLoteDetalhesComCategoriasCached(lote.id)
           if (detalhes && Array.isArray(detalhes.categorias_raw)) {
             for (const cat of detalhes.categorias_raw) {
               const formId = (cat as any).formulacao_id
               const formNome = (cat as any).formulacao_nome
               if (formId && !formulacoesMap.has(formId)) {
-                // Buscar nome da formulação se não vier no detalhes
                 if (formNome) {
                   formulacoesMap.set(formId, formNome)
                 } else {
                   try {
-                    const form = await getFormulacaoById(formId)
+                    const form = usedFallback
+                      ? await getFormulacaoByIdFromCacheOnly(fazendaId, formId)
+                      : await getFormulacaoByIdCached(fazendaId, formId)
                     if (form?.nome) formulacoesMap.set(formId, form.nome)
                   } catch {
                     // ignorar
@@ -422,10 +382,10 @@ export default function FabricaConfinamentoPage() {
         // Só incluir currais cujo lote usa a dieta selecionada
         if (formulacaoId !== dietaSelecionadaId) continue
 
-        // Buscar nome da formulação se não veio (pular se offline)
-        if (!formulacaoNome && formulacaoId && navigator.onLine) {
+        // Buscar nome da formulação se não veio
+        if (!formulacaoNome && formulacaoId) {
           try {
-            const form = await getFormulacaoById(formulacaoId)
+            const form = await getFormulacaoByIdCached(fazendaId, formulacaoId)
             formulacaoNome = form?.nome || null
           } catch {
             // ignorar
@@ -609,14 +569,12 @@ export default function FabricaConfinamentoPage() {
 
       setTotalPrevisto(somaPrevisto)
 
-      // Carregar insumos da formulação (pular se offline, já que não é cached)
+      // Carregar insumos da formulação (com fallback para cache offline)
       let insumosData: InsumoFormulacao[] = []
-      if (navigator.onLine) {
-        try {
-          insumosData = await getInsumosByFormulacao(dietaSelecionadaId)
-        } catch {
-          // erro de rede, seguir com insumos vazios
-        }
+      try {
+        insumosData = await getInsumosByFormulacaoCached(dietaSelecionadaId)
+      } catch {
+        // erro de rede, seguir com insumos vazios
       }
       setInsumos(insumosData)
 
@@ -653,8 +611,7 @@ export default function FabricaConfinamentoPage() {
 
   // Total produzido numérico
   const totalProduzidoNum = useMemo(() => {
-    const num = Number(totalProduzido.replace(',', '.'))
-    return Number.isFinite(num) ? num : 0
+    return normalizarNumero(totalProduzido) ?? 0
   }, [totalProduzido])
 
   const tratoNaoConcluidoJaIniciado = jaProduzidoNoTrato > 0
@@ -767,7 +724,7 @@ export default function FabricaConfinamentoPage() {
       for (const insumo of insumos) {
         const kgPrev = kgPrevistoPorInsumo[insumo.insumo_id] || 0
         const kgProdStr = kgProduzidoPorInsumo[insumo.insumo_id] || ''
-        const kgProd = kgProdStr ? Number(kgProdStr.replace(',', '.')) : 0
+        const kgProd = kgProdStr ? (normalizarNumero(kgProdStr) ?? 0) : 0
 
         const insumoRegistro = {
           id: generateId(),

@@ -18,7 +18,7 @@ import {
   getLoteByNomeCached,
 } from '../../services/cadastroCache'
 import { getLotes, getNotasLeituraCochoConfig } from '../../services/supabaseService'
-import { salvarRascunho, lerRascunho, limparRascunho } from '../../services/indexedDB'
+import { salvarRascunho, lerRascunho, limparRascunho, getAllRegistros } from '../../services/indexedDB'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
 import { Brush, Check, Save } from 'lucide-react'
 interface NotaConfig {
@@ -42,6 +42,7 @@ interface LoteItem {
   tratoAnterior: number | null
   nota: string
   notaSalva: boolean
+  bloqueadoHoje: boolean
   rascunhoSalvo: boolean
   salvando: boolean
   erroSalvar: boolean
@@ -268,6 +269,12 @@ export default function LeituraCochoPage() {
             const leituraAnteriorN2 = leitOrdenados[1]?.leitura_cocho ?? null
             const leituraAnteriorN3 = leitOrdenados[2]?.leitura_cocho ?? null
 
+            // Verificar se já existe leitura na data de hoje
+            const dataISOHoje = brToDateISO(todayBR())
+            const leituraHoje = leitOrdenados.find((r: any) => String(r.data || '').slice(0, 10) === dataISOHoje)
+            const jaTemLeituraHoje = !!leituraHoje
+            const notaHoje = leituraHoje?.nota_config_id ?? ''
+
             // Kg Cocho: soma de todos os registros de suplementação do dia mais recente com registro
             let tratoAnterior: number | null = null
             if (supOrdenados.length > 0) {
@@ -312,8 +319,9 @@ export default function LeituraCochoPage() {
               leituraAnteriorN2,
               leituraAnteriorN3,
               tratoAnterior,
-              nota: '',
-              notaSalva: false,
+              nota: jaTemLeituraHoje ? notaHoje : '',
+              notaSalva: jaTemLeituraHoje,
+              bloqueadoHoje: jaTemLeituraHoje,
               rascunhoSalvo: false,
               salvando: false,
               erroSalvar: false,
@@ -409,6 +417,28 @@ export default function LeituraCochoPage() {
       const configSelecionada = notasConfig.find((c) => c.id === configId) || null
       const notaNumero = configSelecionada ? configSelecionada.nota : null
       const notaConfigId = configSelecionada ? configSelecionada.id : null
+
+      // Verificar duplicidade: não permitir re-salvar o mesmo curral no mesmo dia
+      if (lote.bloqueadoHoje) {
+        setLotes((prev) =>
+          prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
+        )
+        return
+      }
+
+      // Verificação adicional no IndexedDB (caso o registro tenha sido criado em outra sessão)
+      const dataBR = data.split(' ')[0]
+      const registrosExistentes = await getAllRegistros('leitura-cocho')
+      const duplicado = registrosExistentes.find((r: any) => {
+        const rData = String(r.data || '').split(' ')[0]
+        return r.pastoCurral === lote.curral && rData === dataBR
+      })
+      if (duplicado) {
+        setLotes((prev) =>
+          prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
+        )
+        return
+      }
 
       setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, salvando: true, erroSalvar: false } : l)))
 
@@ -813,8 +843,13 @@ export default function LeituraCochoPage() {
                                 <button
                                   key={config.id}
                                   type="button"
+                                  disabled={lote.bloqueadoHoje}
                                   onClick={() => handleNotaChange(lote.id, isSelected ? '' : config.id)}
                                   className={`flex flex-col items-center justify-center py-1.5 rounded-lg border-2 transition-colors active:scale-95 min-w-0 ${
+                                    lote.bloqueadoHoje
+                                      ? 'cursor-not-allowed opacity-60'
+                                      : ''
+                                  } ${
                                     isSelected
                                       ? `${cor.border} ${cor.bg}`
                                       : 'border-gray-200 bg-white hover:border-gray-300'
@@ -829,6 +864,12 @@ export default function LeituraCochoPage() {
                             })}
                           </div>
                         </div>
+
+                        {lote.bloqueadoHoje && (
+                          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
+                            Leitura já registrada para este curral hoje. Nova leitura bloqueada.
+                          </div>
+                        )}
 
                         {/* Descrição da nota selecionada */}
                         {(() => {

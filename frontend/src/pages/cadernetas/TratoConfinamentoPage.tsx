@@ -393,10 +393,15 @@ export default function TratoConfinamentoPage() {
           let totalRealDiaAnterior: number | null = null
           if (!isDia1 && registrosAnteriores.length > 0) {
             // O dia anterior é a data mais recente entre os registros anteriores
-            const dataAnteriorMaisRecente = registrosAnteriores[0].data
-            const tratosDiaAnterior = registrosAnteriores.filter(
-              (r: any) => r.data === dataAnteriorMaisRecente
-            )
+            const dataAnteriorMaisRecente = String(registrosAnteriores[0].data || '')
+            const diaAnterior = dataAnteriorMaisRecente.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+              || dataAnteriorMaisRecente.split(' ')[0]
+            const tratosDiaAnterior = registrosAnteriores.filter((r: any) => {
+              const dataRegistro = String(r.data || '')
+              const diaRegistro = dataRegistro.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+                || dataRegistro.split(' ')[0]
+              return diaRegistro === diaAnterior
+            })
             totalRealDiaAnterior = tratosDiaAnterior.reduce(
               (sum: number, r: any) => sum + (Number(r.kg_ofertado_real) || 0),
               0

@@ -1,6 +1,7 @@
 import { BACKEND_URL } from '../utils/constants'
 import { saveCadastroData, getAllCadastroData, getCadastroData, deleteCadastroData, clearCadastroData } from './indexedDB'
 import * as supabaseService from './supabaseService'
+import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { fetchFuncionariosComAcesso } from './funcionarioAuthService'
 import { fetchChecklistRegras } from './checklistRegrasService'
 import { fetchRotinas } from './rotinasService'
@@ -864,6 +865,38 @@ function setCachedQuery(key: string, data: any): void {
   queryCache[key] = { data, timestamp: Date.now() }
 }
 
+/**
+ * Helper: aplica um timeout a uma Promise. Se a Promise não resolver
+ * em `ms` milissegundos, rejeita com erro de timeout. Usado para
+ * acelerar o fallback para o cache quando a rede está instável/bloqueada.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), ms)
+    ),
+  ])
+}
+
+/**
+ * Lê uma chave específica diretamente do IndexedDB (fallback quando o cache
+ * em memória não foi hidratado ou está vazio).
+ */
+async function getCachedQueryFromIDB<T>(key: string): Promise<T | null> {
+  try {
+    const cached = await getCadastroData(QUERY_CACHE_KEY)
+    if (cached?.queryCache && cached.queryCache[key]) {
+      // Também popula o cache em memória para próximas leituras
+      queryCache[key] = cached.queryCache[key]
+      return cached.queryCache[key].data as T
+    }
+  } catch {
+    // ignorar
+  }
+  return null
+}
+
 function buildKey(base: string, ...segments: string[]): string {
   return `${base}:${segments.join(':')}`
 }
@@ -908,16 +941,61 @@ export async function getLoteByNomeCached(fazendaId: string, nome: string): Prom
 
   if (!navigator.onLine) {
     const cached = getCachedQuery(key)
-    return cached || null
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
 
   try {
-    const data = await supabaseService.getLoteByNome(fazendaId, nome)
+    const data = await withTimeout(supabaseService.getLoteByNome(fazendaId, nome), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    const cached = getCachedQuery(key)
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
+}
+
+/**
+ * Lê lote por nome diretamente do cache (memória ou IDB), sem tentar online.
+ * Usado em fallbacks offline onde sabemos que a rede vai falhar.
+ */
+export async function getLoteByNomeFromCacheOnly(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('lote', fazendaId, nome)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+  return await getCachedQueryFromIDB<any>(key)
+}
+
+/**
+ * Lê detalhes do lote com categorias diretamente do cache, sem tentar online.
+ */
+export async function getLoteDetalhesFromCacheOnly(loteId: string): Promise<any | null> {
+  const key = buildKey('lote-detalhes', loteId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+  return await getCachedQueryFromIDB<any>(key)
+}
+
+/**
+ * Lê formulação por ID diretamente do cache, sem tentar online.
+ */
+export async function getFormulacaoByIdFromCacheOnly(fazendaId: string, formId: string): Promise<any | null> {
+  const keyById = buildKey('formulacao-id', fazendaId, formId)
+  const cached = getCachedQuery(keyById)
+  if (cached) return cached
+  // Tentar buscar por nome no cache
+  const idbCached = await getCachedQueryFromIDB<any>(keyById)
+  if (idbCached) return idbCached
+  // Buscar em todas as formulações cacheadas por nome
+  const allKeys = Object.keys(queryCache)
+  for (const k of allKeys) {
+    if (k.startsWith(`formulacao:${fazendaId}:`)) {
+      const entry = queryCache[k]
+      if (entry?.data?.id === formId) return entry.data
+    }
+  }
+  return null
 }
 
 /**
@@ -930,15 +1008,18 @@ export async function getLoteDetalhesComCategoriasCached(loteId: string): Promis
 
   if (!navigator.onLine) {
     const cached = getCachedQuery(key)
-    return cached || null
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
 
   try {
-    const data = await supabaseService.getLoteDetalhesComCategorias(loteId)
+    const data = await withTimeout(supabaseService.getLoteDetalhesComCategorias(loteId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    const cached = getCachedQuery(key)
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
 }
 
@@ -1107,18 +1188,155 @@ export async function getFormulacaoByNomeCached(fazendaId: string, nome: string)
 
   if (!navigator.onLine) {
     const cached = getCachedQuery(key)
-    return cached || null
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
 
   try {
-    const data = await supabaseService.getFormulacaoByNome(fazendaId, nome)
+    const data = await withTimeout(supabaseService.getFormulacaoByNome(fazendaId, nome), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    const cached = getCachedQuery(key)
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
 }
 
+/**
+ * Busca formulação por ID com cache lazy.
+ * Quando online, consulta o Supabase e cacheia por ID.
+ * Quando offline ou falha, busca no cache por ID e, como fallback,
+ * percorre as formulações cacheadas por nome para encontrar o ID correspondente.
+ */
+export async function getFormulacaoByIdCached(fazendaId: string, formId: string): Promise<any | null> {
+  const keyById = buildKey('formulacao-id', fazendaId, formId)
+
+  // Cache por ID (preenchido quando online)
+  const cachedById = getCachedQuery(keyById)
+  if (cachedById) return cachedById
+
+  // Helper: percorrer formulações cacheadas por nome (em memória ou IDB)
+  const findInCache = async (): Promise<any | null> => {
+    const prefix = `formulacao:${fazendaId}:`
+    for (const k of Object.keys(queryCache)) {
+      if (k.startsWith(prefix)) {
+        const entry = queryCache[k]
+        if (entry?.data && entry.data.id === formId) {
+          return entry.data
+        }
+      }
+    }
+    // Fallback IDB: ler todo o queryCache do IndexedDB e procurar
+    const idbCached = await getCadastroData(QUERY_CACHE_KEY)
+    if (idbCached?.queryCache) {
+      for (const k of Object.keys(idbCached.queryCache)) {
+        if (k.startsWith(prefix)) {
+          const entry = idbCached.queryCache[k]
+          if (entry?.data && entry.data.id === formId) {
+            queryCache[k] = entry
+            return entry.data
+          }
+        }
+      }
+    }
+    return null
+  }
+
+  if (!navigator.onLine) {
+    return await findInCache()
+  }
+
+  try {
+    const data = await withTimeout((async () => {
+      const client = await getSupabaseClientWithRefresh() as any
+      const { data, error } = await (client as any)
+        .from('formulacoes')
+        .select('*')
+        .eq('id', formId)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    })(), 3000)
+    if (data) {
+      setCachedQuery(keyById, data)
+      // Também cache por nome para futuras buscas offline
+      const keyByNome = buildKey('formulacao', fazendaId, data.nome)
+      setCachedQuery(keyByNome, data)
+    }
+    return data || null
+  } catch {
+    return await findInCache()
+  }
+}
+
+/**
+ * Busca insumos de uma formulação com cache.
+ * Sempre tenta online quando possível, fallback para cache offline.
+ */
+export async function getInsumosByFormulacaoCached(formulacaoId: string): Promise<any[]> {
+  const key = buildKey('formulacao-insumos', formulacaoId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery<any[]>(key)
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any[]>(key) || []
+  }
+
+  try {
+    const data = await withTimeout((async () => {
+      const client = await getSupabaseClientWithRefresh() as any
+      const { data, error } = await client
+        .from('formulacao_insumos')
+        .select(`
+          formula_teor_ms,
+          ordem,
+          insumo:insumos!insumo_id(id, nome, teor_ms)
+        `)
+        .eq('formulacao_id', formulacaoId)
+        .order('ordem', { ascending: true })
+      if (error) throw error
+      return (data || []).map((row: any) => ({
+        insumo_id: row.insumo?.id || '',
+        nome: row.insumo?.nome || '',
+        teor_ms: row.insumo?.teor_ms ? Number(row.insumo.teor_ms) : 0,
+        formula_teor_ms: Number(row.formula_teor_ms) || 0,
+        formula_mn_percent: 0,
+        ordem: row.ordem || 0,
+      }))
+    })(), 3000)
+    // Calcular formula_mn_percent: (formula_teor_ms / teor_ms) normalizado para 100%
+    const totalBruta = data.reduce((sum: number, i: any) => {
+      const ms = i.teor_ms / 100
+      return sum + (ms > 0 ? i.formula_teor_ms / ms : 0)
+    }, 0)
+    const itemsWithPercent = data.map((i: any) => {
+      const ms = i.teor_ms / 100
+      const mnBruta = ms > 0 ? i.formula_teor_ms / ms : 0
+      const mnPercent = totalBruta > 0 ? (mnBruta / totalBruta) * 100 : 0
+      return { ...i, formula_mn_percent: mnPercent }
+    })
+    setCachedQuery(key, itemsWithPercent)
+    await saveQueryCacheToIndexedDB()
+    return itemsWithPercent
+  } catch {
+    const cached = getCachedQuery<any[]>(key)
+    if (cached && Array.isArray(cached)) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return (idbCached && Array.isArray(idbCached)) ? idbCached : []
+  }
+}
+
+/**
+ * Lê insumos de uma formulação diretamente do cache, sem tentar online.
+ */
+export async function getInsumosByFormulacaoFromCacheOnly(formulacaoId: string): Promise<any[]> {
+  const key = buildKey('formulacao-insumos', formulacaoId)
+  const cached = getCachedQuery<any[]>(key)
+  if (cached && Array.isArray(cached)) return cached
+  const idbCached = await getCachedQueryFromIDB<any[]>(key)
+  return (idbCached && Array.isArray(idbCached)) ? idbCached : []
+}
 
 /**
  * Busca registros de suplementação por lote.
@@ -1148,14 +1366,18 @@ export async function getNotasLeituraCochoConfigCached(fazendaId: string): Promi
   const key = buildKey('notas-leitura-cocho-config', fazendaId)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) return cached || null
+  if (!navigator.onLine) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any[]>(key)
+  }
 
   try {
-    const data = await supabaseService.getNotasLeituraCochoConfig(fazendaId)
+    const data = await withTimeout(supabaseService.getNotasLeituraCochoConfig(fazendaId), 3000)
     if (data && Array.isArray(data) && data.length > 0) setCachedQuery(key, data)
     return data
   } catch {
-    return cached || null
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any[]>(key)
   }
 }
 
@@ -1173,14 +1395,18 @@ export async function getRegistrosLeituraCochoByLoteCached(
   const key = buildKey('leitura-cocho-lote', fazendaId, loteId, dataInicio || '', dataFim || '')
   const cached = getCachedQuery(key)
 
-  if (!navigator.onLine) return cached || null
+  if (!navigator.onLine) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
+  }
 
   try {
-    const data = await supabaseService.getRegistrosLeituraCochoByLote(fazendaId, loteId, dataInicio, dataFim)
+    const data = await withTimeout(supabaseService.getRegistrosLeituraCochoByLote(fazendaId, loteId, dataInicio, dataFim), 3000)
     if (data && Array.isArray(data) && data.length > 0) setCachedQuery(key, data)
     return data
   } catch {
-    return cached || null
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
 }
 
@@ -1213,14 +1439,20 @@ export async function getTiposProgramacaoTratosCached(fazendaId: string): Promis
   const key = buildKey('tipos-programacao-tratos', fazendaId)
   const cached = getCachedQuery(key) as string[] | null
 
-  if (!navigator.onLine) return cached || []
+  if (!navigator.onLine) {
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<string[]>(key)
+    return idbCached || []
+  }
 
   try {
-    const data = await supabaseService.getTiposProgramacaoTratos(fazendaId)
+    const data = await withTimeout(supabaseService.getTiposProgramacaoTratos(fazendaId), 3000)
     if (data && data.length > 0) setCachedQuery(key, data)
     return data || []
   } catch {
-    return cached || []
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<string[]>(key)
+    return idbCached || []
   }
 }
 
@@ -1232,14 +1464,18 @@ export async function getProgramacaoTratosCompletaCached(fazendaId: string, tipo
   const key = buildKey('programacao-tratos', fazendaId, tipo)
   const cached = getCachedQuery(key)
 
-  if (!navigator.onLine) return cached || null
+  if (!navigator.onLine) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
+  }
 
   try {
-    const data = await supabaseService.getProgramacaoTratosCompleta(fazendaId, tipo)
+    const data = await withTimeout(supabaseService.getProgramacaoTratosCompleta(fazendaId, tipo), 3000)
     if (data && data.programacao) setCachedQuery(key, data)
     return data
   } catch {
-    return cached || null
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any>(key)
   }
 }
 
@@ -1254,14 +1490,20 @@ export async function getRegistrosOfertaTratoByFazendaDataCached(
   const key = buildKey('registros-trato-fazenda-data', fazendaId, data)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) return cached || []
+  if (!navigator.onLine) {
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
+  }
 
   try {
-    const dataResult = await supabaseService.getRegistrosOfertaTratoByFazendaData(fazendaId, data)
+    const dataResult = await withTimeout(supabaseService.getRegistrosOfertaTratoByFazendaData(fazendaId, data), 3000)
     if (dataResult && dataResult.length > 0) setCachedQuery(key, dataResult)
     return dataResult || []
   } catch {
-    return cached || []
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
   }
 }
 
@@ -1277,14 +1519,20 @@ export async function getRegistrosOfertaTratoAnterioresCached(
   const key = buildKey('registros-trato-anteriores', fazendaId, curralId, dataReferencia)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) return cached || []
+  if (!navigator.onLine) {
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
+  }
 
   try {
-    const data = await supabaseService.getRegistrosOfertaTratoAnteriores(fazendaId, curralId, dataReferencia)
+    const data = await withTimeout(supabaseService.getRegistrosOfertaTratoAnteriores(fazendaId, curralId, dataReferencia), 3000)
     if (data && data.length > 0) setCachedQuery(key, data)
     return data || []
   } catch {
-    return cached || []
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
   }
 }
 
@@ -1601,20 +1849,63 @@ export async function getItensAlmoxarifadoCached(fazendaId: string, classificaca
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
  */
+export async function getVagoesCached(fazendaId: string): Promise<any[]> {
+  const key = buildKey('vagoes', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    if (cached && Array.isArray(cached)) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return (idbCached && Array.isArray(idbCached)) ? idbCached : []
+  }
+
+  try {
+    const vagoes = await withTimeout((async () => {
+      const client = await getSupabaseClientWithRefresh() as any
+      const { data, error } = await client
+        .from('vagoes')
+        .select('id, nome, marca, modelo, capacidade_kg, ativo, deleted_at')
+        .eq('fazenda_id', fazendaId)
+        .eq('ativo', true)
+        .is('deleted_at', null)
+        .order('nome')
+      if (error) throw error
+      return (data || []).map((v: any) => ({
+        id: v.id,
+        nome: v.nome || `${v.marca} ${v.modelo}`,
+        marca: v.marca,
+        modelo: v.modelo,
+        capacidade_kg: v.capacidade_kg ? Number(v.capacidade_kg) : null,
+      }))
+    })(), 3000)
+    setCachedQuery(key, vagoes)
+    await saveQueryCacheToIndexedDB()
+    return vagoes
+  } catch {
+    const cached = getCachedQuery<any[]>(key)
+    if (cached && Array.isArray(cached)) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return (idbCached && Array.isArray(idbCached)) ? idbCached : []
+  }
+}
+
 export async function getCurraisCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('currais', fazendaId)
 
   if (!navigator.onLine) {
     const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
+    if (cached && Array.isArray(cached)) return cached
+    return await getCachedQueryFromIDB<any[]>(key)
   }
 
   try {
-    const data = await supabaseService.getCurrais(fazendaId)
+    const data = await withTimeout(supabaseService.getCurrais(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    const cached = getCachedQuery(key)
+    if (cached && Array.isArray(cached)) return cached
+    return await getCachedQueryFromIDB<any[]>(key)
   }
 }
 
@@ -2180,6 +2471,31 @@ export async function warmAllCadastroCache(
     { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },
     { label: 'Currais (Confinamento)', fn: () => getCurraisCached(fazendaId) },
     { label: 'Linhas Confinamento', fn: () => getLinhasConfinamentoCached(fazendaId) },
+    { label: 'Vagões (Confinamento)', fn: () => getVagoesCached(fazendaId) },
+    { label: 'Insumos de Formulações (Confinamento)', fn: async () => {
+      // Aquecer insumos para cada formulação em cache
+      const cache = await getCachedCadastroData()
+      const formulacoes = cache?.formulacoes || []
+      const allKeys = Object.keys(queryCache)
+      const formIds = new Set<string>()
+      // Coletar IDs de formulações do cache de cadastro e do queryCache
+      for (const nome of formulacoes) {
+        const key = buildKey('formulacao', fazendaId, nome)
+        const entry = queryCache[key]
+        if (entry?.data?.id) formIds.add(entry.data.id)
+      }
+      for (const k of allKeys) {
+        if (k.startsWith(`formulacao:${fazendaId}:`) || k.startsWith(`formulacao-id:${fazendaId}:`)) {
+          const entry = queryCache[k]
+          if (entry?.data?.id) formIds.add(entry.data.id)
+        }
+      }
+      // Buscar insumos para cada formulação
+      const results = await Promise.allSettled(
+        Array.from(formIds).map(id => getInsumosByFormulacaoCached(id))
+      )
+      return results.map(r => r.status === 'fulfilled' ? r.value : null)
+    }},
     { label: 'Funcionários com Acesso (RBAC)', fn: () => fetchFuncionariosComAcesso(fazendaId) },
     { label: 'Regras de Checklist', fn: () => fetchChecklistRegras(fazendaId) },
     { label: 'Rotinas de Cadernetas', fn: () => fetchRotinas(fazendaId) },

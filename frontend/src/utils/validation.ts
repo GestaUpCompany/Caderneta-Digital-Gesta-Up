@@ -1,3 +1,5 @@
+import { normalizarNumero } from './formatNumber'
+
 export interface ValidationError {
   field: string
   message: string
@@ -507,8 +509,8 @@ export function validateTratoConfinamento(data: Record<string, unknown>): Valida
   // kg_real é opcional (pode estar vazio se o usuário ainda não digitou), mas se preenchido deve ser >= 0
   const kgReal = data.kgReal
   if (kgReal !== undefined && kgReal !== null && kgReal !== '') {
-    const num = Number(kgReal)
-    if (!Number.isFinite(num) || num < 0)
+    const num = normalizarNumero(kgReal as any)
+    if (num === null || num < 0)
       errors.push({ field: 'kgReal', message: 'Kg real deve ser um número não negativo' })
   }
 
