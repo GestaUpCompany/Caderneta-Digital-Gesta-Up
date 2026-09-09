@@ -47,6 +47,7 @@ interface CurralTrato {
   percentualTrato: number // percentual do trato atual
   horarioSugerido: string | null // horário sugerido do trato atual (HH:mm)
   kgPlanejado: number | null
+  compensacaoUltimoTrato: number
   kgReal: string
   leituraCochoNota: number | null
   leituraPercentualAjuste: number | null
@@ -96,6 +97,17 @@ function brToDateISO(dataBR: string): string {
   const [day, month, year] = dataBR.split(' ')[0].split('/').map(Number)
   if (!day || !month || !year) return ''
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function sanitizarDecimalComVirgula(valor: string): string {
+  const semCaracteresInvalidos = valor.replace(/[^0-9,]/g, '')
+  const [inteiro, ...decimais] = semCaracteresInvalidos.split(',')
+  return decimais.length > 0 ? `${inteiro},${decimais.join('')}` : inteiro
+}
+
+function parseKgReal(valor: string): number {
+  const numero = Number(valor.replace(',', '.'))
+  return Number.isFinite(numero) ? numero : NaN
 }
 
 const TIPOS_PROGRAMACAO = [
@@ -411,6 +423,7 @@ export default function TratoConfinamentoPage() {
           // Calcula kg_planejado e kg_base_dia
           let kgBaseDia: number | null = null
           let kgPlanejado: number | null = null
+          let compensacaoUltimoTrato = 0
           const kgMnDia = kgMnDiaPorCurral.get(curralId) || 0
 
           if (isDia1) {
@@ -422,6 +435,16 @@ export default function TratoConfinamentoPage() {
             const fatorAjuste = leituraPercentualAjuste !== null ? 1 + leituraPercentualAjuste / 100 : 1
             kgBaseDia = totalRealDiaAnterior * fatorAjuste
             kgPlanejado = kgBaseDia * (percentualTrato / 100)
+          }
+
+          // No último trato, entregar o saldo da base ajustada depois dos tratos anteriores.
+          if (ordemTrato === quantidadeTratos && !isDia1 && kgBaseDia !== null) {
+            const jaDistribuido = tratosDoDia
+              .filter((t) => t.kg_ofertado_real !== null && Number(t.ordem_trato) < ordemTrato)
+              .reduce((sum: number, t: any) => sum + (Number(t.kg_ofertado_real) || 0), 0)
+            const previstoPercentual = kgBaseDia * (percentualTrato / 100)
+            kgPlanejado = Math.max(0, kgBaseDia - jaDistribuido)
+            compensacaoUltimoTrato = Math.max(0, kgPlanejado - previstoPercentual)
           }
 
           // Verifica se já existe um registro para este trato do dia (permite editar)
@@ -443,6 +466,7 @@ export default function TratoConfinamentoPage() {
             percentualTrato,
             horarioSugerido,
             kgPlanejado,
+            compensacaoUltimoTrato,
             kgReal: kgRealInicial,
             leituraCochoNota,
             leituraPercentualAjuste,
@@ -506,31 +530,32 @@ export default function TratoConfinamentoPage() {
   }, [carregarDados])
 
   // Focar no primeiro input após carregar (apenas na transição de carregando -> pronto)
+  // DESATIVADO: não abrir teclado automaticamente ao entrar na página
   const carregandoRef = useRef(true)
   useEffect(() => {
-    // Foca no input do curral selecionado quando termina o carregamento
-    if (carregandoRef.current && !carregando && curralSelecionado) {
-      const curral = currais.find((c) => c.curralId === curralSelecionado)
-      if (curral && !curral.tratosConcluidos) {
-        setTimeout(() => {
-          inputRefs.current[curral.curralId]?.focus()
-        }, 200)
-      }
-    }
+    // if (carregandoRef.current && !carregando && curralSelecionado) {
+    //   const curral = currais.find((c) => c.curralId === curralSelecionado)
+    //   if (curral && !curral.tratosConcluidos) {
+    //     setTimeout(() => {
+    //       inputRefs.current[curral.curralId]?.focus()
+    //     }, 200)
+    //   }
+    // }
     carregandoRef.current = carregando
   }, [carregando, currais, curralSelecionado])
 
   // Focar no input quando troca de curral selecionado
+  // DESATIVADO: não abrir teclado automaticamente ao trocar de curral
   useEffect(() => {
-    if (!carregando && curralSelecionado) {
-      const curral = currais.find((c) => c.curralId === curralSelecionado)
-      if (curral && !curral.tratosConcluidos) {
-        setTimeout(() => {
-          inputRefs.current[curral.curralId]?.focus()
-        }, 100)
-      }
-    }
-  }, [curralSelecionado])
+    // if (!carregando && curralSelecionado) {
+    //   const curral = currais.find((c) => c.curralId === curralSelecionado)
+    //   if (curral && !curral.tratosConcluidos) {
+    //     setTimeout(() => {
+    //       inputRefs.current[curral.curralId]?.focus()
+    //     }, 100)
+    //   }
+    // }
+  }, [carregando, curralSelecionado, currais])
 
   // Salvar rascunho do trato (não envia ao Supabase).
   // Recebe o valor explicitamente para funcionar imediatamente após setCurrais,
@@ -588,8 +613,8 @@ export default function TratoConfinamentoPage() {
   }, [data, tipoSelecionado, fazendaId, salvarTratoRascunho])
 
   const atualizarKgReal = useCallback((curralId: string, valor: string) => {
-    // Sanitizar: manter apenas digitos, ponto e virgula (bloqueia letras)
-    const valorSanitizado = valor.replace(/[^0-9.,]/g, '')
+    // Sanitizar: aceitar apenas dígitos e uma vírgula decimal.
+    const valorSanitizado = sanitizarDecimalComVirgula(valor)
     setCurrais((prev) =>
       prev.map((c) =>
         c.curralId === curralId ? { ...c, kgReal: valorSanitizado, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
@@ -610,6 +635,21 @@ export default function TratoConfinamentoPage() {
     async (): Promise<boolean> => {
       const curraisComRascunho = currais.filter((c) => c.rascunhoSalvo && !c.salvo && c.kgReal !== '')
       if (curraisComRascunho.length === 0) return false
+
+      const finaisZerados = curraisComRascunho.filter((curral) =>
+        curral.ordemTrato === curral.quantidadeTratos && parseKgReal(curral.kgReal) === 0
+      )
+      if (finaisZerados.length > 0) {
+        setCurrais((prev) =>
+          prev.map((curral) =>
+            finaisZerados.some((final) => final.curralId === curral.curralId)
+              ? { ...curral, erroSalvar: true }
+              : curral
+          )
+        )
+        setErro('O último trato de cada curral precisa ser fornecido com quantidade maior que zero.')
+        return false
+      }
 
       setSalvandoFim(true)
       let todosOk = true
@@ -906,7 +946,7 @@ export default function TratoConfinamentoPage() {
       bottomContent={bottomContent}
     >
       {/* Seção 2: Tratos */}
-      <div className="translate-y-10 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-visible">
+      <div className="-mt-1 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-visible">
         <div className="p-3 flex flex-col gap-3">
           {tiposVisiveis.length > 1 && (
             <div className="flex items-center justify-end gap-1.5">
@@ -1064,14 +1104,19 @@ export default function TratoConfinamentoPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 sm:gap-6">
-                        <div className="flex min-w-[4.5rem] flex-col self-center translate-y-2.5 text-left sm:min-w-[5rem]">
+                      <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-2 sm:gap-6">
+                        <div className="flex min-w-[4.5rem] flex-col self-center text-left sm:min-w-[5rem]">
                           <span className="mb-1 block text-sm font-black uppercase leading-none tracking-wider text-gray-500">
-                            Previsto
+                            {curral.compensacaoUltimoTrato > 0 ? 'Previsto ajustado' : 'Previsto'}
                           </span>
                           <span className="text-lg font-black leading-tight text-[#1a3a2a] sm:text-xl">
                             {formatarKg(curral.kgPlanejado)} kg
                           </span>
+                          {curral.compensacaoUltimoTrato > 0 && (
+                            <span className="mt-1 block max-w-[10rem] text-[11px] font-bold leading-tight text-amber-700">
+                              Inclui {formatarKg(curral.compensacaoUltimoTrato)} kg de compensação pela leitura tardia
+                            </span>
+                          )}
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col items-center">
                           <span className="self-end text-center text-sm font-black text-gray-500 uppercase tracking-wider block mb-1 w-full max-w-[10rem]">
@@ -1080,10 +1125,8 @@ export default function TratoConfinamentoPage() {
                           <div className="relative flex w-full justify-end">
                             <input
                               ref={(el) => (inputRefs.current[curral.curralId] = el)}
-                              type="number"
+                              type="text"
                               inputMode="decimal"
-                              step="0.1"
-                              min="0"
                               value={curral.kgReal}
                               onChange={(e) => atualizarKgReal(curral.curralId, e.target.value)}
                               onKeyDown={(e) => {

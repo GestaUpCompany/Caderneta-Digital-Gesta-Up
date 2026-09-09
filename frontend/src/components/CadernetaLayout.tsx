@@ -20,6 +20,7 @@ interface CadernetaLayoutProps {
   rightContent?: ReactNode
   titleRowRightContent?: ReactNode
   bottomContent?: ReactNode
+  bottomPaddingClass?: string
 }
 
 export default function CadernetaLayout({
@@ -36,6 +37,7 @@ export default function CadernetaLayout({
   rightContent,
   titleRowRightContent,
   bottomContent,
+  bottomPaddingClass = 'pb-80',
 }: CadernetaLayoutProps) {
   const { acessoId, fazenda } = useSelector((state: RootState) => state.config)
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined)
@@ -89,7 +91,7 @@ export default function CadernetaLayout({
       )}
 
       {/* Conteúdo principal */}
-      <main className={`flex-1 p-4 flex flex-col gap-5 desktop-form-container ${bottomContent ? 'pb-80' : 'pb-8'}`}>
+      <main className={`flex-1 p-4 flex flex-col gap-5 desktop-form-container ${bottomContent ? bottomPaddingClass : 'pb-8'}`}>
         {children}
       </main>
 

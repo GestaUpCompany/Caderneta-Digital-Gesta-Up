@@ -671,7 +671,7 @@ export default function LeituraCochoPage() {
       bottomContent={bottomContent}
     >
       {/* Seção 2: Linhas / Currais */}
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className="-mt-1 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="p-3 flex flex-col gap-4">
           {carregando ? (
             <div className="p-8 text-center text-gray-500">Carregando currais...</div>

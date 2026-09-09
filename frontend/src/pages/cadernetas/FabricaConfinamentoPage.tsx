@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -6,7 +6,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { generateId } from '../../utils/generateId'
-import { saveRegistro as saveRegistroIDB, getRegistro, updateRegistro, getAllRegistros } from '../../services/indexedDB'
+import { saveRegistro as saveRegistroIDB, getRegistro, updateRegistro, getAllRegistros, salvarRascunho, lerRascunho, limparRascunho } from '../../services/indexedDB'
 import { enqueueRegistro } from '../../services/syncService'
 import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
@@ -86,6 +86,12 @@ function brToDateISO(dataBR: string): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+function sanitizarDecimalComVirgula(valor: string): string {
+  const semCaracteresInvalidos = valor.replace(/[^0-9,]/g, '')
+  const [inteiro, ...decimais] = semCaracteresInvalidos.split(',')
+  return decimais.length > 0 ? `${inteiro},${decimais.join('')}` : inteiro
+}
+
 function formatarKg(valor: number | null, casas = 1): string {
   if (valor === null || valor === undefined || !isFinite(valor)) return '—'
   return valor.toLocaleString('pt-BR', {
@@ -154,17 +160,23 @@ export default function FabricaConfinamentoPage() {
   // Dados calculados
   const [curraisFiltrados, setCurraisFiltrados] = useState<CurralFiltrado[]>([])
   const [quantidadeTratos, setQuantidadeTratos] = useState<number>(0)
+  const [percentuaisTratos, setPercentuaisTratos] = useState<{ ordem_trato: number; percentual: number }[]>([])
   const [ordemTratoAtual, setOrdemTratoAtual] = useState<number>(1)
   const [totalPrevisto, setTotalPrevisto] = useState<number>(0)
   const [jaProduzidoNoTrato, setJaProduzidoNoTrato] = useState<number>(0)
   const [registroFabricaNaoConcluidoId, setRegistroFabricaNaoConcluidoId] = useState<string | null>(null)
-  const [todosCurraisTratadosNoTratoAnterior, setTodosCurraisTratadosNoTratoAnterior] = useState<boolean>(true)
   const [todosTratosConcluidos, setTodosTratosConcluidos] = useState<boolean>(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
   const [totalProduzido, setTotalProduzido] = useState<string>('')
   const [kgProduzidoPorInsumo, setKgProduzidoPorInsumo] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  const [rascunhoSalvo, setRascunhoSalvo] = useState(false)
+
+  // Espelho para flush síncrono no cleanup
+  const totalProduzidoRef = useRef('')
+  const kgProduzidoPorInsumoRef = useRef<Record<string, string>>({})
+  const debounceRascunhoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Carregamento inicial: tipos, vagoes
   useEffect(() => {
@@ -322,6 +334,12 @@ export default function FabricaConfinamentoPage() {
 
       const qtdTratos = progCompleta.programacao.quantidade_tratos
       setQuantidadeTratos(qtdTratos)
+      setPercentuaisTratos(
+        progCompleta.percentuais.map((p: any) => ({
+          ordem_trato: p.ordem_trato,
+          percentual: Number(p.percentual) || 0,
+        }))
+      )
 
       // Mapa de kg_mn_dia por curral
       const kgMnDiaPorCurral = new Map<string, number>()
@@ -457,16 +475,7 @@ export default function FabricaConfinamentoPage() {
 
       setCurraisFiltrados(curraisDaDieta)
 
-      // Determinar trato atual: maior ordem_trato com registro + 1, limitado a qtdTratos
-      let maxOrdemFeita = 0
-      for (const curral of curraisDaDieta) {
-        const tratosDoDia = registrosPorCurral.get(curral.curralId) || []
-        const tratosFeitos = tratosDoDia.filter((t) => t.kg_ofertado_real !== null).length
-        if (tratosFeitos > maxOrdemFeita) maxOrdemFeita = tratosFeitos
-      }
-      let ordemAtual = Math.min(maxOrdemFeita + 1, qtdTratos)
-
-      // Buscar registros de fábrica do dia (pular se offline, usa Supabase direto)
+      // Buscar registros de fábrica do dia. A produção avança independentemente da distribuição.
       let registrosFabrica: RegistroFabricaExistente[] = []
       if (navigator.onLine) {
         try {
@@ -497,10 +506,17 @@ export default function FabricaConfinamentoPage() {
         }
       }
 
-      // Se há registros de fábrica com total_produzido < total_previsto, o trato atual é esse
+      // A ordem da Fábrica depende somente da produção desta dieta.
+      // A distribuição pode ocorrer depois, inclusive em outro dispositivo.
       const tratoNaoConcluido = registrosFabrica.find((r) => !r.concluido)
+      const maxOrdemProduzida = registrosFabrica
+        .filter((r) => r.concluido)
+        .reduce((max, r) => Math.max(max, Number(r.ordem_trato) || 0), 0)
+      const ordemAtual = tratoNaoConcluido
+        ? tratoNaoConcluido.ordem_trato
+        : Math.min(maxOrdemProduzida + 1, qtdTratos)
+
       if (tratoNaoConcluido) {
-        ordemAtual = tratoNaoConcluido.ordem_trato
         // Buscar o registro local no IndexedDB pelo supabaseId para obter o ID local
         const registrosLocais = await getAllRegistros('fabrica-confinamento')
         const registroLocal = registrosLocais.find((r: any) => r.supabaseId === tratoNaoConcluido.id)
@@ -509,23 +525,9 @@ export default function FabricaConfinamentoPage() {
         setRegistroFabricaNaoConcluidoId(null)
       }
 
-      // Verificar se todos os tratos do dia foram concluídos
-      const todosConcluidos = maxOrdemFeita >= qtdTratos && !tratoNaoConcluido
+      const todosConcluidos = maxOrdemProduzida >= qtdTratos && !tratoNaoConcluido
       setTodosTratosConcluidos(todosConcluidos)
-
       setOrdemTratoAtual(ordemAtual)
-
-      // Verificar se todos os currais foram tratados no trato anterior (para liberar o atual)
-      if (ordemAtual > 1) {
-        const todosTratados = curraisDaDieta.every((curral) => {
-          const tratosDoDia = registrosPorCurral.get(curral.curralId) || []
-          const tratosFeitos = tratosDoDia.filter((t) => t.kg_ofertado_real !== null).length
-          return tratosFeitos >= ordemAtual - 1
-        })
-        setTodosCurraisTratadosNoTratoAnterior(todosTratados)
-      } else {
-        setTodosCurraisTratadosNoTratoAnterior(true)
-      }
 
       // Calcular kgPlanejado de cada curral para o trato atual
       const percentuais = progCompleta.percentuais
@@ -541,10 +543,10 @@ export default function FabricaConfinamentoPage() {
 
       // Se for o último trato, compensar: previsto = total_do_dia - soma_dos_tratos_anteriores
       const isUltimoTrato = ordemAtual === qtdTratos
-      if (isUltimoTrato && !isDia1ParaTodos(curraisDaDieta)) {
-        // Calcular total do dia para cada curral e subtrair o já distribuído nos tratos anteriores
+      if (isUltimoTrato) {
+        // Calcular o saldo de cada curral e subtrair o já distribuído nos tratos anteriores
         for (const curral of curraisDaDieta) {
-          if (curral.kgBaseDia !== null) {
+          if (!curral.isDia1 && curral.kgBaseDia !== null) {
             const totalDiaCurral = curral.kgBaseDia
             const tratosDoDia = registrosPorCurral.get(curral.curralId) || []
             const jaDistribuido = tratosDoDia
@@ -578,9 +580,18 @@ export default function FabricaConfinamentoPage() {
       }
       setInsumos(insumosData)
 
-      // Resetar campos de produção
-      setTotalProduzido('')
-      setKgProduzidoPorInsumo({})
+      // Restaurar rascunho salvo (se houver)
+      const rascunhoKey = `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
+      const rascunho = await lerRascunho<{ totalProduzido: string; kgProduzidoPorInsumo: Record<string, string> }>(rascunhoKey)
+      if (rascunho && (rascunho.totalProduzido || (rascunho.kgProduzidoPorInsumo && Object.values(rascunho.kgProduzidoPorInsumo).some((v) => v !== '')))) {
+        setTotalProduzido(rascunho.totalProduzido || '')
+        setKgProduzidoPorInsumo(rascunho.kgProduzidoPorInsumo || {})
+        setRascunhoSalvo(true)
+      } else {
+        setTotalProduzido('')
+        setKgProduzidoPorInsumo({})
+        setRascunhoSalvo(false)
+      }
       setSucesso(false)
     } catch (error) {
       console.error('Erro ao carregar dados da fábrica:', error)
@@ -645,20 +656,80 @@ export default function FabricaConfinamentoPage() {
     if (!dietaSelecionadaId || !vagaoSelecionadoId) return false
     if (totalProduzidoNum <= 0) return false
     if (excedeCapacidade) return false
-    if (!todosCurraisTratadosNoTratoAnterior) return false
     if (todosTratosConcluidos) return false
     return true
-  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, excedeCapacidade, todosCurraisTratadosNoTratoAnterior, todosTratosConcluidos])
+  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, excedeCapacidade, todosTratosConcluidos])
+
+  // Rascunho: persiste totalProduzido e kgProduzidoPorInsumo no IndexedDB
+  const getRascunhoKey = useCallback(() => {
+    const dataISO = brToDateISO(data)
+    return `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
+  }, [fazendaId, data, tipoSelecionado, dietaSelecionadaId])
+
+  const salvarRascunhoFabrica = useCallback(
+    async (total: string, insumosKg: Record<string, string>) => {
+      if (!fazendaId) return
+      const key = getRascunhoKey()
+      const payload = { totalProduzido: total, kgProduzidoPorInsumo: insumosKg }
+      try {
+        await salvarRascunho(key, payload)
+        setRascunhoSalvo(total !== '' || Object.values(insumosKg).some((v) => v !== ''))
+      } catch (error) {
+        console.error('Erro ao salvar rascunho da fábrica:', error)
+      }
+    },
+    [fazendaId, getRascunhoKey]
+  )
+
+  // Flush do autosave antes de recarregar ou desmontar
+  useEffect(() => {
+    return () => {
+      if (debounceRascunhoRef.current) {
+        clearTimeout(debounceRascunhoRef.current)
+      }
+      const total = totalProduzidoRef.current
+      const insumos = kgProduzidoPorInsumoRef.current
+      if (total !== '' || Object.values(insumos).some((v) => v !== '')) {
+        void salvarRascunhoFabrica(total, insumos)
+      }
+    }
+  }, [data, tipoSelecionado, dietaSelecionadaId, fazendaId, salvarRascunhoFabrica])
+
+  // Sincroniza espelhos para flush síncrono
+  useEffect(() => {
+    totalProduzidoRef.current = totalProduzido
+  }, [totalProduzido])
+
+  useEffect(() => {
+    kgProduzidoPorInsumoRef.current = kgProduzidoPorInsumo
+  }, [kgProduzidoPorInsumo])
 
   const handleTotalProduzidoChange = useCallback((valor: string) => {
-    const sanitizado = valor.replace(/[^0-9.,]/g, '')
+    const sanitizado = sanitizarDecimalComVirgula(valor)
     setTotalProduzido(sanitizado)
-  }, [])
+    setRascunhoSalvo(false)
+    // Autosave debounced
+    if (debounceRascunhoRef.current) clearTimeout(debounceRascunhoRef.current)
+    debounceRascunhoRef.current = setTimeout(() => {
+      debounceRascunhoRef.current = null
+      void salvarRascunhoFabrica(sanitizado, kgProduzidoPorInsumoRef.current)
+    }, 500)
+  }, [salvarRascunhoFabrica])
 
   const handleKgInsumoChange = useCallback((insumoId: string, valor: string) => {
-    const sanitizado = valor.replace(/[^0-9.,]/g, '')
-    setKgProduzidoPorInsumo((prev) => ({ ...prev, [insumoId]: sanitizado }))
-  }, [])
+    const sanitizado = sanitizarDecimalComVirgula(valor)
+    setKgProduzidoPorInsumo((prev) => {
+      const novo = { ...prev, [insumoId]: sanitizado }
+      // Autosave debounced
+      if (debounceRascunhoRef.current) clearTimeout(debounceRascunhoRef.current)
+      debounceRascunhoRef.current = setTimeout(() => {
+        debounceRascunhoRef.current = null
+        void salvarRascunhoFabrica(totalProduzidoRef.current, novo)
+      }, 500)
+      return novo
+    })
+    setRascunhoSalvo(false)
+  }, [salvarRascunhoFabrica])
 
   const handleSalvar = useCallback(async () => {
     if (!fazendaId || !podeSalvar) return
@@ -748,25 +819,55 @@ export default function FabricaConfinamentoPage() {
       setSucesso(true)
       setTotalProduzido('')
       setKgProduzidoPorInsumo({})
+      setRascunhoSalvo(false)
+      // Atualizar a ordem imediatamente, sem depender do refresh do Supabase.
+      if (concluido) {
+        const proximaOrdem = ordemTratoAtual + 1
+        setRegistroFabricaNaoConcluidoId(null)
+        setJaProduzidoNoTrato(0)
+        setOrdemTratoAtual(Math.min(proximaOrdem, quantidadeTratos))
+        if (proximaOrdem > quantidadeTratos) {
+          setTodosTratosConcluidos(true)
+          setTotalPrevisto(0)
+        } else {
+          const proximoPercentual = percentuaisTratos.find(
+            (p) => p.ordem_trato === proximaOrdem
+          )?.percentual || 0
+          setTotalPrevisto(
+            curraisFiltrados.reduce(
+              (sum, curral) => sum + (curral.kgBaseDia || 0) * (proximoPercentual / 100),
+              0
+            )
+          )
+        }
+      } else {
+        setRegistroFabricaNaoConcluidoId(registroId)
+        setJaProduzidoNoTrato(novoTotalProduzido)
+      }
 
-      // Recarregar dados para refletir o novo estado
-      setTimeout(() => {
-        carregarDados()
-      }, 500)
+      // Limpar rascunho do IndexedDB
+      const rascunhoKey = getRascunhoKey()
+      await limparRascunho(rascunhoKey)
     } catch (error) {
       console.error('Erro ao salvar produção:', error)
       setErro('Erro ao salvar produção. Tente novamente.')
     } finally {
       setSalvando(false)
     }
-  }, [fazendaId, podeSalvar, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, ordemTratoAtual, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgProduzidoPorInsumo, carregarDados])
+  }, [fazendaId, podeSalvar, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgProduzidoPorInsumo, curraisFiltrados, getRascunhoKey])
 
   const handleLimpar = useCallback(() => {
     setTotalProduzido('')
     setKgProduzidoPorInsumo({})
     setSucesso(false)
     setErro(null)
-  }, [])
+    setRascunhoSalvo(false)
+    // Limpar rascunho do IndexedDB
+    if (fazendaId) {
+      const key = getRascunhoKey()
+      limparRascunho(key)
+    }
+  }, [fazendaId, getRascunhoKey])
 
   const tiposVisiveis = TIPOS_PROGRAMACAO.filter((t) => tiposDisponiveis.includes(t.value))
 
@@ -826,8 +927,9 @@ export default function FabricaConfinamentoPage() {
         </button>
       }
       bottomContent={bottomContent}
+      bottomPaddingClass="pb-28"
     >
-      <div className="translate-y-10 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-visible">
+      <div className="-mt-1 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-visible">
         <div className="p-3 flex flex-col gap-4">
           {/* Filtros */}
           {tiposVisiveis.length > 1 && (
@@ -955,17 +1057,6 @@ export default function FabricaConfinamentoPage() {
                 </div>
               )}
 
-              {/* Aviso: trato anterior não concluído em todos os currais */}
-              {!todosCurraisTratadosNoTratoAnterior && (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-sm font-bold text-amber-800">
-                    Trato {ordemTratoAtual - 1} ainda não foi registrado em todos os currais.
-                    Conclua a distribuição no Trato Confinamento antes de fabricar o próximo.
-                  </p>
-                </div>
-              )}
-
               {/* Aviso: trato atual com produção parcial não concluída */}
               {tratoNaoConcluidoJaIniciado && faltamKg > 0 && (
                 <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 flex items-start gap-2">
@@ -1020,19 +1111,30 @@ export default function FabricaConfinamentoPage() {
 
               {/* Total Produzido */}
               <div>
-                <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
-                  Total Produzido (kg)
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
+                    Total Produzido (kg)
+                  </span>
+                  {rascunhoSalvo && (
+                    <span className="mb-1 inline-flex items-center gap-1 text-xs font-bold text-green-600">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Rascunho salvo
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   inputMode="decimal"
                   value={totalProduzido}
                   onChange={(e) => handleTotalProduzidoChange(e.target.value)}
+                  disabled={todosTratosConcluidos}
                   placeholder="0"
                   className={`w-full rounded-xl border-2 px-4 py-3 text-lg font-black text-gray-900 focus:outline-none ${
                     excedeCapacidade
                       ? 'border-red-500 bg-red-50'
-                      : 'border-gray-200 bg-white focus:border-[#1a3a2a]'
+                      : rascunhoSalvo
+                        ? 'border-green-400 bg-green-50'
+                        : 'border-gray-200 bg-white focus:border-[#1a3a2a]'
                   }`}
                 />
                 {excedeCapacidade && (
@@ -1060,7 +1162,7 @@ export default function FabricaConfinamentoPage() {
                           <th className="text-left p-2 font-bold text-gray-700">Insumo</th>
                           <th className="text-center p-2 font-bold text-gray-700">% MN</th>
                           <th className="text-center p-2 font-bold text-gray-700">Previsto</th>
-                          <th className="text-center p-2 font-bold text-gray-700">Produzido</th>
+                          <th className="text-center p-2 font-bold text-gray-700">Realizado</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1083,6 +1185,7 @@ export default function FabricaConfinamentoPage() {
                                   inputMode="decimal"
                                   value={kgProduzidoPorInsumo[insumo.insumo_id] || ''}
                                   onChange={(e) => handleKgInsumoChange(insumo.insumo_id, e.target.value)}
+                                  disabled={todosTratosConcluidos}
                                   placeholder="0"
                                   className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-center font-bold text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
                                 />
@@ -1103,9 +1206,3 @@ export default function FabricaConfinamentoPage() {
   )
 }
 
-/**
- * Verifica se todos os currais estão no dia 1.
- */
-function isDia1ParaTodos(currais: CurralFiltrado[]): boolean {
-  return currais.every((c) => c.isDia1)
-}

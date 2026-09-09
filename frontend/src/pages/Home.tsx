@@ -27,7 +27,7 @@ const BASE = import.meta.env.BASE_URL
 export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId, controleAcessoHabilitado } = useSelector((state: RootState) => state.config)
   const { active: cadastroSyncActive } = useCadastroSyncState()
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null)
@@ -657,7 +657,7 @@ export default function Home() {
               </button>
 
               {/* Botão Atividades (só aparece se RBAC ativo e funcionário logado) */}
-              {rbacAtivo && funcionarioLogado && (
+              {controleAcessoHabilitado && funcionarioLogado && (
                 <button
                   onClick={() => navigate('/atividades')}
                   className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30"

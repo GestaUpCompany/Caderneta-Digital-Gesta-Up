@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import type { FuncionarioRBAC } from '../services/funcionarioAuthService'
 
 interface FuncionarioLoginModalProps {
@@ -46,6 +46,7 @@ export default function FuncionarioLoginModal({
     return null
   })
   const [pin, setPin] = useState('')
+  const pinRef = useRef('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -71,38 +72,43 @@ export default function FuncionarioLoginModal({
   const handleSelect = (f: FuncionarioRBAC) => {
     setSelected(f)
     setPin('')
+    pinRef.current = ''
     setError('')
   }
 
   const handlePinDigit = (digit: string) => {
-    if (pin.length < 4) {
-      setPin(prev => prev + digit)
-      setError('')
-    }
+    const novo = pinRef.current.length < 4 ? pinRef.current + digit : pinRef.current
+    pinRef.current = novo
+    setPin(novo)
+    setError('')
   }
 
   const handleBackspace = () => {
-    setPin(prev => prev.slice(0, -1))
+    const novo = pinRef.current.slice(0, -1)
+    pinRef.current = novo
+    setPin(novo)
     setError('')
   }
 
   const handleClear = () => {
+    pinRef.current = ''
     setPin('')
     setError('')
   }
 
   const handleConfirm = async () => {
-    if (!selected || pin.length < 4) {
+    if (!selected || pinRef.current.length < 4) {
       setError('Digite o PIN completo')
       return
     }
     setLoading(true)
     try {
-      const ok = await validarPinFuncionario(pin, selected)
+      const ok = await validarPinFuncionario(pinRef.current, selected)
       if (ok) {
         onLogin(selected)
       } else {
         setError('PIN incorreto')
+        pinRef.current = ''
         setPin('')
       }
     } catch (err) {
@@ -115,6 +121,7 @@ export default function FuncionarioLoginModal({
 
   const handleVoltar = () => {
     setSelected(null)
+    pinRef.current = ''
     setPin('')
     setError('')
     if (pinOnly && onSwitchUser) {
@@ -153,15 +160,15 @@ export default function FuncionarioLoginModal({
           </div>
         ) : (
           <div className="w-full max-w-sm flex flex-col flex-1">
-            <div className="flex-1 flex flex-col items-center pt-8">
-              <div className={`w-24 h-24 rounded-full ${stringToColor(selected.id)} flex items-center justify-center text-white text-3xl font-black shadow-lg ring-4 ring-white/10`}>
+            <div className="flex-1 flex flex-col items-center pt-2">
+              <div className={`w-16 h-16 rounded-full ${stringToColor(selected.id)} flex items-center justify-center text-white text-2xl font-black shadow-lg ring-4 ring-white/10`}>
                 {getInitials(selected.nome)}
               </div>
-              <h2 className="text-2xl font-semibold text-white text-center mt-4">{selected.nome}</h2>
-              <p className="text-white/60 text-sm font-medium mt-1">Digite seu PIN</p>
+              <h2 className="text-xl font-semibold text-white text-center mt-2">{selected.nome}</h2>
+              <p className="text-white/60 text-sm font-medium mt-0.5">Digite seu PIN</p>
 
-              <div className="flex flex-col items-center mt-8 mb-4">
-                <div className="flex gap-4 mb-4">
+              <div className="flex flex-col items-center mt-3 mb-1">
+                <div className="flex gap-4 mb-2">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div
                       key={i}
@@ -181,21 +188,21 @@ export default function FuncionarioLoginModal({
               </div>
 
               {error && (
-                <p className="text-center text-red-300 text-sm font-medium mb-4 bg-red-500/10 px-4 py-2 rounded-xl">
+                <p className="text-center text-red-300 text-sm font-medium mb-2 bg-red-500/10 px-4 py-2 rounded-xl">
                   {error}
                 </p>
               )}
             </div>
 
-            <div className="pb-4">
-              <div className="bg-white/5 rounded-3xl border border-white/10 p-5 mb-5">
-                <div className="grid grid-cols-3 gap-3">
+            <div className="pb-2">
+              <div className="bg-white/5 rounded-3xl border border-white/10 p-3 mb-2">
+                <div className="grid grid-cols-3 gap-2">
                   {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
                     <button
                       key={digit}
                       onClick={() => handlePinDigit(digit)}
                       disabled={loading}
-                      className="bg-white/5 text-white text-2xl font-medium py-5 rounded-2xl active:bg-white/20 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
+                      className="bg-white/5 text-white text-xl font-medium py-2.5 rounded-2xl active:bg-white/20 active:scale-95 transition-all disabled:opacity-50 min-h-[52px]"
                     >
                       {digit}
                     </button>
@@ -203,21 +210,21 @@ export default function FuncionarioLoginModal({
                   <button
                     onClick={handleVoltar}
                     disabled={loading}
-                    className="bg-white/10 text-white text-xs font-bold py-5 rounded-2xl active:bg-white/20 transition-all disabled:opacity-50 min-h-[72px] leading-tight"
+                    className="bg-yellow-500/15 text-yellow-300 text-xs font-bold py-2.5 rounded-2xl active:bg-yellow-500/25 transition-all disabled:opacity-50 min-h-[52px] leading-tight"
                   >
-                    {pinOnly ? 'TROCAR USUÁRIO' : 'VOLTAR'}
+                    {pinOnly ? 'TROCAR' : 'VOLTAR'}
                   </button>
                   <button
                     onClick={() => handlePinDigit('0')}
                     disabled={loading}
-                    className="bg-white/5 text-white text-2xl font-medium py-5 rounded-2xl active:bg-white/20 active:scale-95 transition-all disabled:opacity-50 min-h-[72px]"
+                    className="bg-white/5 text-white text-xl font-medium py-2.5 rounded-2xl active:bg-white/20 active:scale-95 transition-all disabled:opacity-50 min-h-[52px]"
                   >
                     0
                   </button>
                   <button
                     onClick={handleBackspace}
                     disabled={loading}
-                    className="bg-amber-500/15 text-white text-base font-bold py-5 rounded-2xl active:bg-amber-500/25 transition-all disabled:opacity-50 min-h-[72px]"
+                    className="bg-red-500/15 text-red-300 text-sm font-bold py-2.5 rounded-2xl active:bg-red-500/25 transition-all disabled:opacity-50 min-h-[52px]"
                   >
                     APAGAR
                   </button>
@@ -227,7 +234,7 @@ export default function FuncionarioLoginModal({
               <button
                 onClick={handleConfirm}
                 disabled={loading || pin.length < 4}
-                className="w-full bg-yellow-400 text-[#1a3a2a] text-lg font-bold py-4 rounded-2xl active:bg-yellow-300 transition-all disabled:opacity-50"
+                className="w-full bg-yellow-400 text-[#1a3a2a] text-base font-bold py-3 rounded-2xl active:bg-yellow-300 transition-all disabled:opacity-50"
               >
                 {loading ? '...' : 'ENTRAR'}
               </button>

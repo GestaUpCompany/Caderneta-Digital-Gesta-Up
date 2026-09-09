@@ -2882,12 +2882,17 @@ export async function getUltimoTratoTotalByLote(
  */
 export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: string) {
   const client = await getSupabaseClientWithRefresh() as any
+  const dataReferencia = new Date().toISOString().slice(0, 10)
   const { data: prog, error: progError } = await client
     .from('programacao_tratos')
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
     .eq('tipo', tipo)
+    .lte('data_inicio', dataReferencia)
+    .gte('data_fim', dataReferencia)
+    .order('data_inicio', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (progError) throw progError
@@ -2920,11 +2925,14 @@ export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: stri
  */
 export async function getTiposProgramacaoTratos(fazendaId: string): Promise<string[]> {
   const client = await getSupabaseClientWithRefresh() as any
+  const dataReferencia = new Date().toISOString().slice(0, 10)
   const { data, error } = await client
     .from('programacao_tratos')
     .select('tipo')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .lte('data_inicio', dataReferencia)
+    .gte('data_fim', dataReferencia)
 
   if (error || !data) return []
   return data.map((d: any) => d.tipo as string)
