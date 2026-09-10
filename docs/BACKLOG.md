@@ -2,11 +2,11 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
-## Idempotência via `local_id` nas 21 tabelas de registros
+## Idempotência via `local_id` nas tabelas de registros (parcialmente resolvido)
 
-Hoje o `registroToSupabase` não envia o `id` local como chave de idempotência; se o INSERT sucede no Supabase mas a resposta se perde (timeout, rede instável), o dispositivo não grava `supabaseId` e tenta criar de novo (duplicata). Eliminar retries encolhe a janela de risco mas não fecha o buraco.
+`syncService.ts:73-79` envia `local_id: registro.id` no `baseData`. 18 tabelas já usam `upsert` com `onConflict: 'local_id'`. Migrations adicionaram a coluna em 20 tabelas.
 
-**Correção estrutural**: adicionar coluna `local_id` (ou `idempotency_key`) nas 21 tabelas de registros + usar `upsert` com `onConflict`. Migração coordenada com o Painel Web conforme matriz de impacto (ver seção Auditoria abaixo).
+**Falta consumir a idempotência em**: `fabrica-confinamento`, `fabrica-confinamento-insumos`, `entrada-insumos`, `saida-insumos`, `entrada-insumos-itens`, `atividades`, `atividade-funcionarios`, `atividade-sessoes`, `atividade-imprevistos`. Estes ainda usam `insert`/`upsert` sem `onConflict: 'local_id'` (syncService.ts:723-842).
 
 ## Tela de auditoria de erros de sync no Painel Web (rota /admin)
 
@@ -45,11 +45,13 @@ Criar rota `/admin/erros-sync` com:
 
 **Correção aplicada (movimentacao, 10/08/2026)**: a função `update_quant_atual_movimentacao()` agora verifica se a categoria existe em `lote_categorias` para o lote origem antes do UPDATE. Se não existe, insere um registro em `logs_sync_errors` com `error_code = 'CATEGORIA_NOT_IN_LOTE'`, `caderneta = 'movimentacao'`, e o payload com lote_origem_id, lote_destino_id, categoria, motivo_movimentacao, numero_cabecas, nome_usuario. O INSERT do registro não é rejeitado, mas o erro fica auditável. Migração: `add_categoria_not_in_lote_guard_movimentacao`. Validação: inserido registro de teste com categoria fantasma no lote "Lote 16", log criado corretamente, registro e log de teste removidos após validação. Encontrados 28 registros órfãos em produção (9 lotes, 8 categorias distintas) que dispararão o log em novos INSERTs mas não retroativamente.
 
-**Pendente (maternidade)**: a função `update_quant_atual_maternidade()` precisa do mesmo tratamento. Tem o mesmo padrão de UPDATE condicional que pode afetar 0 linhas silenciosamente.
+**Pendente (maternidade)**: a função `update_quant_atual_maternidade()` precisa do mesmo tratamento. Tem o mesmo padrão de UPDATE condicional que pode afetar 0 linhas silenciosamente. A função existe no Painel Web em `supabase/migrations/20260825170000_migration_s_fix_unaccent_triggers.sql:205-238`, mas ainda não aplica o guard `CATEGORIA_NOT_IN_LOTE`: quando a categoria não existe, a função cria a linha em `lote_categorias` (linhas 224-230) em vez de inserir em `logs_sync_errors`.
 
 ## Log de erro visível na lista de registros + eliminação de retries automáticos
 
 **Contexto**: registros com `syncStatus === 'error'` mostram apenas `❌` e botão REENVIAR na lista, sem nenhuma informação sobre o erro. O erro é logado em `logs_sync_errors` no Supabase (via `logSyncError` em syncService.ts:636), mas se o log falha ao subir (offline, rede instável), o erro some sem rastro. Em produção, peões ficam sem saber por que o registro não sincronizou.
+
+**Estado atual**: `ListaRegistros.tsx:29-36` só exibe `error` como `❌`; `ListaRegistros.tsx:941-951` mostra apenas o botão `REENVIAR`. Não existe seção colapsável, mensagem traduzida por código de erro, nem botão "copiar". `types/cadernetas.ts` e `indexedDB.ts` não possuem campo `syncError`. `syncService.ts:998-1009` mantém `calculateBackoffMs`; `utils/constants.ts:117` mantém `MAX_RETRY_COUNT = 10`; `syncService.ts:1148-1200` ainda usa `MAX_RETRY_COUNT` e, no `catch` de `processQueue`, incrementa `retryCount` e recoloca o item na fila em vez de marcá-lo como `error` e remover.
 
 **Decisão aprovada (a implementar)**:
 
@@ -59,13 +61,13 @@ Criar rota `/admin/erros-sync` com:
 
 3. **Eliminar retries automáticos**: no catch de `processQueue`, em vez de incrementar `retryCount` e recolocar na fila com backoff, remover o item da fila, marcar `syncStatus = 'error'`, gravar `syncError` local, e logar no Supabase. `calculateBackoffMs` e `MAX_RETRY_COUNT` deixam de ser usados. O reenvio manual (botão REENVIAR em ListaRegistros.tsx:836-846) continua funcionando como válvula de escape para falhas transitórias. Motivo: dois peões podem repetir a mesma operação em celulares diferentes; retries automáticos do que falhou causam duplicatas quando o outro peão já sincronizou.
 
-**Débito não resolvido por essa mudança**: idempotência via `upsert` com `local_id` nas 21 tabelas de registros (ver seção acima).
+**Débito não resolvido por essa mudança**: idempotência via `upsert` com `local_id` nas tabelas restantes (ver seção acima).
 
 ---
 
-## Auditoria de código (julho/2026)
+## Auditoria de código (julho/2026) — itens pendentes
 
-Foram identificadas 87 falhas em 4 frentes. As matrizes completas estão abaixo.
+Foram identificadas 87 falhas em 4 frentes. 30 itens já foram resolvidos (ver `docs/HISTORICO.md`). Os 57 pendentes estão listados abaixo.
 
 ### Matriz de impacto cruzado (PWA ↔ Painel Web)
 
@@ -83,19 +85,18 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 
 | Correção | Motivo |
 |---|---|
-| C1-C6 (schema/sync) | Mudanças no syncService.ts do PWA ou adicionam colunas. Painel faz SELECT * e ignora extras |
-| N1-N14 (lógica negócio) | Arquivos exclusivos do PWA (syncService, cadastroCache, leituraCochoMetrics, supplementMetrics, validation) |
-| R1-R24 (bugs runtime) | Páginas/componentes exclusivos do PWA |
-| C9-C10 (timezone) | Correção em formatDate.ts e supabaseService.ts do PWA |
+| C2, C5, C9, C10, C13, C14 (schema/sync) | Mudanças no syncService.ts do PWA. Painel faz SELECT * e ignora extras |
+| N1, N3-N5, N7-N9, N15, N18, N20-N21, N23, N27-N29 (lógica negócio) | Arquivos exclusivos do PWA (syncService, cadastroCache, validation) |
+| R2, R6-R8, R11, R15-R16, R18-R24 (bugs runtime) | Páginas/componentes exclusivos do PWA |
 
 ### Ordem de aplicação recomendada
 
-1. **Seguro (imediato)**: C1-C6, N8-N14, R1-R24, C9-C10
+1. **Seguro (imediato)**: C2, C5, C9-C10, C13-C14, N1, N3-N5, N7-N9, N15, N18, N20-N21, N23, N27-N29, R2, R6-R8, R11, R15-R16, R18-R24
 2. **Preparação (antes de RLS)**: verificar usuario_fazenda, lote_historico.fazenda_id, decidir política de controller, migrar senhas
 3. **RLS (coordenado)**: S3, S1, S4, S7, S8 juntas, testar Painel após
 4. **Senhas (por último)**: S5 após migrar ambos os sistemas
 
-### Frente 1: Segurança/RLS
+### Frente 1: Segurança/RLS — todos pendentes
 
 **Críticos**
 
@@ -123,146 +124,108 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 | S10 | frontend/.env.example:10 | Anon key commitada (aceitável, mas expõe URL) |
 | S11 | backend/src/controllers/authController.ts:32 | ilike em campo que deveria ser UUID |
 
-### Frente 2: Lógica de Negócio
+### Frente 2: Lógica de Negócio — pendentes
 
 **Críticos**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| N1 | syncService.ts:544-609 | Sem verificação de conflitos de versão em updates |
-| N2 | syncService.ts:679-683 | Race condition: registro deletado entre leitura da fila e sync |
-| N3 | syncService.ts:510-525 | Sync de entrada-insumos não é transacional |
-| N4 | cadastroCache.ts:381-421 | currentFazendaId global, race condition em múltiplas abas |
-| N5 | supabaseService.ts:148-181 | Funções de escrita não verificam permissões |
+| N1 | syncService.ts:78, 846-989 | `registroToSupabase` seta `version` mas update não lê a versão remota nem trata conflitos |
+| N3 | syncService.ts:724-739 | `entrada-insumos` cria o pai e depois atualiza itens em loop; não há transação atômica/RPC |
+| N4 | cadastroCache.ts:514 | `currentFazendaId` continua como variável global do módulo |
+| N5 | supabaseService.ts:151-173 | Funções de escrita não validam permissões do lado do app; confiam apenas no RLS |
 
 **Altos**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| N6 | syncService.ts:659-719 | processQueue sem ordenação por dependência |
-| N7 | syncService.ts:616-622 | Backoff sem jitter, thundering herd |
-| N8 | cadastroCache.ts:82-88 | Filtro de cache não verifica timestamp |
-| N9 | cadastroCache.ts:175-177 | saveToCache perpetua dados desatualizados |
-| N10 | leituraCochoMetrics.ts:103-114 | calcularCmsIntervalo: divisão por zero em diasIntervalo |
-| N11 | leituraCochoMetrics.ts:228 | calcularPesoVivoMedio: divisão por quantTotal sem verificação |
-| N12 | leituraCochoMetrics.ts:291 | calcularMediaMsKg: divisão por cabecas sem verificação |
-| N13 | shareUtils.ts:111-143 | calcularPeriodoTrato: não verifica null em todosRegistros |
-| N14 | supplementMetrics.ts:229,240,255-261 | Divisões por animaisElegiveis e pesoVivoMedio sem verificação |
-| N15 | validation.ts:236-241 | validateSuplementacao: sem range máximo em kgCocho/kgDeposito |
-| N16 | validation.ts:279 | validateMovimentacao: sem máximo em numeroCabecas |
+| N7 | syncService.ts:998-1004 | `calculateBackoffMs` faz exponencial puro, sem jitter |
+| N8 | cadastroCache.ts:129-208 | `loadQueryCacheFromIndexedDB` não verifica timestamp; `loadFromCache` não verifica timestamp |
+| N9 | cadastroCache.ts:213-243 | `saveToCache` grava sem validar frescura e mantém fallback de `individuos` do cache anterior |
+| N15 | validation.ts:320-327 | `validateSuplementacao`: `kgCocho` e `kgDeposito` só exigem `> 0`, sem limite máximo |
 
 **Médios**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| N17 | useFormValidation.ts:142-151 | Validação min/max não verifica se valor é número |
-| N18 | useFormValidation.ts:159-166 | Validação custom sem try-catch |
-| N19 | syncService.ts:62-453 | switch case sem default com warning |
-| N20 | indexedDB.ts:34 | Versão do DB hardcoded (21) |
-| N21 | cadastroCache.ts:15 | CACHE_EXPIRY_MS fixo 10 min |
-| N22 | funcionarioAuthService.ts:28 | cadernetas_permitidas não valida valores |
-| N23 | useFuncionarioAuth.ts:37-48 | funcionarioLogado sem validar propriedades obrigatórias |
-| N24 | backend/src/controllers/authController.ts:32-34 | ilike em UUID |
-| N25 | backend/src/app.ts:36-47 | CORS permite requests sem origin |
+| N18 | useFormValidation.ts:163-169 | `rule.custom(value, form)` chamado sem `try/catch` |
+| N20 | indexedDB.ts:45 | `openDB(DB_NAME, 27, ...)` com versão hardcoded |
+| N21 | cadastroCache.ts:17 | `CACHE_EXPIRY_MS = 30 * 60 * 1000` fixo |
+| N23 | useFuncionarioAuth.ts:46-57 | `funcionarioLogado` reconstruído do Redux sem validar contra a lista carregada |
 
 **Baixos**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| N26 | leituraCochoMetrics.ts:201-202 | Médias não arredondam resultados |
-| N27 | shareUtils.ts:187-197 | Filtragem de zeros hardcoded por caderneta |
-| N28 | validation.ts:11-23 | isValidDate impede datas futuras |
-| N29 | store.ts:12 | Redux persist não inclui sync |
-| N30 | supabaseService.ts:1311-1334 | Funções create/update não retornam registro completo em erro parcial |
+| N27 | shareUtils.ts:203-219 | Filtros de campos por caderneta continuam hardcoded |
+| N28 | validation.ts:13-25 | `isValidDate` ainda exige `date <= new Date()`, bloqueando datas futuras |
+| N29 | store.ts:12 | `whitelist: ['config', 'cadernetas']` não inclui o slice `sync` |
 
-### Frente 3: Bugs de Runtime
-
-**Crítico**
-
-| ID | Arquivo:Linha | Problema | Correção |
-|---|---|---|---|
-| R1 | AlmoxarifadoPage.tsx:241-248 | useEffect com dependência faltante pode causar loop infinito | Adicionar itemEditando às dependências ou useCallback |
+### Frente 3: Bugs de Runtime — pendentes
 
 **Altos**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| R2 | CantinaPage.tsx:102-104 | form.quemAjudou.forEach sem null check |
-| R3 | ClimaPage.tsx:69-71 | form.medicoes.forEach sem null check |
-| R4 | EnfermariaPage.tsx:120 | useState(makeInitial) em vez de lazy initializer |
-| R5 | EntradaInsumosPage.tsx:186-202 | setInterval sem cleanup em caso de erro |
+| R2 | CantinaPage.tsx:189 | `form.quemAjudou.forEach` sem null/undefined check |
+| R6 | LimpezaPage.tsx:103,135 | `form.limpezaRealizada.forEach` sem null check |
+| R7 | ManutencaoMaquinasPage.tsx:93,102 | `p.checklist[campo]` sem optional chaining |
+| R8 | MaternidadePage.tsx:215 | `useState<FormState>(makeInitial())` executa a função a cada render |
 
 **Médios**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| R6 | LimpezaPage.tsx:99-107 | form.limpezaRealizada.forEach sem null check |
-| R7 | ManutencaoMaquinasPage.tsx:116-118 | p.checklist[campo] sem optional chaining |
-| R8 | MaternidadePage.tsx:162 | useState(makeInitial) |
-| R9 | MortePage.tsx:162 | useState(makeInitial) |
-| R10 | MovimentacaoPage.tsx:104 | useState(makeInitial) |
-| R11 | OperacoesMaquinasPage.tsx:125-127 | split de string sem verificação |
-| R12 | PastagensPage.tsx:195-197 | useEffect com dependência não memoizada |
-| R13 | ProblemasPage.tsx:91 | useState(makeInitial) |
-| R14 | RodeioPage.tsx:162-164 | useEffect com dependência não memoizada |
-| R15 | SaidaInsumosPage.tsx:130 | suplementacaoData!.insumos com assertion |
-| R16 | SaidaInsumosPage.tsx:127 | result.id sem verificação |
-| R17 | SuplementacaoPage.tsx:167-169 | useEffect com dependência não memoizada |
+| R11 | OperacoesMaquinasPage.tsx:130-131 | `split(':')` sem verificar formato/undefined |
+| R15 | SaidaInsumosPage.tsx:132 | `suplementacaoData!.insumos` com non-null assertion |
+| R16 | SaidaInsumosPage.tsx:129 | `const saidaId = result.id` sem verificar se existe |
 
 **Baixos**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| R18 | AbastecimentoPage.tsx:199 | setSalvando(false) não executado em erro |
-| R19 | BebedourosPage.tsx:183-192 | Event listener sem verificação de unsubscribe |
-| R20 | EnfermariaPage.tsx:244-259 | Erro silenciado sem feedback ao usuário |
-| R21 | LeituraCochoPage.tsx:193-198 | Erro silenciado |
-| R22 | MovimentacaoPage.tsx:190-201 | Event listener sem verificação |
-| R23 | PastagensPage.tsx:202-212 | Event listener sem verificação |
-| R24 | RodeioPage.tsx:202-212 | Event listener sem verificação |
+| R18 | AbastecimentoPage.tsx:191-219 | Sem `try/finally`; `setSalvando(false)` não executado em erro |
+| R19 | BebedourosPage.tsx:161-168 | `return unsubscribe` sem verificar se é uma função |
+| R20 | EnfermariaPage.tsx:242-250 | Carrega lotes sem `try/catch` nem feedback de erro |
+| R21 | LeituraCochoPage.tsx:248,260 | `catch { // ignorar erro }` silenciando falhas |
+| R22 | MovimentacaoPage.tsx:363-372 | `return unsubscribe` sem verificação |
+| R23 | PastagensPage.tsx:295-303 | `return unsubscribe` sem verificação |
+| R24 | RodeioPage.tsx:199-208 | `return unsubscribe` sem verificação |
 
-### Frente 4: Consistência
+### Frente 4: Consistência — pendentes
 
 **Críticos**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| C1 | syncService.ts:76-97 | 12 campos enviados para registros_maternidade não existem no schema |
-| C2 | syncService.ts:103-157 | 14 campos enviados para registros_pastagens não existem no schema |
-| C3 | syncService.ts:162-179 | Campo diagnosticos (objeto) enviado para registros_rodeio não existe no schema |
-| C4 | syncService.ts:170,178 | Campos boi (schema tem boi_gordo) e escore_gado (schema tem escore_gado_ideal) com nomes errados |
-| C5 | syncService.ts:218-227 | Campos gado e categoria existem no schema de bebedouros mas não são enviados |
-| C6 | syncService.ts:437-450 | Caderneta leitura-cocho envia para tabela registros_leitura_cocho que não existe no schema |
+| C2 | syncService.ts:171,193 | `horario_manejo` e `categorias_detalhes` enviados para `registros_pastagens` mas não existem no schema |
+| C5 | syncService.ts:282-293 | `gado` e `categoria` existem no schema de bebedouros mas não são enviados |
 
 **Altos**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| C7 | syncService.ts:233-238 | lote_origem, destino, peso_vivo_atual_kg com nomes errados em movimentação |
-| C8 | syncService.ts:85 | tipo_parto enviado como array mas schema é TEXT |
-| C9 | formatDate.ts:1-7 | todayBR() não aplica timezone America/Cuiaba |
-| C10 | supabaseService.ts (14 funções) | Funções delete* usam toISOString() sem timezone da fazenda |
+| C9 | formatDate.ts:1-7 | `todayBR()` continua usando `new Date()` local, sem `America/Cuiaba` |
+| C10 | supabaseService.ts (15 ocorrências) | `delete*` usam `new Date().toISOString()` sem timezone da fazenda |
+| C13 | api.ts:28-30 | Data inicial não converte para `America/Cuiaba`; depende de C9 |
 
 **Médios**
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| C11 | syncService.ts:124-153 | avaliacao_geral objeto sem estrutura no schema |
-| C12 | syncService.ts:156 | equipe_nomes enviado como JSON.stringify sem campo no schema |
-| C13 | api.ts:28-30 | Data inicial não usa timezone |
-| C14 | schema.sql:332-334 | Índices com typo: supplementacao para suplementacao |
+| C14 | mcp-server/schema.sql:334-336 | Índices com typo: `idx_supplementacao_*` (duplo `p`) ainda presente no DDL local |
 
-### Top 10 prioridades
+### Top 10 prioridades (atualizado)
 
 | # | ID | Frente | Problema | Impacto no Painel |
 |---|---|---|---|---|
 | 1 | S3 | Segurança | 22+ tabelas com RLS qual=true | QUEBRA se isolado |
 | 2 | S5 | Segurança | Senhas peões em texto plano | QUEBRA se isolado |
 | 3 | S1 | Segurança | fazendas: DELETE/INSERT/UPDATE por qualquer usuário | QUEBRA se isolado |
-| 4 | C1-C6 | Consistência | syncService envia campos inexistentes no schema | NEUTRO |
+| 4 | C2, C5 | Consistência | syncService envia campos inexistentes no schema de pastagens e bebedouros | NEUTRO |
 | 5 | N1 | Negócio | Sem conflito de versão no sync | NEUTRO |
 | 6 | N3 | Negócio | Sync entrada-insumos não transacional | NEUTRO |
 | 7 | S2 | Segurança | fazendas: SELECT público | QUEBRA se isolado |
-| 8 | N10-N14 | Negócio | Divisões por zero em métricas | NEUTRO |
-| 9 | C9-C10 | Consistência | Fuso horário não aplicado | NEUTRO |
-| 10 | N4 | Negócio | currentFazendaId global | NEUTRO |
+| 8 | C9-C10, C13 | Consistência | Fuso horário não aplicado no PWA | NEUTRO |
+| 9 | N4 | Negócio | currentFazendaId global | NEUTRO |
+| 10 | Log erro visível | Negócio | Erro de sync não visível + retries automáticos causam duplicatas | NEUTRO |

@@ -151,3 +151,57 @@ Documento completo (decisões de arquitetura, modelo de dados, stack): `GestaUp-
 **Painel Web**: a RPC `get_relatorio_lote_ciclo_vida` precisa ser atualizada para incluir `id_brinco_mae_adotiva` no resultado da seção de reprodução. O tipo TS `ReproducaoLote.linhas` já tem o campo opcional.
 
 **Disparador**: quando mencionar guacho, mãe adotiva, bezerro abandonado, adoção de bezerro, ou `mae_adotiva_id`, lembrar que o sistema agora vincula estruturalmente a mãe adotiva via FK em `individuos`.
+
+## Itens da auditoria de código (julho/2026) já resolvidos
+
+Os itens abaixo foram identificados na auditoria de julho/2026 e já foram corrigidos no código. Listados aqui para referência; os pendentes continuam em `docs/BACKLOG.md`.
+
+### Idempotência via `local_id` (parcialmente resolvido)
+
+`syncService.ts:73-79` envia `local_id: registro.id` no `baseData`. `syncService.ts:644-712` chama `createRegistro*` para 18 tabelas usando `upsert` com `onConflict: 'local_id'`. Migrations `20260905200000_add_local_id_idempotencia.sql` e `20260908200000_add_local_id_confinamento.sql` adicionaram a coluna em 20 tabelas. Falta consumir a idempotência em `fabrica-confinamento`, `fabrica-confinamento-insumos`, `entrada-insumos`, `saida-insumos`, `entrada-insumos-itens`, `atividades`, `atividade-funcionarios`, `atividade-sessoes` e `atividade-imprevistos`.
+
+### Frente 2 (Lógica de Negócio) — resolvidos
+
+| ID | Arquivo | Evidência |
+|---|---|---|
+| N2 | syncService.ts:1163-1169 | `processQueue` chama `getRegistro` e remove da fila se `!registro` |
+| N6 | indexedDB.ts:160-179 | `getSyncQueue` ordena por `priority`, `storeOrder` e `timestamp` |
+| N10 | leituraCochoMetrics.ts:107-118 | `calcularCmsIntervalo` retorna `null` se `diasIntervalo <= 0` |
+| N11 | leituraCochoMetrics.ts:237-239 | `calcularPesoVivoMedio` verifica `quantTotal === 0` antes de dividir |
+| N12 | leituraCochoMetrics.ts:302-303 | `calcularMediaMsKg` verifica `diasComRegistro === 0 \|\| cabecas <= 0` |
+| N13 | shareUtils.ts:128-157 | `calcularPeriodoTrato` verifica nulidade de `todosRegistros`, `dataAtual`, `dataR` |
+| N14 | supplementMetrics.ts:109,130-131,167,268-273,279 | divisões protegidas por `> 0` ou `diferencaDias` mínima de 1 |
+| N16 | validation.ts:393 | `validateMovimentacao` checa `numeroCabecas > maxCabecasLote` |
+| N17 | useFormValidation.ts:145-154 | `min`/`max` usam `typeof value === 'number'` antes de comparar |
+| N19 | syncService.ts:577 | `switch` de `registroToSupabase` possui `default: return baseData` |
+| N22 | funcionarioAuthService.ts:28 | `cadernetas_permitidas` valida com `Array.isArray(...)` |
+| N26 | leituraCochoMetrics.ts:211-212 | médias `dezDias` e `geral` usam `round4(...)` |
+| N30 | supabaseService.ts:1319-1328 | `.insert(...).select().single()` retorna o registro completo |
+
+### Frente 3 (Bugs de Runtime) — resolvidos
+
+| ID | Arquivo | Evidência |
+|---|---|---|
+| R1 | AlmoxarifadoPage.tsx:241 | `useEffect(..., [itemEditando?.classificacao, fazendaId])` evita loop |
+| R3 | ClimaPage.tsx:77 | `form.medicoes?.forEach` com optional chaining |
+| R4 | EnfermariaPage.tsx:121 | `useState<FormState>(makeInitial)` lazy initializer |
+| R5 | EntradaInsumosPage.tsx:208 | `clearInterval(interval)` no cleanup do `useEffect` |
+| R9 | MortePage.tsx:158 | `useState<FormState>(makeInitial)` lazy |
+| R10 | MovimentacaoPage.tsx:160 | `useState<FormState>(makeInitial)` lazy |
+| R12 | PastagensPage.tsx:226-228 | `useEffect(..., [garantirExecucao])` com `useCallback` |
+| R13 | ProblemasPage.tsx:94-95 | `useRascunhoForm({ makeInitial })` |
+| R14 | RodeioPage.tsx:165-167 | `useEffect(..., [garantirExecucao])` com `useCallback` |
+| R17 | SuplementacaoPage.tsx:169-171 | `useEffect(..., [garantirExecucao])` com `useCallback` |
+
+### Frente 4 (Consistência) — resolvidos
+
+| ID | Arquivo | Evidência |
+|---|---|---|
+| C1 | syncService.ts:133-166 | Os 12 campos de maternidade agora existem no schema (`types/supabase.ts:3696-3734`) |
+| C3 | syncService.ts:245 | `diagnosticos` enviado e coluna existe como `Json \| null` (`types/supabase.ts:4446`) |
+| C4 | syncService.ts:241,249 | `boi` e `escore_gado` confirmados no schema (`types/supabase.ts:4442/4451`) |
+| C6 | syncService.ts:61 | Tabela `registros_leitura_cocho` agora existe no schema (`types/supabase.ts:3453`) |
+| C7 | syncService.ts:299-310 | `lote_origem`, `destino`, `peso_vivo_atual_kg` confirmados no schema |
+| C8 | syncService.ts:146 | `tipo_parto` como array suportado pelo schema `Json \| null` |
+| C11 | syncService.ts:195-224 | `avaliacao_geral` como objeto confirmado no schema `Json \| null` |
+| C12 | syncService.ts:227 | `equipe_nomes` enviado direto (sem `JSON.stringify`), coluna existe como `Json \| null` |
