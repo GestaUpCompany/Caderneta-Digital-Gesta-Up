@@ -1,6 +1,7 @@
 import { supabase, getSupabaseClientWithRefresh } from './supabaseClient'
 import type { TablesInsert, TablesUpdate } from '../types/supabase'
 import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/relatorioLote'
+import { getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
@@ -2882,7 +2883,7 @@ export async function getUltimoTratoTotalByLote(
  */
 export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: string) {
   const client = await getSupabaseClientWithRefresh() as any
-  const dataReferencia = new Date().toISOString().slice(0, 10)
+  const dataReferencia = getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)
   const { data: prog, error: progError } = await client
     .from('programacao_tratos')
     .select('*')
@@ -2925,7 +2926,7 @@ export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: stri
  */
 export async function getTiposProgramacaoTratos(fazendaId: string): Promise<string[]> {
   const client = await getSupabaseClientWithRefresh() as any
-  const dataReferencia = new Date().toISOString().slice(0, 10)
+  const dataReferencia = getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)
   const { data, error } = await client
     .from('programacao_tratos')
     .select('tipo')

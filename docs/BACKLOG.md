@@ -88,7 +88,7 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 | S2 | fazendas | Policy Enable public read access (role public), qualquer pessoa na internet pode listar todas as fazendas | Remover policy public; manter apenas SELECT por usuario_fazenda |
 | S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, lotes, pastos, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas | Substituir por filtro fazenda_id IN (SELECT uf.fazenda_id FROM usuario_fazenda uf JOIN usuarios u ON u.id=uf.usuario_id WHERE u.auth_id=auth.uid() AND uf.ativo=true) |
 | S4 | usuarios | Policies Allow authenticated insert/update com qual=true, qualquer usuário pode criar/alterar qualquer usuário | Restringir INSERT/UPDATE a id = auth.uid() ou role admin |
-| S5 | peoes (coluna password) | Senhas dos peões em texto plano; usadas em authController.ts:42 para signInWithPassword | Remover coluna password; usar Supabase Auth nativo |
+| S5 | peoes (coluna password) | Senhas dos peões em texto plano; usadas em authController.ts:42 para signInWithPassword | **Aceito como está** (decisão do usuário, 2026-09-10): peão é perfil de acesso limitado a dados da fazenda, não tem acesso a dados sensíveis. Hashing é melhoria opcional de defesa-em-profundidade, sem urgência. Se implementar no futuro: migration que hashea as existentes + ajustar authController.ts. |
 
 **Altos**
 
@@ -187,9 +187,9 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| C9 | formatDate.ts:1-7 | `todayBR()` continua usando `new Date()` local, sem `America/Cuiaba` |
-| C10 | supabaseService.ts (15 ocorrências) | `delete*` usam `new Date().toISOString()` sem timezone da fazenda |
-| C13 | api.ts:28-30 | Data inicial não converte para `America/Cuiaba`; depende de C9 |
+| C9 | formatDate.ts:1-7 | ~~`todayBR()` continua usando `new Date()` local, sem `America/Cuiaba`~~ (RESOLVIDO) |
+| C10 | supabaseService.ts (15 ocorrências) | ~~`delete*` usam `new Date().toISOString()` sem timezone da fazenda~~ (RESOLVIDO: 2 ocorrências de data de referência corrigidas; 15 de `deleted_at` continuam em UTC, que é correto para storage) |
+| C13 | api.ts:28-30 | ~~Data inicial não converte para `America/Cuiaba`; depende de C9~~ (RESOLVIDO via C9) |
 
 **Médios**
 
@@ -202,12 +202,12 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 | # | ID | Frente | Problema | Impacto no Painel |
 |---|---|---|---|---|
 | 1 | S3 | Segurança | 22+ tabelas com RLS qual=true | QUEBRA se isolado |
-| 2 | S5 | Segurança | Senhas peões em texto plano | QUEBRA se isolado |
+| 2 | S5 | Segurança | ~~Senhas peões em texto plano~~ (aceito como está) | NEUTRO |
 | 3 | S1 | Segurança | fazendas: DELETE/INSERT/UPDATE por qualquer usuário | QUEBRA se isolado |
 | 4 | C2, C5 | Consistência | syncService envia campos inexistentes no schema de pastagens e bebedouros | NEUTRO |
 | 5 | N1 | Negócio | Sem conflito de versão no sync | NEUTRO |
 | 6 | N3 | Negócio | Sync entrada-insumos não transacional | NEUTRO |
 | 7 | S2 | Segurança | fazendas: SELECT público | QUEBRA se isolado |
-| 8 | C9-C10, C13 | Consistência | Fuso horário não aplicado no PWA | NEUTRO |
+| 8 | ~~C9-C10, C13~~ | Consistência | ~~Fuso horário não aplicado no PWA~~ (RESOLVIDO) | NEUTRO |
 | 9 | N4 | Negócio | currentFazendaId global | NEUTRO |
 | 10 | Log erro visível | Negócio | Erro de sync não visível + retries automáticos causam duplicatas | NEUTRO |

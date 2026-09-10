@@ -243,3 +243,22 @@ Completada a cobertura de idempotência nas 9 tabelas restantes. Agora todas as 
 **Mudanças no `registroToSupabase`**: 5 cases que não incluíam `local_id` no payload agora incluem `local_id: registro.id`: `atividade-funcionarios`, `atividade-sessoes`, `atividade-imprevistos`, `atividades`, `entrada-insumos-itens`. Os cases `fabrica-confinamento` e `entrada-insumos` já usavam `...baseData` (que inclui `local_id`), e `fabrica-confinamento-insumos` já tinha `local_id` explícito.
 
 Typecheck e build passaram.
+
+## Fuso horário corrigido no PWA (C9, C10, C13) (RESOLVIDO 2026-09-10)
+
+Três itens de fuso horário corrigidos, todos no PWA, sem impacto no Painel Web.
+
+**C9: `todayBR()` agora usa fuso da fazenda** (`formatDate.ts`):
+- Antes: `new Date()` extrai dia/mês/ano do fuso do navegador. Peão em Brasília (UTC-3) lançando às 23:30 via a data de amanhã porque Cuiabá (UTC-4) já passou da meia-noite.
+- Depois: `getDateTimePartsInTimezone(new Date(), DEFAULT_FARM_TIMEZONE)` extrai dia/mês/ano no fuso de Cuiabá. `DEFAULT_FARM_TIMEZONE` movido para o topo do arquivo para evitar TDZ.
+- Impacto: 36 formulários de caderneta (Pastagens, Movimentacao, Maternidade, Morte, etc.) e `DatePicker` agora pre-preenchem a data correta.
+
+**C10: `supabaseService.ts` data de referência em fuso da fazenda**:
+- 2 ocorrências de `new Date().toISOString().slice(0, 10)` trocadas por `getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)` em `getProgramacaoTratosCompleta` e `getTiposProgramacaoTratos`. Às 21:00 de Cuiabá (01:00 UTC do dia seguinte), essas funções buscavam a programação do dia errado.
+- 15 ocorrências de `new Date().toISOString()` em `delete*` (gravam `deleted_at`) mantidas como estão: timestamp completo em UTC é correto para storage, o Postgres converte para display no fuso certo.
+- 2 ocorrências de `dataFim.toISOString().slice(0, 10)` (linhas 2953, 2983) não corrigidas: calculam o dia seguinte a partir de um parâmetro `data` (não a data atual), e o problema de fuso nelas é diferente e mais sutil (range de consulta em UTC vs fuso da fazenda).
+
+**C13: `api.ts` data do registro**:
+- Resolvido automaticamente via C9. O `salvarRegistro` já capturava a hora no fuso da fazenda (linha 62), mas a data vinha do payload do formulário, que usa `todayBR()`. Corrigindo `todayBR()`, a data concatenada com a hora está correta.
+
+Typecheck e build passaram.

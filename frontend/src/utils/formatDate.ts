@@ -1,8 +1,7 @@
-export function todayBR(): string {
-  const now = new Date()
-  const day = String(now.getDate()).padStart(2, '0')
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const year = now.getFullYear()
+export const DEFAULT_FARM_TIMEZONE = 'America/Cuiaba'
+
+export function todayBR(timezone: string = DEFAULT_FARM_TIMEZONE): string {
+  const { day, month, year } = getDateTimePartsInTimezone(new Date(), timezone)
   return `${day}/${month}/${year}`
 }
 
@@ -39,8 +38,6 @@ export function brToIso(br: string): string {
   const [day, month, year] = br.split('/')
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }
-
-export const DEFAULT_FARM_TIMEZONE = 'America/Cuiaba'
 
 export function getDateTimePartsInTimezone(
   date: Date,
