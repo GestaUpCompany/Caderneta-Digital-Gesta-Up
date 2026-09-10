@@ -1159,7 +1159,7 @@ export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insum
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('entrada_insumos_itens')
-    .insert(item)
+    .upsert(item, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2604,7 +2604,7 @@ export async function createRegistroEntradaInsumos(registro: TablesInsert<'regis
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_entrada_insumos')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 
@@ -2674,7 +2674,7 @@ export async function createRegistroSaidaInsumos(registro: TablesInsert<'registr
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_saida_insumos')
-    .insert(registro)
+    .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
 

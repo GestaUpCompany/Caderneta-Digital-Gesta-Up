@@ -127,6 +127,21 @@ export async function updateSyncStatus(
   if (registro) {
     registro.syncStatus = syncStatus
     if (googleRowId !== undefined) registro.googleRowId = googleRowId
+    if (syncStatus === 'synced') registro.syncError = null
+    registro.lastModified = new Date().toISOString()
+    await db.put(store, registro)
+  }
+}
+
+export async function updateSyncError(
+  store: CadernetaStore,
+  id: string,
+  syncError: Registro['syncError']
+): Promise<void> {
+  const db = await getDB()
+  const registro = await db.get(store, id)
+  if (registro) {
+    registro.syncError = syncError
     registro.lastModified = new Date().toISOString()
     await db.put(store, registro)
   }

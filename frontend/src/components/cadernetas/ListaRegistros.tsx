@@ -12,6 +12,7 @@ import { ChevronLeft, List } from 'lucide-react'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
+import { translateSyncError, formatSyncErrorForSupport } from '../../utils/syncErrorMessages'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroAntesDeCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
 import { CADERNETA_DISPLAY_CONFIG } from '../../config/cadernetas/index'
@@ -102,6 +103,8 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   const [mostrarModalCompartilhar, setMostrarModalCompartilhar] = useState(false)
   const [registroParaCompartilhar, setRegistroParaCompartilhar] = useState<Registro | null>(null)
   const [reenviandoId, setReenviandoId] = useState<string | null>(null)
+  const [erroExpandidoId, setErroExpandidoId] = useState<string | null>(null)
+  const [copiadoId, setCopiadoId] = useState<string | null>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -269,6 +272,25 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     setReenviandoId(null)
     if (finalStatus === 'error') {
       alert('Falha ao sincronizar. Verifique a conexão e tente novamente.')
+    }
+  }
+
+  const handleCopiarErro = async (registro: Registro) => {
+    const texto = formatSyncErrorForSupport(registro.syncError, caderneta, registro.id)
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiadoId(registro.id)
+      setTimeout(() => setCopiadoId(null), 2000)
+    } catch {
+      // Fallback para navegadores sem clipboard API
+      const textarea = document.createElement('textarea')
+      textarea.value = texto
+      document.body.appendChild(textarea)
+      textarea.select()
+      try { document.execCommand('copy') } catch {}
+      document.body.removeChild(textarea)
+      setCopiadoId(registro.id)
+      setTimeout(() => setCopiadoId(null), 2000)
     }
   }
 
@@ -939,15 +961,56 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                     </Button>
                   </div>
                   {registro.syncStatus === 'error' && (
-                    <Button
-                      onClick={() => handleReenviar(registro)}
-                      variant="primary"
-                      size="sm"
-                      icon={reenviandoId === registro.id ? '⏳' : '🔄'}
-                      disabled={reenviandoId === registro.id}
-                    >
-                      {reenviandoId === registro.id ? 'ENVIANDO...' : 'REENVIAR'}
-                    </Button>
+                    <>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <button
+                          onClick={() => setErroExpandidoId(erroExpandidoId === registro.id ? null : registro.id)}
+                          className="flex items-center justify-between w-full text-left"
+                        >
+                          <span className="text-sm font-semibold text-red-700">
+                            {translateSyncError(registro.syncError)}
+                          </span>
+                          <span className="text-red-500 text-xs">{erroExpandidoId === registro.id ? '▲' : '▼'}</span>
+                        </button>
+                        {erroExpandidoId === registro.id && (
+                          <div className="mt-2 pt-2 border-t border-red-100">
+                            {registro.syncError?.code && (
+                              <p className="text-xs text-red-600 mb-1">
+                                <span className="font-semibold">Código:</span> {registro.syncError.code}
+                              </p>
+                            )}
+                            {registro.syncError?.message && (
+                              <p className="text-xs text-gray-600 mb-1 break-words">
+                                <span className="font-semibold">Mensagem:</span> {registro.syncError.message}
+                              </p>
+                            )}
+                            {registro.syncError?.details && (
+                              <p className="text-xs text-gray-500 mb-1 break-words">
+                                <span className="font-semibold">Detalhes:</span> {registro.syncError.details}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-400 mb-2">
+                              <span className="font-semibold">Tentativas:</span> {registro.syncError?.retryCount ?? 1} | <span className="font-semibold">Data:</span> {registro.syncError?.failedAt ? new Date(registro.syncError.failedAt).toLocaleString('pt-BR') : '—'}
+                            </p>
+                            <button
+                              onClick={() => handleCopiarErro(registro)}
+                              className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded border border-gray-200"
+                            >
+                              {copiadoId === registro.id ? '✅ Copiado' : '📋 Copiar para suporte'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => handleReenviar(registro)}
+                        variant="primary"
+                        size="sm"
+                        icon={reenviandoId === registro.id ? '⏳' : '🔄'}
+                        disabled={reenviandoId === registro.id}
+                      >
+                        {reenviandoId === registro.id ? 'ENVIANDO...' : 'REENVIAR'}
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

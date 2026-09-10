@@ -2,11 +2,7 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
-## Idempotência via `local_id` nas tabelas de registros (parcialmente resolvido)
-
-`syncService.ts:73-79` envia `local_id: registro.id` no `baseData`. 18 tabelas já usam `upsert` com `onConflict: 'local_id'`. Migrations adicionaram a coluna em 20 tabelas.
-
-**Falta consumir a idempotência em**: `fabrica-confinamento`, `fabrica-confinamento-insumos`, `entrada-insumos`, `saida-insumos`, `entrada-insumos-itens`, `atividades`, `atividade-funcionarios`, `atividade-sessoes`, `atividade-imprevistos`. Estes ainda usam `insert`/`upsert` sem `onConflict: 'local_id'` (syncService.ts:723-842).
+## ~~Idempotência via `local_id` nas tabelas de registros~~ (RESOLVIDO — ver docs/HISTORICO.md)
 
 ## Tela de auditoria de erros de sync no Painel Web (rota /admin)
 
@@ -47,21 +43,7 @@ Criar rota `/admin/erros-sync` com:
 
 **Pendente (maternidade)**: a função `update_quant_atual_maternidade()` precisa do mesmo tratamento. Tem o mesmo padrão de UPDATE condicional que pode afetar 0 linhas silenciosamente. A função existe no Painel Web em `supabase/migrations/20260825170000_migration_s_fix_unaccent_triggers.sql:205-238`, mas ainda não aplica o guard `CATEGORIA_NOT_IN_LOTE`: quando a categoria não existe, a função cria a linha em `lote_categorias` (linhas 224-230) em vez de inserir em `logs_sync_errors`.
 
-## Log de erro visível na lista de registros + eliminação de retries automáticos
-
-**Contexto**: registros com `syncStatus === 'error'` mostram apenas `❌` e botão REENVIAR na lista, sem nenhuma informação sobre o erro. O erro é logado em `logs_sync_errors` no Supabase (via `logSyncError` em syncService.ts:636), mas se o log falha ao subir (offline, rede instável), o erro some sem rastro. Em produção, peões ficam sem saber por que o registro não sincronizou.
-
-**Estado atual**: `ListaRegistros.tsx:29-36` só exibe `error` como `❌`; `ListaRegistros.tsx:941-951` mostra apenas o botão `REENVIAR`. Não existe seção colapsável, mensagem traduzida por código de erro, nem botão "copiar". `types/cadernetas.ts` e `indexedDB.ts` não possuem campo `syncError`. `syncService.ts:998-1009` mantém `calculateBackoffMs`; `utils/constants.ts:117` mantém `MAX_RETRY_COUNT = 10`; `syncService.ts:1148-1200` ainda usa `MAX_RETRY_COUNT` e, no `catch` de `processQueue`, incrementa `retryCount` e recoloca o item na fila em vez de marcá-lo como `error` e remover.
-
-**Decisão aprovada (a implementar)**:
-
-1. **Persistir erro localmente no IndexedDB** (frente 1, essencial): adicionar campo opcional `syncError` ao registro no IndexedDB com `{ code, message, details, retryCount, failedAt, operation }`. Gravar no catch de `processQueue` (syncService.ts:702-721) junto com `updateSyncStatus('error')`. Limpar `syncError` quando status muda para `synced`. Funciona offline, sobrevive a reload, não depende do Supabase. `logs_sync_errors` no Supabase continua sendo gravado para auditoria/Painel Web.
-
-2. **Exibir erro no card da lista** (frente 2, UX): em `ListaRegistros.tsx`, quando `syncStatus === 'error'`, mostrar seção colapsável com mensagem amigável traduzida (tabela estática de ~10-15 códigos Postgres/Supabase: 42501=RLS, 23505=duplicata, 23502=not-null, network=sem conexão, etc.) e detalhes técnicos colapsáveis com botão "copiar" para enviar ao suporte.
-
-3. **Eliminar retries automáticos**: no catch de `processQueue`, em vez de incrementar `retryCount` e recolocar na fila com backoff, remover o item da fila, marcar `syncStatus = 'error'`, gravar `syncError` local, e logar no Supabase. `calculateBackoffMs` e `MAX_RETRY_COUNT` deixam de ser usados. O reenvio manual (botão REENVIAR em ListaRegistros.tsx:836-846) continua funcionando como válvula de escape para falhas transitórias. Motivo: dois peões podem repetir a mesma operação em celulares diferentes; retries automáticos do que falhou causam duplicatas quando o outro peão já sincronizou.
-
-**Débito não resolvido por essa mudança**: idempotência via `upsert` com `local_id` nas tabelas restantes (ver seção acima).
+## ~~Log de erro visível na lista de registros + eliminação de retries automáticos~~ (RESOLVIDO — ver docs/HISTORICO.md)
 
 ---
 

@@ -205,3 +205,41 @@ Os itens abaixo foram identificados na auditoria de julho/2026 e já foram corri
 | C8 | syncService.ts:146 | `tipo_parto` como array suportado pelo schema `Json \| null` |
 | C11 | syncService.ts:195-224 | `avaliacao_geral` como objeto confirmado no schema `Json \| null` |
 | C12 | syncService.ts:227 | `equipe_nomes` enviado direto (sem `JSON.stringify`), coluna existe como `Json \| null` |
+
+## Log de erro visível na lista de registros + eliminação de retries automáticos (RESOLVIDO 2026-09-10)
+
+Implementadas as três frentes aprovadas para o item 3 do backlog.
+
+**Frente 1 — Persistir erro localmente no IndexedDB:**
+- Adicionado tipo `SyncError` e campo `syncError?: SyncError | null` na interface `Registro` em `types/cadernetas.ts`.
+- Adicionada função `updateSyncError(store, id, syncError)` em `indexedDB.ts`.
+- `updateSyncStatus` agora limpa `syncError` automaticamente quando status muda para `synced`.
+- O erro persiste localmente, sobrevive a reload, não depende do Supabase. `logs_sync_errors` no Supabase continua sendo gravado para auditoria/Painel Web.
+
+**Frente 2 — Exibir erro no card da lista:**
+- Criado `utils/syncErrorMessages.ts` com tabela de tradução de ~15 códigos Postgres/Supabase/rede (42501=RLS, 23505=duplicata, 23502=not-null, network=sem conexão, etc.) e funções `translateSyncError` e `formatSyncErrorForSupport`.
+- Em `ListaRegistros.tsx`, quando `syncStatus === 'error'`, o card mostra seção vermelha colapsável com mensagem amigável traduzida. Ao expandir, mostra código, mensagem original, detalhes técnicos, tentativas e data. Botão "Copiar para suporte" copia texto formatado para a área de transferência.
+- O botão REENVIAR manual continua funcionando como válvula de escape para falhas transitórias.
+
+**Frente 3 — Eliminar retries automáticos:**
+- No catch de `processQueue` em `syncService.ts`, em vez de incrementar `retryCount` e recolocar na fila com backoff, o item é removido da fila, `syncStatus` é marcado como `error`, `syncError` é gravado localmente, e o erro é logado no Supabase.
+- `calculateBackoffMs` foi removido (não é mais chamado). `MAX_RETRY_COUNT` em `utils/constants.ts` não é mais importado em nenhum lugar.
+- Motivo: dois peões podem repetir a mesma operação em celulares diferentes; retries automáticos do que falhou causam duplicatas quando o outro peão já sincronizou.
+
+**Débito não resolvido por essa mudança**: idempotência via `upsert` com `local_id` nas tabelas restantes (ver `docs/BACKLOG.md`). Eliminar retries encolhe a janela de risco mas não fecha o buraco.
+
+Typecheck e build passaram.
+
+## Idempotência via `local_id` em todas as tabelas de registros (RESOLVIDO 2026-09-10)
+
+Completada a cobertura de idempotência nas 9 tabelas restantes. Agora todas as 27 tabelas de registros do PWA usam `upsert` com `onConflict: 'local_id'`, eliminando o risco de duplicatas quando o INSERT sucede no Supabase mas a resposta se perde (timeout, rede instável).
+
+**Migration `20260910200000_add_local_id_restantes.sql`** (repo Painel Web, aplicada via `supabase db push`): adicionou coluna `local_id` + unique index em 7 tabelas: `registros_entrada_insumos`, `entrada_insumos_itens`, `registros_saida_insumos`, `atividade_funcionarios`, `atividade_sessoes`, `atividade_imprevistos`, `atividades`. As 2 tabelas de confinamento já tinham a coluna (migration `20260908200000`).
+
+**Mudanças no `supabaseService.ts`**: 3 funções trocadas de `insert` para `upsert` com `onConflict: 'local_id'`: `createRegistroEntradaInsumos`, `createEntradaInsumosItem`, `createRegistroSaidaInsumos`.
+
+**Mudanças no `syncService.ts`**: 6 cases no `syncToSupabase` trocados de `insert`/`upsert` sem onConflict para `upsert` com `onConflict: 'local_id'`: `registros_fabrica_confinamento`, `registros_fabrica_confinamento_insumos`, `atividade_funcionarios`, `atividade_sessoes`, `atividade_imprevistos`, `atividades`.
+
+**Mudanças no `registroToSupabase`**: 5 cases que não incluíam `local_id` no payload agora incluem `local_id: registro.id`: `atividade-funcionarios`, `atividade-sessoes`, `atividade-imprevistos`, `atividades`, `entrada-insumos-itens`. Os cases `fabrica-confinamento` e `entrada-insumos` já usavam `...baseData` (que inclui `local_id`), e `fabrica-confinamento-insumos` já tinha `local_id` explícito.
+
+Typecheck e build passaram.

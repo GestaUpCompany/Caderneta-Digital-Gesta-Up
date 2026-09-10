@@ -1,5 +1,14 @@
 export type SyncStatus = 'pending' | 'synced' | 'conflict' | 'error' | 'pending_approval' | 'rejected'
 
+export interface SyncError {
+  code: string
+  message: string
+  details?: string
+  retryCount: number
+  failedAt: string
+  operation: 'create' | 'update'
+}
+
 export interface Registro {
   id: string
   googleRowId?: number
@@ -7,6 +16,7 @@ export interface Registro {
   version: number
   lastModified: string
   syncStatus: SyncStatus
+  syncError?: SyncError | null
   data: string
   usuario?: string
   dispositivoId?: string

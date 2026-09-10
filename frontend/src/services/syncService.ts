@@ -4,14 +4,14 @@ import {
   addToSyncQueue,
   removeFromSyncQueue,
   updateSyncStatus,
+  updateSyncError,
   updateRegistro,
   getAllRegistros,
   SyncQueueItem,
   CadernetaStore,
 } from './indexedDB'
-import { MAX_RETRY_COUNT } from '../utils/constants'
 import { generateId } from '../utils/generateId'
-import { Registro } from '../types/cadernetas'
+import { Registro, SyncError } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { brWithTimeToIso } from '../utils/formatDate'
@@ -82,6 +82,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'atividade-funcionarios': {
       return {
         id: registro.id,
+        local_id: registro.id,
         atividade_id: registro.atividadeId,
         funcionario_id: registro.funcionarioId,
         status_individual: registro.statusIndividual,
@@ -98,6 +99,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'atividade-sessoes': {
       return {
         id: registro.id,
+        local_id: registro.id,
         atividade_funcionario_id: registro.atividadeFuncionarioId,
         inicio_at: registro.inicioAt || null,
         fim_at: registro.fimAt || null,
@@ -109,6 +111,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'atividade-imprevistos': {
       return {
         id: registro.id,
+        local_id: registro.id,
         atividade_funcionario_id: registro.atividadeFuncionarioId,
         tipo: registro.tipo,
         descricao: registro.descricao || null,
@@ -119,6 +122,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
     case 'atividades': {
       return {
         id: registro.id,
+        local_id: registro.id,
         fazenda_id: registro.fazendaId,
         titulo: registro.titulo,
         descricao: registro.descricao || null,
@@ -451,6 +455,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       }
     case 'entrada-insumos-itens':
       return {
+        local_id: registro.id,
         entrada_id: registro.entradaId,
         insumo_id: registro.insumoId,
         produto: registro.produto || null,
@@ -774,10 +779,10 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
               syncStatus: 'synced'
             })
           } else {
-            // Insert de novo registro
+            // Insert de novo registro com idempotência via local_id
             const { data: fcData, error: fcError } = await client
               .from('registros_fabrica_confinamento')
-              .insert(data)
+              .upsert(data, { onConflict: 'local_id' })
               .select()
               .single()
             if (fcError) throw fcError
@@ -804,7 +809,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const client = await getSupabaseClientWithRefresh() as any
           const { error: fciError } = await client
             .from('registros_fabrica_confinamento_insumos')
-            .insert(data)
+            .upsert(data, { onConflict: 'local_id' })
           if (fciError) throw fciError
           break
         }
@@ -812,7 +817,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const client = await getSupabaseClientWithRefresh() as any
           const { error: afError } = await client
             .from('atividade_funcionarios')
-            .upsert(data)
+            .upsert(data, { onConflict: 'local_id' })
           if (afError) throw afError
           break
         }
@@ -820,7 +825,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const client = await getSupabaseClientWithRefresh() as any
           const { error: sError } = await client
             .from('atividade_sessoes')
-            .upsert(data)
+            .upsert(data, { onConflict: 'local_id' })
           if (sError) throw sError
           break
         }
@@ -828,7 +833,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const client = await getSupabaseClientWithRefresh() as any
           const { error: iError } = await client
             .from('atividade_imprevistos')
-            .upsert(data)
+            .upsert(data, { onConflict: 'local_id' })
           if (iError) throw iError
           break
         }
@@ -836,7 +841,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const client = await getSupabaseClientWithRefresh() as any
           const { error: aError } = await client
             .from('atividades')
-            .upsert(data)
+            .upsert(data, { onConflict: 'local_id' })
           if (aError) throw aError
           break
         }
@@ -995,14 +1000,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
   }
 }
 
-function calculateBackoffMs(retryCount: number): number {
-  // Backoff exponencial: 30s, 1min, 2min, 4min, 8min, 15min, 30min, 1h, 2h, 4h
-  const baseMs = 30_000
-  const maxMs = 4 * 60 * 60 * 1000
-  const delayMs = Math.min(baseMs * Math.pow(2, retryCount), maxMs)
-  return delayMs
-}
-
 interface LogSyncErrorData {
   fazendaId: string
   store: CadernetaStore
@@ -1011,6 +1008,17 @@ interface LogSyncErrorData {
   error: unknown
   retryCount: number
   payload?: any
+}
+
+/**
+ * Extrai codigo, mensagem e detalhes de um erro do Supabase/Postgres/rede.
+ */
+function extractErrorInfo(error: unknown): { code: string; message: string; details?: string } {
+  const err = error as any
+  const code = err?.code || err?.error?.code || String(err?.status || '') || 'unknown'
+  const message = err?.message || err?.error?.message || String(err || 'Erro desconhecido')
+  const details = err?.details || err?.error?.details || JSON.stringify(err).slice(0, 2000)
+  return { code: String(code), message: String(message), details: details ? String(details) : undefined }
 }
 
 export async function logSyncError(data: LogSyncErrorData): Promise<void> {
@@ -1146,15 +1154,7 @@ export async function processQueue(
   let remaining = queue.length
 
   for (const item of queue) {
-    if (item.retryCount >= MAX_RETRY_COUNT) {
-      await removeFromSyncQueue(item.id)
-      await updateSyncStatus(item.store, item.registroId, 'error')
-      failed++
-      remaining--
-      onProgress?.(remaining)
-      continue
-    }
-
+    // Itens com nextRetryAt no futuro ainda não estão prontos para reenvio manual
     if (item.nextRetryAt > now) {
       skipped++
       continue
@@ -1195,10 +1195,24 @@ export async function processQueue(
       onProgress?.(remaining)
     } catch (err) {
       console.error(`[SYNC] Erro ao sincronizar ${item.store}/${item.registroId}:`, err)
-      item.retryCount++
-      item.nextRetryAt = now + calculateBackoffMs(item.retryCount)
-      await addToSyncQueue(item)
+
+      // Sem retries automáticos: remover da fila, marcar como erro, persistir syncError local.
+      // O reenvio manual (botão REENVIAR) continua como válvula de escape para falhas transitórias.
+      const { code, message, details } = extractErrorInfo(err)
+      const syncError: SyncError = {
+        code,
+        message,
+        details,
+        retryCount: item.retryCount + 1,
+        failedAt: new Date().toISOString(),
+        operation: item.operation,
+      }
+      await removeFromSyncQueue(item.id)
+      await updateSyncStatus(item.store, item.registroId, 'error')
+      await updateSyncError(item.store, item.registroId, syncError)
       failed++
+      remaining--
+      onProgress?.(remaining)
 
       // Logar falha no Supabase (tabela logs_sync_errors permite INSERT anon)
       if (fazendaId) {
@@ -1215,7 +1229,7 @@ export async function processQueue(
             registroId: item.registroId,
             operation: item.operation,
             error: err,
-            retryCount: item.retryCount,
+            retryCount: syncError.retryCount,
             payload,
           })
         } catch (logErr) {
