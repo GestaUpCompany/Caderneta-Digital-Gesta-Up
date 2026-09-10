@@ -8,7 +8,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import {
   getLoteDetalhesComCategoriasCached,
-  getRegistrosSuplementacaoByLoteCached,
+  getRegistrosOfertaTratoByLoteCached,
   getRegistrosLeituraCochoByLoteCached,
   getCurraisCached,
   getLinhasConfinamentoCached,
@@ -223,8 +223,8 @@ export default function LeituraCochoPage() {
         const lotesEnriquecidos = await Promise.all(
           lotesData.map(async (lote: any) => {
             const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
-            const [registrosSuplementacao, registrosLeitura] = await Promise.all([
-              getRegistrosSuplementacaoByLoteCached(fazendaId, lote.id),
+            const [registrosOfertaTrato, registrosLeitura] = await Promise.all([
+              getRegistrosOfertaTratoByLoteCached(fazendaId, lote.id),
               getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id),
             ])
 
@@ -234,12 +234,14 @@ export default function LeituraCochoPage() {
             }
             const curral = curralInfo.nome || ''
 
-            const supOrdenados = [...(registrosSuplementacao || [])].sort(
-              (a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime()
-            )
+            // Mapear registros_oferta_trato para o formato esperado por calcularCmsPorJanelas
+            // (kg_ofertado_real -> kg_cocho, sem formulacao neste registro)
+            const supOrdenados = [...(registrosOfertaTrato || [])]
+              .map((r: any) => ({ ...r, kg_cocho: r.kg_ofertado_real ?? r.kg_cocho ?? null }))
+              .sort((a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime())
             let dieta = supOrdenados[0]?.formulacao || null
 
-            // Se não há suplementação mas há trato de confinamento, busca a formulação do curral
+            // Se não há formulação no registro de oferta, busca a formulação do curral
             if (!dieta && curralInfo?.formulacao_id) {
               try {
                 const { getFormulacaoById } = await import('../../services/supabaseService')
@@ -275,7 +277,7 @@ export default function LeituraCochoPage() {
             const jaTemLeituraHoje = !!leituraHoje
             const notaHoje = leituraHoje?.nota_config_id ?? ''
 
-            // Kg Cocho: soma de todos os registros de suplementação do dia mais recente com registro
+            // Kg Cocho: soma de todos os registros de oferta de trato do dia mais recente
             let tratoAnterior: number | null = null
             if (supOrdenados.length > 0) {
               const diaMaisRecente = String(supOrdenados[0].data).slice(0, 10)
@@ -304,7 +306,7 @@ export default function LeituraCochoPage() {
                   : ''
 
             const teorEfetivo = teorMsDieta ?? 70
-            const cms = calcularCmsPorJanelas(detalhes || lote, registrosSuplementacao || [], teorEfetivo)
+            const cms = calcularCmsPorJanelas(detalhes || lote, supOrdenados, teorEfetivo)
 
             return {
               id: lote.id,
@@ -758,7 +760,7 @@ export default function LeituraCochoPage() {
                                 <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.tresDiasAtras)}</span>
                               </div>
                               <div>
-                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">10d</span>
+                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">média 10d</span>
                                 <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.dezDias)}</span>
                               </div>
                               <div>

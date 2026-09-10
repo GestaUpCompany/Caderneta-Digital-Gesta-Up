@@ -2022,6 +2022,21 @@ export async function getRegistrosSuplementacaoByLote(fazendaId: string, loteId:
   return data
 }
 
+export async function getRegistrosOfertaTratoByLote(fazendaId: string, loteId: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_oferta_trato')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('lote_id', loteId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  return data || []
+}
+
 export async function createRegistroSuplementacao(registro: TablesInsert<'registros_suplementacao'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
