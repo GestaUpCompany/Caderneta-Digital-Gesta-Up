@@ -109,7 +109,9 @@ Caderneta-Digital-Gesta-Up/
   supabase/
     functions/             # Edge Functions (login-peao, lembrete-tratos-diario)
   .github/workflows/       # deploy.yml (GitHub Pages)
-  AGENTS.md                # Documentação técnica e débitos (autoritativo)
+  AGENTS.md                # Documentação técnica (contexto estável + índice)
+  docs/HISTORICO.md        # Mudanças já aplicadas (RESOLVIDO/IMPLEMENTADO)
+  docs/BACKLOG.md          # Débitos pendentes, specs não implementadas, auditoria
 ```
 
 ## Tecnologias
@@ -122,4 +124,4 @@ Caderneta-Digital-Gesta-Up/
 
 ## Documentação técnica
 
-O `AGENTS.md` na raiz é o documento autoritativo sobre débitos técnicos, auditoria de código (87 falhas em 4 frentes), matriz de impacto cruzado PWA ↔ Painel Web e ordem recomendada de aplicação de correções. Consulte-o antes de mudar RLS, schema de tabelas compartilhadas ou o fluxo de sync.
+O `AGENTS.md` na raiz é o ponto de entrada: contexto estável do sistema (sistemas, comandos, fluxo de migrations, regras operacionais) e um índice de disparadores que apontam para a documentação detalhada. Os débitos técnicos pendentes, specs aprovadas não implementadas e a auditoria de código (87 falhas em 4 frentes, matriz de impacto cruzado PWA ↔ Painel Web) estão em `docs/BACKLOG.md`. O histórico de mudanças já aplicadas está em `docs/HISTORICO.md`. Consulte o `docs/BACKLOG.md` antes de mudar RLS, schema de tabelas compartilhadas ou o fluxo de sync.
