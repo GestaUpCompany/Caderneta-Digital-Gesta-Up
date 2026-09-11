@@ -67,6 +67,14 @@ const DESTINO_OPTS = [
   { value: 'enfermaria', label: 'Enfermaria' },
 ]
 
+const ESCALA_EQUIPE = [
+  { value: '1', label: '1' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3' },
+  { value: '4', label: '4' },
+  { value: '5', label: '5' },
+]
+
 // Categorias disponíveis para Entrada conforme destino do lote
 const CATEGORIAS_ABATE = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Boi Magro', 'Boi Gordo', 'Vaca']
 const CATEGORIAS_REPRODUCAO = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Tourinho', 'Touro', 'Vaca']
@@ -124,6 +132,9 @@ interface FormState {
     sexo: string
     idade: string
   }>
+  // Equipe (opcional)
+  equipe: string
+  equipeNomes: string[]
 }
 
 const makeInitial = (): FormState => ({
@@ -149,6 +160,8 @@ const makeInitial = (): FormState => ({
   curralNomeNovoLote: '',
   dataEntrada: todayBR(),
   categoriasEntrada: {},
+  equipe: '',
+  equipeNomes: [],
 })
 
 export default function MovimentacaoPage() {
@@ -170,6 +183,7 @@ export default function MovimentacaoPage() {
   const [pastosDisponiveis, setPastosDisponiveis] = useState<{ id: string; nome: string }[]>([])
   const [curraisDisponiveis, setCurraisDisponiveis] = useState<{ id: string; nome: string }[]>([])
   const [racasDisponiveis, setRacasDisponiveis] = useState<{ id: string; nome: string }[]>([])
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -260,6 +274,20 @@ export default function MovimentacaoPage() {
     }
   }
 
+  // Equipe (opcional): se informou quantidade, nomes são obrigatórios
+  if (form.equipe) {
+    validationRules.equipeNomes = {
+      custom: (value: string[]) => {
+        const numPessoas = Number(form.equipe) || 0
+        if (numPessoas === 0) return null
+        if (!value || value.length < numPessoas || value.some(v => !v || v.trim() === '')) {
+          return 'Preencha o nome de todas as pessoas da equipe'
+        }
+        return null
+      },
+    }
+  }
+
   const { isValid } = useFormValidation(form, validationRules)
 
   const setCabecasCategoria = (categoria: string, valor: string) => {
@@ -320,6 +348,7 @@ export default function MovimentacaoPage() {
       const cache = await getCachedCadastroData()
       if (cache) {
         setFrigorificosDisponiveis(cache.frigorificos || [])
+        setFuncionariosDisponiveis(cache.funcionarios || [])
       }
 
       // Carregar fazendas do mesmo grupo (para Transferência entre fazendas)
@@ -366,6 +395,7 @@ export default function MovimentacaoPage() {
         setLotesDisponiveis(data.lotes || [])
         setLotesPastoMap(data.lotesPastoMap || {})
         setFrigorificosDisponiveis(data.frigorificos || [])
+        setFuncionariosDisponiveis(data.funcionarios || [])
       }
     })
 
@@ -502,6 +532,8 @@ export default function MovimentacaoPage() {
           brinco: form.brinco,
           chip: form.chip,
           causaObservacao: form.causaObservacao,
+          equipe: form.equipe ? Number(form.equipe) : null,
+          equipeNomes: form.equipeNomes,
         })
 
         if (!result.success && result.errors) {
@@ -584,6 +616,8 @@ export default function MovimentacaoPage() {
             brinco: '',
             chip: '',
             causaObservacao: form.causaObservacao,
+            equipe: form.equipe ? Number(form.equipe) : null,
+            equipeNomes: form.equipeNomes,
             pesoVivoAtualKg: c.pesoAtual,
             raca: c.existeNoLote ? null : c.raca,
             sexo: c.existeNoLote ? null : c.sexo,
@@ -680,6 +714,8 @@ export default function MovimentacaoPage() {
               brinco: '',
               chip: '',
               causaObservacao: `Transferência para ${result.fazenda_destino_nome}. Lote criado: ${result.lote_destino_nome}.`,
+              equipe: form.equipe ? Number(form.equipe) : null,
+              equipeNomes: form.equipeNomes,
               syncStatus: 'synced' as const,
               version: generateVersion(),
               lastModified: getCurrentTimestamp(),
@@ -848,6 +884,8 @@ export default function MovimentacaoPage() {
           brinco: '',
           chip: '',
           causaObservacao: form.causaObservacao || '',
+          equipe: form.equipe ? Number(form.equipe) : null,
+          equipeNomes: form.equipeNomes,
           syncStatus: 'pending' as const,
           version: generateVersion(),
           lastModified: getCurrentTimestamp(),
@@ -931,6 +969,8 @@ export default function MovimentacaoPage() {
           brinco: totalCabecas === 1 ? form.brinco : '',
           chip: totalCabecas === 1 ? form.chip : '',
           causaObservacao: form.causaObservacao,
+          equipe: form.equipe ? Number(form.equipe) : null,
+          equipeNomes: form.equipeNomes,
         })
         resultados.push(result)
         if (result.success && result.registro) {
@@ -1476,6 +1516,61 @@ export default function MovimentacaoPage() {
           )}
         </div>
         )}
+
+        {/* Seção 4: Equipe (opcional) */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">EQUIPE NO MANEJO (OPCIONAL)</h2>
+          <Radio
+            name="equipe"
+            label="N° PESSOAS NO MANEJO"
+            options={ESCALA_EQUIPE}
+            value={form.equipe}
+            onChange={(value) => {
+              setForm((p) => ({ ...p, equipe: value }))
+              const numPessoas = Number(value) || 0
+              setForm((prev) => ({ ...prev, equipeNomes: Array(numPessoas).fill('') }))
+              if (errors.length > 0) setErrors([])
+            }}
+            gridCols={5}
+          />
+          {form.equipe && Number(form.equipe) > 0 && (
+            <div className="flex flex-col gap-3">
+              {getError('equipeNomes') && (
+                <p className="text-sm text-red-600 font-semibold">{getError('equipeNomes')}</p>
+              )}
+              {Array.from({ length: Number(form.equipe) }).map((_, index) => (
+                funcionariosDisponiveis.length > 0 ? (
+                  <SearchableModal
+                    key={index}
+                    label={<span>Nome da {index + 1}ª pessoa</span>}
+                    value={form.equipeNomes[index] || ''}
+                    onChange={(val) => {
+                      const newNomes = [...form.equipeNomes]
+                      newNomes[index] = val
+                      setForm((prev) => ({ ...prev, equipeNomes: newNomes }))
+                    }}
+                    options={funcionariosDisponiveis}
+                    placeholder="Buscar funcionário..."
+                    id={`equipeNome-${index}`}
+                    name={`equipeNome-${index}`}
+                  />
+                ) : (
+                  <Input
+                    key={index}
+                    label={`Nome da ${index + 1}ª pessoa`}
+                    placeholder="Nome"
+                    value={form.equipeNomes[index] || ''}
+                    onChange={(e) => {
+                      const newNomes = [...form.equipeNomes]
+                      newNomes[index] = e.target.value
+                      setForm((prev) => ({ ...prev, equipeNomes: newNomes }))
+                    }}
+                  />
+                )
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="flex flex-col gap-2">
           <button

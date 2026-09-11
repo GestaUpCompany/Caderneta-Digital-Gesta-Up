@@ -349,6 +349,18 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.causaObservacao) {
       texto += `CAUSA/OBSERVAÇÃO: *${registro.causaObservacao}*\n`
     }
+
+    // Seção: EQUIPE (opcional)
+    if (registro.equipe && Number(registro.equipe) > 0) {
+      texto += `\nEQUIPE NO MANEJO\n`
+      texto += `N° PESSOAS: *${registro.equipe}*\n`
+      if (registro.equipeNomes && Array.isArray(registro.equipeNomes) && registro.equipeNomes.length > 0) {
+        const nomesComValor = registro.equipeNomes.filter((n: string) => n && n.trim() !== '')
+        if (nomesComValor.length > 0) {
+          texto += `PESSOAS: *${nomesComValor.join(', ')}*\n`
+        }
+      }
+    }
   } else if (caderneta === 'bebedouros') {
     // Para bebedouros, usar estrutura organizada por seções
     
