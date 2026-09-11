@@ -877,6 +877,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       }
     })
 
+    // Tipo do registro (Curativo ou Preventivo)
+    if (registro.tipoRegistro) {
+      texto += `TIPO: *${registro.tipoRegistro}*\n`
+    }
+
     // Seção: IDENTIFICAÇÃO DO ANIMAL
     texto += '\nIDENTIFICAÇÃO DO ANIMAL\n'
     const ordemIdentificacao = [

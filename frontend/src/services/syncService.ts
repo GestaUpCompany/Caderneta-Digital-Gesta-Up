@@ -334,6 +334,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         diagnosticos: registro.diagnosticos || [],
         medicamentos: registro.medicamentos || [],
         tratamento_obs: registro.observacaoTratamento || null,
+        tipo_registro: registro.tipoRegistro || null,
       }
     case 'morte':
       return {

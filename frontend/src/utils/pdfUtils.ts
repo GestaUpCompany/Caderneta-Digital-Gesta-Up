@@ -1307,7 +1307,6 @@ export async function gerarPdfResumoBebedouros(
   y += 8
 
   // === CÁLCULOS ===
-  const totalInspecoes = registros.length
   const bebedourosInspecionados = new Set<string>()
   let leiturasBoas = 0 // leitura 1
   let leiturasAtencao = 0 // leitura 2
@@ -1367,7 +1366,6 @@ export async function gerarPdfResumoBebedouros(
   }
 
   labelValue('Data:', dataFormatada)
-  labelValue('Total de inspeções:', String(totalInspecoes))
   labelValue('Bebedouros inspecionados:', String(bebedourosInspecionados.size))
 
   // Distribuição de leituras

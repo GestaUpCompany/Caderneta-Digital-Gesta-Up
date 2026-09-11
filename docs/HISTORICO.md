@@ -265,14 +265,37 @@ Typecheck e build passaram.
 
 ## Controle de expediente (implementado em 2026-09-10)
 
-Sistema de bloqueio do PWA por hor�rio de expediente, integrado ao RBAC existente. Quando controleAcessoHabilitado = true e expedienteHabilitado = true no Redux, o PWA bloqueia acesso fora do hor�rio configurado.
+Sistema de bloqueio do PWA por hor�rio de expediente, integrado ao RBAC existente. Quando controleAcessoHabilitado = true e expedienteHabilitado = true no Redux, o PWA bloqueia acesso fora do hor�rio configurado.
 
 **Arquitetura:**
 - configSlice.ts: adiciona expedienteHabilitado, expedienteTimezone, expedienteDias ao Redux (persistido via redux-persist).
-- uncionarioAuthService.ts: adiciona expediente_override � interface FuncionarioRBAC e ao cache IndexedDB.
-- useExpediente.ts (novo hook): valida hor�rio no timezone da fazenda usando Intl.DateTimeFormat. Suporta turno noturno (fim < inicio). Re-verifica a cada 60s e em visibilitychange.
+- uncionarioAuthService.ts: adiciona expediente_override � interface FuncionarioRBAC e ao cache IndexedDB.
+- useExpediente.ts (novo hook): valida hor�rio no timezone da fazenda usando Intl.DateTimeFormat. Suporta turno noturno (fim < inicio). Re-verifica a cada 60s e em visibilitychange.
 - Home.tsx: tela de bloqueio por fora de expediente (z-index 60, distinta da tela de PIN). Logout automatico quando expediente acaba. Revalidacao em sync manual, sync automatico (SW), interval de 10min, e visibilitychange.
 
 **Hierarquia de bloqueio:** fora de expediente > app lock por inatividade > login inicial. A tela de fora de expediente tem prioridade e suprime as outras.
 
 Disparador: quando mencionar "expediente", "horario de atividade", "bloqueio por horario", expedienteHabilitado, expedienteDias, expediente_override, useExpediente, ler esta secao.
+
+## LeituraCochoPage lê registros_oferta_trato em vez de registros_suplementacao (RESOLVIDO 10/09/2026)
+
+**Problema**: a tela de Leitura de Cocho mostrava KG COCHO como "—" para todos os currais ativos, mesmo havendo 16 registros de trato de confinamento lançados no dia 2026-09-09 para os 4 lotes ativos (A, B, C, D). A causa: a página importava `getRegistrosSuplementacaoByLoteCached`, que lê `registros_suplementacao` (tabela de pasto), quando deveria ler `registros_oferta_trato` (tabela de curral/confinamento).
+
+**Correção aplicada** (commit `a09cfc3`):
+1. `supabaseService.ts`: adicionada `getRegistrosOfertaTratoByLote(fazendaId, loteId)` que consulta `registros_oferta_trato` por `lote_id` com `deleted_at IS NULL`, ordenada por `data desc` e `ordem_trato asc`.
+2. `cadastroCache.ts`: adicionada `getRegistrosOfertaTratoByLoteCached(fazendaId, loteId)` com fallback offline via cache em memória.
+3. `LeituraCochoPage.tsx`: trocado o import e a chamada de `getRegistrosSuplementacaoByLoteCached` para `getRegistrosOfertaTratoByLoteCached`. Os registros são mapeados (`kg_ofertado_real` -> `kg_cocho`) antes de passar para `calcularCmsPorJanelas`. A busca da formulação via `curralInfo.formulacao_id` foi mantida, já que `registros_oferta_trato` não armazena o nome da formulação.
+
+**Validação** (fazenda `d649c65e-16ab-4b77-a84b-df937aa41cc3`): KG COCHO passou a mostrar 1.200 (A1), 637 (B1), 537 (C1) e 700 (D1), somatórios dos 4 tratos de cada curral no dia 2026-09-09.
+
+Disparador: quando mencionar "Leitura de Cocho", "KG COCHO", "kg cocho", `registros_oferta_trato` vs `registros_suplementacao`, `getRegistrosOfertaTratoByLote`, ler esta secao.
+
+## Cabeças após óbito no texto compartilhado da MortePage (RESOLVIDO 10/09/2026)
+
+**Problema**: o texto gerado por `shareUtils.ts` para a caderneta de morte não informava quantas cabeças restaram no lote após a morte do animal, deixando o destinatário sem contexto do impacto no plantel.
+
+**Correção aplicada** (commit `63340f5`):
+1. `MortePage.tsx`: ao salvar, `registroSalvo` agora inclui `n_cabecas_apos_obito = detalhesLote.n_cabecas - 1` (contagem antes do óbito menos 1).
+2. `shareUtils.ts`: no bloco da caderneta `morte`, após as linhas de PASTO/CURRAL e LOTE, adicionada a linha `CABEÇAS APÓS ÓBITO: *X*` quando o campo está presente.
+
+Disparador: quando mencionar "cabeças após óbito", "morte compartilhamento", `n_cabecas_apos_obito`, ler esta secao.

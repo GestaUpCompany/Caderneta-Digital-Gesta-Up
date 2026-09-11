@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
@@ -94,6 +94,7 @@ interface FormState {
   diagnosticos: string[]
   observacaoTratamento: string
   medicamentos: MedicamentoItem[]
+  tipoRegistro: string
 }
 
 const makeInitial = (): FormState => ({
@@ -113,6 +114,7 @@ const makeInitial = (): FormState => ({
   diagnosticos: [],
   observacaoTratamento: '',
   medicamentos: [],
+  tipoRegistro: '',
 })
 
 export default function EnfermariaPage() {
@@ -167,6 +169,7 @@ export default function EnfermariaPage() {
         return null
       }
     },
+    tipoRegistro: { required: true },
   }
 
   const { isValid } = useFormValidation(form, validationRules)
@@ -350,6 +353,7 @@ export default function EnfermariaPage() {
       diagnosticos: form.diagnosticos,
       medicamentos: form.medicamentos,
       observacaoTratamento: form.observacaoTratamento,
+      tipoRegistro: form.tipoRegistro,
     })
 
     setSalvando(false)
@@ -513,8 +517,21 @@ export default function EnfermariaPage() {
 
         {/* Seção 4: Tratamento */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TRATAMENTO <span className="text-red-500">*</span></h2>
-          
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TRATAMENTOS <span className="text-red-500">*</span></h2>
+
+          <Radio
+            name="tipoRegistro"
+            label={<span>TIPO <span className="text-red-500">*</span></span>}
+            options={[
+              { value: 'Curativo', label: 'CURATIVO' },
+              { value: 'Preventivo', label: 'PREVENTIVO' },
+            ]}
+            value={form.tipoRegistro}
+            onChange={(val) => setForm((p) => ({ ...p, tipoRegistro: val }))}
+            error={getError('tipoRegistro')}
+            gridCols={2}
+          />
+
           {/* Lista de medicamentos adicionados */}
           {form.medicamentos.length > 0 && (
             <div className="flex flex-col gap-3">
