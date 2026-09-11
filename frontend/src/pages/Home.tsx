@@ -20,6 +20,7 @@ import FuncionarioLoginModal from '../components/FuncionarioLoginModal'
 import LongPressButton from '../components/LongPressButton'
 import { useFuncionarioAuth } from '../hooks/useFuncionarioAuth'
 import { useAppLock } from '../hooks/useAppLock'
+import { useExpediente } from '../hooks/useExpediente'
 import { useCadastroSyncState } from '../hooks/useCadastroSyncState'
 
 const BASE = import.meta.env.BASE_URL
@@ -27,7 +28,7 @@ const BASE = import.meta.env.BASE_URL
 export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId, controleAcessoHabilitado } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId, controleAcessoHabilitado, expedienteHabilitado, expedienteTimezone, expedienteDias } = useSelector((state: RootState) => state.config)
   const { active: cadastroSyncActive } = useCadastroSyncState()
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null)
@@ -147,6 +148,21 @@ export default function Home() {
     onLogout: logout,
   })
 
+  // Override de expediente do funcionario logado (vem da lista fresca, nao do Redux)
+  const funcionarioFresh = funcionariosDisponiveis.find(f => f.id === funcionarioLogado?.id)
+  const { expedienteAtivo, dentroExpediente, expedienteDia } = useExpediente(
+    expedienteHabilitado,
+    expedienteTimezone,
+    expedienteDias,
+    funcionarioFresh?.expediente_override ?? null,
+    rbacAtivo,
+  )
+
+  // Quando o expediente acaba e o funcionario estava logado, mostra tela de bloqueio.
+  // Nao faz logout automatico: o funcionario permanece logado e o app desbloqueia sozinho
+  // quando o horario permite novamente. Isto evita loop de login/logout quando o
+  // funcionario tem override que difere do expediente da fazenda.
+
   const handleLogout = useCallback(() => {
     logout()
     switchUser()
@@ -160,6 +176,9 @@ export default function Home() {
         dispatch(setConfig({
           controleAcessoHabilitado: fazendaData.controle_acesso_habilitado,
           acessoConfinamento: fazendaData.acesso_confinamento || false,
+          expedienteHabilitado: !!fazendaData.expediente_habilitado,
+          expedienteTimezone: fazendaData.expediente_timezone || 'America/Cuiaba',
+          expedienteDias: fazendaData.expediente_dias || null,
         }))
 
         // Verifica se a versão de RBAC mudou desde a última checagem.
@@ -183,14 +202,17 @@ export default function Home() {
 
   // Interval periódico para cobrir o caso de app em foreground contínuo.
   // O visibilitychange não dispara se o app nunca vai para background.
-  // A cada 10 minutos, rebusca a versão de RBAC.
+  // Quando bloqueado por expediente, polling a cada 30s para detectar liberação rápida.
+  // Caso contrário, a cada 10 minutos para não sobrecarregar o banco.
   useEffect(() => {
     if (!acessoId || !configurado) return
+    const bloqueadoPorExpediente = expedienteAtivo && !dentroExpediente
+    const intervalMs = bloqueadoPorExpediente ? 30 * 1000 : 10 * 60 * 1000
     const interval = setInterval(() => {
       atualizarControleAcesso()
-    }, 10 * 60 * 1000)
+    }, intervalMs)
     return () => clearInterval(interval)
-  }, [acessoId, configurado, atualizarControleAcesso])
+  }, [acessoId, configurado, atualizarControleAcesso, expedienteAtivo, dentroExpediente])
 
   // Revalida RBAC quando o app volta de background
   useEffect(() => {
@@ -201,6 +223,18 @@ export default function Home() {
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [atualizarControleAcesso])
+
+  // Revalida expediente e RBAC quando o SW termina cache em background
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'BG_CACHE_UPDATED') {
+        atualizarControleAcesso()
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handleSWMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage)
   }, [atualizarControleAcesso])
 
   const handleSync = async () => {
@@ -235,6 +269,9 @@ export default function Home() {
         setCadastroCacheTimestamp()
         setCacheTimestamp(Date.now())
       }
+
+      // Atualiza config de expediente e RBAC junto com o sync manual
+      await atualizarControleAcesso()
     } catch (error) {
       console.error('Erro ao sincronizar:', error)
       setSyncErrors(['Erro geral de sincronização'])
@@ -694,6 +731,22 @@ export default function Home() {
         </div>
       )}
 
+      {/* Bloqueio por fora de expediente - so mostra quando funcionario esta logado */}
+      {!appLockLoading && expedienteAtivo && !dentroExpediente && funcionarioLogado && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#1a3a2a] p-6">
+          <div className="text-5xl mb-4">⏰</div>
+          <h2 className="text-xl font-black text-white mb-2">Fora do expediente</h2>
+          <p className="text-sm text-yellow-400 font-semibold mb-4 text-center max-w-sm">
+            {expedienteDia
+              ? `O expediente de hoje é das ${expedienteDia.inicio} às ${expedienteDia.fim}.`
+              : 'Não há expediente hoje.'}
+          </p>
+          <p className="text-xs text-gray-300 max-w-sm text-center">
+            Volte dentro do horário de atividade para acessar o app.
+          </p>
+        </div>
+      )}
+
       {/* Login de funcionário quando RBAC está ativo */}
       {!appLockLoading && showLogin && funcionariosDisponiveis.length > 0 && !locked && (
         <FuncionarioLoginModal
@@ -704,7 +757,7 @@ export default function Home() {
       )}
 
       {/* Tela de bloqueio com PIN do último usuário */}
-      {!appLockLoading && locked && lastFuncionario && (
+      {!appLockLoading && locked && lastFuncionario && !(expedienteAtivo && !dentroExpediente) && (
         <FuncionarioLoginModal
           funcionarios={funcionariosDisponiveis}
           fazendaId={fazendaId || ''}

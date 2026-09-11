@@ -31,6 +31,7 @@ function readLastFuncionario(fazendaId: string): FuncionarioRBAC | null {
       cadernetas_permitidas: cadernetas,
       acessa_app: true,
       pin_hash: null,
+      expediente_override: null,
       ativo: true,
       cargo: null,
     }

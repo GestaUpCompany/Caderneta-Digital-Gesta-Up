@@ -262,3 +262,17 @@ Tr√™s itens de fuso hor√°rio corrigidos, todos no PWA, sem impacto no Painel Web
 - Resolvido automaticamente via C9. O `salvarRegistro` j√° capturava a hora no fuso da fazenda (linha 62), mas a data vinha do payload do formul√°rio, que usa `todayBR()`. Corrigindo `todayBR()`, a data concatenada com a hora est√° correta.
 
 Typecheck e build passaram.
+
+## Controle de expediente (implementado em 2026-09-10)
+
+Sistema de bloqueio do PWA por hor·rio de expediente, integrado ao RBAC existente. Quando controleAcessoHabilitado = true e expedienteHabilitado = true no Redux, o PWA bloqueia acesso fora do hor·rio configurado.
+
+**Arquitetura:**
+- configSlice.ts: adiciona expedienteHabilitado, expedienteTimezone, expedienteDias ao Redux (persistido via redux-persist).
+- uncionarioAuthService.ts: adiciona expediente_override ‡ interface FuncionarioRBAC e ao cache IndexedDB.
+- useExpediente.ts (novo hook): valida hor·rio no timezone da fazenda usando Intl.DateTimeFormat. Suporta turno noturno (fim < inicio). Re-verifica a cada 60s e em visibilitychange.
+- Home.tsx: tela de bloqueio por fora de expediente (z-index 60, distinta da tela de PIN). Logout automatico quando expediente acaba. Revalidacao em sync manual, sync automatico (SW), interval de 10min, e visibilitychange.
+
+**Hierarquia de bloqueio:** fora de expediente > app lock por inatividade > login inicial. A tela de fora de expediente tem prioridade e suprime as outras.
+
+Disparador: quando mencionar "expediente", "horario de atividade", "bloqueio por horario", expedienteHabilitado, expedienteDias, expediente_override, useExpediente, ler esta secao.

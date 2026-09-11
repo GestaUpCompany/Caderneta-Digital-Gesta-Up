@@ -10,6 +10,7 @@ export interface FuncionarioRBAC {
   acessa_app: boolean
   pin_hash: string | null
   cadernetas_permitidas: string[] | null
+  expediente_override: Record<number, { ativo: boolean; inicio: string; fim: string }> | null
   ativo: boolean | null
 }
 
@@ -26,6 +27,7 @@ export async function fetchFuncionariosComAcesso(fazendaId: string): Promise<Fun
     acessa_app: f.acessa_app,
     pin_hash: f.pin_hash,
     cadernetas_permitidas: Array.isArray(f.cadernetas_permitidas) ? f.cadernetas_permitidas : [],
+    expediente_override: f.expediente_override || null,
     ativo: f.ativo,
   })) as FuncionarioRBAC[]
 

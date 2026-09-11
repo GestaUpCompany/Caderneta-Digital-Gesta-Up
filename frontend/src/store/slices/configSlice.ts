@@ -1,5 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
+interface ExpedienteDia {
+  ativo: boolean
+  inicio: string
+  fim: string
+}
+
+export type ExpedienteDias = Record<number, ExpedienteDia>
+
 interface ConfigState {
   fazenda: string
   fazendaId: string
@@ -8,6 +16,9 @@ interface ConfigState {
   logoUrl: string
   configurado: boolean
   controleAcessoHabilitado: boolean
+  expedienteHabilitado: boolean
+  expedienteTimezone: string
+  expedienteDias: ExpedienteDias | null
   acessoConfinamento: boolean
   funcionarioId: string
   funcionarioNome: string
@@ -23,6 +34,9 @@ const initialState: ConfigState = {
   logoUrl: '',
   configurado: false,
   controleAcessoHabilitado: false,
+  expedienteHabilitado: false,
+  expedienteTimezone: 'America/Cuiaba',
+  expedienteDias: null,
   acessoConfinamento: false,
   funcionarioId: '',
   funcionarioNome: '',

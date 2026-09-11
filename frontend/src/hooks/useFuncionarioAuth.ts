@@ -51,6 +51,7 @@ export function useFuncionarioAuth(): UseFuncionarioAuthReturn {
         cadernetas_permitidas: funcionarioCadernetas,
         acessa_app: true,
         pin_hash: null,
+        expediente_override: null,
         ativo: true,
         cargo: null,
       }

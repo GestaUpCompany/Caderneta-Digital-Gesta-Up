@@ -956,6 +956,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       }
     })
 
+    // Cabeças do lote após o óbito
+    if (registro.n_cabecas_apos_obito !== null && registro.n_cabecas_apos_obito !== undefined) {
+      texto += `CABEÇAS APÓS ÓBITO: *${registro.n_cabecas_apos_obito}*\n`
+    }
+
     // Seção: IDENTIFICAÇÃO DO ANIMAL
     texto += '\nIDENTIFICAÇÃO DO ANIMAL\n'
     const ordemIdentificacao = ['brinco', 'chip', 'observacaoIdentificacao']

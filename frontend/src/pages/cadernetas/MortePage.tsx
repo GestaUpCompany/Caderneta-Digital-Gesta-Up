@@ -419,7 +419,12 @@ export default function MortePage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      setRegistroSalvo(result.registro)
+      const cabecasAntes = detalhesLote ? Number(detalhesLote.n_cabecas) || 0 : 0
+      const cabecasApos = Math.max(0, cabecasAntes - 1)
+      setRegistroSalvo({
+        ...result.registro,
+        n_cabecas_apos_obito: cabecasApos,
+      })
       setShowSuccessModal(true)
       setForm(makeInitial())
       limparFotoGps()
