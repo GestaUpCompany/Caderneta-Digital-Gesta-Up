@@ -120,6 +120,8 @@ export interface RegistroMovimentacao extends Registro {
   motivoMovimentacao: string
   brincoChip: string
   causaObservacao: string
+  equipe?: number | null
+  equipeNomes?: string[]
 }
 
 export interface RegistroEnfermaria extends Registro {
@@ -138,6 +140,7 @@ export interface RegistroEnfermaria extends Registro {
     }
   }
   observacao: string
+  tipoRegistro?: string
 }
 
 export interface RegistroEntradaInsumos extends Registro {

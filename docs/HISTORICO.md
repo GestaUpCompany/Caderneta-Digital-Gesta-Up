@@ -1,4 +1,4 @@
-# Histórico de alterações (RESOLVIDO/IMPLEMENTADO)
+﻿# Histórico de alterações (RESOLVIDO/IMPLEMENTADO)
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
@@ -265,17 +265,17 @@ Typecheck e build passaram.
 
 ## Controle de expediente (implementado em 2026-09-10)
 
-Sistema de bloqueio do PWA por hor�rio de expediente, integrado ao RBAC existente. Quando controleAcessoHabilitado = true e expedienteHabilitado = true no Redux, o PWA bloqueia acesso fora do hor�rio configurado.
+Sistema de bloqueio do PWA por horário de expediente, integrado ao RBAC existente. Quando controleAcessoHabilitado = true e expedienteHabilitado = true no Redux, o PWA bloqueia acesso fora do horário configurado.
 
 **Arquitetura:**
 - configSlice.ts: adiciona expedienteHabilitado, expedienteTimezone, expedienteDias ao Redux (persistido via redux-persist).
-- uncionarioAuthService.ts: adiciona expediente_override � interface FuncionarioRBAC e ao cache IndexedDB.
-- useExpediente.ts (novo hook): valida hor�rio no timezone da fazenda usando Intl.DateTimeFormat. Suporta turno noturno (fim < inicio). Re-verifica a cada 60s e em visibilitychange.
-- Home.tsx: tela de bloqueio por fora de expediente (z-index 60, distinta da tela de PIN). Logout automatico quando expediente acaba. Revalidacao em sync manual, sync automatico (SW), interval de 10min, e visibilitychange.
+- funcionarioAuthService.ts: adiciona expediente_override à interface FuncionarioRBAC e ao cache IndexedDB.
+- useExpediente.ts (novo hook): valida horário no timezone da fazenda usando Intl.DateTimeFormat. Suporta turno noturno (fim < início). Re-verifica a cada 60s e em visibilitychange.
+- Home.tsx: tela de bloqueio por fora de expediente (z-index 60, distinta da tela de PIN). Logout automático quando expediente acaba. Revalidação em sync manual, sync automático (SW), interval de 10min, e visibilitychange.
 
 **Hierarquia de bloqueio:** fora de expediente > app lock por inatividade > login inicial. A tela de fora de expediente tem prioridade e suprime as outras.
 
-Disparador: quando mencionar "expediente", "horario de atividade", "bloqueio por horario", expedienteHabilitado, expedienteDias, expediente_override, useExpediente, ler esta secao.
+Disparador: quando mencionar "expediente", "horário de atividade", "bloqueio por horário", expedienteHabilitado, expedienteDias, expediente_override, useExpediente, ler esta seção.
 
 ## LeituraCochoPage lê registros_oferta_trato em vez de registros_suplementacao (RESOLVIDO 10/09/2026)
 
@@ -299,3 +299,47 @@ Disparador: quando mencionar "Leitura de Cocho", "KG COCHO", "kg cocho", `regist
 2. `shareUtils.ts`: no bloco da caderneta `morte`, após as linhas de PASTO/CURRAL e LOTE, adicionada a linha `CABEÇAS APÓS ÓBITO: *X*` quando o campo está presente.
 
 Disparador: quando mencionar "cabeças após óbito", "morte compartilhamento", `n_cabecas_apos_obito`, ler esta secao.
+
+## Equipe no manejo da Movimentação + nomes no texto compartilhável (implementado em 2026-09-10)
+
+**Funcionalidade** (commit `c3f6f94`): a MovimentacaoPage ganhou uma seção opcional "EQUIPE NO MANEJO" onde o peão informa quantas pessoas participaram (1 a 5) e seleciona cada uma via `SearchableModal` alimentado por `funcionariosDisponiveis` do `cadastroCache`. Os nomes selecionados são persistidos em `equipeNomes` e incluídos no texto compartilhável gerado por `shareUtils.ts` (bloco `EQUIPE NO MANEJO` com `N° PESSOAS` e `PESSOAS`).
+
+**PWA (`MovimentacaoPage.tsx`)**: rádio `equipe` (1 a 5) revela um `SearchableModal` por pessoa, com `options={funcionariosDisponiveis}`, `placeholder="Buscar funcionário..."`, seguindo o mesmo padrão de `RodeioPage.tsx`. Quando não há funcionários em cache, cai em fallback de `Input` livre. `equipeNomes` é validado: se `equipe > 0`, todos os nomes são obrigatórios.
+
+**`shareUtils.ts`**: no bloco da caderneta `movimentacao`, após `CAUSA/OBSERVAÇÃO`, adicionada a seção `EQUIPE NO MANEJO` com `N° PESSOAS` e `PESSOAS` (nomes separados por vírgula) quando `registro.equipe` é maior que zero.
+
+Disparador: quando mencionar "equipe no manejo", "pessoas no manejo", `equipeNomes`, `equipe` em movimentação, ler esta seção.
+
+## Tipo de registro (Curativo/Preventivo) na Enfermaria + label duplicado removido do PDF de bebedouros (implementado em 2026-09-10)
+
+**Funcionalidade** (commit `f35ba7b`): a EnfermariaPage ganhou um campo obrigatório `TIPO` com opções `CURATIVO` e `PREVENTIVO` via componente `Radio`, no início da seção "3. TRATAMENTOS" (renomeada de "3. TRATAMENTO"). O valor é persistido em `tipoRegistro`, enviado ao Supabase como `tipo_registro`, e incluído no texto compartilhável como `TIPO: *Curativo*` ou `TIPO: *Preventivo*`.
+
+**PWA (`EnfermariaPage.tsx`)**: `tipoRegistro: string` adicionado a `FormState` e `makeInitial`. `validationRules.tipoRegistro = { required: true }`. `salvarRegistro` inclui `tipoRegistro` no payload. O `Radio` usa `name="tipoRegistro"` com `gridCols={2}`.
+
+**`syncService.ts`**: no case `enfermaria` de `registroToSupabase`, adicionado `tipo_registro: registro.tipoRegistro || null`. A coluna `tipo_registro` já existia no banco (text nullable) mas não estava mapeada no sync nem nos tipos locais; ambos foram corrigidos.
+
+**`pdfUtils.ts`**: removida a linha `labelValue('Total de inspeções:', String(totalInspecoes))` do PDF de resumo de bebedouros, que duplicava a informação já presente em "Bebedouros inspecionados" e confundia o leitor (o "total de inspeções" contava registros, não bebedouros).
+
+Disparador: quando mencionar "tipo de registro", "Curativo/Preventivo", `tipoRegistro`, `tipo_registro` em enfermaria, "label duplicado bebedouros", "total de inspeções PDF", ler esta seção.
+
+## Sync e schema da equipe no manejo da Movimentação (RESOLVIDO 12/09/2026)
+
+**Problema**: a funcionalidade de equipe no manejo (commit `c3f6f94`, 10/09/2026) estava visível no PWA mas não persistia no Supabase. O `syncService.ts` não mapeava `equipe` e `equipe_nomes` no case `movimentacao`, a tabela `registros_movimentacao` não tinha as colunas correspondentes, e os tipos TypeScript locais (`types/supabase.ts` e `types/cadernetas.ts`) não declaravam os campos.
+
+**Causa raiz**: a feature foi implementada apenas na camada de UI (formulário e `shareUtils`), sem propagar para as camadas de sync, schema e tipos. O mesmo padrão já funcionava em `registros_rodeio` (`equipe integer`, `equipe_nomes jsonb`), mas não foi replicado em `registros_movimentacao`.
+
+**Correção aplicada**:
+
+1. **Migration** `20260912120000_add_equipe_movimentacao.sql` (repo Painel Web, aplicada via `supabase db push`, commit `d07927e`): adicionou `equipe integer` e `equipe_nomes jsonb` (ambas nullable) em `registros_movimentacao`, mesmos tipos de `registros_rodeio`.
+
+2. **`syncService.ts`** (case `movimentacao` de `registroToSupabase`): adicionado `equipe: registro.equipe ? Number(registro.equipe) : null` e `equipe_nomes: registro.equipeNomes || null` no payload enviado ao Supabase.
+
+3. **`types/supabase.ts`**: adicionados `equipe` e `equipe_nomes` em `Row`, `Insert` e `Update` de `registros_movimentacao`. Aproveitado para adicionar `tipo_registro` em `Row`, `Insert` e `Update` de `registros_enfermaria` (coluna já existia no banco mas faltava nos tipos locais).
+
+4. **`types/cadernetas.ts`**: adicionados `equipe: number | null` e `equipeNomes: string[]` em `RegistroMovimentacao`, e `tipoRegistro: string | null` em `RegistroEnfermaria`.
+
+**Validação** (fazenda `d649c65e-16ab-4b77-a84b-df937aa41cc3`): registro de Entrada criado no PWA com equipe=2 e nomes=["Victor Hugo", "Camila"] selecionados via `SearchableModal`. Sync enviou os campos, Supabase confirmou `equipe=2` e `equipe_nomes=["Victor Hugo","Camila"]` na linha em `registros_movimentacao`. Registro de teste removido após validação.
+
+Typecheck e build do PWA passaram.
+
+Disparador: quando mencionar "equipe no manejo sync", `equipe` em `registros_movimentacao`, `equipe_nomes` em movimentação, "sync equipe movimentação", ler esta seção.

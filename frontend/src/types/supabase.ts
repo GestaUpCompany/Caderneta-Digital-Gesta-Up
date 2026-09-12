@@ -3268,6 +3268,7 @@ export type Database = {
           raca: string | null
           sexo: string | null
           sync_status: string | null
+          tipo_registro: string | null
           tratamento_obs: string | null
           tratamento_outros: string | null
           updated_at: string | null
@@ -3294,6 +3295,7 @@ export type Database = {
           raca?: string | null
           sexo?: string | null
           sync_status?: string | null
+          tipo_registro?: string | null
           tratamento_obs?: string | null
           tratamento_outros?: string | null
           updated_at?: string | null
@@ -3320,6 +3322,7 @@ export type Database = {
           raca?: string | null
           sexo?: string | null
           sync_status?: string | null
+          tipo_registro?: string | null
           tratamento_obs?: string | null
           tratamento_outros?: string | null
           updated_at?: string | null
@@ -3974,6 +3977,8 @@ export type Database = {
           deleted_at: string | null
           destino: string | null
           dispositivo_id: string | null
+          equipe: number | null
+          equipe_nomes: Json | null
           fazenda_id: string
           id: string
           lote_destino_id: string | null
@@ -4005,6 +4010,8 @@ export type Database = {
           deleted_at?: string | null
           destino?: string | null
           dispositivo_id?: string | null
+          equipe?: number | null
+          equipe_nomes?: Json | null
           fazenda_id: string
           id?: string
           lote_destino_id?: string | null
@@ -4036,6 +4043,8 @@ export type Database = {
           deleted_at?: string | null
           destino?: string | null
           dispositivo_id?: string | null
+          equipe?: number | null
+          equipe_nomes?: Json | null
           fazenda_id?: string
           id?: string
           lote_destino_id?: string | null

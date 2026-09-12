@@ -315,6 +315,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         raca: registro.raca || null,
         sexo: registro.sexo || null,
         idade: registro.idade ? Number(registro.idade) : null,
+        equipe: registro.equipe ? Number(registro.equipe) : null,
+        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,
       }
     }
     case 'enfermaria':
