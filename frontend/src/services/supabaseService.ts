@@ -2765,6 +2765,42 @@ export async function getItensSupermercado(fazendaId: string) {
   return data
 }
 
+// ==================== ITENS CANTINA (classificação -> item) ====================
+
+export async function getClassificacoesCantina(fazendaId: string): Promise<string[]> {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('itens_cantina')
+    .select('classificacao')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+
+  if (error) throw error
+
+  const classificacoes = [...new Set((data || []).map((item: any) => item.classificacao))] as string[]
+  return classificacoes
+}
+
+export async function getItensCantina(fazendaId: string, classificacao?: string) {
+  const client = await getSupabaseClientWithRefresh()
+  let query = (client as any)
+    .from('itens_cantina')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+
+  if (classificacao) {
+    query = query.eq('classificacao', classificacao)
+  }
+
+  query = query.order('nome')
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data
+}
+
 export async function updateRegistroAlmoxarifado(id: string, registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client

@@ -9,19 +9,14 @@ import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
-import { getCachedCadastroData, getItensSupermercadoCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getClassificacoesCantinaCached, getItensCantinaCached } from '../../services/cadastroCache'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
-
-interface ItemSupermercado {
-  id: string
-  nome: string
-  unidade_medida: string
-}
 
 interface ItemCantina {
   itemId: string
   nome: string
+  classificacao: string
   unidade_medida: string
   quantidade: string
 }
@@ -76,6 +71,7 @@ const makeInitial = (): FormState => ({
 const makeInitialItem = (): ItemCantina => ({
   itemId: '',
   nome: '',
+  classificacao: '',
   unidade_medida: '',
   quantidade: '',
 })
@@ -89,7 +85,8 @@ export default function CantinaPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
-  const [itensSupermercadoDisponiveis, setItensSupermercadoDisponiveis] = useState<ItemSupermercado[]>([])
+  const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
+  const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
   const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
   const [itemEditando, setItemEditando] = useState<ItemCantina | null>(null)
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
@@ -127,6 +124,7 @@ export default function CantinaPage() {
     if (!itemEditando) return
 
     const errors = new Set<string>()
+    if (!itemEditando.classificacao) errors.add('classificacao')
     if (!itemEditando.itemId) errors.add('itemId')
     if (!itemEditando.quantidade) errors.add('quantidade')
 
@@ -217,21 +215,40 @@ export default function CantinaPage() {
     carregarFuncionarios()
   }, [fazendaId])
 
-  // Buscar itens de supermercado (com cache lazy para offline)
+  // Buscar classificações de cantina (com cache lazy para offline)
   useEffect(() => {
-    async function carregarItensSupermercado() {
+    async function carregarClassificacoes() {
       if (!fazendaId) return
       try {
-        const data = await getItensSupermercadoCached(fazendaId)
+        const data = await getClassificacoesCantinaCached(fazendaId)
         if (data) {
-          setItensSupermercadoDisponiveis(data as ItemSupermercado[])
+          setClassificacoesDisponiveis(data)
         }
       } catch (error) {
-        console.error('Erro ao carregar itens de supermercado:', error)
+        console.error('Erro ao carregar classificações da cantina:', error)
       }
     }
-    carregarItensSupermercado()
+    carregarClassificacoes()
   }, [fazendaId])
+
+  // Carregar itens quando classificação é selecionada no formulário de item
+  useEffect(() => {
+    async function carregarItens() {
+      if (itemEditando?.classificacao && fazendaId) {
+        try {
+          const data = await getItensCantinaCached(fazendaId, itemEditando.classificacao)
+          if (data) {
+            setItensDisponiveis(data)
+          }
+        } catch (error) {
+          console.error('Erro ao carregar itens da cantina:', error)
+        }
+      } else {
+        setItensDisponiveis([])
+      }
+    }
+    carregarItens()
+  }, [itemEditando?.classificacao, fazendaId])
 
   // Atualizar array de quem ajudou quando numeroCozinheiras muda
   useEffect(() => {
@@ -401,6 +418,7 @@ export default function CantinaPage() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <p className="text-lg font-bold text-gray-800 uppercase">{item.nome}</p>
+                    <p className="text-base text-gray-600">Classificação: {item.classificacao}</p>
                     <p className="text-lg text-gray-900">Quantidade: {item.quantidade} {item.unidade_medida}</p>
                   </div>
                   <div className="flex gap-2 ml-2">
@@ -450,58 +468,99 @@ export default function CantinaPage() {
               />
             )}
 
-            {/* Seleção de item */}
+            {/* Seleção de classificação */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
               <div className="grid grid-cols-2 gap-2">
-                {itensSupermercadoDisponiveis.length > 0 ? (
-                  itensSupermercadoDisponiveis.map((item) => {
-                    const jaAdicionado = itensJaAdicionados.has(item.id)
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        disabled={jaAdicionado}
-                        onClick={() => {
-                          setItemEditando(prev => prev ? {
-                            ...prev,
-                            itemId: item.id,
-                            nome: item.nome,
-                            unidade_medida: item.unidade_medida,
-                          } : null)
-                          setItemErrors(prev => {
-                            const newErrors = new Set(prev)
-                            newErrors.delete('itemId')
-                            return newErrors
-                          })
-                        }}
-                        className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                          itemEditando?.itemId === item.id
-                            ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                            : jaAdicionado
-                            ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
-                            : itemErrors.has('itemId')
-                            ? 'border-red-500 bg-red-50 text-red-700'
-                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        }`}
-                      >
-                        {item.nome} ({item.unidade_medida})
-                      </button>
-                    )
-                  })
+                {classificacoesDisponiveis.length > 0 ? (
+                  classificacoesDisponiveis.map((classificacao) => (
+                    <button
+                      key={classificacao}
+                      type="button"
+                      onClick={() => {
+                        setItemEditando(prev => prev ? { ...prev, classificacao, itemId: '', nome: '', unidade_medida: '' } : null)
+                        setItemErrors(prev => {
+                          const newErrors = new Set(prev)
+                          newErrors.delete('classificacao')
+                          newErrors.delete('itemId')
+                          return newErrors
+                        })
+                      }}
+                      className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                        itemEditando?.classificacao === classificacao
+                          ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                          : itemErrors.has('classificacao')
+                          ? 'border-red-500 bg-red-50 text-red-700'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {classificacao}
+                    </button>
+                  ))
                 ) : (
-                  <p className="text-sm text-gray-500 col-span-2">Nenhum item cadastrado no sistema</p>
+                  <p className="text-sm text-gray-500 col-span-2">Nenhuma classificação cadastrada. Cadastre itens da cantina no painel web.</p>
                 )}
               </div>
             </div>
 
+            {/* Seleção de item (aparece após selecionar classificação) */}
+            {itemEditando?.classificacao && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {itensDisponiveis.length > 0 ? (
+                    itensDisponiveis.map((item) => {
+                      const jaAdicionado = itensJaAdicionados.has(item.id)
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          disabled={jaAdicionado}
+                          onClick={() => {
+                            setItemEditando(prev => prev ? {
+                              ...prev,
+                              itemId: item.id,
+                              nome: item.nome,
+                              unidade_medida: item.unidade_medida,
+                            } : null)
+                            setItemErrors(prev => {
+                              const newErrors = new Set(prev)
+                              newErrors.delete('itemId')
+                              return newErrors
+                            })
+                          }}
+                          className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                            itemEditando?.itemId === item.id
+                              ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                              : jaAdicionado
+                              ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
+                              : itemErrors.has('itemId')
+                              ? 'border-red-500 bg-red-50 text-red-700'
+                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          {item.nome} ({item.unidade_medida})
+                        </button>
+                      )
+                    })
+                  ) : (
+                    <p className="text-sm text-gray-500 col-span-2">Nenhum item encontrado para esta classificação</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <Input
-              label="QUANTIDADE"
+              label={itemEditando?.unidade_medida ? `QUANTIDADE (${itemEditando.unidade_medida})` : 'QUANTIDADE'}
               type="number"
               placeholder="Informe a quantidade"
               value={itemEditando?.quantidade || ''}
               onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9]/g, '')
+                const unidade = itemEditando?.unidade_medida || ''
+                const permiteDecimal = ['kg', 'g', 'L', 'mL'].includes(unidade)
+                const value = permiteDecimal
+                  ? e.target.value.replace(/[^0-9.,]/g, '').replace(/,/g, '.')
+                  : e.target.value.replace(/[^0-9]/g, '')
                 setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
                 setItemErrors(prev => {
                   const newErrors = new Set(prev)

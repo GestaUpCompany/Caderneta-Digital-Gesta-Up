@@ -66,7 +66,7 @@ const SYNC_CHECKPOINT_KEY = 'syncCheckpoint'
 interface SyncCheckpoint {
   fazendaId: string
   syncStepsCompleted: number      // índice do último step de syncAllCadastroData concluído
-  warmPhase: string               // 'pastos' | 'lotes' | 'formulacoes' | 'rodeio' | 'medicamentos' | 'tratamentos' | 'extras' | 'almoxarifado' | 'bebedouros' | 'tratos' | 'done'
+  warmPhase: string               // 'pastos' | 'lotes' | 'formulacoes' | 'rodeio' | 'medicamentos' | 'tratamentos' | 'extras' | 'almoxarifado' | 'cantina' | 'bebedouros' | 'tratos' | 'done'
   warmPhaseIndex: number          // índice dentro da fase atual
   timestamp: number
 }
@@ -1777,6 +1777,50 @@ export async function getItensSupermercadoCached(fazendaId: string): Promise<any
 }
 
 /**
+ * Busca classificações de cantina com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getClassificacoesCantinaCached(fazendaId: string): Promise<string[] | null> {
+  const key = buildKey('classificacoes-cantina', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached as string[] : null
+  }
+
+  try {
+    const data = await supabaseService.getClassificacoesCantina(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca itens de cantina por classificação com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getItensCantinaCached(fazendaId: string, classificacao: string): Promise<any[] | null> {
+  const key = buildKey('itens-cantina', fazendaId, classificacao)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
+
+  try {
+    const data = await supabaseService.getItensCantina(fazendaId, classificacao)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca setores com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
@@ -2122,7 +2166,7 @@ export async function warmAllCadastroCache(
   // Determinar ponto de retomada
   const resumePhase = resumeCheckpoint?.phase ?? null
   const resumeIndex = resumeCheckpoint?.index ?? 0
-  const phaseOrder = ['pastos', 'lotes', 'formulacoes', 'rodeio', 'medicamentos', 'tratamentos', 'extras', 'almoxarifado', 'bebedouros', 'tratos']
+  const phaseOrder = ['pastos', 'lotes', 'formulacoes', 'rodeio', 'medicamentos', 'tratamentos', 'extras', 'almoxarifado', 'cantina', 'bebedouros', 'tratos']
   const shouldSkip = (phase: string) => {
     if (!resumePhase) return false
     const resumeOrder = phaseOrder.indexOf(resumePhase)
@@ -2163,7 +2207,7 @@ export async function warmAllCadastroCache(
     }
   }
 
-  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 17
+  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 19
   let warmedPastos = 0
   let warmedLotes = 0
   let warmedFormulacoes = 0
@@ -2488,6 +2532,7 @@ export async function warmAllCadastroCache(
     { label: 'Setores', fn: () => getSetoresCached(fazendaId) },
     { label: 'Locais', fn: () => getLocaisCached(fazendaId) },
     { label: 'Classificações Almoxarifado', fn: () => getClassificacoesAlmoxarifadoCached(fazendaId) },
+    { label: 'Classificações Cantina', fn: () => getClassificacoesCantinaCached(fazendaId) },
     { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },
     { label: 'Currais (Confinamento)', fn: () => getCurraisCached(fazendaId) },
     { label: 'Linhas Confinamento', fn: () => getLinhasConfinamentoCached(fazendaId) },
@@ -2562,6 +2607,27 @@ export async function warmAllCadastroCache(
       errors.push('Itens Almoxarifado')
     }
     await persistProgress('almoxarifado', 0)
+  }
+
+  // ==================== FASE CANTINA ====================
+  if (!shouldSkip('cantina')) {
+    try {
+      processed++
+      onProgress?.(processed, totalItems, 'Itens Cantina')
+      const classificacoes = await getClassificacoesCantinaCached(fazendaId)
+      if (classificacoes && classificacoes.length > 0) {
+        await Promise.all(
+          classificacoes.map(classificacao =>
+            getItensCantinaCached(fazendaId, classificacao)
+          )
+        )
+        warmedExtras++
+      }
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao aquecer itens cantina:', error)
+      errors.push('Itens Cantina')
+    }
+    await persistProgress('cantina', 0)
   }
 
   // ==================== FASE BEBEDOUROS: paralelizado ====================

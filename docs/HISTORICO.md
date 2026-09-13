@@ -343,3 +343,26 @@ Disparador: quando mencionar "tipo de registro", "Curativo/Preventivo", `tipoReg
 Typecheck e build do PWA passaram.
 
 Disparador: quando mencionar "equipe no manejo sync", `equipe` em `registros_movimentacao`, `equipe_nomes` em movimentação, "sync equipe movimentação", ler esta seção.
+
+## Itens da Cantina com classificacao e unidade de medida (13/09/2026)
+
+**Problema**: a CantinaPage usava itens_supermercado (tabela sem classificacao) para selecionar alimentos. O usuario queria o mesmo padrao do AlmoxarifadoPage: primeiro selecionar uma classificacao, depois o item, com unidade de medida definida no cadastro.
+
+**Solucao aplicada**:
+
+1. **Migration** 20260913120000_create_itens_cantina_table.sql (repo Painel Web): criou tabela itens_cantina com 
+ome, classificacao (CHECK: Pereciveis, Nao Pereciveis, Bebidas, Limpeza/Higiene, Hortifruti, Carnes), unidade_medida (CHECK: kg, g, L, mL, Unidade, Pacote), tivo, deleted_at, RLS e indexes. Aplicada via supabase db push.
+
+2. **Backfill** (via MCP, pontual): 23 itens migrados de itens_supermercado para itens_cantina, mapeando Unidades->Unidade e Pacotes->Pacote, com classificacao padrao Nao Pereciveis. itens_supermercado nao foi droppada (pendente de validacao e autorizacao do usuario).
+
+3. **Painel Web** (CadastrosAuxiliares.tsx): adicionada tab itens-cantina com campos nome, classificacao (select) e unidade_medida (select).
+
+4. **PWA** (supabaseService.ts): adicionadas getClassificacoesCantina e getItensCantina(fazendaId, classificacao?).
+
+5. **PWA** (cadastroCache.ts): adicionadas getClassificacoesCantinaCached e getItensCantinaCached com cache lazy, fase de warmup cantina no phaseOrder, e item Classificacoes Cantina no preload de extras.
+
+6. **PWA** (CantinaPage.tsx): substituida selecao flat de itens por classificacao -> item (mesmo padrao do AlmoxarifadoPage). Input de quantidade adaptativo: decimal para kg/g/L/mL, inteiro para Unidade/Pacote. Label da quantidade mostra a unidade (ex: QUANTIDADE (Pacote)).
+
+**Validacao** (fazenda d649c65e-16ab-4b77-a84b-df937aa41cc3): fluxo completo testado via Chrome DevTools. Selecao de classificacao Nao Pereciveis carregou 3 itens (Arroz/Pacote, Carne Bovina/kg, Ovos/Unidade). Item Arroz adicionado com quantidade 5 (inteiro), item Carne Bovina adicionado com quantidade 2.5 (decimal). Itens ja adicionados aparecem desabilitados no seletor. Display do item mostra nome, classificacao, quantidade e unidade.
+
+Disparador: quando mencionar itens_cantina, classificacao de alimentos da cantina, unidade de medida na cantina, getClassificacoesCantina, getItensCantina, ler esta secao.
