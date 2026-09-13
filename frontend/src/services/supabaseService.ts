@@ -2750,21 +2750,6 @@ export async function getPluviometros(fazendaId: string) {
   return data
 }
 
-// ==================== ITENS SUPERMERCADO (CANTINA) ====================
-
-export async function getItensSupermercado(fazendaId: string) {
-  const client = await getSupabaseClientWithRefresh()
-  const { data, error } = await (client as any)
-    .from('itens_supermercado')
-    .select('*')
-    .eq('fazenda_id', fazendaId)
-    .eq('ativo', true)
-    .order('nome')
-
-  if (error) throw error
-  return data
-}
-
 // ==================== ITENS CANTINA (classificação -> item) ====================
 
 export async function getClassificacoesCantina(fazendaId: string): Promise<string[]> {

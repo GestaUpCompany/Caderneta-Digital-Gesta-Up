@@ -1755,28 +1755,6 @@ export async function getImplementosCached(fazendaId: string): Promise<any[] | n
 }
 
 /**
- * Busca itens de supermercado (cantina) com cache lazy.
- * Quando online, sempre consulta o Supabase (ignora cache).
- * Quando offline, usa o cache.
- */
-export async function getItensSupermercadoCached(fazendaId: string): Promise<any[] | null> {
-  const key = buildKey('itens-supermercado', fazendaId)
-
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
-  }
-
-  try {
-    const data = await supabaseService.getItensSupermercado(fazendaId)
-    if (data) setCachedQuery(key, data)
-    return data
-  } catch {
-    return null
-  }
-}
-
-/**
  * Busca classificações de cantina com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
@@ -2528,7 +2506,6 @@ export async function warmAllCadastroCache(
     { label: 'Pluviômetros', fn: () => getPluviometrosCached(fazendaId) },
     { label: 'Máquinas/Veículos', fn: () => getMaquinasVeiculosCached(fazendaId) },
     { label: 'Implementos', fn: () => getImplementosCached(fazendaId) },
-    { label: 'Itens Supermercado', fn: () => getItensSupermercadoCached(fazendaId) },
     { label: 'Setores', fn: () => getSetoresCached(fazendaId) },
     { label: 'Locais', fn: () => getLocaisCached(fazendaId) },
     { label: 'Classificações Almoxarifado', fn: () => getClassificacoesAlmoxarifadoCached(fazendaId) },
