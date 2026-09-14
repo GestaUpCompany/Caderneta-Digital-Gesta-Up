@@ -48,6 +48,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   morte: 'registros_morte',
   clima: 'registros_clima',
   abastecimento: 'registros_abastecimento',
+  'entrada-combustivel': 'movimentacoes_combustivel',
   cantina: 'registros_alimentacao',
   limpeza: 'registros_limpeza',
   'operacoes-maquinas': 'registros_operacoes_maquinas',
@@ -386,9 +387,28 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         total_abastecido: registro.totalAbastecido ? Number(String(registro.totalAbastecido).replace(',', '.')) : 0,
         total_bomba: registro.totalBomba ? Number(String(registro.totalBomba).replace(',', '.')) : null,
         combustivel: registro.combustivel || '',
-        odometro_horimetro: registro.odometro ? normalizarNumeroString(String(registro.odometro)) : '',
+        tanque_id: registro.tanqueId || null,
+        tanque_nome: registro.tanqueNome || null,
+        odometro_horimetro: registro.odometro ? Number(normalizarNumeroString(String(registro.odometro))) : null,
         tipo_operacao: registro.tipoOperacao || '',
         tipo_operacao_outros: registro.tipoOperacaoOutros || null,
+        observacao: registro.observacao || null,
+      }
+    case 'entrada-combustivel':
+      return {
+        fazenda_id: fazendaId,
+        local_id: registro.id,
+        tanque_id: registro.tanqueId || null,
+        tipo_movimentacao: 'entrada',
+        quantidade_l: registro.quantidadeL ? Number(String(registro.quantidadeL).replace(',', '.')) : 0,
+        valor_total: registro.valorTotal ? Number(String(registro.valorTotal).replace(',', '.')) : null,
+        preco_por_litro: registro.precoPorLitro ? Number(String(registro.precoPorLitro).replace(',', '.')) : null,
+        data: brWithTimeToIso(registro.data),
+        origem: 'pwa_entrada',
+        fornecedor: registro.fornecedor || null,
+        placa_veiculo: registro.placaVeiculo || null,
+        nome_motorista: registro.nomeMotorista || null,
+        nota_fiscal: registro.notaFiscal || null,
         observacao: registro.observacao || null,
       }
     case 'cantina':
@@ -846,6 +866,23 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             .from('atividades')
             .upsert(data, { onConflict: 'local_id' })
           if (aError) throw aError
+          break
+        }
+        case 'movimentacoes_combustivel': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { data: mcData, error: mcError } = await client
+            .from('movimentacoes_combustivel')
+            .insert(data)
+            .select()
+            .single()
+          if (mcError) throw mcError
+          if (mcData && mcData.id) {
+            await updateRegistro('entrada-combustivel', registro.id, {
+              ...registro,
+              supabaseId: mcData.id,
+              syncStatus: 'synced'
+            })
+          }
           break
         }
       }

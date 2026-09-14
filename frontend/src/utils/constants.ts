@@ -58,7 +58,7 @@ export function getFarmLogo(farmName: string): string {
 }
 
 export const CADERNETAS = [
-  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'rodeio', label: 'RODEIO GADO', emoji: '🤠', icon: `${BASE}cadernetas/rodeio.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
@@ -67,14 +67,15 @@ export const CADERNETAS = [
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', disponivel: true, grupo: 'Confinamento' },
   { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '🌽', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#A0522D', disponivel: true, grupo: 'Confinamento' },
   { id: 'fabrica-confinamento', label: 'FÁBRICA CONFINAMENTO', emoji: '🏭', icon: `${BASE}cadernetas/fabrica-confinamento.png`, color: '#8B4513', disponivel: true, grupo: 'Confinamento' },
-  { id: 'operacoes-maquinas', label: 'OPERAÇÕES DE MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas & Combustível' },
-  { id: 'manutencao-maquinas', label: 'MANUTENÇÃO DE MÁQUINAS', emoji: '🔧', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', disponivel: true, grupo: 'Máquinas & Combustível' },
+  { id: 'operacoes-maquinas', label: 'OPERAÇÕES MÁQUINAS', emoji: '🚜', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas & Combustível' },
+  { id: 'manutencao-maquinas', label: 'MANUTENÇÃO MÁQUINAS', emoji: '🔧', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', disponivel: true, grupo: 'Máquinas & Combustível' },
   { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '⛽', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', disponivel: true, grupo: 'Máquinas & Combustível' },
   { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '📦', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', disponivel: true, grupo: 'Insumos & Estoque' },
+  { id: 'entrada-combustivel', label: 'ENTRADA COMBUSTÍVEL', emoji: '🛢️', icon: `${BASE}cadernetas/entradacombustivel.png`, color: '#D97706', disponivel: true, grupo: 'Máquinas & Combustível' },
   { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', disponivel: true, grupo: 'Insumos & Estoque' },
   { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', disponivel: true, grupo: 'Insumos & Estoque' },
   { id: 'pastagens', label: 'MANEJO PASTAGENS', emoji: '🌾', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', disponivel: true, grupo: 'Gado & Pastagens' },
-  { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '🥄', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'maternidade', label: 'MATERNIDADE', emoji: '🐄', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'clima', label: 'CLIMA', emoji: '🌤️', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'cantina', label: 'CANTINA', emoji: '🍽️', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '🧹', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', disponivel: true, grupo: 'Infraestrutura & Geral' },

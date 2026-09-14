@@ -92,10 +92,10 @@ export default function SuccessModal({
       >
         {/* Header com ícone de sucesso */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
+          <div className="w-16 h-16 bg-[#1a3a2a] rounded-full flex items-center justify-center mb-4 ring-4 ring-[#1a3a2a]/10 animate-in zoom-in duration-300">
             <Check className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
             SALVO COM SUCESSO!
           </h2>
           <p className="text-gray-600">
@@ -108,10 +108,10 @@ export default function SuccessModal({
           <div className="flex gap-3">
             <Button
               onClick={onNewRecord}
-              variant="primary"
+              variant="success"
               fullWidth
               icon=""
-              className="flex-1 bg-[#1a3a2a] text-white hover:bg-[#2a5a4a] font-bold"
+              className="flex-1 font-bold"
             >
               Novo Registro
             </Button>
@@ -120,7 +120,7 @@ export default function SuccessModal({
               variant="ghost"
               fullWidth
               icon=""
-              className="flex-1 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-bold"
+              className="flex-1 font-bold"
             >
               Voltar para o início
             </Button>
@@ -128,7 +128,7 @@ export default function SuccessModal({
           {registro && caderneta && (
             <Button
               onClick={handleShare}
-              variant="secondary"
+              variant="ghost"
               fullWidth
               icon="🔗"
               className="font-bold"

@@ -1291,7 +1291,7 @@ export async function getInsumosByFormulacaoCached(formulacaoId: string): Promis
         .select(`
           formula_teor_ms,
           ordem,
-          insumo:insumos!insumo_id(id, nome, teor_ms)
+          insumo:insumos!insumo_id(id, nome, teor_ms, tipo)
         `)
         .eq('formulacao_id', formulacaoId)
         .order('ordem', { ascending: true })
@@ -1299,6 +1299,7 @@ export async function getInsumosByFormulacaoCached(formulacaoId: string): Promis
       return (data || []).map((row: any) => ({
         insumo_id: row.insumo?.id || '',
         nome: row.insumo?.nome || '',
+        tipo: row.insumo?.tipo || null,
         teor_ms: row.insumo?.teor_ms ? Number(row.insumo.teor_ms) : 0,
         formula_teor_ms: Number(row.formula_teor_ms) || 0,
         formula_mn_percent: 0,
@@ -1747,6 +1748,28 @@ export async function getImplementosCached(fazendaId: string): Promise<any[] | n
 
   try {
     const data = await supabaseService.getImplementos(fazendaId)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Busca tanques de combustível com cache lazy.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getTanquesCombustivelCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('tanques-combustivel', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return (cached && Array.isArray(cached)) ? cached : null
+  }
+
+  try {
+    const data = await supabaseService.getTanquesCombustivel(fazendaId)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
@@ -2510,6 +2533,7 @@ export async function warmAllCadastroCache(
     { label: 'Locais', fn: () => getLocaisCached(fazendaId) },
     { label: 'Classificações Almoxarifado', fn: () => getClassificacoesAlmoxarifadoCached(fazendaId) },
     { label: 'Classificações Cantina', fn: () => getClassificacoesCantinaCached(fazendaId) },
+    { label: 'Tanques Combustível', fn: () => getTanquesCombustivelCached(fazendaId) },
     { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },
     { label: 'Currais (Confinamento)', fn: () => getCurraisCached(fazendaId) },
     { label: 'Linhas Confinamento', fn: () => getLinhasConfinamentoCached(fazendaId) },

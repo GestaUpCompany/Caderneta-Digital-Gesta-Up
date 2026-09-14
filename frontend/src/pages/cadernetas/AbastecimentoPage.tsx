@@ -4,18 +4,16 @@ import { useSelector } from 'react-redux'
 import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
-import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { normalizarNumeroString } from '../../utils/formatNumber'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getMaquinasVeiculosCached, getTanquesCombustivelCached } from '../../services/cadastroCache'
 import { getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
-import { useRascunhoForm } from '../../hooks/useRascunhoForm'
-import { Brush, Save } from 'lucide-react'
+import { Save } from 'lucide-react'
 
 const COMBUSTIVEL_OPTIONS = [
   { value: 'Álcool', label: 'ÁLCOOL' },
@@ -53,6 +51,8 @@ interface FormState {
   totalAbastecido: string
   totalBomba: string
   combustivel: string
+  tanqueId: string
+  tanqueNome: string
   odometro: string
   tipoOperacao: string
   tipoOperacaoOutros: string
@@ -69,6 +69,8 @@ const makeInitial = (): FormState => ({
   totalAbastecido: '',
   totalBomba: '',
   combustivel: '',
+  tanqueId: '',
+  tanqueNome: '',
   odometro: '',
   tipoOperacao: '',
   tipoOperacaoOutros: '',
@@ -78,8 +80,7 @@ const makeInitial = (): FormState => ({
 export default function AbastecimentoPage() {
   const navigate = useNavigate()
   const { fazendaId } = useSelector((state: RootState) => state.config)
-  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
-    useRascunhoForm<FormState>({ rascunhoKey: 'abastecimento', makeInitial })
+  const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -88,6 +89,8 @@ export default function AbastecimentoPage() {
   const [loadingFuncionarios, setLoadingFuncionarios] = useState(false)
   const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
   const [maquinaVeiculoSelecionada, setMaquinaVeiculoSelecionada] = useState<any>(null)
+  const [tanquesDisponiveis, setTanquesDisponiveis] = useState<any[]>([])
+  const [semHorimetro, setSemHorimetro] = useState(false)
 
 
   // Carregar funcionários do cache, com fallback para Supabase
@@ -130,6 +133,35 @@ export default function AbastecimentoPage() {
     carregarMaquinasVeiculos()
   }, [fazendaId])
 
+  // Carregar tanques de combustivel do cache
+  useEffect(() => {
+    async function carregarTanques() {
+      if (!fazendaId) return
+      try {
+        const tanques = await getTanquesCombustivelCached(fazendaId)
+        if (tanques) setTanquesDisponiveis(tanques)
+      } catch (error) {
+        console.error('Erro ao carregar tanques:', error)
+      }
+    }
+    carregarTanques()
+  }, [fazendaId])
+
+  // Filtrar tanques pelo combustivel selecionado
+  const tanquesFiltrados = tanquesDisponiveis.filter(
+    (t) => t.tipo_combustivel === form.combustivel && t.ativo
+  )
+
+  // Auto-selecionar tanque quando houver apenas um para o combustivel selecionado
+  useEffect(() => {
+    if (tanquesFiltrados.length === 1 && form.tanqueId !== tanquesFiltrados[0].id) {
+      setForm((prev) => ({ ...prev, tanqueId: tanquesFiltrados[0].id, tanqueNome: tanquesFiltrados[0].nome }))
+    } else if (tanquesFiltrados.length !== 1 && form.tanqueId && !tanquesFiltrados.some((t) => t.id === form.tanqueId)) {
+      // Limpar tanque se o selecionado nao esta mais na lista filtrada
+      setForm((prev) => ({ ...prev, tanqueId: '', tanqueNome: '' }))
+    }
+  }, [tanquesFiltrados.length])
+
   // Buscar detalhes da máquina/veículo quando selecionada
   useEffect(() => {
     async function carregarDetalhesMaquinaVeiculo() {
@@ -164,6 +196,16 @@ export default function AbastecimentoPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
+  // Sanitiza campos decimais: permite apenas digitos e uma virgula decimal
+  const setDecimalInput = (field: 'totalAbastecido' | 'totalBomba' | 'odometro') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/[^\d,]/g, '')
+    const firstComma = value.indexOf(',')
+    if (firstComma !== -1) {
+      value = value.slice(0, firstComma + 1) + value.slice(firstComma + 1).replace(/,/g, '')
+    }
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
   const set = (field: keyof FormState) => (value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }))
 
@@ -177,8 +219,14 @@ export default function AbastecimentoPage() {
     maquinaVeiculo: { required: true },
     totalAbastecido: { required: true },
     combustivel: { required: true },
-    odometro: { required: true },
+    odometro: { required: !semHorimetro },
     tipoOperacao: { required: true },
+  }
+
+  // Tanque é obrigatório apenas quando há tanques cadastrados para o combustível selecionado.
+  // Fazendas sem tanques cadastrados ainda podem registrar abastecimentos (sem controle de estoque).
+  if (form.combustivel && tanquesFiltrados.length > 0) {
+    validationRules.tanqueId = { required: true }
   }
 
   // Add validation for tipoOperacaoOutros when tipoOperacao is 'Outros'
@@ -188,9 +236,22 @@ export default function AbastecimentoPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
+  // Tanque selecionado (para trava de saldo)
+  const tanqueSelecionado = tanquesFiltrados.find((t) => t.id === form.tanqueId)
+  const totalAbastecidoNum = form.totalAbastecido ? parseFloat(String(form.totalAbastecido).replace(',', '.')) : 0
+  const saldoInsuficiente = tanqueSelecionado && totalAbastecidoNum > Number(tanqueSelecionado.saldo_atual_l)
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
+
+    // Trava de saldo: bloquear se total abastecido > saldo do tanque
+    if (saldoInsuficiente) {
+      setErrors([{ field: 'totalAbastecido', message: `Saldo insuficiente no tanque ${tanqueSelecionado.nome}. Saldo atual: ${Number(tanqueSelecionado.saldo_atual_l).toLocaleString('pt-BR')} L, tentativa: ${totalAbastecidoNum.toLocaleString('pt-BR')} L` }])
+      setSalvando(false)
+      scrollToFirstError([{ field: 'totalAbastecido', message: '' }])
+      return
+    }
 
     const result = await salvarRegistro('abastecimento', {
       data: form.data,
@@ -202,7 +263,10 @@ export default function AbastecimentoPage() {
       totalAbastecido: form.totalAbastecido,
       totalBomba: form.totalBomba,
       combustivel: form.combustivel,
-      odometro: normalizarNumeroString(form.odometro),
+      tanqueId: form.tanqueId,
+      tanqueNome: form.tanqueNome,
+      odometro: semHorimetro ? '' : normalizarNumeroString(form.odometro),
+      semHorimetro,
       tipoOperacao: form.tipoOperacao,
       tipoOperacaoOutros: form.tipoOperacaoOutros,
       observacao: form.observacao,
@@ -220,7 +284,8 @@ export default function AbastecimentoPage() {
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    limparRascunho()
+    setForm(makeInitial())
+    setSemHorimetro(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -235,11 +300,6 @@ export default function AbastecimentoPage() {
       cadernetaId="abastecimento"
       dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
     >
-      <BannerRascunho
-        visible={rascunhoRestaurado}
-        onConfirmar={confirmarRascunho}
-        onDescartar={descartarRascunho}
-      />
       {errors.length > 0 && <ValidationMessage errors={errors} />}
       {/* Seção 1: Dados Principais */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
@@ -304,8 +364,8 @@ export default function AbastecimentoPage() {
             disabled={!!maquinaVeiculoSelecionada?.placa}
           />
         )}
-        <Input label={<span>TOTAL ABASTECIDO (L) <span className="text-red-500">*</span></span>} placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />
-        <Input label="TOTAL DA BOMBA (L)" placeholder="Total acumulado da bomba" value={form.totalBomba} onChange={setInput('totalBomba')} inputMode="decimal" />
+        <Input label={<span>TOTAL ABASTECIDO (L) <span className="text-red-500">*</span></span>} placeholder="Quantidade abastecida" value={form.totalAbastecido} onChange={setDecimalInput('totalAbastecido')} error={getError('totalAbastecido')} inputMode="decimal" />
+        <Input label="TOTAL DA BOMBA (L)" placeholder="Total acumulado da bomba" value={form.totalBomba} onChange={setDecimalInput('totalBomba')} inputMode="decimal" />
       </div>
 
       {/* Seção 2: Combustível e Operação */}
@@ -320,7 +380,89 @@ export default function AbastecimentoPage() {
           error={getError('combustivel')}
           gridCols={2}
         />
-        <Input label={<span>ODÔMETRO/HORÍMETRO? <span className="text-red-500">*</span></span>} placeholder="Leitura do odômetro/horímetro" value={form.odometro} onChange={setInput('odometro')} error={getError('odometro')} inputMode="decimal" />
+        {form.combustivel && (
+          <>
+            {tanquesFiltrados.length === 1 ? (
+              <div className={`border rounded-xl p-4 ${Number(tanquesFiltrados[0].saldo_atual_l) <= Number(tanquesFiltrados[0].limite_alerta_l) && Number(tanquesFiltrados[0].limite_alerta_l) > 0 ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
+                <p className={`text-sm ${Number(tanquesFiltrados[0].saldo_atual_l) <= Number(tanquesFiltrados[0].limite_alerta_l) && Number(tanquesFiltrados[0].limite_alerta_l) > 0 ? 'text-red-800' : 'text-green-800'}`}>
+                  <span className="font-bold">Tanque: {tanquesFiltrados[0].nome}</span>
+                  <span className="block text-xs mt-1">Saldo: {Number(tanquesFiltrados[0].saldo_atual_l).toLocaleString('pt-BR')} L (auto-selecionado)</span>
+                </p>
+              </div>
+            ) : tanquesFiltrados.length > 1 ? (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  TANQUE DE ORIGEM
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {tanquesFiltrados.map((tanque) => {
+                    const emAlerta = Number(tanque.saldo_atual_l) <= Number(tanque.limite_alerta_l) && Number(tanque.limite_alerta_l) > 0
+                    return (
+                    <button
+                      key={tanque.id}
+                      type="button"
+                      onClick={() => {
+                        setForm((prev) => ({
+                          ...prev,
+                          tanqueId: tanque.id,
+                          tanqueNome: tanque.nome,
+                        }))
+                      }}
+                      className={`min-h-[50px] px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all text-left ${
+                        form.tanqueId === tanque.id
+                          ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>{tanque.nome}</span>
+                        <span className={`text-xs ${form.tanqueId === tanque.id ? (emAlerta ? 'text-red-300' : 'text-green-200') : (emAlerta ? 'text-red-600 font-bold' : 'text-gray-500')}`}>
+                          Saldo: {Number(tanque.saldo_atual_l).toLocaleString('pt-BR')} L{emAlerta ? ' ⚠' : ''}
+                        </span>
+                      </div>
+                    </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-4">
+                <p className="text-sm text-amber-800">
+                  <span className="font-bold">Nenhum tanque de {form.combustivel} cadastrado.</span>{' '}
+                  O abastecimento será registrado sem controle de estoque. Cadastre um tanque no Painel Web para habilitar o controle automático.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+        {saldoInsuficiente && (
+          <div className="bg-red-50 border border-red-300 rounded-xl p-3">
+            <p className="text-sm text-red-800 font-bold">
+              Saldo insuficiente no tanque {tanqueSelecionado.nome}. Saldo atual: {Number(tanqueSelecionado.saldo_atual_l).toLocaleString('pt-BR')} L, tentativa: {totalAbastecidoNum.toLocaleString('pt-BR')} L.
+            </p>
+          </div>
+        )}
+        <div>
+          <Input
+            label={<span>ODÔMETRO/HORÍMETRO? {!semHorimetro && <span className="text-red-500">*</span>}</span>}
+            placeholder={semHorimetro ? 'Sem horímetro/odômetro' : 'Leitura do odômetro/horímetro'}
+            value={semHorimetro ? '' : form.odometro}
+            onChange={setDecimalInput('odometro')}
+            error={getError('odometro')}
+            inputMode="decimal"
+            disabled={semHorimetro}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setSemHorimetro(!semHorimetro)
+              if (!semHorimetro) setForm((prev) => ({ ...prev, odometro: '' }))
+            }}
+            className={`mt-2 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-colors ${semHorimetro ? 'border-green-600 bg-green-600 text-white' : 'border-gray-300 bg-gray-50 text-gray-700 hover:border-gray-400'}`}
+          >
+            {semHorimetro ? '✓ Esta máquina/veículo não possui horímetro/odômetro' : 'Clique aqui se essa máquina/veículo não possui horímetro/odômetro'}
+          </button>
+        </div>
         <Radio
           name="tipoOperacao"
           label={<span>TIPO DE OPERAÇÃO? <span className="text-red-500">*</span></span>}
@@ -355,9 +497,9 @@ export default function AbastecimentoPage() {
         <button
           type="button"
           onClick={handleSalvar}
-          disabled={salvando || !isValid}
+          disabled={salvando || !isValid || !!saldoInsuficiente}
           className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-            salvando || !isValid
+            salvando || !isValid || !!saldoInsuficiente
               ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
               : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
           }`}
@@ -365,16 +507,6 @@ export default function AbastecimentoPage() {
           <span className="inline-flex items-center justify-center gap-2">
             <Save className="h-5 w-5" strokeWidth={2.5} />
             {salvando ? 'SALVANDO...' : 'SALVAR'}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => limparRascunho()}
-          className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <Brush className="h-4 w-4" strokeWidth={2.5} />
-            LIMPAR
           </span>
         </button>
       </div>

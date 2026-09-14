@@ -27,7 +27,7 @@ export async function salvarRegistro(
   }
 
   // Remover campos de validação que não devem ser persistidos
-  const { maxCabecasLote, ...dataSemCamposValidacao } = data
+  const { maxCabecasLote, semHorimetro, ...dataSemCamposValidacao } = data
 
   // Injetar nome_usuario: precedência é campo explicito no payload > config.usuario
   // Telas com searchable modal de responsável já enviam o nome selecionado;

@@ -28,6 +28,9 @@ interface FormState {
   quantidadeL: string
   precoPorLitro: string
   fornecedor: string
+  placaVeiculo: string
+  nomeMotorista: string
+  notaFiscal: string
   observacao: string
 }
 
@@ -39,6 +42,9 @@ const makeInitial = (): FormState => ({
   quantidadeL: '',
   precoPorLitro: '',
   fornecedor: '',
+  placaVeiculo: '',
+  nomeMotorista: '',
+  notaFiscal: '',
   observacao: '',
 })
 
@@ -143,6 +149,9 @@ export default function EntradaCombustivelPage() {
       valorTotal: valorTotal.toFixed(2),
       precoPorLitro: precoPorLitro.toFixed(4),
       fornecedor: form.fornecedor,
+      placaVeiculo: form.placaVeiculo,
+      nomeMotorista: form.nomeMotorista,
+      notaFiscal: form.notaFiscal,
       observacao: form.observacao,
     })
 
@@ -289,6 +298,28 @@ export default function EntradaCombustivelPage() {
           disabled={loadingFornecedores}
           id="fornecedor"
           name="fornecedor"
+        />
+
+        <Input
+          label={<span>PLACA DO VEÍCULO</span>}
+          placeholder="Ex: ABC1D23"
+          value={form.placaVeiculo}
+          onChange={setInput('placaVeiculo')}
+          maxLength={8}
+        />
+
+        <Input
+          label={<span>NOME DO MOTORISTA</span>}
+          placeholder="Nome do motorista"
+          value={form.nomeMotorista}
+          onChange={setInput('nomeMotorista')}
+        />
+
+        <Input
+          label={<span>NOTA FISCAL</span>}
+          placeholder="Número ou chave da NF"
+          value={form.notaFiscal}
+          onChange={setInput('notaFiscal')}
         />
       </div>
 

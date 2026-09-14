@@ -5,7 +5,8 @@
  * - Vírgula + ponto: vírgula é decimal, pontos são separadores de milhar
  * - Só vírgula: é decimal
  * - Múltiplos pontos: último é decimal, anteriores são milhar
- * - Um ponto: decimal
+ * - Um ponto com exatamente 3 dígitos após: separador de milhar (pt-BR): "4.824" -> 4824
+ * - Um ponto com != 3 dígitos após: decimal: "4.8" -> 4.8, "4.8245" -> 4.8245
  */
 export function normalizarNumero(valor: string | number | null | undefined): number | null {
   if (valor === null || valor === undefined || valor === '') return null
@@ -32,7 +33,16 @@ export function normalizarNumero(valor: string | number | null | undefined): num
     const decimal = partes.pop()
     return parseFloat(partes.join('') + '.' + decimal)
   }
-  // Um ponto ou nenhum: parseFloat direto
+  if (numPontos === 1) {
+    // Um ponto: se há exatamente 3 dígitos após o ponto, é separador de milhar (pt-BR): "4.824" -> 4824
+    // Caso contrário, é decimal: "4.8" -> 4.8, "4.8245" -> 4.8245
+    const partes = s.split('.')
+    if (partes[1] && partes[1].length === 3) {
+      return parseFloat(partes.join(''))
+    }
+    return parseFloat(s)
+  }
+  // Nenhum ponto: parseFloat direto
   return parseFloat(s)
 }
 

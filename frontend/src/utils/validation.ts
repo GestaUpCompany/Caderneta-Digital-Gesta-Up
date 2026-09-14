@@ -41,7 +41,7 @@ function isValidDateWithTime(value: string): boolean {
 
 function isPositiveNumber(value: unknown): boolean {
   if (value === null || value === undefined || value === '') return false
-  const num = Number(value)
+  const num = typeof value === 'string' ? Number(value.replace(',', '.')) : Number(value)
   return !isNaN(num) && num >= 0
 }
 
@@ -556,10 +556,27 @@ export function validateAbastecimento(data: Record<string, unknown>): Validation
     errors.push({ field: 'totalAbastecido', message: 'Total abastecido é obrigatório' })
   if (!isNonEmptyString(data.combustivel))
     errors.push({ field: 'combustivel', message: 'Combustível é obrigatório' })
-  if (!isNonEmptyString(data.odometro))
+  if (!isNonEmptyString(data.odometro) && !data.semHorimetro)
     errors.push({ field: 'odometro', message: 'Odômetro/horímetro é obrigatório' })
   if (!isNonEmptyString(data.tipoOperacao))
     errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export function validateEntradaCombustivel(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.combustivel))
+    errors.push({ field: 'combustivel', message: 'Combustível é obrigatório' })
+  if (!isNonEmptyString(data.tanqueId))
+    errors.push({ field: 'tanqueId', message: 'Tanque é obrigatório' })
+  if (!isPositiveNumber(data.quantidadeL))
+    errors.push({ field: 'quantidadeL', message: 'Quantidade em litros deve ser maior que zero' })
+  if (!isPositiveNumber(data.valorTotal))
+    errors.push({ field: 'valorTotal', message: 'Valor total deve ser maior que zero' })
 
   return { isValid: errors.length === 0, errors }
 }
@@ -841,7 +858,7 @@ export function validateAlmoxarifado(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento'
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -865,6 +882,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'leitura-cocho': validateLeituraCocho,
   'trato-confinamento': validateTratoConfinamento,
   'fabrica-confinamento': validateFabricaConfinamento,
+  'entrada-combustivel': validateEntradaCombustivel,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {
