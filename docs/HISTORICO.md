@@ -2,6 +2,24 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Pasto de entrada bloqueado como ocupado sem lote (14/09/2026)
+
+**Problema**: na fazenda Jacamim, o lote "Laj- 01" estava no pasto Lajeado 2B e o usuário queria manejar para Lajeado 2C, mas o `PastagensPage` bloqueava a seleção dizendo "Este pasto está ocupado (último registro foi entrada)". O Lajeado 2C não tinha lote ativo (vazio na tabela `lotes`).
+
+**Causa dupla**:
+1. **Dados**: o lote foi movido de Lajeado 2C para Lajeado 2A via edição administrativa no Painel Web (atualizando `lotes.pasto_id` diretamente), sem criar `registros_pastagens` para essa movimentação. O `lote_pasto_historico` foi fechado corretamente (pelo trigger `trg_sync_lote_modulo`), mas o `registros_pastagens` não tem o registro de saída de Lajeado 2C, ficando stale.
+2. **Código**: o `PastagensPage` fazia duas verificações em sequência para o pasto de entrada. A primeira consultava a tabela `lotes` (fonte da verdade, dizia "vazio"). A segunda consultava `registros_pastagens` via `getUltimoStatusPastoCached`, que via apenas a entrada de 05/09 sem saída correspondente, retornava `'entrada'` e bloqueava a seleção. A segunda verificação era redundante e ficava stale quando o lote era movido sem registro de pastagens.
+
+**Correção aplicada no PWA** (`PastagensPage.tsx`): removida a verificação via `getUltimoStatusPastoCached` (linhas 458-467) e o import correspondente. A verificação via `getLotesByPastoIdCached` (tabela `lotes`, fonte da verdade) permanece como única fonte de bloqueio.
+
+**Correção aplicada no Painel Web** (`Lotes.tsx` + migrations `20260914160100` e `20260914160200`): criada RPC `sincronizar_historico_pasto_lote_edit` que fecha o `lote_pasto_historico` aberto e abre um novo quando o pasto do lote muda na edição administrativa, espelhando a lógica do trigger `processar_movimentacao_pastagem` (incluindo `set_config('app.skip_sync_lote_modulo', 'true', true)` para evitar duplicação via `trg_sync_lote_modulo`). A RPC é chamada após o UPDATE do lote quando o `pasto_id` mudou.
+
+**Teste** (fazenda `d649c65e-16ab-4b77-a84b-df937aa41cc3`): lote "Teste 2" movido de P20 (Módulo 2) para P30 (Módulo 1) via RPC. `lote_pasto_historico` e `lote_modulo_historico` sincronizados corretamente (P20/Módulo 2 fechados, P30/Módulo 1 abertos). Teste revertido movendo de volta para P20.
+
+**Passivo**: 2 pastos afetados na fazenda Jacamim (Lajeado 2C e "Manejo no curral") com `registros_pastagens` stale. A correção do PWA resolve o bloqueio; os dados stale não causam mais problema.
+
+**Disparador**: quando mencionar "pasto ocupado sem lote", "getUltimoStatusPasto", "pasto bloqueado na pastagens", ou edição de pasto do lote no Painel Web, lembrar que a fonte da verdade é `lotes.pasto_id` e a RPC sincroniza o histórico.
+
 ## Notificações de morte exigem coordenadas (14/08/2026)
 
 **Problema**: a trigger `trg_notify_morte_inserted` (função `notify_morte_inserted()`) criava notificação "Morte registrada" com ação "Ver no Mapa" para todo INSERT em `registros_morte`, mesmo quando `latitude` ou `longitude` eram NULL. O resultado: o usuário clicava em "Ver no Mapa" e o mapa abria sem ponto para centralizar (o `MapaFazenda.tsx` só centraliza quando `latitude != null && longitude != null`, linhas 137-142). 5 das 15 notificações existentes (33%) estavam nesse estado.

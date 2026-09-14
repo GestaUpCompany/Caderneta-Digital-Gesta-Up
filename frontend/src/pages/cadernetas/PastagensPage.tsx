@@ -19,7 +19,6 @@ import {
   getLoteDetalhesComCategoriasCached,
   getUltimaDataPastoEntradaCached,
   getUltimaDataPastoSaidaCached,
-  getUltimoStatusPastoCached,
   getOcupacaoAtualPorLotePastoCached,
   getOcupacaoAtualPorLoteModuloCached,
 } from '../../services/cadastroCache'
@@ -455,17 +454,6 @@ export default function PastagensPage() {
           return
         }
 
-        // Verificar o último status do pasto para validar seleção
-        const ultimoStatus = await getUltimoStatusPastoCached(fazendaId, form.pastoEntrada)
-        
-        // Se o último status foi entrada, impedir seleção (pasto está ocupado)
-        if (ultimoStatus === 'entrada') {
-          setDetalhesPastoEntrada(null)
-          setErrors([{ field: 'pastoEntrada', message: 'Este pasto está ocupado (último registro foi entrada). Selecione outro pasto.' }])
-          set('pastoEntrada')('')
-          return
-        }
-        
         // Buscar última data de saída para calcular tempo de vedação
         const ultimaDataSaida = await getUltimaDataPastoSaidaCached(fazendaId, form.pastoEntrada)
         const tempoVedacao = ultimaDataSaida ? calcularDiferencaTempo(ultimaDataSaida) : 'Primeiro uso'
