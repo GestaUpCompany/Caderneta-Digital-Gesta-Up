@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
@@ -52,7 +52,7 @@ export default function EntradaCombustivelPage() {
   const navigate = useNavigate()
   const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial)
-  const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
+  const [apiErrors, setApiErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
@@ -104,8 +104,6 @@ export default function EntradaCombustivelPage() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
-
   const validationRules: any = {
     data: { required: true },
     combustivel: {
@@ -117,7 +115,23 @@ export default function EntradaCombustivelPage() {
         return null
       },
     },
-    quantidadeL: { required: true },
+    quantidadeL: {
+      required: true,
+      custom: (value: string, form: FormState) => {
+        const litros = parseFloat(String(value).replace(',', '.'))
+        if (isNaN(litros) || litros <= 0 || !form.tanqueId) return null
+        const tanque = tanquesDisponiveis.find((t) => t.id === form.tanqueId)
+        if (!tanque) return null
+        const capacidade = Number(tanque.capacidade_maxima_l || 0)
+        const saldo = Number(tanque.saldo_atual_l || 0)
+        if (capacidade <= 0) return null
+        const disponivel = Math.max(capacidade - saldo, 0)
+        if (litros > disponivel) {
+          return `A quantidade excede a capacidade restante do tanque ${tanque.nome}. Capacidade restante: ${disponivel.toLocaleString('pt-BR')} L, quantidade informada: ${litros.toLocaleString('pt-BR')} L.`
+        }
+        return null
+      },
+    },
     precoPorLitro: { required: true },
     tanqueId: {
       required: true,
@@ -130,11 +144,22 @@ export default function EntradaCombustivelPage() {
     },
   }
 
-  const { isValid } = useFormValidation(form, validationRules)
+  const { isValid, errors: formErrors } = useFormValidation(form, validationRules)
+
+  const allErrors = useMemo(
+    () => [
+      ...Object.entries(formErrors).map(([field, message]) => ({ field, message })),
+      ...apiErrors,
+    ],
+    [formErrors, apiErrors]
+  )
+
+  const getError = (field: string) =>
+    formErrors[field] || apiErrors.find((e) => e.field === field)?.message
 
   const handleSalvar = async () => {
     setSalvando(true)
-    setErrors([])
+    setApiErrors([])
 
     const litros = parseFloat(String(form.quantidadeL).replace(',', '.')) || 0
     const precoPorLitro = parseFloat(String(form.precoPorLitro).replace(',', '.')) || 0
@@ -157,7 +182,7 @@ export default function EntradaCombustivelPage() {
 
     setSalvando(false)
     if (!result.success && result.errors) {
-      setErrors(result.errors)
+      setApiErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
       // Update otimista do cache de tanques: incrementa o saldo localmente
@@ -194,7 +219,7 @@ export default function EntradaCombustivelPage() {
       cadernetaId="entrada-combustivel"
       dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
     >
-      {errors.length > 0 && <ValidationMessage errors={errors} />}
+      {allErrors.length > 0 && <ValidationMessage errors={allErrors} />}
 
       {/* Seção 1: Dados da Entrada */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
@@ -235,7 +260,7 @@ export default function EntradaCombustivelPage() {
                           tanqueId: tanque.id,
                           tanqueNome: tanque.nome,
                         }))
-                        setErrors((prev) => prev.filter((e) => e.field !== 'tanqueId'))
+                        setApiErrors((prev) => prev.filter((e) => e.field !== 'tanqueId'))
                       }}
                       className={`min-h-[50px] px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all text-left ${
                         form.tanqueId === tanque.id
