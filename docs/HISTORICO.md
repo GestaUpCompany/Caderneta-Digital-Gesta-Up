@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Estoque de suplementos: schema promovido em produção (2026-09-15)
+
+**O que aconteceu**: 7 migrations estruturais (A a G) foram aplicadas em produção pelo Painel Web via `supabase db push`, promovendo o schema da branch `estoque-suplementos`. A branch foi deletada após a promoção.
+
+**Impacto no PWA**:
+- As funções de cache em `cadastroCache.ts` (`getSaldoInsumosCached`, `getSaldoFormulacoesCached`, `getSaldoItemByIdCached`) agora funcionam contra produção, pois as colunas `controla_estoque`, `estoque_minimo`, `custo_unitario` em `insumos` e os campos de estoque em `formulacoes` existem em produção.
+- Os triggers nas tabelas de itens (`entrada_insumos_itens`, `saida_insumos_itens`, `registros_fabrica_confinamento_insumos`, `registros_suplementacao`) agora criam movimentações em `movimentacoes_estoque_suplementos` automaticamente quando o sync do PWA envia registros. O PWA não precisa escrever diretamente na tabela de movimentações.
+- Os triggers legados que causavam dupla contagem foram removidos (migration G).
+- `EstoquePage.tsx` e `EntradaPage.tsx` (em `estoque-insumos/`) continuam como stubs. A gestão de estoque fica no Painel Web (`EstoqueSuplementacao.tsx`). O PWA consome os saldos via cache.
+
+**Disparador**: quando mencionar "estoque de suplementos", "movimentacoes_estoque_suplementos", `controla_estoque`, "triggers de estoque", ou "branch estoque-suplementos", lembrar que o schema foi promovido em 2026-09-15 e os triggers legados foram removidos.
+
 ## Pasto de entrada bloqueado como ocupado sem lote (14/09/2026)
 
 **Problema**: na fazenda Jacamim, o lote "Laj- 01" estava no pasto Lajeado 2B e o usuário queria manejar para Lajeado 2C, mas o `PastagensPage` bloqueava a seleção dizendo "Este pasto está ocupado (último registro foi entrada)". O Lajeado 2C não tinha lote ativo (vazio na tabela `lotes`).
