@@ -185,7 +185,7 @@ export default function SuplementacaoPage() {
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
-  const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null } | null>(null)
+  const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ id: string | null; nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null } | null>(null)
   const [registrosSuplementacao, setRegistrosSuplementacao] = useState<any[]>([])
   const [metricasSuplementacao, setMetricasSuplementacao] = useState<any>(null)
   const [notasConfig, setNotasConfig] = useState<any[]>([])
@@ -201,6 +201,7 @@ export default function SuplementacaoPage() {
         const formulacao = await getFormulacaoByNomeCached(fazendaId, form.formulacao)
         if (formulacao) {
           setFormulacaoDetalhes({
+            id: formulacao.id ?? null,
             nome: formulacao.nome,
             teorMs: formulacao.teor_ms_dieta ?? null,
             metaConsumo: formulacao.consumo_ms_percent_pv ?? null,
@@ -584,6 +585,7 @@ export default function SuplementacaoPage() {
       qtdBezerrosLote: detalhesLote?.qtd_bezerros ?? null,
       pesoVivoKgLote,
       formulacao: form.formulacao,
+      formulacaoId: formulacaoDetalhes?.id ?? null,
       teorMs: formulacaoDetalhes?.teorMs ?? null,
       metaConsumo: formulacaoDetalhes?.metaConsumo ?? null,
       leituraCocho: form.leitura || null,

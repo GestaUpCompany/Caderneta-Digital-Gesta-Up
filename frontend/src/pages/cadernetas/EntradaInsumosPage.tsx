@@ -11,7 +11,7 @@ import { Input, DatePicker, Button, ValidationMessage, SearchableModal, TimeInpu
 import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { getInsumos, createInsumo } from '../../services/supabaseService'
+import { getInsumos, createInsumo, getFormulacoes } from '../../services/supabaseService'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { useCadastroOptions } from '../../hooks/useCadastroOptions'
 import FeatureLock from '../../components/FeatureLock'
@@ -20,11 +20,15 @@ import { Brush, Save } from 'lucide-react'
 
 interface ItemEntrada {
   id: string // ID temporário para controle no frontend
+  tipoItem: 'insumo' | 'formulacao'
   insumoId: string
+  formulacaoId: string
   produto: string
   quantidade: string
   valorUnitario: string
   valorTotal: string
+  lote: string
+  validade: string
 }
 
 interface FormState {
@@ -42,11 +46,15 @@ const generateLocalId = () => Math.random().toString(36).substring(2, 9)
 
 const makeInitialItem = (): ItemEntrada => ({
   id: generateLocalId(),
+  tipoItem: 'insumo',
   insumoId: '',
+  formulacaoId: '',
   produto: '',
   quantidade: '',
   valorUnitario: '',
   valorTotal: '',
+  lote: '',
+  validade: '',
 })
 
 const makeInitial = (): FormState => ({
@@ -71,6 +79,7 @@ export default function EntradaInsumosPage() {
   const { options: fornecedoresOptions, loading: loadingFornecedores } = useCadastroOptions('fornecedores', fazendaId)
   const { options: funcionariosOptions, loading: loadingFuncionarios } = useCadastroOptions('funcionarios', fazendaId)
   const [insumosSupabase, setInsumosSupabase] = useState<any[]>([])
+  const [formulacoesSupabase, setFormulacoesSupabase] = useState<any[]>([])
   const [loadingInsumos, setLoadingInsumos] = useState(false)
   const [isHorarioManual, setIsHorarioManual] = useState(false)
   const [novoInsumoModal, setNovoInsumoModal] = useState<{ open: boolean; nomeInicial: string; itemId: string }>({ open: false, nomeInicial: '', itemId: '' })
@@ -119,8 +128,22 @@ export default function EntradaInsumosPage() {
 
   const updateItemProduto = (itemId: string, produtoNome: string) => {
     const insumo = insumosSupabase.find(i => i.nome === produtoNome)
-    updateItem(itemId, 'produto', produtoNome)
-    updateItem(itemId, 'insumoId', insumo?.id || '')
+    const formulacao = formulacoesSupabase.find(f => f.nome === produtoNome)
+    if (insumo) {
+      updateItem(itemId, 'produto', produtoNome)
+      updateItem(itemId, 'insumoId', insumo.id || '')
+      updateItem(itemId, 'formulacaoId', '')
+      updateItem(itemId, 'tipoItem', 'insumo')
+    } else if (formulacao) {
+      updateItem(itemId, 'produto', produtoNome)
+      updateItem(itemId, 'formulacaoId', formulacao.id || '')
+      updateItem(itemId, 'insumoId', '')
+      updateItem(itemId, 'tipoItem', 'formulacao')
+    } else {
+      updateItem(itemId, 'produto', produtoNome)
+      updateItem(itemId, 'insumoId', '')
+      updateItem(itemId, 'formulacaoId', '')
+    }
   }
 
   const getValorTotalEntrada = () => {
@@ -162,26 +185,33 @@ export default function EntradaInsumosPage() {
     }
   }
 
-  // Carregar insumos do Supabase com fallback para cache offline
+  // Carregar insumos e formulações do Supabase com fallback para cache offline
   useEffect(() => {
     async function carregarInsumos() {
       if (!fazendaId) {
         setInsumosSupabase([])
+        setFormulacoesSupabase([])
         setLoadingInsumos(false)
         return
       }
       setLoadingInsumos(true)
       try {
         if (navigator.onLine) {
-          const insumos = await getInsumos(fazendaId)
+          const [insumos, formulacoes] = await Promise.all([
+            getInsumos(fazendaId),
+            getFormulacoes(fazendaId),
+          ])
           setInsumosSupabase(insumos || [])
+          setFormulacoesSupabase(formulacoes || [])
         } else {
           const cache = await getCachedCadastroData()
           setInsumosSupabase((cache?.insumos || []).map((nome: string) => ({ nome, id: '' })))
+          setFormulacoesSupabase((cache?.formulacoes || []).map((nome: string) => ({ nome, id: '' })))
         }
       } catch {
         const cache = await getCachedCadastroData()
         setInsumosSupabase((cache?.insumos || []).map((nome: string) => ({ nome, id: '' })))
+        setFormulacoesSupabase((cache?.formulacoes || []).map((nome: string) => ({ nome, id: '' })))
       } finally {
         setLoadingInsumos(false)
       }
@@ -219,9 +249,21 @@ export default function EntradaInsumosPage() {
     setErrors([])
 
     // Validar itens
-    const itensValidos = form.itens.filter(item => item.insumoId && item.quantidade)
+    const itensValidos = form.itens.filter(item =>
+      (item.insumoId || item.formulacaoId) && item.quantidade
+    )
     if (itensValidos.length === 0) {
       setErrors([{ field: 'geral', message: 'Adicione pelo menos um item com produto e quantidade' }])
+      setSalvando(false)
+      return
+    }
+
+    // Validar lote e validade para produtos finais
+    const itensSemLote = itensValidos.filter(item =>
+      item.tipoItem === 'formulacao' && !item.lote.trim()
+    )
+    if (itensSemLote.length > 0) {
+      setErrors([{ field: 'geral', message: 'Lote é obrigatório para produtos finais (formulações)' }])
       setSalvando(false)
       return
     }
@@ -262,11 +304,14 @@ export default function EntradaInsumosPage() {
         const itemId = uuidv4()
         const registroItem = {
           entradaId: entradaId,
-          insumoId: item.insumoId,
+          insumoId: item.tipoItem === 'insumo' ? item.insumoId : null,
+          formulacaoId: item.tipoItem === 'formulacao' ? item.formulacaoId : null,
           produto: item.produto,
           quantidade: item.quantidade,
           valorUnitario: item.valorUnitario,
           valorTotal: item.valorTotal,
+          lote: item.tipoItem === 'formulacao' ? item.lote : null,
+          validade: item.tipoItem === 'formulacao' ? item.validade : null,
           data: dataComHora,
           id: itemId,
           version: generateVersion(),
@@ -339,9 +384,6 @@ export default function EntradaInsumosPage() {
               
               {/* Horário */}
               <div>
-                <label className="block text-lg font-bold text-gray-900 mb-2">
-                  HORÁRIO *
-                </label>
                 <TimeInput
                   label="HORÁRIO *"
                   value={form.horario}
@@ -371,21 +413,61 @@ export default function EntradaInsumosPage() {
                       </button>
                     )}
                   </div>
-                  
+
+                  {/* Seletor de tipo: Insumo ou Produto Final */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateItem(item.id, 'tipoItem', 'insumo')
+                        updateItem(item.id, 'produto', '')
+                        updateItem(item.id, 'insumoId', '')
+                        updateItem(item.id, 'formulacaoId', '')
+                      }}
+                      className={`flex-1 px-3 py-2 rounded-xl text-sm font-bold transition-colors ${
+                        item.tipoItem === 'insumo'
+                          ? 'bg-green-600 text-white border-2 border-green-600'
+                          : 'bg-gray-50 text-gray-600 border-2 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      Insumo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateItem(item.id, 'tipoItem', 'formulacao')
+                        updateItem(item.id, 'produto', '')
+                        updateItem(item.id, 'insumoId', '')
+                        updateItem(item.id, 'formulacaoId', '')
+                      }}
+                      className={`flex-1 px-3 py-2 rounded-xl text-sm font-bold transition-colors ${
+                        item.tipoItem === 'formulacao'
+                          ? 'bg-green-600 text-white border-2 border-green-600'
+                          : 'bg-gray-50 text-gray-600 border-2 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      Produto Final
+                    </button>
+                  </div>
+
                   <SearchableModal
-                    label="PRODUTO"
+                    label={item.tipoItem === 'formulacao' ? 'PRODUTO FINAL' : 'INSUMO'}
                     value={item.produto}
                     onChange={(value) => updateItemProduto(item.id, value)}
                     error={getError(`item_${index}_produto`)}
-                    options={insumosSupabase.map(i => i.nome)}
-                    placeholder="Buscar produto..."
+                    options={
+                      item.tipoItem === 'formulacao'
+                        ? formulacoesSupabase.map(f => f.nome)
+                        : insumosSupabase.map(i => i.nome)
+                    }
+                    placeholder={item.tipoItem === 'formulacao' ? 'Buscar produto final...' : 'Buscar insumo...'}
                     disabled={loadingInsumos}
                     id={`produto_${item.id}`}
                     name={`produto_${item.id}`}
                     onCreateNew={(termo) => abrirModalNovoInsumo(item.id, termo)}
-                    createNewLabel="Novo Insumo"
+                    createNewLabel={item.tipoItem === 'formulacao' ? 'Novo Produto' : 'Novo Insumo'}
                   />
-                  
+
                   <div className="flex flex-col gap-3">
                     <Input
                       label="QUANTIDADE (kg)"
@@ -413,6 +495,27 @@ export default function EntradaInsumosPage() {
                       readOnly
                     />
                   </div>
+
+                  {/* Campos de lote e validade (apenas para produtos finais) */}
+                  {item.tipoItem === 'formulacao' && (
+                    <div className="flex flex-col gap-3 border-t border-gray-100 pt-3">
+                      <p className="text-xs font-bold text-purple-700 uppercase">Rastreabilidade do Produto Final</p>
+                      <Input
+                        label="LOTE *"
+                        value={item.lote}
+                        onChange={(e) => updateItem(item.id, 'lote', e.target.value)}
+                        error={getError(`item_${index}_lote`)}
+                        placeholder="Ex: Lote 123"
+                      />
+                      <Input
+                        label="VALIDADE"
+                        type="date"
+                        value={item.validade}
+                        onChange={(e) => updateItem(item.id, 'validade', e.target.value)}
+                        error={getError(`item_${index}_validade`)}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
               
@@ -461,16 +564,12 @@ export default function EntradaInsumosPage() {
                 onChange={setInput('placa')}
                 error={getError('placa')}
               />
-              <SearchableModal
+              <Input
                 label="MOTORISTA"
                 value={form.motorista}
-                onChange={set('motorista')}
+                onChange={setInput('motorista')}
                 error={getError('motorista')}
-                options={funcionariosOptions}
-                placeholder="Buscar funcionário..."
-                disabled={loadingFuncionarios}
-                id="motorista"
-                name="motorista"
+                placeholder="Nome do motorista..."
               />
               <SearchableModal
                 label="RESPONSÁVEL RECEBIMENTO"

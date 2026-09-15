@@ -1168,6 +1168,18 @@ export async function createEntradaInsumosItem(item: TablesInsert<'entrada_insum
   return data
 }
 
+export async function createSaidaInsumosItem(item: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('saida_insumos_itens')
+    .upsert(item, { onConflict: 'local_id' })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 export async function updateEntradaInsumosItem(id: string, item: TablesUpdate<'entrada_insumos_itens'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client

@@ -2936,3 +2936,101 @@ export async function getPastosByBebedouroCached(
     return null
   }
 }
+
+// ==================== CACHE DE ESTOQUE DE SUPLEMENTOS ====================
+
+export interface SaldoEstoqueItem {
+  id: string
+  nome: string
+  tipo: string | null
+  estoque_atual: number
+  estoque_minimo: number
+  custo_unitario: number
+  controla_estoque: boolean
+  unidade?: string | null
+  e_premix?: boolean
+}
+
+/**
+ * Busca saldos de estoque de insumos com controle de estoque ativo.
+ * Online: consulta Supabase. Offline: usa cache local.
+ */
+export async function getSaldoInsumosCached(fazendaId: string): Promise<SaldoEstoqueItem[] | null> {
+  const key = buildKey('estoque-insumos', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery<SaldoEstoqueItem[]>(key)
+    return cached ?? null
+  }
+
+  try {
+    const client = await getSupabaseClientWithRefresh() as any
+    const { data, error } = await client
+      .from('insumos')
+      .select('id, nome, tipo, unidade, estoque_atual, estoque_minimo, custo_unitario, controla_estoque, ativo')
+      .eq('fazenda_id', fazendaId)
+      .eq('controla_estoque', true)
+      .eq('ativo', true)
+      .order('nome')
+
+    if (error) throw error
+    const result = (data || []) as SaldoEstoqueItem[]
+    setCachedQuery(key, result)
+    return result
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao buscar saldo de insumos:', error)
+    const cached = getCachedQuery<SaldoEstoqueItem[]>(key)
+    return cached ?? null
+  }
+}
+
+/**
+ * Busca saldos de estoque de formulações (produtos finais) com controle de estoque ativo.
+ * Online: consulta Supabase. Offline: usa cache local.
+ */
+export async function getSaldoFormulacoesCached(fazendaId: string): Promise<SaldoEstoqueItem[] | null> {
+  const key = buildKey('estoque-formulacoes', fazendaId)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery<SaldoEstoqueItem[]>(key)
+    return cached ?? null
+  }
+
+  try {
+    const client = await getSupabaseClientWithRefresh() as any
+    const { data, error } = await client
+      .from('formulacoes')
+      .select('id, nome, tipo, e_premix, estoque_atual, estoque_minimo, custo_unitario, controla_estoque, ativo')
+      .eq('fazenda_id', fazendaId)
+      .eq('controla_estoque', true)
+      .eq('ativo', true)
+      .is('deleted_at', null)
+      .order('nome')
+
+    if (error) throw error
+    const result = (data || []) as SaldoEstoqueItem[]
+    setCachedQuery(key, result)
+    return result
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao buscar saldo de formulações:', error)
+    const cached = getCachedQuery<SaldoEstoqueItem[]>(key)
+    return cached ?? null
+  }
+}
+
+/**
+ * Busca o saldo de um único item (insumo ou formulação) por ID.
+ * Retorna null se não encontrado ou offline sem cache.
+ */
+export async function getSaldoItemByIdCached(
+  fazendaId: string,
+  itemTipo: 'insumo' | 'formulacao',
+  itemId: string
+): Promise<SaldoEstoqueItem | null> {
+  const allItems = itemTipo === 'insumo'
+    ? await getSaldoInsumosCached(fazendaId)
+    : await getSaldoFormulacoesCached(fazendaId)
+
+  if (!allItems) return null
+  return allItems.find(i => i.id === itemId) ?? null
+}

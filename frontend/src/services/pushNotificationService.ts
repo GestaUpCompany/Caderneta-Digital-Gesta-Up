@@ -120,7 +120,7 @@ export async function registerPushSubscription(
       p_endpoint: endpoint,
       p_keys_p256dh: keys.p256dh,
       p_keys_auth: keys.auth,
-      p_funcionario_id: funcionarioId || null,
+      p_funcionario_id: funcionarioId || undefined,
     })
 
     if (error) {

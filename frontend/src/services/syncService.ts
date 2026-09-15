@@ -56,7 +56,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'entrada-insumos': 'registros_entrada_insumos',
   'entrada-insumos-itens': 'entrada_insumos_itens',
   'saida-insumos': 'registros_saida_insumos',
-  'insumos-por-saida': 'insumos_por_saida',
+  'insumos-por-saida': 'saida_insumos_itens',
   problemas: 'registros_problemas',
   almoxarifado: 'registros_almoxarifado',
   'leitura-cocho': 'registros_leitura_cocho',
@@ -272,6 +272,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         qtd_bezerros: registro.qtdBezerrosLote ? Number(registro.qtdBezerrosLote) : null,
         peso_vivo_kg: null, // Calculado pela trigger/funcão do banco (recalcular_peso_vivo_lote)
         formulacao: registro.formulacao || null,
+        formulacao_id: registro.formulacaoId || null,
         categorias: (registro.categoriasString as string) || null,
         leitura: registro.leituraCocho || null,
         kg_cocho: registro.kgCocho ? Number(registro.kgCocho) : null,
@@ -480,11 +481,14 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         local_id: registro.id,
         entrada_id: registro.entradaId,
-        insumo_id: registro.insumoId,
+        insumo_id: registro.insumoId || null,
+        formulacao_id: registro.formulacaoId || null,
         produto: registro.produto || null,
         quantidade: registro.quantidade || null,
         valor_unitario: registro.valorUnitario || null,
         valor_total: registro.valorTotal || null,
+        lote: registro.lote || null,
+        validade: registro.validade ? (() => { const v = String(registro.validade); return v.includes('/') ? v.split('/').reverse().join('-') : v; })() : null,
       }
     case 'saida-insumos':
       return {
@@ -493,6 +497,14 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         dieta_produzida: registro.dietaProduzida || null,
         destino_producao: registro.destinoProducao || null,
         total_produzido: registro.totalProduzido ? Number(registro.totalProduzido) : null,
+        formulacao_id: registro.formulacaoId || null,
+      }
+    case 'insumos-por-saida':
+      return {
+        local_id: registro.id,
+        saida_id: registro.idSaida || null,
+        insumo_id: registro.insumoId || null,
+        quantidade: registro.quantidade ? Number(registro.quantidade) : null,
       }
     case 'manutencao-maquinas':
       return {
@@ -770,9 +782,28 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'entrada_insumos_itens':
           await supabaseService.createEntradaInsumosItem(data)
           break
-        case 'registros_saida_insumos':
-          await supabaseService.createRegistroSaidaInsumos(data)
+        case 'saida_insumos_itens':
+          await supabaseService.createSaidaInsumosItem(data)
           break
+        case 'registros_saida_insumos': {
+          const saidaResult = await supabaseService.createRegistroSaidaInsumos(data)
+          // Atualizar registro local com ID do Supabase
+          await updateRegistro('saida-insumos', registro.id, {
+            ...registro,
+            supabaseId: saidaResult.id,
+            syncStatus: 'synced'
+          })
+          // Atualizar itens com o novo ID do Supabase
+          const itensSaida = await getAllRegistros('insumos-por-saida')
+          for (const item of itensSaida) {
+            if (item.idSaida === registro.id) {
+              await updateRegistro('insumos-por-saida', item.id, {
+                idSaida: saidaResult.id
+              })
+            }
+          }
+          break
+        }
         case 'registros_problemas':
           await supabaseService.createRegistroProblemas(data)
           break

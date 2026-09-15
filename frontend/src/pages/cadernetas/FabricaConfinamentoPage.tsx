@@ -1054,7 +1054,7 @@ export default function FabricaConfinamentoPage() {
           {/* Vagão */}
           <div>
             <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
-              Vagão TMR
+              Vagão
             </span>
             {vagoes.length === 0 ? (
               <p className="text-sm text-gray-500">
