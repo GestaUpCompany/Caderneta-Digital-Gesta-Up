@@ -1384,7 +1384,8 @@ export async function getDietasNomes(fazendaId: string): Promise<string[]> {
 }
 
 export async function createFormulacao(formulacao: any) {
-  const { data, error } = await (supabase as any)
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
     .from('formulacoes')
     .insert(formulacao)
     .select()

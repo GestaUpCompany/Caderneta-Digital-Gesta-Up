@@ -11,7 +11,7 @@ import { Input, DatePicker, Button, ValidationMessage, SearchableModal, TimeInpu
 import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { getInsumos, createInsumo, getFormulacoes } from '../../services/supabaseService'
+import { getInsumos, createInsumo, getFormulacoes, createFormulacao } from '../../services/supabaseService'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { useCadastroOptions } from '../../hooks/useCadastroOptions'
 import FeatureLock from '../../components/FeatureLock'
@@ -82,7 +82,7 @@ export default function EntradaInsumosPage() {
   const [formulacoesSupabase, setFormulacoesSupabase] = useState<any[]>([])
   const [loadingInsumos, setLoadingInsumos] = useState(false)
   const [isHorarioManual, setIsHorarioManual] = useState(false)
-  const [novoInsumoModal, setNovoInsumoModal] = useState<{ open: boolean; nomeInicial: string; itemId: string }>({ open: false, nomeInicial: '', itemId: '' })
+  const [novoInsumoModal, setNovoInsumoModal] = useState<{ open: boolean; nomeInicial: string; itemId: string; tipo: 'insumo' | 'formulacao' }>({ open: false, nomeInicial: '', itemId: '', tipo: 'insumo' })
   const [novoInsumoNome, setNovoInsumoNome] = useState('')
   const [criandoInsumo, setCriandoInsumo] = useState(false)
 
@@ -153,33 +153,47 @@ export default function EntradaInsumosPage() {
   }
 
   const abrirModalNovoInsumo = (itemId: string, nomeInicial: string) => {
+    const item = form.itens.find(i => i.id === itemId)
+    const tipo = item?.tipoItem === 'formulacao' ? 'formulacao' : 'insumo'
     setNovoInsumoNome(nomeInicial)
-    setNovoInsumoModal({ open: true, nomeInicial, itemId })
+    setNovoInsumoModal({ open: true, nomeInicial, itemId, tipo })
   }
 
-  const handleCriarInsumo = async () => {
+  const handleCriarItem = async () => {
     if (!novoInsumoNome.trim() || !fazendaId) return
     if (store.getState().config.testModeAtivo) {
-      console.log('[EntradaInsumosPage] Modo teste ativo: criação de insumo no Supabase bloqueada')
+      console.log('[EntradaInsumosPage] Modo teste ativo: criação de item no Supabase bloqueada')
       return
     }
     setCriandoInsumo(true)
     try {
-      const novoInsumo = await createInsumo({
-        nome: novoInsumoNome.trim(),
-        fazenda_id: fazendaId,
-        ativo: true,
-      })
-      // Recarregar lista de insumos
-      const insumos = await getInsumos(fazendaId)
-      setInsumosSupabase(insumos || [])
-      // Selecionar automaticamente o insumo criado
-      updateItem(novoInsumoModal.itemId, 'produto', novoInsumo.nome)
-      updateItem(novoInsumoModal.itemId, 'insumoId', novoInsumo.id)
-      setNovoInsumoModal({ open: false, nomeInicial: '', itemId: '' })
+      const nome = novoInsumoNome.trim()
+      if (novoInsumoModal.tipo === 'formulacao') {
+        const novaFormulacao = await createFormulacao({
+          nome,
+          fazenda_id: fazendaId,
+          ativo: true,
+          e_premix: false,
+        })
+        const formulacoes = await getFormulacoes(fazendaId)
+        setFormulacoesSupabase(formulacoes || [])
+        updateItem(novoInsumoModal.itemId, 'produto', novaFormulacao.nome)
+        updateItem(novoInsumoModal.itemId, 'formulacaoId', novaFormulacao.id)
+      } else {
+        const novoInsumo = await createInsumo({
+          nome,
+          fazenda_id: fazendaId,
+          ativo: true,
+        })
+        const insumos = await getInsumos(fazendaId)
+        setInsumosSupabase(insumos || [])
+        updateItem(novoInsumoModal.itemId, 'produto', novoInsumo.nome)
+        updateItem(novoInsumoModal.itemId, 'insumoId', novoInsumo.id)
+      }
+      setNovoInsumoModal({ open: false, nomeInicial: '', itemId: '', tipo: 'insumo' })
       setNovoInsumoNome('')
     } catch (error) {
-      console.error('Erro ao criar insumo:', error)
+      console.error('Erro ao criar item:', error)
     } finally {
       setCriandoInsumo(false)
     }
@@ -618,14 +632,18 @@ export default function EntradaInsumosPage() {
       {novoInsumoModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col gap-4 p-6">
-            <h3 className="text-lg font-bold text-gray-900">Novo Insumo</h3>
+            <h3 className="text-lg font-bold text-gray-900">
+              {novoInsumoModal.tipo === 'formulacao' ? 'Novo Produto' : 'Novo Insumo'}
+            </h3>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">NOME DO INSUMO</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                {novoInsumoModal.tipo === 'formulacao' ? 'NOME DO PRODUTO' : 'NOME DO INSUMO'}
+              </label>
               <input
                 type="text"
                 value={novoInsumoNome}
                 onChange={(e) => setNovoInsumoNome(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCriarInsumo()}
+                onKeyDown={(e) => e.key === 'Enter' && handleCriarItem()}
                 placeholder="Ex: Milho, Ração, Sal mineral..."
                 autoFocus
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:outline-none"
@@ -634,14 +652,14 @@ export default function EntradaInsumosPage() {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => { setNovoInsumoModal({ open: false, nomeInicial: '', itemId: '' }); setNovoInsumoNome('') }}
+                onClick={() => { setNovoInsumoModal({ open: false, nomeInicial: '', itemId: '', tipo: 'insumo' }); setNovoInsumoNome('') }}
                 className="flex-1 px-4 py-3 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-colors"
               >
                 CANCELAR
               </button>
               <button
                 type="button"
-                onClick={handleCriarInsumo}
+                onClick={handleCriarItem}
                 disabled={criandoInsumo || !novoInsumoNome.trim()}
                 className="flex-1 px-4 py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
               >
