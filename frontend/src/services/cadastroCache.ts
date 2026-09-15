@@ -1778,6 +1778,29 @@ export async function getTanquesCombustivelCached(fazendaId: string): Promise<an
 }
 
 /**
+ * Update otimista do saldo de um tanque no cache local.
+ * Usado apos salvar entrada de combustivel (+delta) ou abastecimento (-delta) offline,
+ * para que a proxima leitura do cache reflita o saldo atualizado sem esperar a sync.
+ * Atualiza o cache em memoria e persiste no IndexedDB.
+ */
+export async function updateTanqueSaldoCache(fazendaId: string, tanqueId: string, delta: number): Promise<void> {
+  const key = buildKey('tanques-combustivel', fazendaId)
+  const cached = getCachedQuery<any[]>(key)
+  if (!cached || !Array.isArray(cached)) return
+  const updated = cached.map((t) =>
+    t.id === tanqueId
+      ? { ...t, saldo_atual_l: Number(Number(t.saldo_atual_l || 0) + delta) }
+      : t
+  )
+  setCachedQuery(key, updated)
+  try {
+    await saveQueryCacheToIndexedDB()
+  } catch {
+    // ignorar falha de persistencia; o cache em memoria ja esta atualizado
+  }
+}
+
+/**
  * Busca classificações de cantina com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.

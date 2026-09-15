@@ -7,7 +7,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getTanquesCombustivelCached } from '../../services/cadastroCache'
+import { getTanquesCombustivelCached, updateTanqueSaldoCache } from '../../services/cadastroCache'
 import { useCadastroOptions } from '../../hooks/useCadastroOptions'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -160,6 +160,18 @@ export default function EntradaCombustivelPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
+      // Update otimista do cache de tanques: incrementa o saldo localmente
+      if (fazendaId && form.tanqueId && litros > 0) {
+        await updateTanqueSaldoCache(fazendaId, form.tanqueId, litros)
+        // Atualizar o state local para refletir o novo saldo imediatamente
+        setTanquesDisponiveis((prev) =>
+          prev.map((t) =>
+            t.id === form.tanqueId
+              ? { ...t, saldo_atual_l: Number(Number(t.saldo_atual_l || 0) + litros) }
+              : t
+          )
+        )
+      }
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
     }

@@ -8,7 +8,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { normalizarNumeroString } from '../../utils/formatNumber'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getCachedCadastroData, getMaquinasVeiculosCached, getTanquesCombustivelCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getMaquinasVeiculosCached, getTanquesCombustivelCached, updateTanqueSaldoCache } from '../../services/cadastroCache'
 import { getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -245,13 +245,8 @@ export default function AbastecimentoPage() {
     setSalvando(true)
     setErrors([])
 
-    // Trava de saldo: bloquear se total abastecido > saldo do tanque
-    if (saldoInsuficiente) {
-      setErrors([{ field: 'totalAbastecido', message: `Saldo insuficiente no tanque ${tanqueSelecionado.nome}. Saldo atual: ${Number(tanqueSelecionado.saldo_atual_l).toLocaleString('pt-BR')} L, tentativa: ${totalAbastecidoNum.toLocaleString('pt-BR')} L` }])
-      setSalvando(false)
-      scrollToFirstError([{ field: 'totalAbastecido', message: '' }])
-      return
-    }
+    // Saldo negativo permitido: o aviso de saldo insuficiente e informativo, nao bloqueia o save.
+    // A trigger do banco registra a baixa e o saldo fica negativo, sinalizando necessidade de entrada.
 
     const result = await salvarRegistro('abastecimento', {
       data: form.data,
@@ -277,6 +272,17 @@ export default function AbastecimentoPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
+      // Update otimista do cache de tanques: decrementa o saldo localmente
+      if (fazendaId && form.tanqueId && totalAbastecidoNum > 0) {
+        await updateTanqueSaldoCache(fazendaId, form.tanqueId, -totalAbastecidoNum)
+        setTanquesDisponiveis((prev) =>
+          prev.map((t) =>
+            t.id === form.tanqueId
+              ? { ...t, saldo_atual_l: Number(Number(t.saldo_atual_l || 0) - totalAbastecidoNum) }
+              : t
+          )
+        )
+      }
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
     }
@@ -436,9 +442,9 @@ export default function AbastecimentoPage() {
           </>
         )}
         {saldoInsuficiente && (
-          <div className="bg-red-50 border border-red-300 rounded-xl p-3">
-            <p className="text-sm text-red-800 font-bold">
-              Saldo insuficiente no tanque {tanqueSelecionado.nome}. Saldo atual: {Number(tanqueSelecionado.saldo_atual_l).toLocaleString('pt-BR')} L, tentativa: {totalAbastecidoNum.toLocaleString('pt-BR')} L.
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-3">
+            <p className="text-sm text-amber-800 font-bold">
+              Atenção: o tanque {tanqueSelecionado.nome} tem saldo atual de {Number(tanqueSelecionado.saldo_atual_l).toLocaleString('pt-BR')} L para uma baixa de {totalAbastecidoNum.toLocaleString('pt-BR')} L. O saldo ficara negativo e precisara de uma entrada de reconciliacao.
             </p>
           </div>
         )}
@@ -497,9 +503,9 @@ export default function AbastecimentoPage() {
         <button
           type="button"
           onClick={handleSalvar}
-          disabled={salvando || !isValid || !!saldoInsuficiente}
+          disabled={salvando || !isValid}
           className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-            salvando || !isValid || !!saldoInsuficiente
+            salvando || !isValid
               ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
               : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
           }`}
