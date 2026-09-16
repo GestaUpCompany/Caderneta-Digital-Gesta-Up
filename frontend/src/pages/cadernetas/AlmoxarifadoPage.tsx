@@ -141,7 +141,7 @@ export default function AlmoxarifadoPage() {
     if (!itemEditando.setor) {
       errors.add('setor')
     }
-    if (itemEditando.necessitaDevolucao === 'S' && !itemEditando.prazoDevolucao) {
+    if (form.tipo !== 'devolucao' && itemEditando.necessitaDevolucao === 'S' && !itemEditando.prazoDevolucao) {
       errors.add('prazoDevolucao')
     }
 
@@ -150,17 +150,21 @@ export default function AlmoxarifadoPage() {
       return
     }
 
+    const itemFinal = form.tipo === 'devolucao'
+      ? { ...itemEditando, necessitaDevolucao: 'N' as const, prazoDevolucao: '' }
+      : itemEditando
+
     // Se está editando, atualiza o item existente
     if (itemEditandoIndex !== null) {
       setForm(prev => ({
         ...prev,
-        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? { ...itemEditando } : item)
+        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? { ...itemFinal } : item)
       }))
     } else {
       // Se é novo, adiciona ao array
       setForm(prev => ({
         ...prev,
-        itens: [...prev.itens, { ...itemEditando }]
+        itens: [...prev.itens, { ...itemFinal }]
       }))
     }
     setItemEditando(null)
@@ -262,7 +266,7 @@ export default function AlmoxarifadoPage() {
       }
       try {
         if (form.tipo === 'devolucao' && itemEditando.classificacao === 'Pendentes') {
-          const pendentes = await getItensPendentesDevolucaoCached(fazendaId, form.quemPegou)
+          const pendentes = await getItensPendentesDevolucaoCached(fazendaId, form.quemPegou || undefined)
           setDevolucaoSemPendencias(!pendentes || pendentes.length === 0)
           setItensDisponiveis((pendentes || []).map((item: any) => ({
             id: item.item_id,
@@ -388,11 +392,11 @@ export default function AlmoxarifadoPage() {
                       <p className="text-lg text-gray-900">Quantidade: {item.quantidade}</p>
                       <p className="text-base text-gray-600">Classificação: {item.classificacao || '-'}</p>
                       <p className="text-base text-gray-600">Setor: {item.setor}</p>
-                      {item.necessitaDevolucao === 'S' ? (
+                      {form.tipo === 'retirada' && (item.necessitaDevolucao === 'S' ? (
                         <p className="text-base text-gray-600">Data Devolução: {item.prazoDevolucao}</p>
                       ) : (
                         <p className="text-base text-gray-600">Devolução: Não</p>
-                      )}
+                      ))}
                       {item.observacao && (
                         <p className="text-base text-gray-600">Obs: {item.observacao}</p>
                       )}
@@ -500,7 +504,7 @@ export default function AlmoxarifadoPage() {
                               : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                           }`}
                         >
-                          {item.nome}{item.unidade ? ` (${item.unidade})` : ''}{item.controla_estoque ? ` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}` : ''}
+                          {item.nome}{item.unidade ? ` (${item.unidade})` : ''}{item.quantidadePendente != null ? ` · pendente ${Number(item.quantidadePendente).toLocaleString('pt-BR')}` : (form.tipo !== 'devolucao' && item.controla_estoque ? ` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}` : '')}
                         </button>
                       ))
                     ) : (
@@ -511,7 +515,7 @@ export default function AlmoxarifadoPage() {
               )}
 
               <Input
-                label="QUANTIDADE RETIRADA?"
+                label={form.tipo === 'devolucao' ? 'QUANTIDADE DEVOLVIDA?' : 'QUANTIDADE RETIRADA?'}
                 placeholder="Informe a quantidade"
                 value={itemEditando?.quantidade || ''}
                 onChange={(e) => {
@@ -526,29 +530,39 @@ export default function AlmoxarifadoPage() {
                 error={itemErrors.has('quantidade') ? 'Campo obrigatório' : undefined}
               />
 
-              <Radio
-                name="necessitaDevolucao"
-                label="NECESSÁRIA DEVOLUÇÃO?"
-                options={SN_OPTIONS}
-                value={itemEditando?.necessitaDevolucao || 'N'}
-                onChange={(val) => setItemEditando(prev => prev ? { ...prev, necessitaDevolucao: val, prazoDevolucao: val === 'N' ? '' : prev.prazoDevolucao } : null)}
-                gridCols={2}
-              />
+              {form.tipo === 'devolucao' && itemEditando?.quantidadePendente != null && Number(itemEditando.quantidade || 0) > itemEditando.quantidadePendente && (
+                <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+                  Quantidade acima do pendente ({itemEditando.quantidadePendente.toLocaleString('pt-BR')} {itemEditando.unidade || 'un'}). O excedente ficará retido para revisão no painel.
+                </p>
+              )}
 
-              {itemEditando?.necessitaDevolucao === 'S' && (
-                <DatePicker
-                  label="DATA DEVOLUÇÃO"
-                  value={itemEditando?.prazoDevolucao || ''}
-                  onChange={(val) => {
-                    setItemEditando(prev => prev ? { ...prev, prazoDevolucao: val } : null)
-                    setItemErrors(prev => {
-                      const newErrors = new Set(prev)
-                      newErrors.delete('prazoDevolucao')
-                      return newErrors
-                    })
-                  }}
-                  error={itemErrors.has('prazoDevolucao') ? 'Campo obrigatório' : undefined}
-                />
+              {form.tipo !== 'devolucao' && (
+                <>
+                  <Radio
+                    name="necessitaDevolucao"
+                    label="NECESSÁRIA DEVOLUÇÃO?"
+                    options={SN_OPTIONS}
+                    value={itemEditando?.necessitaDevolucao || 'N'}
+                    onChange={(val) => setItemEditando(prev => prev ? { ...prev, necessitaDevolucao: val, prazoDevolucao: val === 'N' ? '' : prev.prazoDevolucao } : null)}
+                    gridCols={2}
+                  />
+
+                  {itemEditando?.necessitaDevolucao === 'S' && (
+                    <DatePicker
+                      label="DATA DEVOLUÇÃO"
+                      value={itemEditando?.prazoDevolucao || ''}
+                      onChange={(val) => {
+                        setItemEditando(prev => prev ? { ...prev, prazoDevolucao: val } : null)
+                        setItemErrors(prev => {
+                          const newErrors = new Set(prev)
+                          newErrors.delete('prazoDevolucao')
+                          return newErrors
+                        })
+                      }}
+                      error={itemErrors.has('prazoDevolucao') ? 'Campo obrigatório' : undefined}
+                    />
+                  )}
+                </>
               )}
 
               {setoresDisponiveis.length > 0 ? (
