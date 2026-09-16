@@ -2,6 +2,32 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Correções no cronômetro de atividades: pausas, sessões remotas e conclusão (16/09/2026)
+
+**Problema**: pausas nem sempre paravam o cronômetro. Causas encontradas na auditoria de `AtividadesPage.tsx` + `atividadesService.ts`:
+
+1. **Fechava só a primeira sessão aberta**: `pausarAtividadeLocal`/`retomarAtividadeLocal`/`concluirAtividadeLocal` usavam `find((s) => !s.fimAt)`. Com duas sessões abertas (ex: af resetado a pendente pelo Painel com sessão local aberta, depois Iniciar de novo), a segunda ficava aberta e `temSessaoAberta` continuava true, tickando o cronômetro mesmo em `pausada`.
+2. **Sessões remotas invisíveis**: o PWA nunca baixava `atividade_sessoes`/`atividade_imprevistos`. Sessão criada pelo atalho coletivo `iniciarAtividade` do Painel (ou outro aparelho) deixava o af `em_andamento` com cronômetro congelado em 0, e Pausar não fechava nada no servidor (sessão órfã eterna no "Trabalhando agora").
+3. **Pausa normal não registrava o gap**: `pausarAtividadeLocal(af, true)` não abria sessão de pausa, então o intervalo Pausar/Retomar não entrava nem em bruto nem em produtivo, diferente do Almoço.
+4. **Pausa ao abrir o modal de conclusão era redundante e frágil**: `concluirAtividadeLocal` já fecha a sessão no confirm; a flag `conclusaoPausouTimer` era setada antes do pause ter sucesso e o cancel chamava `retomarAtividadeLocal` pela flag, não pelo estado real.
+5. `pausarAtividadeLocal` hardcodava `trabalhada: true, motivoPausa: null` ao fechar, corrompendo sessão de almoço aberta que fosse fechada por esse caminho.
+6. RPC `get_atividades_funcionario` não retornava `justificativa`/`justificada_at`/`atrasada` (merge online sempre zerava justificativa; atrasada nunca chegava ao PWA).
+7. Menores: duração sem clamp (relógio errado gera duração negativa), botões Concluir/Imprevisto sem `disabled={acting}`, Confirmar Conclusão sem guard de double-submit, contador de imprevistos não atualizava offline.
+
+**Correções aplicadas**:
+
+- `atividadesService.ts`: novo helper `fecharSessoesAbertas(afId)` fecha TODAS as sessões abertas preservando `trabalhada`/`motivoPausa` e com `duracao = Math.max(0, ...)`; usado por iniciar (fecha órfãs), pausar, retomar e concluir.
+- **Semântica da pausa mudou** (decisão do usuário): `pausarAtividadeLocal(af, motivoPausa?)` sempre abre sessão `trabalhada=false` com motivo ('Pausa', 'Almoço'). Pausar e Almoço diferem só pelo motivo; o tempo pausado conta no bruto, não no produtivo. Efeito colateral aceito: pausa overnight infla o bruto.
+- **Pull remoto**: `pullSessoesImprevistosRemotos(afIds)` roda dentro de `getAtividadesOnlineFirst` após o fetch; faz select em `atividade_sessoes`/`atividade_imprevistos` por `atividade_funcionario_id` e mescla no IndexedDB (registros `pending` locais nunca são sobrescritos; match por `id`, `local_id` ou `supabaseId`).
+- `getLocalPendingMutations` passa a incluir `justificativa`/`justificadaAt` no merge; `AtividadeFuncionarioPWA` ganhou campo `atrasada`.
+- **Race de conclusão**: `getAtividadesOnlineFirst` captura as mutações `pending` ANTES do fetch RPC e de novo depois, unindo os dois snapshots. Sem isso, o fetch retornava `em_andamento` do servidor antes do update `concluida` chegar; aí o `processQueue` marcava a mutação como `synced` antes do scan pós-fetch, o merge não sobrepunha nada e a UI ficava stale em "Em Andamento" mesmo com o banco já `concluida`.
+- `AtividadesPage.tsx`: handlers de iniciar/pausar/retomar/concluir usam diff antes/depois (`enqueueSessoesDiff`) para enfileirar update de todas as sessões fechadas + create das abertas novas; `handlePausar(motivo)` recebe 'Pausa'/'Almoço'; removida a pausa ao abrir o modal de conclusão e o estado `conclusaoPausouTimer` (cancelar não toca em nada; o tempo de preenchimento do detalhamento conta como trabalhado); `concluindo` protege Confirmar Conclusão; Concluir/Imprevisto ganharam `disabled={acting}`; `detalhesVersion` força reload de sessões/imprevistos do card após registrar imprevisto; badge "Atrasada" em cards pendentes com `af.atrasada`; removido o guard morto `statusIndividual === 'atrasada'`.
+- **Painel Web** (migration `20260916130000_get_atividades_funcionario_justificativa_atrasada.sql`, aplicada via `db push` e commitada na branch `feat/mapa-morte-pdf`): RPC passa a retornar `justificativa`, `justificada_at` e `atrasada`.
+
+**Convenção de sync mantida**: sessões fechadas são enfileiradas como `'update'` e abertas novas como `'create'`. `'create'` em `atividade_sessoes` faz upsert por `local_id`, então sessões puxadas do servidor (que têm `local_id` NULL remoto) devem ser enfileiradas como `'update'`, nunca `'create'`, senão o upsert insere duplicata por conflito no `id`.
+
+**Disparador**: quando mencionar "pausa não funciona", "cronômetro não para", "sessões duplas", "sessão criada pelo Painel", "tempo bruto errado", ou "justificativa não aparece", lembrar que o fechamento é por `fecharSessoesAbertas` (todas as abertas), a pausa sempre cria sessão não-trabalhada, e o pull remoto acontece em `getAtividadesOnlineFirst`.
+
 ## Estoque de suplementos: schema promovido em produção (2026-09-15)
 
 **O que aconteceu**: 7 migrations estruturais (A a G) foram aplicadas em produção pelo Painel Web via `supabase db push`, promovendo o schema da branch `estoque-suplementos`. A branch foi deletada após a promoção.

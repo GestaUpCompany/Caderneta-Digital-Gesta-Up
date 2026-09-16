@@ -28,6 +28,7 @@ export interface AtividadeFuncionarioPWA {
   prioridade: number
   status: string
   naoPrevista: boolean
+  atrasada: boolean
   setorNome: string | null
   // Sync
   syncStatus: 'pending' | 'synced' | 'error'
@@ -172,6 +173,7 @@ export async function fetchAtividadesFuncionario(
     prioridade: row.prioridade,
     status: row.status,
     naoPrevista: row.nao_prevista ?? false,
+    atrasada: row.atrasada ?? false,
     setorNome: row.setor_nome,
     syncStatus: 'synced' as const,
     lastModified: Date.now(),
@@ -205,6 +207,8 @@ async function getLocalPendingMutations(): Promise<Map<string, Partial<Atividade
           inicioAt: (reg as any).inicioAt,
           fimAt: (reg as any).fimAt,
           detalhamento: (reg as any).detalhamento,
+          justificativa: (reg as any).justificativa ?? null,
+          justificadaAt: (reg as any).justificadaAt ?? null,
           tempoGastoSegundos: (reg as any).tempoGastoSegundos,
           fotoUrl: (reg as any).fotoUrl ?? null,
           latitude: (reg as any).latitude ?? null,
@@ -229,9 +233,26 @@ export async function getAtividadesOnlineFirst(
     // com o resultado do servidor, apagando atividades criadas localmente que ainda nao sincronizaram
     const cachedBefore = await getCachedAtividades(funcionarioId)
 
+    // Ler mutacoes pendentes ANTES do fetch tambem: se o processQueue sincronizar
+    // uma mutacao DURANTE o fetch, o servidor ainda pode responder com o estado
+    // antigo e o registro local ja estaria 'synced' no merge pos-fetch, fazendo a
+    // mutacao desaparecer da UI (ex: af recém-concluido voltando a em_andamento).
+    const pendingBefore = await getLocalPendingMutations()
+
     const online = await fetchAtividadesFuncionario(fazendaId, funcionarioId)
+
+    // Puxar sessoes/imprevistos do servidor (ex: sessao criada pelo atalho coletivo
+    // do Painel ou por outro aparelho). Sem isso, sessoes remotas ficam invisiveis:
+    // o cronometro nao anda e Pausar nao fecha a sessao no servidor.
+    try {
+      await pullSessoesImprevistosRemotos(online.map((a) => a.id))
+    } catch (err) {
+      console.warn('[Atividades] Falha ao puxar sessoes/imprevistos remotos:', err)
+    }
     // Sobrepor mutacoes locais pendentes sobre os dados online
-    const pending = await getLocalPendingMutations()
+    const pendingAfter = await getLocalPendingMutations()
+    const pending = new Map(pendingBefore)
+    for (const [id, val] of pendingAfter) pending.set(id, val)
     const onlineIds = new Set(online.map((a) => a.id))
 
     // Itens que estavam no cache antes do fetch mas nao no online (criados localmente, sync pendente)
@@ -313,6 +334,116 @@ export async function getImprevistosLocal(atividadeFuncionarioId: string): Promi
     console.warn('[Atividades] Erro ao buscar imprevistos locais:', err)
     return []
   }
+}
+
+/**
+ * Puxa sessoes e imprevistos do Supabase para os afIds dados e mescla no IndexedDB.
+ * Registros locais com syncStatus 'pending' nunca sao sobrescritos (local vence).
+ * Sessoes criadas pelo Painel/outro aparelho passam a ser visiveis e fechaveis.
+ */
+async function pullSessoesImprevistosRemotos(afIds: string[]): Promise<void> {
+  if (afIds.length === 0) return
+  const supabase = await getSupabaseClientWithRefresh()
+  if (!supabase) return
+
+  const [sessRes, impRes] = await Promise.all([
+    (supabase as any)
+      .from('atividade_sessoes')
+      .select('id, local_id, atividade_funcionario_id, inicio_at, fim_at, duracao_segundos, trabalhada, motivo_pausa')
+      .in('atividade_funcionario_id', afIds),
+    (supabase as any)
+      .from('atividade_imprevistos')
+      .select('id, local_id, atividade_funcionario_id, tipo, descricao, ocorrido_at, impacto_minutos')
+      .in('atividade_funcionario_id', afIds),
+  ])
+  if (sessRes.error) throw sessRes.error
+  if (impRes.error) throw impRes.error
+
+  // --- Sessoes ---
+  const localSessoes = await getAllRegistros('atividade-sessoes')
+  const sessById = new Map(localSessoes.map((r) => [r.id, r]))
+  const sessBySupaId = new Map(localSessoes.map((r) => [(r as any).supabaseId, r]))
+  for (const row of sessRes.data || []) {
+    const existing =
+      sessById.get(row.id) ||
+      (row.local_id ? sessById.get(row.local_id) : undefined) ||
+      sessBySupaId.get(row.id)
+    const mapped = {
+      supabaseId: row.id,
+      version: 1,
+      syncStatus: 'synced' as const,
+      data: row.inicio_at,
+      atividadeFuncionarioId: row.atividade_funcionario_id,
+      inicioAt: row.inicio_at,
+      fimAt: row.fim_at ?? null,
+      duracaoSegundos: row.duracao_segundos ?? null,
+      trabalhada: row.trabalhada ?? true,
+      motivoPausa: row.motivo_pausa ?? null,
+      lastModified: new Date().toISOString(),
+    }
+    if (existing) {
+      if (existing.syncStatus === 'pending') continue // mutacao local pendente vence
+      await saveRegistro('atividade-sessoes', { ...existing, ...mapped, id: existing.id } as unknown as Registro)
+    } else {
+      await saveRegistro('atividade-sessoes', { ...mapped, id: row.id } as unknown as Registro)
+    }
+  }
+
+  // --- Imprevistos ---
+  const localImp = await getAllRegistros('atividade-imprevistos')
+  const impById = new Map(localImp.map((r) => [r.id, r]))
+  const impBySupaId = new Map(localImp.map((r) => [(r as any).supabaseId, r]))
+  for (const row of impRes.data || []) {
+    const existing =
+      impById.get(row.id) ||
+      (row.local_id ? impById.get(row.local_id) : undefined) ||
+      impBySupaId.get(row.id)
+    const mapped = {
+      supabaseId: row.id,
+      version: 1,
+      syncStatus: 'synced' as const,
+      data: row.ocorrido_at,
+      atividadeFuncionarioId: row.atividade_funcionario_id,
+      tipo: row.tipo,
+      descricao: row.descricao ?? null,
+      ocorridoAt: row.ocorrido_at,
+      impactoMinutos: row.impacto_minutos ?? null,
+      lastModified: new Date().toISOString(),
+    }
+    if (existing) {
+      if (existing.syncStatus === 'pending') continue
+      await saveRegistro('atividade-imprevistos', { ...existing, ...mapped, id: existing.id } as unknown as Registro)
+    } else {
+      await saveRegistro('atividade-imprevistos', { ...mapped, id: row.id } as unknown as Registro)
+    }
+  }
+}
+
+/**
+ * Fecha TODAS as sessoes abertas do af, preservando trabalhada/motivoPausa
+ * originais de cada uma. Retorna as sessoes fechadas (para enqueue de update).
+ */
+async function fecharSessoesAbertas(
+  atividadeFuncionarioId: string,
+  now: string,
+  nowMs: number
+): Promise<AtividadeSessaoLocal[]> {
+  const sessoes = await getSessoesLocal(atividadeFuncionarioId)
+  const abertas = sessoes.filter((s) => !s.fimAt)
+  const fechadas: AtividadeSessaoLocal[] = []
+  for (const aberta of abertas) {
+    const duracao = Math.max(0, Math.floor((nowMs - new Date(aberta.inicioAt).getTime()) / 1000))
+    const fechada: AtividadeSessaoLocal = {
+      ...aberta,
+      fimAt: now,
+      duracaoSegundos: duracao,
+      syncStatus: 'pending',
+      lastModified: nowMs,
+    }
+    await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
+    fechadas.push(fechada)
+  }
+  return fechadas
 }
 
 /**
@@ -420,6 +551,7 @@ export async function criarAtividadeNaoPrevistaConcluidaLocal(
     prioridade: 3,
     status: 'concluida',
     naoPrevista: true,
+    atrasada: false,
     setorNome: null,
     syncStatus: 'pending',
     lastModified: nowMs,
@@ -442,12 +574,18 @@ export async function criarAtividadeNaoPrevistaConcluidaLocal(
  */
 export async function iniciarAtividadeLocal(af: AtividadeFuncionarioPWA): Promise<AtividadeFuncionarioPWA> {
   const now = new Date().toISOString()
+  const nowMs = Date.now()
+
+  // Fechar sessoes orfas abertas (ex: af voltou a pendente com sessao aberta)
+  // para nao acumular mais de uma sessao aberta por atividade
+  await fecharSessoesAbertas(af.id, now, nowMs)
+
   const updated: AtividadeFuncionarioPWA = {
     ...af,
     statusIndividual: 'em_andamento',
     inicioAt: af.inicioAt || now, // mantem primeiro inicio se ja existia
     syncStatus: 'pending',
-    lastModified: Date.now(),
+    lastModified: nowMs,
   }
   await updateCacheAndStore(updated)
 
@@ -471,51 +609,34 @@ export async function iniciarAtividadeLocal(af: AtividadeFuncionarioPWA): Promis
 }
 
 /**
- * Pausa a atividade: fecha sessao aberta com duracao calculada, status -> pausada.
- * trabalhada=true para pausa normal (ex: fim do expediente), false para almoço.
+ * Pausa a atividade: fecha todas as sessoes abertas e abre uma sessao de pausa
+ * nao trabalhada (o tempo pausado conta no bruto, nao no produtivo).
+ * motivoPausa diferencia os tipos de pausa ('Pausa', 'Almoço', etc).
  */
 export async function pausarAtividadeLocal(
   af: AtividadeFuncionarioPWA,
-  trabalhada: boolean,
   motivoPausa?: string
 ): Promise<AtividadeFuncionarioPWA> {
   const now = new Date().toISOString()
   const nowMs = Date.now()
 
-  // Buscar sessao aberta e fecha-la como TRABALHADA (o tempo ate agora foi trabalho)
-  const sessoes = await getSessoesLocal(af.id)
-  const aberta = sessoes.find((s) => !s.fimAt)
-  if (aberta) {
-    const duracao = Math.floor((nowMs - new Date(aberta.inicioAt).getTime()) / 1000)
-    const fechada: AtividadeSessaoLocal = {
-      ...aberta,
-      fimAt: now,
-      duracaoSegundos: duracao,
-      trabalhada: true,
-      motivoPausa: null,
-      syncStatus: 'pending',
-      lastModified: nowMs,
-    }
-    await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
-  }
+  await fecharSessoesAbertas(af.id, now, nowMs)
 
-  // Se a pausa nao e trabalhada (ex: almoço), abrir uma nova sessao nao trabalhada
-  if (!trabalhada) {
-    const sessaoId = uuidv4()
-    const sessaoPausa: AtividadeSessaoLocal = {
-      id: sessaoId,
-      supabaseId: sessaoId,
-      atividadeFuncionarioId: af.id,
-      inicioAt: now,
-      fimAt: null,
-      duracaoSegundos: null,
-      trabalhada: false,
-      motivoPausa: motivoPausa || null,
-      syncStatus: 'pending',
-      lastModified: nowMs,
-    }
-    await saveRegistro('atividade-sessoes', sessaoToRegistro(sessaoPausa))
+  // Abrir sessao de pausa nao trabalhada para registrar o gap
+  const sessaoId = uuidv4()
+  const sessaoPausa: AtividadeSessaoLocal = {
+    id: sessaoId,
+    supabaseId: sessaoId,
+    atividadeFuncionarioId: af.id,
+    inicioAt: now,
+    fimAt: null,
+    duracaoSegundos: null,
+    trabalhada: false,
+    motivoPausa: motivoPausa || null,
+    syncStatus: 'pending',
+    lastModified: nowMs,
   }
+  await saveRegistro('atividade-sessoes', sessaoToRegistro(sessaoPausa))
 
   const updated: AtividadeFuncionarioPWA = {
     ...af,
@@ -534,20 +655,8 @@ export async function retomarAtividadeLocal(af: AtividadeFuncionarioPWA): Promis
   const now = new Date().toISOString()
   const nowMs = Date.now()
 
-  // Fechar qualquer sessao aberta (ex: sessao de almoço/pausa nao trabalhada)
-  const sessoes = await getSessoesLocal(af.id)
-  const aberta = sessoes.find((s) => !s.fimAt)
-  if (aberta) {
-    const duracao = Math.floor((nowMs - new Date(aberta.inicioAt).getTime()) / 1000)
-    const fechada: AtividadeSessaoLocal = {
-      ...aberta,
-      fimAt: now,
-      duracaoSegundos: duracao,
-      syncStatus: 'pending',
-      lastModified: nowMs,
-    }
-    await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
-  }
+  // Fechar todas as sessoes abertas (ex: sessao de pausa nao trabalhada)
+  await fecharSessoesAbertas(af.id, now, nowMs)
 
   const updated: AtividadeFuncionarioPWA = {
     ...af,
@@ -615,20 +724,8 @@ export async function concluirAtividadeLocal(
   const now = new Date().toISOString()
   const nowMs = Date.now()
 
-  // Fechar sessao aberta se houver
-  const sessoes = await getSessoesLocal(af.id)
-  const aberta = sessoes.find((s) => !s.fimAt)
-  if (aberta) {
-    const duracao = Math.floor((nowMs - new Date(aberta.inicioAt).getTime()) / 1000)
-    const fechada: AtividadeSessaoLocal = {
-      ...aberta,
-      fimAt: now,
-      duracaoSegundos: duracao,
-      syncStatus: 'pending',
-      lastModified: nowMs,
-    }
-    await saveRegistro('atividade-sessoes', sessaoToRegistro(fechada))
-  }
+  // Fechar todas as sessoes abertas se houver
+  await fecharSessoesAbertas(af.id, now, nowMs)
 
   // Recalcular tempo produtivo local para refletir imediatamente na UI
   const tempo = await calcularTempoLocal(af.id)

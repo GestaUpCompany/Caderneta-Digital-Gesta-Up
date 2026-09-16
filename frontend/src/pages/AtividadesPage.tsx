@@ -81,13 +81,14 @@ function formatarHora(iso: string): string {
 
 interface AtividadeCardProps {
   af: AtividadeFuncionarioPWA
+  detalhesVersion: number
   onConcluir: (af: AtividadeFuncionarioPWA) => void
   onImprevisto: (af: AtividadeFuncionarioPWA) => void
   onJustificar: (af: AtividadeFuncionarioPWA) => void
   onMutate: () => void
 }
 
-function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }: AtividadeCardProps) {
+function AtividadeCard({ af, detalhesVersion, onConcluir, onImprevisto, onJustificar, onMutate }: AtividadeCardProps) {
   const dispatch = useDispatch()
   const [tempo, setTempo] = useState<TempoCalculado | null>(null)
   const [sessoes, setSessoes] = useState<AtividadeSessaoLocal[]>([])
@@ -110,7 +111,7 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
 
   useEffect(() => {
     loadDetalhes()
-  }, [loadDetalhes, af.statusIndividual, af.lastModified])
+  }, [loadDetalhes, af.statusIndividual, af.lastModified, detalhesVersion])
 
   // Cronometro ao vivo quando em_andamento com sessao aberta
   useEffect(() => {
@@ -136,34 +137,48 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
     }
   }
 
+  // Enfileira update das sessoes que eram abertas e foram fechadas pela mutacao,
+  // e create das sessoes abertas novas. Funciona para multiplas sessoes fechadas.
+  const enqueueSessoesDiff = async (afId: string, abertasAntes: Set<string>) => {
+    const depois = await getSessoesLocal(afId)
+    for (const s of depois) {
+      if (s.fimAt && abertasAntes.has(s.id)) {
+        await enqueueAndSync('atividade-sessoes', s.id, 'update')
+      }
+    }
+    for (const s of depois) {
+      if (!s.fimAt && !abertasAntes.has(s.id)) {
+        await enqueueAndSync('atividade-sessoes', s.id, 'create')
+      }
+    }
+  }
+
+  const getAbertasIds = async () => {
+    const s = await getSessoesLocal(af.id)
+    return new Set(s.filter((x) => !x.fimAt).map((x) => x.id))
+  }
+
   const handleIniciar = async () => {
     if (acting) return
     setActing(true)
     try {
+      const abertasAntes = await getAbertasIds()
       const updated = await iniciarAtividadeLocal(af)
       await enqueueAndSync('atividade-funcionarios', updated.id, 'update')
-      // Enfileirar a sessao criada (buscar a mais recente)
-      const s = await getSessoesLocal(updated.id)
-      const aberta = s.find((x) => !x.fimAt)
-      if (aberta) await enqueueAndSync('atividade-sessoes', aberta.id, 'create')
+      await enqueueSessoesDiff(updated.id, abertasAntes)
       onMutate()
     } finally {
       setActing(false)
     }
   }
 
-  const handlePausar = async (trabalhada: boolean, motivo?: string) => {
+  const handlePausar = async (motivo: string) => {
     if (acting) return
     setActing(true)
     try {
-      const updated = await pausarAtividadeLocal(af, trabalhada, motivo)
-      const s = await getSessoesLocal(updated.id)
-      // Enfileirar update da sessao fechada (a que estava aberta, agora trabalhada=true)
-      const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
-      if (ultimaFechada) await enqueueAndSync('atividade-sessoes', ultimaFechada.id, 'update')
-      // Enfileirar create da nova sessao de pausa aberta (se houver, ex: almoço)
-      const aberta = s.find((x) => !x.fimAt)
-      if (aberta) await enqueueAndSync('atividade-sessoes', aberta.id, 'create')
+      const abertasAntes = await getAbertasIds()
+      const updated = await pausarAtividadeLocal(af, motivo)
+      await enqueueSessoesDiff(updated.id, abertasAntes)
       await enqueueAndSync('atividade-funcionarios', updated.id, 'update')
       onMutate()
     } finally {
@@ -175,15 +190,10 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
     if (acting) return
     setActing(true)
     try {
+      const abertasAntes = await getAbertasIds()
       const updated = await retomarAtividadeLocal(af)
       await enqueueAndSync('atividade-funcionarios', updated.id, 'update')
-      const s = await getSessoesLocal(updated.id)
-      // Enfileirar update da sessao de pausa que foi fechada (se houver)
-      const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
-      if (ultimaFechada) await enqueueAndSync('atividade-sessoes', ultimaFechada.id, 'update')
-      // Enfileirar create da nova sessao de trabalho aberta
-      const aberta = s.find((x) => !x.fimAt)
-      if (aberta) await enqueueAndSync('atividade-sessoes', aberta.id, 'create')
+      await enqueueSessoesDiff(updated.id, abertasAntes)
       onMutate()
     } finally {
       setActing(false)
@@ -240,6 +250,11 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
           {af.naoPrevista && (
             <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 mb-1">
               Não prevista
+            </span>
+          )}
+          {af.atrasada && af.statusIndividual === 'pendente' && (
+            <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 mb-1 ml-1">
+              Atrasada
             </span>
           )}
           <div className={`flex flex-wrap gap-2 text-sm text-gray-500 ${af.statusIndividual === 'concluida' ? 'mb-1' : 'mb-2'}`}>
@@ -395,7 +410,7 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
 
       {/* Ações */}
       <div className="flex flex-wrap gap-2">
-        {(af.statusIndividual === 'pendente' || af.statusIndividual === 'atrasada') && (
+        {af.statusIndividual === 'pendente' && (
           <>
             <button
               onClick={handleIniciar}
@@ -424,7 +439,8 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
             <>
               <button
                 onClick={handleConcluir}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+                disabled={acting}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px] disabled:opacity-50"
               >
                 <CheckCircle className="w-4 h-4" />
                 Concluir
@@ -433,7 +449,7 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
           ) : (
             <>
               <button
-                onClick={() => handlePausar(true)}
+                onClick={() => handlePausar('Pausa')}
                 disabled={acting}
                 className="flex-1 flex items-center justify-center gap-1.5 bg-amber-600 text-white px-3 py-2.5 rounded-lg text-base font-medium hover:bg-amber-700 transition-colors min-h-[44px] disabled:opacity-50"
               >
@@ -441,7 +457,7 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
                 Pausar
               </button>
               <button
-                onClick={() => handlePausar(false, 'Almoço')}
+                onClick={() => handlePausar('Almoço')}
                 disabled={acting}
                 className="flex items-center justify-center gap-1.5 bg-amber-100 text-amber-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-amber-200 transition-colors min-h-[44px] disabled:opacity-50"
                 title="Pausar para almoço (não conta como tempo trabalhado)"
@@ -451,7 +467,8 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
               </button>
               <button
                 onClick={handleImprevisto}
-                className="flex items-center justify-center gap-1.5 bg-red-100 text-red-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-red-200 transition-colors min-h-[44px]"
+                disabled={acting}
+                className="flex items-center justify-center gap-1.5 bg-red-100 text-red-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-red-200 transition-colors min-h-[44px] disabled:opacity-50"
                 title="Registrar imprevisto"
               >
                 <AlertTriangle className="w-4 h-4" />
@@ -459,7 +476,8 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
               </button>
               <button
                 onClick={handleConcluir}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+                disabled={acting}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px] disabled:opacity-50"
               >
                 <CheckCircle className="w-4 h-4" />
                 Concluir
@@ -480,7 +498,8 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
             </button>
             <button
               onClick={handleImprevisto}
-              className="flex items-center justify-center gap-1.5 bg-red-100 text-red-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-red-200 transition-colors min-h-[44px]"
+              disabled={acting}
+              className="flex items-center justify-center gap-1.5 bg-red-100 text-red-700 px-3 py-2.5 rounded-lg text-base font-medium hover:bg-red-200 transition-colors min-h-[44px] disabled:opacity-50"
               title="Registrar imprevisto"
             >
               <AlertTriangle className="w-4 h-4" />
@@ -488,7 +507,8 @@ function AtividadeCard({ af, onConcluir, onImprevisto, onJustificar, onMutate }:
             </button>
             <button
               onClick={handleConcluir}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+              disabled={acting}
+              className="flex items-center justify-center gap-1.5 bg-green-600 text-white px-4 py-2.5 rounded-lg text-base font-medium hover:bg-green-700 transition-colors min-h-[44px] disabled:opacity-50"
             >
               <CheckCircle className="w-4 h-4" />
               Concluir
@@ -628,6 +648,7 @@ export default function AtividadesPage() {
   const [novaAtividadeTitulo, setNovaAtividadeTitulo] = useState('')
   const [novaAtividadeDesc, setNovaAtividadeDesc] = useState('')
   const [criandoAtividade, setCriandoAtividade] = useState(false)
+  const [detalhesVersion, setDetalhesVersion] = useState(0)
 
   // Hook de foto + GPS para conclusao de atividade (foto opcional, GPS automatico)
   const {
@@ -712,62 +733,25 @@ export default function AtividadesPage() {
     }
   }, [])
 
-  const [conclusaoPausouTimer, setConclusaoPausouTimer] = useState(false)
+  const [concluindo, setConcluindo] = useState(false)
 
-  const handleOpenConcluir = async (af: AtividadeFuncionarioPWA) => {
+  const handleOpenConcluir = (af: AtividadeFuncionarioPWA) => {
     setDetalhamento('')
     limparFotoGps()
+    setAtividadeParaConcluir(af)
     setShowDetalhamentoModal(true)
     // GPS automatico em background (nao bloqueia o modal)
     capturarGps()
-
-    // Pausar o cronometro enquanto o modal estiver aberto
-    // Apenas se a atividade estiver em_andamento (tem sessao aberta rodando)
-    if (af.statusIndividual === 'em_andamento') {
-      setConclusaoPausouTimer(true)
-      try {
-        const paused = await pausarAtividadeLocal(af, true)
-        setAtividadeParaConcluir(paused)
-        setAtividades((prev) => prev.map((a) => (a.id === paused.id ? paused : a)))
-        await enqueueRegistro('atividade-funcionarios', paused.id, 'update')
-        const s = await getSessoesLocal(paused.id)
-        const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
-        if (ultimaFechada) await enqueueRegistro('atividade-sessoes', ultimaFechada.id, 'update')
-        dispatch(requestSyncNow())
-      } catch (err) {
-        console.warn('[AtividadesPage] Erro ao pausar para conclusao:', err)
-        setAtividadeParaConcluir(af)
-      }
-    } else {
-      setConclusaoPausouTimer(false)
-      setAtividadeParaConcluir(af)
-    }
+    // O cronometro NAO pausa ao abrir o modal: o tempo de preenchimento do
+    // detalhamento conta como trabalhado. concluirAtividadeLocal fecha a sessao
+    // aberta no confirm, e cancelar nao toca em nada.
   }
 
-  const handleCancelarConclusao = async () => {
-    const af = atividadeParaConcluir
+  const handleCancelarConclusao = () => {
     setShowDetalhamentoModal(false)
     setAtividadeParaConcluir(null)
     setDetalhamento('')
     limparFotoGps()
-
-    // Retomar o cronometro se a atividade foi pausada ao abrir o modal
-    if (af && conclusaoPausouTimer) {
-      setConclusaoPausouTimer(false)
-      try {
-        const resumed = await retomarAtividadeLocal(af)
-        setAtividades((prev) => prev.map((a) => (a.id === resumed.id ? resumed : a)))
-        await enqueueRegistro('atividade-funcionarios', resumed.id, 'update')
-        const s = await getSessoesLocal(resumed.id)
-        const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
-        if (ultimaFechada) await enqueueRegistro('atividade-sessoes', ultimaFechada.id, 'update')
-        const aberta = s.find((x) => !x.fimAt)
-        if (aberta) await enqueueRegistro('atividade-sessoes', aberta.id, 'create')
-        dispatch(requestSyncNow())
-      } catch (err) {
-        console.warn('[AtividadesPage] Erro ao retomar apos cancelar conclusao:', err)
-      }
-    }
   }
 
   const handleTirarFotoConclusao = async () => {
@@ -779,9 +763,13 @@ export default function AtividadesPage() {
   }
 
   const handleConfirmarConclusao = async () => {
-    if (!atividadeParaConcluir) return
+    if (!atividadeParaConcluir || concluindo) return
+    setConcluindo(true)
     let updated: AtividadeFuncionarioPWA
+    let abertasAntes = new Set<string>()
     try {
+      const sAntes = await getSessoesLocal(atividadeParaConcluir.id)
+      abertasAntes = new Set(sAntes.filter((x) => !x.fimAt).map((x) => x.id))
       updated = await concluirAtividadeLocal(
         atividadeParaConcluir,
         detalhamento.trim() || null,
@@ -793,15 +781,19 @@ export default function AtividadesPage() {
     } catch (err) {
       console.error('[AtividadesPage] Erro ao concluir atividade:', err)
       alert('Falha ao concluir a atividade. Tente novamente.')
+      setConcluindo(false)
       return
     }
     setAtividades((prev) => prev.map((a) => (a.id === atividadeParaConcluir.id ? updated : a)))
     try {
-      // Enfileirar update do af e das sessoes fechadas
+      // Enfileirar update do af e de TODAS as sessoes fechadas nesta conclusao
       await enqueueRegistro('atividade-funcionarios', updated.id, 'update')
       const s = await getSessoesLocal(updated.id)
-      const ultimaFechada = s.filter((x) => x.fimAt).sort((a, b) => (b.fimAt || '').localeCompare(a.fimAt || ''))[0]
-      if (ultimaFechada) await enqueueRegistro('atividade-sessoes', ultimaFechada.id, 'update')
+      for (const sess of s) {
+        if (sess.fimAt && abertasAntes.has(sess.id)) {
+          await enqueueRegistro('atividade-sessoes', sess.id, 'update')
+        }
+      }
       dispatch(requestSyncNow())
     } catch (err) {
       console.warn('[AtividadesPage] Erro ao enfileirar sync:', err)
@@ -810,7 +802,8 @@ export default function AtividadesPage() {
     setAtividadeParaConcluir(null)
     setDetalhamento('')
     limparFotoGps()
-    setConclusaoPausouTimer(false)
+    setConcluindo(false)
+    loadAtividades()
   }
 
   const handleOpenImprevisto = (af: AtividadeFuncionarioPWA) => {
@@ -837,6 +830,8 @@ export default function AtividadesPage() {
       console.warn('[AtividadesPage] Erro ao enfileirar sync:', err)
     }
     setAtividadeParaImprevisto(null)
+    // Bump para os cards recarregarem sessoes/imprevistos mesmo sem mudanca no af
+    setDetalhesVersion((v) => v + 1)
     // Recarregar para atualizar contagem de imprevistos no card
     loadAtividades()
   }
@@ -1079,6 +1074,7 @@ export default function AtividadesPage() {
                     <AtividadeCard
                       key={af.id}
                       af={af}
+                      detalhesVersion={detalhesVersion}
                       onConcluir={handleOpenConcluir}
                       onImprevisto={handleOpenImprevisto}
                       onJustificar={handleOpenJustificar}
@@ -1095,6 +1091,7 @@ export default function AtividadesPage() {
               <AtividadeCard
                 key={af.id}
                 af={af}
+                detalhesVersion={detalhesVersion}
                 onConcluir={handleOpenConcluir}
                 onImprevisto={handleOpenImprevisto}
                 onJustificar={handleOpenJustificar}
@@ -1221,9 +1218,10 @@ export default function AtividadesPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleConfirmarConclusao}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors min-h-[48px]"
+                disabled={concluindo}
+                className="flex-1 bg-green-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Confirmar Conclusão
+                {concluindo ? 'Concluindo...' : 'Confirmar Conclusão'}
               </button>
               <button
                 onClick={handleCancelarConclusao}
