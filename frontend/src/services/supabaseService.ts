@@ -1474,10 +1474,10 @@ export async function getRotinas(fazendaId: string) {
 // ==================== ITENS ALMOXARIFADO ====================
 
 export async function getItensAlmoxarifado(fazendaId: string, classificacao?: string) {
-  const client = await getSupabaseClientWithRefresh()
+  const client = await getSupabaseClientWithRefresh() as any
   let query = client
-    .from('itens_almoxarifado')
-    .select('*')
+    .from('itens_almoxarifado_pwa')
+    .select('id, fazenda_id, nome, classificacao, unidade, estoque_atual, controla_estoque, ativo')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
 
@@ -1493,10 +1493,20 @@ export async function getItensAlmoxarifado(fazendaId: string, classificacao?: st
   return data
 }
 
+export async function getItensPendentesDevolucao(fazendaId: string, quemPegou?: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('get_itens_pendentes_devolucao', {
+    p_fazenda_id: fazendaId,
+    p_quem_pegou: quemPegou || null,
+  })
+  if (error) throw error
+  return data || []
+}
+
 export async function getClassificacoesAlmoxarifado(fazendaId: string): Promise<string[]> {
-  const client = await getSupabaseClientWithRefresh()
+  const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
-    .from('itens_almoxarifado')
+    .from('itens_almoxarifado_pwa')
     .select('classificacao')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
@@ -1504,7 +1514,7 @@ export async function getClassificacoesAlmoxarifado(fazendaId: string): Promise<
   if (error) throw error
 
   // Get unique classificacoes
-  const classificacoes = [...new Set(data?.map((item: any) => item.classificacao))]
+  const classificacoes: string[] = Array.from(new Set((data || []).map((item: any) => String(item.classificacao))))
   return classificacoes
 }
 

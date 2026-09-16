@@ -544,6 +544,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
+        tipo: registro.tipo || 'retirada',
         quem_entregou: registro.quemEntregou || null,
         quem_pegou: registro.quemPegou || null,
         itens: registro.itens || [],

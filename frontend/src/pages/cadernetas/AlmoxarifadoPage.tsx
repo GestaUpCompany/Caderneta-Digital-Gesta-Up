@@ -9,7 +9,7 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
-import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getSetoresCached, getItensAlmoxarifadoCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getSetoresCached, getItensAlmoxarifadoCached, getItensPendentesDevolucaoCached, updateItemAlmoxarifadoSaldoCache } from '../../services/cadastroCache'
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -23,8 +23,14 @@ const SN_OPTIONS = [
 ]
 
 interface ItemAlmoxarifado {
+  itemId?: string
   classificacao: string
   nome: string
+  unidade?: string
+  saldoAtual?: number
+  retiradaId?: string
+  retiradaItemIndex?: number
+  quantidadePendente?: number
   quantidade: string
   necessitaDevolucao: string
   prazoDevolucao: string
@@ -33,6 +39,7 @@ interface ItemAlmoxarifado {
 }
 
 interface FormState {
+  tipo: 'retirada' | 'devolucao'
   data: string
   quemEntregou: string
   quemPegou: string
@@ -41,6 +48,7 @@ interface FormState {
 }
 
 const makeInitial = (): FormState => ({
+  tipo: 'retirada',
   data: todayBR(),
   quemEntregou: '',
   quemPegou: '',
@@ -49,6 +57,7 @@ const makeInitial = (): FormState => ({
 })
 
 const makeInitialItem = (): ItemAlmoxarifado => ({
+  itemId: '',
   classificacao: '',
   nome: '',
   quantidade: '',
@@ -74,8 +83,9 @@ export default function AlmoxarifadoPage() {
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
   const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
   const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
-  const [itensDisponiveis, setItensDisponiveis] = useState<string[]>([])
+  const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
   const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
+  const [devolucaoSemPendencias, setDevolucaoSemPendencias] = useState(false)
 
   const set = (key: keyof FormState) => (value: string) => setForm(prev => ({ ...prev, [key]: value }))
   const setInput = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [key]: e.target.value }))
@@ -98,7 +108,7 @@ export default function AlmoxarifadoPage() {
   const { isValid } = useFormValidation(form, validationRules)
 
   const handleAdicionarItem = () => {
-    setItemEditando(makeInitialItem())
+    setItemEditando({ ...makeInitialItem(), classificacao: form.tipo === 'devolucao' ? 'Pendentes' : '' })
     setItemEditandoIndex(null)
     setItemErrors(new Set())
     setMostrarFormularioItem(true)
@@ -178,6 +188,7 @@ export default function AlmoxarifadoPage() {
     }
 
     const result = await salvarRegistro('almoxarifado', {
+      tipo: form.tipo,
       data: form.data,
       quemEntregou: form.quemEntregou,
       quemPegou: form.quemPegou,
@@ -192,6 +203,11 @@ export default function AlmoxarifadoPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
+      if (form.tipo === 'retirada' && fazendaId) {
+        await Promise.all(form.itens.filter((item) => item.itemId).map((item) =>
+          updateItemAlmoxarifadoSaldoCache(fazendaId, item.itemId!, -Number(String(item.quantidade).replace(',', '.')))
+        ))
+      }
       limparRascunho()
     }
   }
@@ -237,22 +253,39 @@ export default function AlmoxarifadoPage() {
     loadData()
   }, [fazendaId])
 
-  // Carregar itens quando classificação é selecionada (com cache lazy para offline)
+  // Em devolução, a fonte principal é a lista de pendências do servidor/cache.
   useEffect(() => {
     const loadItens = async () => {
-      if (itemEditando?.classificacao && fazendaId) {
-        try {
+      if (!fazendaId || !itemEditando?.classificacao) {
+        setItensDisponiveis([])
+        return
+      }
+      try {
+        if (form.tipo === 'devolucao' && itemEditando.classificacao === 'Pendentes') {
+          const pendentes = await getItensPendentesDevolucaoCached(fazendaId, form.quemPegou)
+          setDevolucaoSemPendencias(!pendentes || pendentes.length === 0)
+          setItensDisponiveis((pendentes || []).map((item: any) => ({
+            id: item.item_id,
+            nome: item.item_nome,
+            unidade: item.unidade,
+            classificacao: 'Pendentes',
+            controla_estoque: true,
+            estoque_atual: item.quantidade_pendente,
+            retiradaId: item.retirada_id,
+            retiradaItemIndex: item.retirada_item_index,
+            quantidadePendente: Number(item.quantidade_pendente),
+          })))
+        } else {
           const itensData = await getItensAlmoxarifadoCached(fazendaId, itemEditando.classificacao)
-          setItensDisponiveis(itensData?.map((item: any) => item.nome) || [])
-        } catch (error) {
-          console.error('Erro ao carregar itens:', error)
+          setItensDisponiveis(itensData || [])
         }
-      } else {
+      } catch (error) {
+        console.error('Erro ao carregar itens:', error)
         setItensDisponiveis([])
       }
     }
     loadItens()
-  }, [itemEditando?.classificacao, fazendaId])
+  }, [itemEditando?.classificacao, fazendaId, form.tipo, form.quemPegou])
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -261,6 +294,24 @@ export default function AlmoxarifadoPage() {
         cadernetaId="almoxarifado"
         dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
       />
+
+      <div className="px-4 pt-4">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm">
+          {(['retirada', 'devolucao'] as const).map((tipo) => (
+            <button
+              key={tipo}
+              type="button"
+              onClick={() => setForm(prev => ({ ...prev, tipo, itens: [] }))}
+              className={`rounded-xl px-3 py-3 text-sm font-bold ${form.tipo === tipo ? 'bg-[#1a3b2c] text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              {tipo === 'retirada' ? 'RETIRADA' : 'DEVOLUÇÃO'}
+            </button>
+          ))}
+        </div>
+        {form.tipo === 'devolucao' && devolucaoSemPendencias && (
+          <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Nenhum item pendente foi encontrado para esta pessoa. Se a devolução ocorreu offline, selecione um item pelo catálogo; o banco validará a quantidade quando sincronizar.</p>
+        )}
+      </div>
 
       <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
         <BannerRascunho
@@ -279,7 +330,7 @@ export default function AlmoxarifadoPage() {
           <div className="flex flex-col gap-3">
             {funcionariosDisponiveis.length > 0 ? (
               <SearchableModal
-                label={<span>QUEM ENTREGOU? <span className="text-red-500">*</span></span>}
+                label={<span>{form.tipo === 'devolucao' ? 'QUEM RECEBEU?' : 'QUEM ENTREGOU?'} <span className="text-red-500">*</span></span>}
                 value={form.quemEntregou}
                 onChange={(val) => { set('quemEntregou')(val); atualizarNomeUsuarioConfig(val) }}
                 error={getError('quemEntregou')}
@@ -290,7 +341,7 @@ export default function AlmoxarifadoPage() {
               />
             ) : (
               <Input
-                label={<span>QUEM ENTREGOU? <span className="text-red-500">*</span></span>}
+                label={<span>{form.tipo === 'devolucao' ? 'QUEM RECEBEU?' : 'QUEM ENTREGOU?'} <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem entregou"
                 value={form.quemEntregou}
                 onChange={(e) => { setInput('quemEntregou')(e); atualizarNomeUsuarioConfig(e.target.value) }}
@@ -300,7 +351,7 @@ export default function AlmoxarifadoPage() {
             )}
             {funcionariosDisponiveis.length > 0 ? (
               <SearchableModal
-                label={<span>QUEM PEGOU? <span className="text-red-500">*</span></span>}
+                label={<span>{form.tipo === 'devolucao' ? 'QUEM DEVOLVEU?' : 'QUEM PEGOU?'} <span className="text-red-500">*</span></span>}
                 value={form.quemPegou}
                 onChange={(val) => { set('quemPegou')(val); atualizarNomeUsuarioConfig(val) }}
                 error={getError('quemPegou')}
@@ -311,7 +362,7 @@ export default function AlmoxarifadoPage() {
               />
             ) : (
               <Input
-                label={<span>QUEM PEGOU? <span className="text-red-500">*</span></span>}
+                label={<span>{form.tipo === 'devolucao' ? 'QUEM DEVOLVEU?' : 'QUEM PEGOU?'} <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem pegou"
                 value={form.quemPegou}
                 onChange={(e) => { setInput('quemPegou')(e); atualizarNomeUsuarioConfig(e.target.value) }}
@@ -324,7 +375,7 @@ export default function AlmoxarifadoPage() {
 
         {/* Seção 2: Itens */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ITENS RETIRADOS <span className="text-red-500">*</span></h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. {form.tipo === 'devolucao' ? 'ITENS DEVOLVIDOS' : 'ITENS RETIRADOS'} <span className="text-red-500">*</span></h2>
           
           {/* Lista de itens adicionados */}
           {form.itens.length > 0 && (
@@ -397,7 +448,7 @@ export default function AlmoxarifadoPage() {
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {classificacoesDisponiveis.map((classificacao) => (
+                  {[...(form.tipo === 'devolucao' ? ['Pendentes'] : []), ...classificacoesDisponiveis.filter((c) => c !== 'Pendentes')].map((classificacao) => (
                     <button
                       key={classificacao}
                       type="button"
@@ -429,12 +480,12 @@ export default function AlmoxarifadoPage() {
                   <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
                   <div className="grid grid-cols-2 gap-2">
                     {itensDisponiveis.length > 0 ? (
-                      itensDisponiveis.map((nome) => (
+                      itensDisponiveis.map((item) => (
                         <button
-                          key={nome}
+                          key={item.id || item.nome}
                           type="button"
                           onClick={() => {
-                            setItemEditando(prev => prev ? { ...prev, nome } : null)
+                            setItemEditando(prev => prev ? { ...prev, itemId: item.id, nome: item.nome, unidade: item.unidade || 'un', saldoAtual: Number(item.estoque_atual ?? 0), retiradaId: item.retiradaId, retiradaItemIndex: item.retiradaItemIndex, quantidadePendente: item.quantidadePendente } : null)
                             setItemErrors(prev => {
                               const newErrors = new Set(prev)
                               newErrors.delete('nome')
@@ -442,14 +493,14 @@ export default function AlmoxarifadoPage() {
                             })
                           }}
                           className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                            itemEditando?.nome === nome
+                            itemEditando?.nome === item.nome
                               ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
                               : itemErrors.has('nome')
                               ? 'border-red-500 bg-red-50 text-red-700'
                               : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                           }`}
                         >
-                          {nome}
+                          {item.nome}{item.unidade ? ` (${item.unidade})` : ''}{item.controla_estoque ? ` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}` : ''}
                         </button>
                       ))
                     ) : (
@@ -464,7 +515,7 @@ export default function AlmoxarifadoPage() {
                 placeholder="Informe a quantidade"
                 value={itemEditando?.quantidade || ''}
                 onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9]/g, '')
+                  const value = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.')
                   setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
                   setItemErrors(prev => {
                     const newErrors = new Set(prev)

@@ -1893,6 +1893,21 @@ export async function getLocaisCached(fazendaId: string): Promise<any[] | null> 
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
  */
+export async function getItensPendentesDevolucaoCached(fazendaId: string, quemPegou?: string): Promise<any[] | null> {
+  const key = buildKey('pendencias-devolucao-almoxarifado', fazendaId, quemPegou || 'todos')
+  if (!navigator.onLine) {
+    const cached = getCachedQuery(key)
+    return Array.isArray(cached) ? cached : null
+  }
+  try {
+    const data = await supabaseService.getItensPendentesDevolucao(fazendaId, quemPegou)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return getCachedQuery(key)
+  }
+}
+
 export async function getClassificacoesAlmoxarifadoCached(fazendaId: string): Promise<string[] | null> {
   const key = buildKey('classificacoes-almoxarifado', fazendaId)
 
@@ -1915,6 +1930,19 @@ export async function getClassificacoesAlmoxarifadoCached(fazendaId: string): Pr
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
  */
+export async function updateItemAlmoxarifadoSaldoCache(fazendaId: string, itemId: string, delta: number): Promise<void> {
+  const prefix = `itens-almoxarifado:${fazendaId}:`
+  for (const key of Object.keys(queryCache)) {
+    if (!key.startsWith(prefix)) continue
+    const cached = queryCache[key].data
+    if (!Array.isArray(cached)) continue
+    setCachedQuery(key, cached.map((item: any) => item.id === itemId
+      ? { ...item, estoque_atual: Number(item.estoque_atual || 0) + delta }
+      : item))
+  }
+  try { await saveQueryCacheToIndexedDB() } catch { /* cache em memoria continua valido */ }
+}
+
 export async function getItensAlmoxarifadoCached(fazendaId: string, classificacao: string): Promise<any[] | null> {
   const key = buildKey('itens-almoxarifado', fazendaId, classificacao)
 
@@ -2555,6 +2583,7 @@ export async function warmAllCadastroCache(
     { label: 'Setores', fn: () => getSetoresCached(fazendaId) },
     { label: 'Locais', fn: () => getLocaisCached(fazendaId) },
     { label: 'Classificações Almoxarifado', fn: () => getClassificacoesAlmoxarifadoCached(fazendaId) },
+    { label: 'Pendências de devolução', fn: () => getItensPendentesDevolucaoCached(fazendaId) },
     { label: 'Classificações Cantina', fn: () => getClassificacoesCantinaCached(fazendaId) },
     { label: 'Tanques Combustível', fn: () => getTanquesCombustivelCached(fazendaId) },
     { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },
