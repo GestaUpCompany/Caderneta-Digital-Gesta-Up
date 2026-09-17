@@ -12,7 +12,7 @@ import { RootState } from '../../store/store'
 import { salvarRascunho, lerRascunho, limparRascunho, updateRegistro, deleteRegistro, removeFromSyncQueueByRegistroId } from '../../services/indexedDB'
 import { getCachedCadastroData, getRacasCached, getLoteByNomeCached } from '../../services/cadastroCache'
 import { getLotes, getIndividuos } from '../../services/supabaseService'
-import { Trash2, Pencil, CheckCircle2, AlertTriangle, Share2 } from 'lucide-react'
+import { Trash2, Pencil, CheckCircle2, AlertTriangle, Share2, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/shareUtils'
 
 type SN = '' | 'S' | 'N'
@@ -29,11 +29,6 @@ interface AnimalDraft {
   pesoKg: string
   raca: string
   idadeEra: string
-  idadeDias: string
-  acidente: SN
-  manejoCalmo: SN
-  gritaria: SN
-  manejoAgil: SN
   tempoPreenchimentoSeg: number | null
   individuoId: string | null
   /** id do registro local já gravado no store 'pesagem' (tentativa anterior de finalização) */
@@ -49,8 +44,15 @@ interface SessaoPesagem {
   curralLimpo: SN
   horarioInicio: string | null
   horarioFim: string | null
+  /** ms acumulados em revisão (cronômetro pausado), descontados do total */
+  tempoPausadoMs: number
   tempoTotalMin: number | null
   tempoMedioMinCab: number | null
+  // Checklist de manejo da sessão, respondido uma vez na revisão (pós-processamento)
+  acidente: SN
+  manejoCalmo: SN
+  gritaria: SN
+  manejoAgil: SN
   animais: AnimalDraft[]
   animalAtual: AnimalDraft
   animalInicioTs: number | null
@@ -124,11 +126,6 @@ function novoAnimal(): AnimalDraft {
     pesoKg: '',
     raca: '',
     idadeEra: '',
-    idadeDias: '',
-    acidente: '',
-    manejoCalmo: '',
-    gritaria: '',
-    manejoAgil: '',
     tempoPreenchimentoSeg: null,
     individuoId: null,
   }
@@ -144,8 +141,13 @@ function novaSessao(): SessaoPesagem {
     curralLimpo: '',
     horarioInicio: null,
     horarioFim: null,
+    tempoPausadoMs: 0,
     tempoTotalMin: null,
     tempoMedioMinCab: null,
+    acidente: '',
+    manejoCalmo: '',
+    gritaria: '',
+    manejoAgil: '',
     animais: [],
     animalAtual: novoAnimal(),
     animalInicioTs: null,
@@ -179,7 +181,7 @@ function formatMin(min: number | null): string {
 }
 
 function SNButtons({ value, onChange, size = 'md' }: { value: SN; onChange: (v: SN) => void; size?: 'md' | 'lg' }) {
-  const cls = size === 'lg' ? 'min-h-[56px] text-lg' : 'min-h-[48px] text-base'
+  const cls = size === 'lg' ? 'min-h-[38px] text-base' : 'min-h-[38px] text-sm'
   return (
     <div className="grid grid-cols-2 gap-2">
       <button
@@ -223,6 +225,8 @@ export default function PesagemPage() {
   const [salvandoFinal, setSalvandoFinal] = useState(false)
   const [errosFinal, setErrosFinal] = useState<string[]>([])
   const [finalizado, setFinalizado] = useState<{ total: number; textoShare: string | null } | null>(null)
+  const [metricasAbertas, setMetricasAbertas] = useState(false)
+  const [checklistAberto, setChecklistAberto] = useState(false)
   const autoFillRef = useRef<string | null>(null)
 
   const focarChip = () => {
@@ -263,6 +267,13 @@ export default function PesagemPage() {
       .finally(() => setSessaoCarregada(true))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fazendaId])
+
+  // Em captura, colapsa as métricas por padrão para reduzir rolagem;
+  // na revisão reabre, pois início/fim/total importam na conferência
+  useEffect(() => {
+    if (sessao.fase === 'captura') setMetricasAbertas(false)
+    else if (sessao.fase === 'revisao') setMetricasAbertas(true)
+  }, [sessao.fase])
 
   // ==================== Dados de apoio ====================
   useEffect(() => {
@@ -364,13 +375,16 @@ export default function PesagemPage() {
   // ==================== Métricas ====================
   const inicioTs = sessao.horarioInicio ? new Date(sessao.horarioInicio).getTime() : null
   const fimTs = sessao.horarioFim ? new Date(sessao.horarioFim).getTime() : null
-  const elapsedMs = inicioTs !== null ? (fimTs ?? now) - inicioTs : 0
+  const elapsedMs = inicioTs !== null ? Math.max(0, (fimTs ?? now) - inicioTs - sessao.tempoPausadoMs) : 0
   const tempoTotalMin = inicioTs !== null ? elapsedMs / 60000 : null
   const tempoMedioMinCab = useMemo(() => {
     if (sessao.animais.length === 0) return null
     const soma = sessao.animais.reduce((acc, a) => acc + (a.tempoPreenchimentoSeg || 0), 0)
     return soma / sessao.animais.length / 60
   }, [sessao.animais])
+
+  const checklistFinalCompleto =
+    sessao.acidente !== '' && sessao.manejoCalmo !== '' && sessao.gritaria !== '' && sessao.manejoAgil !== ''
 
   // ==================== Autocomplete chip/brinco ====================
   const sugestoes = useMemo(() => {
@@ -389,9 +403,6 @@ export default function PesagemPage() {
   const aplicarIndividuo = useCallback(
     (ind: IndividuoCache) => {
       const loteMatch = ind.lote_atual ? lotes.find((l) => l.id === ind.lote_atual) : undefined
-      const dias = ind.data_nascimento
-        ? Math.max(0, Math.floor((Date.now() - new Date(ind.data_nascimento).getTime()) / 86400000))
-        : null
       autoFillRef.current = ind.id
       updateAnimalAtual({
         idChip: ind.id_chip || '',
@@ -402,7 +413,6 @@ export default function PesagemPage() {
         loteId: loteMatch?.id || '',
         lote: loteMatch?.nome || '',
         idadeEra: ind.idade_era || '',
-        idadeDias: dias !== null ? String(dias) : '',
         individuoId: ind.id,
       })
       setErrosAnimal([])
@@ -435,7 +445,6 @@ export default function PesagemPage() {
           loteId: '',
           lote: '',
           idadeEra: '',
-          idadeDias: '',
           individuoId: null,
         })
       } else if (unico && (chip.length >= 2 || brinco.length >= 2) && autoFillRef.current !== unico.id) {
@@ -479,12 +488,6 @@ export default function PesagemPage() {
     if (peso === null || peso <= 0) errs.push('Informe o Peso (kg)')
     if (!a.raca) errs.push('Selecione a Raça')
     if (!a.idadeEra) errs.push('Selecione a Idade (era)')
-    if (a.idadeDias.trim() !== '' && (!Number.isInteger(Number(a.idadeDias)) || Number(a.idadeDias) < 0))
-      errs.push('Idade em dias inválida')
-    if (!a.acidente) errs.push('Responda: Algum acidente?')
-    if (!a.manejoCalmo) errs.push('Responda: Manejo calmo?')
-    if (!a.gritaria) errs.push('Responda: Gritaria?')
-    if (!a.manejoAgil) errs.push('Responda: Manejo ágil?')
     return errs
   }
 
@@ -513,7 +516,7 @@ export default function PesagemPage() {
   const finalizarSessao = () => {
     if (sessao.animais.length === 0) return
     const fim = new Date().toISOString()
-    const totalMin = inicioTs !== null ? (Date.now() - inicioTs) / 60000 : null
+    const totalMin = inicioTs !== null ? (Date.now() - inicioTs - sessao.tempoPausadoMs) / 60000 : null
     persistSessao({
       ...sessao,
       fase: 'revisao',
@@ -580,11 +583,11 @@ export default function PesagemPage() {
         pesoKg: a.pesoKg,
         raca: a.raca,
         idadeEra: a.idadeEra,
-        idadeDias: a.idadeDias.trim() !== '' ? Number(a.idadeDias) : null,
-        acidente: a.acidente,
-        manejoCalmo: a.manejoCalmo,
-        gritaria: a.gritaria,
-        manejoAgil: a.manejoAgil,
+        idadeDias: null,
+        acidente: sessao.acidente,
+        manejoCalmo: sessao.manejoCalmo,
+        gritaria: sessao.gritaria,
+        manejoAgil: sessao.manejoAgil,
         tempoPreenchimentoSeg: a.tempoPreenchimentoSeg,
         individuoId: a.individuoId,
       }
@@ -650,10 +653,10 @@ export default function PesagemPage() {
       pesoKg: a.pesoKg,
       raca: a.raca,
       idadeEra: a.idadeEra,
-      acidente: a.acidente,
-      manejoCalmo: a.manejoCalmo,
-      gritaria: a.gritaria,
-      manejoAgil: a.manejoAgil,
+      acidente: sessao.acidente,
+      manejoCalmo: sessao.manejoCalmo,
+      gritaria: sessao.gritaria,
+      manejoAgil: sessao.manejoAgil,
     }))
     const textoShare = registrosShare.length > 0
       ? formatarRegistroComoTexto(registrosShare[0] as any, 'pesagem', registrosShare as any)
@@ -680,7 +683,7 @@ export default function PesagemPage() {
     const loteSel = lotes.find((l) => l.id === animal.loteId) || null
     const cats = categoriasCompativeis(categoriasPorDestino(loteSel?.destino), animal.sexo)
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 [&_input:not(#pesagem-peso-input)]:!min-h-[38px] [&_input:not(#pesagem-peso-input)]:!py-1.5 [&_input:not(#pesagem-peso-input)]:!text-sm [&_select]:!min-h-[38px] [&_select]:!py-1 [&_select]:!text-sm [&_select:disabled]:!bg-gray-50 [&_select:disabled]:!text-gray-500 [&_label]:!text-xs [&_label]:!mb-1 [&_label]:!text-center">
         <div className="grid grid-cols-2 gap-3">
           <div className="relative">
             <Input
@@ -725,78 +728,62 @@ export default function PesagemPage() {
           <p className="text-sm font-semibold text-green-700 -mt-2">✓ Animal identificado na base. Dados preenchidos, ajuste se necessário.</p>
         )}
 
-        <Select
-          label="LOTE"
-          options={[{ value: '', label: 'Selecione o lote' }, ...lotes.map((l) => ({ value: l.id, label: l.nome }))]}
-          value={animal.loteId}
-          onChange={(e) => {
-            const lote = lotes.find((l) => l.id === e.target.value) || null
-            onChange({ loteId: lote?.id || '', lote: lote?.nome || '', categoria: '' })
-          }}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="LOTE"
+            options={[{ value: '', label: 'Selecione' }, ...lotes.map((l) => ({ value: l.id, label: l.nome }))]}
+            value={animal.loteId}
+            onChange={(e) => {
+              const lote = lotes.find((l) => l.id === e.target.value) || null
+              onChange({ loteId: lote?.id || '', lote: lote?.nome || '', categoria: '' })
+            }}
+          />
+          <Select
+            label="CATEGORIA"
+            disabled={!animal.loteId}
+            options={
+              animal.loteId
+                ? [{ value: '', label: 'Selecione' }, ...cats.map((c) => ({ value: c, label: c }))]
+                : [{ value: '', label: 'Escolha o lote' }]
+            }
+            value={animal.categoria}
+            onChange={(e) => onChange({ categoria: e.target.value })}
+          />
+        </div>
 
-        <div>
-          <label className="block text-lg font-bold text-gray-900 mb-2">CATEGORIA</label>
-          {animal.loteId ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {cats.map((c) => (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-lg font-bold text-gray-900 mb-2">SEXO</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['Macho', 'Fêmea'] as const).map((s) => (
                 <button
-                  key={c}
+                  key={s}
                   type="button"
-                  onClick={() => onChange({ categoria: c })}
-                  className={`min-h-[48px] rounded-xl px-2 text-sm font-bold border-2 transition-all active:scale-95 ${
-                    animal.categoria === c ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white' : 'bg-white border-gray-300 text-gray-700'
+                  onClick={() => {
+                    const patch: Partial<AnimalDraft> = { sexo: s }
+                    if (animal.categoria && !categoriasCompativeis([animal.categoria], s).length) patch.categoria = ''
+                    onChange(patch)
+                  }}
+                  className={`min-h-[38px] rounded-xl text-sm font-bold border-2 transition-all active:scale-95 ${
+                    animal.sexo === s ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white' : 'bg-white border-gray-300 text-gray-700'
                   }`}
                 >
-                  {c}
+                  {s === 'Macho' ? 'M' : 'F'}
                 </button>
               ))}
             </div>
+          </div>
+          {racas.length > 0 ? (
+            <Select
+              label="RAÇA"
+              options={[{ value: '', label: 'Selecione' }, ...racas.map((r) => ({ value: r, label: r }))]}
+              value={animal.raca}
+              onChange={(e) => onChange({ raca: e.target.value })}
+            />
           ) : (
-            <p className="text-base text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">Selecione o lote primeiro</p>
+            <Input label="RAÇA" placeholder="Raça" value={animal.raca} onChange={(e) => onChange({ raca: e.target.value })} />
           )}
         </div>
-
-        <div>
-          <label className="block text-lg font-bold text-gray-900 mb-2">SEXO</label>
-          <div className="grid grid-cols-2 gap-2">
-            {(['Macho', 'Fêmea'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  const patch: Partial<AnimalDraft> = { sexo: s }
-                  if (animal.categoria && !categoriasCompativeis([animal.categoria], s).length) patch.categoria = ''
-                  onChange(patch)
-                }}
-                className={`min-h-[56px] rounded-xl text-lg font-bold border-2 transition-all active:scale-95 ${
-                  animal.sexo === s ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white' : 'bg-white border-gray-300 text-gray-700'
-                }`}
-              >
-                {s === 'Macho' ? 'M' : 'F'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <Input
-          label="PESO (kg)"
-          inputMode="decimal"
-          placeholder="Ex: 285,5"
-          value={animal.pesoKg}
-          onChange={(e) => onChange({ pesoKg: e.target.value.replace(/[^\d,.]/g, '') })}
-        />
-
-        {racas.length > 0 ? (
-          <Select
-            label="RAÇA"
-            options={[{ value: '', label: 'Selecione a raça' }, ...racas.map((r) => ({ value: r, label: r }))]}
-            value={animal.raca}
-            onChange={(e) => onChange({ raca: e.target.value })}
-          />
-        ) : (
-          <Input label="RAÇA" placeholder="Raça do animal" value={animal.raca} onChange={(e) => onChange({ raca: e.target.value })} />
-        )}
 
         <div>
           <label className="block text-lg font-bold text-gray-900 mb-2">IDADE (ERA) *</label>
@@ -806,7 +793,7 @@ export default function PesagemPage() {
                 key={era.value}
                 type="button"
                 onClick={() => onChange({ idadeEra: era.value })}
-                className={`min-h-[48px] rounded-xl px-2 text-sm font-bold border-2 transition-all active:scale-95 ${
+                className={`min-h-[38px] rounded-xl px-2 text-sm font-bold border-2 transition-all active:scale-95 ${
                   animal.idadeEra === era.value ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white' : 'bg-white border-gray-300 text-gray-700'
                 }`}
               >
@@ -816,27 +803,16 @@ export default function PesagemPage() {
           </div>
         </div>
 
-        <Input
-          label="IDADE (DIAS) — opcional"
-          inputMode="numeric"
-          placeholder="Ex: 210"
-          value={animal.idadeDias}
-          onChange={(e) => onChange({ idadeDias: e.target.value.replace(/\D/g, '') })}
-        />
-
-        {([
-          ['acidente', 'Algum acidente?'],
-          ['manejoCalmo', 'Manejo calmo?'],
-          ['gritaria', 'Gritaria?'],
-          ['manejoAgil', 'Manejo ágil?'],
-        ] as const).map(([campo, label]) => (
-          <div key={campo} className="flex items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
-            <span className="text-base font-bold text-gray-900">{label}</span>
-            <div className="w-40 shrink-0">
-              <SNButtons value={animal[campo]} onChange={(v) => onChange({ [campo]: v })} />
-            </div>
-          </div>
-        ))}
+        <div className="w-1/2 mx-auto">
+          <Input
+            id="pesagem-peso-input"
+            label="PESO (kg)"
+            inputMode="decimal"
+            placeholder="Ex: 285,5"
+            value={animal.pesoKg}
+            onChange={(e) => onChange({ pesoKg: e.target.value.replace(/[^\d,.]/g, '') })}
+          />
+        </div>
       </div>
     )
   }
@@ -849,38 +825,50 @@ export default function PesagemPage() {
       showRegistrosButton={sessao.fase !== 'captura'}
       extraHeaderContent={
         <div className="mt-3 rounded-2xl bg-white/10 border border-white/15 p-3">
-          <div className="text-center">
+          <div className="relative text-center">
             <span className="text-3xl font-black tracking-widest tabular-nums">
               {inicioTs !== null ? formatCronometro(elapsedMs) : '00:00.000'}
             </span>
+            <button
+              type="button"
+              onClick={() => setMetricasAbertas((v) => !v)}
+              aria-label={metricasAbertas ? 'Ocultar métricas' : 'Mostrar métricas'}
+              className="absolute right-0 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:bg-white/10 active:scale-95"
+            >
+              {metricasAbertas ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
           </div>
-          <div className="mt-2 grid grid-cols-4 gap-2 text-center">
-            <div>
-              <p className="text-[10px] font-bold text-white/60 uppercase">Início</p>
-              <p className="text-sm font-bold tabular-nums">{formatHora(sessao.horarioInicio)}</p>
+          {metricasAbertas && (
+            <div className="mt-2 grid grid-cols-4 gap-2 text-center">
+              <div>
+                <p className="text-[10px] font-bold text-white/60 uppercase">Início</p>
+                <p className="text-sm font-bold tabular-nums">{formatHora(sessao.horarioInicio)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-white/60 uppercase">Fim</p>
+                <p className="text-sm font-bold tabular-nums">{formatHora(sessao.horarioFim)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-white/60 uppercase">Total</p>
+                <p className="text-sm font-bold tabular-nums">{formatMin(tempoTotalMin)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-white/60 uppercase">Médio/cab</p>
+                <p className="text-sm font-bold tabular-nums">{formatMin(tempoMedioMinCab)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-white/60 uppercase">Fim</p>
-              <p className="text-sm font-bold tabular-nums">{formatHora(sessao.horarioFim)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-white/60 uppercase">Total</p>
-              <p className="text-sm font-bold tabular-nums">{formatMin(tempoTotalMin)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-white/60 uppercase">Médio/cab</p>
-              <p className="text-sm font-bold tabular-nums">{formatMin(tempoMedioMinCab)}</p>
-            </div>
-          </div>
+          )}
         </div>
       }
       bottomContent={
         sessao.fase === 'preparacao' ? (
-          <Button variant="success" onClick={iniciarSessao} disabled={!preparacaoCompleta}>
-            INICIAR
-          </Button>
+          <div className="pb-3">
+            <Button variant="success" onClick={iniciarSessao} disabled={!preparacaoCompleta}>
+              INICIAR
+            </Button>
+          </div>
         ) : sessao.fase === 'captura' ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 pb-3">
             <div className="text-center text-sm font-bold text-gray-600">
               {sessao.animais.length} {sessao.animais.length === 1 ? 'animal lançado' : 'animais lançados'}
             </div>
@@ -902,7 +890,7 @@ export default function PesagemPage() {
                   key={t.value}
                   type="button"
                   onClick={() => persistSessao({ ...sessao, tipoManejo: t.value })}
-                  className={`min-h-[56px] rounded-xl px-2 text-base font-bold border-2 transition-all active:scale-95 ${
+                  className={`min-h-[38px] rounded-xl px-2 text-sm font-bold border-2 transition-all active:scale-95 ${
                     sessao.tipoManejo === t.value ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white' : 'bg-white border-gray-300 text-gray-700'
                   }`}
                 >
@@ -982,12 +970,16 @@ export default function PesagemPage() {
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
               {sessao.animais.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 font-medium">Nenhum animal na sessão.</div>
               ) : (
-                sessao.animais.map((a, idx) => (
-                  <div key={a.uid} className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                <>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide px-1">
+                    Animais ({sessao.animais.length})
+                  </p>
+                  {sessao.animais.map((a, idx) => (
+                  <div key={a.uid} id={`revisao-card-${a.uid}`} className={`rounded-2xl border bg-white overflow-hidden shrink-0 transition-shadow ${editandoUid === a.uid ? 'border-[#1a3a2a] shadow-md' : 'border-gray-200'}`}>
                     <div className="px-4 py-3 flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="text-base font-bold text-gray-900 truncate">
@@ -1001,7 +993,13 @@ export default function PesagemPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setEditandoUid(editandoUid === a.uid ? null : a.uid)}
+                        onClick={() => {
+                          const abrindo = editandoUid !== a.uid
+                          setEditandoUid(abrindo ? a.uid : null)
+                          if (abrindo) {
+                            setTimeout(() => document.getElementById(`revisao-card-${a.uid}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+                          }
+                        }}
                         className="p-2 rounded-lg text-gray-500 active:bg-gray-100"
                         aria-label="Editar"
                       >
@@ -1022,7 +1020,46 @@ export default function PesagemPage() {
                       </div>
                     )}
                   </div>
-                ))
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Checklist da sessão: banda retrátil acima dos botões; expande só ao toque */}
+            <div className={`border-t transition-colors ${checklistFinalCompleto ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+              <button
+                type="button"
+                onClick={() => setChecklistAberto((v) => !v)}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left ${
+                  checklistFinalCompleto ? 'text-green-800' : 'text-amber-800'
+                }`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wide">
+                  Checklist de manejo
+                  <span className="block normal-case font-semibold tracking-normal">
+                    {checklistFinalCompleto
+                      ? 'Respondido — toque para revisar'
+                      : `${[sessao.acidente, sessao.manejoCalmo, sessao.gritaria, sessao.manejoAgil].filter((v) => v !== '').length}/4 respondidas · toque para responder`}
+                  </span>
+                </span>
+                {checklistAberto ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+              {checklistAberto && (
+                <div className="px-4 pb-3 flex flex-col gap-2">
+                  {([
+                    ['acidente', 'Algum acidente?'],
+                    ['manejoCalmo', 'Manejo calmo?'],
+                    ['gritaria', 'Gritaria?'],
+                    ['manejoAgil', 'Manejo ágil?'],
+                  ] as const).map(([campo, label]) => (
+                    <div key={campo} className="flex items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2">
+                      <span className="text-sm font-bold text-gray-900">{label}</span>
+                      <div className="w-40 shrink-0">
+                        <SNButtons value={sessao[campo]} onChange={(v) => persistSessao({ ...sessao, [campo]: v })} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -1036,7 +1073,13 @@ export default function PesagemPage() {
 
             <div className="p-4 flex gap-3 border-t border-gray-200 bg-white">
               <button
-                onClick={() => { setShowRevisao(false); persistSessao({ ...sessao, fase: 'captura', horarioFim: null, tempoTotalMin: null, tempoMedioMinCab: null, animalInicioTs: Date.now() }) }}
+                onClick={() => {
+                  // Volta para captura: o tempo parado na revisão vira pausa acumulada,
+                  // então o cronômetro retoma de onde parou em vez de somar o tempo de revisão.
+                  const pausa = fimTs !== null ? Date.now() - fimTs : 0
+                  setShowRevisao(false)
+                  persistSessao({ ...sessao, fase: 'captura', horarioFim: null, tempoPausadoMs: sessao.tempoPausadoMs + Math.max(0, pausa), tempoTotalMin: null, tempoMedioMinCab: null, animalInicioTs: Date.now() })
+                }}
                 disabled={salvandoFinal}
                 className="flex-1 font-bold text-base px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 active:bg-gray-200 disabled:opacity-50"
               >
@@ -1044,7 +1087,7 @@ export default function PesagemPage() {
               </button>
               <button
                 onClick={salvarEFinalizar}
-                disabled={salvandoFinal || sessao.animais.length === 0}
+                disabled={salvandoFinal || sessao.animais.length === 0 || !checklistFinalCompleto}
                 className="flex-1 font-bold text-base px-4 py-3 rounded-2xl border-2 bg-[#1a3a2a] text-white border-[#1a3a2a] active:bg-[#245038] disabled:opacity-50"
               >
                 {salvandoFinal ? 'SALVANDO...' : 'SALVAR E FINALIZAR'}
@@ -1128,6 +1171,12 @@ export default function PesagemPage() {
                 className="w-full font-bold px-4 py-3 rounded-2xl bg-[#1a3a2a] text-white active:bg-[#245038]"
               >
                 VER REGISTROS
+              </button>
+              <button
+                onClick={() => { setFinalizado(null); navigate('/') }}
+                className="w-full font-bold px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 active:bg-gray-200"
+              >
+                VOLTAR PARA O INÍCIO
               </button>
             </div>
           </div>

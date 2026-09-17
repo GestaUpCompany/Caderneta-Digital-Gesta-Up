@@ -49,6 +49,7 @@ const FAZENDAS_NOVO_LOTE_HABILITADO = [
   'c4d13f1f-a785-4bcd-8e72-4ac4b28ee034', // Fazenda Marcon
   'f8be22c5-12e9-4bda-a813-fae8cb3d47ec',
   'd649c65e-16ab-4b77-a84b-df937aa41cc3', // Fazenda Gesta'Up (teste)
+  'a6640dd6-94b6-4828-a3b1-b7b31c892bf9' // Bom Jesus - Mirandópolis
 ]
 
 const SISTEMA_PRODUCAO_OPTS = [
