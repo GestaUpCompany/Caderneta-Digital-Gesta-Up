@@ -935,7 +935,7 @@ export async function getIndividuos(fazendaId: string, limit = 100) {
   console.log('[getIndividuos] fazendaId:', fazendaId, 'client:', client === supabase ? 'anon' : 'token')
   const { data, error } = await client
     .from('individuos')
-    .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status, data_nascimento, lote_atual')
+    .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status, data_nascimento, lote_atual, idade_era')
     .eq('fazenda_id', fazendaId)
     .eq('status', 'Vivo')
     .order('id_manejo')
@@ -3099,6 +3099,20 @@ export async function createRegistroOfertaTrato(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_oferta_trato')
+    .upsert(registro, { onConflict: 'local_id' })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// ==================== PESAGEM ====================
+
+export async function createRegistroPesagem(registro: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_pesagem')
     .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()

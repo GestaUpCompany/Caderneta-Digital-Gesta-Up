@@ -14,7 +14,7 @@ import { generateId } from '../utils/generateId'
 import { Registro, SyncError } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
-import { brWithTimeToIso } from '../utils/formatDate'
+import { brWithTimeToIso, brToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
 import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
 
@@ -67,6 +67,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'atividade-sessoes': 'atividade_sessoes',
   'atividade-imprevistos': 'atividade_imprevistos',
   'atividades': 'atividades',
+  pesagem: 'registros_pesagem',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -404,7 +405,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         quantidade_l: registro.quantidadeL ? Number(String(registro.quantidadeL).replace(',', '.')) : 0,
         valor_total: registro.valorTotal ? Number(String(registro.valorTotal).replace(',', '.')) : null,
         preco_por_litro: registro.precoPorLitro ? Number(String(registro.precoPorLitro).replace(',', '.')) : null,
-        data: brWithTimeToIso(registro.data),
+        data: brToIso(String(registro.data).split(' ')[0]) || null,
         origem: 'pwa_entrada',
         fornecedor: registro.fornecedor || null,
         placa_veiculo: registro.placaVeiculo || null,
@@ -584,6 +585,39 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         programacao_id: registro.programacaoId || null,
       }
     }
+    case 'pesagem': {
+      const snToBool = (v: unknown) => (v === 'S' ? true : v === 'N' ? false : null)
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        responsavel: registro.responsavel || registro.usuario || null,
+        tipo_manejo: registro.tipoManejo || null,
+        equipe_ajustada: snToBool(registro.equipeAjustada),
+        balanca_aferida: snToBool(registro.balancaAferida),
+        checklist_conferido: snToBool(registro.checklistConferido),
+        curral_limpo: snToBool(registro.curralLimpo),
+        horario_inicio: registro.horarioInicio || null,
+        horario_fim: registro.horarioFim || null,
+        tempo_total_min: registro.tempoTotalMin != null && registro.tempoTotalMin !== '' ? Number(registro.tempoTotalMin) : null,
+        tempo_medio_min_cab: registro.tempoMedioMinCab != null && registro.tempoMedioMinCab !== '' ? Number(registro.tempoMedioMinCab) : null,
+        id_chip: registro.idChip || null,
+        id_brinco: registro.idBrinco || null,
+        lote: registro.lote || null,
+        lote_id: registro.loteId || null,
+        categoria: registro.categoria || null,
+        sexo: registro.sexo || null,
+        peso_kg: normalizarNumero(registro.pesoKg as string | number | null | undefined),
+        raca: registro.raca || null,
+        idade_era: registro.idadeEra || null,
+        idade_dias: registro.idadeDias != null && registro.idadeDias !== '' ? Number(registro.idadeDias) : null,
+        acidente: snToBool(registro.acidente),
+        manejo_calmo: snToBool(registro.manejoCalmo),
+        gritaria: snToBool(registro.gritaria),
+        manejo_agil: snToBool(registro.manejoAgil),
+        tempo_preenchimento_seg: registro.tempoPreenchimentoSeg != null ? Number(registro.tempoPreenchimentoSeg) : null,
+        individuo_id: registro.individuoId || null,
+      }
+    }
     case 'fabrica-confinamento': {
       return {
         ...baseData,
@@ -690,7 +724,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         'registros_abastecimento', 'registros_alimentacao', 'registros_limpeza',
         'registros_operacoes_maquinas', 'registros_manutencao_maquinas',
         'registros_problemas', 'registros_almoxarifado', 'registros_leitura_cocho',
-        'registros_oferta_trato',
+        'registros_oferta_trato', 'registros_pesagem',
       ])
       const tableNameStr = Array.isArray(tableName) ? tableName[0] : tableName
       if (upsertTables.has(tableNameStr)) {
@@ -749,6 +783,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             break
           case 'registros_oferta_trato':
             result = await supabaseService.createRegistroOfertaTrato(data)
+            break
+          case 'registros_pesagem':
+            result = await supabaseService.createRegistroPesagem(data)
             break
         }
         // Capturar supabaseId retornado e gravar localmente
@@ -903,7 +940,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const client = await getSupabaseClientWithRefresh() as any
           const { data: mcData, error: mcError } = await client
             .from('movimentacoes_combustivel')
-            .insert(data)
+            .upsert(data, { onConflict: 'local_id' })
             .select()
             .single()
           if (mcError) throw mcError
@@ -1060,6 +1097,14 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             })
             .eq('id', supabaseId)
           if (aError) throw aError
+          break
+        }
+        case 'movimentacoes_combustivel': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: mcError } = await client
+            .from('movimentacoes_combustivel')
+            .upsert(data, { onConflict: 'local_id' })
+          if (mcError) throw mcError
           break
         }
       }

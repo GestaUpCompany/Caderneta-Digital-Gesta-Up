@@ -156,7 +156,115 @@ export function calcularPeriodoTrato(registroAtual: Registro, todosRegistros?: R
   return null
 }
 
+const PESAGEM_TIPOS_MANEJO: Record<string, string> = {
+  abate: 'Abate',
+  compra: 'Compra',
+  venda_vivo: 'Venda vivo',
+  transf_saida: 'Transf. saída',
+  transf_entrada: 'Transf. entrada',
+  apartacao: 'Apartação',
+}
+
+const horaDeIso = (iso: unknown): string | null => {
+  if (!iso) return null
+  const d = new Date(String(iso))
+  if (isNaN(d.getTime())) return null
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+// Pesagem: um registro por animal, mas o texto compartilhável é da sessão inteira.
+// A sessão é identificada pelo horarioInicio (mesmo ISO em todos os animais).
+const formatarPesagemComoTexto = (registro: Registro, todosRegistros?: Registro[]): string => {
+  const animais = (todosRegistros || [])
+    .filter((r) => r.horarioInicio && r.horarioInicio === registro.horarioInicio)
+    .sort((a, b) => {
+      const ta = Number(String(a.id).split('-').pop()) || 0
+      const tb = Number(String(b.id).split('-').pop()) || 0
+      return ta - tb
+    })
+  const lista = animais.length > 0 ? animais : [registro]
+
+  const tipoManejo = PESAGEM_TIPOS_MANEJO[String(registro.tipoManejo)] || String(registro.tipoManejo || '—')
+  const dataStr = String(registro.data).split(' ')[0]
+  const hIni = horaDeIso(registro.horarioInicio)
+  const hFim = horaDeIso(registro.horarioFim)
+
+  let texto = `📋 *PESAGEM — ${tipoManejo.toUpperCase()}*\n`
+  texto += `📅 ${dataStr}`
+  if (hIni || hFim) texto += ` · ${hIni || '—'} → ${hFim || '—'}`
+  const totalMin = normalizarNumero(registro.tempoTotalMin as any)
+  const mediaMin = normalizarNumero(registro.tempoMedioMinCab as any)
+  if (totalMin !== null) {
+    texto += ` · ⏱ ${formatarNumeroBR(totalMin, '—', 1)} min`
+    if (mediaMin !== null) texto += ` (${formatarNumeroBR(mediaMin, '—', 1)} min/cab)`
+  }
+  texto += `\n`
+
+  const checks: [string, unknown][] = [
+    ['Equipe', registro.equipeAjustada],
+    ['Balança', registro.balancaAferida],
+    ['Checklist', registro.checklistConferido],
+    ['Curral', registro.curralLimpo],
+  ]
+  texto += `${checks.every(([, v]) => v === 'S') ? '✅' : '⚠️'} ${checks
+    .map(([label, v]) => `${label} ${v === 'S' ? '✓' : '✗'}`)
+    .join(' ')}\n\n`
+
+  const pesos = lista.map((a) => normalizarNumero(a.pesoKg as any) ?? 0)
+  const totalKg = pesos.reduce((s, p) => s + p, 0)
+  const mediaKg = lista.length > 0 ? totalKg / lista.length : 0
+  texto += `🐄 *${lista.length} ${lista.length === 1 ? 'animal' : 'animais'} · ${formatarNumeroBR(totalKg, '—', 1)} kg · média ${formatarNumeroBR(mediaKg, '—', 1)} kg/cab*\n\n`
+
+  // Agrupa por lote preservando a ordem de primeira aparição
+  const lotes: string[] = []
+  lista.forEach((a) => {
+    const l = String(a.lote || 'Sem lote')
+    if (!lotes.includes(l)) lotes.push(l)
+  })
+
+  let idx = 0
+  lotes.forEach((lote) => {
+    const doLote = lista.filter((a) => String(a.lote || 'Sem lote') === lote)
+    texto += `*${lote}* (${doLote.length})\n`
+    doLote.forEach((a) => {
+      idx++
+      const ids = [
+        a.idBrinco ? `B${a.idBrinco}` : null,
+        a.idChip ? `C${a.idChip}` : null,
+      ].filter(Boolean).join(' · ') || 'Sem ID'
+      const sexoCurto = a.sexo === 'Macho' ? 'M' : a.sexo === 'Fêmea' ? 'F' : String(a.sexo || '')
+      const partes = [
+        String(a.categoria || ''),
+        sexoCurto,
+        a.pesoKg ? `*${formatarNumeroBR(a.pesoKg, String(a.pesoKg), 1)} kg*` : null,
+        a.raca ? String(a.raca) : null,
+        a.idadeEra ? String(a.idadeEra) : null,
+      ].filter(Boolean)
+      texto += `${idx}. ${ids} · ${partes.join(' · ')}\n`
+    })
+    texto += `\n`
+  })
+
+  const alertas: string[] = []
+  const contar = (campo: string, valor: string) => lista.filter((a) => a[campo] === valor).length
+  const nAcidente = contar('acidente', 'S')
+  const nGritaria = contar('gritaria', 'S')
+  const nNaoCalmo = contar('manejoCalmo', 'N')
+  const nNaoAgil = contar('manejoAgil', 'N')
+  if (nAcidente) alertas.push(`⚠️ Acidente: ${nAcidente} ${nAcidente === 1 ? 'animal' : 'animais'}`)
+  if (nGritaria) alertas.push(`⚠️ Gritaria em ${nGritaria} ${nGritaria === 1 ? 'animal' : 'animais'}`)
+  if (nNaoCalmo) alertas.push(`⚠️ Manejo não calmo: ${nNaoCalmo} ${nNaoCalmo === 1 ? 'animal' : 'animais'}`)
+  if (nNaoAgil) alertas.push(`⚠️ Manejo não ágil: ${nNaoAgil} ${nNaoAgil === 1 ? 'animal' : 'animais'}`)
+  texto += alertas.length ? `${alertas.join('\n')}\n` : `✅ Manejo sem ocorrências\n`
+
+  if (registro.responsavel) texto += `👤 ${registro.responsavel}\n`
+  return texto.trimEnd()
+}
+
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
+  if (caderneta === 'pesagem') {
+    return formatarPesagemComoTexto(registro, todosRegistros)
+  }
   // Obter nome da caderneta
   const cadernetaInfo = CADERNETAS.find(c => c.id === caderneta)
   let cadernetaNome = cadernetaInfo?.label || caderneta.toUpperCase()
@@ -1902,9 +2010,33 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   return texto
 }
 
+// navigator.share só é útil no mobile: no desktop ele abre o painel de
+// compartilhamento do SO, que não tem o WhatsApp como alvo.
+const isMobileShare = () =>
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) // iPadOS reporta como Mac
+
+const abrirUrlExterna = (url: string, texto: string) => {
+  // Garante o texto na área de transferência: se o pop-up for bloqueado, o
+  // usuário ainda consegue colar no WhatsApp manualmente.
+  navigator.clipboard?.writeText(texto).catch(() => {})
+  // window.open após await costuma cair no bloqueador de pop-up (user activation
+  // expirada); um clique em <a> é tratado como navegação e passa.
+  const a = document.createElement('a')
+  a.href = url
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
+const isAbort = (err: unknown) => (err as DOMException)?.name === 'AbortError'
+
 export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | null) => {
   const textoCodificado = encodeURIComponent(texto)
   const url = `https://wa.me/?text=${textoCodificado}`
+  const mobile = isMobileShare()
 
   // Se houver foto, tentar anexa-la via Web Share API (files)
   if (fotoBase64) {
@@ -1913,23 +2045,28 @@ export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | 
       const file = new File([blob], 'foto_registro.jpg', { type: 'image/jpeg' })
       const nav = navigator as any
 
-      if (typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
-        await nav.share({
-          title: 'Compartilhar Registro',
-          text: texto,
-          files: [file],
-        })
-        return
+      if (mobile && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+        try {
+          await nav.share({
+            title: 'Compartilhar Registro',
+            text: texto,
+            files: [file],
+          })
+          return
+        } catch (err) {
+          if (isAbort(err)) return // usuário cancelou a share sheet
+        }
       }
       // Dispositivo nao suporta anexar arquivo: compartilha texto e avisa
-      if (nav.share) {
+      if (mobile && nav.share) {
         try {
           await nav.share({ title: 'Compartilhar Registro', text: texto })
-        } catch {
-          window.open(url, '_blank')
+        } catch (err) {
+          if (isAbort(err)) return
+          abrirUrlExterna(url, texto)
         }
       } else {
-        window.open(url, '_blank')
+        abrirUrlExterna(url, texto)
       }
       alert('Este dispositivo não suporta anexar foto no compartilhamento. A foto foi omitida.')
       return
@@ -1939,17 +2076,17 @@ export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | 
     }
   }
 
-  if (navigator.share) {
+  if (mobile && navigator.share) {
     try {
       await navigator.share({
         title: 'Compartilhar Registro',
         text: texto,
       })
     } catch (err) {
-      // Se o usuário cancelar ou falhar, abre o WhatsApp Web
-      window.open(url, '_blank')
+      if (isAbort(err)) return // usuário cancelou a share sheet
+      abrirUrlExterna(url, texto)
     }
   } else {
-    window.open(url, '_blank')
+    abrirUrlExterna(url, texto)
   }
 }

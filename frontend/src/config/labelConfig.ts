@@ -309,6 +309,33 @@ const ALMOXARIFADO_LABELS = {
   observacao: 'OBSERVAÇÃO',
 }
 
+const PESAGEM_LABELS = {
+  ...COMMON_LABELS,
+  tipoManejo: 'TIPO DE MANEJO',
+  equipeAjustada: 'EQUIPE AJUSTADA?',
+  balancaAferida: 'BALANÇA AFERIDA?',
+  checklistConferido: 'CHECKLIST CONFERIDO?',
+  curralLimpo: 'CURRAL LIMPO?',
+  horarioInicio: 'HORÁRIO INÍCIO',
+  horarioFim: 'HORÁRIO FINAL',
+  tempoTotalMin: 'TEMPO TOTAL (MIN)',
+  tempoMedioMinCab: 'TEMPO MÉDIO (MIN/CAB)',
+  idChip: 'CHIP',
+  idBrinco: 'BRINCO',
+  lote: 'LOTE',
+  categoria: 'CATEGORIA',
+  sexo: 'SEXO',
+  pesoKg: 'PESO (KG)',
+  raca: 'RAÇA',
+  idadeEra: 'IDADE (ERA)',
+  idadeDias: 'IDADE (DIAS)',
+  acidente: 'ALGUM ACIDENTE?',
+  manejoCalmo: 'MANEJO CALMO?',
+  gritaria: 'GRITARIA?',
+  manejoAgil: 'MANEJO ÁGIL?',
+  tempoPreenchimentoSeg: 'TEMPO PREENCHIMENTO (SEG)',
+}
+
 // Exportar objeto principal
 export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   maternidade: MATERNIDADE_LABELS,
@@ -326,4 +353,5 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   'saida-insumos': SAIDA_INSUMOS_LABELS,
   'insumos-por-saida': INSUMOS_POR_SAIDA_LABELS,
   almoxarifado: ALMOXARIFADO_LABELS,
+  pesagem: PESAGEM_LABELS,
 }

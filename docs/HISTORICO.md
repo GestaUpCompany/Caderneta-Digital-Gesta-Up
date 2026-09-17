@@ -2,6 +2,22 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Caderneta Pesagem: sessão cronometrada offline-first (17/09/2026)
+
+**O que foi feito**: nova caderneta `/caderneta/pesagem` para pesagem/manejo sequencial de animais, priorizando velocidade. Fluxo: preparação (tipo de manejo + 4 checks S/N) → INICIAR dispara cronômetro → captura animal a animal com autocomplete por chip/brinco sobre o cache de indivíduos → "SALVAR E AVANÇAR" grava draft local → FINALIZAR abre modal de revisão (editar/excluir com confirmação) → "SALVAR E FINALIZAR" grava os registros e enfileira o sync. Lista em `/caderneta/pesagem/lista`.
+
+**Implementação**:
+- `PesagemPage.tsx`: sessão é um draft persistido no IndexedDB (`rascunhos`, key `pesagem-sessao-{fazendaId}`) que sobrevive a fechar o app; durante sessão ativa o Voltar pede confirmação e o rascunho continua. `salvarEFinalizar` guarda `registroId` por animal para retry idempotente (reenfileira `create`, upsert por `local_id` no sync, sem duplicar).
+- Categoria do animal é filtrada pelo `destino` do lote (mesma lógica de `Lotes.tsx` do Painel) e depois pelo sexo; era IND-EA obrigatória (`0-4m` a `>36m`), idade em dias opcional.
+- Infra: store `pesagem` no IndexedDB (DB_VERSION 29), `RegistroPesagem` em `types/cadernetas.ts`, validator em `validation.ts`, `TABLE_MAP`/case `pesagem`/`createRegistroPesagem` no sync, `IndividuoCache` ganhou `data_nascimento`/`lote_atual`/`idade_era` (autocomplete), entrada no menu Gado & Pastagens (`pesagem.png`), labels, display config.
+- **Share**: `formatarRegistroComoTexto` tem case `pesagem` que agrupa os registros pelo mesmo `horarioInicio` e gera UM resumo da sessão (totais, animais por lote, alertas de manejo). O modal de sucesso guarda `textoShare` gerado antes de resetar a sessão. `compartilharWhatsApp` corrigido: `navigator.share` só no mobile (no desktop abria o painel do SO sem WhatsApp, e share pendente quebrava as próximas com `InvalidStateError`), fallback via clique em `<a>` + cópia para clipboard, `AbortError` não abre wa.me.
+
+**Schema** (migration `20260916270000_caderneta_pesagem.sql` no Painel Web, `db push`, commit `3417bed`): tabela `registros_pesagem` (1 linha/animal, campos de sessão desnormalizados), `individuos.idade_era`, `individuos_categoria_check` ampliado (Bezerro/Bezerra/Boi Gordo/Tourinho/Tropa/Vaca), trigger `trg_registros_pesagem_upsert_individuo` faz upsert em `individuos` por chip/brinco + `fazenda_id` no insert sincronizado e grava `individuo_id` de volta. `origem` por tipo (compra→Compra, transf_entrada→Transferência, demais→Cadastro Manual); não altera `status` nem headcount.
+
+**Nota RBAC**: `pesagem` precisa constar em `cadernetas_permitidas` do funcionário (lista no Painel `src/utils/cadernetas.ts`, já no master). O cache de permissões só é renovado quando `useFuncionarioAuth` roda na `Home` — usuário navegando direto ao menu vê a lista antiga por até 24h.
+
+**Disparador**: quando mencionar "pesagem", "pesar gado", `registros_pesagem`, `idade_era`, "cronômetro da pesagem", "revisão da pesagem" ou "compartilhar não funciona", lembrar que sync só acontece após revisão/finalização e que a trigger no banco é quem faz o upsert em `individuos`.
+
 ## Foto nas cadernetas Enfermaria, Rodeio, Manutenção de Máquinas e Limpeza (16/09/2026)
 
 **O que foi feito**: replicada a captura de foto da `MortePage` (sem as coordenadas GPS) nas 4 cadernetas. A foto fica salva no IndexedDB como `fotoBase64` (entra no texto compartilhado via `compartilharWhatsApp`, que anexa o arquivo via Web Share API), sobe para o Storage no sync e a URL pública vai para a coluna `foto_url` do registro.
