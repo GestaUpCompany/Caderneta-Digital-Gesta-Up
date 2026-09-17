@@ -24,6 +24,8 @@ import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import FotoSection from '../../components/cadernetas/FotoSection'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 
 const BASE = import.meta.env.BASE_URL
@@ -177,6 +179,17 @@ export default function RodeioPage() {
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [metaRodeioInfo, setMetaRodeioInfo] = useState<{ metaDias: number; diasDesdeUltimo: number; diasAteProximo: number; isDentroMeta: boolean; hasRecord: boolean } | null>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+
+  // Hook reutilizavel de foto (sem GPS nesta caderneta)
+  const {
+    fotoBase64,
+    capturandoFoto,
+    fotoErro,
+    capturarFoto,
+    limpar: limparFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: false })
 
   // Carregar lotes ativos e funcionários do Supabase (online) ou cache (offline)
   useEffect(() => {
@@ -368,6 +381,7 @@ export default function RodeioPage() {
       // Campos de divergência
       n_cabecas: detalhesLote?.n_cabecas || 0,
       qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
+      fotoBase64: fotoBase64 || null,
     })
 
     if (!result.success && result.errors) {
@@ -391,18 +405,21 @@ export default function RodeioPage() {
       setRegistroSalvo({ ...result.registro, metaRodeio: metaRodeioAtualizado })
       setShowSuccessModal(true)
       setForm(makeInitial())
+      limparFoto()
     }
   }
 
   const handleLimpar = () => {
     setForm(makeInitial())
     setErrors([])
+    limparFoto()
   }
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
     setForm(makeInitial())
     setErrors([])
+    limparFoto()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -750,6 +767,19 @@ export default function RodeioPage() {
             </div>
           ))}
         </div>*/}
+
+        {/* Seção 6: Foto */}
+        <FotoSection
+          titulo="4. FOTO"
+          descricao="Tire uma foto do lote ou da ocorrência para anexar ao registro."
+          fotoBase64={fotoBase64}
+          capturando={capturandoFoto}
+          erro={fotoErro}
+          onTirar={capturarFoto}
+          onRemover={limparFoto}
+          fotoInputRef={fotoInputRef}
+          onFileChange={handleFileInputChange}
+        />
 
         <div className="flex flex-col gap-2">
           <button

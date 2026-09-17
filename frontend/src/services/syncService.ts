@@ -620,6 +620,51 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
   }
 }
 
+// Cadernetas que capturam foto no PWA: store -> bucket de storage.
+// fotos-registros e compartilhado; o path inclui a store para namespacing.
+const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
+  morte: 'fotos-morte',
+  'atividade-funcionarios': 'fotos-atividades',
+  enfermaria: 'fotos-registros',
+  rodeio: 'fotos-registros',
+  'manutencao-maquinas': 'fotos-registros',
+  limpeza: 'fotos-registros',
+}
+
+// Upload da foto do registro para o Storage; retorna a URL publica ou null.
+async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, fazendaId: string): Promise<string | null> {
+  const bucket = FOTO_BUCKET_BY_STORE[store]
+  const fotoBase64 = (registro as any).fotoBase64
+  if (!bucket || !fotoBase64) return null
+
+  try {
+    const { base64ToBlob } = await import('../utils/photoCompress')
+    const blob = base64ToBlob(fotoBase64)
+    const fotoPath = bucket === 'fotos-registros'
+      ? `${fazendaId}/${store}/${registro.id}/foto.jpg`
+      : `${fazendaId}/${registro.id}/foto.jpg`
+    const client = await getSupabaseClientWithRefresh() as any
+    const { error: uploadError } = await client
+      .storage
+      .from(bucket)
+      .upload(fotoPath, blob, { contentType: 'image/jpeg', upsert: true })
+
+    if (uploadError) {
+      console.error(`[SYNC] Erro ao fazer upload da foto (${store}):`, uploadError)
+      return null
+    }
+
+    const { data: urlData } = client
+      .storage
+      .from(bucket)
+      .getPublicUrl(fotoPath)
+    return urlData.publicUrl
+  } catch (uploadErr) {
+    console.error(`[SYNC] Exceção ao fazer upload da foto (${store}):`, uploadErr)
+    return null
+  }
+}
+
 // Função para gravar no Supabase
 async function syncToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string, operation: 'create' | 'update'): Promise<void> {
   try {
@@ -630,56 +675,10 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       console.log('[SYNC DEBUG] Payload maternidade:', JSON.stringify(data, null, 2))
     }
 
-    // Upload de foto para registros de morte
-    if (store === 'morte' && (registro as any).fotoBase64) {
-      try {
-        const { base64ToBlob } = await import('../utils/photoCompress')
-        const blob = base64ToBlob((registro as any).fotoBase64)
-        const fotoPath = `${fazendaId}/${registro.id}/foto.jpg`
-        const client = await getSupabaseClientWithRefresh() as any
-        const { error: uploadError } = await client
-          .storage
-          .from('fotos-morte')
-          .upload(fotoPath, blob, { contentType: 'image/jpeg', upsert: true })
-
-        if (uploadError) {
-          console.error('[SYNC] Erro ao fazer upload da foto de morte:', uploadError)
-        } else {
-          const { data: urlData } = client
-            .storage
-            .from('fotos-morte')
-            .getPublicUrl(fotoPath)
-          data = { ...data, foto_url: urlData.publicUrl }
-        }
-      } catch (uploadErr) {
-        console.error('[SYNC] Exceção ao fazer upload da foto de morte:', uploadErr)
-      }
-    }
-
-    // Upload de foto para conclusao de atividades
-    if (store === 'atividade-funcionarios' && (registro as any).fotoBase64) {
-      try {
-        const { base64ToBlob } = await import('../utils/photoCompress')
-        const blob = base64ToBlob((registro as any).fotoBase64)
-        const fotoPath = `${fazendaId}/${registro.id}/foto.jpg`
-        const client = await getSupabaseClientWithRefresh() as any
-        const { error: uploadError } = await client
-          .storage
-          .from('fotos-atividades')
-          .upload(fotoPath, blob, { contentType: 'image/jpeg', upsert: true })
-
-        if (uploadError) {
-          console.error('[SYNC] Erro ao fazer upload da foto de atividade:', uploadError)
-        } else {
-          const { data: urlData } = client
-            .storage
-            .from('fotos-atividades')
-            .getPublicUrl(fotoPath)
-          data = { ...data, foto_url: urlData.publicUrl }
-        }
-      } catch (uploadErr) {
-        console.error('[SYNC] Exceção ao fazer upload da foto de atividade:', uploadErr)
-      }
+    // Upload de foto (quando a caderneta captura imagem no PWA)
+    const fotoUrl = await uploadFotoRegistro(store, registro, fazendaId)
+    if (fotoUrl) {
+      data = { ...data, foto_url: fotoUrl }
     }
 
     if (operation === 'create') {

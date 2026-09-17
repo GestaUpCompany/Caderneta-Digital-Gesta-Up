@@ -2,6 +2,24 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Foto nas cadernetas Enfermaria, Rodeio, Manutenção de Máquinas e Limpeza (16/09/2026)
+
+**O que foi feito**: replicada a captura de foto da `MortePage` (sem as coordenadas GPS) nas 4 cadernetas. A foto fica salva no IndexedDB como `fotoBase64` (entra no texto compartilhado via `compartilharWhatsApp`, que anexa o arquivo via Web Share API), sobe para o Storage no sync e a URL pública vai para a coluna `foto_url` do registro.
+
+**Implementação**:
+- `usePhotoGps` ganhou a opção `comGps?: boolean` (default `true`). Com `comGps: false`, nenhum fluxo captura GPS, inclusive o fallback web via `handleFileInputChange`.
+- Novo componente compartilhado `components/cadernetas/FotoSection.tsx` (preview, botão tirar/remover, erro, input file oculto). As 4 telas o usam como seção final antes dos botões de ação, passando `fotoBase64` no payload do `salvarRegistro` e chamando `limpar` no salvar/limpar.
+- `syncService.ts`: os dois blocos duplicados de upload (morte, atividade-funcionarios) viraram o helper `uploadFotoRegistro` + mapa `FOTO_BUCKET_BY_STORE`. Buckets legados mantêm path `${fazendaId}/${registroId}/foto.jpg`; o bucket novo `fotos-registros` usa `${fazendaId}/${store}/${registroId}/foto.jpg`.
+- `shareUtils.ts`: nome do arquivo anexado mudou de `foto_morte.jpg` para `foto_registro.jpg`.
+
+**Schema** (migration `20260916260000_foto_url_cadernetas.sql` no repo do Painel Web, aplicada via `db push` e commitada em `d46c2a8`): `foto_url text` em `registros_enfermaria`, `registros_rodeio`, `registros_manutencao_maquinas`, `registros_limpeza`; bucket público `fotos-registros` com as mesmas 4 policies `authenticated` do `fotos-morte` (read/upload/update/delete).
+
+**Nota**: os 3 arquivos `*_remote_history_placeholder.sql` (150000/160000/170000) foram removidos no mesmo commit. Eles duplicavam versions já registradas remotamente e quebravam o `db push` com PK duplicada; o version remoto se pareia com o arquivo real local.
+
+**Pendente**: o Painel Web ainda não exibe `foto_url` dessas 4 cadernetas (só exibe a de morte/atividades).
+
+**Disparador**: quando mencionar "foto na enfermaria/rodeio/manutenção/limpeza", `fotos-registros`, `FotoSection`, ou `comGps`, lembrar que a foto não captura GPS e que o upload usa bucket compartilhado com store no path.
+
 ## Correções no cronômetro de atividades: pausas, sessões remotas e conclusão (16/09/2026)
 
 **Problema**: pausas nem sempre paravam o cronômetro. Causas encontradas na auditoria de `AtividadesPage.tsx` + `atividadesService.ts`:

@@ -16,6 +16,8 @@ export interface UsePhotoGpsOptions {
   gpsObrigatorio?: boolean
   /** Timeout do GPS em ms (default 15000) */
   gpsTimeout?: number
+  /** Se false, nao captura GPS em nenhum fluxo (foto pura). Default true. */
+  comGps?: boolean
 }
 
 export interface UsePhotoGpsReturn {
@@ -44,7 +46,7 @@ export interface UsePhotoGpsReturn {
 }
 
 export function usePhotoGps(options: UsePhotoGpsOptions = {}): UsePhotoGpsReturn {
-  const { gpsObrigatorio = false, gpsTimeout = 15000 } = options
+  const { gpsObrigatorio = false, gpsTimeout = 15000, comGps = true } = options
 
   const [fotoBase64, setFotoBase64] = useState<string | null>(null)
   const [latitude, setLatitude] = useState<number | null>(null)
@@ -217,13 +219,13 @@ export function usePhotoGps(options: UsePhotoGpsOptions = {}): UsePhotoGpsReturn
     setFotoErro(null)
     setGpsErro(null)
     setCapturandoFoto(true)
-    setCapturandoGps(true)
+    if (comGps) setCapturandoGps(true)
 
     try {
       // Disparar GPS e camera em paralelo (nao bloqueia camera no GPS)
       const [fotoResult, gpsResult] = await Promise.all([
         capturarFoto(),
-        capturarGps(),
+        comGps ? capturarGps() : Promise.resolve(null),
       ])
 
       // Se gpsObrigatorio e GPS falhou, abortar
@@ -260,7 +262,7 @@ export function usePhotoGps(options: UsePhotoGpsOptions = {}): UsePhotoGpsReturn
       setCapturandoGps(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gpsObrigatorio, capturarFoto, capturarGps])
+  }, [gpsObrigatorio, comGps, capturarFoto, capturarGps])
 
   /**
    * Handler para input file change (fallback web).
@@ -290,7 +292,7 @@ export function usePhotoGps(options: UsePhotoGpsOptions = {}): UsePhotoGpsReturn
       setFotoBase64(compressed)
 
       // GPS em paralelo (nao bloqueia)
-      const gpsResult = await capturarGps()
+      const gpsResult = comGps ? await capturarGps() : null
 
       if (gpsObrigatorio && !gpsResult) {
         setFotoErro('Não foi possível obter a localização. A foto só pode ser tirada com coordenadas capturadas.')
@@ -318,7 +320,7 @@ export function usePhotoGps(options: UsePhotoGpsOptions = {}): UsePhotoGpsReturn
       setCapturandoFoto(false)
       if (fotoInputRef.current) fotoInputRef.current.value = ''
     }
-  }, [gpsObrigatorio, capturarGps])
+  }, [gpsObrigatorio, comGps, capturarGps])
 
   return {
     fotoBase64,

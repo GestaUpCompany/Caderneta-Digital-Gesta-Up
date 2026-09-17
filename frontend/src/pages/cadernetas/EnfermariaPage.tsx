@@ -20,6 +20,8 @@ import AnimalIdentifier from '../../components/AnimalIdentifier'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import FotoSection from '../../components/cadernetas/FotoSection'
 
 const DIAGNOSTICOS = [
   'Pneumonia',
@@ -135,6 +137,17 @@ export default function EnfermariaPage() {
   const [tipoFiltro, setTipoFiltro] = useState<string>('')
   const [loteAutoIdentificado, setLoteAutoIdentificado] = useState<boolean>(false)
   const [mensagemLote, setMensagemLote] = useState<string>('')
+
+  // Hook reutilizavel de foto (sem GPS nesta caderneta)
+  const {
+    fotoBase64,
+    capturandoFoto,
+    fotoErro,
+    capturarFoto,
+    limpar: limparFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: false })
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -354,6 +367,7 @@ export default function EnfermariaPage() {
       medicamentos: form.medicamentos,
       observacaoTratamento: form.observacaoTratamento,
       tipoRegistro: form.tipoRegistro,
+      fotoBase64: fotoBase64 || null,
     })
 
     setSalvando(false)
@@ -364,6 +378,7 @@ export default function EnfermariaPage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
+      limparFoto()
     }
   }
 
@@ -648,6 +663,20 @@ export default function EnfermariaPage() {
           />
         </div>
 
+        {/* Seção 5: Foto */}
+        <FotoSection
+          titulo="4. FOTO"
+          descricao="Tire uma foto do animal ou do ferimento para anexar ao registro."
+          textoBotao="TIRAR FOTO DO ANIMAL"
+          fotoBase64={fotoBase64}
+          capturando={capturandoFoto}
+          erro={fotoErro}
+          onTirar={capturarFoto}
+          onRemover={limparFoto}
+          fotoInputRef={fotoInputRef}
+          onFileChange={handleFileInputChange}
+        />
+
         <div className="flex flex-col gap-2">
           <button
             type="button"
@@ -666,7 +695,7 @@ export default function EnfermariaPage() {
           </button>
           <button
             type="button"
-            onClick={() => setForm(makeInitial())}
+            onClick={() => { setForm(makeInitial()); limparFoto() }}
             className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
           >
             <span className="inline-flex items-center justify-center gap-2">

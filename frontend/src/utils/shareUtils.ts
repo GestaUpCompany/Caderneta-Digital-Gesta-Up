@@ -1910,7 +1910,7 @@ export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | 
   if (fotoBase64) {
     try {
       const blob = base64ToBlob(fotoBase64)
-      const file = new File([blob], 'foto_morte.jpg', { type: 'image/jpeg' })
+      const file = new File([blob], 'foto_registro.jpg', { type: 'image/jpeg' })
       const nav = navigator as any
 
       if (typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {

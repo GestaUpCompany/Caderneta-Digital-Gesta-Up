@@ -11,6 +11,8 @@ import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import FotoSection from '../../components/cadernetas/FotoSection'
 import { RootState } from '../../store/store'
 import { getSetoresCached, getLocaisCached } from '../../services/cadastroCache'
 
@@ -62,6 +64,17 @@ export default function LimpezaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
   const [locaisDisponiveis, setLocaisDisponiveis] = useState<string[]>([])
+
+  // Hook reutilizavel de foto (sem GPS nesta caderneta)
+  const {
+    fotoBase64,
+    capturandoFoto,
+    fotoErro,
+    capturarFoto,
+    limpar: limparFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: false })
 
   // Carregar setores e locais (com cache lazy para offline)
   useEffect(() => {
@@ -155,6 +168,7 @@ export default function LimpezaPage() {
       tarefas: form.tarefas,
       observacao: form.observacao,
       usuario: usuario,
+      fotoBase64: fotoBase64 || null,
     })
 
     setSalvando(false)
@@ -164,12 +178,14 @@ export default function LimpezaPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
+      limparFoto()
     }
   }
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
     limparRascunho()
+    limparFoto()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -180,6 +196,7 @@ export default function LimpezaPage() {
 
   const handleLimpar = () => {
     limparRascunho()
+    limparFoto()
     setErrors([])
   }
 
@@ -300,6 +317,19 @@ export default function LimpezaPage() {
         <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÕES</h2>
         <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
       </div>
+
+      {/* Seção 4: Foto */}
+      <FotoSection
+        titulo="4. FOTO"
+        descricao="Tire uma foto do local ou do trabalho realizado para anexar ao registro."
+        fotoBase64={fotoBase64}
+        capturando={capturandoFoto}
+        erro={fotoErro}
+        onTirar={capturarFoto}
+        onRemover={limparFoto}
+        fotoInputRef={fotoInputRef}
+        onFileChange={handleFileInputChange}
+      />
 
       {/* Ações */}
       <div className="flex flex-col gap-2">

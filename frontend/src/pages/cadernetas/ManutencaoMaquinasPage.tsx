@@ -16,6 +16,8 @@ import { useFormValidation } from '../../hooks/useFormValidation'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { normalizarNumeroString } from '../../utils/formatNumber'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import FotoSection from '../../components/cadernetas/FotoSection'
 import { Brush, Save } from 'lucide-react'
 
 const SN_OPTIONS = [
@@ -82,6 +84,17 @@ export default function ManutencaoMaquinasPage() {
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
 
+  // Hook reutilizavel de foto (sem GPS nesta caderneta)
+  const {
+    fotoBase64,
+    capturandoFoto,
+    fotoErro,
+    capturarFoto,
+    limpar: limparFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: false })
+
   const set = (key: keyof FormState) => (value: string) => setForm(prev => ({ ...prev, [key]: value }))
   const setInput = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [key]: e.target.value }))
 
@@ -134,6 +147,7 @@ export default function ManutencaoMaquinasPage() {
       odometro: normalizarNumeroString(form.odometro),
       checklist: form.checklist,
       observacao: form.observacao || '',
+      fotoBase64: fotoBase64 || null,
     })
 
     setSalvando(false)
@@ -144,6 +158,7 @@ export default function ManutencaoMaquinasPage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       limparRascunho()
+      limparFoto()
     }
   }
 
@@ -362,6 +377,19 @@ export default function ManutencaoMaquinasPage() {
           />
         </div>
 
+        {/* Seção 4: Foto */}
+        <FotoSection
+          titulo="4. FOTO"
+          descricao="Tire uma foto da máquina/veículo ou do problema encontrado para anexar ao registro."
+          fotoBase64={fotoBase64}
+          capturando={capturandoFoto}
+          erro={fotoErro}
+          onTirar={capturarFoto}
+          onRemover={limparFoto}
+          fotoInputRef={fotoInputRef}
+          onFileChange={handleFileInputChange}
+        />
+
         <div className="flex flex-col gap-2">
           <button
             type="button"
@@ -380,7 +408,7 @@ export default function ManutencaoMaquinasPage() {
           </button>
           <button
             type="button"
-            onClick={() => limparRascunho()}
+            onClick={() => { limparRascunho(); limparFoto() }}
             className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
           >
             <span className="inline-flex items-center justify-center gap-2">
