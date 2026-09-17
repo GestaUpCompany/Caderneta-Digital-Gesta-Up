@@ -228,6 +228,46 @@ export interface RegistroProblemas extends Registro {
   prioridade: string
 }
 
+export type TipoManejoPesagem =
+  | 'abate'
+  | 'compra'
+  | 'venda_vivo'
+  | 'transf_saida'
+  | 'transf_entrada'
+  | 'apartacao'
+
+export type IdadeEra = '0-4m' | '5-12m' | '13-24m' | '25-36m' | '>36m'
+
+export interface RegistroPesagem extends Registro {
+  // Sessão (desnormalizado em cada linha de animal)
+  tipoManejo: TipoManejoPesagem
+  equipeAjustada: 'S' | 'N'
+  balancaAferida: 'S' | 'N'
+  checklistConferido: 'S' | 'N'
+  curralLimpo: 'S' | 'N'
+  horarioInicio: string | null
+  horarioFim: string | null
+  tempoTotalMin: number | null
+  tempoMedioMinCab: number | null
+  // Animal
+  idChip: string
+  idBrinco: string
+  lote: string
+  loteId: string | null
+  categoria: string
+  sexo: 'Macho' | 'Fêmea'
+  pesoKg: number | null
+  raca: string
+  idadeEra: IdadeEra
+  idadeDias: number | null
+  acidente: 'S' | 'N'
+  manejoCalmo: 'S' | 'N'
+  gritaria: 'S' | 'N'
+  manejoAgil: 'S' | 'N'
+  tempoPreenchimentoSeg: number | null
+  individuoId?: string | null
+}
+
 export interface RegistroManutencaoMaquinas extends Registro {
   responsavelChecklist: string
   operadorMotorista: string

@@ -388,6 +388,9 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         classificacao_matriz: i.classificacao_matriz,
         numero_partos: i.numero_partos,
         status: i.status,
+        data_nascimento: i.data_nascimento,
+        lote_atual: i.lote_atual,
+        idade_era: i.idade_era,
       }))
       const mineral = mineralData?.map((m: any) => m.nome) || []
       const proteinado = proteinadoData?.map((p: any) => p.nome) || []

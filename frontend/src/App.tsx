@@ -131,6 +131,8 @@ const LeituraCochoPage = lazy(() => import('./pages/cadernetas/LeituraCochoPage'
 const TratoConfinamentoPage = lazy(() => import('./pages/cadernetas/TratoConfinamentoPage'))
 const FabricaConfinamentoPage = lazy(() => import('./pages/cadernetas/FabricaConfinamentoPage'))
 const FabricaConfinamentoListaPage = lazy(() => import('./pages/cadernetas/FabricaConfinamentoListaPage'))
+const PesagemPage = lazy(() => import('./pages/cadernetas/PesagemPage'))
+const PesagemListaPage = lazy(() => import('./pages/cadernetas/PesagemListaPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
@@ -617,6 +619,10 @@ function AppInner() {
             {/* Fábrica Confinamento */}
             <Route path="/caderneta/fabrica-confinamento" element={<FabricaConfinamentoPage />} />
             <Route path="/caderneta/fabrica-confinamento/lista" element={<FabricaConfinamentoListaPage />} />
+
+            {/* Pesagem */}
+            <Route path="/caderneta/pesagem" element={<PesagemPage />} />
+            <Route path="/caderneta/pesagem/lista" element={<PesagemListaPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

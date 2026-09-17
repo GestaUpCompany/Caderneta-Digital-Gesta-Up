@@ -63,6 +63,7 @@ export const CADERNETAS = [
   { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '🚚', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '🏥', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'morte', label: 'MORTE', emoji: '💀', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'pesagem', label: 'PESAGEM', emoji: '⚖️', icon: `${BASE}cadernetas/pesagem.png`, color: '#4A6FA5', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '💧', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '📊', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', disponivel: true, grupo: 'Confinamento' },
   { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '🌽', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#A0522D', disponivel: true, grupo: 'Confinamento' },

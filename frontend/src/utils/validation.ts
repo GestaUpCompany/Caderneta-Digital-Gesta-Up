@@ -858,7 +858,70 @@ export function validateAlmoxarifado(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel'
+const TIPOS_MANEJO_PESAGEM = ['abate', 'compra', 'venda_vivo', 'transf_saida', 'transf_entrada', 'apartacao']
+const IDADES_ERA = ['0-4m', '5-12m', '13-24m', '25-36m', '>36m']
+
+export function validatePesagem(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+
+  // Sessão
+  if (!isNonEmptyString(data.tipoManejo) || !TIPOS_MANEJO_PESAGEM.includes(data.tipoManejo as string))
+    errors.push({ field: 'tipoManejo', message: 'Tipo de manejo é obrigatório' })
+  const camposPreparacao: Record<string, string> = {
+    equipeAjustada: 'Equipe ajustada',
+    balancaAferida: 'Balança aferida',
+    checklistConferido: 'Checklist conferido',
+    curralLimpo: 'Curral limpo',
+  }
+  Object.entries(camposPreparacao).forEach(([campo, label]) => {
+    if (!isSnBoolean(data[campo]))
+      errors.push({ field: campo, message: `${label}: selecione SIM ou NÃO` })
+  })
+  if (!isNonEmptyString(data.horarioInicio))
+    errors.push({ field: 'horarioInicio', message: 'Horário de início é obrigatório' })
+  if (!isNonEmptyString(data.horarioFim))
+    errors.push({ field: 'horarioFim', message: 'Horário de fim é obrigatório' })
+
+  // Animal: ao menos um identificador
+  if (!isNonEmptyString(data.idChip) && !isNonEmptyString(data.idBrinco))
+    errors.push({ field: 'idChip', message: 'Informe o Chip ou o Brinco do animal' })
+  if (!isNonEmptyString(data.lote))
+    errors.push({ field: 'lote', message: 'Lote é obrigatório' })
+  if (!isNonEmptyString(data.categoria))
+    errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
+  if (!isNonEmptyString(data.sexo) || !['Macho', 'Fêmea'].includes(data.sexo as string))
+    errors.push({ field: 'sexo', message: 'Sexo é obrigatório (M ou F)' })
+  if (!isPositiveNumber(data.pesoKg) || Number(normalizarNumero(data.pesoKg as string | number) ?? 0) <= 0)
+    errors.push({ field: 'pesoKg', message: 'Peso (kg) deve ser maior que zero' })
+  if (!isNonEmptyString(data.raca))
+    errors.push({ field: 'raca', message: 'Raça é obrigatória' })
+  if (!isNonEmptyString(data.idadeEra) || !IDADES_ERA.includes(data.idadeEra as string))
+    errors.push({ field: 'idadeEra', message: 'Idade (era IND-EA) é obrigatória' })
+  if (data.idadeDias !== undefined && data.idadeDias !== null && data.idadeDias !== '') {
+    const dias = normalizarNumero(data.idadeDias as string | number)
+    if (dias === null || dias < 0 || !Number.isInteger(dias))
+      errors.push({ field: 'idadeDias', message: 'Idade em dias deve ser um número inteiro não negativo' })
+  }
+
+  // Perguntas S/N do animal
+  const camposAnimal: Record<string, string> = {
+    acidente: 'Algum acidente',
+    manejoCalmo: 'Manejo calmo',
+    gritaria: 'Gritaria',
+    manejoAgil: 'Manejo ágil',
+  }
+  Object.entries(camposAnimal).forEach(([campo, label]) => {
+    if (!isSnBoolean(data[campo]))
+      errors.push({ field: campo, message: `${label}: selecione SIM ou NÃO` })
+  })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -883,6 +946,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'trato-confinamento': validateTratoConfinamento,
   'fabrica-confinamento': validateFabricaConfinamento,
   'entrada-combustivel': validateEntradaCombustivel,
+  pesagem: validatePesagem,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {
