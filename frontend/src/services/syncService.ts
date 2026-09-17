@@ -14,7 +14,7 @@ import { generateId } from '../utils/generateId'
 import { Registro, SyncError } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
-import { brWithTimeToIso } from '../utils/formatDate'
+import { brWithTimeToIso, brToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
 import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
 
@@ -404,7 +404,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         quantidade_l: registro.quantidadeL ? Number(String(registro.quantidadeL).replace(',', '.')) : 0,
         valor_total: registro.valorTotal ? Number(String(registro.valorTotal).replace(',', '.')) : null,
         preco_por_litro: registro.precoPorLitro ? Number(String(registro.precoPorLitro).replace(',', '.')) : null,
-        data: brWithTimeToIso(registro.data),
+        data: brToIso(String(registro.data).split(' ')[0]) || null,
         origem: 'pwa_entrada',
         fornecedor: registro.fornecedor || null,
         placa_veiculo: registro.placaVeiculo || null,
@@ -903,7 +903,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const client = await getSupabaseClientWithRefresh() as any
           const { data: mcData, error: mcError } = await client
             .from('movimentacoes_combustivel')
-            .insert(data)
+            .upsert(data, { onConflict: 'local_id' })
             .select()
             .single()
           if (mcError) throw mcError
@@ -1060,6 +1060,14 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             })
             .eq('id', supabaseId)
           if (aError) throw aError
+          break
+        }
+        case 'movimentacoes_combustivel': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: mcError } = await client
+            .from('movimentacoes_combustivel')
+            .upsert(data, { onConflict: 'local_id' })
+          if (mcError) throw mcError
           break
         }
       }
