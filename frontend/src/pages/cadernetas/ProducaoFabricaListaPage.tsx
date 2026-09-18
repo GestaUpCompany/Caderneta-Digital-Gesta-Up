@@ -1,10 +1,10 @@
 import ListaRegistros from '../../components/cadernetas/ListaRegistros'
 
-export default function SaidaInsumosListaPage() {
+export default function ProducaoFabricaListaPage() {
   return (
     <ListaRegistros
       caderneta="saida-insumos"
-      titulo="SAÍDA DE INSUMOS"
+      titulo="PRODUÇÃO FÁBRICA"
       rotaForm="/caderneta/saida-insumos"
     />
   )

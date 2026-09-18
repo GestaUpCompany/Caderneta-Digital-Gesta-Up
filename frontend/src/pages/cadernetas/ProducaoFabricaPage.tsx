@@ -52,7 +52,7 @@ const makeInitial = (): FormState => ({
 
 const DESTINOS = ['Cria', 'Recria', 'Engorda', 'Tropa', 'Outros Animais']
 
-export default function SaidaInsumosPage() {
+export default function ProducaoFabricaPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
@@ -260,13 +260,13 @@ export default function SaidaInsumosPage() {
   return (
     <FeatureLock feature="saida-insumos" fazendaId={fazendaId}>
       <CadernetaLayout
-        title="SAÍDA DE INSUMOS"
+        title="PRODUÇÃO FÁBRICA"
         cadernetaId="saida-insumos"
         dateContent={
           <DatePicker value={form.dataProducao} onChange={set('dataProducao')} variant="header" compact inline />
         }
       >
-        <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+        <>
           {errors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
               {errors.map((e, i) => (
@@ -357,37 +357,37 @@ export default function SaidaInsumosPage() {
                       : 'Selecione uma formulação para ver os insumos.'}
                   </p>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-gray-200">
+                  <div className="overflow-x-auto rounded-xl border border-gray-200">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left p-2 font-bold text-gray-700">INSUMO</th>
-                          <th className="text-center p-2 font-bold text-gray-700">% MN</th>
-                          <th className="text-center p-2 font-bold text-gray-700">PREVISTO</th>
-                          <th className="text-center p-2 font-bold text-gray-700">REALIZADO</th>
+                          <th className="text-left p-1.5 sm:p-2 font-bold text-gray-700">INSUMO</th>
+                          <th className="text-center p-1.5 sm:p-2 font-bold text-gray-700 whitespace-nowrap">% MN</th>
+                          <th className="text-center p-1.5 sm:p-2 font-bold text-gray-700 whitespace-nowrap">PREV.</th>
+                          <th className="text-center p-1.5 sm:p-2 font-bold text-gray-700 whitespace-nowrap">REAL</th>
                         </tr>
                       </thead>
                       <tbody>
                         {insumos.map((insumo) => (
                           <tr key={insumo.insumo_id} className="border-b border-gray-100 last:border-0">
-                            <td className="p-2 font-bold text-gray-900">
+                            <td className="p-1.5 sm:p-2 font-bold text-gray-900">
                               {insumo.nome}
                               {insumo.tipo && <span className="ml-1 text-[10px] font-bold text-gray-500 align-middle">{insumo.tipo.toUpperCase()}</span>}
                             </td>
-                            <td className="p-2 text-center text-gray-600">
+                            <td className="p-1.5 sm:p-2 text-center text-gray-600 whitespace-nowrap">
                               {Number(insumo.formula_mn_percent || 0).toFixed(2).replace('.', ',')}%
                             </td>
-                            <td className="p-2 text-center font-bold text-gray-700">
+                            <td className="p-1.5 sm:p-2 text-center font-bold text-gray-700 whitespace-nowrap">
                               {(kgPrevistoPorInsumo[insumo.insumo_id] || 0).toFixed(1).replace('.', ',')}
                             </td>
-                            <td className="p-2 text-center">
+                            <td className="p-1.5 sm:p-2 text-center">
                               <input
                                 type="text"
                                 inputMode="decimal"
                                 value={form.insumosQuantidades[insumo.insumo_id] || ''}
                                 onChange={(e) => handleInsumoRealizadoChange(insumo.insumo_id, e.target.value)}
                                 placeholder="0"
-                                className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-center font-bold text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
+                                className="w-16 sm:w-20 rounded-lg border border-gray-200 px-1.5 sm:px-2 py-1 text-center font-bold text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
                               />
                             </td>
                           </tr>
@@ -442,14 +442,14 @@ export default function SaidaInsumosPage() {
               </div>
             </>
           )}
-        </main>
+        </>
 
         <SuccessModal
           isOpen={showSuccessModal}
           onClose={() => setShowSuccessModal(false)}
           onNewRecord={handleNewRecord}
           onExit={handleExit}
-          cadernetaName="Saída de Insumos"
+          cadernetaName="Produção Fábrica"
           registro={registroSalvo}
           caderneta="saida-insumos"
         />

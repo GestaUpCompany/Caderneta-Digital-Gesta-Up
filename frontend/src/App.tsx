@@ -115,8 +115,8 @@ const CantinaPage = lazy(() => import('./pages/cadernetas/CantinaPage'))
 const CantinaListaPage = lazy(() => import('./pages/cadernetas/CantinaListaPage'))
 const EntradaInsumosPage = lazy(() => import('./pages/cadernetas/EntradaInsumosPage'))
 const EntradaInsumosListaPage = lazy(() => import('./pages/cadernetas/EntradaInsumosListaPage'))
-const SaidaInsumosPage = lazy(() => import('./pages/cadernetas/SaidaInsumosPage'))
-const SaidaInsumosListaPage = lazy(() => import('./pages/cadernetas/SaidaInsumosListaPage'))
+const ProducaoFabricaPage = lazy(() => import('./pages/cadernetas/ProducaoFabricaPage'))
+const ProducaoFabricaListaPage = lazy(() => import('./pages/cadernetas/ProducaoFabricaListaPage'))
 const AlmoxarifadoPage = lazy(() => import('./pages/cadernetas/AlmoxarifadoPage'))
 const AlmoxarifadoListaPage = lazy(() => import('./pages/cadernetas/AlmoxarifadoListaPage'))
 const LimpezaPage = lazy(() => import('./pages/cadernetas/LimpezaPage'))
@@ -586,9 +586,9 @@ function AppInner() {
             <Route path="/caderneta/entrada-insumos" element={<EntradaInsumosPage />} />
             <Route path="/caderneta/entrada-insumos/lista" element={<EntradaInsumosListaPage />} />
 
-            {/* Saída de Insumos */}
-            <Route path="/caderneta/saida-insumos" element={<SaidaInsumosPage />} />
-            <Route path="/caderneta/saida-insumos/lista" element={<SaidaInsumosListaPage />} />
+            {/* Produção Fábrica */}
+            <Route path="/caderneta/saida-insumos" element={<ProducaoFabricaPage />} />
+            <Route path="/caderneta/saida-insumos/lista" element={<ProducaoFabricaListaPage />} />
 
             {/* Almoxarifado */}
             <Route path="/caderneta/almoxarifado" element={<AlmoxarifadoPage />} />

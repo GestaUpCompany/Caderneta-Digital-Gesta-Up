@@ -59,7 +59,7 @@ export function getFarmLogo(farmName: string): string {
 
 export const CADERNETAS = [
   { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', disponivel: true, grupo: 'Suplementação a Pasto' },
-  { id: 'saida-insumos', label: 'SAÍDA INSUMOS', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', disponivel: true, grupo: 'Suplementação a Pasto' },
+  { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', disponivel: true, grupo: 'Suplementação a Pasto' },
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', disponivel: true, grupo: 'Confinamento & TIP' },
   { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#A0522D', disponivel: true, grupo: 'Confinamento & TIP' },
   { id: 'fabrica-confinamento', label: 'FÁBRICA CONFINAMENTO', emoji: '', icon: `${BASE}cadernetas/fabrica-confinamento.png`, color: '#8B4513', disponivel: true, grupo: 'Confinamento & TIP' },
