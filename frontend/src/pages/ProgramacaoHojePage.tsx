@@ -93,10 +93,13 @@ export default function ProgramacaoHojePage() {
   const hoje = getHojeIso(timezone || undefined)
   const temRegras = regrasChecklist.length > 0
 
-  const FAZENDA_INSUMOS = 'd649c65e-16ab-4b77-a84b-df937aa41cc3'
+  const FAZENDAS_COM_INSUMOS = [
+    'd649c65e-16ab-4b77-a84b-df937aa41cc3',
+    'd3965505-74d5-4af7-9858-f773d2e8aab3',
+  ]
   const CADERNETAS_EXCLUSIVAS: Record<string, string[]> = {
-    'entrada-insumos': [FAZENDA_INSUMOS],
-    'saida-insumos': [FAZENDA_INSUMOS],
+    'entrada-insumos': FAZENDAS_COM_INSUMOS,
+    'saida-insumos': FAZENDAS_COM_INSUMOS,
   }
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
 

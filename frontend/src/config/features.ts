@@ -9,8 +9,13 @@ export type FeatureKey =
   | 'saida-insumos'
   | 'leitura-cocho'
 
+const FAZENDAS_COM_INSUMOS = [
+  'd649c65e-16ab-4b77-a84b-df937aa41cc3',
+  'd3965505-74d5-4af7-9858-f773d2e8aab3',
+]
+
 export const FEATURE_ACCESS: Record<FeatureKey, string[]> = {
-  'entrada-insumos': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
-  'saida-insumos': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
+  'entrada-insumos': FAZENDAS_COM_INSUMOS,
+  'saida-insumos': FAZENDAS_COM_INSUMOS,
   'leitura-cocho': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
 }
