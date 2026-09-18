@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { Input, Select, Button } from '../../components/ui'
-import { salvarRegistro } from '../../services/api'
+import { salvarRegistro, aguardarSyncConcluido } from '../../services/api'
 import { enqueueRegistro } from '../../services/syncService'
 import { todayBR } from '../../utils/formatDate'
 import { normalizarNumero } from '../../utils/formatNumber'
@@ -224,7 +224,7 @@ export default function PesagemPage() {
   const [confirmSair, setConfirmSair] = useState(false)
   const [salvandoFinal, setSalvandoFinal] = useState(false)
   const [errosFinal, setErrosFinal] = useState<string[]>([])
-  const [finalizado, setFinalizado] = useState<{ total: number; textoShare: string | null } | null>(null)
+  const [finalizado, setFinalizado] = useState<{ total: number; textoShare: string | null; syncErrors: number | null } | null>(null)
   const [metricasAbertas, setMetricasAbertas] = useState(false)
   const [checklistAberto, setChecklistAberto] = useState(false)
   const autoFillRef = useRef<string | null>(null)
@@ -235,24 +235,56 @@ export default function PesagemPage() {
 
   const rascunhoKey = `pesagem-sessao-${fazendaId}`
 
+  // Rascunho com debounce: digitar chip/brinco dispara updateAnimalAtual por
+  // tecla, e serializar a sessão inteira a cada dígito é O(animais) por
+  // keystroke. Escrita imediata (persistSessao) cancela o debounce pendente
+  // para que um estado mais antigo não sobrescreva o novo.
+  const rascunhoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingRascunho = useRef<SessaoPesagem | null>(null)
+  const cancelRascunhoTimer = useCallback(() => {
+    if (rascunhoTimer.current) {
+      clearTimeout(rascunhoTimer.current)
+      rascunhoTimer.current = null
+    }
+    pendingRascunho.current = null
+  }, [])
+
   const persistSessao = useCallback(
     (next: SessaoPesagem) => {
+      cancelRascunhoTimer()
       setSessao(next)
       salvarRascunho(rascunhoKey, next).catch((e) => console.error('[Pesagem] erro ao salvar rascunho:', e))
     },
-    [rascunhoKey]
+    [rascunhoKey, cancelRascunhoTimer]
   )
 
   const updateAnimalAtual = useCallback(
     (patch: Partial<AnimalDraft>) => {
       setSessao((prev) => {
         const next = { ...prev, animalAtual: { ...prev.animalAtual, ...patch } }
-        salvarRascunho(rascunhoKey, next).catch(() => {})
+        pendingRascunho.current = next
+        if (rascunhoTimer.current) clearTimeout(rascunhoTimer.current)
+        rascunhoTimer.current = setTimeout(() => {
+          rascunhoTimer.current = null
+          const toWrite = pendingRascunho.current
+          pendingRascunho.current = null
+          if (toWrite) salvarRascunho(rascunhoKey, toWrite).catch(() => {})
+        }, 350)
         return next
       })
     },
     [rascunhoKey]
   )
+
+  // Flush do rascunho pendente ao desmontar: sem isso os últimos ~350ms de
+  // digitação se perderiam ao sair da página.
+  useEffect(() => () => {
+    if (rascunhoTimer.current) clearTimeout(rascunhoTimer.current)
+    if (pendingRascunho.current) {
+      salvarRascunho(rascunhoKey, pendingRascunho.current).catch(() => {})
+      pendingRascunho.current = null
+    }
+  }, [rascunhoKey])
 
   // ==================== Restauração de sessão ====================
   useEffect(() => {
@@ -555,14 +587,25 @@ export default function PesagemPage() {
     const dataSessao = sessao.horarioInicio
       ? new Date(sessao.horarioInicio).toLocaleDateString('pt-BR')
       : todayBR()
-    const falhas: string[] = []
+    // horarioManejo faz salvarRegistro compor 'data' com a hora de INÍCIO da
+    // sessão em vez da hora da finalização — 'data' fica sendo o timestamp do
+    // manejo, coerente com as outras cadernetas.
+    const inicioHM = (() => {
+      if (!sessao.horarioInicio) return ''
+      const d = new Date(sessao.horarioInicio)
+      return isNaN(d.getTime())
+        ? ''
+        : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    })()
 
-    const animaisAtualizados = [...sessao.animais]
-    for (const [idx, a] of sessao.animais.entries()) {
+    // Animais são registros independentes: grava em paralelo para não pagar
+    // o sleep de 100ms de salvarRegistro por cabeça.
+    const results = await Promise.all(sessao.animais.map(async (a, idx) => {
       // Campos compartilhados + do animal; 'data' é montada por salvarRegistro
       // (DD/MM/AAAA HH:MM) e por isso fica fora do payload de update.
       const payload = {
         data: dataSessao,
+        horarioManejo: inicioHM,
         responsavel: usuario,
         usuario,
         tipoManejo: sessao.tipoManejo,
@@ -601,20 +644,24 @@ export default function PesagemPage() {
           await updateRegistro('pesagem', a.registroId, { ...payloadUpdate, syncStatus: 'pending' })
           await removeFromSyncQueueByRegistroId(a.registroId)
           await enqueueRegistro('pesagem', a.registroId, 'create')
+          return { registroId: a.registroId as string | null, error: null as string | null }
         } catch {
-          falhas.push(`Animal ${idx + 1}: erro ao atualizar registro local`)
+          return { registroId: null as string | null, error: `Animal ${idx + 1}: erro ao atualizar registro local` }
         }
-        continue
       }
 
       const result = await salvarRegistro('pesagem', payload)
       if (!result.success) {
         const msgs = (result.errors || []).map((e) => e.message).join('; ')
-        falhas.push(`Animal ${idx + 1}: ${msgs}`)
-      } else {
-        animaisAtualizados[idx] = { ...a, registroId: result.id || null }
+        return { registroId: null as string | null, error: `Animal ${idx + 1}: ${msgs}` }
       }
-    }
+      return { registroId: result.id || null, error: null as string | null }
+    }))
+
+    const falhas = results.map((r) => r.error).filter((e): e is string => Boolean(e))
+    const animaisAtualizados = sessao.animais.map((a, idx) =>
+      results[idx].registroId ? { ...a, registroId: results[idx].registroId } : a
+    )
 
     // Persiste os registroId atribuídos: numa nova tentativa de finalização,
     // animais já gravados são atualizados em vez de duplicados.
@@ -628,6 +675,9 @@ export default function PesagemPage() {
       return
     }
 
+    // Cancela o debounce antes de limpar: um write pendente disparando após
+    // limparRascunho ressuscitaria o rascunho da sessão recém-finalizada.
+    cancelRascunhoTimer()
     await limparRascunho(rascunhoKey).catch(() => {})
 
     // Gera o texto compartilhável agora: sessao é resetada logo abaixo e o
@@ -663,8 +713,21 @@ export default function PesagemPage() {
       : null
 
     setShowRevisao(false)
-    setFinalizado({ total: sessao.animais.length, textoShare })
+    setFinalizado({ total: sessao.animais.length, textoShare, syncErrors: null })
     setSessao(novaSessao())
+
+    // Observa o sync dos registros recém-gravados: falhas aparecem no modal
+    // de sucesso em vez de só na tela de lista. Timeout de 30s por registro;
+    // offline sai cedo e a lista continua sendo a fonte de verdade.
+    const syncIds = results.map((r) => r.registroId).filter((x): x is string => Boolean(x))
+    if (navigator.onLine && syncIds.length) {
+      Promise.all(syncIds.map((id) => aguardarSyncConcluido('pesagem', id)))
+        .then((statuses) => {
+          const errs = statuses.filter((s) => s === 'error').length
+          if (errs > 0) setFinalizado((f) => (f ? { ...f, syncErrors: errs } : f))
+        })
+        .catch(() => {})
+    }
   }
 
   const encerrarTela = () => {
@@ -1156,6 +1219,11 @@ export default function PesagemPage() {
             <p className="text-sm text-gray-600 mt-1">
               {finalizado.total} {finalizado.total === 1 ? 'registro salvo' : 'registros salvos'} no aparelho. Serão enviados ao sincronizar.
             </p>
+            {finalizado.syncErrors ? (
+              <p className="text-sm font-semibold text-amber-700 mt-2">
+                {finalizado.syncErrors} {finalizado.syncErrors === 1 ? 'registro falhou' : 'registros falharam'} ao sincronizar — abra a lista para reenviar.
+              </p>
+            ) : null}
             <div className="mt-4 flex flex-col gap-2">
               {finalizado.textoShare && (
                 <button

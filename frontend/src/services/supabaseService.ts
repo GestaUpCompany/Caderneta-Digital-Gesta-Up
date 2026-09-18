@@ -932,7 +932,6 @@ export async function createCategoria(categoria: TablesInsert<'categorias'>) {
 
 export async function getIndividuos(fazendaId: string, limit = 100) {
   const client = await getSupabaseClientWithRefresh() as any
-  console.log('[getIndividuos] fazendaId:', fazendaId, 'client:', client === supabase ? 'anon' : 'token')
   const { data, error } = await client
     .from('individuos')
     .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status, data_nascimento, lote_atual, idade_era')
@@ -941,7 +940,6 @@ export async function getIndividuos(fazendaId: string, limit = 100) {
     .order('id_manejo')
     .limit(limit)
 
-  console.log('[getIndividuos] data:', data, 'error:', error)
   if (error) throw error
   return data
 }
