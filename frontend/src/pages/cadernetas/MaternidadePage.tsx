@@ -15,16 +15,20 @@ import {
   getLoteDetalhesComCategoriasCached,
   getTratamentosCached,
   getRacasCached,
+  getMedicamentosCached,
   clearCachedQuery,
   buildCacheKey,
   getLotesAtivosCached,
 } from '../../services/cadastroCache'
 import { createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
+import MedicamentosSection, { MedicamentoItem } from '../../components/cadernetas/MedicamentosSection'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation, ValidationRules } from '../../hooks/useFormValidation'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import FotoSection from '../../components/cadernetas/FotoSection'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -118,6 +122,7 @@ interface FormState {
   idChipCria: string
   individuoIdCria: string
   tratamentos: string[]
+  medicamentos: MedicamentoItem[]
   sexo: string
   raca: string
   guachoCria: boolean
@@ -128,6 +133,7 @@ interface FormState {
   idChipCria2: string
   individuoIdCria2: string
   tratamentos2: string[]
+  medicamentos2: MedicamentoItem[]
   sexo2: string
   raca2: string
   guachoCria2: boolean
@@ -174,6 +180,7 @@ const makeInitial = (): FormState => ({
   idChipCria: '',
   individuoIdCria: '',
   tratamentos: [],
+  medicamentos: [],
   sexo: '',
   raca: '',
   guachoCria: false,
@@ -183,6 +190,7 @@ const makeInitial = (): FormState => ({
   idChipCria2: '',
   individuoIdCria2: '',
   tratamentos2: [],
+  medicamentos2: [],
   sexo2: '',
   raca2: '',
   guachoCria2: false,
@@ -226,6 +234,18 @@ export default function MaternidadePage() {
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [tratamentosDisponiveis, setTratamentosDisponiveis] = useState<any[]>([])
   const [racasDisponiveis, setRacasDisponiveis] = useState<any[]>([])
+  const [medicamentosDisponiveis, setMedicamentosDisponiveis] = useState<any[]>([])
+
+  // Hook reutilizavel de foto (sem GPS nesta caderneta)
+  const {
+    fotoBase64,
+    capturandoFoto,
+    fotoErro,
+    capturarFoto,
+    limpar: limparFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: false })
 
   // Aborto: a cria é tratada como animal morto — sem identificação, sem indivíduo no rebanho
   const isAborto = form.problemasParto.includes('Aborto')
@@ -425,6 +445,7 @@ export default function MaternidadePage() {
         sexo2: '',
         raca2: '',
         tratamentos2: [],
+        medicamentos2: [],
       })
     }))
   }
@@ -485,6 +506,16 @@ export default function MaternidadePage() {
           setRacasDisponiveis(racasData || [])
         } catch (error) {
           console.error('Erro ao carregar raças:', error)
+        }
+      }
+
+      // Carregar medicamentos (com cache lazy para offline)
+      if (fazendaId) {
+        try {
+          const medicamentosData = await getMedicamentosCached(fazendaId)
+          setMedicamentosDisponiveis(medicamentosData || [])
+        } catch (error) {
+          console.error('Erro ao carregar medicamentos:', error)
         }
       }
     }
@@ -770,6 +801,7 @@ export default function MaternidadePage() {
       idBrincoCria: isAborto ? null : form.idBrincoCria,
       idChipCria: isAborto ? null : form.idChipCria,
       tratamento: isAborto ? null : tratamentoFinal,
+      medicamentos: isAborto ? [] : form.medicamentos,
       tipoParto: tipoPartoFinal,
       observacaoParto: observacaoCria1,
       sexo: isAborto ? null : form.sexo,
@@ -790,6 +822,7 @@ export default function MaternidadePage() {
       idChipMaeAdotiva: guacho1 ? form.idChipMaeAdotiva : null,
       categoriaMaeAdotiva: guacho1 ? form.categoriaMaeAdotiva : null,
       racaMaeAdotiva: guacho1 ? form.racaMaeAdotiva : null,
+      fotoBase64: fotoBase64 || null,
       usuario: usuario,
     })
 
@@ -814,6 +847,7 @@ export default function MaternidadePage() {
           idChipCria: cria2Morta ? null : form.idChipCria2,
           // 2ª cria morta: sem primeiros cuidados
           tratamento: cria2Morta ? null : tratamentoFinal2,
+          medicamentos: cria2Morta ? [] : form.medicamentos2,
           tipoParto: tipoPartoCria2,
           observacaoParto: observacaoCria2,
           // 2ª cria morta: sem sexo e raça (não identificado)
@@ -835,6 +869,7 @@ export default function MaternidadePage() {
           idChipMaeAdotiva: guacho2 ? form.idChipMaeAdotiva2 : null,
           categoriaMaeAdotiva: guacho2 ? form.categoriaMaeAdotiva2 : null,
           racaMaeAdotiva: guacho2 ? form.racaMaeAdotiva2 : null,
+          fotoBase64: fotoBase64 || null,
         })
       } catch (err) {
         console.error('Erro ao salvar registro da 2ª cria (gêmeos):', err)
@@ -849,6 +884,7 @@ export default function MaternidadePage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       setForm(makeInitial())
+      limparFoto()
       setAnimalIdentifierKey(k => k + 1)
       // Invalida cache de detalhes do lote para refletir o novo bezerro/bezerra
       if (form.loteId) {
@@ -859,6 +895,7 @@ export default function MaternidadePage() {
 
   const handleLimpar = () => {
     setForm(makeInitial())
+    limparFoto()
     setAnimalIdentifierKey(k => k + 1)
     setErrors([])
   }
@@ -1269,6 +1306,16 @@ export default function MaternidadePage() {
             />
           </div>
 
+          {/* Medicamentos: opcional, mesma lógica da Enfermaria */}
+          <div className="border-t border-gray-100 pt-4 flex flex-col gap-4">
+            <h3 className="text-base font-bold text-gray-900">MEDICAMENTOS <span className="text-sm font-normal text-gray-500">(opcional)</span></h3>
+            <MedicamentosSection
+              items={form.medicamentos}
+              onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
+              medicamentosDisponiveis={medicamentosDisponiveis}
+            />
+          </div>
+
           {/* Guacho: opção específica da 1ª cria */}
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-base font-bold text-gray-900 mb-3">OPÇÃO ADICIONAL</h3>
@@ -1437,6 +1484,16 @@ export default function MaternidadePage() {
                   />
                 </div>
 
+                {/* Medicamentos: opcional, mesma lógica da Enfermaria */}
+                <div className="border-t border-gray-100 pt-4 flex flex-col gap-4">
+                  <h3 className="text-base font-bold text-[#1a3a2a]">MEDICAMENTOS <span className="text-sm font-normal text-gray-500">(opcional)</span></h3>
+                  <MedicamentosSection
+                    items={form.medicamentos2}
+                    onChange={(items) => setForm(prev => ({ ...prev, medicamentos2: items }))}
+                    medicamentosDisponiveis={medicamentosDisponiveis}
+                  />
+                </div>
+
                 {/* Guacho: opção específica da 2ª cria */}
                 <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-base font-bold text-[#1a3a2a] mb-3">OPÇÃO ADICIONAL</h3>
@@ -1542,6 +1599,20 @@ export default function MaternidadePage() {
             )}
           </div>
         )}
+
+        {/* Seção 5: Foto */}
+        <FotoSection
+          titulo="5. FOTO"
+          descricao="Tire uma foto da cria ou da mãe para anexar ao registro."
+          textoBotao="TIRAR FOTO"
+          fotoBase64={fotoBase64}
+          capturando={capturandoFoto}
+          erro={fotoErro}
+          onTirar={capturarFoto}
+          onRemover={limparFoto}
+          fotoInputRef={fotoInputRef}
+          onFileChange={handleFileInputChange}
+        />
 
         {/* Ações */}
         <div className="flex flex-col gap-2">

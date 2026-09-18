@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Maternidade: medicamentos opcionais por cria + MedicamentosSection compartilhado (18/09/2026)
+
+**Regra de negócio**: a caderneta Maternidade passa a ter uma seção opcional de medicamentos por cria (1ª cria e, em gêmeos, 2ª cria viva), com a mesma lógica que já existia na Enfermaria: filtro por tipo, seleção do medicamento, exibição de princípio ativo e dose recomendada, dose aplicada, adicionar/editar/remover múltiplos itens.
+
+**O que foi feito**:
+- Novo componente `frontend/src/components/cadernetas/MedicamentosSection.tsx` com a lógica extraída da Enfermaria (props `items`, `onChange`, `medicamentosDisponiveis`; estado de edição interno, então cada cria tem instância independente). Exporta a interface `MedicamentoItem` (`medicamentoId`, `tipo`, `nomeComercial`, `principioAtivo`, `doseRecomendada`, `doseAplicada`).
+- `EnfermariaPage.tsx` refatorada para usar o componente (removidos ~150 linhas de JSX e 6 handlers duplicados); comportamento preservado.
+- `MaternidadePage.tsx`: `form.medicamentos` e `form.medicamentos2`, carga de `getMedicamentosCached(fazendaId)`, seção "MEDICAMENTOS (opcional)" após PRIMEIROS CUIDADOS de cada cria, `medicamentos2` limpo ao desmarcar gêmeos, payload com `medicamentos: []` em aborto/cria morta.
+- `syncService.ts`: mapeia `medicamentos` no case `'maternidade'` (fallback `[]`) para a nova coluna `registros_maternidade.medicamentos` (jsonb), criada por migration no repo do Painel Web. Cria 1 e cria 2 gravam registros separados, cada um com sua própria lista.
+- Foto (18/09/2026, mesmo conjunto): `usePhotoGps({ comGps: false })` + `FotoSection` como secção "5. FOTO" antes das acções, `fotoBase64` nos dois payloads (em gêmeos, os dois registos guardam a mesma foto sob paths distintos por `registro.id`), `maternidade: 'fotos-registros'` em `FOTO_BUCKET_BY_STORE`, `limparFoto()` no sucesso e no LIMPAR. Persiste em `registros_maternidade.foto_url` (migration `20260918240000` no Painel), idêntico à Enfermaria.
+- Verificado: typecheck e build do PWA limpos; fluxo manual nas duas telas (adicionar, filtrar, selecionar, editar, remover; listas independentes por cria) sem erros de console.
+
 ## Reorganização do menu de cadernetas (18/09/2026)
 
 O menu foi reorganizado em sete grupos conforme o fluxo operacional definido: Suplementação a Pasto, Confinamento & TIP, Gado & Pastagens, Infraestrutura & Geral, Máquinas & Combustível, Materiais & Geral e Estoque (Entradas). A ordem das cadernetas dentro de cada grupo também foi ajustada para priorizar o uso esperado.

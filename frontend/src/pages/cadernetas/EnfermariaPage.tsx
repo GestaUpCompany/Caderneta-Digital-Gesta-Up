@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
@@ -22,6 +22,7 @@ import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
 import FotoSection from '../../components/cadernetas/FotoSection'
+import MedicamentosSection, { MedicamentoItem } from '../../components/cadernetas/MedicamentosSection'
 
 const DIAGNOSTICOS = [
   'Pneumonia',
@@ -37,15 +38,6 @@ const DIAGNOSTICOS = [
   'Bicheira',
   'Inchaço',
 ]
-
-interface MedicamentoItem {
-  medicamentoId: string
-  tipo: string
-  nomeComercial: string
-  principioAtivo: string
-  doseRecomendada: string
-  doseAplicada: string
-}
 
 // Função para processar categorias com diferentes delimitadores
 function processarCategorias(categorias: string): string[] {
@@ -131,10 +123,6 @@ export default function EnfermariaPage() {
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [medicamentosDisponiveis, setMedicamentosDisponiveis] = useState<any[]>([])
-  const [mostrarFormularioMedicamento, setMostrarFormularioMedicamento] = useState(false)
-  const [medicamentoEditando, setMedicamentoEditando] = useState<MedicamentoItem | null>(null)
-  const [medicamentoEditandoIndex, setMedicamentoEditandoIndex] = useState<number | null>(null)
-  const [tipoFiltro, setTipoFiltro] = useState<string>('')
   const [loteAutoIdentificado, setLoteAutoIdentificado] = useState<boolean>(false)
   const [mensagemLote, setMensagemLote] = useState<string>('')
 
@@ -186,73 +174,6 @@ export default function EnfermariaPage() {
   }
 
   const { isValid } = useFormValidation(form, validationRules)
-
-  // Handlers para medicamentos
-  const handleAdicionarMedicamento = () => {
-    setMostrarFormularioMedicamento(true)
-    setMedicamentoEditando(null)
-    setMedicamentoEditandoIndex(null)
-    setTipoFiltro('')
-  }
-
-  const handleEditarMedicamento = (index: number) => {
-    setMostrarFormularioMedicamento(true)
-    setMedicamentoEditando(form.medicamentos[index])
-    setMedicamentoEditandoIndex(index)
-    setTipoFiltro(form.medicamentos[index].tipo)
-  }
-
-  const handleRemoverMedicamento = (index: number) => {
-    setForm(prev => ({
-      ...prev,
-      medicamentos: prev.medicamentos.filter((_, i) => i !== index)
-    }))
-  }
-
-  const handleSalvarMedicamento = () => {
-    if (!medicamentoEditando?.medicamentoId || !medicamentoEditando?.doseAplicada) {
-      return
-    }
-
-    if (medicamentoEditandoIndex !== null) {
-      // Editar existente
-      setForm(prev => ({
-        ...prev,
-        medicamentos: prev.medicamentos.map((item, index) =>
-          index === medicamentoEditandoIndex ? medicamentoEditando : item
-        )
-      }))
-    } else {
-      // Adicionar novo
-      setForm(prev => ({
-        ...prev,
-        medicamentos: [...prev.medicamentos, medicamentoEditando]
-      }))
-    }
-
-    setMostrarFormularioMedicamento(false)
-    setMedicamentoEditando(null)
-    setMedicamentoEditandoIndex(null)
-    setTipoFiltro('')
-  }
-
-  const handleCancelarMedicamento = () => {
-    setMostrarFormularioMedicamento(false)
-    setMedicamentoEditando(null)
-    setMedicamentoEditandoIndex(null)
-    setTipoFiltro('')
-  }
-
-  const handleSelecionarMedicamento = (medicamento: any) => {
-    setMedicamentoEditando({
-      medicamentoId: medicamento.id,
-      tipo: medicamento.tipo,
-      nomeComercial: medicamento.nome_comercial,
-      principioAtivo: medicamento.principio_ativo || '',
-      doseRecomendada: medicamento.dose_recomendada || '',
-      doseAplicada: medicamentoEditando?.doseAplicada || '',
-    })
-  }
 
   // Carregar lotes ativos do Supabase (online) ou cache (offline)
   useEffect(() => {
@@ -547,113 +468,11 @@ export default function EnfermariaPage() {
             gridCols={2}
           />
 
-          {/* Lista de medicamentos adicionados */}
-          {form.medicamentos.length > 0 && (
-            <div className="flex flex-col gap-3">
-              {form.medicamentos.map((med, index) => (
-                <div key={index} className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <p className="text-lg font-bold text-gray-800 uppercase">{med.tipo}</p>
-                      <p className="text-base text-gray-900">{med.nomeComercial}</p>
-                      {med.doseRecomendada && (
-                        <p className="text-sm text-gray-600">Dose recomendada: {med.doseRecomendada}</p>
-                      )}
-                      <p className="text-base text-gray-900 font-semibold">Dose aplicada: {med.doseAplicada}</p>
-                    </div>
-                    <div className="flex gap-2 ml-2">
-                      <button
-                        onClick={() => handleEditarMedicamento(index)}
-                        className="text-blue-500 text-2xl"
-                        title="Editar medicamento"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        onClick={() => handleRemoverMedicamento(index)}
-                        className="text-red-500 text-2xl"
-                        title="Remover medicamento"
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Botão para adicionar medicamento */}
-          {!mostrarFormularioMedicamento ? (
-            <Button
-              onClick={handleAdicionarMedicamento}
-              variant="secondary"
-              icon="➕"
-              fullWidth
-            >
-              ADICIONAR MEDICAMENTO
-            </Button>
-          ) : (
-            /* Formulário para adicionar/editar medicamento */
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 flex flex-col gap-4">
-              <h3 className="text-base font-bold text-gray-900">
-                {medicamentoEditandoIndex !== null ? 'EDITAR MEDICAMENTO' : 'NOVO MEDICAMENTO'}
-              </h3>
-              
-              {/* Filtro por tipo */}
-              <SearchableModal
-                label="FILTRAR POR TIPO"
-                value={tipoFiltro}
-                onChange={setTipoFiltro}
-                options={[...new Set(medicamentosDisponiveis.map(m => m.tipo))]}
-                placeholder="Todos"
-                id="tipoFiltro"
-                name="tipoFiltro"
-              />
-
-              {/* Seleção de medicamento */}
-              {tipoFiltro && (
-                <SearchableModal
-                  label="MEDICAMENTO"
-                  value={medicamentoEditando?.nomeComercial || ''}
-                  onChange={(val) => {
-                    const medicamento = medicamentosDisponiveis.find(m => m.nome_comercial === val)
-                    if (medicamento) {
-                      handleSelecionarMedicamento(medicamento)
-                    }
-                  }}
-                  options={medicamentosDisponiveis
-                    .filter(m => m.tipo === tipoFiltro)
-                    .map(m => m.nome_comercial)}
-                  placeholder="Selecione um medicamento..."
-                  id="medicamento"
-                  name="medicamento"
-                />
-              )}
-              {medicamentoEditando?.principioAtivo && (
-                <p className="text-base text-gray-600">Princípio ativo: {medicamentoEditando.principioAtivo}</p>
-              )}
-              {medicamentoEditando?.doseRecomendada && (
-                <p className="text-base text-gray-600">Dose recomendada: {medicamentoEditando.doseRecomendada}</p>
-              )}
-
-              <Input
-                label="DOSE APLICADA"
-                placeholder="Informe a dose aplicada"
-                value={medicamentoEditando?.doseAplicada || ''}
-                onChange={(e) => setMedicamentoEditando(prev => prev ? { ...prev, doseAplicada: e.target.value } : null)}
-              />
-
-              <div className="flex gap-2">
-                <Button onClick={handleSalvarMedicamento} variant="success" icon="✓" className="text-sm">
-                  SALVAR
-                </Button>
-                <Button onClick={handleCancelarMedicamento} variant="secondary" icon="✕" className="text-sm">
-                  CANCELAR
-                </Button>
-              </div>
-            </div>
-          )}
+          <MedicamentosSection
+            items={form.medicamentos}
+            onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
+            medicamentosDisponiveis={medicamentosDisponiveis}
+          />
 
           <Input
             label="OBSERVAÇÃO"
