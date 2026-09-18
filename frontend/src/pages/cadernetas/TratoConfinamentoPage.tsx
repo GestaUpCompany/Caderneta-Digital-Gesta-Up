@@ -99,12 +99,6 @@ function brToDateISO(dataBR: string): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
-function sanitizarDecimalComVirgula(valor: string): string {
-  const semCaracteresInvalidos = valor.replace(/[^0-9,]/g, '')
-  const [inteiro, ...decimais] = semCaracteresInvalidos.split(',')
-  return decimais.length > 0 ? `${inteiro},${decimais.join('')}` : inteiro
-}
-
 function parseKgReal(valor: string): number {
   const numero = Number(valor.replace(',', '.'))
   return Number.isFinite(numero) ? numero : NaN
@@ -613,8 +607,8 @@ export default function TratoConfinamentoPage() {
   }, [data, tipoSelecionado, fazendaId, salvarTratoRascunho])
 
   const atualizarKgReal = useCallback((curralId: string, valor: string) => {
-    // Sanitizar: aceitar apenas dígitos e uma vírgula decimal.
-    const valorSanitizado = sanitizarDecimalComVirgula(valor)
+    // Sanitizar: aceitar apenas números naturais (dígitos inteiros).
+    const valorSanitizado = valor.replace(/\D/g, '')
     setCurrais((prev) =>
       prev.map((c) =>
         c.curralId === curralId ? { ...c, kgReal: valorSanitizado, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
@@ -1110,11 +1104,11 @@ export default function TratoConfinamentoPage() {
                             {curral.compensacaoUltimoTrato > 0 ? 'Previsto ajustado' : 'Previsto'}
                           </span>
                           <span className="text-lg font-black leading-tight text-[#1a3a2a] sm:text-xl">
-                            {formatarKg(curral.kgPlanejado)} kg
+                            {formatarKg(curral.kgPlanejado, 0)} kg
                           </span>
                           {curral.compensacaoUltimoTrato > 0 && (
                             <span className="mt-1 block max-w-[10rem] text-[11px] font-bold leading-tight text-amber-700">
-                              Inclui {formatarKg(curral.compensacaoUltimoTrato)} kg de compensação pela leitura tardia
+                              Inclui {formatarKg(curral.compensacaoUltimoTrato, 0)} kg de compensação pela leitura tardia
                             </span>
                           )}
                         </div>
@@ -1126,7 +1120,7 @@ export default function TratoConfinamentoPage() {
                             <input
                               ref={(el) => (inputRefs.current[curral.curralId] = el)}
                               type="text"
-                              inputMode="decimal"
+                              inputMode="numeric"
                               value={curral.kgReal}
                               onChange={(e) => atualizarKgReal(curral.curralId, e.target.value)}
                               onKeyDown={(e) => {

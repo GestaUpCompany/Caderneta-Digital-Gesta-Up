@@ -61,7 +61,7 @@ interface LinhaItem {
 
 function formatarPercentual(valor: number | null): string {
   if (valor === null || valor === undefined) return '—'
-  return `${valor.toFixed(3).replace('.', ',')}%`
+  return `${valor.toFixed(2).replace('.', ',')}%`
 }
 
 function formatarNumero(valor: number | null, casas = 2): string {
@@ -760,7 +760,7 @@ export default function LeituraCochoPage() {
                                 <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.tresDiasAtras)}</span>
                               </div>
                               <div>
-                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">média 10d</span>
+                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">M. 10D</span>
                                 <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.dezDias)}</span>
                               </div>
                               <div>
@@ -806,7 +806,7 @@ export default function LeituraCochoPage() {
                                 KG COCHO
                               </span>
                               <span className="text-base font-bold text-gray-900">
-                                {formatarNumeroMilhar(lote.tratoAnterior)}
+                                {formatarNumeroMilhar(lote.tratoAnterior, 0)}
                               </span>
                             </div>
                           </div>

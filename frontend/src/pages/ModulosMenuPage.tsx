@@ -186,7 +186,7 @@ export default function ModulosMenuPage() {
                   <img
                     src={caderneta.icon}
                     alt={caderneta.label}
-                    className="w-12 h-auto object-contain rounded-[16px]"
+                    className="w-16 h-auto object-contain rounded-[16px]"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
                       target.style.display = 'none'
@@ -194,8 +194,8 @@ export default function ModulosMenuPage() {
                       if (emoji) emoji.style.display = 'block'
                     }}
                   />
-                  <span className="text-2xl fallback-emoji hidden">{caderneta.emoji}</span>
-                  <span className="text-xs font-bold text-center leading-tight text-gray-900">
+                  <span className="text-3xl fallback-emoji hidden">{caderneta.emoji}</span>
+                  <span className="text-[0.65rem] font-bold text-center leading-tight text-gray-900">
                     {caderneta.label}
                   </span>
                 </button>

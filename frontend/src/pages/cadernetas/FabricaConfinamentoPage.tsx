@@ -1155,7 +1155,7 @@ export default function FabricaConfinamentoPage() {
                     Total Previsto
                   </span>
                   <span className="text-xl font-black text-gray-900">
-                    {formatarKg(totalPrevisto, 1)} kg
+                    {formatarKg(totalPrevisto, 0)} kg
                   </span>
                 </div>
                 {tratoNaoConcluidoJaIniciado && (
@@ -1164,7 +1164,7 @@ export default function FabricaConfinamentoPage() {
                       Já produzido neste trato
                     </span>
                     <span className="text-sm font-bold text-green-700">
-                      {formatarKg(jaProduzidoNoTrato, 1)} kg
+                      {formatarKg(jaProduzidoNoTrato, 0)} kg
                     </span>
                   </div>
                 )}
@@ -1174,7 +1174,7 @@ export default function FabricaConfinamentoPage() {
                       Faltam produzir
                     </span>
                     <span className="text-sm font-black text-amber-700">
-                      {formatarKg(faltamKg, 1)} kg
+                      {formatarKg(faltamKg, 0)} kg
                     </span>
                   </div>
                 )}
@@ -1232,8 +1232,8 @@ export default function FabricaConfinamentoPage() {
                         <tr className="bg-gray-50 border-b border-gray-200">
                           <th className="text-left p-2 font-bold text-gray-700">Insumo</th>
                           <th className="text-center p-2 font-bold text-gray-700">% MN</th>
-                          <th className="text-center p-2 font-bold text-gray-700">Previsto</th>
-                          <th className="text-center p-2 font-bold text-gray-700">Realizado</th>
+                          <th className="text-center p-2 font-bold text-gray-700">Prev.</th>
+                          <th className="text-center p-2 font-bold text-gray-700">Real</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1245,9 +1245,6 @@ export default function FabricaConfinamentoPage() {
                             <tr key={insumo.insumo_id} className="border-b border-gray-100 last:border-0">
                               <td className="p-2 font-bold text-gray-900">
                                 {capitalizarIniciais(insumo.nome)}
-                                {editavel && (
-                                  <span className="ml-1 text-[10px] font-bold text-amber-600 align-middle">NÚCLEO</span>
-                                )}
                               </td>
                               <td className="p-2 text-center text-gray-600">
                                 {percentEfetivo.toFixed(2).replace('.', ',')}%
@@ -1261,7 +1258,7 @@ export default function FabricaConfinamentoPage() {
                                     onChange={(e) => handlePrevistoNucleoChange(insumo.insumo_id, e.target.value)}
                                     onBlur={() => handlePrevistoNucleoBlur(insumo.insumo_id)}
                                     disabled={todosTratosConcluidos || totalProduzidoNum <= 0}
-                                    placeholder={totalProduzidoNum <= 0 ? 'Informe o total' : '0'}
+                                    placeholder=""
                                     className="w-20 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-center font-bold text-amber-800 focus:border-amber-500 focus:outline-none"
                                   />
                                 ) : (
