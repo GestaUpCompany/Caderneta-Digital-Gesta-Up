@@ -1,6 +1,12 @@
-﻿# Histórico de alterações (RESOLVIDO/IMPLEMENTADO)
+# Histórico de alterações (RESOLVIDO/IMPLEMENTADO)
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
+
+## Reorganização do menu de cadernetas (18/09/2026)
+
+O menu foi reorganizado em sete grupos conforme o fluxo operacional definido: Suplementação a Pasto, Confinamento & TIP, Gado & Pastagens, Infraestrutura & Geral, Máquinas & Combustível, Materiais & Geral e Estoque (Entradas). A ordem das cadernetas dentro de cada grupo também foi ajustada para priorizar o uso esperado.
+
+`pesagem` permanece em Gado & Pastagens. A caderneta existente `saida-insumos` permanece com seu ID, rota, permissões e sincronização, sendo exibida no grupo Suplementação a Pasto como `SAÍDA INSUMOS`. As cadernetas específicas de entrada de almoxarifado e cantina ainda não existem no PWA e não foram criadas nesta reorganização.
 
 ## Maternidade: aborto é cria morta — não entra no rebanho (18/09/2026)
 
