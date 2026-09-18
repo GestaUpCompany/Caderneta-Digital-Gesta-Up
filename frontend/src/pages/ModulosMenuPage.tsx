@@ -275,7 +275,7 @@ export default function ModulosMenuPage() {
                       }}
                     />
                     <span className="text-5xl fallback-emoji hidden">{caderneta.emoji}</span>
-                    <span className="text-base font-bold text-center leading-tight text-gray-900">
+                    <span className="text-sm font-bold text-center leading-tight text-gray-900">
                       {caderneta.label}
                     </span>
                   </button>
