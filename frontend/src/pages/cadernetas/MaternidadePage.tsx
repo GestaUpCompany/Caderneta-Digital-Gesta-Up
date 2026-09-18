@@ -227,6 +227,11 @@ export default function MaternidadePage() {
   const [tratamentosDisponiveis, setTratamentosDisponiveis] = useState<any[]>([])
   const [racasDisponiveis, setRacasDisponiveis] = useState<any[]>([])
 
+  // Aborto: a cria é tratada como animal morto — sem identificação, sem indivíduo no rebanho
+  const isAborto = form.problemasParto.includes('Aborto')
+  // 2ª cria sem identificação: natimorta ou aborto
+  const cria2Morta = form.gemelosNatimorto || isAborto
+
   const validationRules: ValidationRules = {
     // Form 1: Dados Gerais
     data: { required: true },
@@ -251,46 +256,27 @@ export default function MaternidadePage() {
       }
     },
 
-    // Form 4: 1ª Cria
-    idProvisorioCria: { required: true },
-    pesoCria: { required: true },
-    tratamentos: { 
+    // Form 4: 1ª Cria (aborto não pede identificação — cria tratada como morta)
+    idProvisorioCria: { required: !isAborto },
+    pesoCria: { required: !isAborto },
+    tratamentos: {
       custom: (value: string[]) => {
+        if (isAborto) return null
         if (!value || value.length === 0) return 'Pelo menos um primeiro cuidado é obrigatório'
         return null
       }
     },
-    sexo: { required: true },
-    raca: { required: true },
+    sexo: { required: !isAborto },
+    raca: { required: !isAborto },
 
     // Form 5: 2ª Cria (obrigatórios quando gêmeos E 2ª cria viva)
-    idProvisorioCria2: {
-      custom: (value: string) => {
-        if (form.gemelos && !form.gemelosNatimorto && (!value || value.trim() === '')) return 'ID provisório da 2ª cria é obrigatório para gêmeos'
-        return null
-      }
-    },
-    pesoCria2: {
-      custom: (value: string) => {
-        if (form.gemelos && !form.gemelosNatimorto && (!value || value.trim() === '')) return 'Peso da 2ª cria é obrigatório para gêmeos'
-        return null
-      }
-    },
-    sexo2: {
-      custom: (value: string) => {
-        if (form.gemelos && !form.gemelosNatimorto && (!value || value.trim() === '')) return 'Sexo da 2ª cria é obrigatório para gêmeos'
-        return null
-      }
-    },
-    raca2: {
-      custom: (value: string) => {
-        if (form.gemelos && !form.gemelosNatimorto && (!value || value.trim() === '')) return 'Raça da 2ª cria é obrigatória para gêmeos'
-        return null
-      }
-    },
+    idProvisorioCria2: { required: form.gemelos && !cria2Morta },
+    pesoCria2: { required: form.gemelos && !cria2Morta },
+    sexo2: { required: form.gemelos && !cria2Morta },
+    raca2: { required: form.gemelos && !cria2Morta },
     tratamentos2: {
       custom: (value: string[]) => {
-        if (form.gemelos && !form.gemelosNatimorto && (!value || value.length === 0)) return 'Pelo menos um primeiro cuidado da 2ª cria é obrigatório'
+        if (form.gemelos && !cria2Morta && (!value || value.length === 0)) return 'Pelo menos um primeiro cuidado da 2ª cria é obrigatório'
         return null
       }
     },
@@ -311,7 +297,7 @@ export default function MaternidadePage() {
     // Mãe adotiva (guacho 1ª cria)
     idManejoMaeAdotiva: {
       custom: (value: string) => {
-        if (form.guachoCria) {
+        if (form.guachoCria && !isAborto) {
           const hasManejo = value && value.trim() !== ''
           const hasBrinco = form.idBrincoMaeAdotiva && form.idBrincoMaeAdotiva.trim() !== ''
           const hasChip = form.idChipMaeAdotiva && form.idChipMaeAdotiva.trim() !== ''
@@ -322,7 +308,7 @@ export default function MaternidadePage() {
     },
     racaMaeAdotiva: {
       custom: (value: string) => {
-        if (form.guachoCria && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+        if (form.guachoCria && !isAborto && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
           if (!value || value.trim() === '') return 'Raça da mãe adotiva é obrigatória'
         }
         return null
@@ -330,7 +316,7 @@ export default function MaternidadePage() {
     },
     categoriaMaeAdotiva: {
       custom: (value: string) => {
-        if (form.guachoCria && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+        if (form.guachoCria && !isAborto && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
           if (!value || value.trim() === '') return 'Classificação da matriz adotiva é obrigatória'
         }
         return null
@@ -340,7 +326,7 @@ export default function MaternidadePage() {
     // Mãe adotiva (guacho 2ª cria)
     idManejoMaeAdotiva2: {
       custom: (value: string) => {
-        if (form.guachoCria2) {
+        if (form.guachoCria2 && !isAborto) {
           const hasManejo = value && value.trim() !== ''
           const hasBrinco = form.idBrincoMaeAdotiva2 && form.idBrincoMaeAdotiva2.trim() !== ''
           const hasChip = form.idChipMaeAdotiva2 && form.idChipMaeAdotiva2.trim() !== ''
@@ -351,7 +337,7 @@ export default function MaternidadePage() {
     },
     racaMaeAdotiva2: {
       custom: (value: string) => {
-        if (form.guachoCria2 && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
+        if (form.guachoCria2 && !isAborto && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
           if (!value || value.trim() === '') return 'Raça da mãe adotiva da 2ª cria é obrigatória'
         }
         return null
@@ -359,7 +345,7 @@ export default function MaternidadePage() {
     },
     categoriaMaeAdotiva2: {
       custom: (value: string) => {
-        if (form.guachoCria2 && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
+        if (form.guachoCria2 && !isAborto && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
           if (!value || value.trim() === '') return 'Classificação da matriz adotiva da 2ª cria é obrigatória'
         }
         return null
@@ -580,23 +566,28 @@ export default function MaternidadePage() {
     }
     const observacaoComum = observacaoPartesComuns.join(' | ')
 
+    // Guacho não se aplica a aborto (cria sem identificação)
+    const guacho1 = form.guachoCria && !isAborto
+    const guacho2 = form.guachoCria2 && !isAborto
+
     // Observação da 1ª cria (comum + guacho se marcado)
     const observacaoCria1 = [
       ...(observacaoComum ? [observacaoComum] : []),
-      ...(form.guachoCria ? ['Guacho'] : []),
+      ...(guacho1 ? ['Guacho'] : []),
     ].join(' | ')
 
     // Observação da 2ª cria (comum + guacho se marcado)
     const observacaoCria2 = [
       ...(observacaoComum ? [observacaoComum] : []),
-      ...(form.guachoCria2 ? ['Guacho'] : []),
+      ...(guacho2 ? ['Guacho'] : []),
     ].join(' | ')
 
-    // Tipo de parto: incluir 'Auxiliado' se marcado e 'Gêmeos' se marcado
+    // Tipo de parto: incluir 'Auxiliado' se marcado, 'Gêmeos' se marcado e 'Aborto' quando for o caso
     const tipoPartoFinal = [
       ...form.tipoParto,
       ...(form.partoAuxiliado ? ['Auxiliado'] : []),
       ...(form.gemelos ? ['Gêmeos'] : []),
+      ...(isAborto ? ['Aborto'] : []),
     ]
 
     // Criar indivíduo da mãe se ela não existir na base (nova mãe via modal NOVO)
@@ -632,7 +623,7 @@ export default function MaternidadePage() {
     // A categoria deriva da classificação: Nulípara → Vaca Vazia, demais → Vaca Parida
     const categoriaAdotiva = (cat: string) => cat === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'
     let individuoIdMaeAdotivaFinal = form.individuoIdMaeAdotiva
-    if (form.guachoCria && !individuoIdMaeAdotivaFinal && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+    if (guacho1 && !individuoIdMaeAdotivaFinal && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
       if (testModeAtivo) {
         console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe adotiva no Supabase')
       } else {
@@ -661,7 +652,7 @@ export default function MaternidadePage() {
 
     // Criar indivíduo da mãe adotiva (guacho 2ª cria) se não existir na base
     let individuoIdMaeAdotiva2Final = form.individuoIdMaeAdotiva2
-    if (form.guachoCria2 && !individuoIdMaeAdotiva2Final && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
+    if (guacho2 && !individuoIdMaeAdotiva2Final && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
       if (testModeAtivo) {
         console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe adotiva 2 no Supabase')
       } else {
@@ -734,20 +725,20 @@ export default function MaternidadePage() {
       }
     }
 
-    // Criar indivíduo da 1ª cria
-    const individuoIdCria = await criarIndividuoCria({
+    // Criar indivíduo da 1ª cria (aborto não entra no rebanho)
+    const individuoIdCria = isAborto ? '' : await criarIndividuoCria({
       idProvisorio: form.idProvisorioCria,
       idBrinco: form.idBrincoCria,
       idChip: form.idChipCria,
       sexo: form.sexo,
       raca: form.raca,
       peso: form.pesoCria,
-      maeAdotivaId: form.guachoCria ? (individuoIdMaeAdotivaFinal || undefined) : undefined,
+      maeAdotivaId: guacho1 ? (individuoIdMaeAdotivaFinal || undefined) : undefined,
     })
 
-    // Criar indivíduo da 2ª cria (se gêmeos e 2ª cria viva)
+    // Criar indivíduo da 2ª cria (se gêmeos e 2ª cria viva — aborto não entra no rebanho)
     let individuoIdCria2 = ''
-    if (form.gemelos && !form.gemelosNatimorto) {
+    if (form.gemelos && !cria2Morta) {
       individuoIdCria2 = await criarIndividuoCria({
         idProvisorio: form.idProvisorioCria2,
         idBrinco: form.idBrincoCria2,
@@ -755,7 +746,7 @@ export default function MaternidadePage() {
         sexo: form.sexo2,
         raca: form.raca2,
         peso: form.pesoCria2,
-        maeAdotivaId: form.guachoCria2 ? (individuoIdMaeAdotiva2Final || undefined) : undefined,
+        maeAdotivaId: guacho2 ? (individuoIdMaeAdotiva2Final || undefined) : undefined,
       })
     }
 
@@ -767,22 +758,22 @@ export default function MaternidadePage() {
     // Vínculo entre gêmeos (mesmo UUID para ambos os registros)
     const partoVinculoId = form.gemelos ? crypto.randomUUID() : null
 
-    // Registrar 1ª cria
+    // Registrar 1ª cria (aborto: sem identificação nem indivíduo — cria tratada como morta)
     const result = await salvarRegistro('maternidade', {
       data: form.data,
       pasto: pastoNome,
       pastoId: form.pastoId,
       lote: form.lote,
       loteId: form.loteId,
-      pesoCria: form.pesoCria ? Number(form.pesoCria) : null,
-      idProvisorioCria: form.idProvisorioCria,
-      idBrincoCria: form.idBrincoCria,
-      idChipCria: form.idChipCria,
-      tratamento: tratamentoFinal,
+      pesoCria: isAborto ? null : (form.pesoCria ? Number(form.pesoCria) : null),
+      idProvisorioCria: isAborto ? null : form.idProvisorioCria,
+      idBrincoCria: isAborto ? null : form.idBrincoCria,
+      idChipCria: isAborto ? null : form.idChipCria,
+      tratamento: isAborto ? null : tratamentoFinal,
       tipoParto: tipoPartoFinal,
       observacaoParto: observacaoCria1,
-      sexo: form.sexo,
-      raca: form.raca,
+      sexo: isAborto ? null : form.sexo,
+      raca: isAborto ? null : form.raca,
       idManejoMae: form.idManejoMae,
       idBrincoMae: form.idBrincoMae,
       idChipMae: form.idChipMae,
@@ -793,12 +784,12 @@ export default function MaternidadePage() {
       docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
       partoVinculoId,
       // Mãe adotiva (guacho)
-      individuoIdMaeAdotiva: form.guachoCria ? (individuoIdMaeAdotivaFinal || null) : null,
-      idManejoMaeAdotiva: form.guachoCria ? form.idManejoMaeAdotiva : null,
-      idBrincoMaeAdotiva: form.guachoCria ? form.idBrincoMaeAdotiva : null,
-      idChipMaeAdotiva: form.guachoCria ? form.idChipMaeAdotiva : null,
-      categoriaMaeAdotiva: form.guachoCria ? form.categoriaMaeAdotiva : null,
-      racaMaeAdotiva: form.guachoCria ? form.racaMaeAdotiva : null,
+      individuoIdMaeAdotiva: guacho1 ? (individuoIdMaeAdotivaFinal || null) : null,
+      idManejoMaeAdotiva: guacho1 ? form.idManejoMaeAdotiva : null,
+      idBrincoMaeAdotiva: guacho1 ? form.idBrincoMaeAdotiva : null,
+      idChipMaeAdotiva: guacho1 ? form.idChipMaeAdotiva : null,
+      categoriaMaeAdotiva: guacho1 ? form.categoriaMaeAdotiva : null,
+      racaMaeAdotiva: guacho1 ? form.racaMaeAdotiva : null,
       usuario: usuario,
     })
 
@@ -816,18 +807,18 @@ export default function MaternidadePage() {
           pastoId: form.pastoId,
           lote: form.lote,
           loteId: form.loteId,
-          // 2ª cria natimorta: sem peso, sem IDs
-          pesoCria: form.gemelosNatimorto ? null : (form.pesoCria2 ? Number(form.pesoCria2) : null),
-          idProvisorioCria: form.gemelosNatimorto ? null : form.idProvisorioCria2,
-          idBrincoCria: form.gemelosNatimorto ? null : form.idBrincoCria2,
-          idChipCria: form.gemelosNatimorto ? null : form.idChipCria2,
-          // 2ª cria natimorta: sem primeiros cuidados
-          tratamento: form.gemelosNatimorto ? null : tratamentoFinal2,
+          // 2ª cria morta (natimorta ou aborto): sem peso, sem IDs
+          pesoCria: cria2Morta ? null : (form.pesoCria2 ? Number(form.pesoCria2) : null),
+          idProvisorioCria: cria2Morta ? null : form.idProvisorioCria2,
+          idBrincoCria: cria2Morta ? null : form.idBrincoCria2,
+          idChipCria: cria2Morta ? null : form.idChipCria2,
+          // 2ª cria morta: sem primeiros cuidados
+          tratamento: cria2Morta ? null : tratamentoFinal2,
           tipoParto: tipoPartoCria2,
           observacaoParto: observacaoCria2,
-          // 2ª cria natimorta: sem sexo e raça (não identificado)
-          sexo: form.gemelosNatimorto ? null : form.sexo2,
-          raca: form.gemelosNatimorto ? null : form.raca2,
+          // 2ª cria morta: sem sexo e raça (não identificado)
+          sexo: cria2Morta ? null : form.sexo2,
+          raca: cria2Morta ? null : form.raca2,
           idManejoMae: form.idManejoMae,
           idBrincoMae: form.idBrincoMae,
           idChipMae: form.idChipMae,
@@ -838,12 +829,12 @@ export default function MaternidadePage() {
           docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
           partoVinculoId,
           // Mãe adotiva (guacho 2ª cria)
-          individuoIdMaeAdotiva: form.guachoCria2 ? (individuoIdMaeAdotiva2Final || null) : null,
-          idManejoMaeAdotiva: form.guachoCria2 ? form.idManejoMaeAdotiva2 : null,
-          idBrincoMaeAdotiva: form.guachoCria2 ? form.idBrincoMaeAdotiva2 : null,
-          idChipMaeAdotiva: form.guachoCria2 ? form.idChipMaeAdotiva2 : null,
-          categoriaMaeAdotiva: form.guachoCria2 ? form.categoriaMaeAdotiva2 : null,
-          racaMaeAdotiva: form.guachoCria2 ? form.racaMaeAdotiva2 : null,
+          individuoIdMaeAdotiva: guacho2 ? (individuoIdMaeAdotiva2Final || null) : null,
+          idManejoMaeAdotiva: guacho2 ? form.idManejoMaeAdotiva2 : null,
+          idBrincoMaeAdotiva: guacho2 ? form.idBrincoMaeAdotiva2 : null,
+          idChipMaeAdotiva: guacho2 ? form.idChipMaeAdotiva2 : null,
+          categoriaMaeAdotiva: guacho2 ? form.categoriaMaeAdotiva2 : null,
+          racaMaeAdotiva: guacho2 ? form.racaMaeAdotiva2 : null,
         })
       } catch (err) {
         console.error('Erro ao salvar registro da 2ª cria (gêmeos):', err)
@@ -1147,8 +1138,8 @@ export default function MaternidadePage() {
               </label>
             </div>
 
-            {/* Sub-opção de gêmeos: 2ª cria viva ou natimorta */}
-            {form.gemelos && (
+            {/* Sub-opção de gêmeos: 2ª cria viva ou natimorta (em aborto todas as crias são mortas) */}
+            {form.gemelos && !isAborto && (
               <div className="mt-3">
                 <p className="text-sm font-semibold text-gray-700 mb-2">2ª cria:</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -1199,7 +1190,15 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 4: 1ª Cria (identificação + sexo + raça + primeiros cuidados) */}
+        {/* Seção 4: 1ª Cria (identificação + sexo + raça + primeiros cuidados) — oculta em aborto */}
+        {isAborto ? (
+          <div className="bg-red-50 border border-red-200 rounded-3xl p-4 flex items-center gap-3">
+            <span className="text-2xl">💀</span>
+            <p className="text-sm text-red-800 font-medium">
+              A cria será registrada como abortada e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.
+            </p>
+          </div>
+        ) : (
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. 1ª CRIA</h2>
           <Input
@@ -1226,7 +1225,7 @@ export default function MaternidadePage() {
             />
           </div>
           <Input
-            label={<span>PESO DA CRIA (kg) <span className="text-red-500">*</span></span>}
+            label={<span>PESO DA CRIA (kg) {!form.problemasParto.includes('Aborto') && <span className="text-red-500">*</span>}</span>}
             placeholder="Ex: 32"
             value={form.pesoCria}
             onChange={setInputEvent('pesoCria')}
@@ -1362,14 +1361,15 @@ export default function MaternidadePage() {
             </div>
           )}
         </div>
+        )}
 
         {/* Seção 5: 2ª Cria (condicional - apenas para gêmeos) */}
         {form.gemelos && (
           <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-[#1a3a2a] flex flex-col gap-5">
             <h2 className="text-lg font-black text-[#1a3a2a] tracking-tight">4. 2ª CRIA (GÊMEOS)</h2>
 
-            {/* Campos de identificação: apenas se 2ª cria viva */}
-            {!form.gemelosNatimorto && (
+            {/* Campos de identificação: apenas se 2ª cria viva (aborto conta como morta) */}
+            {!cria2Morta && (
               <>
                 <Input
                   label={<span>ID PROVISÓRIO <span className="text-red-500">*</span></span>}
@@ -1393,7 +1393,7 @@ export default function MaternidadePage() {
                   />
                 </div>
                 <Input
-                  label={<span>PESO DA CRIA (kg) <span className="text-red-500">*</span></span>}
+                  label={<span>PESO DA CRIA (kg) {!(form.gemelosNatimorto || form.problemasParto.includes('Aborto')) && <span className="text-red-500">*</span>}</span>}
                   placeholder="Ex: 28"
                   value={form.pesoCria2}
                   onChange={setInputEvent('pesoCria2')}
@@ -1531,12 +1531,12 @@ export default function MaternidadePage() {
               </>
             )}
 
-            {/* Confirmação natimorto: sem campos de identificação nem cuidados */}
-            {form.gemelosNatimorto && (
+            {/* Confirmação cria morta: sem campos de identificação nem cuidados */}
+            {cria2Morta && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
                 <span className="text-2xl">💀</span>
                 <p className="text-sm text-red-800 font-medium">
-                  A 2ª cria será registrada como natimorta. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.
+                  A 2ª cria será registrada como {isAborto ? 'abortada' : 'natimorta'} e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.
                 </p>
               </div>
             )}

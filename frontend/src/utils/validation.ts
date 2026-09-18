@@ -117,10 +117,12 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
 
   // Detectar se é natimorto (2ª cria natimorta envia tipoParto com 'Natimorto')
+  // ou aborto (cria abortada não tem identificação, tipoParto com 'Aborto')
   const tipoParto = data.tipoParto
   const isNatimorto = Array.isArray(tipoParto) ? tipoParto.includes('Natimorto') : tipoParto === 'Natimorto'
+  const isAborto = Array.isArray(tipoParto) ? tipoParto.includes('Aborto') : tipoParto === 'Aborto'
 
-  if (!isNatimorto) {
+  if (!isNatimorto && !isAborto) {
     if (!isNonEmptyString(data.idProvisorioCria))
       errors.push({ field: 'idProvisorioCria', message: 'ID Provisório é obrigatório' })
     if (!isNonEmptyString(data.tratamento))

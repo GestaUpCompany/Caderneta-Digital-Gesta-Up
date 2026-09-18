@@ -75,11 +75,11 @@ export default function MaternidadeListaPage() {
           const tStr = String(t).trim()
           if (tStr) tiposPartoContagem[tStr] = (tiposPartoContagem[tStr] || 0) + 1
         })
-        if (tipos.some((t) => String(t).toLowerCase() === 'natimorto')) {
+        if (tipos.some((t) => ['natimorto', 'aborto'].includes(String(t).toLowerCase()))) {
           houveMorte = true
         }
         const obs = String(r.observacaoParto || '').toLowerCase()
-        if (obs.includes('natimorto')) {
+        if (obs.includes('natimorto') || obs.includes('aborto')) {
           houveMorte = true
         }
       })

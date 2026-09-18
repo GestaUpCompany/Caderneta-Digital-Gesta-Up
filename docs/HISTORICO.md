@@ -2,6 +2,24 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Maternidade: aborto é cria morta — não entra no rebanho (18/09/2026)
+
+**Regra de negócio**: Aborto é tratado integralmente como animal morto. A cria abortada não pede identificação (ID provisório, brinco, chip), peso, sexo, raça ou primeiros cuidados, não gera registro em `individuos` e não entra em headcount/rebanho. O mesmo vale para 2ª cria natimorta em gêmeos.
+
+**O que foi feito** (`MaternidadePage.tsx`):
+- `isAborto = problemasParto.includes('Aborto')` e `cria2Morta = gemelosNatimorto || isAborto` são as flags centrais; todas as regras de validação da cria usam `required: !isAborto` / `required: form.gemelos && !cria2Morta` (o `custom` do `useFormValidation` não roda em valor vazio — early return — então `required` calculado por render é o mecanismo correto; uma versão anterior com `custom` deixou o peso opcional sempre).
+- `tipoPartoFinal` passa a incluir `'Aborto'` (antes ia só em `observacao_parto`); 2ª cria morta inclui `'Natimorto'`.
+- `criarIndividuoCria` é pulado para aborto/cria2Morta (`individuoIdCria`/`individuoIdCria2` ficam `''`), e os dois payloads gravam todos os campos de cria como `null`.
+- UI: a seção "3. 1ª CRIA" vira um aviso ("será registrada como abortada e não entrará no rebanho"), e o seletor VIVA/NATIMORTA da 2ª cria se esconde no aborto com aviso equivalente.
+- `validateMaternidade` em `validation.ts` pula obrigatórios da cria quando `tipoParto` contém 'Aborto' (mesmo padrão que já existia para 'Natimorto').
+- Resumos (`MaternidadeListaPage`, `pdfUtils`): `houveMorte` passa a contar Aborto, então nenhuma seção de cria viva é renderizada.
+
+**Correção no banco** (migration `20260918130000_maternidade_trigger_skip_dead_cria.sql` no Painel Web, `db push`, commit `d9892b7`): o trigger `create_individual_from_maternidade()` criava um `individuos` sempre que `individuo_id_cria` era NULL — para cria morta isso violava `sexo NOT NULL` e derrubava o upsert inteiro (sync error). Agora `tipo_parto` contendo 'Aborto' ou 'Natimorto' retorna sem inserir. Efeito colateral preexistente coberto pela mesma guarda: registros de 2ª cria natimorta de gêmeos também falhariam no sync por esse trigger.
+
+**Validação** (fazenda `d649c65e-16ab-4b77-a84b-df937aa41cc3`, Chrome DevTools): fluxo completo com Aborto + Normal, zero dados de cria → SALVAR habilitou, registro sincronizou com `tipo_parto = {Normal, Aborto}` e TODOS os campos de cria null (`peso_cria_kg`, `id_provisorio_cria`, brinco, chip, `sexo`, `raca`, `tratamento`, `individuo_id_cria`); contagem de `individuos` inalterada (9). Lista exibe "Normal, Aborto" sem seção de cria. O registro anterior de teste (`2026-999`, 07:44) ficou com cria — pré-correção.
+
+**Disparador**: quando mencionar "aborto", "natimorto não entra no rebanho", "cria morta no rebanho", ou sync de maternidade falhando em `individuos.sexo`, lembrar que (1) a regra de morte vive em `isAborto`/`cria2Morta` na página + guarda de `tipo_parto` no trigger do banco, e (2) `required` condicional, não `custom`, é como validação condicional funciona no `useFormValidation`.
+
 ## Caderneta Pesagem: sessão cronometrada offline-first (17/09/2026)
 
 **O que foi feito**: nova caderneta `/caderneta/pesagem` para pesagem/manejo sequencial de animais, priorizando velocidade. Fluxo: preparação (tipo de manejo + 4 checks S/N) → INICIAR dispara cronômetro → captura animal a animal com autocomplete por chip/brinco sobre o cache de indivíduos → "SALVAR E AVANÇAR" grava draft local → FINALIZAR abre modal de revisão (editar/excluir com confirmação) → "SALVAR E FINALIZAR" grava os registros e enfileira o sync. Lista em `/caderneta/pesagem/lista`.

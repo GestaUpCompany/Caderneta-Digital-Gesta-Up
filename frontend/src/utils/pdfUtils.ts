@@ -400,18 +400,18 @@ export async function gerarPdfResumoMaternidade(
     const peso = Number(r.pesoCria)
     if (!isNaN(peso) && peso > 0) pesos.push(peso)
 
-    // Verificar morte: tipoParto contém "Natimorto" ou observacaoParto contém "Natimorto"
+    // Verificar morte: tipoParto ou observacaoParto contém "Natimorto" ou "Aborto"
     const tipoParto = r.tipoParto
     const tipos = Array.isArray(tipoParto) ? tipoParto : [tipoParto]
     tipos.forEach((t) => {
       const tStr = String(t).trim()
       if (tStr) tiposPartoContagem[tStr] = (tiposPartoContagem[tStr] || 0) + 1
     })
-    if (tipos.some((t) => String(t).toLowerCase() === 'natimorto')) {
+    if (tipos.some((t) => ['natimorto', 'aborto'].includes(String(t).toLowerCase()))) {
       houveMorte = true
     }
     const obs = String(r.observacaoParto || '').toLowerCase()
-    if (obs.includes('natimorto')) {
+    if (obs.includes('natimorto') || obs.includes('aborto')) {
       houveMorte = true
     }
   })
