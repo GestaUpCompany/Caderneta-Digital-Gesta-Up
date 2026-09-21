@@ -112,7 +112,7 @@ interface FormState {
   subtipo: string // Enfermaria, Apartação, Refugo de Cocho, Compras, Transferência
   brinco: string
   chip: string
-  causaObservacao: string
+  observacao: string
   fazendaDestinoId: string
   fazendaDestinoNome: string
   // Campos para Novo Lote
@@ -149,7 +149,7 @@ const makeInitial = (): FormState => ({
   subtipo: '',
   brinco: '',
   chip: '',
-  causaObservacao: '',
+  observacao: '',
   fazendaDestinoId: '',
   fazendaDestinoNome: '',
   nomeNovoLote: '',
@@ -532,7 +532,7 @@ export default function MovimentacaoPage() {
           subtipo: form.subtipo || null,
           brinco: form.brinco,
           chip: form.chip,
-          causaObservacao: form.causaObservacao,
+          observacao: form.observacao,
           equipe: form.equipe ? Number(form.equipe) : null,
           equipeNomes: form.equipeNomes,
         })
@@ -616,7 +616,7 @@ export default function MovimentacaoPage() {
             subtipo: null,
             brinco: '',
             chip: '',
-            causaObservacao: form.causaObservacao,
+            observacao: form.observacao,
             equipe: form.equipe ? Number(form.equipe) : null,
             equipeNomes: form.equipeNomes,
             pesoVivoAtualKg: c.pesoAtual,
@@ -721,7 +721,7 @@ export default function MovimentacaoPage() {
               responsavel: usuario,
               brinco: '',
               chip: '',
-              causaObservacao: `Transferência para ${result.fazenda_destino_nome}. Lote criado: ${result.lote_destino_nome}.`,
+              observacao: `Transferência para ${result.fazenda_destino_nome}. Lote criado: ${result.lote_destino_nome}.`,
               equipe: form.equipe ? Number(form.equipe) : null,
               equipeNomes: form.equipeNomes,
               syncStatus: 'synced' as const,
@@ -870,7 +870,7 @@ export default function MovimentacaoPage() {
           usuario: usuario,
           motivo: 'Saída',
           subtipo: 'Novo Lote',
-          causa_observacao: form.causaObservacao || null,
+          observacao: form.observacao || null,
         }
 
         // Salvar no IndexedDB com syncStatus='pending'
@@ -891,7 +891,7 @@ export default function MovimentacaoPage() {
           responsavel: usuario,
           brinco: '',
           chip: '',
-          causaObservacao: form.causaObservacao || '',
+          observacao: form.observacao || '',
           equipe: form.equipe ? Number(form.equipe) : null,
           equipeNomes: form.equipeNomes,
           syncStatus: 'pending' as const,
@@ -925,7 +925,7 @@ export default function MovimentacaoPage() {
           pastoNomeNovoLote: form.pastoNomeNovoLote,
           curralNomeNovoLote: form.curralNomeNovoLote,
           categoriasParaMover: categoriasParaMoverNL,
-          causaObservacao: form.causaObservacao || '',
+          observacao: form.observacao || '',
         })
         setShowSuccessModal(true)
         setForm(makeInitial())
@@ -976,7 +976,7 @@ export default function MovimentacaoPage() {
           subtipo: form.subtipo || null,
           brinco: totalCabecas === 1 ? form.brinco : '',
           chip: totalCabecas === 1 ? form.chip : '',
-          causaObservacao: form.causaObservacao,
+          observacao: form.observacao,
           equipe: form.equipe ? Number(form.equipe) : null,
           equipeNomes: form.equipeNomes,
         })
@@ -1082,12 +1082,6 @@ export default function MovimentacaoPage() {
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-lg font-bold text-gray-900">DESTINO: CANTINA</p>
                   </div>
-                  <Input
-                    label="CAUSA / OBSERVAÇÃO:"
-                    placeholder=""
-                    value={form.causaObservacao}
-                    onChange={setInput('causaObservacao')}
-                  />
                 </>
               ) : form.motivoMovimentacao === 'Abate' ? (
                 <>
@@ -1113,12 +1107,6 @@ export default function MovimentacaoPage() {
                       id="loteDestino"
                     />
                   )}
-                  <Input
-                    label="CAUSA / OBSERVAÇÃO:"
-                    placeholder=""
-                    value={form.causaObservacao}
-                    onChange={setInput('causaObservacao')}
-                  />
                 </>
               ) : form.motivoMovimentacao === 'Saída' ? (
                 <>
@@ -1155,12 +1143,6 @@ export default function MovimentacaoPage() {
                           id="loteDestino"
                         />
                       )}
-                      <Input
-                        label="CAUSA / OBSERVAÇÃO:"
-                        placeholder=""
-                        value={form.causaObservacao}
-                        onChange={setInput('causaObservacao')}
-                      />
                     </>
                   ) : form.subtipo === 'Transferência' ? (
                     <>
@@ -1295,12 +1277,6 @@ export default function MovimentacaoPage() {
                           )}
                         </div>
                       ) : null}
-                      <Input
-                        label="CAUSA / OBSERVAÇÃO:"
-                        placeholder=""
-                        value={form.causaObservacao}
-                        onChange={setInput('causaObservacao')}
-                      />
                     </>
                   ) : null}
                 </>
@@ -1424,12 +1400,6 @@ export default function MovimentacaoPage() {
                           </div>
                         )
                       })}
-                      <Input
-                        label="CAUSA / OBSERVAÇÃO:"
-                        placeholder="Descreva detalhes da entrada (opcional)"
-                        value={form.causaObservacao}
-                        onChange={setInput('causaObservacao')}
-                      />
                     </>
                   ) : (
                     <p className="text-sm text-gray-500 italic">
@@ -1461,21 +1431,9 @@ export default function MovimentacaoPage() {
                       disabled
                     />
                   )}
-                  <Input
-                    label="CAUSA / OBSERVAÇÃO:"
-                    placeholder=""
-                    value={form.causaObservacao}
-                    onChange={setInput('causaObservacao')}
-                  />
                 </>
               ) : form.motivoMovimentacao === 'Doação' ? (
                 <>
-                  <Input
-                    label="OBSERVAÇÃO:"
-                    placeholder=""
-                    value={form.causaObservacao}
-                    onChange={setInput('causaObservacao')}
-                  />
                 </>
               ) : null}
             </>
@@ -1527,10 +1485,10 @@ export default function MovimentacaoPage() {
 
         {/* Seção 4: Equipe (opcional) */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">EQUIPE NO MANEJO (OPCIONAL)</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">EQUIPE NO MANEJO</h2>
           <Radio
             name="equipe"
-            label="N° PESSOAS NO MANEJO"
+            label="N° PESSOAS NO MANEJO (OPCIONAL)"
             options={ESCALA_EQUIPE}
             value={form.equipe}
             onChange={(value) => {
@@ -1578,6 +1536,12 @@ export default function MovimentacaoPage() {
               ))}
             </div>
           )}
+          <Input
+            label="OBSERVAÇÃO (OPCIONAL)"
+            placeholder="Descreva detalhes do manejo (opcional)"
+            value={form.observacao}
+            onChange={setInput('observacao')}
+          />
         </div>
 
         <div className="flex flex-col gap-2">

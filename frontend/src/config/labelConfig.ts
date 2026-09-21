@@ -162,7 +162,8 @@ const MOVIMENTACAO_LABELS = {
   brinco: 'BRINCO',
   chip: 'CHIP',
   brincoChip: 'BRINCO/CHIP',
-  causaObservacao: 'CAUSA/OBSERVAÇÃO',
+  observacao: 'OBSERVAÇÃO',
+  causaObservacao: 'OBSERVAÇÃO',
 }
 
 const ENFERMARIA_LABELS = {

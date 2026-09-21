@@ -466,8 +466,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.loteDestino) {
       texto += `DESTINO: *${registro.loteDestino}*\n`
     }
-    if (registro.causaObservacao) {
-      texto += `CAUSA/OBSERVAÇÃO: *${registro.causaObservacao}*\n`
+    if (registro.observacao) {
+      texto += `OBSERVAÇÃO: *${registro.observacao}*\n`
     }
 
     // Seção: EQUIPE (opcional)
@@ -1669,8 +1669,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `\n⚠️ Aguardando aprovação do controller no Manej'Us\n`
 
     // Observação
-    if (registro.causaObservacao && String(registro.causaObservacao).trim() !== '') {
-      texto += `\nOBSERVAÇÃO: *${registro.causaObservacao}*\n`
+    if (registro.observacao && String(registro.observacao).trim() !== '') {
+      texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
   } else {
     // Para pastagens, usar estrutura organizada

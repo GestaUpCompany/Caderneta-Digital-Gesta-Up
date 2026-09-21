@@ -16,7 +16,8 @@ export const movimentacaoConfig: CadernetaDisplayConfig = {
     motivoMovimentacao: { key: 'motivoMovimentacao', section: 'MOVIMENTAÇÃO', priority: 1 },
     subtipo: { key: 'subtipo', section: 'MOVIMENTAÇÃO', priority: 2 },
     loteDestino: { key: 'loteDestino', section: 'MOVIMENTAÇÃO', priority: 3 },
-    causaObservacao: { key: 'causaObservacao', section: 'MOVIMENTAÇÃO', priority: 4, colSpan: 2 },
+    observacao: { key: 'observacao', section: 'MOVIMENTAÇÃO', priority: 4, colSpan: 2 },
+    causaObservacao: { key: 'causaObservacao', section: 'MOVIMENTAÇÃO', priority: 5, colSpan: 2 },
   },
   hiddenFields: ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outraCategoria'],
 }

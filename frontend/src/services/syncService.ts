@@ -315,6 +315,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         brinco: registro.brinco || null,
         chip: registro.chip || null,
         causa_observacao: registro.causaObservacao || null,
+        observacao: registro.observacao || null,
         peso_vivo_atual_kg: registro.pesoVivoAtualKg ? Number(registro.pesoVivoAtualKg) : null,
         raca: registro.raca || null,
         sexo: registro.sexo || null,

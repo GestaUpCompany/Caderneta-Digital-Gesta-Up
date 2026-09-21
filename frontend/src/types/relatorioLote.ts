@@ -154,6 +154,7 @@ export interface MovimentacaoLote {
   motivo_movimentacao: string | null
   subtipo: string | null
   causa_observacao: string | null
+  observacao?: string | null
   responsavel: string | null
   fazenda_destino_id: string | null
   fazenda_destino_nome: string | null

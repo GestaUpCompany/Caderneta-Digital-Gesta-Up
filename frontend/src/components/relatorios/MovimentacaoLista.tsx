@@ -78,9 +78,9 @@ export default function MovimentacaoLista({ movimentacoes }: Props) {
                   <span className="text-gray-900 font-bold">{mov.responsavel}</span>
                 </div>
               )}
-              {mov.causa_observacao && (
+              {(mov.observacao || mov.causa_observacao) && (
                 <div className="col-span-2 text-gray-600 italic text-xs mt-1">
-                  {mov.causa_observacao}
+                  {mov.observacao || mov.causa_observacao}
                 </div>
               )}
             </div>

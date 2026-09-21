@@ -119,7 +119,7 @@ export interface RegistroMovimentacao extends Registro {
   outros: 'S' | 'N'
   motivoMovimentacao: string
   brincoChip: string
-  causaObservacao: string
+  observacao: string
   equipe?: number | null
   equipeNomes?: string[]
 }
