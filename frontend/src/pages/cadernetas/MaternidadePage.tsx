@@ -247,8 +247,10 @@ export default function MaternidadePage() {
     handleFileInputChange,
   } = usePhotoGps({ comGps: false })
 
-  // Aborto: a cria é tratada como animal morto — sem identificação, sem indivíduo no rebanho
+  // Aborto ou natimorto: a cria é tratada como animal morto — sem identificação, sem indivíduo no rebanho
   const isAborto = form.problemasParto.includes('Aborto')
+  const isNatimorto = form.problemasParto.includes('Natimorto')
+  const cria1Morta = isAborto || isNatimorto
   // 2ª cria sem identificação: natimorta ou aborto
   const cria2Morta = form.gemelosNatimorto || isAborto
 
@@ -276,18 +278,18 @@ export default function MaternidadePage() {
       }
     },
 
-    // Form 4: 1ª Cria (aborto não pede identificação — cria tratada como morta)
-    idProvisorioCria: { required: !isAborto },
-    pesoCria: { required: !isAborto },
+    // Form 4: 1ª Cria (cria morta não pede identificação)
+    idProvisorioCria: { required: !cria1Morta },
+    pesoCria: { required: !cria1Morta },
     tratamentos: {
       custom: (value: string[]) => {
-        if (isAborto) return null
+        if (cria1Morta) return null
         if (!value || value.length === 0) return 'Pelo menos um primeiro cuidado é obrigatório'
         return null
       }
     },
-    sexo: { required: !isAborto },
-    raca: { required: !isAborto },
+    sexo: { required: !cria1Morta },
+    raca: { required: !cria1Morta },
 
     // Form 5: 2ª Cria (obrigatórios quando gêmeos E 2ª cria viva)
     idProvisorioCria2: { required: form.gemelos && !cria2Morta },
@@ -317,7 +319,7 @@ export default function MaternidadePage() {
     // Mãe adotiva (guacho 1ª cria)
     idManejoMaeAdotiva: {
       custom: (value: string) => {
-        if (form.guachoCria && !isAborto) {
+        if (form.guachoCria && !cria1Morta) {
           const hasManejo = value && value.trim() !== ''
           const hasBrinco = form.idBrincoMaeAdotiva && form.idBrincoMaeAdotiva.trim() !== ''
           const hasChip = form.idChipMaeAdotiva && form.idChipMaeAdotiva.trim() !== ''
@@ -328,7 +330,7 @@ export default function MaternidadePage() {
     },
     racaMaeAdotiva: {
       custom: (value: string) => {
-        if (form.guachoCria && !isAborto && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+        if (form.guachoCria && !cria1Morta && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
           if (!value || value.trim() === '') return 'Raça da mãe adotiva é obrigatória'
         }
         return null
@@ -336,7 +338,7 @@ export default function MaternidadePage() {
     },
     categoriaMaeAdotiva: {
       custom: (value: string) => {
-        if (form.guachoCria && !isAborto && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+        if (form.guachoCria && !cria1Morta && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
           if (!value || value.trim() === '') return 'Classificação da matriz adotiva é obrigatória'
         }
         return null
@@ -597,8 +599,8 @@ export default function MaternidadePage() {
     }
     const observacaoComum = observacaoPartesComuns.join(' | ')
 
-    // Guacho não se aplica a aborto (cria sem identificação)
-    const guacho1 = form.guachoCria && !isAborto
+    // Guacho não se aplica a cria morta (sem identificação)
+    const guacho1 = form.guachoCria && !cria1Morta
     const guacho2 = form.guachoCria2 && !isAborto
 
     // Observação da 1ª cria (comum + guacho se marcado)
@@ -613,12 +615,13 @@ export default function MaternidadePage() {
       ...(guacho2 ? ['Guacho'] : []),
     ].join(' | ')
 
-    // Tipo de parto: incluir 'Auxiliado' se marcado, 'Gêmeos' se marcado e 'Aborto' quando for o caso
+    // Tipo de parto: incluir 'Auxiliado' se marcado, 'Gêmeos' se marcado, 'Aborto'/'Natimorto' quando a cria morre
     const tipoPartoFinal = [
       ...form.tipoParto,
       ...(form.partoAuxiliado ? ['Auxiliado'] : []),
       ...(form.gemelos ? ['Gêmeos'] : []),
       ...(isAborto ? ['Aborto'] : []),
+      ...(isNatimorto ? ['Natimorto'] : []),
     ]
 
     // Criar indivíduo da mãe se ela não existir na base (nova mãe via modal NOVO)
@@ -756,8 +759,8 @@ export default function MaternidadePage() {
       }
     }
 
-    // Criar indivíduo da 1ª cria (aborto não entra no rebanho)
-    const individuoIdCria = isAborto ? '' : await criarIndividuoCria({
+    // Criar indivíduo da 1ª cria (cria morta não entra no rebanho)
+    const individuoIdCria = cria1Morta ? '' : await criarIndividuoCria({
       idProvisorio: form.idProvisorioCria,
       idBrinco: form.idBrincoCria,
       idChip: form.idChipCria,
@@ -789,23 +792,23 @@ export default function MaternidadePage() {
     // Vínculo entre gêmeos (mesmo UUID para ambos os registros)
     const partoVinculoId = form.gemelos ? crypto.randomUUID() : null
 
-    // Registrar 1ª cria (aborto: sem identificação nem indivíduo — cria tratada como morta)
+    // Registrar 1ª cria (cria morta: sem identificação nem indivíduo)
     const result = await salvarRegistro('maternidade', {
       data: form.data,
       pasto: pastoNome,
       pastoId: form.pastoId,
       lote: form.lote,
       loteId: form.loteId,
-      pesoCria: isAborto ? null : (form.pesoCria ? Number(form.pesoCria) : null),
-      idProvisorioCria: isAborto ? null : form.idProvisorioCria,
-      idBrincoCria: isAborto ? null : form.idBrincoCria,
-      idChipCria: isAborto ? null : form.idChipCria,
-      tratamento: isAborto ? null : tratamentoFinal,
-      medicamentos: isAborto ? [] : form.medicamentos,
+      pesoCria: cria1Morta ? null : (form.pesoCria ? Number(form.pesoCria) : null),
+      idProvisorioCria: cria1Morta ? null : form.idProvisorioCria,
+      idBrincoCria: cria1Morta ? null : form.idBrincoCria,
+      idChipCria: cria1Morta ? null : form.idChipCria,
+      tratamento: cria1Morta ? null : tratamentoFinal,
+      medicamentos: cria1Morta ? [] : form.medicamentos,
       tipoParto: tipoPartoFinal,
       observacaoParto: observacaoCria1,
-      sexo: isAborto ? null : form.sexo,
-      raca: isAborto ? null : form.raca,
+      sexo: cria1Morta ? null : form.sexo,
+      raca: cria1Morta ? null : form.raca,
       idManejoMae: form.idManejoMae,
       idBrincoMae: form.idBrincoMae,
       idChipMae: form.idChipMae,
@@ -829,10 +832,10 @@ export default function MaternidadePage() {
     // Registrar 2ª cria (gêmeos)
     if (form.gemelos) {
       try {
-        // Se natimorto: tipoParto inclui 'Natimorto', sem identificação nem indivíduo
+        // 2ª cria natimorta: garante 'Natimorto' no tipoParto; cria viva não herda a marca da 1ª cria
         const tipoPartoCria2 = form.gemelosNatimorto
-          ? [...tipoPartoFinal, 'Natimorto']
-          : tipoPartoFinal
+          ? (tipoPartoFinal.includes('Natimorto') ? tipoPartoFinal : [...tipoPartoFinal, 'Natimorto'])
+          : tipoPartoFinal.filter((t) => t !== 'Natimorto')
 
         await salvarRegistro('maternidade', {
           data: form.data,
@@ -1227,12 +1230,12 @@ export default function MaternidadePage() {
           />
         </div>
 
-        {/* Seção 4: 1ª Cria (identificação + sexo + raça + primeiros cuidados) — oculta em aborto */}
-        {isAborto ? (
+        {/* Seção 4: 1ª Cria (identificação + sexo + raça + primeiros cuidados) — oculta quando a cria morre */}
+        {cria1Morta ? (
           <div className="bg-red-50 border border-red-200 rounded-3xl p-4 flex items-center gap-3">
             <span className="text-2xl">💀</span>
             <p className="text-sm text-red-800 font-medium">
-              A cria será registrada como abortada e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.
+              A cria será registrada como {isAborto ? 'abortada' : 'natimorta'} e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.
             </p>
           </div>
         ) : (
@@ -1262,7 +1265,7 @@ export default function MaternidadePage() {
             />
           </div>
           <Input
-            label={<span>PESO DA CRIA (kg) {!form.problemasParto.includes('Aborto') && <span className="text-red-500">*</span>}</span>}
+            label={<span>PESO DA CRIA (kg) {!cria1Morta && <span className="text-red-500">*</span>}</span>}
             placeholder="Ex: 32"
             value={form.pesoCria}
             onChange={setInputEvent('pesoCria')}
@@ -1440,7 +1443,7 @@ export default function MaternidadePage() {
                   />
                 </div>
                 <Input
-                  label={<span>PESO DA CRIA (kg) {!(form.gemelosNatimorto || form.problemasParto.includes('Aborto')) && <span className="text-red-500">*</span>}</span>}
+                  label={<span>PESO DA CRIA (kg) {!cria2Morta && <span className="text-red-500">*</span>}</span>}
                   placeholder="Ex: 28"
                   value={form.pesoCria2}
                   onChange={setInputEvent('pesoCria2')}
