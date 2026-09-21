@@ -61,8 +61,8 @@ export const CADERNETAS = [
   { id: 'suplementacao', label: 'SUPLEMENTAÇÃO', emoji: '', icon: `${BASE}cadernetas/suplementacao.png`, color: '#B08D5E', disponivel: true, grupo: 'Suplementação a Pasto' },
   { id: 'saida-insumos', label: 'PRODUÇÃO FÁBRICA', emoji: '', icon: `${BASE}cadernetas/producao.png`, color: '#78AB46', disponivel: true, grupo: 'Suplementação a Pasto' },
   { id: 'leitura-cocho', label: 'LEITURA DE COCHO', emoji: '', icon: `${BASE}cadernetas/leitura-cocho.png`, color: '#3B82F6', disponivel: true, grupo: 'Confinamento & TIP' },
-  { id: 'trato-confinamento', label: 'TRATO CONFINAMENTO', emoji: '', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#A0522D', disponivel: true, grupo: 'Confinamento & TIP' },
-  { id: 'fabrica-confinamento', label: 'FÁBRICA CONFINAMENTO', emoji: '', icon: `${BASE}cadernetas/fabrica-confinamento.png`, color: '#8B4513', disponivel: true, grupo: 'Confinamento & TIP' },
+  { id: 'trato-confinamento', label: 'TRATO', emoji: '', icon: `${BASE}cadernetas/trato-confinamento.png`, color: '#A0522D', disponivel: true, grupo: 'Confinamento & TIP' },
+  { id: 'fabrica-confinamento', label: 'CARREGAMENTO VAGÃO', emoji: '', icon: `${BASE}cadernetas/fabrica-confinamento.png`, color: '#8B4513', disponivel: true, grupo: 'Confinamento & TIP' },
   { id: 'rodeio', label: 'RODEIO GADO', emoji: '', icon: `${BASE}cadernetas/rodeio.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'movimentacao', label: 'MOVIMENTAÇÃO', emoji: '', icon: `${BASE}cadernetas/movimentacao.png`, color: '#86AB54', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'pastagens', label: 'MANEJO PASTAGENS', emoji: '', icon: `${BASE}cadernetas/pastagens.png`, color: '#7D9045', disponivel: true, grupo: 'Gado & Pastagens' },
@@ -74,13 +74,13 @@ export const CADERNETAS = [
   { id: 'limpeza', label: 'LIMPEZA', emoji: '', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas & Combustível' },
   { id: 'manutencao-maquinas', label: 'MANUTENÇÃO MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', disponivel: true, grupo: 'Máquinas & Combustível' },
-  { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', disponivel: true, grupo: 'Máquinas & Combustível' },
-  { id: 'cantina', label: 'CANTINA', emoji: '', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', disponivel: true, grupo: 'Materiais & Geral' },
-  { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', disponivel: true, grupo: 'Materiais & Geral' },
-  { id: 'problemas', label: 'PROBLEMAS', emoji: '', icon: `${BASE}cadernetas/problemas.png`, color: '#F59E0B', disponivel: true, grupo: 'Materiais & Geral' },
-  { id: 'clima', label: 'CLIMA', emoji: '', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', disponivel: true, grupo: 'Materiais & Geral' },
-  { id: 'entrada-insumos', label: 'ENTRADA DE INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', disponivel: true, grupo: 'Estoque (Entradas)' },
-  { id: 'entrada-combustivel', label: 'ENTRADA COMBUSTÍVEL', emoji: '', icon: `${BASE}cadernetas/entradacombustivel.png`, color: '#D97706', disponivel: true, grupo: 'Estoque (Entradas)' },
+  { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', disponivel: true, grupo: 'Saída de Estoque' },  
+  { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', disponivel: true, grupo: 'Saída de Estoque' },
+  { id: 'cantina', label: 'CANTINA', emoji: '', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', disponivel: true, grupo: 'Saída de Estoque' },
+  { id: 'problemas', label: 'PROBLEMAS', emoji: '', icon: `${BASE}cadernetas/problemas.png`, color: '#F59E0B', disponivel: true, grupo: 'Infraestrutura & Geral' },
+  { id: 'clima', label: 'CLIMA', emoji: '', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', disponivel: true, grupo: 'Infraestrutura & Geral' },
+  { id: 'entrada-insumos', label: 'INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', disponivel: true, grupo: 'Entrada de Estoque' },
+  { id: 'entrada-combustivel', label: 'COMBUSTÍVEL', emoji: '', icon: `${BASE}cadernetas/entradacombustivel.png`, color: '#D97706', disponivel: true, grupo: 'Entrada de Estoque' },
 ]
 
 export const CADERNETA_GRUPO_ORDEM = [
@@ -89,18 +89,18 @@ export const CADERNETA_GRUPO_ORDEM = [
   'Gado & Pastagens',
   'Infraestrutura & Geral',
   'Máquinas & Combustível',
-  'Materiais & Geral',
-  'Estoque (Entradas)',
+  'Saída de Estoque',
+  'Entrada de Estoque',
 ] as const
 
 export const CADERNETA_GRUPO_CORES: Record<string, string> = {
-  'Suplementação a Pasto': '#B08D5E',
+  'Suplementação a Pasto': '#223ecb',
   'Confinamento & TIP': '#8B4513',
   'Gado & Pastagens': '#6D9E3B',
-  'Infraestrutura & Geral': '#6B7280',
+  'Infraestrutura & Geral': '#b7b712',
   'Máquinas & Combustível': '#4A6FA5',
-  'Materiais & Geral': '#F97316',
-  'Estoque (Entradas)': '#D97706',
+  'Saída de Estoque': '#9e1f16',
+  'Entrada de Estoque': '#148c76',
 }
 
 export const CATEGORIAS_ANIMAL = ['Vaca', 'Touro', 'Boi', 'Bezerro', 'Garrote', 'Novilha'] as const
