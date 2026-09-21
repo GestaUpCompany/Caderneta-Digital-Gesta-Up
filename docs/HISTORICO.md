@@ -2,6 +2,21 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Leitura de Cocho: bloqueio por data selecionada, não só por hoje (21/09/2026)
+
+**Problema**: no `LeituraCochoPage`, o bloqueio de "leitura já registrada" era calculado uma única vez no `useEffect` de carga (dep só `fazendaId`) e comparava sempre contra `todayBR()`. Trocar a data no DatePicker do header não recalculava nada, então um curral com leitura hoje ficava bloqueado mesmo quando o usuário selecionava uma data passada para lançar retroativamente. A chave do rascunho no IndexedDB também era fixada em hoje.
+
+**O que foi feito** (`LeituraCochoPage.tsx`):
+- Novo estado `leiturasPorLote` (`Record<loteId, registros>`) populado em `carregarDadosIniciais` com `leitOrdenados` de cada lote.
+- Novo `useEffect` em `[data, fazendaId, leiturasPorLote]` recomputa por data selecionada: `bloqueado`, `notaSalva`, `nota` (prefill do registro existente) e `rascunhoSalvo`. Consulta tanto as leituras remotas (Supabase, `r.data` ISO) quanto registros locais no IndexedDB (`getAllRegistros('leitura-cocho')`, `r.data` BR com hora), cobrindo registros criados offline ou ainda não sincronizados; o rascunho passa a ser lido pela chave da data selecionada.
+- `bloqueadoHoje` renomeado para `bloqueado` (o nome antigo mentia a semântica nova). Mensagem âmbar agora diz "nesta data".
+- `salvarNota`: match de duplicado no IndexedDB aceita `r.loteId === lote.id` além de `pastoCurral`; ao salvar com sucesso o lote fica `bloqueado: true` (botões de nota desabilitam, igual ao que um reload mostraria); duplicado encontrado marca `bloqueado: true` sem `erroSalvar` (a UI mostra o aviso âmbar correto em vez de erro vermelho).
+- `limparNotas` não toca mais em lotes bloqueados (o check verde de leitura registrada não some ao limpar a linha).
+
+**Não alterado (verificar se faz sentido depois)**: os painéis de contexto continuam ancorados no presente, não na data selecionada: leituras anteriores 1d/2d/3d e KG COCHO mostram os registros mais recentes, e `calcularCmsPorJanelas` usa `new Date()` internamente para as janelas. Se o uso retroativo virar rotina, vale ancorar esses painéis na data selecionada.
+
+**Disparador**: quando mencionar "leitura de cocho bloqueada", "lançar leitura retroativa", "date picker não muda nada na leitura", lembrar que o estado por data vive no `useEffect` de `leiturasPorLote` + scan do IndexedDB, e que os painéis de contexto seguem ancorados em hoje.
+
 ## Share de Entrada multi-categoria mostra todas as categorias (21/09/2026)
 
 **Problema**: uma Entrada com N categorias grava N linhas independentes em `registros_movimentacao` (uma por categoria, sem id de grupo) e o `SuccessModal` recebia apenas o último registro salvo (`ultimoRegistroEntrada`), então o texto compartilhado listava só a última categoria do manejo.

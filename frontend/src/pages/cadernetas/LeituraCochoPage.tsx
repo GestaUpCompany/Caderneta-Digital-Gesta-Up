@@ -41,8 +41,9 @@ interface LoteItem {
   leituraAnteriorN3: number | null
   tratoAnterior: number | null
   nota: string
+  notaData?: string
   notaSalva: boolean
-  bloqueadoHoje: boolean
+  bloqueado: boolean
   rascunhoSalvo: boolean
   salvando: boolean
   erroSalvar: boolean
@@ -130,6 +131,7 @@ export default function LeituraCochoPage() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [notasConfig, setNotasConfig] = useState<NotaConfig[]>([])
+  const [leiturasPorLote, setLeiturasPorLote] = useState<Record<string, any[]>>({})
   const inputRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
@@ -220,6 +222,7 @@ export default function LeituraCochoPage() {
           return
         }
 
+        const leiturasMap: Record<string, any[]> = {}
         const lotesEnriquecidos = await Promise.all(
           lotesData.map(async (lote: any) => {
             const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
@@ -266,16 +269,11 @@ export default function LeituraCochoPage() {
             const leitOrdenados = [...(registrosLeitura || [])].sort(
               (a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime()
             )
+            leiturasMap[lote.id] = leitOrdenados
             const leituraAnterior = leitOrdenados[0]?.leitura_cocho ?? null
             const leituraAnteriorId = leitOrdenados[0]?.nota_config_id ?? null
             const leituraAnteriorN2 = leitOrdenados[1]?.leitura_cocho ?? null
             const leituraAnteriorN3 = leitOrdenados[2]?.leitura_cocho ?? null
-
-            // Verificar se já existe leitura na data de hoje
-            const dataISOHoje = brToDateISO(todayBR())
-            const leituraHoje = leitOrdenados.find((r: any) => String(r.data || '').slice(0, 10) === dataISOHoje)
-            const jaTemLeituraHoje = !!leituraHoje
-            const notaHoje = leituraHoje?.nota_config_id ?? ''
 
             // Kg Cocho: soma de todos os registros de oferta de trato do dia mais recente
             let tratoAnterior: number | null = null
@@ -321,9 +319,9 @@ export default function LeituraCochoPage() {
               leituraAnteriorN2,
               leituraAnteriorN3,
               tratoAnterior,
-              nota: jaTemLeituraHoje ? notaHoje : '',
-              notaSalva: jaTemLeituraHoje,
-              bloqueadoHoje: jaTemLeituraHoje,
+              nota: '',
+              notaSalva: false,
+              bloqueado: false,
               rascunhoSalvo: false,
               salvando: false,
               erroSalvar: false,
@@ -341,20 +339,7 @@ export default function LeituraCochoPage() {
           .filter((l) => l.linhaId !== null)
           .sort((a, b) => a.curral.localeCompare(b.curral, 'pt-BR'))
 
-        // Carregar rascunho salvo (notas clicadas mas ainda nao enviadas ao Supabase)
-        const dataISO = brToDateISO(todayBR())
-        const rascunhoKey = `leitura-cocho-rascunho-${fazendaId}-${dataISO}`
-        const rascunhoData = await lerRascunho<Record<string, string>>(rascunhoKey)
-        if (rascunhoData) {
-          for (const lote of lotesFiltrados) {
-            const notaRascunho = rascunhoData[lote.id]
-            if (notaRascunho !== undefined && notaRascunho !== '' && !lote.notaSalva) {
-              lote.nota = notaRascunho
-              lote.rascunhoSalvo = true
-            }
-          }
-        }
-
+        setLeiturasPorLote(leiturasMap)
         setLotes(lotesFiltrados)
         const primeiraLinha = linhasMapeadas.find((linha) => lotesFiltrados.some((lote) => lote.linhaId === linha.id))
         const primeiroLote = primeiraLinha
@@ -372,6 +357,63 @@ export default function LeituraCochoPage() {
 
     carregarDadosIniciais()
   }, [fazendaId])
+
+  // Recomputa nota, bloqueio e rascunho conforme a data selecionada no header.
+  // Considera leituras vindas do Supabase (cache) e registros locais no IndexedDB
+  // (criados offline ou ainda não sincronizados).
+  useEffect(() => {
+    if (!fazendaId) return
+    const dataISO = brToDateISO(data)
+    if (!dataISO) return
+    const dataBR = data.split(' ')[0]
+
+    let cancelado = false
+    async function aplicarEstadoDaData() {
+      const [registrosLocais, rascunhoData] = await Promise.all([
+        getAllRegistros('leitura-cocho'),
+        lerRascunho<Record<string, string>>(`leitura-cocho-rascunho-${fazendaId}-${dataISO}`),
+      ])
+      if (cancelado) return
+
+      setLotes((prev) =>
+        prev.map((lote) => {
+          const leituraRemota = (leiturasPorLote[lote.id] || []).find(
+            (r: any) => String(r.data || '').slice(0, 10) === dataISO
+          )
+          const leituraLocal = (registrosLocais || []).find((r: any) => {
+            const rData = String(r.data || '').split(' ')[0]
+            return rData === dataBR && (r.loteId === lote.id || r.pastoCurral === lote.curral)
+          })
+          const existente = leituraRemota || leituraLocal
+          const notaExistente = leituraRemota?.nota_config_id ?? leituraLocal?.notaConfigId ?? ''
+          const notaRascunho = rascunhoData?.[lote.id]
+          // Se o rascunho ainda não commitou (clique muito recente), preserva a
+          // nota em memória apenas quando ela pertence à data atual.
+          const notaFinal = existente
+            ? notaExistente
+            : notaRascunho !== undefined
+              ? notaRascunho
+              : lote.notaData === dataBR
+                ? lote.nota
+                : ''
+          return {
+            ...lote,
+            nota: notaFinal,
+            notaData: existente ? dataBR : notaFinal !== '' ? dataBR : undefined,
+            notaSalva: !!existente,
+            bloqueado: !!existente,
+            rascunhoSalvo: !existente && notaFinal !== '',
+            salvando: false,
+            erroSalvar: false,
+          }
+        })
+      )
+    }
+    aplicarEstadoDaData()
+    return () => {
+      cancelado = true
+    }
+  }, [data, fazendaId, leiturasPorLote])
 
   const lotesDaLinha = useMemo(
     () => lotes.filter((l) => l.linhaId === linhaSelecionadaId),
@@ -405,10 +447,11 @@ export default function LeituraCochoPage() {
   )
 
   const atualizarNota = useCallback((id: string, valor: string) => {
+    const dataBR = data.split(' ')[0]
     setLotes((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, nota: valor, notaSalva: false, rascunhoSalvo: false, erroSalvar: false } : l))
+      prev.map((l) => (l.id === id ? { ...l, nota: valor, notaData: dataBR, notaSalva: false, rascunhoSalvo: false, erroSalvar: false } : l))
     )
-  }, [])
+  }, [data])
 
   const salvarNota = useCallback(
     async (id: string, notaConfigIdParam?: string) => {
@@ -420,10 +463,10 @@ export default function LeituraCochoPage() {
       const notaNumero = configSelecionada ? configSelecionada.nota : null
       const notaConfigId = configSelecionada ? configSelecionada.id : null
 
-      // Verificar duplicidade: não permitir re-salvar o mesmo curral no mesmo dia
-      if (lote.bloqueadoHoje) {
+      // Verificar duplicidade: não permitir re-salvar o mesmo curral na mesma data
+      if (lote.bloqueado) {
         setLotes((prev) =>
-          prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
+          prev.map((l) => (l.id === id ? { ...l, salvando: false, erroSalvar: false } : l))
         )
         return
       }
@@ -433,11 +476,11 @@ export default function LeituraCochoPage() {
       const registrosExistentes = await getAllRegistros('leitura-cocho')
       const duplicado = registrosExistentes.find((r: any) => {
         const rData = String(r.data || '').split(' ')[0]
-        return r.pastoCurral === lote.curral && rData === dataBR
+        return (r.loteId === lote.id || r.pastoCurral === lote.curral) && rData === dataBR
       })
       if (duplicado) {
         setLotes((prev) =>
-          prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
+          prev.map((l) => (l.id === id ? { ...l, salvando: false, bloqueado: true, notaSalva: true, erroSalvar: false } : l))
         )
         return
       }
@@ -464,10 +507,33 @@ export default function LeituraCochoPage() {
           return
         }
 
+        // Inclui o registro no mapa local para o estado por data ficar consistente
+        // sem depender de reload nem da fila de sync.
+        const dataISOSelecionada = brToDateISO(data)
+        const leiturasDoLote = leiturasPorLote[id] || []
+        const maisRecenteISO = leiturasDoLote[0] ? String(leiturasDoLote[0].data || '').slice(0, 10) : null
+        const ehMaisRecente = !maisRecenteISO || (dataISOSelecionada !== '' && dataISOSelecionada >= maisRecenteISO)
+        setLeiturasPorLote((prev) => {
+          const arr = [
+            ...(prev[id] || []),
+            { data: dataISOSelecionada, leitura_cocho: notaNumero, nota_config_id: notaConfigId },
+          ]
+          arr.sort((a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime())
+          return { ...prev, [id]: arr }
+        })
+
         setLotes((prev) =>
           prev.map((l) =>
             l.id === id
-              ? { ...l, notaSalva: true, rascunhoSalvo: false, salvando: false, erroSalvar: false, leituraAnterior: notaNumero, leituraAnteriorId: notaConfigId }
+              ? {
+                  ...l,
+                  notaSalva: true,
+                  bloqueado: true,
+                  rascunhoSalvo: false,
+                  salvando: false,
+                  erroSalvar: false,
+                  ...(ehMaisRecente ? { leituraAnterior: notaNumero, leituraAnteriorId: notaConfigId } : {}),
+                }
               : l
           )
         )
@@ -478,7 +544,7 @@ export default function LeituraCochoPage() {
         )
       }
     },
-    [lotes, fazendaId, data, usuario, notasConfig]
+    [lotes, fazendaId, data, usuario, notasConfig, leiturasPorLote]
   )
 
   // Autosave de rascunho: a cada clique numa nota, persiste no IndexedDB.
@@ -549,7 +615,9 @@ export default function LeituraCochoPage() {
   }, [lotesDaLinha, salvarNota, fazendaId, data])
 
   const limparNotas = useCallback(() => {
-    setLotes((prev) => prev.map((l) => ({ ...l, nota: '', notaSalva: false, rascunhoSalvo: false, erroSalvar: false })))
+    setLotes((prev) =>
+      prev.map((l) => (l.bloqueado ? l : { ...l, nota: '', notaData: undefined, notaSalva: false, rascunhoSalvo: false, erroSalvar: false }))
+    )
     if (fazendaId) {
       const dataISO = brToDateISO(data)
       if (dataISO) {
@@ -845,10 +913,10 @@ export default function LeituraCochoPage() {
                                 <button
                                   key={config.id}
                                   type="button"
-                                  disabled={lote.bloqueadoHoje}
+                                  disabled={lote.bloqueado}
                                   onClick={() => handleNotaChange(lote.id, isSelected ? '' : config.id)}
                                   className={`flex flex-col items-center justify-center py-1.5 rounded-lg border-2 transition-colors active:scale-95 min-w-0 ${
-                                    lote.bloqueadoHoje
+                                    lote.bloqueado
                                       ? 'cursor-not-allowed opacity-60'
                                       : ''
                                   } ${
@@ -867,9 +935,9 @@ export default function LeituraCochoPage() {
                           </div>
                         </div>
 
-                        {lote.bloqueadoHoje && (
+                        {lote.bloqueado && (
                           <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
-                            Leitura já registrada para este curral hoje. Nova leitura bloqueada.
+                            Leitura já registrada para este curral nesta data. Nova leitura bloqueada.
                           </div>
                         )}
 
