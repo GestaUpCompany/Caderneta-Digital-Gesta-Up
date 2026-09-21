@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Leitura de Cocho passa a gravar curral_id (22/09/2026)
+
+**Contexto**: `registros_leitura_cocho` ganhou a coluna `curral_id` (FK `currais`) e o índice único parcial `registros_leitura_cocho_curral_dia_uk` por `(fazenda_id, curral_id, dia operacional)` entre linhas ativas (migration `20260922170000` no repo do painel). A unicidade "uma leitura por curral por dia" agora é garantida no banco, não só na UI.
+
+**O que foi feito**:
+- `LeituraCochoPage.tsx`: o payload de `salvarRegistro('leitura-cocho')` inclui `curralId: lote.curralId` (já existia em `LoteItem`, vindo de `curraisPorLote`).
+- `syncService.ts`: o caso `leitura-cocho` de `registroToSupabase` mapeia `curral_id: registro.curralId || null`.
+- Registros antigos sem `curralId` local continuam sincronizando normalmente (`curral_id` fica NULL e não entra no índice). Uma duplicata real no mesmo curral/dia agora falha no sync com 23505 em vez de criar linha extra — aparece como erro de sync no app.
+- Backfill por fazenda roda no painel/MCP (fazenda de testes já está 100%).
+
+**Disparador**: quando mencionar `curral_id` em leitura, duplicata de leitura no sync, ou "23505 leitura de cocho", ler esta seção.
+
 ## Leitura de Cocho: bloqueio por data selecionada, não só por hoje (21/09/2026)
 
 **Problema**: no `LeituraCochoPage`, o bloqueio de "leitura já registrada" era calculado uma única vez no `useEffect` de carga (dep só `fazendaId`) e comparava sempre contra `todayBR()`. Trocar a data no DatePicker do header não recalculava nada, então um curral com leitura hoje ficava bloqueado mesmo quando o usuário selecionava uma data passada para lançar retroativamente. A chave do rascunho no IndexedDB também era fixada em hoje.

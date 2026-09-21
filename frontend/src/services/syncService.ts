@@ -560,6 +560,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         responsavel: registro.responsavel || null,
         pasto_curral: registro.pastoCurral || null,
         pasto_id: registro.pastoId || null,
+        curral_id: registro.curralId || null,
         lote: registro.numeroLote || null,
         lote_id: registro.loteId || null,
         leitura_cocho: registro.leituraCocho !== '' && registro.leituraCocho !== null && registro.leituraCocho !== undefined

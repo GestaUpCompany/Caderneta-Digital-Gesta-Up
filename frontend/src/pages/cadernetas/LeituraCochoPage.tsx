@@ -494,6 +494,7 @@ export default function LeituraCochoPage() {
           usuario: usuario,
           pastoCurral: lote.curral,
           pastoId: null,
+          curralId: lote.curralId,
           numeroLote: lote.nome,
           loteId: lote.id,
           leituraCocho: notaNumero !== null ? String(notaNumero) : '',
