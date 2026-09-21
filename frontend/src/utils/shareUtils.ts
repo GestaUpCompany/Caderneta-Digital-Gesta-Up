@@ -434,11 +434,23 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
     // Seção: QUANTIFICAÇÃO
     texto += `QUANTIFICAÇÃO\n`
-    if (registro.numeroCabecas) {
-      texto += `NÚMERO CABEÇAS: *${registro.numeroCabecas}*\n`
-    }
-    if (registro.categoria) {
-      texto += `CATEGORIA: *${registro.categoria}*\n`
+    const categoriasEntrada = Array.isArray(registro.categoriasEntrada)
+      ? registro.categoriasEntrada as { categoria: string; cabecas: number; pesoAtual?: number }[]
+      : null
+    if (categoriasEntrada && categoriasEntrada.length > 1) {
+      const totalCabecas = categoriasEntrada.reduce((t, c) => t + (Number(c.cabecas) || 0), 0)
+      texto += `NÚMERO CABEÇAS: *${formatarNumeroBR(totalCabecas)}*\n`
+      texto += `CATEGORIAS:\n`
+      categoriasEntrada.forEach(c => {
+        texto += `- ${c.categoria}: *${formatarNumeroBR(c.cabecas)}*${c.pesoAtual ? ` (${formatarNumeroBR(c.pesoAtual)} kg)` : ''}\n`
+      })
+    } else {
+      if (registro.numeroCabecas) {
+        texto += `NÚMERO CABEÇAS: *${registro.numeroCabecas}*\n`
+      }
+      if (registro.categoria) {
+        texto += `CATEGORIA: *${registro.categoria}*\n`
+      }
     }
     texto += `\n`
 

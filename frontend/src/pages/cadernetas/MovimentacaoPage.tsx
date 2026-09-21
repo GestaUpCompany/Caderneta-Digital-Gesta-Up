@@ -643,7 +643,14 @@ export default function MovimentacaoPage() {
           scrollToFirstError(falhouEntrada.errors)
         } else {
           const ultimoRegistroEntrada = resultadosEntrada[resultadosEntrada.length - 1]?.registro
-          setRegistroSalvo(ultimoRegistroEntrada)
+          setRegistroSalvo(ultimoRegistroEntrada ? {
+            ...ultimoRegistroEntrada,
+            categoriasEntrada: categoriasSelecionadas.map(c => ({
+              categoria: c.categoria,
+              cabecas: c.cabecas,
+              pesoAtual: c.pesoAtual,
+            })),
+          } : ultimoRegistroEntrada)
           setShowSuccessModal(true)
           setForm(makeInitial())
         }

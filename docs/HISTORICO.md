@@ -2,6 +2,15 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Share de Entrada multi-categoria mostra todas as categorias (21/09/2026)
+
+**Problema**: uma Entrada com N categorias grava N linhas independentes em `registros_movimentacao` (uma por categoria, sem id de grupo) e o `SuccessModal` recebia apenas o último registro salvo (`ultimoRegistroEntrada`), então o texto compartilhado listava só a última categoria do manejo.
+
+**O que foi feito**:
+- `MovimentacaoPage.tsx`: o registro passado ao `SuccessModal` agora carrega `categoriasEntrada: [{ categoria, cabecas, pesoAtual }]` com todas as categorias do lançamento.
+- `shareUtils.ts` (seção QUANTIFICAÇÃO de `movimentacao`): quando `categoriasEntrada` tem mais de um item, renderiza `NÚMERO CABEÇAS` com o total do manejo e uma lista `CATEGORIAS:` com uma linha por categoria (nome: cabeças + peso médio em kg). Entrada de categoria única mantém o formato original (`NÚMERO CABEÇAS` + `CATEGORIA`).
+- Limitação mantida: o compartilhamento a partir da lista (`ListaRegistros`) continua por registro individual, pois os N registros de um mesmo manejo não têm vínculo de grupo; a correção estrutural seria um `grupo_manejo_id` compartilhado.
+
 ## Maternidade: medicamentos opcionais por cria + MedicamentosSection compartilhado (18/09/2026)
 
 **Regra de negócio**: a caderneta Maternidade passa a ter uma seção opcional de medicamentos por cria (1ª cria e, em gêmeos, 2ª cria viva), com a mesma lógica que já existia na Enfermaria: filtro por tipo, seleção do medicamento, exibição de princípio ativo e dose recomendada, dose aplicada, adicionar/editar/remover múltiplos itens.
