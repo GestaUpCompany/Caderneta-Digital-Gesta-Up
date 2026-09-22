@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getAllRegistrosComErro, deleteRegistro, removeFromSyncQueueByRegistroId, CadernetaStore } from '../services/indexedDB'
+import { translateSyncError } from '../utils/syncErrorMessages'
 
 interface ErrorRecord {
   store: CadernetaStore
@@ -220,9 +221,9 @@ export default function SyncErrorModal({ isOpen, onClose, onRecordsDeleted }: Sy
                             Registrado em: {new Date(registro.dataRegistro).toLocaleString('pt-BR')}
                           </p>
                         )}
-                        {registro.errorMessage && (
-                          <p className="text-xs text-red-600 mt-1 truncate">
-                            Erro: {registro.errorMessage}
+                        {registro.syncError && (
+                          <p className="text-xs text-red-600 mt-1">
+                            Erro: {translateSyncError(registro.syncError)}
                           </p>
                         )}
                       </div>

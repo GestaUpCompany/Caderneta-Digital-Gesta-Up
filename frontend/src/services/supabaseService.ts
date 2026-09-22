@@ -584,6 +584,31 @@ export async function getUltimoTratoTotalBatch(fazendaId: string): Promise<Recor
 }
 
 /**
+ * Busca registros de oferta de trato de uma fazenda agrupados por lote_id.
+ * Substitui N queries getRegistrosOfertaTratoByLote por 1 query batch.
+ */
+export async function getRegistrosOfertaTratoBatch(fazendaId: string): Promise<Record<string, any[]>> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_oferta_trato')
+    .select('*')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  const map: Record<string, any[]> = {}
+  ;(data || []).forEach((r: any) => {
+    if (r.lote_id) {
+      if (!map[r.lote_id]) map[r.lote_id] = []
+      map[r.lote_id].push(r)
+    }
+  })
+  return map
+}
+
+/**
  * Busca planos nutricionais ativos de todos os lotes de uma fazenda em uma única query.
  * Retorna um mapa lote_id -> plano.
  *
@@ -687,9 +712,11 @@ export async function getPastosUltimasDatasBatch(
   return { ultimaEntrada, ultimaSaida, ultimoStatus }
 }
 
-export async function getLoteDetalhesComCategorias(loteId: string) {
-  const categorias = await getLoteCategorias(loteId)
-  
+/**
+ * Agrega lote_categorias ativas em detalhes de exibição do lote
+ * (cabeças, peso vivo ponderado, bezerros, nomes das categorias).
+ */
+export function buildLoteDetalhesFromCategorias(categorias: any[] | null | undefined) {
   if (!categorias || categorias.length === 0) {
     return {
       categorias: '-',
@@ -700,11 +727,11 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
       categorias_raw: []
     }
   }
-  
+
   // Calcular agregações
   const totalCabeças = categorias.reduce((sum, cat) => sum + (cat.quant_atual || 0), 0)
   const totalBezerros = categorias.reduce((sum, cat) => sum + (cat.qtd_bezerros || 0), 0)
-  
+
   // Calcular peso vivo médio ponderado
   let pesoVivoTotal = 0
   let pesoVivoPonderado = 0
@@ -714,9 +741,9 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
     pesoVivoTotal += peso * quant
   })
   pesoVivoPonderado = totalCabeças > 0 ? pesoVivoTotal / totalCabeças : 0
-  
+
   const categoriasNomes = categorias.map(cat => cat.categoria).join(', ')
-  
+
   return {
     categorias: categoriasNomes,
     quant_atual: totalCabeças,
@@ -725,6 +752,11 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
     total_cabeças: totalCabeças,
     categorias_raw: categorias
   }
+}
+
+export async function getLoteDetalhesComCategorias(loteId: string) {
+  const categorias = await getLoteCategorias(loteId)
+  return buildLoteDetalhesFromCategorias(categorias)
 }
 
 /**

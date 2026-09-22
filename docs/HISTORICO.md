@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Leitura de Cocho: carga em batch, dedup por curralId e 23505 amigável (22/09/2026)
+
+Revisão de performance e robustez do módulo de confinamento no PWA:
+
+- **Carga em batch em `LeituraCochoPage`**: a página fazia ~3 queries por lote (`getLoteDetalhesComCategoriasCached`, `getRegistrosOfertaTratoByLoteCached`, `getRegistrosLeituraCochoByLoteCached`), ~120 requests numa fazenda com 40 currais. Agora faz 4 queries para a fazenda inteira via novos wrappers em `cadastroCache.ts` (`getLoteCategoriasBatchCached`, `getRegistrosOfertaTratoBatchCached`, `getRegistrosLeituraCochoBatchCached`, `getFormulacoesBatchCached`), que seguem o padrão lazy-cache (online sempre consulta, offline cai no cache em memória/IndexedDB). `supabaseService.ts` ganhou `getRegistrosOfertaTratoBatch` (linhas completas por lote, necessário para `calcularCmsPorJanelas` — `getUltimoTratoTotalBatch` só retorna totais) e `buildLoteDetalhesFromCategorias` (agregação extraída de `getLoteDetalhesComCategorias` para reuso com o mapa batch). Dieta e `teor_ms_dieta` são resolvidos em memória a partir do batch de formulações (`formById`/`formByNome`), com fallback às funções antigas quando o batch não está em cache. Verificado no Chrome: a página emite 4 requests de dados (lote_categorias, oferta_trato, leitura_cocho, formulacoes) em vez de 3 por lote.
+- **Dedup offline por `curralId`**: o match de leitura existente no IndexedDB (efeito de data e `salvarNota`) e o match remoto passam a aceitar `curralId`/`curral_id` além de `loteId`/`pastoCurral`, cobrindo curral renomeado ou mudança de lote entre registro e verificação. O efeito de data agora varre todas as leituras (`Object.values(leiturasPorLote).flat()`), não só as do lote atual, para casar por `curral_id` mesmo quando a leitura ficou sob um `lote_id` antigo. O registro inserido no mapa local após save carrega `lote_id`/`curral_id` para o match continuar funcionando.
+- **Erro 23505 traduzido por constraint**: `translateSyncError` em `syncErrorMessages.ts` agora reconhece `registros_leitura_cocho_curral_dia_uk` ("Já existe uma leitura de cocho para este curral nesta data.") e `registros_oferta_trato_dia_operacional_uk` ("Já existe um trato para este curral nesta data e ordem.") pelo nome da constraint na mensagem/detalhes, antes do fallback genérico de duplicado. Código e detalhes originais continuam no `syncError` e no log para diagnóstico.
+- **Bug no `SyncErrorModal`**: a lista lia `registro.errorMessage`, campo que nunca é gravado — o erro vive em `registro.syncError`. Agora exibe `translateSyncError(registro.syncError)`, então o peão vê a mensagem amigável.
+- **Warnings do React Router**: `App.tsx` recebeu `future={{ v7_startTransition: true, v7_relativeSplatPath: true }}` no `BrowserRouter`, silenciando os warnings de v7 (o `path="*"` usa `Navigate` absoluto, sem impacto).
+
+**Disparador**: quando mencionar lentidão ao abrir leitura de cocho, muitos requests por lote, dedup de leitura offline, ou "erro de sync duplicado", ler esta seção.
+
 ## Leitura de Cocho passa a gravar curral_id (22/09/2026)
 
 **Contexto**: `registros_leitura_cocho` ganhou a coluna `curral_id` (FK `currais`) e o índice único parcial `registros_leitura_cocho_curral_dia_uk` por `(fazenda_id, curral_id, dia operacional)` entre linhas ativas (migration `20260922170000` no repo do painel). A unicidade "uma leitura por curral por dia" agora é garantida no banco, não só na UI.

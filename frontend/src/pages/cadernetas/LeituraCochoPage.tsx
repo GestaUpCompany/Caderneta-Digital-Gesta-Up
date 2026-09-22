@@ -10,6 +10,10 @@ import {
   getLoteDetalhesComCategoriasCached,
   getRegistrosOfertaTratoByLoteCached,
   getRegistrosLeituraCochoByLoteCached,
+  getLoteCategoriasBatchCached,
+  getRegistrosOfertaTratoBatchCached,
+  getRegistrosLeituraCochoBatchCached,
+  getFormulacoesBatchCached,
   getCurraisCached,
   getLinhasConfinamentoCached,
   getFormulacaoByNomeCached,
@@ -17,7 +21,7 @@ import {
   getNotasLeituraCochoConfigCached,
   getLoteByNomeCached,
 } from '../../services/cadastroCache'
-import { getLotes, getNotasLeituraCochoConfig } from '../../services/supabaseService'
+import { getLotes, getNotasLeituraCochoConfig, buildLoteDetalhesFromCategorias } from '../../services/supabaseService'
 import { salvarRascunho, lerRascunho, limparRascunho, getAllRegistros } from '../../services/indexedDB'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
 import { Brush, Check, Save } from 'lucide-react'
@@ -222,13 +226,36 @@ export default function LeituraCochoPage() {
           return
         }
 
+        // Carregamento em batch: 4 queries para a fazenda inteira em vez de
+        // ~3 queries por lote. Se o batch não estiver disponível (offline sem
+        // cache), cai no caminho por lote via cache lazy.
+        const [categoriasBatch, tratosBatch, leiturasBatch, formulacoesBatch] = await Promise.all([
+          getLoteCategoriasBatchCached(fazendaId),
+          getRegistrosOfertaTratoBatchCached(fazendaId),
+          getRegistrosLeituraCochoBatchCached(fazendaId),
+          getFormulacoesBatchCached(fazendaId),
+        ])
+
+        const formById = new Map<string, any>()
+        const formByNome = new Map<string, any>()
+        ;(formulacoesBatch || []).forEach((f: any) => {
+          if (f?.id) formById.set(f.id, f)
+          if (f?.nome) formByNome.set(f.nome, f)
+        })
+
         const leiturasMap: Record<string, any[]> = {}
         const lotesEnriquecidos = await Promise.all(
           lotesData.map(async (lote: any) => {
-            const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
+            const detalhes = categoriasBatch
+              ? buildLoteDetalhesFromCategorias(categoriasBatch[lote.id])
+              : await getLoteDetalhesComCategoriasCached(lote.id)
             const [registrosOfertaTrato, registrosLeitura] = await Promise.all([
-              getRegistrosOfertaTratoByLoteCached(fazendaId, lote.id),
-              getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id),
+              tratosBatch
+                ? Promise.resolve(tratosBatch[lote.id] || [])
+                : getRegistrosOfertaTratoByLoteCached(fazendaId, lote.id),
+              leiturasBatch
+                ? Promise.resolve(leiturasBatch[lote.id] || [])
+                : getRegistrosLeituraCochoByLoteCached(fazendaId, lote.id),
             ])
 
             const curralInfo = lote.id ? curraisPorLote.get(lote.id) : null
@@ -246,23 +273,31 @@ export default function LeituraCochoPage() {
 
             // Se não há formulação no registro de oferta, busca a formulação do curral
             if (!dieta && curralInfo?.formulacao_id) {
-              try {
-                const { getFormulacaoById } = await import('../../services/supabaseService')
-                const form = await getFormulacaoById(curralInfo.formulacao_id)
-                dieta = form?.nome || null
-              } catch {
-                // ignorar erro
+              dieta = formById.get(curralInfo.formulacao_id)?.nome || null
+              if (!dieta) {
+                try {
+                  const { getFormulacaoById } = await import('../../services/supabaseService')
+                  const form = await getFormulacaoById(curralInfo.formulacao_id)
+                  dieta = form?.nome || null
+                } catch {
+                  // ignorar erro
+                }
               }
             }
 
             // Buscar teor_ms_dieta da formulação
             let teorMsDieta: number | null = null
             if (dieta && fazendaId) {
-              try {
-                const formulacao = await getFormulacaoByNomeCached(fazendaId, dieta)
-                teorMsDieta = formulacao?.teor_ms_dieta ? Number(formulacao.teor_ms_dieta) : null
-              } catch {
-                // ignorar erro, usa fallback
+              const formBatch = formByNome.get(dieta)
+              if (formBatch) {
+                teorMsDieta = formBatch.teor_ms_dieta ? Number(formBatch.teor_ms_dieta) : null
+              } else {
+                try {
+                  const formulacao = await getFormulacaoByNomeCached(fazendaId, dieta)
+                  teorMsDieta = formulacao?.teor_ms_dieta ? Number(formulacao.teor_ms_dieta) : null
+                } catch {
+                  // ignorar erro, usa fallback
+                }
               }
             }
 
@@ -375,14 +410,20 @@ export default function LeituraCochoPage() {
       ])
       if (cancelado) return
 
+      // Lista plana permite casar por curral_id mesmo quando a leitura está
+      // associada a um lote_id diferente do lote atual do curral.
+      const todasLeituras = Object.values(leiturasPorLote).flat()
+
       setLotes((prev) =>
         prev.map((lote) => {
-          const leituraRemota = (leiturasPorLote[lote.id] || []).find(
-            (r: any) => String(r.data || '').slice(0, 10) === dataISO
+          const leituraRemota = todasLeituras.find(
+            (r: any) =>
+              String(r.data || '').slice(0, 10) === dataISO &&
+              (r.lote_id === lote.id || (lote.curralId && r.curral_id === lote.curralId))
           )
           const leituraLocal = (registrosLocais || []).find((r: any) => {
             const rData = String(r.data || '').split(' ')[0]
-            return rData === dataBR && (r.loteId === lote.id || r.pastoCurral === lote.curral)
+            return rData === dataBR && (r.loteId === lote.id || r.pastoCurral === lote.curral || (lote.curralId && r.curralId === lote.curralId))
           })
           const existente = leituraRemota || leituraLocal
           const notaExistente = leituraRemota?.nota_config_id ?? leituraLocal?.notaConfigId ?? ''
@@ -476,7 +517,7 @@ export default function LeituraCochoPage() {
       const registrosExistentes = await getAllRegistros('leitura-cocho')
       const duplicado = registrosExistentes.find((r: any) => {
         const rData = String(r.data || '').split(' ')[0]
-        return (r.loteId === lote.id || r.pastoCurral === lote.curral) && rData === dataBR
+        return (r.loteId === lote.id || r.pastoCurral === lote.curral || (lote.curralId && r.curralId === lote.curralId)) && rData === dataBR
       })
       if (duplicado) {
         setLotes((prev) =>
@@ -517,7 +558,7 @@ export default function LeituraCochoPage() {
         setLeiturasPorLote((prev) => {
           const arr = [
             ...(prev[id] || []),
-            { data: dataISOSelecionada, leitura_cocho: notaNumero, nota_config_id: notaConfigId },
+            { data: dataISOSelecionada, leitura_cocho: notaNumero, nota_config_id: notaConfigId, lote_id: id, curral_id: lote.curralId },
           ]
           arr.sort((a: any, b: any) => new Date(b.data).getTime() - new Date(a.data).getTime())
           return { ...prev, [id]: arr }

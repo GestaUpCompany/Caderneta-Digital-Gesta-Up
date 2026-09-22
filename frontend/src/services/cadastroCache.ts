@@ -1435,6 +1435,102 @@ export async function getRegistrosLeituraCochoByLoteCached(
 }
 
 /**
+ * Busca lote_categorias de todos os lotes da fazenda em uma única query batch.
+ * Retorna mapa lote_id -> categorias[]. Online vai ao Supabase; offline usa cache.
+ * Retorna null quando não há cache (caller decide o fallback por lote).
+ */
+export async function getLoteCategoriasBatchCached(fazendaId: string): Promise<Record<string, any[]> | null> {
+  const key = buildKey('lote-categorias-batch', fazendaId)
+  const cached = getCachedQuery<Record<string, any[]>>(key)
+
+  if (!navigator.onLine) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<Record<string, any[]>>(key)
+  }
+
+  try {
+    const data = await withTimeout(supabaseService.getLoteCategoriasBatch(fazendaId), 8000)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<Record<string, any[]>>(key)
+  }
+}
+
+/**
+ * Busca registros de oferta de trato de toda a fazenda em uma única query batch.
+ * Retorna mapa lote_id -> registros[]. Online vai ao Supabase; offline usa cache.
+ * Retorna null quando não há cache (caller decide o fallback por lote).
+ */
+export async function getRegistrosOfertaTratoBatchCached(fazendaId: string): Promise<Record<string, any[]> | null> {
+  const key = buildKey('oferta-trato-batch', fazendaId)
+  const cached = getCachedQuery<Record<string, any[]>>(key)
+
+  if (!navigator.onLine) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<Record<string, any[]>>(key)
+  }
+
+  try {
+    const data = await withTimeout(supabaseService.getRegistrosOfertaTratoBatch(fazendaId), 8000)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<Record<string, any[]>>(key)
+  }
+}
+
+/**
+ * Busca registros de leitura de cocho de toda a fazenda em uma única query batch.
+ * Retorna mapa lote_id -> registros[]. Online vai ao Supabase; offline usa cache.
+ * Retorna null quando não há cache (caller decide o fallback por lote).
+ */
+export async function getRegistrosLeituraCochoBatchCached(fazendaId: string): Promise<Record<string, any[]> | null> {
+  const key = buildKey('leitura-cocho-batch', fazendaId)
+  const cached = getCachedQuery<Record<string, any[]>>(key)
+
+  if (!navigator.onLine) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<Record<string, any[]>>(key)
+  }
+
+  try {
+    const data = await withTimeout(supabaseService.getRegistrosLeituraCochoBatch(fazendaId), 8000)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<Record<string, any[]>>(key)
+  }
+}
+
+/**
+ * Busca todas as formulações ativas da fazenda em uma única query.
+ * Usado para resolver formulacao_id/nome sem query por item.
+ * Online vai ao Supabase; offline usa cache.
+ */
+export async function getFormulacoesBatchCached(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('formulacoes-batch', fazendaId)
+  const cached = getCachedQuery<any[]>(key)
+
+  if (!navigator.onLine) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any[]>(key)
+  }
+
+  try {
+    const data = await withTimeout(supabaseService.getFormulacoes(fazendaId), 8000)
+    if (data && Array.isArray(data) && data.length > 0) setCachedQuery(key, data)
+    return data
+  } catch {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<any[]>(key)
+  }
+}
+
+/**
  * Busca o total de kg do último dia de tratos para um lote (sistema de confinamento).
  * Retorna { data, total_kg } ou null.
  */

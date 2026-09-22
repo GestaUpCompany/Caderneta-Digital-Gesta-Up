@@ -646,7 +646,7 @@ function AppInner() {
 
 function App() {
   return (
-    <Router basename="/Caderneta-Digital-Gesta-Up">
+    <Router basename="/Caderneta-Digital-Gesta-Up" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ScrollToTop />
       <AppInner />
     </Router>

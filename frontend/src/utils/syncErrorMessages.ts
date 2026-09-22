@@ -31,11 +31,27 @@ const ERROR_MESSAGES: Record<string, string> = {
 }
 
 /**
+ * Mensagens específicas para violações de unicidade (23505), identificadas
+ * pelo nome do índice/constraint presente na mensagem ou detalhes do erro.
+ */
+const UNIQUE_CONSTRAINT_MESSAGES: Record<string, string> = {
+  registros_leitura_cocho_curral_dia_uk: 'Já existe uma leitura de cocho para este curral nesta data.',
+  registros_oferta_trato_dia_operacional_uk: 'Já existe um trato para este curral nesta data e ordem.',
+}
+
+/**
  * Retorna mensagem amigável para um SyncError.
  */
 export function translateSyncError(error: SyncError | null | undefined): string {
   if (!error) return 'Erro desconhecido ao sincronizar.'
   const code = error.code?.trim()
+  if (code === '23505') {
+    const texto = `${error.message || ''} ${error.details || ''}`
+    for (const [constraint, msg] of Object.entries(UNIQUE_CONSTRAINT_MESSAGES)) {
+      if (texto.includes(constraint)) return msg
+    }
+    return ERROR_MESSAGES['23505']
+  }
   if (code && ERROR_MESSAGES[code]) return ERROR_MESSAGES[code]
   // Fallback: se a mensagem original é legível, usa ela
   if (error.message && error.message.length < 120) return error.message
