@@ -72,8 +72,8 @@ export const CADERNETAS = [
   { id: 'pesagem', label: 'PESAGEM', emoji: '', icon: `${BASE}cadernetas/pesagem.png`, color: '#4A6FA5', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', disponivel: true, grupo: 'Infraestrutura & Geral' },
-  { id: 'operacoes-maquinas', label: 'OPERAÇÕES MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas & Combustível' },
-  { id: 'manutencao-maquinas', label: 'MANUTENÇÃO MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', disponivel: true, grupo: 'Máquinas & Combustível' },
+  { id: 'operacoes-maquinas', label: 'OPERAÇÕES MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas' },
+  { id: 'manutencao-maquinas', label: 'MANUTENÇÃO MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/manutencao-maquinas.png`, color: '#1e3a8a', disponivel: true, grupo: 'Máquinas' },
   { id: 'abastecimento', label: 'ABASTECIMENTO', emoji: '', icon: `${BASE}cadernetas/abastecimento.png`, color: '#F59E0B', disponivel: true, grupo: 'Saída de Estoque' },  
   { id: 'almoxarifado', label: 'ALMOXARIFADO', emoji: '', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#F97316', disponivel: true, grupo: 'Saída de Estoque' },
   { id: 'cantina', label: 'CANTINA', emoji: '', icon: `${BASE}cadernetas/cantina.png`, color: '#3B82F6', disponivel: true, grupo: 'Saída de Estoque' },
@@ -90,7 +90,7 @@ export const CADERNETA_GRUPO_ORDEM = [
   'Confinamento & TIP',
   'Gado & Pastagens',
   'Infraestrutura & Geral',
-  'Máquinas & Combustível',
+  'Máquinas',
   'Saída de Estoque',
   'Entrada de Estoque',
 ] as const
@@ -100,7 +100,7 @@ export const CADERNETA_GRUPO_CORES: Record<string, string> = {
   'Confinamento & TIP': '#8B4513',
   'Gado & Pastagens': '#6D9E3B',
   'Infraestrutura & Geral': '#b7b712',
-  'Máquinas & Combustível': '#4A6FA5',
+  'Máquinas': '#4A6FA5',
   'Saída de Estoque': '#9e1f16',
   'Entrada de Estoque': '#148c76',
 }
