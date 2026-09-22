@@ -272,6 +272,16 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   if (caderneta === 'cantina' && (registro.modo as string) === 'marmita') {
     cadernetaNome = 'MARMITA'
   }
+  // Almoxarifado/cantina de saída vs entrada: deixar explícito no compartilhamento
+  if (caderneta === 'almoxarifado') {
+    cadernetaNome = 'SAÍDA DE ESTOQUE - ALMOXARIFADO'
+  }
+  if (caderneta === 'entrada-almoxarifado') {
+    cadernetaNome = 'ENTRADA DE ESTOQUE - ALMOXARIFADO'
+  }
+  if (caderneta === 'entrada-cantina') {
+    cadernetaNome = 'ENTRADA DE ESTOQUE - CANTINA'
+  }
 
   let texto = `📋 ${cadernetaNome}\n`
   // registro.data já contém data e hora, formatar com "às" antes do horário
