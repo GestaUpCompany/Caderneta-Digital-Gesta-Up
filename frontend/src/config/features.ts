@@ -17,5 +17,8 @@ const FAZENDAS_COM_INSUMOS = [
 export const FEATURE_ACCESS: Record<FeatureKey, string[]> = {
   'entrada-insumos': FAZENDAS_COM_INSUMOS,
   'saida-insumos': FAZENDAS_COM_INSUMOS,
-  'leitura-cocho': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
+  'leitura-cocho': [
+    'd649c65e-16ab-4b77-a84b-df937aa41cc3',
+    'd8900758-1e41-4855-a55e-17f8e00fea7e',
+  ],
 }
