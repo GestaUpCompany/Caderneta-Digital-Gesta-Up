@@ -2,6 +2,19 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Entrada de estoque: EntradaAlmoxarifadoPage e EntradaCantinaPage (22/09/2026)
+
+Duas cadernetas novas dão entrada ao estoque, quase cópias das telas de saída. Ficam no grupo "Entrada de Estoque" e só aparecem na fazenda de testes (`d649c65e-16ab-4b77-a84b-df937aa41cc3`, via `CADERNETAS_EXCLUSIVAS` + `FEATURE_ACCESS`). O schema/triggers vivem no repo do painel (migrations `20260922180000` e `20260922190000`, já aplicadas).
+
+- **Ids e rotas**: `entrada-almoxarifado` (`/caderneta/entrada-almoxarifado[/lista]`) e `entrada-cantina` (`/caderneta/entrada-cantina[/lista]`). Stores novas no IndexedDB (`openDB` versão 29→30).
+- **Sync**: ambas caem nas tabelas existentes — `registros_almoxarifado` com `tipo='entrada'` + `quem_recebeu`, e `registros_alimentacao` com `modo='entrada'` + `quem_recebeu` + `itens` (mapa nome→qtd) + `itens_detalhe` (array com `itemId`/`quantidade`). Os triggers no banco geram movimentações de `entrada` e recalculam o saldo; o PWA nunca escreve no ledger direto (RLS admin/controller).
+- **Formulários**: campos mínimos (data, quem recebeu, itens com classificação→item→quantidade, observação). Sem setor/devolução (almoxarifado) e sem cozinheiras/refeições/marmita (cantina). Seletor de item só lista `controla_estoque=true`. Após salvar, o cache local de saldo é incrementado (`updateItemAlmoxarifadoSaldoCache` / novo `updateItemCantinaSaldoCache`).
+- **CantinaPage (saída)** passa a enviar `itensDetalhe` com `itemId` por item para o modo `cantina` baixar estoque no banco; `supabaseService` lê o catálogo da view `itens_cantina_pwa` (a tabela `itens_cantina` ficou restrita a admin/controller).
+- Plumbing: `CadernetaStore`, `CadernetaType`, validadores `validateEntradaAlmoxarifado`/`validateEntradaCantina`, cards em `constants.ts`, display configs `entradaAlmoxarifado`/`entradaCantina` + renderers em `registroSpecialComponents`, labels em `labelConfig.ts`, nomes em `SyncErrorModal` e texto de compartilhamento em `shareUtils.ts`.
+- **Limitação conhecida**: registros de cantina criados por versões antigas do app não têm `itens_detalhe` e não baixam estoque; o saldo da cantina só é confiável a partir desta versão.
+
+**Disparador**: quando mencionar entrada de estoque, `entrada-almoxarifado`, `entrada-cantina`, `itensDetalhe`, ou saldo da cantina, ler esta seção.
+
 ## Leitura de Cocho: carga em batch, dedup por curralId e 23505 amigável (22/09/2026)
 
 Revisão de performance e robustez do módulo de confinamento no PWA:

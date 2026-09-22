@@ -81,6 +81,8 @@ export const CADERNETAS = [
   { id: 'clima', label: 'CLIMA', emoji: '', icon: `${BASE}cadernetas/clima.png`, color: '#4A90D9', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'entrada-insumos', label: 'INSUMOS', emoji: '', icon: `${BASE}cadernetas/entrada.png`, color: '#B08D5E', disponivel: true, grupo: 'Entrada de Estoque' },
   { id: 'entrada-combustivel', label: 'COMBUSTÍVEL', emoji: '', icon: `${BASE}cadernetas/entradacombustivel.png`, color: '#D97706', disponivel: true, grupo: 'Entrada de Estoque' },
+  { id: 'entrada-almoxarifado', label: 'ALMOXARIFADO', emoji: '', icon: `${BASE}cadernetas/almoxarifado.png`, color: '#0F766E', disponivel: true, grupo: 'Entrada de Estoque' },
+  { id: 'entrada-cantina', label: 'CANTINA', emoji: '', icon: `${BASE}cadernetas/cantina.png`, color: '#14B8A6', disponivel: true, grupo: 'Entrada de Estoque' },
 ]
 
 export const CADERNETA_GRUPO_ORDEM = [

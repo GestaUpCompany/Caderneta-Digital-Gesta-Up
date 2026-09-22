@@ -8,10 +8,16 @@ export type FeatureKey =
   | 'entrada-insumos'
   | 'saida-insumos'
   | 'leitura-cocho'
+  | 'entrada-almoxarifado'
+  | 'entrada-cantina'
 
 const FAZENDAS_COM_INSUMOS = [
   'd649c65e-16ab-4b77-a84b-df937aa41cc3',
   'd3965505-74d5-4af7-9858-f773d2e8aab3',
+]
+
+const FAZENDA_TESTES = [
+  'd649c65e-16ab-4b77-a84b-df937aa41cc3',
 ]
 
 export const FEATURE_ACCESS: Record<FeatureKey, string[]> = {
@@ -21,4 +27,6 @@ export const FEATURE_ACCESS: Record<FeatureKey, string[]> = {
     'd649c65e-16ab-4b77-a84b-df937aa41cc3',
     'd8900758-1e41-4855-a55e-17f8e00fea7e',
   ],
+  'entrada-almoxarifado': FAZENDA_TESTES,
+  'entrada-cantina': FAZENDA_TESTES,
 }

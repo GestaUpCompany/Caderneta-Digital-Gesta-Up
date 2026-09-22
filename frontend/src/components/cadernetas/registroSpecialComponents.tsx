@@ -127,6 +127,45 @@ export const SPECIAL_COMPONENTS: Partial<Record<CadernetaStore, Record<string, S
     },
   },
 
+  'entrada-almoxarifado': {
+    itens: (registro) => {
+      const itens = registro.itens as { nome?: string; classificacao?: string; unidade?: string; quantidade?: unknown; observacao?: string }[] | undefined
+      if (!itens || !Array.isArray(itens) || itens.length === 0) return null
+      return (
+        <div className="col-span-2 mt-2">
+          <p className="text-xs font-bold text-gray-700 mb-1">📦 ITENS DA ENTRADA</p>
+          {itens.map((item, i) => (
+            <div key={i} className="bg-gray-50 rounded-lg p-2 mb-1 text-sm">
+              <p className="font-semibold text-gray-900">{i + 1}. {item.nome || '—'}{item.unidade ? ` (${item.unidade})` : ''}</p>
+              <p className="text-gray-600">Quantidade: {String(item.quantidade || '—')}</p>
+              {item.classificacao && <p className="text-gray-600">Classificação: {item.classificacao}</p>}
+              {item.observacao && <p className="text-gray-500">Obs: {item.observacao}</p>}
+            </div>
+          ))}
+        </div>
+      )
+    },
+  },
+
+  'entrada-cantina': {
+    itensDetalhe: (registro) => {
+      const itens = registro.itensDetalhe as { nome?: string; classificacao?: string; unidade_medida?: string; quantidade?: unknown }[] | undefined
+      if (!itens || !Array.isArray(itens) || itens.length === 0) return null
+      return (
+        <div className="col-span-2 mt-2">
+          <p className="text-xs font-bold text-gray-700 mb-1">📦 ITENS DA ENTRADA</p>
+          {itens.map((item, i) => (
+            <div key={i} className="bg-gray-50 rounded-lg p-2 mb-1 text-sm">
+              <p className="font-semibold text-gray-900">{i + 1}. {item.nome || '—'}{item.unidade_medida ? ` (${item.unidade_medida})` : ''}</p>
+              <p className="text-gray-600">Quantidade: {String(item.quantidade || '—')}</p>
+              {item.classificacao && <p className="text-gray-600">Classificação: {item.classificacao}</p>}
+            </div>
+          ))}
+        </div>
+      )
+    },
+  },
+
   'manutencao-maquinas': {
     checklist: (registro) => {
       const checklist = registro.checklist as Record<string, { valor?: string; observacao?: string }> | undefined

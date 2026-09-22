@@ -34,6 +34,8 @@ export default function ModulosMenuPage() {
   const CADERNETAS_EXCLUSIVAS: Record<string, string[]> = {
     'entrada-insumos': FAZENDAS_COM_INSUMOS,
     'saida-insumos': FAZENDAS_COM_INSUMOS,
+    'entrada-almoxarifado': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
+    'entrada-cantina': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
   }
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
 

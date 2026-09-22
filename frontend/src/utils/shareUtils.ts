@@ -1302,6 +1302,28 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.observacao && registro.observacao !== '') {
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
+  } else if (caderneta === 'entrada-almoxarifado' || caderneta === 'entrada-cantina') {
+    texto += `QUEM RECEBEU: *${registro.quemRecebeu || '—'}*\n\n`
+
+    const itensEntrada = (registro.itensDetalhe && Array.isArray(registro.itensDetalhe) && registro.itensDetalhe.length > 0)
+      ? registro.itensDetalhe
+      : (registro.itens && Array.isArray(registro.itens) ? registro.itens : [])
+
+    if (itensEntrada.length > 0) {
+      texto += 'ITENS\n'
+      itensEntrada.forEach((item: any, index: number) => {
+        texto += `${index + 1}. *${item.nome || '—'}*\n`
+        texto += `   Quantidade: *${item.quantidade || '—'}${item.unidade_medida ? ' ' + item.unidade_medida : item.unidade ? ' ' + item.unidade : ''}*\n`
+        if (item.classificacao && item.classificacao !== '') {
+          texto += `   Classificação: *${item.classificacao}*\n`
+        }
+        texto += '\n'
+      })
+    }
+
+    if (registro.observacao && registro.observacao !== '') {
+      texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
+    }
   } else if (caderneta === 'rodeio') {
     // Para rodeio, usar ordem específica dos formulários
     const ordemRodeio = [

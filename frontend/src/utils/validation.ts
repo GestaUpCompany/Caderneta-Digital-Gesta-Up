@@ -860,6 +860,58 @@ export function validateAlmoxarifado(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
+export function validateEntradaAlmoxarifado(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.quemRecebeu))
+    errors.push({ field: 'quemRecebeu', message: 'Quem recebeu é obrigatório' })
+
+  if (data.itens && Array.isArray(data.itens)) {
+    if (data.itens.length === 0) {
+      errors.push({ field: 'itens', message: 'Adicione pelo menos um item' })
+    } else {
+      data.itens.forEach((item: any, index: number) => {
+        if (!isNonEmptyString(item.itemId))
+          errors.push({ field: `itens[${index}].itemId`, message: 'Item é obrigatório' })
+        if (!isPositiveNumber(item.quantidade))
+          errors.push({ field: `itens[${index}].quantidade`, message: 'Quantidade deve ser maior que zero' })
+      })
+    }
+  } else {
+    errors.push({ field: 'itens', message: 'Adicione pelo menos um item' })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export function validateEntradaCantina(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.quemRecebeu))
+    errors.push({ field: 'quemRecebeu', message: 'Quem recebeu é obrigatório' })
+
+  if (data.itensDetalhe && Array.isArray(data.itensDetalhe)) {
+    if (data.itensDetalhe.length === 0) {
+      errors.push({ field: 'itens', message: 'Adicione pelo menos um item' })
+    } else {
+      data.itensDetalhe.forEach((item: any, index: number) => {
+        if (!isNonEmptyString(item.itemId))
+          errors.push({ field: `itens[${index}].itemId`, message: 'Item é obrigatório' })
+        if (!isPositiveNumber(item.quantidade))
+          errors.push({ field: `itens[${index}].quantidade`, message: 'Quantidade deve ser maior que zero' })
+      })
+    }
+  } else {
+    errors.push({ field: 'itens', message: 'Adicione pelo menos um item' })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
 const TIPOS_MANEJO_PESAGEM = ['abate', 'compra', 'venda_vivo', 'transf_saida', 'transf_entrada', 'apartacao']
 const IDADES_ERA = ['0-4m', '5-12m', '13-24m', '25-36m', '>36m']
 
@@ -923,7 +975,7 @@ export function validatePesagem(data: Record<string, unknown>): ValidationResult
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem'
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -949,6 +1001,8 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'fabrica-confinamento': validateFabricaConfinamento,
   'entrada-combustivel': validateEntradaCombustivel,
   pesagem: validatePesagem,
+  'entrada-almoxarifado': validateEntradaAlmoxarifado,
+  'entrada-cantina': validateEntradaCantina,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

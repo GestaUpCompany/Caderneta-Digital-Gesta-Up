@@ -59,6 +59,8 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'insumos-por-saida': 'saida_insumos_itens',
   problemas: 'registros_problemas',
   almoxarifado: 'registros_almoxarifado',
+  'entrada-almoxarifado': 'registros_almoxarifado',
+  'entrada-cantina': 'registros_alimentacao',
   'leitura-cocho': 'registros_leitura_cocho',
   'trato-confinamento': 'registros_oferta_trato',
   'fabrica-confinamento': 'registros_fabrica_confinamento',
@@ -428,6 +430,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         numero_refeicoes_almoco: registro.numeroRefeicoesAlmoco ? Number(registro.numeroRefeicoesAlmoco) : null,
         numero_refeicoes_jantar: registro.numeroRefeicoesJantar ? Number(registro.numeroRefeicoesJantar) : null,
         itens: registro.itens || null,
+        itens_detalhe: registro.itensDetalhe || null,
         nome_outros: registro.nomeOutros || null,
         quantidade_outros: registro.quantidadeOutros || null,
         unidade_outros: registro.unidadeOutros || null,
@@ -551,6 +554,25 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         quem_entregou: registro.quemEntregou || null,
         quem_pegou: registro.quemPegou || null,
         itens: registro.itens || [],
+        observacao: registro.observacao || null,
+      }
+    case 'entrada-almoxarifado':
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        tipo: 'entrada',
+        quem_recebeu: registro.quemRecebeu || null,
+        itens: registro.itens || [],
+        observacao: registro.observacao || null,
+      }
+    case 'entrada-cantina':
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        modo: 'entrada',
+        quem_recebeu: registro.quemRecebeu || null,
+        itens: registro.itens || null,
+        itens_detalhe: registro.itensDetalhe || null,
         observacao: registro.observacao || null,
       }
     case 'leitura-cocho':

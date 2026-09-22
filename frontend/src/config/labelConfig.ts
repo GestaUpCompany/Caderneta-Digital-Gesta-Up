@@ -310,6 +310,20 @@ const ALMOXARIFADO_LABELS = {
   observacao: 'OBSERVAÇÃO',
 }
 
+const ENTRADA_ALMOXARIFADO_LABELS = {
+  data: 'DATA',
+  quemRecebeu: 'QUEM RECEBEU',
+  itens: 'ITENS DA ENTRADA',
+  observacao: 'OBSERVAÇÃO',
+}
+
+const ENTRADA_CANTINA_LABELS = {
+  data: 'DATA',
+  quemRecebeu: 'QUEM RECEBEU',
+  itens: 'ITENS DA ENTRADA',
+  observacao: 'OBSERVAÇÃO',
+}
+
 const PESAGEM_LABELS = {
   ...COMMON_LABELS,
   tipoManejo: 'TIPO DE MANEJO',
@@ -354,5 +368,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   'saida-insumos': SAIDA_INSUMOS_LABELS,
   'insumos-por-saida': INSUMOS_POR_SAIDA_LABELS,
   almoxarifado: ALMOXARIFADO_LABELS,
+  'entrada-almoxarifado': ENTRADA_ALMOXARIFADO_LABELS,
+  'entrada-cantina': ENTRADA_CANTINA_LABELS,
   pesagem: PESAGEM_LABELS,
 }

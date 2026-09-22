@@ -2042,6 +2042,19 @@ export async function updateItemAlmoxarifadoSaldoCache(fazendaId: string, itemId
   try { await saveQueryCacheToIndexedDB() } catch { /* cache em memoria continua valido */ }
 }
 
+export async function updateItemCantinaSaldoCache(fazendaId: string, itemId: string, delta: number): Promise<void> {
+  const prefix = `itens-cantina:${fazendaId}:`
+  for (const key of Object.keys(queryCache)) {
+    if (!key.startsWith(prefix)) continue
+    const cached = queryCache[key].data
+    if (!Array.isArray(cached)) continue
+    setCachedQuery(key, cached.map((item: any) => item.id === itemId
+      ? { ...item, estoque_atual: Number(item.estoque_atual || 0) + delta }
+      : item))
+  }
+  try { await saveQueryCacheToIndexedDB() } catch { /* cache em memoria continua valido */ }
+}
+
 export async function getItensAlmoxarifadoCached(fazendaId: string, classificacao: string): Promise<any[] | null> {
   const key = buildKey('itens-almoxarifado', fazendaId, classificacao)
 

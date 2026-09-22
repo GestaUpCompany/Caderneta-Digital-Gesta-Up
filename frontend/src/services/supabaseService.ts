@@ -2823,7 +2823,7 @@ export async function getTanquesCombustivel(fazendaId: string) {
 export async function getClassificacoesCantina(fazendaId: string): Promise<string[]> {
   const client = await getSupabaseClientWithRefresh()
   const { data, error } = await (client as any)
-    .from('itens_cantina')
+    .from('itens_cantina_pwa')
     .select('classificacao')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
@@ -2837,7 +2837,7 @@ export async function getClassificacoesCantina(fazendaId: string): Promise<strin
 export async function getItensCantina(fazendaId: string, classificacao?: string) {
   const client = await getSupabaseClientWithRefresh()
   let query = (client as any)
-    .from('itens_cantina')
+    .from('itens_cantina_pwa')
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)

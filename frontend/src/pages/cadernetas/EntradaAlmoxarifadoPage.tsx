@@ -1,0 +1,513 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
+import { Button, Input, DatePicker, ValidationMessage } from '../../components/ui'
+import SearchableModal from '../../components/ui/SearchableModal'
+import SuccessModal from '../../components/SuccessModal'
+import BannerRascunho from '../../components/BannerRascunho'
+import { salvarRegistro } from '../../services/api'
+import { todayBR } from '../../utils/formatDate'
+import { RootState } from '../../store/store'
+import CadernetaHeader from '../../components/CadernetaHeader'
+import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getItensAlmoxarifadoCached, updateItemAlmoxarifadoSaldoCache } from '../../services/cadastroCache'
+import { getFuncionarios } from '../../services/supabaseService'
+import { scrollToFirstError } from '../../utils/scrollToError'
+import { useFormValidation } from '../../hooks/useFormValidation'
+import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { Brush, Save } from 'lucide-react'
+
+interface ItemEntrada {
+  itemId?: string
+  classificacao: string
+  nome: string
+  unidade?: string
+  saldoAtual?: number
+  quantidade: string
+  observacao: string
+}
+
+interface FormState {
+  data: string
+  quemRecebeu: string
+  itens: ItemEntrada[]
+  observacao: string
+}
+
+const makeInitial = (): FormState => ({
+  data: todayBR(),
+  quemRecebeu: '',
+  itens: [],
+  observacao: '',
+})
+
+const makeInitialItem = (): ItemEntrada => ({
+  itemId: '',
+  classificacao: '',
+  nome: '',
+  quantidade: '',
+  observacao: '',
+})
+
+export default function EntradaAlmoxarifadoPage() {
+  const navigate = useNavigate()
+  const fazendaId = useSelector((state: RootState) => state.config.fazendaId)
+
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'entrada-almoxarifado', makeInitial })
+  const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
+  const [salvando, setSalvando] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [registroSalvo, setRegistroSalvo] = useState<any>(null)
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
+  const [itemEditando, setItemEditando] = useState<ItemEntrada | null>(null)
+  const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
+  const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
+  const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
+  const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
+
+  const set = (key: keyof FormState) => (value: string) => setForm(prev => ({ ...prev, [key]: value }))
+  const setInput = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [key]: e.target.value }))
+
+  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  const validationRules: any = {
+    data: { required: true },
+    quemRecebeu: { required: true },
+    itens: {
+      custom: (_value: any, form: any) => {
+        return form.itens && form.itens.length > 0 ? null : 'Adicione pelo menos um item'
+      }
+    },
+  }
+
+  const { isValid } = useFormValidation(form, validationRules)
+
+  const handleAdicionarItem = () => {
+    setItemEditando(makeInitialItem())
+    setItemEditandoIndex(null)
+    setItemErrors(new Set())
+    setMostrarFormularioItem(true)
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+  }
+
+  const handleEditarItem = (index: number) => {
+    setItemEditando({ ...form.itens[index] })
+    setItemEditandoIndex(index)
+    setItemErrors(new Set())
+    setMostrarFormularioItem(true)
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+  }
+
+  const handleSalvarItem = () => {
+    if (!itemEditando) return
+
+    const errors = new Set<string>()
+
+    if (!itemEditando.classificacao) {
+      errors.add('classificacao')
+    }
+    if (!itemEditando.nome) {
+      errors.add('nome')
+    }
+    if (!itemEditando.quantidade || Number(itemEditando.quantidade) <= 0) {
+      errors.add('quantidade')
+    }
+
+    if (errors.size > 0) {
+      setItemErrors(errors)
+      return
+    }
+
+    const itemFinal = { ...itemEditando }
+
+    if (itemEditandoIndex !== null) {
+      setForm(prev => ({
+        ...prev,
+        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? itemFinal : item)
+      }))
+    } else {
+      setForm(prev => ({
+        ...prev,
+        itens: [...prev.itens, itemFinal]
+      }))
+    }
+    setItemEditando(null)
+    setItemEditandoIndex(null)
+    setMostrarFormularioItem(false)
+    setItemErrors(new Set())
+  }
+
+  const handleRemoverItem = (index: number) => {
+    setForm(prev => ({
+      ...prev,
+      itens: prev.itens.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleSalvar = async () => {
+    setSalvando(true)
+    setErrors([])
+
+    if (form.itens.length === 0) {
+      setErrors([{ field: 'itens', message: 'Adicione pelo menos um item' }])
+      scrollToFirstError([{ field: 'itens', message: 'Adicione pelo menos um item' }])
+      setSalvando(false)
+      return
+    }
+
+    const result = await salvarRegistro('entrada-almoxarifado', {
+      data: form.data,
+      quemRecebeu: form.quemRecebeu,
+      itens: form.itens,
+      observacao: form.observacao || '',
+    })
+
+    setSalvando(false)
+    if (!result.success && result.errors) {
+      setErrors(result.errors)
+      scrollToFirstError(result.errors)
+    } else {
+      setRegistroSalvo(result.registro)
+      setShowSuccessModal(true)
+      if (fazendaId) {
+        await Promise.all(form.itens.filter((item) => item.itemId).map((item) =>
+          updateItemAlmoxarifadoSaldoCache(fazendaId, item.itemId!, Number(String(item.quantidade).replace(',', '.')))
+        ))
+      }
+      limparRascunho()
+    }
+  }
+
+  const handleNewRecord = () => {
+    setShowSuccessModal(false)
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }, 100)
+  }
+
+  useEffect(() => {
+    const loadData = async () => {
+      const cache = await getCachedCadastroData()
+      if (cache && cache.funcionarios && cache.funcionarios.length > 0) {
+        setFuncionariosDisponiveis(cache.funcionarios)
+      } else if (fazendaId) {
+        try {
+          const funcionariosData = await getFuncionarios(fazendaId)
+          setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
+        } catch (error) {
+          console.error('Erro ao carregar funcionários:', error)
+        }
+      }
+
+      if (fazendaId) {
+        try {
+          const classificacoesData = await getClassificacoesAlmoxarifadoCached(fazendaId)
+          setClassificacoesDisponiveis(classificacoesData || [])
+        } catch (error) {
+          console.error('Erro ao carregar classificações:', error)
+        }
+      }
+    }
+    loadData()
+  }, [fazendaId])
+
+  useEffect(() => {
+    const loadItens = async () => {
+      if (!fazendaId || !itemEditando?.classificacao) {
+        setItensDisponiveis([])
+        return
+      }
+      try {
+        const itensData = await getItensAlmoxarifadoCached(fazendaId, itemEditando.classificacao)
+        setItensDisponiveis((itensData || []).filter((item: any) => item.controla_estoque))
+      } catch (error) {
+        console.error('Erro ao carregar itens:', error)
+        setItensDisponiveis([])
+      }
+    }
+    loadItens()
+  }, [itemEditando?.classificacao, fazendaId])
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <CadernetaHeader
+        title="ALMOXARIFADO"
+        cadernetaId="entrada-almoxarifado"
+        dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
+      />
+
+      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+        <BannerRascunho
+          visible={rascunhoRestaurado}
+          onConfirmar={confirmarRascunho}
+          onDescartar={descartarRascunho}
+        />
+        {errors.length > 0 && <ValidationMessage errors={errors} />}
+
+        {/* Seção 1: Dados Principais */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
+          <div className="flex flex-col gap-3">
+            {funcionariosDisponiveis.length > 0 ? (
+              <SearchableModal
+                label={<span>QUEM RECEBEU? <span className="text-red-500">*</span></span>}
+                value={form.quemRecebeu}
+                onChange={(val) => { set('quemRecebeu')(val); atualizarNomeUsuarioConfig(val) }}
+                error={getError('quemRecebeu')}
+                options={funcionariosDisponiveis}
+                placeholder="Buscar funcionário..."
+                id="quemRecebeu"
+                name="quemRecebeu"
+              />
+            ) : (
+              <Input
+                label={<span>QUEM RECEBEU? <span className="text-red-500">*</span></span>}
+                placeholder="Nome de quem recebeu"
+                value={form.quemRecebeu}
+                onChange={(e) => { setInput('quemRecebeu')(e); atualizarNomeUsuarioConfig(e.target.value) }}
+                error={getError('quemRecebeu')}
+                id="quemRecebeu"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Seção 2: Itens */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ITENS DA ENTRADA <span className="text-red-500">*</span></h2>
+
+          {form.itens.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {form.itens.map((item, index) => (
+                <div key={index} className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <p className="text-lg font-bold text-gray-800 uppercase">{item.nome}</p>
+                      <p className="text-lg text-gray-900">Quantidade: {item.quantidade}</p>
+                      <p className="text-base text-gray-600">Classificação: {item.classificacao || '-'}</p>
+                      {item.observacao && (
+                        <p className="text-base text-gray-600">Obs: {item.observacao}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 ml-2">
+                      <button
+                        onClick={() => handleEditarItem(index)}
+                        className="text-blue-500 text-2xl"
+                        title="Editar item"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => handleRemoverItem(index)}
+                        className="text-red-500 text-2xl"
+                        title="Remover item"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!mostrarFormularioItem ? (
+            <Button
+              onClick={handleAdicionarItem}
+              variant="secondary"
+              icon="➕"
+              fullWidth
+            >
+              ADICIONAR ITEM
+            </Button>
+          ) : (
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 flex flex-col gap-4">
+              <h3 className="text-base font-bold text-gray-900">
+                {itemEditandoIndex !== null ? 'EDITAR ITEM' : 'NOVO ITEM'}
+              </h3>
+
+              {itemErrors.size > 0 && (
+                <ValidationMessage
+                  errors={Array.from(itemErrors).map(field => ({
+                    field,
+                    message: 'Preencha todos os campos obrigatórios'
+                  }))}
+                />
+              )}
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {classificacoesDisponiveis.map((classificacao) => (
+                    <button
+                      key={classificacao}
+                      type="button"
+                      onClick={() => {
+                        setItemEditando(prev => prev ? { ...prev, classificacao, nome: '' } : null)
+                        setItemErrors(prev => {
+                          const newErrors = new Set(prev)
+                          newErrors.delete('classificacao')
+                          newErrors.delete('nome')
+                          return newErrors
+                        })
+                      }}
+                      className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                        itemEditando?.classificacao === classificacao
+                          ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                          : itemErrors.has('classificacao')
+                          ? 'border-red-500 bg-red-50 text-red-700'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {classificacao}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {itemEditando?.classificacao && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {itensDisponiveis.length > 0 ? (
+                      itensDisponiveis.map((item) => (
+                        <button
+                          key={item.id || item.nome}
+                          type="button"
+                          onClick={() => {
+                            setItemEditando(prev => prev ? { ...prev, itemId: item.id, nome: item.nome, unidade: item.unidade || 'un', saldoAtual: Number(item.estoque_atual ?? 0) } : null)
+                            setItemErrors(prev => {
+                              const newErrors = new Set(prev)
+                              newErrors.delete('nome')
+                              return newErrors
+                            })
+                          }}
+                          className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                            itemEditando?.nome === item.nome
+                              ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                              : itemErrors.has('nome')
+                              ? 'border-red-500 bg-red-50 text-red-700'
+                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          {item.nome}{item.unidade ? ` (${item.unidade})` : ''}{` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}`}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 col-span-2">Nenhum item com controle de estoque nesta classificação</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <Input
+                label="QUANTIDADE DA ENTRADA?"
+                placeholder="Informe a quantidade"
+                value={itemEditando?.quantidade || ''}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.')
+                  setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
+                  setItemErrors(prev => {
+                    const newErrors = new Set(prev)
+                    newErrors.delete('quantidade')
+                    return newErrors
+                  })
+                }}
+                error={itemErrors.has('quantidade') ? 'Campo obrigatório' : undefined}
+              />
+
+              <Input
+                label="OBSERVAÇÃO (OPCIONAL)"
+                placeholder="Observações sobre o item"
+                value={itemEditando?.observacao || ''}
+                onChange={(e) => setItemEditando(prev => prev ? { ...prev, observacao: e.target.value } : null)}
+              />
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setMostrarFormularioItem(false)
+                    setItemEditando(null)
+                    setItemEditandoIndex(null)
+                  }}
+                  variant="secondary"
+                  icon="✕"
+                  fullWidth
+                  size="sm"
+                >
+                  CANCELAR
+                </Button>
+                <Button
+                  onClick={handleSalvarItem}
+                  variant="success"
+                  icon="✓"
+                  fullWidth
+                  size="sm"
+                >
+                  CONFIRMAR
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Seção 3: Observação Geral */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÃO GERAL</h2>
+          <Input
+            label=""
+            placeholder="Observações adicionais (opcional)"
+            value={form.observacao}
+            onChange={setInput('observacao')}
+            error={getError('observacao')}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleSalvar}
+            disabled={salvando || !isValid}
+            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
+              salvando || !isValid
+                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Save className="h-5 w-5" strokeWidth={2.5} />
+              {salvando ? 'SALVANDO...' : 'SALVAR'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => limparRascunho()}
+            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              <Brush className="h-4 w-4" strokeWidth={2.5} />
+              LIMPAR
+            </span>
+          </button>
+        </div>
+        {!isValid && (
+          <p className="text-base text-gray-600 text-center">
+            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
+          </p>
+        )}
+      </main>
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={handleNewRecord}
+        onNewRecord={handleNewRecord}
+        onExit={() => navigate(-1)}
+        cadernetaName="Almoxarifado"
+        registro={registroSalvo}
+        caderneta="entrada-almoxarifado"
+      />
+    </div>
+  )
+}
