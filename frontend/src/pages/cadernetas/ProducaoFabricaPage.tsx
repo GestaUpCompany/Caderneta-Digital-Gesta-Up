@@ -196,13 +196,25 @@ export default function ProducaoFabricaPage() {
         return
       }
 
+      // Mapa nome do insumo -> quantidade realizada, usado no texto compartilhável
+      const insumosQuantidades = insumos.reduce<Record<string, number>>((acc, insumo) => {
+        const quantidadeStr = form.insumosQuantidades[insumo.insumo_id]
+        const quantidade = quantidadeStr ? (normalizarNumero(quantidadeStr) ?? 0) : 0
+        if (quantidade > 0) {
+          acc[insumo.nome] = quantidade
+        }
+        return acc
+      }, {})
+
       // Salvar registro principal
       const result = await salvarRegistro('saida-insumos', {
+        data: form.dataProducao,
         dataProducao: form.dataProducao,
         dietaProduzida: form.formulacaoNome,
         formulacaoId: form.formulacaoId,
         destinoProducao: form.destinoProducao,
         totalProduzido: form.totalProduzido ? (normalizarNumero(form.totalProduzido) ?? 0) : 0,
+        insumosQuantidades,
         usuario: usuario,
       })
 

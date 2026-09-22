@@ -13,6 +13,7 @@ import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { translateSyncError, formatSyncErrorForSupport } from '../../utils/syncErrorMessages'
+import { formatarNumeroBR, normalizarNumero } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroAntesDeCached, getIntervaloMedioLimpezasCached } from '../../services/cadastroCache'
 import { CADERNETA_DISPLAY_CONFIG } from '../../config/cadernetas/index'
@@ -498,7 +499,11 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">{statusLabel[registro.syncStatus] ?? '⏳'}</span>
-                    <span className="text-base font-bold text-gray-800">{registro.data as string}</span>
+                    <span className="text-base font-bold text-gray-800">
+                      {String(registro.data ?? '').startsWith('undefined')
+                        ? [registro.dataProducao || registro.dataEntrada, String(registro.data).split(' ')[1]].filter(Boolean).join(' ')
+                        : (registro.data as string)}
+                    </span>
                   </div>
                 </div>
 
@@ -705,8 +710,9 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                       // Adicionar insumos utilizados
                       if (registro.insumosQuantidades) {
                         Object.entries(registro.insumosQuantidades).forEach(([insumo, quantidade]) => {
-                          if (quantidade && parseFloat(String(quantidade)) > 0) {
-                            camposNormais.push([insumo, quantidade])
+                          const kg = normalizarNumero(quantidade as any)
+                          if (kg !== null && kg > 0) {
+                            camposNormais.push([insumo, formatarNumeroBR(kg)])
                           }
                         })
                       }

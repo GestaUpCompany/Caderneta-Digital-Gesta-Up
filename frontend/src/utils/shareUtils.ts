@@ -275,7 +275,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
   let texto = `📋 ${cadernetaNome}\n`
   // registro.data já contém data e hora, formatar com "às" antes do horário
-  const dataStr = String(registro.data)
+  let dataStr = String(registro.data ?? '')
+  // Registros antigos de saida-insumos foram salvos sem o campo data ("undefined HH:MM")
+  if (dataStr.startsWith('undefined')) {
+    const dataBase = registro.dataProducao || registro.dataEntrada || ''
+    const horaFallback = horaDeIso(registro.lastModified)
+    dataStr = dataBase ? (horaFallback ? `${dataBase} ${horaFallback}` : String(dataBase)) : ''
+  }
   // Se já contém horário, inserir "às" antes dele
   const dataFormatada = dataStr.replace(/(\d{2}:\d{2})$/, 'às $1')
   texto += `📅 Data: ${dataFormatada}\n\n`
@@ -1303,8 +1309,6 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
   } else if (caderneta === 'entrada-almoxarifado' || caderneta === 'entrada-cantina') {
-    texto += `QUEM RECEBEU: *${registro.quemRecebeu || '—'}*\n\n`
-
     const itensEntrada = (registro.itensDetalhe && Array.isArray(registro.itensDetalhe) && registro.itensDetalhe.length > 0)
       ? registro.itensDetalhe
       : (registro.itens && Array.isArray(registro.itens) ? registro.itens : [])
@@ -1537,19 +1541,29 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = formatFieldValue(key, value)
+        const valorFormatado = key === 'totalProduzido'
+          ? formatarNumeroBR(value, String(value))
+          : formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
       }
     })
-    
+
     // Adicionar insumos utilizados
-    if (registro.insumosQuantidades) {
-      texto += '\nINSUMOS UTILIZADOS (kg)\n'
-      Object.entries(registro.insumosQuantidades).forEach(([insumo, quantidade]) => {
-        if (quantidade && parseFloat(String(quantidade)) > 0) {
-          texto += `${insumo}: *${quantidade}*\n`
-        }
-      })
+    const insumosQuantidades = registro.insumosQuantidades as Record<string, unknown> | undefined
+    if (insumosQuantidades && typeof insumosQuantidades === 'object') {
+      const itens = Object.entries(insumosQuantidades)
+        .map(([nome, q]) => ({ nome, kg: normalizarNumero(q as any) }))
+        .filter((i): i is { nome: string; kg: number } => i.kg !== null && i.kg > 0)
+      if (itens.length > 0) {
+        texto += '\nINSUMOS UTILIZADOS (kg)\n'
+        itens.forEach((i) => {
+          texto += `${i.nome}: *${formatarNumeroBR(i.kg)}*\n`
+        })
+      }
+    }
+
+    if (registro.usuario) {
+      texto += `\nRESPONSÁVEL: *${registro.usuario}*\n`
     }
   } else if (caderneta === 'manutencao-maquinas') {
     // Seção: Dados Principais
