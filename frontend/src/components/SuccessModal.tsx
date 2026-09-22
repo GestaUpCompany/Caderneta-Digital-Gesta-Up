@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
-import { Check } from 'lucide-react'
-import Button from './ui/Button'
+import { CheckCircle2, Share2, Plus } from 'lucide-react'
 import { formatarRegistroComoTexto, compartilharWhatsApp, Registro } from '../utils/shareUtils'
 
 interface SuccessModalProps {
@@ -87,55 +86,42 @@ export default function SuccessModal({
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200"
+        className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header com ícone de sucesso */}
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-16 h-16 bg-[#1a3a2a] rounded-full flex items-center justify-center mb-4 ring-4 ring-[#1a3a2a]/10 animate-in zoom-in duration-300">
-            <Check className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            SALVO COM SUCESSO!
-          </h2>
-          <p className="text-gray-600">
-            {cadernetaName} registrada com sucesso
-          </p>
-        </div>
+        <CheckCircle2 className="h-12 w-12 text-green-700 mx-auto" />
+        <h2 className="text-lg font-black text-gray-900 mt-2">
+          Salvo com sucesso
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">
+          {cadernetaName} registrada no aparelho. Será enviada ao sincronizar.
+        </p>
 
         {/* Botões de ação */}
-        <div className="flex flex-col gap-3">
-          <div className="flex gap-3">
-            <Button
-              onClick={onNewRecord}
-              variant="success"
-              fullWidth
-              icon=""
-              className="flex-1 font-bold"
-            >
-              Novo Registro
-            </Button>
-            <Button
-              onClick={onExit}
-              variant="ghost"
-              fullWidth
-              icon=""
-              className="flex-1 font-bold"
-            >
-              Voltar para o início
-            </Button>
-          </div>
+        <div className="mt-4 flex flex-col gap-2">
           {registro && caderneta && (
-            <Button
+            <button
               onClick={handleShare}
-              variant="ghost"
-              fullWidth
-              icon="🔗"
-              className="font-bold"
+              className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
             >
+              <Share2 className="h-5 w-5" />
               COMPARTILHAR
-            </Button>
+            </button>
           )}
+          <button
+            onClick={onNewRecord}
+            className="w-full font-bold px-4 py-3 rounded-2xl bg-[#1a3a2a] text-white active:bg-[#245038] flex items-center justify-center gap-2"
+          >
+            <Plus className="h-5 w-5" />
+            NOVO REGISTRO
+          </button>
+          <button
+            onClick={onExit}
+            className="w-full font-bold px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 active:bg-gray-200"
+          >
+            VOLTAR PARA O INÍCIO
+          </button>
         </div>
       </div>
     </div>
