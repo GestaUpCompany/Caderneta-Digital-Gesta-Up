@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, DatePicker, ValidationMessage, SearchableModal, Button } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, Button } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -9,9 +9,8 @@ import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
-import { getCachedCadastroData, getClassificacoesCantinaCached, getItensCantinaCached, updateItemCantinaSaldoCache } from '../../services/cadastroCache'
+import { getClassificacoesCantinaCached, getItensCantinaCached, updateItemCantinaSaldoCache } from '../../services/cadastroCache'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 interface ItemEntrada {
   itemId: string
@@ -23,14 +22,12 @@ interface ItemEntrada {
 
 interface FormState {
   data: string
-  quemRecebeu: string
   itens: ItemEntrada[]
   observacao: string
 }
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  quemRecebeu: '',
   itens: [],
   observacao: '',
 })
@@ -51,7 +48,6 @@ export default function EntradaCantinaPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
   const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
   const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
@@ -125,7 +121,6 @@ export default function EntradaCantinaPage() {
 
   const validationRules: any = {
     data: { required: true },
-    quemRecebeu: { required: true },
     itens: {
       custom: (_value: any, form: any) => {
         return form.itens && form.itens.length > 0 ? null : 'Adicione pelo menos um item'
@@ -134,21 +129,6 @@ export default function EntradaCantinaPage() {
   }
 
   const { isValid } = useFormValidation(form, validationRules)
-
-  useEffect(() => {
-    async function carregarFuncionarios() {
-      if (!fazendaId) return
-      try {
-        const cache = await getCachedCadastroData()
-        if (cache?.funcionarios && cache.funcionarios.length > 0) {
-          setFuncionariosDisponiveis(cache.funcionarios)
-        }
-      } catch (error) {
-        console.error('Erro ao carregar funcionários:', error)
-      }
-    }
-    carregarFuncionarios()
-  }, [fazendaId])
 
   useEffect(() => {
     async function carregarClassificacoes() {
@@ -196,7 +176,6 @@ export default function EntradaCantinaPage() {
 
     const result = await salvarRegistro('entrada-cantina', {
       data: form.data,
-      quemRecebeu: form.quemRecebeu,
       itens: itensStorage,
       itensDetalhe: form.itens,
       observacao: form.observacao,
@@ -241,23 +220,9 @@ export default function EntradaCantinaPage() {
     >
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-      {/* Seção 1: Dados da Entrada */}
+      {/* Seção 1: Itens */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA ENTRADA</h2>
-        <SearchableModal
-          label={<span>QUEM RECEBEU? <span className="text-red-500">*</span></span>}
-          value={form.quemRecebeu}
-          onChange={(val) => { setForm((p) => ({ ...p, quemRecebeu: val })); atualizarNomeUsuarioConfig(val) }}
-          error={getError('quemRecebeu')}
-          options={funcionariosDisponiveis}
-          placeholder="Buscar funcionário..."
-          id="quemRecebeu"
-        />
-      </div>
-
-      {/* Seção 2: Itens */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ITENS DA ENTRADA <span className="text-red-500">*</span></h2>
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ITENS DA ENTRADA <span className="text-red-500">*</span></h2>
 
         {form.itens.length > 0 && (
           <div className="flex flex-col gap-3">
@@ -444,9 +409,9 @@ export default function EntradaCantinaPage() {
         )}
       </div>
 
-      {/* Seção 3: Observações */}
+      {/* Seção 2: Observações */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÕES</h2>
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. OBSERVAÇÕES</h2>
         <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
       </div>
 

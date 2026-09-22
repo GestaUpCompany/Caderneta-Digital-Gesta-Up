@@ -865,8 +865,6 @@ export function validateEntradaAlmoxarifado(data: Record<string, unknown>): Vali
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.quemRecebeu))
-    errors.push({ field: 'quemRecebeu', message: 'Quem recebeu é obrigatório' })
 
   if (data.itens && Array.isArray(data.itens)) {
     if (data.itens.length === 0) {
@@ -891,8 +889,6 @@ export function validateEntradaCantina(data: Record<string, unknown>): Validatio
 
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
-  if (!isNonEmptyString(data.quemRecebeu))
-    errors.push({ field: 'quemRecebeu', message: 'Quem recebeu é obrigatório' })
 
   if (data.itensDetalhe && Array.isArray(data.itensDetalhe)) {
     if (data.itensDetalhe.length === 0) {

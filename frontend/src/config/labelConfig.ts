@@ -312,14 +312,12 @@ const ALMOXARIFADO_LABELS = {
 
 const ENTRADA_ALMOXARIFADO_LABELS = {
   data: 'DATA',
-  quemRecebeu: 'QUEM RECEBEU',
   itens: 'ITENS DA ENTRADA',
   observacao: 'OBSERVAÇÃO',
 }
 
 const ENTRADA_CANTINA_LABELS = {
   data: 'DATA',
-  quemRecebeu: 'QUEM RECEBEU',
   itens: 'ITENS DA ENTRADA',
   observacao: 'OBSERVAÇÃO',
 }

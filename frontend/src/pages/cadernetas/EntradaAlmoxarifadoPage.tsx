@@ -2,18 +2,15 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Button, Input, DatePicker, ValidationMessage } from '../../components/ui'
-import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
-import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getItensAlmoxarifadoCached, updateItemAlmoxarifadoSaldoCache } from '../../services/cadastroCache'
-import { getFuncionarios } from '../../services/supabaseService'
+import { getClassificacoesAlmoxarifadoCached, getItensAlmoxarifadoCached, updateItemAlmoxarifadoSaldoCache } from '../../services/cadastroCache'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { Brush, Save } from 'lucide-react'
 
@@ -29,14 +26,12 @@ interface ItemEntrada {
 
 interface FormState {
   data: string
-  quemRecebeu: string
   itens: ItemEntrada[]
   observacao: string
 }
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  quemRecebeu: '',
   itens: [],
   observacao: '',
 })
@@ -59,7 +54,6 @@ export default function EntradaAlmoxarifadoPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
   const [itemEditando, setItemEditando] = useState<ItemEntrada | null>(null)
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
@@ -74,7 +68,6 @@ export default function EntradaAlmoxarifadoPage() {
 
   const validationRules: any = {
     data: { required: true },
-    quemRecebeu: { required: true },
     itens: {
       custom: (_value: any, form: any) => {
         return form.itens && form.itens.length > 0 ? null : 'Adicione pelo menos um item'
@@ -159,7 +152,6 @@ export default function EntradaAlmoxarifadoPage() {
 
     const result = await salvarRegistro('entrada-almoxarifado', {
       data: form.data,
-      quemRecebeu: form.quemRecebeu,
       itens: form.itens,
       observacao: form.observacao || '',
     })
@@ -189,18 +181,6 @@ export default function EntradaAlmoxarifadoPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const cache = await getCachedCadastroData()
-      if (cache && cache.funcionarios && cache.funcionarios.length > 0) {
-        setFuncionariosDisponiveis(cache.funcionarios)
-      } else if (fazendaId) {
-        try {
-          const funcionariosData = await getFuncionarios(fazendaId)
-          setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
-        } catch (error) {
-          console.error('Erro ao carregar funcionários:', error)
-        }
-      }
-
       if (fazendaId) {
         try {
           const classificacoesData = await getClassificacoesAlmoxarifadoCached(fazendaId)
@@ -246,37 +226,9 @@ export default function EntradaAlmoxarifadoPage() {
         />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 1: Dados Principais */}
+        {/* Seção 1: Itens */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-          <div className="flex flex-col gap-3">
-            {funcionariosDisponiveis.length > 0 ? (
-              <SearchableModal
-                label={<span>QUEM RECEBEU? <span className="text-red-500">*</span></span>}
-                value={form.quemRecebeu}
-                onChange={(val) => { set('quemRecebeu')(val); atualizarNomeUsuarioConfig(val) }}
-                error={getError('quemRecebeu')}
-                options={funcionariosDisponiveis}
-                placeholder="Buscar funcionário..."
-                id="quemRecebeu"
-                name="quemRecebeu"
-              />
-            ) : (
-              <Input
-                label={<span>QUEM RECEBEU? <span className="text-red-500">*</span></span>}
-                placeholder="Nome de quem recebeu"
-                value={form.quemRecebeu}
-                onChange={(e) => { setInput('quemRecebeu')(e); atualizarNomeUsuarioConfig(e.target.value) }}
-                error={getError('quemRecebeu')}
-                id="quemRecebeu"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Seção 2: Itens */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ITENS DA ENTRADA <span className="text-red-500">*</span></h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ITENS DA ENTRADA <span className="text-red-500">*</span></h2>
 
           {form.itens.length > 0 && (
             <div className="flex flex-col gap-3">
@@ -453,9 +405,9 @@ export default function EntradaAlmoxarifadoPage() {
           )}
         </div>
 
-        {/* Seção 3: Observação Geral */}
+        {/* Seção 2: Observação Geral */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÃO GERAL</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. OBSERVAÇÃO GERAL</h2>
           <Input
             label=""
             placeholder="Observações adicionais (opcional)"
