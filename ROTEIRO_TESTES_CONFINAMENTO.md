@@ -6,7 +6,7 @@ Validar o fluxo online entre programação, produção na Fábrica, distribuiç�
 
 **Fazenda de testes:** `d649c65e-16ab-4b77-a84b-df937aa41cc3`
 
-**Programação preservada:** Engorda, 4 tratos, percentuais 20%, 25%, 25%, 30%, horários 06:00, 09:00, 13:00 e 16:00.
+**Programação preservada:** Confinamento, 4 tratos, percentuais 20%, 25%, 25%, 30%, horários 06:00, 09:00, 13:00 e 16:00.
 
 | Curral | Formulação | Cabeças | kg MN/dia |
 |---|---|---:|---:|
@@ -33,7 +33,7 @@ Validar o fluxo online entre programação, produção na Fábrica, distribuiç�
 ## Fase 1, validar o carregamento
 
 1. Abrir PWA, Trato Confinamento.
-2. Selecionar Engorda.
+2. Selecionar Confinamento.
 3. Confirmar os valores do trato 1:
    - A1: 240 kg.
    - B1: 128 kg.
@@ -47,7 +47,7 @@ Validar o fluxo online entre programação, produção na Fábrica, distribuiç�
 
 ## Fase 2, produzir tratos sem depender da distribuição
 
-1. Na Fábrica, selecionar Engorda, Terminação Boi e um vagão ativo.
+1. Na Fábrica, selecionar Confinamento, Terminação Boi e um vagão ativo.
 2. Produzir o trato 1 completo, total de 380 kg.
 3. Recarregar a tela antes de distribuir qualquer curral.
 4. Confirmar que o trato atual é 2 de 4.
@@ -140,7 +140,7 @@ Exemplo usando uma programação de 4 tratos. Se o segundo trato planejado for 3
 ## Fase 8, Painel Web
 
 1. Abrir Acompanhamento de Tratos.
-2. Filtrar a fazenda, a data e Engorda.
+2. Filtrar a fazenda, a data e Confinamento.
 3. Confirmar que o Painel lê distribuição em `registros_oferta_trato`.
 4. Confirmar que produção de Fábrica não aparece como oferta realizada.
 5. Validar planejado, real, desvio em kg, desvio percentual, quantidade de tratos e status.
