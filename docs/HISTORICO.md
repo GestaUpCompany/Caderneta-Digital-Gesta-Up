@@ -7,6 +7,7 @@ Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não prec
 Teste E2E completo (comunicado → OS → pesagem → embarque → documentos → fechamento) na fazenda de testes expôs um bug no PWA:
 
 - **Compatibilidade categoria×sexo case-sensitive**: `categoriasCompativeis` em `PesagemPage.tsx` filtrava pelos sets `CATEGORIAS_MACHO`/`CATEGORIAS_FEMEA` em Title Case, mas `lote_categorias.categoria` pode vir em minúsculo (ex: `boi gordo`). Marcar sexo zerava a lista de categorias. Corrigido com comparação normalizada (`toLowerCase().trim()`).
+- **SuccessModal modernizado**: o componente compartilhado `components/SuccessModal.tsx` foi restilizado com o visual do modal da pesagem (CheckCircle2, rounded-3xl, botões empilhados COMPARTILHAR / NOVO REGISTRO / VOLTAR PARA O INÍCIO, texto "registrada no aparelho. Será enviada ao sincronizar."). Mesma interface de props e handlers (ESC, botão voltar do Android, overlay). O modal da `PesagemPage` continua próprio porque tem ações específicas de sessão (contagem de registros, erros de sync, VER REGISTROS).
 
 **Disparador**: quando mencionar categoria sumindo ao marcar sexo, `categoriasCompativeis`, ou case de `lote_categorias`, ler esta seção.
 
