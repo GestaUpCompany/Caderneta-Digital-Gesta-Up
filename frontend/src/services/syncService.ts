@@ -70,6 +70,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'atividade-imprevistos': 'atividade_imprevistos',
   'atividades': 'atividades',
   pesagem: 'registros_pesagem',
+  'ordens-servico': 'ordens_servico',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -326,6 +327,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         idade: registro.idade ? Number(registro.idade) : null,
         equipe: registro.equipe ? Number(registro.equipe) : null,
         equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,
+        os_id: registro.osId || null,
+        sessao_id: registro.sessaoId || null,
+        individuo_id: registro.individuoId || null,
       }
     }
     case 'enfermaria':
@@ -643,6 +647,32 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         manejo_agil: snToBool(registro.manejoAgil),
         tempo_preenchimento_seg: registro.tempoPreenchimentoSeg != null ? Number(registro.tempoPreenchimentoSeg) : null,
         individuo_id: registro.individuoId || null,
+        os_id: registro.osId || null,
+      }
+    }
+    case 'ordens-servico': {
+      return {
+        id: registro.id,
+        local_id: registro.id,
+        fazenda_id: fazendaId,
+        nome_usuario: registro.usuario || registro.responsavel || null,
+        sync_status: 'synced',
+        version: registro.version || 1,
+        data: brWithTimeToIso(registro.data),
+        tipo: registro.tipo || 'venda',
+        tipo_venda: registro.tipoVenda || null,
+        vendedor: registro.vendedor || null,
+        comprador: registro.comprador || null,
+        venda_direta: registro.vendaDireta !== false,
+        corretora: registro.corretora || null,
+        quantidade_prevista: registro.quantidadePrevista ? Number(registro.quantidadePrevista) : null,
+        sexo: registro.sexo || null,
+        idade_era: registro.idadeEra || null,
+        data_prevista_embarque: registro.dataPrevistaEmbarque ? brToIso(String(registro.dataPrevistaEmbarque).split(' ')[0]) : null,
+        data_prevista_abate: registro.dataPrevistaAbate ? brToIso(String(registro.dataPrevistaAbate).split(' ')[0]) : null,
+        preco_arroba: normalizarNumero(registro.precoArroba as string | number | null | undefined),
+        data_prevista_pagamento: registro.dataPrevistaPagamento ? brToIso(String(registro.dataPrevistaPagamento).split(' ')[0]) : null,
+        observacao: registro.observacao || null,
       }
     }
     case 'fabrica-confinamento': {
@@ -794,7 +824,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         'registros_abastecimento', 'registros_alimentacao', 'registros_limpeza',
         'registros_operacoes_maquinas', 'registros_manutencao_maquinas',
         'registros_problemas', 'registros_almoxarifado', 'registros_leitura_cocho',
-        'registros_oferta_trato', 'registros_pesagem',
+        'registros_oferta_trato', 'registros_pesagem', 'ordens_servico',
       ])
       const tableNameStr = Array.isArray(tableName) ? tableName[0] : tableName
       if (upsertTables.has(tableNameStr)) {
@@ -857,12 +887,17 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           case 'registros_pesagem':
             result = await supabaseService.createRegistroPesagem(data)
             break
+          case 'ordens_servico':
+            result = await supabaseService.createOrdemServico(data)
+            break
         }
         // Capturar supabaseId retornado e gravar localmente
         if (result && result.id) {
           await updateRegistro(store, registro.id, {
             ...registro,
             supabaseId: result.id,
+            // OS: numero_os é gerado no servidor (trigger), persistir para exibição
+            ...(result.numero_os ? { numeroOs: result.numero_os } : {}),
             syncStatus: 'synced'
           })
         }

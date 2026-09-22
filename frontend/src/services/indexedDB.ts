@@ -35,6 +35,7 @@ export type CadernetaStore =
   | 'pesagem'
   | 'entrada-almoxarifado'
   | 'entrada-cantina'
+  | 'ordens-servico'
 
 const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
@@ -47,10 +48,11 @@ const STORES: CadernetaStore[] = [
   'pesagem',
   'entrada-almoxarifado',
   'entrada-cantina',
+  'ordens-servico',
 ]
 
 async function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, 30, {
+  return openDB(DB_NAME, 31, {
     upgrade(db) {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) {
@@ -185,11 +187,16 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
   const all = await db.getAll('syncQueue')
   const priorityOrder: Record<string, number> = { high: 0, normal: 1, low: 2 }
   // Ordem de dependencia: atividades -> atividade-funcionarios -> atividade-sessoes -> atividade-imprevistos
+  // ordens-servico antes de pesagem/movimentacao: a OS precisa existir no
+  // servidor antes dos registros que referenciam os_id (FK + guarda de sessão).
   const storeOrder: Record<string, number> = {
     'atividades': 0,
     'atividade-funcionarios': 1,
     'atividade-sessoes': 2,
     'atividade-imprevistos': 3,
+    'ordens-servico': 4,
+    'pesagem': 5,
+    'movimentacao': 6,
   }
   return all.sort((a: SyncQueueItem, b: SyncQueueItem) => {
     if (priorityOrder[a.priority] !== priorityOrder[b.priority])

@@ -1027,6 +1027,33 @@ export async function getLoteDetalhesComCategoriasCached(loteId: string): Promis
 }
 
 /**
+ * Busca OS abertas (tipo 'venda' por padrão) da fazenda com cache lazy.
+ * Usado pelo seletor de OS na Pesagem — precisa funcionar offline.
+ * Quando online, sempre consulta o Supabase (ignora cache).
+ * Quando offline, usa o cache.
+ */
+export async function getOrdensServicoAbertasCached(fazendaId: string, tipo: string = 'venda'): Promise<any[]> {
+  const key = buildKey('os-abertas', fazendaId, tipo)
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery<any[]>(key)
+    if (cached) return cached
+    return (await getCachedQueryFromIDB<any[]>(key)) || []
+  }
+
+  try {
+    const data = await withTimeout(supabaseService.getOrdensServicoAbertas(fazendaId, tipo), 3000)
+    const lista = data || []
+    setCachedQuery(key, lista)
+    return lista
+  } catch {
+    const cached = getCachedQuery<any[]>(key)
+    if (cached) return cached
+    return (await getCachedQueryFromIDB<any[]>(key)) || []
+  }
+}
+
+/**
  * Busca parâmetros do plano nutricional ativo de um lote com cache lazy.
  * Usado para calcular peso projetado na data do registro.
  * Quando online, sempre consulta o Supabase (ignora cache).

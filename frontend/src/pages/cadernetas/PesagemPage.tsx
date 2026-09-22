@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import { Input, Select, Button } from '../../components/ui'
-import { salvarRegistro, aguardarSyncConcluido } from '../../services/api'
+import { salvarRegistro, aguardarSyncConcluido, listarRegistros } from '../../services/api'
 import { enqueueRegistro } from '../../services/syncService'
 import { todayBR } from '../../utils/formatDate'
 import { normalizarNumero } from '../../utils/formatNumber'
 import { generateId } from '../../utils/generateId'
 import { RootState } from '../../store/store'
 import { salvarRascunho, lerRascunho, limparRascunho, updateRegistro, deleteRegistro, removeFromSyncQueueByRegistroId } from '../../services/indexedDB'
-import { getCachedCadastroData, getRacasCached, getLoteByNomeCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getRacasCached, getLoteByNomeCached, getOrdensServicoAbertasCached, getLoteDetalhesComCategoriasCached } from '../../services/cadastroCache'
 import { getLotes, getIndividuos } from '../../services/supabaseService'
 import { Trash2, Pencil, CheckCircle2, AlertTriangle, Share2, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatarRegistroComoTexto, compartilharWhatsApp } from '../../utils/shareUtils'
@@ -35,9 +35,30 @@ interface AnimalDraft {
   registroId?: string | null
 }
 
+interface OrdemServicoItem {
+  id: string
+  numero_os: string | null
+  tipo_venda: 'abate' | 'animal_vivo' | null
+  quantidade_prevista: number | null
+  sexo: string | null
+  idade_era: string | null
+  data_prevista_embarque: string | null
+  data_prevista_abate: string | null
+  comprador: string | null
+  created_at: string | null
+  /** true quando o registro só existe localmente (ainda não sincronizou) */
+  pendenteSync?: boolean
+}
+
 interface SessaoPesagem {
   fase: Fase
   tipoManejo: string
+  /** OS de venda vinculada (obrigatória para abate/venda_vivo) */
+  osId: string | null
+  osNumero: string | null
+  osTipoVenda: 'abate' | 'animal_vivo' | null
+  /** uuid da sessão: movimentações da OS exigem sessao_id (guarda de sessão única) */
+  sessaoId: string
   equipeAjustada: SN
   balancaAferida: SN
   checklistConferido: SN
@@ -135,6 +156,10 @@ function novaSessao(): SessaoPesagem {
   return {
     fase: 'preparacao',
     tipoManejo: '',
+    osId: null,
+    osNumero: null,
+    osTipoVenda: null,
+    sessaoId: crypto.randomUUID(),
     equipeAjustada: '',
     balancaAferida: '',
     checklistConferido: '',
@@ -227,6 +252,11 @@ export default function PesagemPage() {
   const [finalizado, setFinalizado] = useState<{ total: number; textoShare: string | null; syncErrors: number | null } | null>(null)
   const [metricasAbertas, setMetricasAbertas] = useState(false)
   const [checklistAberto, setChecklistAberto] = useState(false)
+  const [osAbertas, setOsAbertas] = useState<OrdemServicoItem[]>([])
+  // Categorias reais do lote (lote_categorias) para sessões com OS:
+  // a pesagem de saída desconta do lote, então a categoria precisa existir
+  // no lote (evita CATEGORIA_NOT_IN_LOTE no trigger do servidor).
+  const [loteCategoriasOs, setLoteCategoriasOs] = useState<Record<string, string[]>>({})
   const autoFillRef = useRef<string | null>(null)
 
   const focarChip = () => {
@@ -356,6 +386,51 @@ export default function PesagemPage() {
           /* mantém cache */
         }
       }
+
+      // OS de venda abertas: cache lazy (funciona offline) + OS locais ainda
+      // não sincronizadas (comunicado criado offline pode ser pesado offline).
+      try {
+        const [remotas, locais, pesagens] = await Promise.all([
+          getOrdensServicoAbertasCached(fazendaId, 'venda'),
+          listarRegistros('ordens-servico'),
+          listarRegistros('pesagem'),
+        ])
+        // Guarda de sessão única no cliente: OS que já tem pesagem gravada
+        // neste dispositivo não pode receber segundo embarque. O servidor
+        // também rejeita (trigger) para o caso multi-dispositivo.
+        const osJaPesadas = new Set(
+          pesagens.map((p) => p.osId as string | undefined).filter(Boolean)
+        )
+        const mapa = new Map<string, OrdemServicoItem>()
+        ;(remotas || []).forEach((o: any) => mapa.set(o.id, o))
+        locais
+          .filter((r) => r.tipo === 'venda' && !['fechada', 'cancelada'].includes((r.statusOs as string) || 'aberta'))
+          .forEach((r) => {
+            const id = (r.supabaseId as string) || r.id
+            mapa.set(id, {
+              id,
+              numero_os: (r.numeroOs as string) || null,
+              tipo_venda: (r.tipoVenda as 'abate' | 'animal_vivo') || null,
+              quantidade_prevista: r.quantidadePrevista ? Number(r.quantidadePrevista) : null,
+              sexo: (r.sexo as string) || null,
+              idade_era: (r.idadeEra as string) || null,
+              data_prevista_embarque: (r.dataPrevistaEmbarque as string) || null,
+              data_prevista_abate: (r.dataPrevistaAbate as string) || null,
+              comprador: (r.comprador as string) || null,
+              created_at: (r.lastModified as string) || null,
+              pendenteSync: r.syncStatus !== 'synced',
+            })
+          })
+        if (!cancelled) {
+          setOsAbertas(
+            [...mapa.values()]
+              .filter((o) => !osJaPesadas.has(o.id))
+              .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+          )
+        }
+      } catch {
+        /* offline sem cache: lista vazia */
+      }
     }
 
     load()
@@ -418,6 +493,22 @@ export default function PesagemPage() {
   const checklistFinalCompleto =
     sessao.acidente !== '' && sessao.manejoCalmo !== '' && sessao.gritaria !== '' && sessao.manejoAgil !== ''
 
+  const carregarCategoriasLoteOs = useCallback(
+    async (loteId: string) => {
+      if (!loteId || loteCategoriasOs[loteId]) return
+      try {
+        const detalhes = await getLoteDetalhesComCategoriasCached(loteId)
+        const cats = (detalhes?.categorias_raw || [])
+          .map((c: any) => c.categoria)
+          .filter(Boolean)
+        setLoteCategoriasOs((prev) => ({ ...prev, [loteId]: cats }))
+      } catch {
+        /* mantém fallback por destino */
+      }
+    },
+    [loteCategoriasOs]
+  )
+
   // ==================== Autocomplete chip/brinco ====================
   const sugestoes = useMemo(() => {
     const chip = sessao.animalAtual.idChip.trim()
@@ -436,6 +527,7 @@ export default function PesagemPage() {
     (ind: IndividuoCache) => {
       const loteMatch = ind.lote_atual ? lotes.find((l) => l.id === ind.lote_atual) : undefined
       autoFillRef.current = ind.id
+      if (sessao.osId && loteMatch?.id) carregarCategoriasLoteOs(loteMatch.id)
       updateAnimalAtual({
         idChip: ind.id_chip || '',
         idBrinco: ind.id_brinco || '',
@@ -449,7 +541,7 @@ export default function PesagemPage() {
       })
       setErrosAnimal([])
     },
-    [lotes, updateAnimalAtual]
+    [lotes, updateAnimalAtual, sessao.osId, carregarCategoriasLoteOs]
   )
 
   const handleIdChange = useCallback(
@@ -488,8 +580,49 @@ export default function PesagemPage() {
 
   // ==================== Opções do form ====================
 
+  const TIPOS_MANEJO_VENDA = ['abate', 'venda_vivo'] as const
+  const tipoManejoEhVenda = (TIPOS_MANEJO_VENDA as readonly string[]).includes(sessao.tipoManejo)
+
+  // OS elegíveis para o tipo de manejo atual: 'abate'->tipo_venda 'abate',
+  // 'venda_vivo'->tipo_venda 'animal_vivo'. Sem tipo selecionado, lista todas.
+  const osDisponiveis = osAbertas.filter((o) =>
+    !tipoManejoEhVenda
+      ? true
+      : o.tipo_venda === (sessao.tipoManejo === 'abate' ? 'abate' : 'animal_vivo')
+  )
+
+  const handleSelecionarOs = (osIdSelecionada: string) => {
+    const os = osAbertas.find((o) => o.id === osIdSelecionada)
+    if (!os) {
+      persistSessao({ ...sessao, osId: null, osNumero: null, osTipoVenda: null })
+      return
+    }
+    // A OS define o tipo de manejo: abate -> 'abate', animal vivo -> 'venda_vivo'
+    persistSessao({
+      ...sessao,
+      osId: os.id,
+      osNumero: os.numero_os,
+      osTipoVenda: os.tipo_venda,
+      tipoManejo: os.tipo_venda === 'abate' ? 'abate' : 'venda_vivo',
+    })
+  }
+
+  const handleSelecionarTipoManejo = (tipo: string) => {
+    const ehVenda = (TIPOS_MANEJO_VENDA as readonly string[]).includes(tipo)
+    const tipoVendaEsperado = tipo === 'abate' ? 'abate' : 'animal_vivo'
+    persistSessao({
+      ...sessao,
+      tipoManejo: tipo,
+      // Desvincula a OS quando o tipo não é venda ou diverge do tipo da OS
+      ...(!ehVenda || (sessao.osTipoVenda && sessao.osTipoVenda !== tipoVendaEsperado)
+        ? { osId: null, osNumero: null, osTipoVenda: null }
+        : {}),
+    })
+  }
+
   const preparacaoCompleta =
     sessao.tipoManejo !== '' &&
+    (!tipoManejoEhVenda || !!sessao.osId) &&
     sessao.equipeAjustada !== '' &&
     sessao.balancaAferida !== '' &&
     sessao.checklistConferido !== '' &&
@@ -633,6 +766,7 @@ export default function PesagemPage() {
         manejoAgil: sessao.manejoAgil,
         tempoPreenchimentoSeg: a.tempoPreenchimentoSeg,
         individuoId: a.individuoId,
+        osId: sessao.osId,
       }
 
       if (a.registroId) {
@@ -669,8 +803,62 @@ export default function PesagemPage() {
       persistSessao({ ...sessao, animais: animaisAtualizados })
     }
 
+    // Sessão com OS: gera as movimentações de saída (Saída/Venda) agrupadas
+    // por lote+categoria. É isso que desconta as cabeças no servidor via
+    // trigger — a pesagem em si não movimenta lote.
+    const movimentacaoIds: string[] = []
+    if (sessao.osId && falhas.length === 0) {
+      const grupos = new Map<string, { lote: string; loteId: string | null; categoria: string; cabecas: number; pesoTotal: number; pesoCount: number }>()
+      for (const a of sessao.animais) {
+        const key = `${a.loteId || a.lote}|${a.categoria}`
+        const g = grupos.get(key) || {
+          lote: a.lote,
+          loteId: a.loteId || null,
+          categoria: a.categoria,
+          cabecas: 0,
+          pesoTotal: 0,
+          pesoCount: 0,
+        }
+        g.cabecas += 1
+        const peso = normalizarNumero(a.pesoKg)
+        if (peso !== null && peso > 0) {
+          g.pesoTotal += peso
+          g.pesoCount += 1
+        }
+        grupos.set(key, g)
+      }
+
+      for (const g of grupos.values()) {
+        const result = await salvarRegistro('movimentacao', {
+          data: dataSessao,
+          horarioManejo: inicioHM,
+          responsavel: usuario,
+          usuario,
+          loteOrigem: g.lote,
+          loteOrigemId: g.loteId,
+          loteDestino: 'Venda',
+          loteDestinoId: null,
+          numeroCabecas: g.cabecas,
+          categoria: g.categoria,
+          motivoMovimentacao: 'Saída',
+          subtipo: 'Venda',
+          pesoVivoAtualKg: g.pesoCount > 0 ? g.pesoTotal / g.pesoCount : null,
+          observacao: `Embarque ${sessao.osNumero || 'OS'}`,
+          osId: sessao.osId,
+          sessaoId: sessao.sessaoId,
+        })
+        if (result.success && result.registro) {
+          movimentacaoIds.push(result.registro.id)
+        } else {
+          const msgs = (result.errors || []).map((e) => e.message).join('; ')
+          falhas.push(`Saída ${g.lote}/${g.categoria}: ${msgs || 'erro ao salvar movimentação'}`)
+        }
+      }
+    }
+
     setSalvandoFinal(false)
     if (falhas.length > 0) {
+      persistSessao({ ...sessao, animais: animaisAtualizados })
       setErrosFinal(falhas)
       return
     }
@@ -720,8 +908,12 @@ export default function PesagemPage() {
     // de sucesso em vez de só na tela de lista. Timeout de 30s por registro;
     // offline sai cedo e a lista continua sendo a fonte de verdade.
     const syncIds = results.map((r) => r.registroId).filter((x): x is string => Boolean(x))
-    if (navigator.onLine && syncIds.length) {
-      Promise.all(syncIds.map((id) => aguardarSyncConcluido('pesagem', id)))
+    const syncWatch = [
+      ...syncIds.map((id) => aguardarSyncConcluido('pesagem', id)),
+      ...movimentacaoIds.map((id) => aguardarSyncConcluido('movimentacao', id)),
+    ]
+    if (navigator.onLine && syncWatch.length) {
+      Promise.all(syncWatch)
         .then((statuses) => {
           const errs = statuses.filter((s) => s === 'error').length
           if (errs > 0) setFinalizado((f) => (f ? { ...f, syncErrors: errs } : f))
@@ -744,7 +936,13 @@ export default function PesagemPage() {
     opts: { showSugestoes?: boolean; compact?: boolean } = {}
   ) => {
     const loteSel = lotes.find((l) => l.id === animal.loteId) || null
-    const cats = categoriasCompativeis(categoriasPorDestino(loteSel?.destino), animal.sexo)
+    // Sessão com OS: categorias vêm das lote_categorias reais do lote (o desconto
+    // no servidor exige que a categoria exista no lote). Fallback: heurística por destino.
+    const catsBase =
+      sessao.osId && animal.loteId && loteCategoriasOs[animal.loteId]
+        ? loteCategoriasOs[animal.loteId]
+        : categoriasPorDestino(loteSel?.destino)
+    const cats = categoriasCompativeis(catsBase, animal.sexo)
     return (
       <div className="flex flex-col gap-4 [&_input:not(#pesagem-peso-input)]:!min-h-[38px] [&_input:not(#pesagem-peso-input)]:!py-1.5 [&_input:not(#pesagem-peso-input)]:!text-sm [&_select]:!min-h-[38px] [&_select]:!py-1 [&_select]:!text-sm [&_select:disabled]:!bg-gray-50 [&_select:disabled]:!text-gray-500 [&_label]:!text-xs [&_label]:!mb-1 [&_label]:!text-center">
         <div className="grid grid-cols-2 gap-3">
@@ -799,6 +997,7 @@ export default function PesagemPage() {
             onChange={(e) => {
               const lote = lotes.find((l) => l.id === e.target.value) || null
               onChange({ loteId: lote?.id || '', lote: lote?.nome || '', categoria: '' })
+              if (sessao.osId && lote?.id) carregarCategoriasLoteOs(lote.id)
             }}
           />
           <Select
@@ -945,6 +1144,61 @@ export default function PesagemPage() {
       {/* Seção 2 — Preparação */}
       {sessao.fase === 'preparacao' && (
         <div className="flex flex-col gap-5">
+          {/* OS de venda: abate/venda vivo exigem OS; selecionar a OS define o tipo automaticamente */}
+          {(tipoManejoEhVenda || osAbertas.length > 0) && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-4">
+              <Select
+                label={tipoManejoEhVenda ? 'ORDEM DE SERVIÇO (OBRIGATÓRIA)' : 'ORDEM DE SERVIÇO DE VENDA (OPCIONAL)'}
+                options={[
+                  {
+                    value: '',
+                    label: tipoManejoEhVenda
+                      ? osDisponiveis.length === 0
+                        ? 'Nenhuma OS aberta para este tipo'
+                        : 'Selecione a OS...'
+                      : 'Sem OS (pesagem comum)',
+                  },
+                  ...osDisponiveis.map((o) => ({
+                    value: o.id,
+                    label: `${o.numero_os || 'OS aguardando sync'} · ${o.tipo_venda === 'abate' ? 'Abate' : 'Animal Vivo'}${o.quantidade_prevista ? ` · ${o.quantidade_prevista} cab` : ''}${o.pendenteSync ? ' (pendente sync)' : ''}`,
+                  })),
+                ]}
+                value={sessao.osId || ''}
+                onChange={(e) => handleSelecionarOs(e.target.value)}
+              />
+              {sessao.osId && (
+                <div className="mt-3 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm">
+                  {(() => {
+                    const os = osAbertas.find((o) => o.id === sessao.osId)
+                    if (!os) return <p className="font-semibold text-green-800">OS vinculada: {sessao.osNumero || sessao.osId}</p>
+                    return (
+                      <>
+                        <p className="font-black text-green-900">
+                          {os.numero_os || 'OS aguardando sync'} · {os.tipo_venda === 'abate' ? 'Venda para abate' : 'Venda de animal vivo'}
+                        </p>
+                        <p className="text-green-800 mt-1">
+                          {[
+                            os.quantidade_prevista ? `${os.quantidade_prevista} cabeças previstas` : null,
+                            os.sexo,
+                            os.idade_era,
+                            os.comprador ? `Comprador: ${os.comprador}` : null,
+                            os.data_prevista_embarque ? `Embarque: ${os.data_prevista_embarque}` : null,
+                            os.data_prevista_abate ? `Abate: ${os.data_prevista_abate}` : null,
+                          ].filter(Boolean).join(' · ')}
+                        </p>
+                      </>
+                    )
+                  })()}
+                </div>
+              )}
+              {tipoManejoEhVenda && !sessao.osId && osDisponiveis.length === 0 && (
+                <p className="mt-2 text-sm font-semibold text-amber-700">
+                  Nenhuma OS de venda aberta. Crie um Comunicado de Venda primeiro (e sincronize, se estiver offline).
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
             <label className="block text-lg font-bold text-gray-900 mb-2">TIPO DE MANEJO</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -952,7 +1206,7 @@ export default function PesagemPage() {
                 <button
                   key={t.value}
                   type="button"
-                  onClick={() => persistSessao({ ...sessao, tipoManejo: t.value })}
+                  onClick={() => handleSelecionarTipoManejo(t.value)}
                   className={`min-h-[38px] rounded-xl px-2 text-sm font-bold border-2 transition-all active:scale-95 ${
                     sessao.tipoManejo === t.value ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white' : 'bg-white border-gray-300 text-gray-700'
                   }`}
@@ -990,9 +1244,16 @@ export default function PesagemPage() {
           )}
 
           <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col gap-4">
-            <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">
-              Animal {sessao.animais.length + 1}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">
+                Animal {sessao.animais.length + 1}
+              </p>
+              {sessao.osId && (
+                <span className="text-xs font-bold text-green-800 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+                  {sessao.osNumero || 'OS'} · {sessao.osTipoVenda === 'abate' ? 'Abate' : 'Animal vivo'}
+                </span>
+              )}
+            </div>
             {renderAnimalFields(sessao.animalAtual, updateAnimalAtual, { showSugestoes: true })}
           </div>
 

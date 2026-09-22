@@ -68,7 +68,9 @@ export async function salvarRegistro(
   const registro = {
     ...dataComUsuario,
     data: dataComHora,
-    id: generateId(),
+    // Permite que a caderneta forneça um id próprio (ex: OS usa uuid real para
+    // ser referenciável como FK offline antes do sync)
+    id: (dataComUsuario.id as string) || generateId(),
     version: generateVersion(),
     lastModified: getCurrentTimestamp(),
     syncStatus: 'pending' as const,

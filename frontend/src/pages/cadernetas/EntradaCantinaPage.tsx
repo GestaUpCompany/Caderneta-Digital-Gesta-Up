@@ -10,7 +10,7 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { getItensCantinaCached, updateItemCantinaSaldoCache } from '../../services/cadastroCache'
-import { CLASSIFICACOES_CANTINA, UNIDADES_CANTINA } from '../../utils/constants'
+import { CLASSIFICACOES_CANTINA, UNIDADES_CANTINA, UNIDADE_DESCRICOES } from '../../utils/constants'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
 interface ItemEntrada {
@@ -415,7 +415,7 @@ export default function EntradaCantinaPage() {
                             return newErrors
                           })
                         }}
-                        className={`min-h-[44px] px-2 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                        className={`min-h-[44px] px-1 py-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center ${
                           itemEditando?.unidade_medida === un
                             ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
                             : itemErrors.has('unidade_medida')
@@ -423,7 +423,10 @@ export default function EntradaCantinaPage() {
                             : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                         }`}
                       >
-                        {un}
+                        <span className="text-sm font-bold leading-tight">{un}</span>
+                        <span className={`text-[9px] leading-tight ${itemEditando?.unidade_medida === un ? 'text-white/80' : itemErrors.has('unidade_medida') ? 'text-red-500' : 'text-gray-400'}`}>
+                          {UNIDADE_DESCRICOES[un] ?? ''}
+                        </span>
                       </button>
                     ))}
                   </div>

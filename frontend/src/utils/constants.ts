@@ -70,6 +70,7 @@ export const CADERNETAS = [
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'maternidade', label: 'MATERNIDADE', emoji: '', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'pesagem', label: 'PESAGEM', emoji: '', icon: `${BASE}cadernetas/pesagem.png`, color: '#4A6FA5', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'comunicado-venda', label: 'COMUNICADO DE VENDA', emoji: '', icon: `${BASE}cadernetas/venda.png`, color: '#2F855A', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas' },
@@ -135,6 +136,12 @@ export const CLASSIFICACOES_CANTINA = [
 export const UNIDADES_ALMOXARIFADO = [
   'un', 'm', 'kg', 'g', 'L', 'mL', 'cx', 'pct', 'sc', 'rl',
 ] as const
+
+export const UNIDADE_DESCRICOES: Record<string, string> = {
+  un: 'unidade', m: 'metro', kg: 'quilo', g: 'grama', L: 'litro',
+  mL: 'mililitro', cx: 'caixa', pct: 'pacote', sc: 'saco', rl: 'rolo',
+  Unidade: 'unidade', Pacote: 'pacote',
+}
 
 // Precisa bater com a validação da RPC criar_item_cantina_pwa.
 export const UNIDADES_CANTINA = [

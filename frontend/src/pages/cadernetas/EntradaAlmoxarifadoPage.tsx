@@ -9,7 +9,7 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import { getItensAlmoxarifadoCached, updateItemAlmoxarifadoSaldoCache } from '../../services/cadastroCache'
-import { CLASSIFICACOES_ALMOXARIFADO, UNIDADES_ALMOXARIFADO } from '../../utils/constants'
+import { CLASSIFICACOES_ALMOXARIFADO, UNIDADES_ALMOXARIFADO, UNIDADE_DESCRICOES } from '../../utils/constants'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
@@ -410,7 +410,7 @@ export default function EntradaAlmoxarifadoPage() {
                               return newErrors
                             })
                           }}
-                          className={`min-h-[44px] px-2 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                          className={`min-h-[44px] px-1 py-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center ${
                             itemEditando?.unidade === un
                               ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
                               : itemErrors.has('unidade')
@@ -418,7 +418,10 @@ export default function EntradaAlmoxarifadoPage() {
                               : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                           }`}
                         >
-                          {un}
+                          <span className="text-sm font-bold leading-tight">{un}</span>
+                          <span className={`text-[9px] leading-tight ${itemEditando?.unidade === un ? 'text-white/80' : itemErrors.has('unidade') ? 'text-red-500' : 'text-gray-400'}`}>
+                            {UNIDADE_DESCRICOES[un] ?? ''}
+                          </span>
                         </button>
                       ))}
                     </div>

@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Módulo de Venda via Ordem de Serviço (OS) — PWA (22/09/2026)
+
+Fluxo de venda: o comunicado criado no app gera uma OS (`VEN-ano-00000`, número gerado no servidor), a pesagem vinculada à OS desconta as cabeças dos lotes via `registros_movimentacao`, e o fechamento é manual no painel. O schema é genérico (`tipo` venda/compra/transferencia) para os próximos módulos. Migration e triggers vivem no repo do painel (`20260922260000_modulo_venda_os.sql`).
+
+- **IndexedDB**: store `ordens-servico` (DB version 8) com sync pelo pipeline normal. `salvarRegistro` passou a respeitar `id` uuid fornecido pelo chamador (`api.ts`), então a OS criada offline tem uuid real e pode ser referenciada pela pesagem antes do sync.
+- **Sync**: `syncService.ts` mapeia `ordens-servico` → `ordens_servico` (upsert por `local_id`, captura `numero_os` gerado pelo trigger e grava em `numeroOs` local) e `createOrdemServico`/`getOrdensServicoAbertas` em `supabaseService.ts`. Movimentações e pesagens enviam `os_id`; movimentação com `os_id` também envia `sessao_id` (CHECK no banco exige).
+- **Comunicado de Venda**: `ComunicadoVendaPage.tsx` (`/caderneta/comunicado-venda`) com tipo da venda (abate/animal vivo), partes, quantidade, sexo, era, datas previstas, preço/arroba, venda direta/corretora e observação; rascunho via `useRascunhoForm` e texto compartilhável (`shareUtils`) disponível no modal de sucesso e na lista. Lista em `ComunicadoVendaListaPage.tsx` (`/caderneta/comunicado-venda/lista`). Card "COMUNICADO DE VENDA" no grupo Gado & Pastagens em `constants.ts`. Display config `ordensServico.ts`, labels em `labelConfig.ts`, validador `validateOrdemServico` em `validation.ts`, nome da store em `SyncErrorModal`.
+- **Pesagem com OS**: `PesagemPage.tsx` mostra seletor de OS na preparação quando o tipo de manejo é `abate`/`venda_vivo` (tipos de venda exigem OS — validação em `validatePesagem` e gate no botão de iniciar). O seletor junta OS abertas remotas (`getOrdensServicoAbertas` via `cadastroCache`) com as locais pendentes de sync, e exclui OS já usadas em pesagem local. Selecionar a OS fixa o tipo de manejo (abate→`abate`, animal vivo→`venda_vivo`). Com OS, o campo categoria usa as `lote_categorias` reais do lote (`getLoteDetalhesComCategoriasCached`) em vez da lista fixa — evita `CATEGORIA_NOT_IN_LOTE` no desconto. Ao finalizar, cada animal é gravado como pesagem com `os_id` e o app gera movimentações `Saída`/`Venda` agrupadas por lote+categoria com `os_id`+`sessao_id`; é isso que desconta as cabeças e transiciona a OS para `embarcada` no servidor. O modal de sucesso também observa o sync das movimentações geradas.
+- **Idempotência de retry**: se a finalização falhar parcialmente, animais já gravados são atualizados e reenfileirados como `create` (upsert por `local_id`), sem duplicar.
+
+**Disparador**: quando mencionar OS, ordem de serviço, comunicado de venda, pesagem com OS, desconto de venda, `ordens-servico` ou `sessao_id`, ler esta seção.
+
 ## Liberação geral das cadernetas por fazenda (22/09/2026)
 
 Todas as telas que estavam restritas a listas hardcoded de `fazenda_id` foram liberadas para todas as fazendas, com duas exceções que continuam limitadas.

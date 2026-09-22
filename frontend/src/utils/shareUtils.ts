@@ -261,9 +261,43 @@ const formatarPesagemComoTexto = (registro: Registro, todosRegistros?: Registro[
   return texto.trimEnd()
 }
 
+// Comunicado de venda: texto compartilhável formatado para WhatsApp.
+const formatarComunicadoVendaComoTexto = (registro: Registro): string => {
+  const tipoVenda = registro.tipoVenda === 'abate' ? 'ABATE' : registro.tipoVenda === 'animal_vivo' ? 'ANIMAL VIVO' : String(registro.tipoVenda || '—').toUpperCase()
+
+  let texto = `📋 *COMUNICADO DE VENDA*\n`
+  if (registro.numeroOs) texto += `🔢 OS: *${registro.numeroOs}*\n`
+  texto += `📅 Data: ${String(registro.data ?? '')}\n`
+  texto += `🏷️ Tipo: *${tipoVenda}*\n\n`
+
+  texto += `VENDEDOR: *${registro.vendedor || '—'}*\n`
+  texto += `COMPRADOR: *${registro.comprador || '—'}*\n`
+  if (registro.vendaDireta === false) {
+    texto += `CORRETORA/INTERMEDIÁRIO: *${registro.corretora || '—'}*\n`
+  }
+  texto += `\n`
+
+  texto += `QUANTIDADE: *${registro.quantidadePrevista || '—'} cabeças*\n`
+  texto += `SEXO: *${registro.sexo || '—'}*\n`
+  texto += `IDADE (ERA): *${registro.idadeEra || '—'}*\n\n`
+
+  if (registro.dataPrevistaEmbarque) texto += `EMBARQUE PREVISTO: *${registro.dataPrevistaEmbarque}*\n`
+  if (registro.dataPrevistaAbate) texto += `ABATE PREVISTO: *${registro.dataPrevistaAbate}*\n`
+  const preco = normalizarNumero(registro.precoArroba as any)
+  if (preco !== null) texto += `PREÇO: *R$ ${formatarNumeroBR(preco)}/@*\n`
+  if (registro.dataPrevistaPagamento) texto += `PAGAMENTO PREVISTO: *${registro.dataPrevistaPagamento}*\n`
+
+  if (registro.observacao) texto += `\n📝 ${registro.observacao}\n`
+  if (registro.responsavel || registro.usuario) texto += `\n👤 ${registro.responsavel || registro.usuario}\n`
+  return texto.trimEnd()
+}
+
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   if (caderneta === 'pesagem') {
     return formatarPesagemComoTexto(registro, todosRegistros)
+  }
+  if (caderneta === 'ordens-servico') {
+    return formatarComunicadoVendaComoTexto(registro)
   }
   // Obter nome da caderneta
   const cadernetaInfo = CADERNETAS.find(c => c.id === caderneta)

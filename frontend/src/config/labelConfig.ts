@@ -350,6 +350,26 @@ const PESAGEM_LABELS = {
   tempoPreenchimentoSeg: 'TEMPO PREENCHIMENTO (SEG)',
 }
 
+const ORDENS_SERVICO_LABELS = {
+  ...COMMON_LABELS,
+  numeroOs: 'Nº OS',
+  tipo: 'TIPO',
+  tipoVenda: 'TIPO DA VENDA',
+  statusOs: 'STATUS',
+  vendedor: 'VENDEDOR',
+  comprador: 'COMPRADOR',
+  vendaDireta: 'VENDA DIRETA',
+  corretora: 'CORRETORA/INTERMEDIÁRIO',
+  quantidadePrevista: 'QUANTIDADE DE ANIMAIS',
+  sexo: 'SEXO',
+  idadeEra: 'IDADE (ERA)',
+  dataPrevistaEmbarque: 'DATA PREVISTA EMBARQUE',
+  dataPrevistaAbate: 'DATA PREVISTA ABATE',
+  precoArroba: 'PREÇO POR ARROBA (R$)',
+  dataPrevistaPagamento: 'DATA PREVISTA PAGAMENTO',
+  observacao: 'OBSERVAÇÃO',
+}
+
 // Exportar objeto principal
 export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   maternidade: MATERNIDADE_LABELS,
@@ -370,4 +390,5 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   'entrada-almoxarifado': ENTRADA_ALMOXARIFADO_LABELS,
   'entrada-cantina': ENTRADA_CANTINA_LABELS,
   pesagem: PESAGEM_LABELS,
+  'ordens-servico': ORDENS_SERVICO_LABELS,
 }

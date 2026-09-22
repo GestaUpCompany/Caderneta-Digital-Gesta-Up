@@ -21,6 +21,7 @@ import { saidaInsumosConfig } from './saidaInsumos'
 import { pesagemConfig } from './pesagem'
 import { entradaAlmoxarifadoConfig } from './entradaAlmoxarifado'
 import { entradaCantinaConfig } from './entradaCantina'
+import { ordensServicoConfig } from './ordensServico'
 
 export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaDisplayConfig>> = {
   pastagens: pastagensConfig,
@@ -44,4 +45,5 @@ export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaD
   pesagem: pesagemConfig,
   'entrada-almoxarifado': entradaAlmoxarifadoConfig,
   'entrada-cantina': entradaCantinaConfig,
+  'ordens-servico': ordensServicoConfig,
 }

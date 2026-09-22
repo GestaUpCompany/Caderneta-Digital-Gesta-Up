@@ -268,6 +268,25 @@ export interface RegistroPesagem extends Registro {
   individuoId?: string | null
 }
 
+export interface RegistroOrdemServico extends Registro {
+  tipo: 'venda' | 'compra' | 'transferencia'
+  tipoVenda: 'abate' | 'animal_vivo'
+  numeroOs?: string | null
+  statusOs?: string
+  vendedor: string
+  comprador: string
+  vendaDireta: boolean
+  corretora?: string | null
+  quantidadePrevista: number
+  sexo: 'Macho' | 'Fêmea' | 'Misto'
+  idadeEra: IdadeEra
+  dataPrevistaEmbarque: string
+  dataPrevistaAbate?: string | null
+  precoArroba?: number | null
+  dataPrevistaPagamento?: string | null
+  observacao?: string | null
+}
+
 export interface RegistroManutencaoMaquinas extends Registro {
   responsavelChecklist: string
   operadorMotorista: string

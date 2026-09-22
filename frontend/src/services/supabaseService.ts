@@ -3214,6 +3214,35 @@ export async function deleteRegistroOfertaTrato(id: string) {
   if (error) throw error
 }
 
+// ==================== ORDENS DE SERVIÇO (VENDA/COMPRA/TRANSFERÊNCIA) ====================
+
+export async function createOrdemServico(registro: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('ordens_servico')
+    .upsert(registro, { onConflict: 'local_id' })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function getOrdensServicoAbertas(fazendaId: string, tipo: string = 'venda') {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('ordens_servico')
+    .select('id, numero_os, tipo, tipo_venda, status, quantidade_prevista, sexo, idade_era, data_prevista_embarque, data_prevista_abate, vendedor, comprador, created_at')
+    .eq('fazenda_id', fazendaId)
+    .eq('tipo', tipo)
+    .eq('status', 'aberta')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data as any[]
+}
+
 // ==================== LOGS DE FALHAS DE SINCRONIZAÇÃO ====================
 
 export interface LogSyncErrorInput {
