@@ -651,6 +651,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                         'creepKg',
                         'leituraCocho',
                         'kgCocho',
+                        'qtdSacos',
                         'kgDeposito',
                         'categorias',
                         'escoreFezes',

@@ -843,6 +843,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.kgCocho !== null && registro.kgCocho !== undefined && registro.kgCocho !== 0) {
       texto += `SUPLEMENTO COCHO (KG): *${registro.kgCocho}*\n`
     }
+    texto += `FORNECIMENTO: *${registro.formaFornecimento === 'sacaria' ? 'Sacaria' : 'A granel'}*\n`
+    if (registro.qtdSacos !== null && registro.qtdSacos !== undefined && Number(registro.qtdSacos) > 0) {
+      texto += `SACOS: *${formatarNumeroBR(registro.qtdSacos)}*\n`
+    }
     if (registro.kgDeposito !== null && registro.kgDeposito !== undefined && registro.kgDeposito !== 0) {
       texto += `SUPLEMENTO DEPÓSITO (KG): *${registro.kgDeposito}*\n`
     }

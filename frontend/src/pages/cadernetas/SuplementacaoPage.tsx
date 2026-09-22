@@ -185,7 +185,7 @@ export default function SuplementacaoPage() {
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
-  const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ id: string | null; nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null } | null>(null)
+  const [formulacaoDetalhes, setFormulacaoDetalhes] = useState<{ id: string | null; nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null; formaFornecimento: string | null; kgPorSaco: number | null } | null>(null)
   const [registrosSuplementacao, setRegistrosSuplementacao] = useState<any[]>([])
   const [metricasSuplementacao, setMetricasSuplementacao] = useState<any>(null)
   const [notasConfig, setNotasConfig] = useState<any[]>([])
@@ -207,6 +207,8 @@ export default function SuplementacaoPage() {
             metaConsumo: formulacao.consumo_ms_percent_pv ?? null,
             custoDietaReaisCabDia: formulacao.custo_dieta_reais_cab_dia ?? null,
             custoMnTonelada: formulacao.custo_mn_tonelada ?? null,
+            formaFornecimento: formulacao.forma_fornecimento ?? 'granel',
+            kgPorSaco: formulacao.kg_por_saco != null ? Number(formulacao.kg_por_saco) : null,
           })
         } else {
           setFormulacaoDetalhes(null)
@@ -488,6 +490,15 @@ export default function SuplementacaoPage() {
     return Math.round(previsto * 100) / 100
   }, [form.leitura, registrosSuplementacao, notasConfig])
 
+  // Formulação em sacaria: o input passa a ser nº de sacos e converte para kg no save
+  const kgPorSaco = formulacaoDetalhes?.kgPorSaco ?? null
+  const isSacaria = formulacaoDetalhes?.formaFornecimento === 'sacaria' && kgPorSaco !== null && kgPorSaco > 0
+  const kgCochoConvertido = useMemo(() => {
+    const sacos = Number(form.kgCocho)
+    if (!isSacaria || !kgPorSaco || !sacos || sacos <= 0) return null
+    return sacos * kgPorSaco
+  }, [isSacaria, kgPorSaco, form.kgCocho])
+
   // Validation rules (dynamic: skip deposito fields when pasto has no deposito)
   const validationRules = useMemo(() => {
     const base: any = {
@@ -510,7 +521,7 @@ export default function SuplementacaoPage() {
       kgCocho: {
         required: true,
         custom: (value: any) => {
-          if (value && Number(value) <= 0) return 'KG no cocho deve ser maior que zero'
+          if (value && Number(value) <= 0) return isSacaria ? 'Número de sacos deve ser maior que zero' : 'KG no cocho deve ser maior que zero'
           return null
         },
       },
@@ -536,7 +547,7 @@ export default function SuplementacaoPage() {
       }
     }
     return base
-  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto, semPlanoAtivo])
+  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto, semPlanoAtivo, isSacaria])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -589,7 +600,11 @@ export default function SuplementacaoPage() {
       teorMs: formulacaoDetalhes?.teorMs ?? null,
       metaConsumo: formulacaoDetalhes?.metaConsumo ?? null,
       leituraCocho: form.leitura || null,
-      kgCocho: form.kgCocho ? Number(form.kgCocho) : null,
+      kgCocho: isSacaria && kgPorSaco
+        ? (Number(form.kgCocho) || 0) * kgPorSaco
+        : (form.kgCocho ? Number(form.kgCocho) : null),
+      formaFornecimento: isSacaria ? 'sacaria' : 'granel',
+      qtdSacos: isSacaria && form.kgCocho ? Number(form.kgCocho) : null,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
       possuiDeposito,
       categorias: categoriasArray,
@@ -799,7 +814,9 @@ export default function SuplementacaoPage() {
             </div>
           )}
           <Input
-            label={<span>Total Suplementado no Cocho (kg) <span className="text-red-500">*</span></span>}
+            label={isSacaria
+              ? <span>Quantidade de Sacos <span className="text-red-500">*</span></span>
+              : <span>Total Suplementado no Cocho (kg) <span className="text-red-500">*</span></span>}
             placeholder="0"
             value={form.kgCocho}
             onChange={setKgCochoInput}
@@ -808,6 +825,14 @@ export default function SuplementacaoPage() {
             type="text"
             pattern="[0-9]*"
           />
+          {isSacaria && kgPorSaco && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 -mt-3">
+              <span className="text-sm font-semibold text-amber-800">
+                Sacaria de {kgPorSaco.toLocaleString('pt-BR')} kg
+                {kgCochoConvertido !== null && ` = ${kgCochoConvertido.toLocaleString('pt-BR')} kg no cocho`}
+              </span>
+            </div>
+          )}
           {possuiDeposito && (
             <Input
               label={<span>Total Suplementado no Depósito (kg) <span className="text-red-500">*</span></span>}
