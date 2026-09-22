@@ -129,9 +129,15 @@ function categoriasPorDestino(destino: string | null | undefined): string[] {
 const CATEGORIAS_FEMEA = new Set(['Bezerra ao Pé', 'Bezerra Desmama', 'Bezerra', 'Novilha', 'Primípara', 'Vaca', 'Vaca Parida', 'Vaca Prenha', 'Vaca Vazia', 'Vaca Descarte', 'Tropa'])
 const CATEGORIAS_MACHO = new Set(['Bezerro ao Pé', 'Bezerro Desmama', 'Bezerro', 'Garrote', 'Boi Magro', 'Boi Gordo', 'Tourinho', 'Touro'])
 
+// lote_categorias.categoria pode vir em minúsculo ('boi gordo'); comparação
+// normalizada para não zerar a lista quando o usuário marca o sexo.
+const CATEGORIAS_FEMEA_LOWER = new Set([...CATEGORIAS_FEMEA].map((c) => c.toLowerCase()))
+const CATEGORIAS_MACHO_LOWER = new Set([...CATEGORIAS_MACHO].map((c) => c.toLowerCase()))
+
 function categoriasCompativeis(categorias: string[], sexo: '' | 'Macho' | 'Fêmea'): string[] {
-  if (sexo === 'Macho') return categorias.filter((c) => CATEGORIAS_MACHO.has(c))
-  if (sexo === 'Fêmea') return categorias.filter((c) => CATEGORIAS_FEMEA.has(c))
+  const norm = (c: string) => c.toLowerCase().trim()
+  if (sexo === 'Macho') return categorias.filter((c) => CATEGORIAS_MACHO_LOWER.has(norm(c)))
+  if (sexo === 'Fêmea') return categorias.filter((c) => CATEGORIAS_FEMEA_LOWER.has(norm(c)))
   return categorias
 }
 

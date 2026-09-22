@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Correções do teste E2E de venda abate (22/09/2026)
+
+Teste E2E completo (comunicado → OS → pesagem → embarque → documentos → fechamento) na fazenda de testes expôs um bug no PWA:
+
+- **Compatibilidade categoria×sexo case-sensitive**: `categoriasCompativeis` em `PesagemPage.tsx` filtrava pelos sets `CATEGORIAS_MACHO`/`CATEGORIAS_FEMEA` em Title Case, mas `lote_categorias.categoria` pode vir em minúsculo (ex: `boi gordo`). Marcar sexo zerava a lista de categorias. Corrigido com comparação normalizada (`toLowerCase().trim()`).
+
+**Disparador**: quando mencionar categoria sumindo ao marcar sexo, `categoriasCompativeis`, ou case de `lote_categorias`, ler esta seção.
+
 ## Módulo de Venda via Ordem de Serviço (OS) — PWA (22/09/2026)
 
 Fluxo de venda: o comunicado criado no app gera uma OS (`VEN-ano-00000`, número gerado no servidor), a pesagem vinculada à OS desconta as cabeças dos lotes via `registros_movimentacao`, e o fechamento é manual no painel. O schema é genérico (`tipo` venda/compra/transferencia) para os próximos módulos. Migration e triggers vivem no repo do painel (`20260922260000_modulo_venda_os.sql`).
