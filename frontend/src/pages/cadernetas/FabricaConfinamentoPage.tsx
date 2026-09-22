@@ -168,8 +168,6 @@ export default function FabricaConfinamentoPage() {
   const [registroFabricaNaoConcluidoId, setRegistroFabricaNaoConcluidoId] = useState<string | null>(null)
   const [todosTratosConcluidos, setTodosTratosConcluidos] = useState<boolean>(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
-  const [percentuaisEditados, setPercentuaisEditados] = useState<Record<string, number>>({})
-  const [previstoNucleoInput, setPrevistoNucleoInput] = useState<string>('')
   const [totalProduzido, setTotalProduzido] = useState<string>('')
   const [kgProduzidoPorInsumo, setKgProduzidoPorInsumo] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
@@ -582,8 +580,6 @@ export default function FabricaConfinamentoPage() {
         // erro de rede, seguir com insumos vazios
       }
       setInsumos(insumosData)
-      setPercentuaisEditados({})
-      setPrevistoNucleoInput('')
 
       // Restaurar rascunho salvo (se houver)
       const rascunhoKey = `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
@@ -640,80 +636,14 @@ export default function FabricaConfinamentoPage() {
     return Math.max(0, previsto - totalProduzidoNum)
   }, [totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, tratoNaoConcluidoJaIniciado])
 
-  // Helper: normaliza tipo de insumo para comparacao com "nucleo"
-  function isNucleo(tipo: string | null | undefined): boolean {
-    if (!tipo) return false
-    return tipo.trim().toLowerCase() === 'núcleo' || tipo.trim().toLowerCase() === 'nucleo'
-  }
-
-  // Percentual efetivo por insumo: editado se existir, senao formula original
-  const percentualEfetivoPorInsumo = useMemo(() => {
-    const result: Record<string, number> = {}
-    for (const insumo of insumos) {
-      const editado = percentuaisEditados[insumo.insumo_id]
-      result[insumo.insumo_id] = editado !== undefined ? editado : insumo.formula_mn_percent
-    }
-    return result
-  }, [insumos, percentuaisEditados])
-
-  // Handler: quando o usuario edita o kg previsto de um insumo nucleo, recalcula os outros proporcionalmente
-  const handlePrevistoNucleoChange = useCallback((insumoId: string, valor: string) => {
-    const sanitizado = sanitizarDecimalComVirgula(valor)
-    setPrevistoNucleoInput(sanitizado)
-    const novoKg = normalizarNumero(sanitizado)
-    // Se vazio ou invalido, nao faz nada (so reseta no blur)
-    if (novoKg === null || novoKg < 0 || totalProduzidoNum <= 0) return
-
-    const novoPercent = (novoKg / totalProduzidoNum) * 100
-    if (novoPercent > 100) return
-
-    setPercentuaisEditados((prev) => {
-      const editados = { ...prev, [insumoId]: novoPercent }
-      const outros = insumos.filter((i) => i.insumo_id !== insumoId)
-      const somaOutrosOriginal = outros.reduce((sum, i) => sum + i.formula_mn_percent, 0)
-      const restante = 100 - novoPercent
-      const novosEditados = { ...editados }
-      if (somaOutrosOriginal > 0) {
-        for (const i of outros) {
-          const proporcao = i.formula_mn_percent / somaOutrosOriginal
-          novosEditados[i.insumo_id] = Math.max(0, proporcao * restante)
-        }
-      }
-      return novosEditados
-    })
-  }, [insumos, totalProduzidoNum])
-
-  // Handler: quando o usuario clica fora do input do nucleo com ele vazio, restaura o valor original
-  const handlePrevistoNucleoBlur = useCallback((insumoId: string) => {
-    if (previstoNucleoInput === '') {
-      setPercentuaisEditados((prev) => {
-        const copia = { ...prev }
-        delete copia[insumoId]
-        return copia
-      })
-    }
-  }, [previstoNucleoInput])
-
-  // kg previsto por insumo (calculado sobre o total produzido, usando percentual efetivo)
+  // kg previsto por insumo (calculado sobre o total produzido, usando o percentual da formula)
   const kgPrevistoPorInsumo = useMemo(() => {
     const result: Record<string, number> = {}
     for (const insumo of insumos) {
-      const percent = percentualEfetivoPorInsumo[insumo.insumo_id] ?? insumo.formula_mn_percent
-      result[insumo.insumo_id] = (percent / 100) * totalProduzidoNum
+      result[insumo.insumo_id] = (insumo.formula_mn_percent / 100) * totalProduzidoNum
     }
     return result
-  }, [insumos, totalProduzidoNum, percentualEfetivoPorInsumo])
-
-  // Sincroniza o input do nucleo com o valor calculado quando o usuario ainda nao editou
-  const nucleoInsumoId = useMemo(() => insumos.find((i) => isNucleo(i.tipo))?.insumo_id, [insumos])
-  useEffect(() => {
-    if (!nucleoInsumoId) return
-    const jaEditado = percentuaisEditados[nucleoInsumoId] !== undefined
-    if (!jaEditado) {
-      const kgPrev = kgPrevistoPorInsumo[nucleoInsumoId] || 0
-      setPrevistoNucleoInput(kgPrev > 0 ? kgPrev.toFixed(1).replace('.', ',') : '')
-    }
-  }, [nucleoInsumoId, percentuaisEditados, kgPrevistoPorInsumo, totalProduzidoNum])
+  }, [insumos, totalProduzidoNum])
 
   // Excede capacidade do vagão?
   const excedeCapacidade = useMemo(() => {
@@ -976,7 +906,7 @@ export default function FabricaConfinamentoPage() {
 
   return (
     <CadernetaLayout
-      title="Fábrica Confinamento"
+      title="Carregamento Vagão"
       cadernetaId="fabrica-confinamento"
       onBack={() => navigate('/modulos/cadernetas')}
       showLogos={false}
@@ -1239,31 +1169,16 @@ export default function FabricaConfinamentoPage() {
                       <tbody>
                         {insumos.map((insumo) => {
                           const kgPrev = kgPrevistoPorInsumo[insumo.insumo_id] || 0
-                          const percentEfetivo = percentualEfetivoPorInsumo[insumo.insumo_id] ?? insumo.formula_mn_percent
-                          const editavel = isNucleo(insumo.tipo)
                           return (
                             <tr key={insumo.insumo_id} className="border-b border-gray-100 last:border-0">
                               <td className="p-2 font-bold text-gray-900">
                                 {capitalizarIniciais(insumo.nome)}
                               </td>
                               <td className="p-2 text-center text-gray-600">
-                                {percentEfetivo.toFixed(2).replace('.', ',')}%
+                                {insumo.formula_mn_percent.toFixed(2).replace('.', ',')}%
                               </td>
                               <td className="p-2 text-center font-bold text-gray-700">
-                                {editavel ? (
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={previstoNucleoInput}
-                                    onChange={(e) => handlePrevistoNucleoChange(insumo.insumo_id, e.target.value)}
-                                    onBlur={() => handlePrevistoNucleoBlur(insumo.insumo_id)}
-                                    disabled={todosTratosConcluidos || totalProduzidoNum <= 0}
-                                    placeholder=""
-                                    className="w-20 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-center font-bold text-amber-800 focus:border-amber-500 focus:outline-none"
-                                  />
-                                ) : (
-                                  formatarKg(kgPrev, 1)
-                                )}
+                                {formatarKg(kgPrev, 1)}
                               </td>
                               <td className="p-2 text-center">
                                 <input
