@@ -105,7 +105,7 @@ function parseKgReal(valor: string): number {
 }
 
 const TIPOS_PROGRAMACAO = [
-  { value: 'engorda', label: 'Engorda' },
+  { value: 'confinamento', label: 'Confinamento' },
   { value: 'sequestro', label: 'Sequestro' },
 ]
 
@@ -118,7 +118,7 @@ export default function TratoConfinamentoPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [notasConfig, setNotasConfig] = useState<NotaConfig[]>([])
   const [tiposDisponiveis, setTiposDisponiveis] = useState<string[]>([])
-  const [tipoSelecionado, setTipoSelecionado] = useState<string>('engorda')
+  const [tipoSelecionado, setTipoSelecionado] = useState<string>('confinamento')
   const [programacao, setProgramacao] = useState<ProgramacaoData | null>(null)
   const [linhas, setLinhas] = useState<{ id: string; nome: string }[]>([])
   const [linhaSelecionada, setLinhaSelecionada] = useState<string | null>(null)
@@ -164,8 +164,8 @@ export default function TratoConfinamentoPage() {
         const tipos = (tiposData || []).filter((t: string) =>
           TIPOS_PROGRAMACAO.some((tp) => tp.value === t)
         )
-        setTiposDisponiveis(tipos.length > 0 ? tipos : ['engorda'])
-        if (tipos.length > 0 && !tipos.includes('engorda')) {
+        setTiposDisponiveis(tipos.length > 0 ? tipos : ['confinamento'])
+        if (tipos.length > 0 && !tipos.includes('confinamento')) {
           setTipoSelecionado(tipos[0])
         }
       } catch (error) {

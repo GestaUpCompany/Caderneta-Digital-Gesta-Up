@@ -3022,7 +3022,7 @@ export async function getUltimoTratoTotalByLote(
 // ==================== REGISTROS DE OFERTA DE TRATO (CONFINAMENTO) ====================
 
 /**
- * Busca a programação de tratos ativa de um tipo (engorda/sequestro) para a fazenda,
+ * Busca a programação de tratos ativa de um tipo (confinamento/sequestro) para a fazenda,
  * incluindo percentuais por trato e kg MN/dia por curral.
  */
 export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: string) {
@@ -3066,7 +3066,7 @@ export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: stri
 }
 
 /**
- * Busca quais tipos de programação (engorda/sequestro) já existem ativos para a fazenda.
+ * Busca quais tipos de programação (confinamento/sequestro) já existem ativos para a fazenda.
  */
 export async function getTiposProgramacaoTratos(fazendaId: string): Promise<string[]> {
   const client = await getSupabaseClientWithRefresh() as any

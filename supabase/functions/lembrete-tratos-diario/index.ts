@@ -16,7 +16,7 @@ import webPush from 'npm:web-push@3.6.7'
  * Lógica:
  * 1. Verifica se now() em America/Cuiaba é 17:00 (janela de 1h)
  * 2. Para cada fazenda com notificacoes_config.tratos_ativo = true:
- *    a. Busca programacao_tratos ativa (tipo engorda, ou primeiro tipo disponível)
+ *    a. Busca programacao_tratos ativa (tipo confinamento, ou primeiro tipo disponível)
  *    b. Extrai horários sugeridos dos tratos
  *    c. Busca push_subscriptions da fazenda
  *    d. Envia push com "Lembrete de tratos de amanhã: 4 tratos às 07:00, 10:00, 14:00, 19:00"
@@ -82,27 +82,27 @@ async function getFazendasComTratosAtivos(supabase: any): Promise<string[]> {
 
 /**
  * Busca a programação de tratos ativa de uma fazenda e extrai os horários.
- * Prioriza 'engorda'; se não houver, pega o primeiro tipo ativo disponível.
+ * Prioriza 'confinamento'; se não houver, pega o primeiro tipo ativo disponível.
  */
 async function getHorariosTratosFazenda(supabase: any, fazendaId: string, debug?: any[]): Promise<string[] | null> {
-  // Busca programação de engorda ativa (primeiro tipo prioritário)
+  // Busca programação de confinamento ativa (primeiro tipo prioritário)
   let { data: prog, error: progError } = await supabase
     .from('programacao_tratos')
     .select('id, quantidade_tratos, tipo, ativo')
     .eq('fazenda_id', fazendaId)
-    .eq('tipo', 'engorda')
+    .eq('tipo', 'confinamento')
     .eq('ativo', true)
     .maybeSingle()
 
   if (debug) {
-    debug.push({ step: 'query_engorda', prog, progError: progError?.message })
+    debug.push({ step: 'query_confinamento', prog, progError: progError?.message })
   }
 
   if (progError) {
-    console.error(`[push] Erro ao buscar programacao engorda de ${fazendaId}:`, progError)
+    console.error(`[push] Erro ao buscar programacao confinamento de ${fazendaId}:`, progError)
   }
 
-  // Se não tem engorda ativa, busca qualquer tipo ativo
+  // Se não tem confinamento ativa, busca qualquer tipo ativo
   if (!prog) {
     const { data: progAny, error: errAny } = await supabase
       .from('programacao_tratos')

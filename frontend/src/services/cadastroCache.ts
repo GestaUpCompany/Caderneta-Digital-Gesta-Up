@@ -1553,7 +1553,7 @@ export async function getUltimoTratoTotalByLoteCached(
 }
 
 /**
- * Tipos de programação de tratos ativos para a fazenda (engorda, sequestro).
+ * Tipos de programação de tratos ativos para a fazenda (confinamento, sequestro).
  */
 export async function getTiposProgramacaoTratosCached(fazendaId: string): Promise<string[]> {
   const key = buildKey('tipos-programacao-tratos', fazendaId)
@@ -2828,7 +2828,7 @@ export async function warmAllCadastroCache(
       const dataHoje = new Date().toISOString().slice(0, 10)
       const dataOntem = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
 
-      const tipos = tiposProg.length > 0 ? tiposProg : ['engorda', 'sequestro']
+      const tipos = tiposProg.length > 0 ? tiposProg : ['confinamento', 'sequestro']
       // Paralelizar programações por tipo
       const progResults = await Promise.all(
         tipos.map(tipo => getProgramacaoTratosCompletaCached(fazendaId, tipo))

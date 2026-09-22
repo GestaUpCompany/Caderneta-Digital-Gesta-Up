@@ -650,7 +650,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data: brWithTimeToIso(registro.data),
         ordem_trato: Number(registro.ordemTrato) || null,
-        tipo: registro.tipo || 'engorda',
+        tipo: registro.tipo || 'confinamento',
         formulacao_id: registro.formulacaoId || null,
         vagao_id: registro.vagaoId || null,
         total_previsto: registro.totalPrevisto !== '' && registro.totalPrevisto !== null && registro.totalPrevisto !== undefined

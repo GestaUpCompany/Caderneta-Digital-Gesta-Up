@@ -76,7 +76,7 @@ interface RegistroFabricaExistente {
 }
 
 const TIPOS_PROGRAMACAO = [
-  { value: 'engorda', label: 'Engorda' },
+  { value: 'confinamento', label: 'Confinamento' },
   { value: 'tip', label: 'TIP' },
   { value: 'sequestro', label: 'Sequestro' },
 ]
@@ -152,7 +152,7 @@ export default function FabricaConfinamentoPage() {
 
   // Filtros
   const [tiposDisponiveis, setTiposDisponiveis] = useState<string[]>([])
-  const [tipoSelecionado, setTipoSelecionado] = useState<string>('engorda')
+  const [tipoSelecionado, setTipoSelecionado] = useState<string>('confinamento')
   const [vagoes, setVagoes] = useState<Vagao[]>([])
   const [vagaoSelecionadoId, setVagaoSelecionadoId] = useState<string>('')
   const [dietasDisponiveis, setDietasDisponiveis] = useState<{ id: string; nome: string }[]>([])
@@ -192,8 +192,8 @@ export default function FabricaConfinamentoPage() {
         const tipos = (tiposData || []).filter((t: string) =>
           TIPOS_PROGRAMACAO.some((tp) => tp.value === t)
         )
-        setTiposDisponiveis(tipos.length > 0 ? tipos : ['engorda'])
-        if (tipos.length > 0 && !tipos.includes('engorda')) {
+        setTiposDisponiveis(tipos.length > 0 ? tipos : ['confinamento'])
+        if (tipos.length > 0 && !tipos.includes('confinamento')) {
           setTipoSelecionado(tipos[0])
         }
         setVagoes(vagoesData)

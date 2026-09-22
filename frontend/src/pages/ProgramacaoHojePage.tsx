@@ -72,8 +72,8 @@ export default function ProgramacaoHojePage() {
       try {
         const tipos = await getTiposProgramacaoTratosCached(fazendaId)
         if (!tipos || tipos.length === 0) return
-        // Pega o primeiro tipo ativo (engorda tem prioridade)
-        const tipo = tipos.includes('engorda') ? 'engorda' : tipos[0]
+        // Pega o primeiro tipo ativo (confinamento tem prioridade)
+        const tipo = tipos.includes('confinamento') ? 'confinamento' : tipos[0]
         const prog = await getProgramacaoTratosCompletaCached(fazendaId, tipo)
         if (!cancelled && prog?.percentuais) {
           const horarios = prog.percentuais
