@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Liberação geral das cadernetas por fazenda (22/09/2026)
+
+Todas as telas que estavam restritas a listas hardcoded de `fazenda_id` foram liberadas para todas as fazendas, com duas exceções que continuam limitadas.
+
+- **Removido do PWA**: `frontend/src/config/features.ts` (mapa `FEATURE_ACCESS`) e `frontend/src/components/FeatureLock.tsx` (tela "EM BREVE") foram deletados; `EntradaInsumosPage` e `ProducaoFabricaPage` perderam o wrapper `FeatureLock`; `ModulosMenuPage` e `ProgramacaoHojePage` perderam `CADERNETAS_EXCLUSIVAS`/`FAZENDAS_COM_INSUMOS`. Com isso `entrada-insumos`, `saida-insumos`, `entrada-almoxarifado` e `entrada-cantina` passam a aparecer e funcionar em qualquer fazenda.
+- **Mantido restrito**: a opção "Novo Lote" em `MovimentacaoPage` continua limitada a `FAZENDAS_NOVO_LOTE_HABILITADO` (Marcon, Guanabara, Gesta'Up teste, Bom Jesus - Mirandópolis); no painel, Editar/Excluir em `SuplementacaoDetalhes` continua limitado a `FAZENDAS_HABILITADAS` (Guanabara, Brilhante, Doce Ilusão, Chibata).
+- **Mantido o flag de banco**: `fazendas.acesso_confinamento` continua controlando a visibilidade das cadernetas de confinamento (`leitura-cocho`, `trato-confinamento`, `fabrica-confinamento`) por fazenda. A entrada `leitura-cocho` que existia em `FEATURE_ACCESS` era config morta e sumiu junto com o arquivo.
+
+**Disparador**: quando mencionar liberação de telas por fazenda, whitelist de fazendas, `FEATURE_ACCESS`, `FeatureLock`, ou "EM BREVE" por fazenda, ler esta seção.
+
 ## Criação de itens de almoxarifado/cantina pelo PWA + CHECK de classificação (22/09/2026)
 
 As telas de entrada de estoque passaram a permitir cadastrar item novo na hora, e a classificação virou lista fechada validada no banco.

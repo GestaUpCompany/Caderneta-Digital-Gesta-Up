@@ -19,7 +19,6 @@ import {
 import { getFormulacoes } from '../../services/supabaseService'
 import { Brush, Save, AlertCircle, Loader2 } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
-import FeatureLock from '../../components/FeatureLock'
 import { DatePicker } from '../../components/ui'
 
 interface InsumoFormulacao {
@@ -270,7 +269,6 @@ export default function ProducaoFabricaPage() {
   }
 
   return (
-    <FeatureLock feature="saida-insumos" fazendaId={fazendaId}>
       <CadernetaLayout
         title="PRODUÇÃO FÁBRICA"
         cadernetaId="saida-insumos"
@@ -466,6 +464,5 @@ export default function ProducaoFabricaPage() {
           caderneta="saida-insumos"
         />
       </CadernetaLayout>
-    </FeatureLock>
   )
 }

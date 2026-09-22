@@ -14,7 +14,6 @@ import { useSelector } from 'react-redux'
 import { getInsumos, createInsumo, getFormulacoes, createFormulacao } from '../../services/supabaseService'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { useCadastroOptions } from '../../hooks/useCadastroOptions'
-import FeatureLock from '../../components/FeatureLock'
 import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { Brush, Save } from 'lucide-react'
 
@@ -377,7 +376,6 @@ export default function EntradaInsumosPage() {
   }
 
   return (
-    <FeatureLock feature="entrada-insumos" fazendaId={fazendaId}>
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <CadernetaHeader
         title="ENTRADA INSUMOS"
@@ -680,6 +678,5 @@ export default function EntradaInsumosPage() {
         caderneta="entrada-insumos"
       />
     </div>
-    </FeatureLock>
   )
 }

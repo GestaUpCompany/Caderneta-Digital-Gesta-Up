@@ -93,22 +93,12 @@ export default function ProgramacaoHojePage() {
   const hoje = getHojeIso(timezone || undefined)
   const temRegras = regrasChecklist.length > 0
 
-  const FAZENDAS_COM_INSUMOS = [
-    'd649c65e-16ab-4b77-a84b-df937aa41cc3',
-    'd3965505-74d5-4af7-9858-f773d2e8aab3',
-  ]
-  const CADERNETAS_EXCLUSIVAS: Record<string, string[]> = {
-    'entrada-insumos': FAZENDAS_COM_INSUMOS,
-    'saida-insumos': FAZENDAS_COM_INSUMOS,
-  }
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
 
   const programacaoMap = new Map(programacao.map((id) => [id, true]))
   const cadernetasProgramadas = CADERNETAS.filter(
     (c) => c.disponivel && programacaoMap.has(c.id)
   ).filter(c => {
-    const fazendasPermitidas = CADERNETAS_EXCLUSIVAS[c.id]
-    if (fazendasPermitidas && !fazendasPermitidas.includes(fazendaId)) return false
     if (CADERNETAS_CONFINAMENTO.includes(c.id) && !acessoConfinamento) return false
     return true
   })

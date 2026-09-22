@@ -65,6 +65,7 @@ Quando mencionar qualquer um destes tópicos, ler a seção correspondente em `d
 - "cronômetro de atividade", "sessões de atividade", "imprevisto em atividade", "tempo produtivo vs bruto" → `docs/HISTORICO.md` (Time tracking de atividades)
 - "mapa KML", "georreferenciamento", "pastos no mapa", "GPS no PWA", "MapLibre", "PostGIS" → `docs/HISTORICO.md` (Mapas KML)
 - "guacho", "mãe adotiva", "bezerro abandonado", `mae_adotiva_id` → `docs/HISTORICO.md` (Mãe adotiva para guacho)
+- "liberação de telas", "whitelist de fazendas", `FEATURE_ACCESS`, `FeatureLock`, "EM BREVE" por fazenda → `docs/HISTORICO.md` (Liberação geral das cadernetas por fazenda)
 - "idempotência", `local_id`, duplicata no sync → `docs/BACKLOG.md` (Idempotência via local_id)
 - "erros de sync", `/admin/erros-sync`, `logs_sync_errors` → `docs/BACKLOG.md` (Tela de auditoria de erros de sync)
 - "CATEGORIA_NOT_IN_LOTE", trigger de desconto de cabeças, `update_quant_atual_*` → `docs/BACKLOG.md` (Validação de categoria em triggers)

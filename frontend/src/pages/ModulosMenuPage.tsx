@@ -18,7 +18,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, fazendaId, acessoConfinamento } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -26,28 +26,10 @@ export default function ModulosMenuPage() {
   const rbacAtivo = controleAcessoHabilitado && funcionarioCadernetas.length > 0
   const { programacao, loading: programacaoLoading } = useProgramacaoHoje()
 
-  const FAZENDAS_COM_INSUMOS = [
-    'd649c65e-16ab-4b77-a84b-df937aa41cc3',
-    'd3965505-74d5-4af7-9858-f773d2e8aab3',
-  ]
-  // Cadernetas exclusivas de fazendas específicas: cadernetaId -> [fazendaIds permitidas]
-  const CADERNETAS_EXCLUSIVAS: Record<string, string[]> = {
-    'entrada-insumos': FAZENDAS_COM_INSUMOS,
-    'saida-insumos': FAZENDAS_COM_INSUMOS,
-    'entrada-almoxarifado': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
-    'entrada-cantina': ['d649c65e-16ab-4b77-a84b-df937aa41cc3'],
-  }
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
 
   const cadernetasPermitidas = useMemo(() => {
     let lista = CADERNETAS
-
-    // Filtro por fazenda (cadernetas exclusivas de fazendas específicas)
-    lista = lista.filter(c => {
-      const fazendasPermitidas = CADERNETAS_EXCLUSIVAS[c.id]
-      if (!fazendasPermitidas) return true
-      return fazendasPermitidas.includes(fazendaId)
-    })
 
     // Filtro por módulo de confinamento
     if (!acessoConfinamento) {
@@ -61,7 +43,7 @@ export default function ModulosMenuPage() {
     }
 
     return lista
-  }, [rbacAtivo, funcionarioCadernetas, fazendaId, acessoConfinamento])
+  }, [rbacAtivo, funcionarioCadernetas, acessoConfinamento])
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())
