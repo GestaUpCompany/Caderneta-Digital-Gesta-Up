@@ -2788,6 +2788,46 @@ export async function createRegistroAlmoxarifado(registro: any) {
   return data
 }
 
+// Cria item de almoxarifado durante a entrada de estoque (RPC SECURITY DEFINER).
+// Idempotente por p_id; deduplica por nome na fazenda (retorna o existente).
+export async function criarItemAlmoxarifadoPwa(params: {
+  id: string
+  fazendaId: string
+  nome: string
+  classificacao: string
+  unidade: string
+}): Promise<any> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('criar_item_almoxarifado_pwa', {
+    p_id: params.id,
+    p_fazenda_id: params.fazendaId,
+    p_nome: params.nome,
+    p_classificacao: params.classificacao,
+    p_unidade: params.unidade,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function criarItemCantinaPwa(params: {
+  id: string
+  fazendaId: string
+  nome: string
+  classificacao: string
+  unidadeMedida: string
+}): Promise<any> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('criar_item_cantina_pwa', {
+    p_id: params.id,
+    p_fazenda_id: params.fazendaId,
+    p_nome: params.nome,
+    p_classificacao: params.classificacao,
+    p_unidade_medida: params.unidadeMedida,
+  })
+  if (error) throw error
+  return data
+}
+
 // ==================== PLUVIÔMETROS ====================
 
 export async function getPluviometros(fazendaId: string) {

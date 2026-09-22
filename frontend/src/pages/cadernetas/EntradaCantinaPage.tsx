@@ -9,7 +9,8 @@ import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
-import { getClassificacoesCantinaCached, getItensCantinaCached, updateItemCantinaSaldoCache } from '../../services/cadastroCache'
+import { getItensCantinaCached, updateItemCantinaSaldoCache } from '../../services/cadastroCache'
+import { CLASSIFICACOES_CANTINA, UNIDADES_CANTINA } from '../../utils/constants'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
 interface ItemEntrada {
@@ -18,6 +19,7 @@ interface ItemEntrada {
   classificacao: string
   unidade_medida: string
   quantidade: string
+  novoItem?: boolean
 }
 
 interface FormState {
@@ -48,12 +50,13 @@ export default function EntradaCantinaPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
   const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
   const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
   const [itemEditando, setItemEditando] = useState<ItemEntrada | null>(null)
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
   const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
+  const [criandoNovoItem, setCriandoNovoItem] = useState(false)
+  const classificacoesDisponiveis: string[] = [...CLASSIFICACOES_CANTINA]
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -64,6 +67,7 @@ export default function EntradaCantinaPage() {
     setItemEditando(makeInitialItem())
     setItemEditandoIndex(null)
     setItemErrors(new Set())
+    setCriandoNovoItem(false)
     setMostrarFormularioItem(true)
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   }
@@ -72,6 +76,7 @@ export default function EntradaCantinaPage() {
     setItemEditando({ ...form.itens[index] })
     setItemEditandoIndex(index)
     setItemErrors(new Set())
+    setCriandoNovoItem(!!form.itens[index].novoItem)
     setMostrarFormularioItem(true)
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   }
@@ -81,7 +86,12 @@ export default function EntradaCantinaPage() {
 
     const errors = new Set<string>()
     if (!itemEditando.classificacao) errors.add('classificacao')
-    if (!itemEditando.itemId) errors.add('itemId')
+    if (criandoNovoItem) {
+      if (!itemEditando.nome?.trim()) errors.add('itemId')
+      if (!itemEditando.unidade_medida) errors.add('unidade_medida')
+    } else if (!itemEditando.itemId) {
+      errors.add('itemId')
+    }
     if (!itemEditando.quantidade || Number(itemEditando.quantidade) <= 0) errors.add('quantidade')
 
     if (errors.size > 0) {
@@ -89,20 +99,34 @@ export default function EntradaCantinaPage() {
       return
     }
 
+    const itemFinal = { ...itemEditando }
+    if (criandoNovoItem && !itemFinal.itemId) {
+      // Item criado no PWA: uuid local; o sync chama a RPC criar_item_* antes
+      // de postar o registro e reescreve o itemId com o id definitivo.
+      itemFinal.itemId = crypto.randomUUID()
+      itemFinal.nome = itemFinal.nome.trim()
+      itemFinal.novoItem = true
+      setItensDisponiveis(prev => [
+        ...prev,
+        { id: itemFinal.itemId, nome: itemFinal.nome, unidade_medida: itemFinal.unidade_medida, controla_estoque: true, estoque_atual: 0 }
+      ])
+    }
+
     if (itemEditandoIndex !== null) {
       setForm(prev => ({
         ...prev,
-        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? { ...itemEditando } : item)
+        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? { ...itemFinal } : item)
       }))
     } else {
       setForm(prev => ({
         ...prev,
-        itens: [...prev.itens, { ...itemEditando }]
+        itens: [...prev.itens, { ...itemFinal }]
       }))
     }
     setItemEditando(null)
     setItemEditandoIndex(null)
     setMostrarFormularioItem(false)
+    setCriandoNovoItem(false)
     setItemErrors(new Set())
   }
 
@@ -129,21 +153,6 @@ export default function EntradaCantinaPage() {
   }
 
   const { isValid } = useFormValidation(form, validationRules)
-
-  useEffect(() => {
-    async function carregarClassificacoes() {
-      if (!fazendaId) return
-      try {
-        const data = await getClassificacoesCantinaCached(fazendaId)
-        if (data) {
-          setClassificacoesDisponiveis(data)
-        }
-      } catch (error) {
-        console.error('Erro ao carregar classificações da cantina:', error)
-      }
-    }
-    carregarClassificacoes()
-  }, [fazendaId])
 
   useEffect(() => {
     async function carregarItens() {
@@ -283,80 +292,149 @@ export default function EntradaCantinaPage() {
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
               <div className="grid grid-cols-2 gap-2">
-                {classificacoesDisponiveis.length > 0 ? (
-                  classificacoesDisponiveis.map((classificacao) => (
-                    <button
-                      key={classificacao}
-                      type="button"
-                      onClick={() => {
-                        setItemEditando(prev => prev ? { ...prev, classificacao, itemId: '', nome: '', unidade_medida: '' } : null)
-                        setItemErrors(prev => {
-                          const newErrors = new Set(prev)
-                          newErrors.delete('classificacao')
-                          newErrors.delete('itemId')
-                          return newErrors
-                        })
-                      }}
-                      className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                        itemEditando?.classificacao === classificacao
-                          ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                          : itemErrors.has('classificacao')
-                          ? 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                      }`}
-                    >
-                      {classificacao}
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 col-span-2">Nenhuma classificação cadastrada. Cadastre itens da cantina no painel web.</p>
-                )}
+                {classificacoesDisponiveis.map((classificacao) => (
+                  <button
+                    key={classificacao}
+                    type="button"
+                    onClick={() => {
+                      setItemEditando(prev => prev ? { ...prev, classificacao, itemId: '', nome: '', unidade_medida: '', novoItem: false } : null)
+                      setCriandoNovoItem(false)
+                      setItemErrors(prev => {
+                        const newErrors = new Set(prev)
+                        newErrors.delete('classificacao')
+                        newErrors.delete('itemId')
+                        return newErrors
+                      })
+                    }}
+                    className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                      itemEditando?.classificacao === classificacao
+                        ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                        : itemErrors.has('classificacao')
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    {classificacao}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {itemEditando?.classificacao && (
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {itensDisponiveis.length > 0 ? (
-                    itensDisponiveis.map((item) => {
-                      const jaAdicionado = itensJaAdicionados.has(item.id)
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          disabled={jaAdicionado}
-                          onClick={() => {
-                            setItemEditando(prev => prev ? {
-                              ...prev,
-                              itemId: item.id,
-                              nome: item.nome,
-                              unidade_medida: item.unidade_medida,
-                            } : null)
-                            setItemErrors(prev => {
-                              const newErrors = new Set(prev)
-                              newErrors.delete('itemId')
-                              return newErrors
-                            })
-                          }}
-                          className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                            itemEditando?.itemId === item.id
-                              ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                              : jaAdicionado
-                              ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
-                              : itemErrors.has('itemId')
-                              ? 'border-red-500 bg-red-50 text-red-700'
-                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                          }`}
-                        >
-                          {item.nome} ({item.unidade_medida}){` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}`}
-                        </button>
-                      )
-                    })
-                  ) : (
-                    <p className="text-sm text-gray-500 col-span-2">Nenhum item com controle de estoque nesta classificação</p>
-                  )}
+            {itemEditando?.classificacao && !criandoNovoItem && (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {itensDisponiveis.length > 0 ? (
+                      itensDisponiveis.map((item) => {
+                        const jaAdicionado = itensJaAdicionados.has(item.id)
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            disabled={jaAdicionado}
+                            onClick={() => {
+                              setItemEditando(prev => prev ? {
+                                ...prev,
+                                itemId: item.id,
+                                nome: item.nome,
+                                unidade_medida: item.unidade_medida,
+                                novoItem: false,
+                              } : null)
+                              setItemErrors(prev => {
+                                const newErrors = new Set(prev)
+                                newErrors.delete('itemId')
+                                return newErrors
+                              })
+                            }}
+                            className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                              itemEditando?.itemId === item.id
+                                ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                                : jaAdicionado
+                                ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
+                                : itemErrors.has('itemId')
+                                ? 'border-red-500 bg-red-50 text-red-700'
+                                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                            }`}
+                          >
+                            {item.nome} ({item.unidade_medida}){` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}`}
+                          </button>
+                        )
+                      })
+                    ) : (
+                      <p className="text-sm text-gray-500 col-span-2">Nenhum item com controle de estoque nesta classificação</p>
+                    )}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCriandoNovoItem(true)
+                    setItemEditando(prev => prev ? { ...prev, itemId: '', nome: '', unidade_medida: '', novoItem: false } : null)
+                    setItemErrors(prev => {
+                      const newErrors = new Set(prev)
+                      newErrors.delete('itemId')
+                      return newErrors
+                    })
+                  }}
+                  className="w-full min-h-[44px] px-3 py-2 rounded-xl text-sm font-bold border-2 border-dashed border-[#1a3b2c] text-[#1a3b2c] bg-white hover:bg-green-50 transition-all"
+                >
+                  ＋ CADASTRAR NOVO ITEM
+                </button>
+              </div>
+            )}
+
+            {itemEditando?.classificacao && criandoNovoItem && (
+              <div className="flex flex-col gap-4">
+                <Input
+                  label="NOME DO NOVO ITEM"
+                  placeholder="Ex.: Café torrado"
+                  value={itemEditando.nome}
+                  onChange={(e) => {
+                    setItemEditando(prev => prev ? { ...prev, nome: e.target.value } : null)
+                    setItemErrors(prev => {
+                      const newErrors = new Set(prev)
+                      newErrors.delete('itemId')
+                      return newErrors
+                    })
+                  }}
+                  error={itemErrors.has('itemId') ? 'Campo obrigatório' : undefined}
+                />
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">UNIDADE DE MEDIDA</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {UNIDADES_CANTINA.map((un) => (
+                      <button
+                        key={un}
+                        type="button"
+                        onClick={() => {
+                          setItemEditando(prev => prev ? { ...prev, unidade_medida: un } : null)
+                          setItemErrors(prev => {
+                            const newErrors = new Set(prev)
+                            newErrors.delete('unidade_medida')
+                            return newErrors
+                          })
+                        }}
+                        className={`min-h-[44px] px-2 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                          itemEditando?.unidade_medida === un
+                            ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                            : itemErrors.has('unidade_medida')
+                            ? 'border-red-500 bg-red-50 text-red-700'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        {un}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCriandoNovoItem(false)}
+                  className="text-sm font-bold text-gray-600 underline self-start"
+                >
+                  Voltar para itens cadastrados
+                </button>
               </div>
             )}
 
@@ -387,6 +465,7 @@ export default function EntradaCantinaPage() {
                   setMostrarFormularioItem(false)
                   setItemEditando(null)
                   setItemEditandoIndex(null)
+                  setCriandoNovoItem(false)
                 }}
                 variant="secondary"
                 icon="✕"

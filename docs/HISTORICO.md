@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Criação de itens de almoxarifado/cantina pelo PWA + CHECK de classificação (22/09/2026)
+
+As telas de entrada de estoque passaram a permitir cadastrar item novo na hora, e a classificação virou lista fechada validada no banco.
+
+- **CHECK constraints** (migrations `20260922210000` e `20260922240000` no repo do painel): `itens_almoxarifado.classificacao` aceita só as 19 opções (Ferramentas, Peças, Hidráulica, Elétrica, Insumos, Fertilizantes, Corretivos, Defensivos, Herbicidas, Fungicidas, Inseticidas, Adjuvantes, Sementes, Medicamentos, Equipamentos, Combustíveis, Lubrificantes, EPI, Materiais de Construção); `itens_cantina.classificacao` aceita as 6 (Perecíveis, Não Perecíveis, Bebidas, Limpeza/Higiene, Hortifruti, Carnes). O painel já usava exatamente essas listas, então nenhuma alteração foi necessária lá.
+- **RPCs `SECURITY DEFINER`**: `criar_item_almoxarifado_pwa(p_id, p_fazenda_id, p_nome, p_classificacao, p_unidade)` e `criar_item_cantina_pwa(p_id, p_fazenda_id, p_nome, p_classificacao, p_unidade_medida)`. Validam vínculo do usuário com a fazenda (`usuarios.auth_id = auth.uid()` + `usuario_fazenda.ativo`), validam classificação/unidade, são idempotentes por `p_id` (retry de sync) e deduplicam por `lower(btrim(nome))` na fazenda — dedupe retorna o item existente e liga `controla_estoque` se estava desligado (senão o trigger ignoraria a entrada silenciosamente). Peão não tem INSERT direto nas tabelas `itens_*` (RLS admin/controller), por isso RPC.
+- **PWA**: `constants.ts` ganhou `CLASSIFICACOES_ALMOXARIFADO`, `CLASSIFICACOES_CANTINA`, `UNIDADES_ALMOXARIFADO`, `UNIDADES_CANTINA`. As telas de entrada usam a constante como fonte das classificações (antes era derivada dos itens existentes, o que escondia classificações sem item). No seletor de item há o botão "＋ CADASTRAR NOVO ITEM" que abre campos de nome + unidade; o item recebe `crypto.randomUUID()` como `itemId` e flag `novoItem: true` no payload, então funciona offline.
+- **Sync**: `criarItensPendentes` em `syncService.ts` roda antes de postar registros `entrada-almoxarifado`/`entrada-cantina` — para cada item com `novoItem` chama a RPC e reescreve o `itemId` no payload com o id retornado (cobre o caso de dedupe por nome). Se a RPC falhar, o registro fica na fila de sync normalmente.
+- **Atenção**: qualquer classificação/unidade nova exige migration de CHECK + update nas constantes do PWA + opções do painel, nas três pontas ao mesmo tempo.
+
+**Disparador**: quando mencionar cadastro de item pelo PWA, "cadastrar novo item", `novoItem`, `criar_item_*_pwa`, ou CHECK de classificação, ler esta seção.
+
 ## Entrada de estoque: EntradaAlmoxarifadoPage e EntradaCantinaPage (22/09/2026)
 
 Duas cadernetas novas dão entrada ao estoque, quase cópias das telas de saída. Ficam no grupo "Entrada de Estoque" e só aparecem na fazenda de testes (`d649c65e-16ab-4b77-a84b-df937aa41cc3`, via `CADERNETAS_EXCLUSIVAS` + `FEATURE_ACCESS`). O schema/triggers vivem no repo do painel (migrations `20260922180000` e `20260922190000`, já aplicadas).

@@ -119,6 +119,28 @@ export const TIPOS_PARTO = ['Normal', 'Auxiliado', 'Cesárea', 'Aborto', 'Natimo
 
 export const SEXO_ANIMAL = ['Macho', 'Fêmea'] as const
 
+// Listas fechadas de classificação — precisam bater com os CHECK constraints
+// de itens_almoxarifado / itens_cantina (migration 20260922210000).
+export const CLASSIFICACOES_ALMOXARIFADO = [
+  'Ferramentas', 'Peças', 'Hidráulica', 'Elétrica', 'Insumos', 'Fertilizantes',
+  'Corretivos', 'Defensivos', 'Herbicidas', 'Fungicidas', 'Inseticidas',
+  'Adjuvantes', 'Sementes', 'Medicamentos', 'Equipamentos', 'Combustíveis',
+  'Lubrificantes', 'EPI', 'Materiais de Construção',
+] as const
+
+export const CLASSIFICACOES_CANTINA = [
+  'Perecíveis', 'Não Perecíveis', 'Bebidas', 'Limpeza/Higiene', 'Hortifruti', 'Carnes',
+] as const
+
+export const UNIDADES_ALMOXARIFADO = [
+  'un', 'm', 'kg', 'g', 'L', 'mL', 'cx', 'pct', 'sc', 'rl',
+] as const
+
+// Precisa bater com a validação da RPC criar_item_cantina_pwa.
+export const UNIDADES_CANTINA = [
+  'kg', 'g', 'L', 'mL', 'Unidade', 'Pacote',
+] as const
+
 export const DB_NAME = 'cadernetas-digitais'
 export const DB_VERSION = 8
 

@@ -726,10 +726,52 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
 }
 
 // Função para gravar no Supabase
+/**
+ * Itens marcados com novoItem=true foram criados no PWA (entrada de estoque) e
+ * ainda não existem no servidor. Cria cada um via RPC antes de postar o
+ * registro — o trigger de movimentação precisa do item existente com
+ * controla_estoque=true. O itemId no payload é reescrito com o id retornado
+ * (a RPC pode deduplicar por nome e devolver outro id).
+ */
+async function criarItensPendentes(store: CadernetaStore, data: any, fazendaId: string): Promise<any> {
+  const campo = store === 'entrada-cantina' ? 'itens_detalhe' : 'itens'
+  const itens = data?.[campo]
+  if (!Array.isArray(itens) || !itens.some((i: any) => i?.novoItem)) return data
+
+  const itensFinais = []
+  for (const item of itens) {
+    if (!item?.novoItem || !item?.itemId) {
+      itensFinais.push(item)
+      continue
+    }
+    const criado = store === 'entrada-cantina'
+      ? await supabaseService.criarItemCantinaPwa({
+          id: item.itemId,
+          fazendaId,
+          nome: item.nome,
+          classificacao: item.classificacao,
+          unidadeMedida: item.unidade_medida,
+        })
+      : await supabaseService.criarItemAlmoxarifadoPwa({
+          id: item.itemId,
+          fazendaId,
+          nome: item.nome,
+          classificacao: item.classificacao,
+          unidade: item.unidade,
+        })
+    itensFinais.push({ ...item, itemId: criado?.id || item.itemId })
+  }
+  return { ...data, [campo]: itensFinais }
+}
+
 async function syncToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string, operation: 'create' | 'update'): Promise<void> {
   try {
     const tableName = CADERNETA_TO_SUPABASE_TABLE[store]
     let data = registroToSupabase(store, registro, fazendaId)
+
+    if (store === 'entrada-almoxarifado' || store === 'entrada-cantina') {
+      data = await criarItensPendentes(store, data, fazendaId)
+    }
 
     if (store === 'maternidade') {
       console.log('[SYNC DEBUG] Payload maternidade:', JSON.stringify(data, null, 2))

@@ -8,7 +8,8 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
-import { getClassificacoesAlmoxarifadoCached, getItensAlmoxarifadoCached, updateItemAlmoxarifadoSaldoCache } from '../../services/cadastroCache'
+import { getItensAlmoxarifadoCached, updateItemAlmoxarifadoSaldoCache } from '../../services/cadastroCache'
+import { CLASSIFICACOES_ALMOXARIFADO, UNIDADES_ALMOXARIFADO } from '../../utils/constants'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
@@ -22,6 +23,7 @@ interface ItemEntrada {
   saldoAtual?: number
   quantidade: string
   observacao: string
+  novoItem?: boolean
 }
 
 interface FormState {
@@ -58,8 +60,9 @@ export default function EntradaAlmoxarifadoPage() {
   const [itemEditando, setItemEditando] = useState<ItemEntrada | null>(null)
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
   const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
-  const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
   const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
+  const [criandoNovoItem, setCriandoNovoItem] = useState(false)
+  const classificacoesDisponiveis: string[] = [...CLASSIFICACOES_ALMOXARIFADO]
 
   const set = (key: keyof FormState) => (value: string) => setForm(prev => ({ ...prev, [key]: value }))
   const setInput = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [key]: e.target.value }))
@@ -81,6 +84,7 @@ export default function EntradaAlmoxarifadoPage() {
     setItemEditando(makeInitialItem())
     setItemEditandoIndex(null)
     setItemErrors(new Set())
+    setCriandoNovoItem(false)
     setMostrarFormularioItem(true)
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   }
@@ -89,6 +93,7 @@ export default function EntradaAlmoxarifadoPage() {
     setItemEditando({ ...form.itens[index] })
     setItemEditandoIndex(index)
     setItemErrors(new Set())
+    setCriandoNovoItem(!!form.itens[index].novoItem)
     setMostrarFormularioItem(true)
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   }
@@ -101,8 +106,11 @@ export default function EntradaAlmoxarifadoPage() {
     if (!itemEditando.classificacao) {
       errors.add('classificacao')
     }
-    if (!itemEditando.nome) {
+    if (!itemEditando.nome?.trim()) {
       errors.add('nome')
+    }
+    if (criandoNovoItem && !itemEditando.unidade) {
+      errors.add('unidade')
     }
     if (!itemEditando.quantidade || Number(itemEditando.quantidade) <= 0) {
       errors.add('quantidade')
@@ -114,6 +122,18 @@ export default function EntradaAlmoxarifadoPage() {
     }
 
     const itemFinal = { ...itemEditando }
+    if (criandoNovoItem && !itemFinal.itemId) {
+      // Item criado no PWA: uuid local; o sync chama a RPC criar_item_* antes
+      // de postar o registro e reescreve o itemId com o id definitivo.
+      itemFinal.itemId = crypto.randomUUID()
+      itemFinal.nome = itemFinal.nome.trim()
+      itemFinal.novoItem = true
+      itemFinal.saldoAtual = 0
+      setItensDisponiveis(prev => [
+        ...prev,
+        { id: itemFinal.itemId, nome: itemFinal.nome, unidade: itemFinal.unidade, controla_estoque: true, estoque_atual: 0 }
+      ])
+    }
 
     if (itemEditandoIndex !== null) {
       setForm(prev => ({
@@ -129,6 +149,7 @@ export default function EntradaAlmoxarifadoPage() {
     setItemEditando(null)
     setItemEditandoIndex(null)
     setMostrarFormularioItem(false)
+    setCriandoNovoItem(false)
     setItemErrors(new Set())
   }
 
@@ -178,20 +199,6 @@ export default function EntradaAlmoxarifadoPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }, 100)
   }
-
-  useEffect(() => {
-    const loadData = async () => {
-      if (fazendaId) {
-        try {
-          const classificacoesData = await getClassificacoesAlmoxarifadoCached(fazendaId)
-          setClassificacoesDisponiveis(classificacoesData || [])
-        } catch (error) {
-          console.error('Erro ao carregar classificações:', error)
-        }
-      }
-    }
-    loadData()
-  }, [fazendaId])
 
   useEffect(() => {
     const loadItens = async () => {
@@ -297,7 +304,8 @@ export default function EntradaAlmoxarifadoPage() {
                       key={classificacao}
                       type="button"
                       onClick={() => {
-                        setItemEditando(prev => prev ? { ...prev, classificacao, nome: '' } : null)
+                        setItemEditando(prev => prev ? { ...prev, classificacao, nome: '', itemId: '', unidade: '', novoItem: false } : null)
+                        setCriandoNovoItem(false)
                         setItemErrors(prev => {
                           const newErrors = new Set(prev)
                           newErrors.delete('classificacao')
@@ -319,38 +327,109 @@ export default function EntradaAlmoxarifadoPage() {
                 </div>
               </div>
 
-              {itemEditando?.classificacao && (
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {itensDisponiveis.length > 0 ? (
-                      itensDisponiveis.map((item) => (
+              {itemEditando?.classificacao && !criandoNovoItem && (
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {itensDisponiveis.length > 0 ? (
+                        itensDisponiveis.map((item) => (
+                          <button
+                            key={item.id || item.nome}
+                            type="button"
+                            onClick={() => {
+                              setItemEditando(prev => prev ? { ...prev, itemId: item.id, nome: item.nome, unidade: item.unidade || 'un', saldoAtual: Number(item.estoque_atual ?? 0), novoItem: false } : null)
+                              setItemErrors(prev => {
+                                const newErrors = new Set(prev)
+                                newErrors.delete('nome')
+                                return newErrors
+                              })
+                            }}
+                            className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                              itemEditando?.itemId === item.id
+                                ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
+                                : itemErrors.has('nome')
+                                ? 'border-red-500 bg-red-50 text-red-700'
+                                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                            }`}
+                          >
+                            {item.nome}{item.unidade ? ` (${item.unidade})` : ''}{` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}`}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 col-span-2">Nenhum item com controle de estoque nesta classificação</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCriandoNovoItem(true)
+                      setItemEditando(prev => prev ? { ...prev, itemId: '', nome: '', unidade: '', novoItem: false } : null)
+                      setItemErrors(prev => {
+                        const newErrors = new Set(prev)
+                        newErrors.delete('nome')
+                        return newErrors
+                      })
+                    }}
+                    className="w-full min-h-[44px] px-3 py-2 rounded-xl text-sm font-bold border-2 border-dashed border-[#1a3b2c] text-[#1a3b2c] bg-white hover:bg-green-50 transition-all"
+                  >
+                    ＋ CADASTRAR NOVO ITEM
+                  </button>
+                </div>
+              )}
+
+              {itemEditando?.classificacao && criandoNovoItem && (
+                <div className="flex flex-col gap-4">
+                  <Input
+                    label="NOME DO NOVO ITEM"
+                    placeholder="Ex.: Bomba d'água"
+                    value={itemEditando.nome}
+                    onChange={(e) => {
+                      setItemEditando(prev => prev ? { ...prev, nome: e.target.value } : null)
+                      setItemErrors(prev => {
+                        const newErrors = new Set(prev)
+                        newErrors.delete('nome')
+                        return newErrors
+                      })
+                    }}
+                    error={itemErrors.has('nome') ? 'Campo obrigatório' : undefined}
+                  />
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">UNIDADE</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {UNIDADES_ALMOXARIFADO.map((un) => (
                         <button
-                          key={item.id || item.nome}
+                          key={un}
                           type="button"
                           onClick={() => {
-                            setItemEditando(prev => prev ? { ...prev, itemId: item.id, nome: item.nome, unidade: item.unidade || 'un', saldoAtual: Number(item.estoque_atual ?? 0) } : null)
+                            setItemEditando(prev => prev ? { ...prev, unidade: un } : null)
                             setItemErrors(prev => {
                               const newErrors = new Set(prev)
-                              newErrors.delete('nome')
+                              newErrors.delete('unidade')
                               return newErrors
                             })
                           }}
-                          className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                            itemEditando?.nome === item.nome
+                          className={`min-h-[44px] px-2 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                            itemEditando?.unidade === un
                               ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                              : itemErrors.has('nome')
+                              : itemErrors.has('unidade')
                               ? 'border-red-500 bg-red-50 text-red-700'
                               : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                           }`}
                         >
-                          {item.nome}{item.unidade ? ` (${item.unidade})` : ''}{` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}`}
+                          {un}
                         </button>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500 col-span-2">Nenhum item com controle de estoque nesta classificação</p>
-                    )}
+                      ))}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setCriandoNovoItem(false)}
+                    className="text-sm font-bold text-gray-600 underline self-start"
+                  >
+                    Voltar para itens cadastrados
+                  </button>
                 </div>
               )}
 
@@ -383,6 +462,7 @@ export default function EntradaAlmoxarifadoPage() {
                     setMostrarFormularioItem(false)
                     setItemEditando(null)
                     setItemEditandoIndex(null)
+                    setCriandoNovoItem(false)
                   }}
                   variant="secondary"
                   icon="✕"
