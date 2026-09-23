@@ -737,12 +737,15 @@ export default function SuplementacaoPage() {
           ? (temCreepDisponivel ? detalhesLote.n_cabecas - creepNCabecas : detalhesLote.n_cabecas)
           : creepNCabecas)
         : null,
-      // Com dieta creep ativa a linha 'lote' já carrega só adultos em n_cabecas,
-      // então qtd_bezerros vai 0 para não descontar bezerro duas vezes no
-      // denominador (n_cabecas - qtd_bezerros). Sem dieta, mantém o campo
-      // histórico do lote para o registro ficar idêntico ao formato anterior.
+      // O denominador de consumo do banco é (n_cabecas - qtd_bezerros) e o
+      // consumo adulto nunca pode incluir cabeças de bezerro. Com dieta creep,
+      // a linha 'lote' já carrega só adultos em n_cabecas, então qtd vai 0.
+      // Sem dieta, n_cabecas vai total e qtd recebe as cabeças ao pé reais
+      // (creepNCabecas): o campo legado lote_categorias.qtd_bezerros não é
+      // confiável (pode vir null ou replicado por linha), e com ele null o
+      // denominador incluiria os bezerros.
       qtdBezerrosLote: adultoAtivo
-        ? (temCreepDisponivel ? 0 : (detalhesLote?.qtd_bezerros ?? null))
+        ? (temCreepDisponivel ? 0 : creepNCabecas)
         : 0,
       pesoVivoKgLote: adultoAtivo ? pesoVivoKgLote : creepPesoVivoKg,
       formulacao: adultoAtivo ? form.formulacao : (creepFormulacaoDetalhes?.nome ?? null),
