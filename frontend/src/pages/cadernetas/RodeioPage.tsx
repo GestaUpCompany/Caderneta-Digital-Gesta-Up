@@ -351,7 +351,8 @@ export default function RodeioPage() {
                       (Number(form.boiGordo) || 0) + (Number(form.boiMagro) || 0) + (Number(form.garrote) || 0) +
                       (Number(form.novilha) || 0) + (Number(form.tropa) || 0) + (Number(form.outros) || 0)
     } else if (form.gadoContado === 'Não' && detalhesLote) {
-      totalAnimais = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+      // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
+      totalAnimais = detalhesLote.n_cabecas || 0
     }
 
     const result = await salvarRegistro('rodeio', {
@@ -527,13 +528,13 @@ export default function RodeioPage() {
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
               <p className="text-gray-500 font-semibold mb-2">CABEÇAS MANEJADAS</p>
               <p className="text-2xl font-bold text-gray-900">
-                {(detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)} animais
+                {detalhesLote.n_cabecas || 0} animais
               </p>
             </div>
           )}
           {form.gadoContado === 'Sim' && total > 0 && detalhesLote && (
             (() => {
-              const totalLote = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+              const totalLote = detalhesLote.n_cabecas || 0
               const diferenca = total - totalLote
               if (diferenca !== 0) {
                 return (

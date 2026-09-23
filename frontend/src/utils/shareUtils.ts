@@ -855,7 +855,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       const metaKgCabDia = (Number(registro.metaConsumo) / 100) * Number(registro.pesoVivoKgLote)
       texto += `META CONSUMO (kg/cab/dia): *${metaKgCabDia.toFixed(3).replace('.', ',')} kg*\n`
     }
-    const totalCabecasLote = (Number(registro.nCabecasLote) || 0) + (suplementaCreep ? 0 : (Number(registro.qtdBezerrosLote) || 0))
+    // n_cabecas já inclui as categorias ao pé (quant_atual); não somar bezerros.
+    const totalCabecasLote = Number(registro.nCabecasLote) || 0
     if (totalCabecasLote > 0) {
       texto += `N° CABEÇAS: *${totalCabecasLote}*\n`
     }
@@ -1471,7 +1472,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         // Show totalCabecas based on gadoContado
         if (registro.gadoContado === 'Não') {
           // Show batch total when gado was not counted
-          const totalLote = (Number(registro.n_cabecas) || 0) + (Number(registro.qtd_bezerros) || 0)
+          // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
+          const totalLote = Number(registro.n_cabecas) || 0
           if (totalLote > 0) {
             texto += `TOTAL: *${totalLote} animais*\n`
           }
@@ -2119,8 +2121,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       return total + value
     }, 0)
 
-    // Calcular total do lote (n_cabecas + qtd_bezerros)
-    const totalLote = (normalizarNumero(registro.n_cabecas as any) || 0) + (normalizarNumero(registro.qtd_bezerros as any) || 0)
+    // Total do lote: n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
+    const totalLote = normalizarNumero(registro.n_cabecas as any) || 0
 
     // Verificar se há divergência
     if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {
@@ -2138,8 +2140,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       return total + value
     }, 0)
 
-    // Calcular total do lote (n_cabecas + qtd_bezerros)
-    const totalLote = (normalizarNumero(registro.n_cabecas as any) || 0) + (normalizarNumero(registro.qtd_bezerros as any) || 0)
+    // Total do lote: n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
+    const totalLote = normalizarNumero(registro.n_cabecas as any) || 0
     
     // Verificar se há divergência
     if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {

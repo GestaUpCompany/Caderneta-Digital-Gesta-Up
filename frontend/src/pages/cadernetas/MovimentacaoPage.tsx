@@ -23,6 +23,7 @@ import {
 } from '../../services/cadastroCache'
 import { transferirLoteEntreFazendas, getPastos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { isCategoriaAoPe } from '../../utils/categorias'
 import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -831,7 +832,9 @@ export default function MovimentacaoPage() {
             dias_restantes_meta: catOrigem?.dias_restantes_meta || null,
             data_meta_projetada: catOrigem?.data_meta_projetada || null,
             estrategia_nutricional: catOrigem?.estrategia_nutricional || null,
-            qtd_bezerros: catOrigem?.qtd_bezerros || null,
+            // lote_categorias.qtd_bezerros é legado: para categoria ao pé as
+            // cabeças movimentadas são os próprios bezerros.
+            qtd_bezerros: isCategoriaAoPe(c.categoria) ? c.numeroCabecas : null,
             consumo_meta_porcentagem_pesovivo: catOrigem?.consumo_meta_porcentagem_pesovivo || null,
             peso_venda_meta_arroba: catOrigem?.peso_venda_meta_arroba || null,
             margem_lucro_percent: catOrigem?.margem_lucro_percent || null,

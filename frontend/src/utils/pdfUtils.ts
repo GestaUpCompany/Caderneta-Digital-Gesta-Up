@@ -1046,7 +1046,7 @@ export async function gerarPdfResumoRodeio(
         if (!isNaN(v) && v > 0) categoriasTotais[cat.key] += v
       })
     } else {
-      const totalLote = (Number((r as any).n_cabecas) || 0) + (Number((r as any).qtd_bezerros) || 0)
+      const totalLote = Number((r as any).n_cabecas) || 0
       totalAnimais += totalLote
     }
 
@@ -1200,7 +1200,7 @@ export async function gerarPdfResumoRodeio(
         }
       }
     } else {
-      const totalLote = (Number((r as any).n_cabecas) || 0) + (Number((r as any).qtd_bezerros) || 0)
+      const totalLote = Number((r as any).n_cabecas) || 0
       if (totalLote > 0) {
         labelValue('Total lote:', `${totalLote} animais`, 4)
       }

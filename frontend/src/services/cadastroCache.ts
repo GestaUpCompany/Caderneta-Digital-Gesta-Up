@@ -7,6 +7,7 @@ import { fetchChecklistRegras } from './checklistRegrasService'
 import { fetchRotinas } from './rotinasService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 import { setCadastroSyncState } from './cadastroSyncState'
+import { isCategoriaAoPe } from '../utils/categorias'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
@@ -2476,7 +2477,12 @@ export async function warmAllCadastroCache(
       continue
     }
     const totalCabeças = cats.reduce((sum: number, cat: any) => sum + (cat.quant_atual || 0), 0)
-    const totalBezerros = cats.reduce((sum: number, cat: any) => sum + (cat.qtd_bezerros || 0), 0)
+    // Mesmo critério de buildLoteDetalhesFromCategorias: bezerros ao pé vêm das
+    // cabeças das categorias ao pé, não da coluna legada lote_categorias.qtd_bezerros.
+    const totalBezerros = cats.reduce(
+      (sum: number, cat: any) => sum + (isCategoriaAoPe(cat.categoria) ? (cat.quant_atual || 0) : 0),
+      0
+    )
     let pesoVivoTotal = 0
     cats.forEach((cat: any) => {
       pesoVivoTotal += (cat.peso_vivo_atual_kg_cab || 0) * (cat.quant_atual || 0)
