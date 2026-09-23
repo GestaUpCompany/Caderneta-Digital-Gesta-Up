@@ -1212,15 +1212,25 @@ export default function PesagemPage() {
                 <button
                   key={t.value}
                   type="button"
+                  disabled={!!sessao.osId}
                   onClick={() => handleSelecionarTipoManejo(t.value)}
-                  className={`min-h-[38px] rounded-xl px-2 text-sm font-bold border-2 transition-all active:scale-95 ${
-                    sessao.tipoManejo === t.value ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white' : 'bg-white border-gray-300 text-gray-700'
+                  className={`min-h-[38px] rounded-xl px-2 text-sm font-bold border-2 transition-all active:scale-95 disabled:cursor-not-allowed ${
+                    sessao.tipoManejo === t.value
+                      ? 'bg-[#1a3a2a] border-[#1a3a2a] text-white'
+                      : sessao.osId
+                        ? 'bg-gray-100 border-gray-200 text-gray-400'
+                        : 'bg-white border-gray-300 text-gray-700'
                   }`}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
+            {sessao.osId && (
+              <p className="mt-2 text-xs text-gray-500">
+                Tipo definido pela OS. Para pesagem comum, selecione "Sem OS" acima.
+              </p>
+            )}
           </div>
 
           {([

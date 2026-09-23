@@ -8,8 +8,9 @@ Teste E2E completo (comunicado → OS → pesagem → embarque → documentos �
 
 - **Compatibilidade categoria×sexo case-sensitive**: `categoriasCompativeis` em `PesagemPage.tsx` filtrava pelos sets `CATEGORIAS_MACHO`/`CATEGORIAS_FEMEA` em Title Case, mas `lote_categorias.categoria` pode vir em minúsculo (ex: `boi gordo`). Marcar sexo zerava a lista de categorias. Corrigido com comparação normalizada (`toLowerCase().trim()`).
 - **SuccessModal modernizado**: o componente compartilhado `components/SuccessModal.tsx` foi restilizado com o visual do modal da pesagem (CheckCircle2, rounded-3xl, botões empilhados COMPARTILHAR / NOVO REGISTRO / VOLTAR PARA O INÍCIO, texto "registrada no aparelho. Será enviada ao sincronizar."). Mesma interface de props e handlers (ESC, botão voltar do Android, overlay). O modal da `PesagemPage` continua próprio porque tem ações específicas de sessão (contagem de registros, erros de sync, VER REGISTROS).
+- **Tipo de manejo travado com OS vinculada (23/09/2026)**: com OS selecionada, os botões de tipo de manejo ficavam clicáveis e `handleSelecionarTipoManejo` desvinculava a OS silenciosamente ao tocar em outro tipo (a pesagem virava comum, sem desconto via OS). Agora os botões ficam `disabled` quando `sessao.osId` está preenchido, com texto explicativo "Tipo definido pela OS. Para pesagem comum, selecione 'Sem OS' acima." O caminho para sair da OS é explícito: trocar o seletor para "Sem OS (pesagem comum)".
 
-**Disparador**: quando mencionar categoria sumindo ao marcar sexo, `categoriasCompativeis`, ou case de `lote_categorias`, ler esta seção.
+**Disparador**: quando mencionar categoria sumindo ao marcar sexo, `categoriasCompativeis`, case de `lote_categorias`, ou tipo de manejo travado/desvinculando OS, ler esta seção.
 
 ## Módulo de Venda via Ordem de Serviço (OS) — PWA (22/09/2026)
 
