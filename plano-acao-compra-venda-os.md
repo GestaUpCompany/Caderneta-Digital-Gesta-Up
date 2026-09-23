@@ -1,5 +1,7 @@
 # Plano de Ação: Compra, Venda e Transferência de Animais (OS)
 
+> **⚠️ SUPERADO — 23/09/2026.** O módulo de venda foi implementado com um desenho diferente deste documento (comunicado de venda no PWA → `ordens_servico` → pesagem vinculada com desconto via movimentações → fechamento no painel). O que está em produção está documentado em `docs/HISTORICO.md` (seções "Módulo de Venda via Ordem de Serviço"). Este arquivo permanece apenas como referência conceitual para as futuras fases de compra e transferência; não seguir este desenho para código novo.
+
 ## Visão Geral
 Implementar no aplicativo e no sistema administrativo (site) o fluxo completo de Ordem de Serviço (OS) para compra, venda e transferência de animais, incluindo recepção com laudo de chegada e manejo curral vinculado à OS.
 
