@@ -595,7 +595,8 @@ export default function PastagensPage() {
         )
       }
     } else if (form.gadoContado === 'Não' && detalhesLote) {
-      totalAnimais = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+      // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
+      totalAnimais = detalhesLote.n_cabecas || 0
     }
 
     const result = await salvarRegistro('pastagens', {
@@ -835,13 +836,13 @@ export default function PastagensPage() {
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
               <p className="text-gray-500 font-semibold mb-2">CABEÇAS MANEJADAS</p>
               <p className="text-2xl font-bold text-gray-900">
-                {(detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)} animais
+                {detalhesLote.n_cabecas || 0} animais
               </p>
             </div>
           )}
           {form.gadoContado === 'Sim' && total > 0 && detalhesLote && (
             (() => {
-              const totalCabecasLote = (detalhesLote.n_cabecas || 0) + (detalhesLote.qtd_bezerros || 0)
+              const totalCabecasLote = detalhesLote.n_cabecas || 0
               const diferenca = total - totalCabecasLote
               if (diferenca !== 0) {
                 return (

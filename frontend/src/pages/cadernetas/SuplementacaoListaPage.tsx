@@ -9,6 +9,7 @@ import { gerarPdfResumoSuplementacao, compartilharPdf } from '../../utils/pdfUti
 import { todayBR } from '../../utils/formatDate'
 import { formatarNumeroBR } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
+import { isCategoriaAoPe } from '../../utils/categorias'
 import { getLoteDetalhesComCategoriasCached, getFormulacaoByNomeCached, getFazendasDoMesmoGrupoCached } from '../../services/cadastroCache'
 import { RootState } from '../../store/store'
 
@@ -168,37 +169,79 @@ export default function SuplementacaoListaPage() {
         partes.push(`LOTE: *${r.numeroLote || '—'}*`)
         partes.push('')
 
-        // Formulação e meta de consumo
-        partes.push(`R/S - ${r.formulacao || '—'}`)
-        if (r.metaConsumo != null) {
-          partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(r.metaConsumo, '—', 2)}%*`)
-        }
-        // Meta consumo em kg/cab/dia: teorMs% * pesoVivo / 100
-        const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
-        const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
-        if (r.metaConsumo != null && pesoVivo) {
-          const metaKgCabDia = (Number(r.metaConsumo) / 100) * pesoVivo
-          partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR(metaKgCabDia, '—', 3)} kg*`)
-        }
-        if (nCabecas) {
-          partes.push(`N° CABEÇAS: *${nCabecas}*`)
-        }
-        if (pesoVivo) {
-          partes.push(`PV MÉDIO: *${formatarNumeroBR(pesoVivo, '—', 2)} kg*`)
-        }
+        const suplementaAdulto = r.suplementarAdulto !== false
+        const suplementaCreep = r.suplementarCreep === true && !!r.creepKgCocho
+        const doisGrupos = suplementaAdulto && suplementaCreep
 
-        // Categorias
-        const categorias = r.categoriasString || (Array.isArray(r.categorias) ? r.categorias.join(', ') : '')
-        if (categorias) {
+        // Bloco do lote (categorias adultas)
+        if (suplementaAdulto) {
+          if (doisGrupos) partes.push(`LOTE — CATEGORIAS ADULTAS`)
+          partes.push(`R/S - ${r.formulacao || '—'}`)
+          if (r.metaConsumo != null) {
+            partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(r.metaConsumo, '—', 2)}%*`)
+          }
+          // Meta consumo em kg/cab/dia: teorMs% * pesoVivo / 100
+          const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
+          const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
+          if (r.metaConsumo != null && pesoVivo) {
+            const metaKgCabDia = (Number(r.metaConsumo) / 100) * pesoVivo
+            partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR(metaKgCabDia, '—', 3)} kg*`)
+          }
+          if (nCabecas) {
+            partes.push(`N° CABEÇAS: *${nCabecas}*`)
+          }
+          if (pesoVivo) {
+            partes.push(`PV MÉDIO: *${formatarNumeroBR(pesoVivo, '—', 2)} kg*`)
+          }
+
+          // Categorias adultas (as ao pé aparecem na seção creep)
+          const categorias = (r.categoriasString
+            ? String(r.categoriasString).split(',').map((c: string) => c.trim()).filter(Boolean)
+            : (Array.isArray(r.categorias) ? (r.categorias as string[]) : []))
+            .filter((c: string) => doisGrupos ? !isCategoriaAoPe(c) : true)
+            .join(', ')
+          if (categorias) {
+            partes.push('')
+            partes.push(`CATEGORIAS: *${categorias}*`)
+          }
+
           partes.push('')
-          partes.push(`CATEGORIAS: *${categorias}*`)
+          partes.push(`LEITURA COCHO: *${r.leituraCocho ?? '—'}*`)
+          if (r.kgCocho) {
+            partes.push(`SUPLEMENTO COCHO (KG): *${formatarNumeroBR(r.kgCocho, '—', 0)}*`)
+          }
         }
 
-        // Leitura e quantidades
-        partes.push('')
-        partes.push(`LEITURA COCHO: *${r.leituraCocho ?? '—'}*`)
-        if (r.kgCocho) {
-          partes.push(`SUPLEMENTO COCHO (KG): *${formatarNumeroBR(r.kgCocho, '—', 0)}*`)
+        // Creep feeding: quando só o creep foi suplementado, os campos
+        // principais do registro já carregam os dados creep (fallback)
+        if (suplementaCreep) {
+          if (suplementaAdulto) partes.push('')
+          partes.push(`CREEP FEEDING`)
+          const creepFormulacao = r.creepFormulacao || (suplementaAdulto ? null : r.formulacao)
+          partes.push(`R/S - ${creepFormulacao || '—'}`)
+          const creepMeta = r.creepMetaConsumo ?? (suplementaAdulto ? null : r.metaConsumo)
+          const creepPv = r.creepPesoVivoKg != null
+            ? Number(r.creepPesoVivoKg)
+            : (suplementaAdulto ? null : (r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null))
+          if (creepMeta != null) {
+            partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(creepMeta, '—', 2)}%*`)
+            if (creepPv) {
+              partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR((Number(creepMeta) / 100) * creepPv, '—', 3)} kg*`)
+            }
+          }
+          const creepCabecas = r.creepNCabecas ?? (suplementaAdulto ? null : r.nCabecasLote)
+          if (creepCabecas) {
+            partes.push(`N° BEZERROS AO PÉ: *${creepCabecas}*`)
+          }
+          if (creepPv) {
+            partes.push(`PV MÉDIO: *${formatarNumeroBR(creepPv, '—', 2)} kg*`)
+          }
+          const creepLeitura = r.creepLeitura ?? (suplementaAdulto ? null : r.leituraCocho)
+          partes.push('')
+          if (creepLeitura != null && creepLeitura !== '') {
+            partes.push(`LEITURA COCHO: *${creepLeitura}*`)
+          }
+          partes.push(`SUPLEMENTO COCHO (KG): *${formatarNumeroBR(r.creepKgCocho, '—', 0)}*`)
         }
         if (r.escoreFezes != null && r.escoreFezes !== '') {
           partes.push(`ESCORE FEZES: *${r.escoreFezes}*`)

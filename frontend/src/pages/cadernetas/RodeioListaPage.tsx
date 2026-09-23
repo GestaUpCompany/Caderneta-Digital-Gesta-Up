@@ -152,7 +152,7 @@ export default function RodeioListaPage() {
           const total = Number(r.totalCabecas) || 0
           totalAnimais += total
         } else {
-          const totalLote = (Number((r as any).n_cabecas) || 0) + (Number((r as any).qtd_bezerros) || 0)
+          const totalLote = Number((r as any).n_cabecas) || 0
           totalAnimais += totalLote
         }
       })
@@ -217,7 +217,8 @@ export default function RodeioListaPage() {
           }
         } else {
           // Quando gado não foi contado, mostrar total do lote
-          const totalLote = (Number((r as any).n_cabecas) || 0) + (Number((r as any).qtd_bezerros) || 0)
+          // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
+          const totalLote = Number((r as any).n_cabecas) || 0
           if (totalLote > 0) {
             partes.push(`TOTAL: *${totalLote} animais*`)
           }

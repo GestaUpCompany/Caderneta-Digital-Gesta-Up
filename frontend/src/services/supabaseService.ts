@@ -2,6 +2,7 @@ import { supabase, getSupabaseClientWithRefresh } from './supabaseClient'
 import type { TablesInsert, TablesUpdate } from '../types/supabase'
 import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/relatorioLote'
 import { getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
+import { isCategoriaAoPe } from '../utils/categorias'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
@@ -730,7 +731,12 @@ export function buildLoteDetalhesFromCategorias(categorias: any[] | null | undef
 
   // Calcular agregações
   const totalCabeças = categorias.reduce((sum, cat) => sum + (cat.quant_atual || 0), 0)
-  const totalBezerros = categorias.reduce((sum, cat) => sum + (cat.qtd_bezerros || 0), 0)
+  // qtd_bezerros legado (lote_categorias.qtd_bezerros) não é mais fonte: bezerros
+  // ao pé são categorias próprias e suas cabeças já entram em quant_atual.
+  const totalBezerros = categorias.reduce(
+    (sum, cat) => sum + (isCategoriaAoPe(cat.categoria) ? (cat.quant_atual || 0) : 0),
+    0
+  )
 
   // Calcular peso vivo médio ponderado
   let pesoVivoTotal = 0

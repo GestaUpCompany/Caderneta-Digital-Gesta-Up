@@ -2,6 +2,10 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Drop das colunas legadas de bezerros (aguardando migration do Painel)
+
+`lotes.qtd_bezerros`, `lotes.quantidade_bezerros` e `lote_categorias.qtd_bezerros` serão dropadas por migration no repo do Painel (detalhes completos, funções bloqueantes e plano em `GestaUp-Cadernetas-Gestao/docs/BACKLOG.md`, seção "Drop das colunas legadas de bezerros"). No PWA restam ajustes para fazer junto ou depois: remover `qtd_bezerros` do `criar_lote` em `mcp-server/index.js`, regenerar `types/supabase.ts`, remover `qtd_bezerlos`/`quantidade_bezerros` de `types/relatorioLote.ts`, atualizar `mcp-server/schema.sql`.
+
 ## ~~Idempotência via `local_id` nas tabelas de registros~~ (RESOLVIDO — ver docs/HISTORICO.md)
 
 ## Tela de auditoria de erros de sync no Painel Web (rota /admin)

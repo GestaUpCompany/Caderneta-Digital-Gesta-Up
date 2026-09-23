@@ -97,18 +97,6 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
             </p>
           </div>
           <div>
-            <p className="text-gray-500 font-semibold">CONSUMO MÉDIO GERAL (kg/MS)</p>
-            <p className="text-gray-900 font-bold">
-              {formatNumber(detalhes.consumoMedioGeralKgMS, 3)}{formatNumber(detalhes.consumoMedioGeralKgMS, 3) !== null && ' kg'}
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-500 font-semibold">CONSUMO MÉDIO 30 DIAS (kg/MS)</p>
-            <p className="text-gray-900 font-bold">
-              {formatNumber(detalhes.consumoMedio30DiasKgMS, 3)}{formatNumber(detalhes.consumoMedio30DiasKgMS, 3) !== null && ' kg'}
-            </p>
-          </div>
-          <div>
             <p className="text-gray-500 font-semibold">CUSTO MÉDIO (R$/cab/dia)</p>
             <p className="text-gray-900 font-bold">
               {formatNumber(detalhes.custoMedioReaisCabDia, 2) !== null ? `R$ ${formatNumber(detalhes.custoMedioReaisCabDia, 2)}` : 'Sem dados'}
