@@ -334,6 +334,7 @@ const PESAGEM_LABELS = {
   horarioFim: 'HORÁRIO FINAL',
   tempoTotalMin: 'TEMPO TOTAL (MIN)',
   tempoMedioMinCab: 'TEMPO MÉDIO (MIN/CAB)',
+  numeroOs: 'Nº OS',
   idChip: 'CHIP',
   idBrinco: 'BRINCO',
   lote: 'LOTE',

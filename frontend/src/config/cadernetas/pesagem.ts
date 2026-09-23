@@ -21,6 +21,7 @@ export const pesagemConfig: CadernetaDisplayConfig = {
     horarioFim: { key: 'horarioFim', section: 'SESSÃO', priority: 3, format: formatHora },
     tempoTotalMin: { key: 'tempoTotalMin', section: 'SESSÃO', priority: 4, format: formatMin },
     tempoMedioMinCab: { key: 'tempoMedioMinCab', section: 'SESSÃO', priority: 5, format: formatMin },
+    numeroOs: { key: 'numeroOs', section: 'SESSÃO', priority: 6 },
 
     equipeAjustada: { key: 'equipeAjustada', section: 'PREPARAÇÃO', priority: 1, format: formatSN },
     balancaAferida: { key: 'balancaAferida', section: 'PREPARAÇÃO', priority: 2, format: formatSN },
@@ -43,5 +44,5 @@ export const pesagemConfig: CadernetaDisplayConfig = {
     manejoAgil: { key: 'manejoAgil', section: 'AVALIAÇÃO DO MANEJO', priority: 4, format: formatSN },
     tempoPreenchimentoSeg: { key: 'tempoPreenchimentoSeg', section: 'AVALIAÇÃO DO MANEJO', priority: 5, format: (v) => (v ? `${Number(v).toFixed(0)} s` : '—') },
   },
-  hiddenFields: ['loteId', 'individuoId'],
+  hiddenFields: ['loteId', 'individuoId', 'osId'],
 }

@@ -773,6 +773,7 @@ export default function PesagemPage() {
         tempoPreenchimentoSeg: a.tempoPreenchimentoSeg,
         individuoId: a.individuoId,
         osId: sessao.osId,
+        numeroOs: sessao.osNumero,
       }
 
       if (a.registroId) {
@@ -901,6 +902,7 @@ export default function PesagemPage() {
       manejoCalmo: sessao.manejoCalmo,
       gritaria: sessao.gritaria,
       manejoAgil: sessao.manejoAgil,
+      numeroOs: sessao.osNumero,
     }))
     const textoShare = registrosShare.length > 0
       ? formatarRegistroComoTexto(registrosShare[0] as any, 'pesagem', registrosShare as any)

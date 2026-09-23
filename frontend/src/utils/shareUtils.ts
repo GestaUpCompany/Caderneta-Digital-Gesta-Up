@@ -190,6 +190,7 @@ const formatarPesagemComoTexto = (registro: Registro, todosRegistros?: Registro[
   const hFim = horaDeIso(registro.horarioFim)
 
   let texto = `📋 *PESAGEM — ${tipoManejo.toUpperCase()}*\n`
+  if (registro.numeroOs) texto += `🔢 OS: *${registro.numeroOs}*\n`
   texto += `📅 ${dataStr}`
   if (hIni || hFim) texto += ` · ${hIni || '—'} → ${hFim || '—'}`
   const totalMin = normalizarNumero(registro.tempoTotalMin as any)
