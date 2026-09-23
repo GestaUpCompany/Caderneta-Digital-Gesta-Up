@@ -733,9 +733,17 @@ export default function SuplementacaoPage() {
       numeroLote: form.numeroLote,
       loteId: form.loteId,
       nCabecasLote: detalhesLote?.n_cabecas != null
-        ? (adultoAtivo ? detalhesLote.n_cabecas - creepNCabecas : creepNCabecas)
+        ? (adultoAtivo
+          ? (temCreepDisponivel ? detalhesLote.n_cabecas - creepNCabecas : detalhesLote.n_cabecas)
+          : creepNCabecas)
         : null,
-      qtdBezerrosLote: adultoAtivo ? (detalhesLote?.qtd_bezerros ?? null) : 0,
+      // Com dieta creep ativa a linha 'lote' já carrega só adultos em n_cabecas,
+      // então qtd_bezerros vai 0 para não descontar bezerro duas vezes no
+      // denominador (n_cabecas - qtd_bezerros). Sem dieta, mantém o campo
+      // histórico do lote para o registro ficar idêntico ao formato anterior.
+      qtdBezerrosLote: adultoAtivo
+        ? (temCreepDisponivel ? 0 : (detalhesLote?.qtd_bezerros ?? null))
+        : 0,
       pesoVivoKgLote: adultoAtivo ? pesoVivoKgLote : creepPesoVivoKg,
       formulacao: adultoAtivo ? form.formulacao : (creepFormulacaoDetalhes?.nome ?? null),
       formulacaoId: adultoAtivo ? (formulacaoDetalhes?.id ?? null) : (creepFormulacaoDetalhes?.id ?? null),
@@ -774,13 +782,14 @@ export default function SuplementacaoPage() {
       creepPesoVivoKg: creepAtivo ? creepPesoVivoKg : null,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
       possuiDeposito,
-      // categorias por escopo: lote sem as categorias ao pé (que ficam em
-      // creepCategorias); quando só o creep é suplementado, só as ao pé
+      // categorias por escopo: com dieta creep a linha 'lote' não lista as
+      // categorias ao pé (elas ficam em creepCategorias); sem dieta, grava
+      // todas como antes. Quando só o creep é suplementado, só as ao pé.
       categorias: adultoAtivo
-        ? categoriasArray.filter((c) => !isCategoriaAoPe(c))
+        ? categoriasArray.filter((c) => !temCreepDisponivel || !isCategoriaAoPe(c))
         : categoriasArray.filter((c) => isCategoriaAoPe(c)),
       categoriasString: adultoAtivo
-        ? categoriasArray.filter((c) => !isCategoriaAoPe(c)).join(', ')
+        ? categoriasArray.filter((c) => !temCreepDisponivel || !isCategoriaAoPe(c)).join(', ')
         : creepCategoriasStr,
       escoreFezes: form.escoreFezes || null,
       espacamentoCochoDetalhes: espacamentoCochoDetalhes,
