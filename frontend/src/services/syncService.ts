@@ -265,6 +265,12 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         delete cleanedChecklist.espacamento_cocho_ideal
       }
 
+      // Creep feeding: a linha primária carrega o grupo adulto por padrão; quando a
+      // operação é somente creep, a linha primária carrega os dados do creep.
+      const temCreep = !!registro.creepKgCocho && Number(registro.creepKgCocho) > 0
+      const temAdulto = registro.suplementarAdulto !== false
+      const primarioCreep = temCreep && !temAdulto
+
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
@@ -273,17 +279,31 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         pasto_id: registro.pastoId || null,
         lote: registro.numeroLote || null,
         lote_id: registro.loteId || null,
-        n_cabecas: registro.nCabecasLote ? Number(registro.nCabecasLote) : null,
-        qtd_bezerros: registro.qtdBezerrosLote ? Number(registro.qtdBezerrosLote) : null,
+        escopo: primarioCreep ? 'creep' : 'lote',
+        grupo_operacao: temCreep && temAdulto ? registro.id : null,
+        n_cabecas: primarioCreep
+          ? (registro.creepNCabecas ? Number(registro.creepNCabecas) : null)
+          : (registro.nCabecasLote ? Number(registro.nCabecasLote) : null),
+        qtd_bezerros: primarioCreep
+          ? 0
+          : (registro.qtdBezerrosLote ? Number(registro.qtdBezerrosLote) : null),
         peso_vivo_kg: null, // Calculado pela trigger/funcão do banco (recalcular_peso_vivo_lote)
-        formulacao: registro.formulacao || null,
-        formulacao_id: registro.formulacaoId || null,
-        categorias: (registro.categoriasString as string) || null,
-        leitura: registro.leituraCocho || null,
-        kg_cocho: registro.kgCocho ? Number(registro.kgCocho) : null,
+        formulacao: primarioCreep ? (registro.creepFormulacao || null) : (registro.formulacao || null),
+        formulacao_id: primarioCreep ? (registro.creepFormulacaoId || null) : (registro.formulacaoId || null),
+        categorias: primarioCreep
+          ? (registro.creepCategorias || null)
+          : ((registro.categoriasString as string) || null),
+        leitura: primarioCreep ? (registro.creepLeitura || null) : (registro.leituraCocho || null),
+        kg_cocho: primarioCreep
+          ? Number(registro.creepKgCocho)
+          : (registro.kgCocho ? Number(registro.kgCocho) : null),
         kg_deposito: registro.kgDeposito ? Number(registro.kgDeposito) : 0,
-        forma_fornecimento: registro.formaFornecimento || null,
-        qtd_sacos: registro.qtdSacos ? Number(registro.qtdSacos) : null,
+        forma_fornecimento: primarioCreep
+          ? (registro.creepFormaFornecimento || null)
+          : (registro.formaFornecimento || null),
+        qtd_sacos: primarioCreep
+          ? (registro.creepQtdSacos ? Number(registro.creepQtdSacos) : null)
+          : (registro.qtdSacos ? Number(registro.qtdSacos) : null),
         escore_fezes: registro.escoreFezes || null,
         espacamento_cocho_detalhes: registro.espacamentoCochoDetalhes || null,
         espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null,
@@ -839,9 +859,34 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           case 'registros_rodeio':
             result = await supabaseService.createRegistroRodeio(data)
             break
-          case 'registros_suplementacao':
+          case 'registros_suplementacao': {
             result = await supabaseService.createRegistroSuplementacao(data)
+            // Creep feeding: quando a operação suplementou lote + bezerro(a) ao pé,
+            // gerar a segunda linha (escopo 'creep') com local_id derivado. O
+            // kg_deposito fica só na linha primária para não duplicar baixa de
+            // estoque (o trigger debite kg_cocho + kg_deposito por linha).
+            const temCreep = !!registro.creepKgCocho && Number(registro.creepKgCocho) > 0
+            const temAdulto = registro.suplementarAdulto !== false
+            if (temCreep && temAdulto) {
+              const creepData = {
+                ...data,
+                local_id: `${registro.id}:creep`,
+                escopo: 'creep',
+                formulacao: registro.creepFormulacao || null,
+                formulacao_id: registro.creepFormulacaoId || null,
+                categorias: registro.creepCategorias || null,
+                leitura: registro.creepLeitura || null,
+                kg_cocho: Number(registro.creepKgCocho),
+                kg_deposito: 0,
+                n_cabecas: registro.creepNCabecas ? Number(registro.creepNCabecas) : null,
+                qtd_bezerros: 0,
+                forma_fornecimento: registro.creepFormaFornecimento || null,
+                qtd_sacos: registro.creepQtdSacos ? Number(registro.creepQtdSacos) : null,
+              }
+              await supabaseService.createRegistroSuplementacao(creepData)
+            }
             break
+          }
           case 'registros_bebedouros':
             result = await supabaseService.createRegistroBebedouros(data)
             break
@@ -1073,9 +1118,32 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         case 'registros_rodeio':
           await supabaseService.updateRegistroRodeio(supabaseId, data)
           break
-        case 'registros_suplementacao':
+        case 'registros_suplementacao': {
           await supabaseService.updateRegistroSuplementacao(supabaseId, data)
+          // Creep feeding: manter a linha pareada (escopo 'creep') em sincronia
+          // via upsert por local_id derivado.
+          const temCreep = !!registro.creepKgCocho && Number(registro.creepKgCocho) > 0
+          const temAdulto = registro.suplementarAdulto !== false
+          if (temCreep && temAdulto) {
+            const creepData = {
+              ...data,
+              local_id: `${registro.id}:creep`,
+              escopo: 'creep',
+              formulacao: registro.creepFormulacao || null,
+              formulacao_id: registro.creepFormulacaoId || null,
+              categorias: registro.creepCategorias || null,
+              leitura: registro.creepLeitura || null,
+              kg_cocho: Number(registro.creepKgCocho),
+              kg_deposito: 0,
+              n_cabecas: registro.creepNCabecas ? Number(registro.creepNCabecas) : null,
+              qtd_bezerros: 0,
+              forma_fornecimento: registro.creepFormaFornecimento || null,
+              qtd_sacos: registro.creepQtdSacos ? Number(registro.creepQtdSacos) : null,
+            }
+            await supabaseService.createRegistroSuplementacao(creepData)
+          }
           break
+        }
         case 'registros_bebedouros':
           await supabaseService.updateRegistroBebedouros(supabaseId, data)
           break

@@ -309,6 +309,12 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
 export function validateSuplementacao(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
+  // Creep feeding: quando o lote tem bezerro(a) ao pé, o usuário pode suplementar
+  // só o lote, só o creep ou ambos. suplementarAdulto/suplementarCreep chegam como
+  // boolean no payload; ausência (registros antigos) equivale a "só lote".
+  const suplementarAdulto = data.suplementarAdulto !== false
+  const suplementarCreep = data.suplementarCreep === true
+
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isNonEmptyString(data.tratador))
@@ -317,12 +323,24 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
     errors.push({ field: 'pasto', message: 'Pasto é obrigatório' })
   // Lote não é obrigatório: permite registrar suplementação em pasto sem lote ativo vinculado.
   // O aviso visual de "Nenhum lote ativo ocupando este pasto" permanece na UI (SuplementacaoPage.tsx).
-  if (!isNonEmptyString(data.formulacao))
-    errors.push({ field: 'formulacao', message: 'Formulação é obrigatória' })
-  if (!isScaleValue(data.leituraCocho, -1, 3))
-    errors.push({ field: 'leituraCocho', message: 'Leitura deve ser entre -1 e 3' })
-  if (!isPositiveNumber(data.kgCocho) || Number(data.kgCocho) === 0)
-    errors.push({ field: 'kgCocho', message: 'KG no cocho é obrigatório e deve ser maior que zero' })
+  if (suplementarAdulto) {
+    if (!isNonEmptyString(data.formulacao))
+      errors.push({ field: 'formulacao', message: 'Formulação é obrigatória' })
+    if (!isScaleValue(data.leituraCocho, -1, 3))
+      errors.push({ field: 'leituraCocho', message: 'Leitura deve ser entre -1 e 3' })
+    if (!isPositiveNumber(data.kgCocho) || Number(data.kgCocho) === 0)
+      errors.push({ field: 'kgCocho', message: 'KG no cocho é obrigatório e deve ser maior que zero' })
+  }
+  if (suplementarCreep) {
+    if (!isNonEmptyString(data.creepFormulacao))
+      errors.push({ field: 'creepFormulacao', message: 'Formulação creep é obrigatória (vincule no cadastro do lote)' })
+    if (!isScaleValue(data.creepLeitura, -1, 3))
+      errors.push({ field: 'creepLeitura', message: 'Leitura do cocho creep deve ser entre -1 e 3' })
+    if (!isPositiveNumber(data.creepKgCocho) || Number(data.creepKgCocho) === 0)
+      errors.push({ field: 'creepKgCocho', message: 'KG no cocho creep é obrigatório e deve ser maior que zero' })
+  }
+  if (!suplementarAdulto && !suplementarCreep)
+    errors.push({ field: 'suplementarCreep', message: 'Preencha a suplementação do lote e/ou do creep feeding' })
   // KG no depósito é obrigatório e maior que zero apenas quando o pasto possui depósito
   if (data.possuiDeposito) {
     if (!isPositiveNumber(data.kgDeposito) || Number(data.kgDeposito) === 0)

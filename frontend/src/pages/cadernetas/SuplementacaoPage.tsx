@@ -16,6 +16,7 @@ import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getFormulacaoByNomeCached,
+  getFormulacaoByIdCached,
   getRegistrosSuplementacaoByLoteCached,
   getPlanoNutricionalAtivoByLoteIdCached,
   getNotasLeituraCochoConfigCached,
@@ -25,6 +26,7 @@ import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
 import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 import { calcularPesoProjetado } from '../../utils/pesoProjetado'
+import { isCategoriaAoPe, processarCategorias } from '../../utils/categorias'
 // import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -35,17 +37,6 @@ import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
-
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
-}
 
 
 const LEITURAS = [
@@ -89,6 +80,9 @@ interface FormState {
   kgCocho: string
   kgDeposito: string
   escoreFezes: string
+  // Creep feeding: campos do bezerro(a) ao pé (exibidos quando o lote tem a categoria)
+  creepLeitura: string
+  creepKgCocho: string
   // Checklist fields (for UI)
   limpezaCocho: string
   limpezaCochoObs: string
@@ -137,6 +131,8 @@ const makeInitial = (): FormState => ({
   kgCocho: '',
   kgDeposito: '',
   escoreFezes: '',
+  creepLeitura: '',
+  creepKgCocho: '',
   // Checklist fields
   limpezaCocho: '',
   limpezaCochoObs: '',
@@ -189,6 +185,32 @@ export default function SuplementacaoPage() {
   const [registrosSuplementacao, setRegistrosSuplementacao] = useState<any[]>([])
   const [metricasSuplementacao, setMetricasSuplementacao] = useState<any>(null)
   const [notasConfig, setNotasConfig] = useState<any[]>([])
+  const [creepFormulacaoDetalhes, setCreepFormulacaoDetalhes] = useState<{ id: string | null; nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null; formaFornecimento: string | null; kgPorSaco: number | null } | null>(null)
+  const [creepFormulacaoCarregada, setCreepFormulacaoCarregada] = useState(false)
+  const [metricasCreep, setMetricasCreep] = useState<any>(null)
+
+  // Categorias de bezerro(a) ao pé do lote selecionado (creep feeding)
+  const categoriasAoPe = useMemo(() => {
+    const raw = detalhesLote?.categorias_raw || []
+    return raw.filter((c: any) => isCategoriaAoPe(c.categoria) && (c.quant_atual || 0) > 0)
+  }, [detalhesLote])
+  // Creep só aparece quando há dieta creep vinculada a uma categoria ao pé
+  // (lote_categorias.formulacao_id → formulação e_creep). Animal ao pé sem
+  // dieta não deve exibir nada de creep na tela.
+  const temCreepDisponivel = categoriasAoPe.some((c: any) => c.formulacao_id)
+  const creepNCabecas = categoriasAoPe.reduce((s: number, c: any) => s + (c.quant_atual || 0), 0)
+  const creepCategoriasStr = categoriasAoPe.map((c: any) => c.categoria).join(', ')
+  const creepPesoVivoKg = useMemo(() => {
+    let pesoTotal = 0
+    let quantTotal = 0
+    categoriasAoPe.forEach((c: any) => {
+      if (c.quant_atual && c.peso_vivo_atual_kg_cab) {
+        pesoTotal += c.peso_vivo_atual_kg_cab * c.quant_atual
+        quantTotal += c.quant_atual
+      }
+    })
+    return quantTotal > 0 ? pesoTotal / quantTotal : null
+  }, [categoriasAoPe])
 
   // Buscar detalhes da formulação quando selecionada (usa cache para offline)
   useEffect(() => {
@@ -220,6 +242,50 @@ export default function SuplementacaoPage() {
     }
     carregarDetalhesFormulacao()
   }, [form.formulacao, fazendaId])
+
+  // Buscar formulação creep vinculada à categoria bezerro(a) ao pé do lote.
+  // A dieta creep mora em lote_categorias.formulacao_id (independente do plano do lote).
+  useEffect(() => {
+    async function carregarFormulacaoCreep() {
+      if (!temCreepDisponivel || !fazendaId) {
+        setCreepFormulacaoDetalhes(null)
+        setCreepFormulacaoCarregada(false)
+        return
+      }
+      setCreepFormulacaoCarregada(false)
+      const catComCreep = [...categoriasAoPe]
+        .sort((a: any, b: any) => (b.quant_atual || 0) - (a.quant_atual || 0))
+        .find((c: any) => c.formulacao_id)
+      const formId = catComCreep?.formulacao_id
+      if (!formId) {
+        setCreepFormulacaoDetalhes(null)
+        setCreepFormulacaoCarregada(true)
+        return
+      }
+      try {
+        const formulacao = await getFormulacaoByIdCached(fazendaId, formId)
+        if (formulacao && formulacao.e_creep) {
+          setCreepFormulacaoDetalhes({
+            id: formulacao.id ?? null,
+            nome: formulacao.nome,
+            teorMs: formulacao.teor_ms_dieta ?? null,
+            metaConsumo: formulacao.consumo_ms_percent_pv ?? null,
+            custoDietaReaisCabDia: formulacao.custo_dieta_reais_cab_dia ?? null,
+            custoMnTonelada: formulacao.custo_mn_tonelada ?? null,
+            formaFornecimento: formulacao.forma_fornecimento ?? 'granel',
+            kgPorSaco: formulacao.kg_por_saco != null ? Number(formulacao.kg_por_saco) : null,
+          })
+        } else {
+          setCreepFormulacaoDetalhes(null)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar formulação creep:', error)
+        setCreepFormulacaoDetalhes(null)
+      }
+      setCreepFormulacaoCarregada(true)
+    }
+    carregarFormulacaoCreep()
+  }, [categoriasAoPe, fazendaId, temCreepDisponivel])
 
   // Carregar lotes ativos do Supabase (online) ou cache (offline)
   useEffect(() => {
@@ -362,11 +428,11 @@ export default function SuplementacaoPage() {
           return
         }
 
-        // Filtrar categorias adultas (excluir bezerro, garrote, novilha)
+        // Filtrar categorias adultas (excluir bezerro ao pé, garrote, novilha)
         const categoriasExcluidas = ['bezerro', 'garrote', 'novilha']
         const categoriasRaw = detalhesLote.categorias_raw || []
         const categoriasAdultas = categoriasRaw.filter(
-          (cat: any) => !categoriasExcluidas.includes(cat.categoria.toLowerCase())
+          (cat: any) => !categoriasExcluidas.includes(cat.categoria.toLowerCase()) && !isCategoriaAoPe(cat.categoria)
         )
 
         const cabecasAdultas = categoriasAdultas.reduce((sum: number, cat: any) => sum + (cat.quant_atual || 0), 0)
@@ -435,6 +501,8 @@ export default function SuplementacaoPage() {
   }, [fazendaId])
 
   // Calcular métricas de suplementação quando dados mudarem
+  // Série adulta (escopo 'lote'): exclui registros creep e categorias ao pé,
+  // que são suplementadas à parte.
   useEffect(() => {
     if (!detalhesLote || !registrosSuplementacao || !formulacaoDetalhes) {
       setMetricasSuplementacao(null)
@@ -442,7 +510,11 @@ export default function SuplementacaoPage() {
     }
 
     try {
-      const categorias = detalhesLote.categorias_raw || []
+      const categorias = (detalhesLote.categorias_raw || [])
+        .filter((c: any) => !isCategoriaAoPe(c.categoria))
+      const registrosAdulto = registrosSuplementacao.filter(
+        (r: any) => (r.escopo || 'lote') !== 'creep'
+      )
       const formulacao = {
         nome: formulacaoDetalhes.nome,
         teor_ms_dieta: formulacaoDetalhes.teorMs,
@@ -454,13 +526,42 @@ export default function SuplementacaoPage() {
         custo_ms_tonelada: null
       }
 
-      const metricas = calcularMetricasSuplementacao(categorias, registrosSuplementacao, formulacao)
+      const metricas = calcularMetricasSuplementacao(categorias, registrosAdulto, formulacao)
       setMetricasSuplementacao(metricas)
     } catch (error) {
       console.error('Erro ao calcular métricas de suplementação:', error)
       setMetricasSuplementacao(null)
     }
   }, [detalhesLote, registrosSuplementacao, formulacaoDetalhes])
+
+  // Métricas da série creep: só categorias ao pé + registros escopo 'creep'
+  useEffect(() => {
+    if (!temCreepDisponivel || !creepFormulacaoDetalhes) {
+      setMetricasCreep(null)
+      return
+    }
+
+    try {
+      const registrosCreep = registrosSuplementacao.filter(
+        (r: any) => r.escopo === 'creep'
+      )
+      const formulacao = {
+        nome: creepFormulacaoDetalhes.nome,
+        teor_ms_dieta: creepFormulacaoDetalhes.teorMs,
+        meta_consumo_ms_percent_pv: creepFormulacaoDetalhes.metaConsumo,
+        custo_dieta_reais_cab_dia: creepFormulacaoDetalhes.custoDietaReaisCabDia,
+        custo_mn_tonelada: creepFormulacaoDetalhes.custoMnTonelada,
+        consumo_mn_kg_cab_dia: null,
+        consumo_ms_kg_cab_dia: null,
+        custo_ms_tonelada: null
+      }
+
+      setMetricasCreep(calcularMetricasSuplementacao(categoriasAoPe, registrosCreep, formulacao))
+    } catch (error) {
+      console.error('Erro ao calcular métricas creep:', error)
+      setMetricasCreep(null)
+    }
+  }, [categoriasAoPe, temCreepDisponivel, creepFormulacaoDetalhes, registrosSuplementacao])
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -477,9 +578,11 @@ export default function SuplementacaoPage() {
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   // Calcular kg previsto com base no último kg_cocho do lote + percentual da nota selecionada
+  // Série adulta apenas: registros creep têm cocho/formulação próprios
   const kgPrevisto = useMemo(() => {
-    if (!form.leitura || registrosSuplementacao.length === 0 || notasConfig.length === 0) return null
-    const ultimoRegistro = registrosSuplementacao[0]
+    const registrosAdulto = registrosSuplementacao.filter((r: any) => (r.escopo || 'lote') !== 'creep')
+    if (!form.leitura || registrosAdulto.length === 0 || notasConfig.length === 0) return null
+    const ultimoRegistro = registrosAdulto[0]
     const ultimoKgCocho = Number(ultimoRegistro?.kg_cocho)
     if (!ultimoKgCocho || isNaN(ultimoKgCocho) || ultimoKgCocho <= 0) return null
     const notaConfig = notasConfig.find((n: any) => Number(n.nota) === Number(form.leitura))
@@ -499,6 +602,17 @@ export default function SuplementacaoPage() {
     return sacos * kgPorSaco
   }, [isSacaria, kgPorSaco, form.kgCocho])
 
+  // Grupos da suplementação: adulto (escopo 'lote') e creep (escopo 'creep').
+  // Sem toggles: um grupo fica ativo quando o usuário preenche qualquer campo da sua seção.
+  const adultoPreenchido = (form.kgCocho !== '' && Number(form.kgCocho) > 0) || form.leitura !== ''
+  const creepPreenchido = (form.creepKgCocho !== '' && Number(form.creepKgCocho) > 0) || form.creepLeitura !== ''
+  const adultoAtivo = !temCreepDisponivel || adultoPreenchido
+  const creepAtivo = temCreepDisponivel && creepPreenchido
+
+  // Formulação creep em sacaria (mesmo padrão da formulação do lote)
+  const kgPorSacoCreep = creepFormulacaoDetalhes?.kgPorSaco ?? null
+  const isSacariaCreep = creepFormulacaoDetalhes?.formaFornecimento === 'sacaria' && kgPorSacoCreep !== null && kgPorSacoCreep > 0
+
   // Validation rules (dynamic: skip deposito fields when pasto has no deposito)
   const validationRules = useMemo(() => {
     const base: any = {
@@ -511,20 +625,48 @@ export default function SuplementacaoPage() {
         },
       },
       formulacao: {
-        required: true,
+        required: adultoAtivo,
         custom: () => {
-          if (semPlanoAtivo) return 'Não há plano nutricional ativo para este lote. Vincule um plano no Painel Web antes de lançar suplementação.'
+          if (adultoAtivo && semPlanoAtivo) return 'Não há plano nutricional ativo para este lote. Vincule um plano no Painel Web antes de lançar suplementação.'
           return null
         },
       },
-      leitura: { required: true },
+      leitura: { required: adultoAtivo },
       kgCocho: {
-        required: true,
+        required: adultoAtivo,
         custom: (value: any) => {
-          if (value && Number(value) <= 0) return isSacaria ? 'Número de sacos deve ser maior que zero' : 'KG no cocho deve ser maior que zero'
+          if (adultoAtivo && value && Number(value) <= 0) return isSacaria ? 'Número de sacos deve ser maior que zero' : 'KG no cocho deve ser maior que zero'
           return null
         },
       },
+    }
+    if (temCreepDisponivel) {
+      base._alvos = {
+        custom: () => {
+          if (!adultoPreenchido && !creepPreenchido) {
+            return 'Preencha a suplementação do lote e/ou do creep feeding'
+          }
+          return null
+        }
+      }
+      if (creepAtivo) {
+        base._creepFormulacao = {
+          custom: () => {
+            if (!creepFormulacaoDetalhes) {
+              return 'Bezerro(a) ao pé sem formulação creep vinculada. Vincule uma formulação creep no Painel Web (cadastro do lote) antes de lançar.'
+            }
+            return null
+          }
+        }
+        base.creepLeitura = { required: true }
+        base.creepKgCocho = {
+          required: true,
+          custom: (value: any) => {
+            if (value && Number(value) <= 0) return isSacariaCreep ? 'Número de sacos deve ser maior que zero' : 'KG no cocho creep deve ser maior que zero'
+            return null
+          },
+        }
+      }
     }
     if (possuiDeposito) {
       base._kgDeposito = {
@@ -547,7 +689,7 @@ export default function SuplementacaoPage() {
       }
     }
     return base
-  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto, semPlanoAtivo, isSacaria])
+  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto, semPlanoAtivo, isSacaria, adultoAtivo, creepAtivo, adultoPreenchido, creepPreenchido, temCreepDisponivel, creepFormulacaoDetalhes, isSacariaCreep])
 
   const { isValid } = useFormValidation(form, validationRules)
 
@@ -560,10 +702,8 @@ export default function SuplementacaoPage() {
     }
 
     // Buscar categorias do lote selecionado
-    let categoriasString = ''
     let categoriasArray: string[] = []
     if (detalhesLote && detalhesLote.categorias) {
-      categoriasString = detalhesLote.categorias
       categoriasArray = processarCategorias(detalhesLote.categorias)
     }
 
@@ -592,23 +732,56 @@ export default function SuplementacaoPage() {
       pastoId: form.pastoId,
       numeroLote: form.numeroLote,
       loteId: form.loteId,
-      nCabecasLote: detalhesLote?.n_cabecas ?? null,
-      qtdBezerrosLote: detalhesLote?.qtd_bezerros ?? null,
-      pesoVivoKgLote,
-      formulacao: form.formulacao,
-      formulacaoId: formulacaoDetalhes?.id ?? null,
-      teorMs: formulacaoDetalhes?.teorMs ?? null,
-      metaConsumo: formulacaoDetalhes?.metaConsumo ?? null,
-      leituraCocho: form.leitura || null,
-      kgCocho: isSacaria && kgPorSaco
-        ? (Number(form.kgCocho) || 0) * kgPorSaco
-        : (form.kgCocho ? Number(form.kgCocho) : null),
-      formaFornecimento: isSacaria ? 'sacaria' : 'granel',
-      qtdSacos: isSacaria && form.kgCocho ? Number(form.kgCocho) : null,
+      nCabecasLote: detalhesLote?.n_cabecas != null
+        ? (adultoAtivo ? detalhesLote.n_cabecas - creepNCabecas : creepNCabecas)
+        : null,
+      qtdBezerrosLote: adultoAtivo ? (detalhesLote?.qtd_bezerros ?? null) : 0,
+      pesoVivoKgLote: adultoAtivo ? pesoVivoKgLote : creepPesoVivoKg,
+      formulacao: adultoAtivo ? form.formulacao : (creepFormulacaoDetalhes?.nome ?? null),
+      formulacaoId: adultoAtivo ? (formulacaoDetalhes?.id ?? null) : (creepFormulacaoDetalhes?.id ?? null),
+      teorMs: adultoAtivo ? (formulacaoDetalhes?.teorMs ?? null) : (creepFormulacaoDetalhes?.teorMs ?? null),
+      metaConsumo: adultoAtivo ? (formulacaoDetalhes?.metaConsumo ?? null) : (creepFormulacaoDetalhes?.metaConsumo ?? null),
+      leituraCocho: adultoAtivo ? (form.leitura || null) : (form.creepLeitura || null),
+      kgCocho: adultoAtivo
+        ? (isSacaria && kgPorSaco
+          ? (Number(form.kgCocho) || 0) * kgPorSaco
+          : (form.kgCocho ? Number(form.kgCocho) : null))
+        : (isSacariaCreep && kgPorSacoCreep
+          ? (Number(form.creepKgCocho) || 0) * kgPorSacoCreep
+          : (form.creepKgCocho ? Number(form.creepKgCocho) : null)),
+      formaFornecimento: adultoAtivo
+        ? (isSacaria ? 'sacaria' : 'granel')
+        : (isSacariaCreep ? 'sacaria' : 'granel'),
+      qtdSacos: adultoAtivo
+        ? (isSacaria && form.kgCocho ? Number(form.kgCocho) : null)
+        : (isSacariaCreep && form.creepKgCocho ? Number(form.creepKgCocho) : null),
+      // Creep feeding (bezerro(a) ao pé): gera linha escopo 'creep' no sync
+      suplementarAdulto: adultoAtivo,
+      suplementarCreep: creepAtivo,
+      creepFormulacao: creepAtivo ? (creepFormulacaoDetalhes?.nome ?? null) : null,
+      creepFormulacaoId: creepAtivo ? (creepFormulacaoDetalhes?.id ?? null) : null,
+      creepLeitura: creepAtivo ? (form.creepLeitura || null) : null,
+      creepKgCocho: creepAtivo
+        ? (isSacariaCreep && kgPorSacoCreep
+          ? (Number(form.creepKgCocho) || 0) * kgPorSacoCreep
+          : (form.creepKgCocho ? Number(form.creepKgCocho) : null))
+        : null,
+      creepFormaFornecimento: creepAtivo ? (isSacariaCreep ? 'sacaria' : 'granel') : null,
+      creepQtdSacos: creepAtivo && isSacariaCreep && form.creepKgCocho ? Number(form.creepKgCocho) : null,
+      creepNCabecas: creepAtivo ? creepNCabecas : null,
+      creepCategorias: creepAtivo ? creepCategoriasStr : null,
+      creepMetaConsumo: creepAtivo ? (creepFormulacaoDetalhes?.metaConsumo ?? null) : null,
+      creepPesoVivoKg: creepAtivo ? creepPesoVivoKg : null,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
       possuiDeposito,
-      categorias: categoriasArray,
-      categoriasString: categoriasString,
+      // categorias por escopo: lote sem as categorias ao pé (que ficam em
+      // creepCategorias); quando só o creep é suplementado, só as ao pé
+      categorias: adultoAtivo
+        ? categoriasArray.filter((c) => !isCategoriaAoPe(c))
+        : categoriasArray.filter((c) => isCategoriaAoPe(c)),
+      categoriasString: adultoAtivo
+        ? categoriasArray.filter((c) => !isCategoriaAoPe(c)).join(', ')
+        : creepCategoriasStr,
       escoreFezes: form.escoreFezes || null,
       espacamentoCochoDetalhes: espacamentoCochoDetalhes,
       espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
@@ -678,6 +851,203 @@ export default function SuplementacaoPage() {
     navigate('/')
   }
 
+  // Blocos reutilizáveis do formulário. Quando o lote tem bezerro(a) ao pé, cada
+  // grupo (lote adulto / creep) vira uma seção completa com formulação, métricas
+  // e campos de leitura/quantidade — sem alternar entre os dois na tela.
+  const blocoFormulacaoLote = semPlanoAtivo && form.loteId ? (
+    <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xl">⚠️</span>
+        <span className="text-red-700 font-bold">Sem plano nutricional ativo</span>
+      </div>
+      <p className="text-sm text-red-600">
+        Este lote não possui plano nutricional ativo. Vincule um plano no Painel Web antes de lançar suplementação.
+      </p>
+    </div>
+  ) : (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+        Formulação {temCreepDisponivel ? '(Lote)' : ''} {!temCreepDisponivel && <span className="text-red-500">*</span>}
+      </label>
+      <div className={`w-full px-4 py-3 rounded-xl border-2 text-base font-semibold ${
+        form.formulacao
+          ? 'bg-gray-50 border-gray-200 text-gray-900'
+          : 'bg-gray-50 border-gray-200 text-gray-400'
+      }`}>
+        {form.formulacao || (form.loteId ? 'Carregando formulação do plano ativo...' : 'Selecione um lote primeiro')}
+      </div>
+      <p className="text-xs text-gray-500">
+        A formulação é definida automaticamente pelo plano nutricional ativo do lote.
+      </p>
+    </div>
+  )
+
+  const blocoMetricasLote = formulacaoDetalhes && (
+    <FormulacaoDetalhesCard
+      detalhes={{
+        teorMs: formulacaoDetalhes.teorMs,
+        metaConsumo: formulacaoDetalhes.metaConsumo,
+        pesoVivoKg: detalhesLote?.peso_vivo_kg ?? null,
+        consumoMedioGeralPercentPV: metricasSuplementacao?.consumoMedioGeralPercentPV,
+        consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV,
+        consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN,
+        consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN,
+        consumoMedioGeralKgMS: metricasSuplementacao?.consumoMedioGeralKgMS,
+        consumoMedio30DiasKgMS: metricasSuplementacao?.consumoMedio30DiasKgMS,
+        custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia,
+        motivoFalha: metricasSuplementacao?.motivoFalha,
+        categoriasNaoElegiveis: metricasSuplementacao?.categoriasNaoElegiveis,
+      }}
+      nomeLote={form.numeroLote}
+    />
+  )
+
+  const botaoPopLeitura = (
+    <button
+      onClick={() => setShowPdfModal(true)}
+      className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+    >
+      <span className="text-xl">📄</span>
+      <span>POP LEITURA DE COCHO</span>
+    </button>
+  )
+
+  const blocoLeituraLote = (
+    <>
+      <Radio
+        name="leitura"
+        label={temCreepDisponivel ? 'LEITURA DO COCHO — LOTE (-1 a 3)' : 'LEITURA DO COCHO (-1 a 3)'}
+        options={LEITURAS}
+        value={form.leitura}
+        onChange={set('leitura')}
+        error={getError('leitura')}
+        gridCols={5}
+      />
+      {kgPrevisto != null && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+          <span className="text-xl">📊</span>
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">KG Previsto</span>
+            <span className="text-lg font-black text-blue-900">
+              {kgPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg
+            </span>
+          </div>
+          <span className="text-xs text-blue-600 ml-auto text-right max-w-[50%]">
+            {(() => {
+              const notaConfig = notasConfig.find((n: any) => Number(n.nota) === Number(form.leitura))
+              return notaConfig?.descricao || ''
+            })()}
+          </span>
+        </div>
+      )}
+      <Input
+        label={isSacaria
+          ? <span>Quantidade de Sacos{temCreepDisponivel ? ' — Lote' : ''} {!temCreepDisponivel && <span className="text-red-500">*</span>}</span>
+          : <span>Total Suplementado no Cocho{temCreepDisponivel ? ' — Lote' : ''} (kg) {!temCreepDisponivel && <span className="text-red-500">*</span>}</span>}
+        placeholder="0"
+        value={form.kgCocho}
+        onChange={setKgCochoInput}
+        error={getError('kgCocho')}
+        inputMode="numeric"
+        type="text"
+        pattern="[0-9]*"
+      />
+      {isSacaria && kgPorSaco && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 -mt-3">
+          <span className="text-sm font-semibold text-amber-800">
+            Sacaria de {kgPorSaco.toLocaleString('pt-BR')} kg
+            {kgCochoConvertido !== null && ` = ${kgCochoConvertido.toLocaleString('pt-BR')} kg no cocho`}
+          </span>
+        </div>
+      )}
+    </>
+  )
+
+  const blocoCreep = temCreepDisponivel && (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-bold text-amber-800 uppercase tracking-wide">
+          Formulação Creep (Bezerro(a) ao pé)
+        </label>
+        {creepFormulacaoDetalhes ? (
+          <>
+            <div className="w-full px-4 py-3 rounded-xl border-2 bg-amber-50 border-amber-200 text-base font-semibold text-amber-900">
+              {creepFormulacaoDetalhes.nome}
+            </div>
+            <p className="text-xs text-gray-500">
+              Formulação creep vinculada à categoria no cadastro do lote ({creepCategoriasStr}).
+            </p>
+          </>
+        ) : creepFormulacaoCarregada ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⚠️</span>
+              <span className="text-red-700 font-bold">Formulação creep indisponível</span>
+            </div>
+            <p className="text-sm text-red-600">
+              A formulação vinculada à categoria bezerro(a) ao pé deste lote não é creep ou está inativa. Corrija o vínculo no cadastro do lote no Painel Web.
+            </p>
+          </div>
+        ) : null}
+        {getError('_creepFormulacao') && (
+          <p className="text-sm font-semibold text-red-600">{getError('_creepFormulacao')}</p>
+        )}
+      </div>
+      {creepFormulacaoDetalhes && (
+        <FormulacaoDetalhesCard
+          detalhes={{
+            teorMs: creepFormulacaoDetalhes.teorMs,
+            metaConsumo: creepFormulacaoDetalhes.metaConsumo,
+            pesoVivoKg: creepPesoVivoKg,
+            consumoMedioGeralPercentPV: metricasCreep?.consumoMedioGeralPercentPV,
+            consumoMedio30DiasPercentPV: metricasCreep?.consumoMedio30DiasPercentPV,
+            consumoMedioGeralKgMN: metricasCreep?.consumoMedioGeralKgMN,
+            consumoMedio30DiasKgMN: metricasCreep?.consumoMedio30DiasKgMN,
+            consumoMedioGeralKgMS: metricasCreep?.consumoMedioGeralKgMS,
+            consumoMedio30DiasKgMS: metricasCreep?.consumoMedio30DiasKgMS,
+            custoMedioReaisCabDia: metricasCreep?.custoMedioReaisCabDia,
+            motivoFalha: metricasCreep?.motivoFalha,
+            categoriasNaoElegiveis: metricasCreep?.categoriasNaoElegiveis,
+          }}
+          nomeLote={`${form.numeroLote} — Creep`}
+        />
+      )}
+      <Radio
+        name="creepLeitura"
+        label="LEITURA DO COCHO — CREEP (-1 a 3)"
+        options={LEITURAS}
+        value={form.creepLeitura}
+        onChange={set('creepLeitura')}
+        error={getError('creepLeitura')}
+        gridCols={5}
+      />
+      <Input
+        label={isSacariaCreep
+          ? <span>Quantidade de Sacos — Creep</span>
+          : <span>Total Suplementado no Cocho — Creep (kg)</span>}
+        placeholder="0"
+        value={form.creepKgCocho}
+        onChange={(e) => {
+          const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
+          setForm((prev) => ({ ...prev, creepKgCocho: apenasDigitos }))
+        }}
+        error={getError('creepKgCocho')}
+        inputMode="numeric"
+        type="text"
+        pattern="[0-9]*"
+      />
+      {isSacariaCreep && kgPorSacoCreep && (
+        <div className="flex items-center gap-2 bg-amber-100 border border-amber-300 rounded-xl px-4 py-3 -mt-2">
+          <span className="text-sm font-semibold text-amber-900">
+            Sacaria de {kgPorSacoCreep.toLocaleString('pt-BR')} kg
+            {form.creepKgCocho && Number(form.creepKgCocho) > 0 &&
+              ` = ${(Number(form.creepKgCocho) * kgPorSacoCreep).toLocaleString('pt-BR')} kg no cocho`}
+          </span>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <CadernetaHeader
@@ -726,112 +1096,55 @@ export default function SuplementacaoPage() {
           )}
         </div>
 
-        {/* Seção 2: Tipo de Suplementação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. TIPO DE SUPLEMENTAÇÃO <span className="text-red-500">*</span></h2>
-          {semPlanoAtivo && form.loteId ? (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">⚠️</span>
-                <span className="text-red-700 font-bold">Sem plano nutricional ativo</span>
+        {temCreepDisponivel ? (
+          <>
+            {/* Seção: suplementação do lote (categorias adultas) */}
+            <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+              <h2 className="text-lg font-black text-gray-900 tracking-tight">1. LOTE — CATEGORIAS ADULTAS</h2>
+              <div className="flex flex-col gap-2 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm font-bold text-amber-900 uppercase tracking-wide">
+                  Este lote possui bezerro(a) ao pé ({creepNCabecas} cab)
+                </p>
+                <p className="text-xs text-amber-800">
+                  Preencha a suplementação do lote, do creep feeding ou de ambos.
+                </p>
+                {getError('_alvos') && (
+                  <p className="text-sm font-semibold text-red-600">{getError('_alvos')}</p>
+                )}
               </div>
-              <p className="text-sm text-red-600">
-                Este lote não possui plano nutricional ativo. Vincule um plano no Painel Web antes de lançar suplementação.
-              </p>
+              {blocoFormulacaoLote}
+              {blocoMetricasLote}
+              {blocoLeituraLote}
             </div>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-bold text-gray-700 uppercase tracking-wide">
-                Formulação <span className="text-red-500">*</span>
-              </label>
-              <div className={`w-full px-4 py-3 rounded-xl border-2 text-base font-semibold ${
-                form.formulacao
-                  ? 'bg-gray-50 border-gray-200 text-gray-900'
-                  : 'bg-gray-50 border-gray-200 text-gray-400'
-              }`}>
-                {form.formulacao || (form.loteId ? 'Carregando formulação do plano ativo...' : 'Selecione um lote primeiro')}
-              </div>
-              <p className="text-xs text-gray-500">
-                A formulação é definida automaticamente pelo plano nutricional ativo do lote.
-              </p>
-            </div>
-          )}
-          {formulacaoDetalhes && (
-            <FormulacaoDetalhesCard
-              detalhes={{
-                teorMs: formulacaoDetalhes.teorMs,
-                metaConsumo: formulacaoDetalhes.metaConsumo,
-                pesoVivoKg: detalhesLote?.peso_vivo_kg ?? null,
-                consumoMedioGeralPercentPV: metricasSuplementacao?.consumoMedioGeralPercentPV,
-                consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV,
-                consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN,
-                consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN,
-                consumoMedioGeralKgMS: metricasSuplementacao?.consumoMedioGeralKgMS,
-                consumoMedio30DiasKgMS: metricasSuplementacao?.consumoMedio30DiasKgMS,
-                custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia,
-                motivoFalha: metricasSuplementacao?.motivoFalha,
-                categoriasNaoElegiveis: metricasSuplementacao?.categoriasNaoElegiveis,
-              }}
-              nomeLote={form.numeroLote}
-            />
-          )}
-        </div>
 
-        {/* Seção 3: Leitura e Quantidade */}
+            {botaoPopLeitura}
+
+            {/* Seção: creep feeding (bezerro(a) ao pé) */}
+            <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-amber-200 flex flex-col gap-5">
+              <h2 className="text-lg font-black text-amber-900 tracking-tight">2. CREEP FEEDING — BEZERRO(A) AO PÉ ({creepNCabecas} CAB)</h2>
+              {blocoCreep}
+            </div>
+          </>
+        ) : (
+          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">1. TIPO DE SUPLEMENTAÇÃO <span className="text-red-500">*</span></h2>
+            {blocoFormulacaoLote}
+            {blocoMetricasLote}
+          </div>
+        )}
+
+        {/* Seção 3: Depósito e Fezes (leituras e quantidades ficam nas seções de cada grupo) */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. LEITURA E QUANTIDADE <span className="text-red-500">*</span></h2>
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP LEITURA DE COCHO</span>
-          </button>
-          <Radio
-            name="leitura"
-            label="LEITURA DO COCHO (-1 a 3)"
-            options={LEITURAS}
-            value={form.leitura}
-            onChange={set('leitura')}
-            error={getError('leitura')}
-            gridCols={5}
-          />
-          {kgPrevisto != null && (
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-              <span className="text-xl">📊</span>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">KG Previsto</span>
-                <span className="text-lg font-black text-blue-900">
-                  {kgPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg
-                </span>
-              </div>
-              <span className="text-xs text-blue-600 ml-auto text-right max-w-[50%]">
-                {(() => {
-                  const notaConfig = notasConfig.find((n: any) => Number(n.nota) === Number(form.leitura))
-                  return notaConfig?.descricao || ''
-                })()}
-              </span>
-            </div>
-          )}
-          <Input
-            label={isSacaria
-              ? <span>Quantidade de Sacos <span className="text-red-500">*</span></span>
-              : <span>Total Suplementado no Cocho (kg) <span className="text-red-500">*</span></span>}
-            placeholder="0"
-            value={form.kgCocho}
-            onChange={setKgCochoInput}
-            error={getError('kgCocho')}
-            inputMode="numeric"
-            type="text"
-            pattern="[0-9]*"
-          />
-          {isSacaria && kgPorSaco && (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 -mt-3">
-              <span className="text-sm font-semibold text-amber-800">
-                Sacaria de {kgPorSaco.toLocaleString('pt-BR')} kg
-                {kgCochoConvertido !== null && ` = ${kgCochoConvertido.toLocaleString('pt-BR')} kg no cocho`}
-              </span>
-            </div>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">
+            {temCreepDisponivel
+              ? (possuiDeposito ? '3. DEPÓSITO E FEZES' : '3. FEZES')
+              : '2. LEITURA E QUANTIDADE'} <span className="text-red-500">*</span>
+          </h2>
+          {!temCreepDisponivel && (
+            <>
+              {botaoPopLeitura}
+              {blocoLeituraLote}
+            </>
           )}
           {possuiDeposito && (
             <Input
@@ -866,12 +1179,12 @@ export default function SuplementacaoPage() {
         {/* Seção 4: Checklist */}
         {loadingChecklistRegras ? (
           <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST</h2>
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">{temCreepDisponivel ? '4' : '3'}. CHECKLIST</h2>
             <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
           </div>
         ) : checklistAtivo ? (
           <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CHECKLIST <span className="text-red-500">*</span></h2>
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">{temCreepDisponivel ? '4' : '3'}. CHECKLIST <span className="text-red-500">*</span></h2>
 
             {CHECKLIST_PERGUNTAS
               .filter(({ campo }) => campo !== 'depositoCondicoes' || possuiDeposito)

@@ -44,6 +44,8 @@ const statusText: Record<string, string> = {
 
 const formatFieldValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined || value === '') return '—'
+  if (value === true) return 'Sim'
+  if (value === false) return 'Não'
   if (key === 'pesoCria' && value !== null && value !== undefined && value !== '') {
     return `${String(value)} kg`
   }
@@ -654,6 +656,14 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                         'qtdSacos',
                         'kgDeposito',
                         'categorias',
+                        'suplementarAdulto',
+                        'suplementarCreep',
+                        'creepFormulacao',
+                        'creepLeitura',
+                        'creepKgCocho',
+                        'creepQtdSacos',
+                        'creepNCabecas',
+                        'creepCategorias',
                         'escoreFezes',
                         // Checklist fields
                         'limpezaCocho',

@@ -2,6 +2,7 @@ import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
 import { formatarNumeroBR, normalizarNumero } from './formatNumber'
 import { base64ToBlob } from './photoCompress'
+import { isCategoriaAoPe } from './categorias'
 
 /**
  * Calcula o tempo desde a última limpeza formatado para exibição.
@@ -835,11 +836,17 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
   } else if (caderneta === 'suplementacao') {
     // Para suplementacao, usar estrutura organizada por seções
-    
+    const suplementaAdulto = registro.suplementarAdulto !== false
+    const suplementaCreep = registro.suplementarCreep === true && !!registro.creepKgCocho
+    const capitalizar = (s: string) =>
+      s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+
     // Seção: Informações Básicas
     texto += `TRATADOR: *${registro.tratador || '—'}*\n`
     texto += `PASTO/CURRAL: *${registro.pasto || '—'}*\n`
     texto += `LOTE: *${registro.numeroLote || '—'}*\n\n`
+
+    if (suplementaAdulto) {
     texto += `*${registro.formulacao || '—'}*\n`
     if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
       texto += `META CONSUMO (%PV): *${Number(registro.metaConsumo).toFixed(2).replace('.', ',')}%*\n`
@@ -848,7 +855,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       const metaKgCabDia = (Number(registro.metaConsumo) / 100) * Number(registro.pesoVivoKgLote)
       texto += `META CONSUMO (kg/cab/dia): *${metaKgCabDia.toFixed(3).replace('.', ',')} kg*\n`
     }
-    const totalCabecasLote = (Number(registro.nCabecasLote) || 0) + (Number(registro.qtdBezerrosLote) || 0)
+    const totalCabecasLote = (Number(registro.nCabecasLote) || 0) + (suplementaCreep ? 0 : (Number(registro.qtdBezerrosLote) || 0))
     if (totalCabecasLote > 0) {
       texto += `N° CABEÇAS: *${totalCabecasLote}*\n`
     }
@@ -862,15 +869,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `PERÍODO DE TRATO: *${periodoTrato}*\n`
     }
     texto += `\n`
-    
-    // Seção: Categorias
-    if (registro.categorias && Array.isArray(registro.categorias) && registro.categorias.length > 0) {
-      const categoriasCapitalizadas = registro.categorias.map((cat: string) =>
-        cat.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-      )
-      texto += `CATEGORIAS: *${categoriasCapitalizadas.join(', ')}*\n\n`
+
+    // Seção: Categorias (adultas; as ao pé aparecem no texto do creep)
+    const categoriasAdultas = (Array.isArray(registro.categorias) ? (registro.categorias as string[]) : [])
+      .filter((cat) => suplementaCreep ? !isCategoriaAoPe(cat) : true)
+    if (categoriasAdultas.length > 0) {
+      texto += `CATEGORIAS: *${categoriasAdultas.map(capitalizar).join(', ')}*\n\n`
     }
-    
+
     // Seção: Leituras e Quantidades
     if (registro.leituraCocho !== null && registro.leituraCocho !== undefined && registro.leituraCocho !== '') {
       texto += `LEITURA COCHO: *${registro.leituraCocho}*\n`
@@ -882,6 +888,48 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.qtdSacos !== null && registro.qtdSacos !== undefined && Number(registro.qtdSacos) > 0) {
       texto += `SACOS: *${formatarNumeroBR(registro.qtdSacos)}*\n`
     }
+    }
+
+    // Creep feeding: texto separado, mesmo layout do lote. Quando só o creep
+    // foi suplementado, os campos principais já carregam os dados creep.
+    if (suplementaCreep) {
+      const creepFormulacao = registro.creepFormulacao || (suplementaAdulto ? null : registro.formulacao)
+      const creepMeta = registro.creepMetaConsumo ?? (suplementaAdulto ? null : registro.metaConsumo)
+      const creepPv = registro.creepPesoVivoKg ?? (suplementaAdulto ? null : registro.pesoVivoKgLote)
+      const creepCabecas = registro.creepNCabecas ?? (suplementaAdulto ? null : registro.nCabecasLote)
+      const creepLeitura = registro.creepLeitura ?? (suplementaAdulto ? null : registro.leituraCocho)
+      const creepForma = registro.creepFormaFornecimento || (suplementaAdulto ? null : registro.formaFornecimento)
+      const creepSacos = registro.creepQtdSacos ?? (suplementaAdulto ? null : registro.qtdSacos)
+
+      if (suplementaAdulto) {
+        texto += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+      }
+      texto += `CREEP FEEDING\n`
+      texto += `*${creepFormulacao || '—'}*\n`
+      if (creepMeta !== null && creepMeta !== undefined) {
+        texto += `META CONSUMO (%PV): *${Number(creepMeta).toFixed(2).replace('.', ',')}%*\n`
+        if (creepPv != null && Number(creepPv) > 0) {
+          const creepMetaKgCabDia = (Number(creepMeta) / 100) * Number(creepPv)
+          texto += `META CONSUMO (kg/cab/dia): *${creepMetaKgCabDia.toFixed(3).replace('.', ',')} kg*\n`
+        }
+      }
+      if (creepCabecas) {
+        texto += `N° BEZERROS AO PÉ: *${creepCabecas}*\n`
+      }
+      if (creepPv != null && Number(creepPv) > 0) {
+        texto += `PV MÉDIO: *${Number(creepPv).toFixed(2).replace('.', ',')} kg*\n`
+      }
+      texto += `\n`
+      if (creepLeitura !== null && creepLeitura !== undefined && creepLeitura !== '') {
+        texto += `LEITURA COCHO: *${creepLeitura}*\n`
+      }
+      texto += `SUPLEMENTO COCHO (KG): *${registro.creepKgCocho}*\n`
+      texto += `FORNECIMENTO: *${creepForma === 'sacaria' ? 'Sacaria' : 'A granel'}*\n`
+      if (creepSacos !== null && creepSacos !== undefined && Number(creepSacos) > 0) {
+        texto += `SACOS: *${formatarNumeroBR(creepSacos)}*\n`
+      }
+    }
+
     if (registro.kgDeposito !== null && registro.kgDeposito !== undefined && registro.kgDeposito !== 0) {
       texto += `SUPLEMENTO DEPÓSITO (KG): *${registro.kgDeposito}*\n`
     }

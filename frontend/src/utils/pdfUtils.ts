@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import { Registro } from './shareUtils'
 import { LOGO_URL } from './constants'
 import { formatarNumeroBR } from './formatNumber'
+import { isCategoriaAoPe } from './categorias'
 
 /** Desenha o título de marca "Gesta'Up - Manej'Us 360" com o "360" em dourado (#EAB309). */
 function drawBrandTitle(doc: jsPDF, x: number, y: number): void {
@@ -731,52 +732,104 @@ export async function gerarPdfResumoSuplementacao(
     labelValue('Pasto/Curral:', String(r.pasto || '—'))
     labelValue('Lote:', String(r.numeroLote || '—'))
 
-    // Formulação
-    const teorMs = r.teorMs != null ? formatBRNum(Number(r.teorMs), 2) : null
-    const formulacaoStr = String(r.formulacao || '—')
-    labelValue('Formulação:', formulacaoStr)
-    if (teorMs) {
-      labelValue('Teor MS dieta:', `${teorMs}%`)
+    const suplementaAdulto = r.suplementarAdulto !== false
+    const suplementaCreep = r.suplementarCreep === true && !!r.creepKgCocho
+    const doisGrupos = suplementaAdulto && suplementaCreep
+    const subTituloGrupo = (titulo: string) => {
+      ensureSpace(15)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(26, 58, 42)
+      doc.text(titulo, margin, y)
+      y += 5
     }
 
-    // Meta e cabeças
-    if (r.metaConsumo != null) {
-      labelValue('Meta consumo (%PV):', `${formatBRNum(Number(r.metaConsumo), 2)}%`)
-      const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
-      if (r.metaConsumo != null && pesoVivo) {
-        const metaKg = (Number(r.metaConsumo) / 100) * pesoVivo
-        labelValue('Meta consumo (kg/cab/dia):', `${formatBRNum(metaKg, 3)} kg`)
+    if (suplementaAdulto) {
+      if (doisGrupos) subTituloGrupo('LOTE — CATEGORIAS ADULTAS')
+
+      // Formulação
+      const teorMs = r.teorMs != null ? formatBRNum(Number(r.teorMs), 2) : null
+      const formulacaoStr = String(r.formulacao || '—')
+      labelValue('Formulação:', formulacaoStr)
+      if (teorMs) {
+        labelValue('Teor MS dieta:', `${teorMs}%`)
+      }
+
+      // Meta e cabeças
+      if (r.metaConsumo != null) {
+        labelValue('Meta consumo (%PV):', `${formatBRNum(Number(r.metaConsumo), 2)}%`)
+        const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
+        if (r.metaConsumo != null && pesoVivo) {
+          const metaKg = (Number(r.metaConsumo) / 100) * pesoVivo
+          labelValue('Meta consumo (kg/cab/dia):', `${formatBRNum(metaKg, 3)} kg`)
+        }
+      }
+      const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
+      if (nCabecas) {
+        labelValue('N° cabeças:', String(nCabecas))
+      }
+      const pesoVivoLote = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
+      if (pesoVivoLote) {
+        labelValue('PV médio:', `${formatBRNum(pesoVivoLote, 2)} kg`)
+      }
+
+      // Categorias adultas (as ao pé aparecem na seção creep)
+      const categorias = (r.categoriasString
+        ? String(r.categoriasString).split(',').map((c: string) => c.trim()).filter(Boolean)
+        : (Array.isArray(r.categorias) ? (r.categorias as string[]) : []))
+        .filter((c: string) => doisGrupos ? !isCategoriaAoPe(c) : true)
+        .join(', ')
+      if (categorias) {
+        ensureSpace(10)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(26, 58, 42)
+        doc.text('Categorias:', margin, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(50, 50, 50)
+        const catLines = doc.splitTextToSize(categorias, contentW - 55)
+        doc.text(catLines, margin + 55, y)
+        y += 6 * catLines.length
+      }
+
+      // Leitura e quantidades
+      y += 2
+      labelValue('Leitura cocho:', String(r.leituraCocho ?? '—'))
+      if (r.kgCocho) {
+        labelValue('Suplemento cocho:', `${formatBRNum(Number(r.kgCocho), 0)} kg`)
       }
     }
-    const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
-    if (nCabecas) {
-      labelValue('N° cabeças:', String(nCabecas))
-    }
-    const pesoVivoLote = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
-    if (pesoVivoLote) {
-      labelValue('PV médio:', `${formatBRNum(pesoVivoLote, 2)} kg`)
-    }
 
-    // Categorias
-    const categorias = String(r.categoriasString || (Array.isArray(r.categorias) ? r.categorias.join(', ') : ''))
-    if (categorias) {
-      ensureSpace(10)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
-      doc.setTextColor(26, 58, 42)
-      doc.text('Categorias:', margin, y)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(50, 50, 50)
-      const catLines = doc.splitTextToSize(categorias, contentW - 55)
-      doc.text(catLines, margin + 55, y)
-      y += 6 * catLines.length
-    }
-
-    // Leitura e quantidades
-    y += 2
-    labelValue('Leitura cocho:', String(r.leituraCocho ?? '—'))
-    if (r.kgCocho) {
-      labelValue('Suplemento cocho:', `${formatBRNum(Number(r.kgCocho), 0)} kg`)
+    // Creep feeding: quando só o creep foi suplementado, os campos principais
+    // do registro já carregam os dados creep (fallback)
+    if (suplementaCreep) {
+      y += 2
+      subTituloGrupo('CREEP FEEDING')
+      const creepFormulacao = r.creepFormulacao || (suplementaAdulto ? null : r.formulacao)
+      labelValue('Formulação:', String(creepFormulacao || '—'), 4)
+      const creepMeta = r.creepMetaConsumo ?? (suplementaAdulto ? null : r.metaConsumo)
+      const creepPv = r.creepPesoVivoKg != null
+        ? Number(r.creepPesoVivoKg)
+        : (suplementaAdulto ? null : (r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null))
+      if (creepMeta != null) {
+        labelValue('Meta consumo (%PV):', `${formatBRNum(Number(creepMeta), 2)}%`, 4)
+        if (creepPv) {
+          labelValue('Meta consumo (kg/cab/dia):', `${formatBRNum((Number(creepMeta) / 100) * creepPv, 3)} kg`, 4)
+        }
+      }
+      const creepCabecas = r.creepNCabecas ?? (suplementaAdulto ? null : r.nCabecasLote)
+      if (creepCabecas) {
+        labelValue('N° bezerros ao pé:', String(creepCabecas), 4)
+      }
+      if (creepPv) {
+        labelValue('PV médio:', `${formatBRNum(creepPv, 2)} kg`, 4)
+      }
+      y += 2
+      const creepLeitura = r.creepLeitura ?? (suplementaAdulto ? null : r.leituraCocho)
+      if (creepLeitura != null && creepLeitura !== '') {
+        labelValue('Leitura cocho:', String(creepLeitura), 4)
+      }
+      labelValue('Suplemento cocho:', `${formatBRNum(Number(r.creepKgCocho), 0)} kg`, 4)
     }
     if (r.escoreFezes != null && r.escoreFezes !== '') {
       labelValue('Escore fezes:', String(r.escoreFezes))
@@ -821,8 +874,9 @@ export async function gerarPdfResumoSuplementacao(
         if (metricas.custoMedioReaisCabDia != null) {
           labelValue('Custo médio (R$/cab/dia):', `R$ ${formatBRNum(metricas.custoMedioReaisCabDia, 2)}`, 4)
           // Custo estimado lote/dia
-          if (nCabecas && nCabecas > 0) {
-            const custoLoteDia = metricas.custoMedioReaisCabDia * nCabecas
+          const nCabecasRegistro = r.nCabecasLote ? Number(r.nCabecasLote) : null
+          if (nCabecasRegistro && nCabecasRegistro > 0) {
+            const custoLoteDia = metricas.custoMedioReaisCabDia * nCabecasRegistro
             labelValue('Custo estimado lote/dia:', `R$ ${formatBRNum(custoLoteDia, 2)}`, 4)
           }
         }
