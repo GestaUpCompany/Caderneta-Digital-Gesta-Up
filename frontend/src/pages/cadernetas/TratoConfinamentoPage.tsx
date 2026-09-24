@@ -19,6 +19,7 @@ import {
   getNotasLeituraCochoConfigCached,
   getLoteByNomeCached,
   getLinhasConfinamentoCached,
+  getOcupacoesCurralNaDataCached,
 } from '../../services/cadastroCache'
 import {
   getLotes,
@@ -70,8 +71,6 @@ interface ProgramacaoData {
   programacaoId: string | null
   quantidadeTratos: number
   percentuais: { ordem_trato: number; percentual: number; horario_sugerido: string | null }[]
-  kgMnDiaPorCurral: Map<string, number>
-  curraisIdsDaProgramacao: Set<string>
 }
 
 function formatarKg(valor: number | null, casas = 1): string {
@@ -107,7 +106,15 @@ function parseKgReal(valor: string): number {
 const TIPOS_PROGRAMACAO = [
   { value: 'confinamento', label: 'Confinamento' },
   { value: 'sequestro', label: 'Sequestro' },
+  { value: 'tip', label: 'TIP' },
 ]
+
+// Sistema de produção do lote correspondente a cada tipo de programação.
+const SISTEMA_POR_TIPO: Record<string, string> = {
+  confinamento: 'Confinamento',
+  sequestro: 'Sequestro',
+  tip: 'TIP',
+}
 
 export default function TratoConfinamentoPage() {
   const navigate = useNavigate()
@@ -205,11 +212,12 @@ export default function TratoConfinamentoPage() {
         }
       }
 
-      const [progCompleta, curraisData, registrosDoDia, linhasData] = await Promise.all([
+      const [progCompleta, curraisData, registrosDoDia, linhasData, ocupacoesData] = await Promise.all([
         getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
         getCurraisCached(fazendaId),
         getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
         getLinhasConfinamentoCached(fazendaId),
+        getOcupacoesCurralNaDataCached(fazendaId, dataISO),
       ])
 
       // Carregar linhas de confinamento
@@ -227,14 +235,9 @@ export default function TratoConfinamentoPage() {
         return
       }
 
-      // Monta estrutura da programação
-      const kgMnDiaPorCurral = new Map<string, number>()
-      const curraisIdsDaProgramacao = new Set<string>()
-      for (const c of progCompleta.currais) {
-        kgMnDiaPorCurral.set(c.curral_id, Number(c.kg_mn_dia) || 0)
-        curraisIdsDaProgramacao.add(c.curral_id)
-      }
-
+      // Cronograma do tipo (quantidade de tratos, percentuais, horários).
+      // A lista de currais participantes NÃO vem da programação: vem da
+      // ocupação real do curral na data (lote_curral_historico).
       const progData: ProgramacaoData = {
         programacaoId: progCompleta.programacao.id,
         quantidadeTratos: progCompleta.programacao.quantidade_tratos,
@@ -243,8 +246,6 @@ export default function TratoConfinamentoPage() {
           percentual: Number(p.percentual),
           horario_sugerido: p.horario_sugerido,
         })),
-        kgMnDiaPorCurral,
-        curraisIdsDaProgramacao,
       }
       setProgramacao(progData)
 
@@ -254,13 +255,27 @@ export default function TratoConfinamentoPage() {
         lotesPorId.set(l.id, l)
       }
 
-      // Mapa de currais por id (apenas currais ativos com lote)
+      // Mapa de currais por id (todos, para nome/linha; o lote vem da ocupação)
       const curraisPorId = new Map<string, any>()
       for (const c of curraisData || []) {
-        if (c.id && c.lote_id) {
+        if (c.id) {
           curraisPorId.set(c.id, c)
         }
       }
+
+      // Ocupação vigente de cada curral na data (maior data_inicial <= data)
+      const sistemaEsperado = SISTEMA_POR_TIPO[tipoSelecionado]
+      const ocupacaoPorCurral = new Map<string, any>()
+      for (const o of ocupacoesData || []) {
+        const atual = ocupacaoPorCurral.get(o.curral_id)
+        if (!atual || o.data_inicial > atual.data_inicial) {
+          ocupacaoPorCurral.set(o.curral_id, o)
+        }
+      }
+      const ocupacoesDoTipo = [...ocupacaoPorCurral.values()].filter((o) => {
+        const sistema = o.lotes?.sistema_producao ?? lotesPorId.get(o.lote_id)?.sistema_producao
+        return sistema === sistemaEsperado
+      })
 
       // Mapa de linha_id -> nome
       const linhaNomePorId = new Map<string, string>()
@@ -276,16 +291,17 @@ export default function TratoConfinamentoPage() {
         registrosPorCurral.set(r.curral_id, arr)
       }
 
-      // Para cada curral da programação, monta o CurralTrato
+      // Para cada curral ocupado na data, monta o CurralTrato
       const curraisTratoList: CurralTrato[] = await Promise.all(
-        Array.from(curraisIdsDaProgramacao).map(async (curralId) => {
+        ocupacoesDoTipo.map(async (ocupacao) => {
+          const curralId = ocupacao.curral_id as string
           const curralInfo = curraisPorId.get(curralId)
           const curralNome = curralInfo?.nome || curralId
           const linhaId = curralInfo?.linha_id || null
           const linhaNome = linhaId ? (linhaNomePorId.get(linhaId) || null) : null
-          const loteId = curralInfo?.lote_id || null
+          const loteId = ocupacao.lote_id || null
           const lote = loteId ? lotesPorId.get(loteId) : null
-          const loteNome = lote?.nome || null
+          const loteNome = ocupacao.lotes?.nome || lote?.nome || null
 
           // Busca detalhes do lote (categorias, cabecas, peso)
           let nCabecas: number | null = null
@@ -355,12 +371,21 @@ export default function TratoConfinamentoPage() {
           const percentualTrato = tratoAtual?.percentual ?? 0
           const horarioSugerido = tratoAtual?.horario_sugerido ?? null
 
-          // Verifica se é dia 1 (não há tratos em datas anteriores)
-          const registrosAnteriores = await getRegistrosOfertaTratoAnterioresCached(
+          // Dia 1 é por ocupação: só contam registros desde a entrada do lote
+          // atual no curral. Registros de ocupações anteriores do mesmo curral
+          // não interferem — lote novo sempre reinicia no dia 1.
+          const registrosAnterioresRaw = await getRegistrosOfertaTratoAnterioresCached(
             fazendaId,
             curralId,
             dataISO
           )
+          const dataInicialOcupacao = String(ocupacao.data_inicial || '').slice(0, 10)
+          const registrosAnteriores = (registrosAnterioresRaw || []).filter((r: any) => {
+            const dataRegistro = String(r.data || '')
+            const diaRegistro = dataRegistro.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+              || dataRegistro.split(' ')[0]
+            return !dataInicialOcupacao || diaRegistro >= dataInicialOcupacao
+          })
           const isDia1 = registrosAnteriores.length === 0
 
           // Busca a última leitura de cocho do lote para pegar nota e percentual_ajuste
@@ -418,12 +443,13 @@ export default function TratoConfinamentoPage() {
           let kgBaseDia: number | null = null
           let kgPlanejado: number | null = null
           let compensacaoUltimoTrato = 0
-          const kgMnDia = kgMnDiaPorCurral.get(curralId) || 0
+          // Feed target do dia 1 da ocupação (opcional): null => "a definir"
+          const kgMnDia = ocupacao.kg_mn_dia_dia1 != null ? Number(ocupacao.kg_mn_dia_dia1) : null
 
           if (isDia1) {
-            // Dia 1: usa kg_mn_dia da programação
+            // Dia 1: usa o alvo da ocupação; sem alvo fica "a definir"
             kgBaseDia = kgMnDia
-            kgPlanejado = kgMnDia * (percentualTrato / 100)
+            kgPlanejado = kgMnDia != null ? kgMnDia * (percentualTrato / 100) : null
           } else if (totalRealDiaAnterior !== null && totalRealDiaAnterior > 0) {
             // Dia 2+: total real dia anterior * (1 + percentual_ajuste / 100)
             const fatorAjuste = leituraPercentualAjuste !== null ? 1 + leituraPercentualAjuste / 100 : 1
@@ -979,7 +1005,7 @@ export default function TratoConfinamentoPage() {
             <div className="p-8 text-center text-red-600">{erro}</div>
           ) : currais.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              Nenhum curral na programação deste tipo.
+              Nenhum curral ocupado por lote deste sistema nesta data.
             </div>
           ) : (
             <>
@@ -1104,7 +1130,7 @@ export default function TratoConfinamentoPage() {
                             {curral.compensacaoUltimoTrato > 0 ? 'Previsto ajustado' : 'Previsto'}
                           </span>
                           <span className="text-lg font-black leading-tight text-[#1a3a2a] sm:text-xl">
-                            {formatarKg(curral.kgPlanejado, 0)} kg
+                            {curral.kgPlanejado != null ? `${formatarKg(curral.kgPlanejado, 0)} kg` : 'a definir'}
                           </span>
                           {curral.compensacaoUltimoTrato > 0 && (
                             <span className="mt-1 block max-w-[10rem] text-[11px] font-bold leading-tight text-amber-700">

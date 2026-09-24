@@ -2,6 +2,21 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Tratos: folha por ocupação lote-curral, aba TIP e feed target do dia 1 (24/09/2026)
+
+Redesenho coordenado com o Painel (branch `feat/tratos-ocupacao` nos dois repos): a lista de currais da folha de trato deixa de vir do snapshot `programacao_tratos_currais` (que travava a participação no momento do save da programação e omitia currais que entraram depois) e passa a ser derivada da ocupação real do curral na data, via nova tabela `lote_curral_historico` criada no Painel. A programação fica só com o cronograma (quantidade de tratos, percentuais, horários).
+
+- `supabaseService.ts`: nova `getOcupacoesCurralNaData(fazendaId, data)` lendo `lote_curral_historico` com `data_inicial <= data` e `(data_final null ou >= data)`, com join de `lotes(nome, sistema_producao)`. `getProgramacaoTratosCompleta` continua retornando `currais` lendo o espelho de compatibilidade (trigger no banco mantém `programacao_tratos_currais` sincronizado), mas nenhum consumidor usa mais esse campo.
+- `cadastroCache.ts`: `getOcupacoesCurralNaDataCached` com fallback memória → IndexedDB offline; `warmAllCadastroCache` aquece ocupações de hoje/ontem e os registros anteriores por curral ocupado (antes iterava `progCompleta.currais`). As datas do warm-up passaram a usar `getDateTimePartsInTimezone` (fuso da fazenda): antes era `toISOString()` UTC e entre 20h e 23h59 locais as chaves de cache não batiam com as datas calculadas pelas páginas, deixando a folha offline vazia nesse horário.
+- `TratoConfinamentoPage.tsx`: seletor de tipo ganhou a aba TIP (antes só confinamento/sequestro); os currais listados são as ocupações vigentes na data cujo lote tem o `sistema_producao` do tipo (`SISTEMA_POR_TIPO`); "dia 1" passa a ser por ocupação (só contam registros anteriores desde a entrada do lote atual, então lote novo reinicia o baseline); `kg_mn_dia_dia1` é o feed target opcional da ocupação e, quando nulo, o previsto mostra "a definir" em vez de fabricar zero.
+- `FabricaConfinamentoPage.tsx`: dietas filtradas pelo `sistema_producao` do tipo selecionado (antes sempre 'Confinamento', incluindo TIP errado); planejamento por ocupação com `kgBaseDia` nullable; dia 1 por ocupação com o mesmo filtro de entrada.
+- `MovimentacaoPage.tsx`: `usaCurralSistema` reconhece Confinamento, TIP e Sequestro para exigir/mostrar o campo curral no fluxo Novo Lote (antes só Confinamento, então lote TIP criado pelo PWA nunca ocupava curral).
+- `ProgramacaoHojePage.tsx`: sem mudança (só consome percentuais/horários).
+
+Compatibilidade: enquanto houver PWA antigo em campo, o trigger `trg_lch_sync_programacao_currais` mantém `programacao_tratos_currais` espelhado. Remover o espelho e a coluna `currais` de `getProgramacaoTratosCompleta` na fase de limpeza pós-janela de transição.
+
+**Disparador**: quando mencionar folha de trato por ocupação, `lote_curral_historico`, `getOcupacoesCurralNaData`, feed target do dia 1, "a definir" no previsto, aba TIP no trato, ou `programacao_tratos_currais` como whitelist, ler esta seção.
+
 ## Aviso "registros pendentes de sincronização" travava o Atualizar Dados (24/09/2026)
 
 **Problema**: o card "Erros na sincronização — Há registros pendentes de sincronização" aparecia na Home e ficava preso na tela. O guard em `syncAllCadastroData` (`cadastroCache.ts`) aborta a atualização de cadastros quando `countPending() > 0` (registros com `syncStatus='pending'` no IndexedDB), para não sobrescrever o cache enquanto registros locais referenciam IDs antigos. O comportamento tinha três falhas: o guard recusava sem tentar sincronizar a fila primeiro; o card de erro nunca se limpava sozinho (só na próxima tentativa manual); e registros `pending` órfãos (sem item na `syncQueue`, ex.: crash entre `updateSyncStatus` e `enqueueRegistro`, ou modo teste) ficavam presos para sempre, bloqueando o Atualizar Dados eternamente.

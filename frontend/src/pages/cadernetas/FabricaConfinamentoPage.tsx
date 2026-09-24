@@ -28,6 +28,7 @@ import {
   getLoteDetalhesFromCacheOnly,
   getFormulacaoByIdFromCacheOnly,
   getInsumosByFormulacaoCached,
+  getOcupacoesCurralNaDataCached,
 } from '../../services/cadastroCache'
 import { getLotes } from '../../services/supabaseService'
 import { getSupabaseClientWithRefresh } from '../../services/supabaseClient'
@@ -59,7 +60,7 @@ interface CurralFiltrado {
   loteNome: string | null
   formulacaoId: string | null
   formulacaoNome: string | null
-  kgMnDia: number
+  kgMnDia: number | null
   kgPlanejado: number | null
   kgBaseDia: number | null
   isDia1: boolean
@@ -80,6 +81,13 @@ const TIPOS_PROGRAMACAO = [
   { value: 'tip', label: 'TIP' },
   { value: 'sequestro', label: 'Sequestro' },
 ]
+
+// Sistema de produção do lote correspondente a cada tipo de programação.
+const SISTEMA_POR_TIPO: Record<string, string> = {
+  confinamento: 'Confinamento',
+  sequestro: 'Sequestro',
+  tip: 'TIP',
+}
 
 function brToDateISO(dataBR: string): string {
   const [day, month, year] = dataBR.split(' ')[0].split('/').map(Number)
@@ -208,12 +216,13 @@ export default function FabricaConfinamentoPage() {
     carregarInicial()
   }, [fazendaId])
 
-  // Carregar dietas disponíveis (formulações usadas por lotes de confinamento)
+  // Carregar dietas disponíveis (formulações usadas por lotes do sistema selecionado)
   const carregarDietas = useCallback(async () => {
     if (!fazendaId) return
+    const sistemaEsperado = SISTEMA_POR_TIPO[tipoSelecionado] || 'Confinamento'
     try {
       await loadQueryCacheFromIndexedDB()
-      // Buscar lotes com sistema_producao = 'Confinamento'
+      // Buscar lotes do sistema de produção do tipo selecionado
       let lotesData: any[] | null = null
       let usedFallback = false
       if (navigator.onLine) {
@@ -226,7 +235,7 @@ export default function FabricaConfinamentoPage() {
             getLotes(fazendaId),
             timeoutPromise,
           ])
-          lotesData = (allLotes || []).filter((l: any) => l.sistema_producao === 'Confinamento')
+          lotesData = (allLotes || []).filter((l: any) => l.sistema_producao === sistemaEsperado)
         } catch {
           lotesData = null
         }
@@ -239,7 +248,7 @@ export default function FabricaConfinamentoPage() {
           const lotesFromCache = await Promise.all(
             cache.lotes.map((nome: string) => getLoteByNomeFromCacheOnly(fazendaId, nome))
           )
-          lotesData = lotesFromCache.filter((l: any) => l !== null && l.sistema_producao === 'Confinamento')
+          lotesData = lotesFromCache.filter((l: any) => l !== null && l.sistema_producao === sistemaEsperado)
         }
       }
 
@@ -292,7 +301,7 @@ export default function FabricaConfinamentoPage() {
       console.error('Erro ao carregar dietas:', error)
       setDietasDisponiveis([])
     }
-  }, [fazendaId, dietaSelecionadaId])
+  }, [fazendaId, dietaSelecionadaId, tipoSelecionado])
 
   useEffect(() => {
     carregarDietas()
@@ -317,12 +326,13 @@ export default function FabricaConfinamentoPage() {
         return
       }
 
-      // Buscar programação completa, currais, registros do dia, notas config
-      const [progCompleta, curraisData, registrosDoDia, notasConfigData] = await Promise.all([
+      // Buscar programação (cronograma), currais, ocupações, registros do dia, notas config
+      const [progCompleta, curraisData, registrosDoDia, notasConfigData, ocupacoesData] = await Promise.all([
         getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
         getCurraisCached(fazendaId),
         getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
         getNotasLeituraCochoConfigCached(fazendaId),
+        getOcupacoesCurralNaDataCached(fazendaId, dataISO),
       ])
 
       if (!progCompleta || !progCompleta.programacao) {
@@ -342,18 +352,24 @@ export default function FabricaConfinamentoPage() {
         }))
       )
 
-      // Mapa de kg_mn_dia por curral
-      const kgMnDiaPorCurral = new Map<string, number>()
-      const curraisIdsDaProgramacao = new Set<string>()
-      for (const c of progCompleta.currais) {
-        kgMnDiaPorCurral.set(c.curral_id, Number(c.kg_mn_dia) || 0)
-        curraisIdsDaProgramacao.add(c.curral_id)
+      // Ocupação vigente de cada curral na data (maior data_inicial <= data).
+      // A participação na fábrica vem da ocupação, não do snapshot da programação.
+      const sistemaEsperado = SISTEMA_POR_TIPO[tipoSelecionado]
+      const ocupacaoPorCurral = new Map<string, any>()
+      for (const o of ocupacoesData || []) {
+        const atual = ocupacaoPorCurral.get(o.curral_id)
+        if (!atual || o.data_inicial > atual.data_inicial) {
+          ocupacaoPorCurral.set(o.curral_id, o)
+        }
       }
+      const ocupacoesDoTipo = [...ocupacaoPorCurral.values()].filter(
+        (o) => (o.lotes?.sistema_producao ?? null) === sistemaEsperado
+      )
 
       // Mapa de currais por id
       const curraisPorId = new Map<string, any>()
       for (const c of curraisData || []) {
-        if (c.id && c.lote_id) {
+        if (c.id) {
           curraisPorId.set(c.id, c)
         }
       }
@@ -372,12 +388,13 @@ export default function FabricaConfinamentoPage() {
         registrosPorCurral.set(r.curral_id, arr)
       }
 
-      // Para cada curral da programação, verificar se o lote usa a dieta selecionada
+      // Para cada curral ocupado, verificar se o lote usa a dieta selecionada
       const curraisDaDieta: CurralFiltrado[] = []
-      for (const curralId of curraisIdsDaProgramacao) {
+      for (const ocupacao of ocupacoesDoTipo) {
+        const curralId = ocupacao.curral_id as string
         const curralInfo = curraisPorId.get(curralId)
         if (!curralInfo) continue
-        const loteId = curralInfo.lote_id
+        const loteId = ocupacao.lote_id
 
         // Buscar formulação do lote
         let formulacaoId: string | null = null
@@ -426,11 +443,15 @@ export default function FabricaConfinamentoPage() {
           // ignorar
         }
 
-        // Verificar se é dia 1
-        const registrosAnteriores = await getRegistrosOfertaTratoAnterioresCached(
+        // Dia 1 é por ocupação: só contam registros desde a entrada do lote atual
+        const registrosAnterioresRaw = await getRegistrosOfertaTratoAnterioresCached(
           fazendaId,
           curralId,
           dataISO
+        )
+        const dataInicialOcupacao = String(ocupacao.data_inicial || '').slice(0, 10)
+        const registrosAnteriores = (registrosAnterioresRaw || []).filter(
+          (r: any) => !dataInicialOcupacao || (r.data || '').slice(0, 10) >= dataInicialOcupacao
         )
         const isDia1 = registrosAnteriores.length === 0
 
@@ -448,8 +469,8 @@ export default function FabricaConfinamentoPage() {
           )
         }
 
-        // Calcular kgBaseDia
-        const kgMnDia = kgMnDiaPorCurral.get(curralId) || 0
+        // Calcular kgBaseDia (feed target do dia 1 é opcional)
+        const kgMnDia = ocupacao.kg_mn_dia_dia1 != null ? Number(ocupacao.kg_mn_dia_dia1) : null
         let kgBaseDia: number | null = null
         if (isDia1) {
           kgBaseDia = kgMnDia
@@ -462,7 +483,7 @@ export default function FabricaConfinamentoPage() {
           curralId,
           curralNome: curralInfo.nome || curralId,
           loteId,
-          loteNome: curralInfo.lote_nome || null,
+          loteNome: ocupacao.lotes?.nome || curralInfo.lote_nome || null,
           formulacaoId,
           formulacaoNome,
           kgMnDia,

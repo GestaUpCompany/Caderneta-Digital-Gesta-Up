@@ -63,6 +63,12 @@ const SISTEMA_PRODUCAO_OPTS = [
   { value: 'TIP', label: 'TIP' },
 ]
 
+// Sistemas de produção que ocupam curral (participam da folha de tratos).
+const SISTEMAS_COM_CURRAL = ['Confinamento', 'TIP', 'Sequestro']
+function usaCurralSistema(sistema: string | null | undefined): boolean {
+  return SISTEMAS_COM_CURRAL.includes(sistema || '')
+}
+
 const DESTINO_OPTS = [
   { value: 'corte', label: 'Abate' },
   { value: 'reprodução', label: 'Reprodução' },
@@ -235,7 +241,7 @@ export default function MovimentacaoPage() {
     validationRules.nomeNovoLote = { required: true }
     validationRules.sistemaProducaoNovoLote = { required: true }
     validationRules.destinoNovoLote = { required: true }
-    if (form.sistemaProducaoNovoLote === 'Confinamento') {
+    if (usaCurralSistema(form.sistemaProducaoNovoLote)) {
       validationRules.curralIdNovoLote = { required: true }
     } else if (form.sistemaProducaoNovoLote) {
       validationRules.pastoIdNovoLote = { required: true }
@@ -770,7 +776,7 @@ export default function MovimentacaoPage() {
           window.scrollTo({ top: 0, behavior: 'smooth' })
           return
         }
-        const isConfinamentoNL = form.sistemaProducaoNovoLote === 'Confinamento'
+        const isConfinamentoNL = usaCurralSistema(form.sistemaProducaoNovoLote)
         if (isConfinamentoNL && !form.curralIdNovoLote) {
           setErrors([{ field: 'curralIdNovoLote', message: 'Selecione o curral' }])
           window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1225,7 +1231,7 @@ export default function MovimentacaoPage() {
                           <p className="text-sm font-semibold text-red-700 mt-1">{getError('destinoNovoLote')}</p>
                         )}
                       </div>
-                      {form.sistemaProducaoNovoLote === 'Confinamento' ? (
+                      {usaCurralSistema(form.sistemaProducaoNovoLote) ? (
                         <div>
                           <label className="block text-sm font-bold text-gray-900 mb-2">
                             CURRAL

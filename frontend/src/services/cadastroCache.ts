@@ -8,6 +8,7 @@ import { fetchRotinas } from './rotinasService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 import { setCadastroSyncState } from './cadastroSyncState'
 import { isCategoriaAoPe } from '../utils/categorias'
+import { getDateTimePartsInTimezone } from '../utils/formatDate'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
@@ -1628,6 +1629,34 @@ export async function getProgramacaoTratosCompletaCached(fazendaId: string, tipo
 }
 
 /**
+ * Ocupações de curral (lote_curral_historico) que cobrem uma data.
+ * Fonte de "quais currais estão em trato" para a folha de trato offline.
+ */
+export async function getOcupacoesCurralNaDataCached(
+  fazendaId: string,
+  data: string
+): Promise<any[]> {
+  const key = buildKey('ocupacoes-curral-data', fazendaId, data)
+  const cached = getCachedQuery(key) as any[] | null
+
+  if (!navigator.onLine) {
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
+  }
+
+  try {
+    const dataResult = await withTimeout(supabaseService.getOcupacoesCurralNaData(fazendaId, data), 3000)
+    if (dataResult && dataResult.length > 0) setCachedQuery(key, dataResult)
+    return dataResult || []
+  } catch {
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
+  }
+}
+
+/**
  * Registros de oferta de trato de toda a fazenda em uma data específica.
  * Usado pela TratoConfinamentoPage para contar tratos já feitos no dia.
  */
@@ -2858,24 +2887,34 @@ export async function warmAllCadastroCache(
       onProgress?.(processed, totalItems, 'Tratos Confinamento')
 
       const tiposProg = await getTiposProgramacaoTratosCached(fazendaId)
-      const dataHoje = new Date().toISOString().slice(0, 10)
-      const dataOntem = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      // Datas no fuso da fazenda: as chaves de cache precisam bater com as
+      // datas que as páginas de trato calculam (brToDateISO(todayBR())).
+      const hoje = getDateTimePartsInTimezone(new Date())
+      const ontem = getDateTimePartsInTimezone(new Date(Date.now() - 86400000))
+      const dataHoje = `${hoje.year}-${hoje.month}-${hoje.day}`
+      const dataOntem = `${ontem.year}-${ontem.month}-${ontem.day}`
 
-      const tipos = tiposProg.length > 0 ? tiposProg : ['confinamento', 'sequestro']
-      // Paralelizar programações por tipo
-      const progResults = await Promise.all(
-        tipos.map(tipo => getProgramacaoTratosCompletaCached(fazendaId, tipo))
-      )
+      const tipos = tiposProg.length > 0 ? tiposProg : ['confinamento', 'sequestro', 'tip']
+      // Paralelizar programações por tipo e ocupações de curral de hoje/ontem
+      const progResults = await Promise.all([
+        ...tipos.map(tipo => getProgramacaoTratosCompletaCached(fazendaId, tipo)),
+        getOcupacoesCurralNaDataCached(fazendaId, dataHoje),
+        getOcupacoesCurralNaDataCached(fazendaId, dataOntem),
+      ])
+      const ocupacoesHoje = progResults[progResults.length - 2] as any[] | undefined
+      const ocupacoesOntem = progResults[progResults.length - 1] as any[] | undefined
 
-      // Para cada programação com currais, buscar registros em paralelo
+      // Para cada curral ocupado, buscar registros em paralelo
       const allPromises: Promise<any>[] = []
-      for (const progCompleta of progResults) {
-        if (progCompleta && progCompleta.currais) {
-          allPromises.push(getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataHoje))
-          allPromises.push(getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataOntem))
-          for (const curral of progCompleta.currais) {
-            allPromises.push(getRegistrosOfertaTratoAnterioresCached(fazendaId, curral.curral_id, dataHoje))
-          }
+      const ocupados = new Set<string>()
+      for (const o of [...(ocupacoesHoje || []), ...(ocupacoesOntem || [])]) {
+        if (o?.curral_id) ocupados.add(o.curral_id)
+      }
+      if (ocupados.size > 0) {
+        allPromises.push(getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataHoje))
+        allPromises.push(getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataOntem))
+        for (const curralId of ocupados) {
+          allPromises.push(getRegistrosOfertaTratoAnterioresCached(fazendaId, curralId, dataHoje))
         }
       }
       await Promise.all(allPromises)

@@ -3112,6 +3112,25 @@ export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: stri
 }
 
 /**
+ * Ocupações de curral (lote_curral_historico) que cobrem uma data.
+ * Para cada curral pode haver mais de uma ocupação cobrindo o mesmo dia
+ * (troca de lote): o consumidor resolve pela maior data_inicial.
+ * É a fonte de verdade de "quais currais estão em trato" — substitui a
+ * whitelist de programacao_tratos_currais.
+ */
+export async function getOcupacoesCurralNaData(fazendaId: string, data: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: rows, error } = await client
+    .from('lote_curral_historico')
+    .select('id, curral_id, lote_id, data_inicial, data_final, kg_mn_dia_dia1, lotes(nome, sistema_producao)')
+    .eq('fazenda_id', fazendaId)
+    .lte('data_inicial', data)
+    .or(`data_final.is.null,data_final.gte.${data}`)
+  if (error) throw error
+  return rows || []
+}
+
+/**
  * Busca quais tipos de programação (confinamento/sequestro) já existem ativos para a fazenda.
  */
 export async function getTiposProgramacaoTratos(fazendaId: string): Promise<string[]> {
