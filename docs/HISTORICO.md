@@ -2,6 +2,31 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Divergência ativo/deleted_at: "Pasto não encontrado" por duplicata (24/09/2026)
+
+O erro "Pasto não encontrado. Selecione outro pasto" na `PastagensPage` aparecia quando o pasto tinha mais de uma linha ativa com o mesmo nome na fazenda (caso da Santa Vitória: Pasto 5, 8 e 9 duplicados). Dois fatores combinados: (1) `getPastoByNome` usava `.single()`, que estoura com 0 **ou mais de 1** linha, com mensagem enganosa pois o pasto existia; (2) o delete do Painel em `Pastos.tsx`/`Lotes.tsx`/`Racas.tsx`/`Currais.tsx`/`atividadesService.ts` setava só `deleted_at` sem `ativo=false`, e o PWA lia só `ativo=true` sem filtrar `deleted_at`, então entidades "excluídas" no Painel continuavam vivas no PWA.
+
+Correções neste repo:
+
+- `supabaseService.ts`: todas as leituras de entidades com coluna `deleted_at` passaram a filtrar `.is('deleted_at', null)` (pastos, lotes, bebedouros, funcionarios, currais, setores, linhas_confinamento, racas, locais, implementos, maquinas_veiculos, medicamentos, insumos, fornecedores, formulacoes, faixas_categorias, causas_morte, pluviometros, tanques_combustivel, individuos).
+- `getPastoByNome`, `getBebedouroByNome` e `getMaquinaVeiculoByNome` trocaram `.single()` por `.order('created_at').limit(1).maybeSingle()`, tolerando duplicata de nome ao retornar a linha mais antiga.
+- `cadastroCache.ts`: `getSaldoInsumosCached` ganhou o mesmo filtro.
+- Tabelas SEM `deleted_at` (mineral, proteinado, racao, tratamentos, categorias, frigorificos, rotinas, checklist_regras, programacao_tratos, lote_categorias, planos_nutricionais, fazendas) ficaram inalteradas; as views `itens_almoxarifado_pwa`/`itens_cantina_pwa` não expõem a coluna e também não foram tocadas.
+
+Dados corrigidos via MCP (24/09/2026): `ativo=false` em todas as linhas com `deleted_at` preenchido (3 pastos, 6 bebedouros, 30 atividades) e soft-delete do Pasto 5 duplicado da Santa Vitória (`bb513715`). As duplicatas vivas de outras fazendas (`111` na Sementes Tropical-Arizona, `Lajeado 1B` na Jacamim) foram resolvidas no mesmo dia mantendo o registro criado por último em cada par (decisão do usuário): mantidos `b521620a` ("111") e `a5ed9523` ("Lajeado 1B"); soft-deletados `acda7322` e `954ed89d`.
+
+Lado do Painel (repo `GestaUp-Cadernetas-Gestao`): todo soft-delete passa a gravar `ativo=false` junto com `deleted_at`, e o cadastro de pasto bloqueia nome duplicado (case-insensitive) na mesma fazenda. Índice único parcial `ux_pastos_fazenda_nome_ativo` em `pastos(fazenda_id, lower(nome)) WHERE deleted_at IS NULL` aplicado em 24/09/2026 (migration `20260924090000` no repo do Painel), após a resolução das duplicatas vivas.
+
+**Disparador**: quando mencionar "pasto não encontrado", duplicata de pasto, divergência `ativo`/`deleted_at`, ou soft-delete não refletido no PWA, ler esta seção.
+
+## PERÍODO DE TRATO ausente no share do SuccessModal + share unificado (24/09/2026)
+
+O label `PERÍODO DE TRATO` no texto compartilhável de suplementação só aparecia quando o share era feito pelo card da lista (`ListaRegistros` passa `todosRegistros` do IndexedDB, camelCase); pelo `SuccessModal` nunca aparecia. A causa: `SuplementacaoPage` calcula `periodoTratoDias` ao salvar com `calcularPeriodoTrato(registroComPeriodo, registrosSuplementacao)`, mas `registrosSuplementacao` vem do Supabase em snake_case (`lote_id`) enquanto a função filtrava por `r.loteId` (camelCase), então o filtro nunca casava e o cálculo sempre retornava null. `calcularPeriodoTrato` em `shareUtils.ts` agora aceita as duas formas (`r.loteId ?? r.lote_id`, idem para o registro atual), exclui também a linha já sincronizada do próprio registro via `local_id`, e retorna null se o registro atual não tiver lote (evita casar `undefined === undefined` entre lotes distintos). Observação operacional: mesmo pelo card da lista, o período só é calculado sobre registros presentes no IndexedDB do aparelho (o sync é só de envio; tratos feitos em outro aparelho não entram na conta).
+
+Na sequência, o fluxo de share de registro individual foi unificado em `services/shareService.ts` (`compartilharRegistro`): enriquecimentos por caderneta (métricas de consumo da suplementação, tempo/intervalo de limpeza do bebedouro) saíram de `ListaRegistros.handleCompartilharTexto` para o helper, que é chamado tanto pelo card da lista quanto pelo `SuccessModal`. Quem já tem a lista passa `todosRegistros`; sem ela, o helper busca do IndexedDB quando a caderneta usa histórico (`suplementacao` e `pesagem`, que filtra animais por `horarioInicio` da sessão). `fazendaId` vem do `store` internamente, sem prop drilling. Efeito colateral intencional: o share pelo modal agora carrega as mesmas seções enriquecidas do share pela lista.
+
+**Disparador**: quando mencionar "período de trato", `periodoTratoDias`, `calcularPeriodoTrato`, ou share de suplementação sem o label de dias, ler esta seção.
+
 ## Creep feeding: suplementação por alvo na SuplementacaoPage (23/09/2026)
 
 Quando o lote tem bezerro(a) ao pé **com dieta creep vinculada** (`lote_categorias.formulacao_id` apontando para `formulacoes.e_creep = true`), a suplementação passa a ser por alvo: só o lote, só o creep, ou ambos no mesmo lançamento. Sem dieta vinculada o PWA não mostra nada de creep (sem seção, sem aviso, sem inputs). Schema, guards e relatório vivem no repo do painel (migration `20260923140000_creep_feeding.sql` e sequentes); aqui ficam as mudanças do PWA.

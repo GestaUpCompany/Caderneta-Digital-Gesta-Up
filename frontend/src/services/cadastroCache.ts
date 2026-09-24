@@ -3168,6 +3168,7 @@ export async function getSaldoInsumosCached(fazendaId: string): Promise<SaldoEst
       .eq('fazenda_id', fazendaId)
       .eq('controla_estoque', true)
       .eq('ativo', true)
+      .is('deleted_at', null)
       .order('nome')
 
     if (error) throw error

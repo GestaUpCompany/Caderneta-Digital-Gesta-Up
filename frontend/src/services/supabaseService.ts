@@ -184,6 +184,7 @@ export async function getPastos(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -234,6 +235,7 @@ export async function getCurrais(fazendaId: string): Promise<any[]> {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -249,6 +251,7 @@ export async function getLinhasConfinamento(fazendaId: string): Promise<any[]> {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -264,6 +267,7 @@ export async function getLotes(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -278,6 +282,7 @@ export async function getLotesByPastoId(fazendaId: string, pastoId: string) {
     .eq('fazenda_id', fazendaId)
     .eq('pasto_id', pastoId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -293,6 +298,7 @@ export async function getSetores(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -305,6 +311,7 @@ export async function getImplementos(fazendaId: string) {
     .from('implementos')
     .select('*')
     .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -333,6 +340,7 @@ export async function getRacas(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -348,6 +356,7 @@ export async function getLocais(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -362,6 +371,7 @@ export async function getLoteByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -377,6 +387,7 @@ export async function getLoteById(loteId: string) {
     .select('*, pastos(nome), meta_intervalo_rodeio_dias, data_proximo_rodeio')
     .eq('id', loteId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .single()
 
   if (error) throw error
@@ -404,6 +415,7 @@ export async function getMaquinasVeiculos(fazendaId: string) {
     .from('maquinas_veiculos')
     .select('id, nome, tipo, categoria, modelo, placa, ano, tipo_combustivel, capacidade, horimetro, quilometragem, custo_hora, custo_km, operador_padrao, status')
     .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -417,7 +429,10 @@ export async function getMaquinaVeiculoByNome(fazendaId: string, nome: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
-    .single()
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
 
   if (error) throw error
   return data
@@ -932,6 +947,7 @@ export async function getFaixasCategorias(fazendaId: string, sexo?: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
   if (sexo) {
     query = query.eq('sexo', sexo)
   }
@@ -975,6 +991,7 @@ export async function getIndividuos(fazendaId: string, limit = 100) {
     .select('id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status, data_nascimento, lote_atual, idade_era')
     .eq('fazenda_id', fazendaId)
     .eq('status', 'Vivo')
+    .is('deleted_at', null)
     .order('id_manejo')
     .limit(limit)
 
@@ -993,6 +1010,7 @@ export async function getIndividuoPorCampo(
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq(campo, valor)
+    .is('deleted_at', null)
     .limit(1)
 
   if (error) throw error
@@ -1006,6 +1024,7 @@ export async function buscarIndividuoPorIdGenerico(fazendaId: string, idDigitado
     .from('individuos')
     .select('*')
     .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
     .or(`id_manejo.eq.${idDigitado},id_brinco.eq.${idDigitado},id_chip.eq.${idDigitado}`)
     .limit(1)
 
@@ -1035,6 +1054,7 @@ export async function getCausasMorte(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1050,6 +1070,7 @@ export async function getMedicamentos(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('tipo')
     .order('nome_comercial')
 
@@ -1066,6 +1087,7 @@ export async function getInsumos(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1079,6 +1101,7 @@ export async function getInsumosNomes(fazendaId: string): Promise<string[]> {
     .select('nome')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1118,6 +1141,7 @@ export async function getInsumoByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (error) throw error
@@ -1155,6 +1179,7 @@ export async function getFormulacoes(fazendaId: string, soTMR?: boolean): Promis
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
 
   if (soTMR) {
     query = query.eq('e_premix', false)
@@ -1174,6 +1199,7 @@ export async function getFormulacaoByNome(fazendaId: string, nome: string): Prom
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (error) throw error
@@ -1400,6 +1426,7 @@ export async function getFormulacoesDietas(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1413,6 +1440,7 @@ export async function getDietasNomes(fazendaId: string): Promise<string[]> {
     .select('nome')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1445,6 +1473,7 @@ export async function getFuncionarios(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1470,6 +1499,7 @@ export async function getFuncionariosComAcessoApp(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .eq('acessa_app', true)
     .order('nome')
 
@@ -1576,6 +1606,7 @@ export async function getFornecedores(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1707,7 +1738,10 @@ export async function getPastoByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
-    .single()
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
 
   if (error) throw error
   return data
@@ -1722,6 +1756,7 @@ export async function getBebedouros(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -1736,7 +1771,10 @@ export async function getBebedouroByNome(fazendaId: string, nome: string) {
     .eq('fazenda_id', fazendaId)
     .eq('nome', nome)
     .eq('ativo', true)
-    .single()
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
 
   if (error) throw error
   return data
@@ -2843,6 +2881,7 @@ export async function getPluviometros(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('nome')
 
   if (error) throw error
@@ -2858,6 +2897,7 @@ export async function getTanquesCombustivel(fazendaId: string) {
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('ativo', true)
+    .is('deleted_at', null)
     .order('tipo_combustivel')
 
   if (error) throw error
