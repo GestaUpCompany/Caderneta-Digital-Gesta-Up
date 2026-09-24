@@ -8,7 +8,7 @@ import {
   setSyncProgress,
   setError,
 } from '../store/slices/syncSlice'
-import { processQueue, pollSolicitacoesNovoLote } from '../services/syncService'
+import { processQueue, pollSolicitacoesNovoLote, reconcileOrphanPending } from '../services/syncService'
 import { getSyncQueue } from '../services/indexedDB'
 import { reauthenticateFarm, isTokenValid } from '../services/authService'
 import { SYNC_CHECK_INTERVAL_MS } from '../utils/constants'
@@ -153,6 +153,16 @@ export function useSync() {
     navigator.serviceWorker.addEventListener('message', handleSWMessage)
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage)
   }, [runSync])
+
+  // Reenfileira registros 'pending' órfãos (sem item na syncQueue). Sem isso,
+  // um pending sem fila nunca sai do estado e bloqueia o "Atualizar Dados"
+  // para sempre via countPending.
+  useEffect(() => {
+    if (!configurado || !fazendaId || testModeAtivo) return
+    reconcileOrphanPending().then((reenqueued) => {
+      if (reenqueued > 0) runSync()
+    })
+  }, [configurado, fazendaId, testModeAtivo, runSync])
 
   useEffect(() => {
     updatePendingCount()

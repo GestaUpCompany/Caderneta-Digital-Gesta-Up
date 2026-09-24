@@ -2,6 +2,21 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Aviso "registros pendentes de sincronização" travava o Atualizar Dados (24/09/2026)
+
+**Problema**: o card "Erros na sincronização — Há registros pendentes de sincronização" aparecia na Home e ficava preso na tela. O guard em `syncAllCadastroData` (`cadastroCache.ts`) aborta a atualização de cadastros quando `countPending() > 0` (registros com `syncStatus='pending'` no IndexedDB), para não sobrescrever o cache enquanto registros locais referenciam IDs antigos. O comportamento tinha três falhas: o guard recusava sem tentar sincronizar a fila primeiro; o card de erro nunca se limpava sozinho (só na próxima tentativa manual); e registros `pending` órfãos (sem item na `syncQueue`, ex.: crash entre `updateSyncStatus` e `enqueueRegistro`, ou modo teste) ficavam presos para sempre, bloqueando o Atualizar Dados eternamente.
+
+**O que foi feito**:
+
+- `cadastroCache.ts`: `syncAllCadastroData` agora drena a fila antes do guard — quando `navigator.onLine`, reautentica se o token estiver inválido e roda `processQueue(fazendaId)`. Só depois disso verifica `countPending`. Offline o drain é pulado e o guard continua valendo. A mensagem virou a constante exportada `PENDING_SYNC_ERROR_MSG`. Efeito colateral intencional: registro que falha no drain vira `syncStatus='error'` (não conta como pending), então não bloqueia mais o Atualizar Dados — aparece na lista da caderneta com REENVIAR.
+- `Home.tsx`: o card remove a mensagem de pendência automaticamente quando `state.sync.pendingCount` chega a 0 (effect filtrando `PENDING_SYNC_ERROR_MSG`); ao fim do `handleSync` o `pendingCount` do Redux é atualizado via `getSyncQueue()` para não esperar o tick de 10s do `useSync`.
+- `syncService.ts`: nova `reconcileOrphanPending()` reenfileira registros `pending` sem item na fila (pula `isTestRecord`, usa `update` quando há `supabaseId`). Chamada uma vez por sessão no `useSync`, e dispara `runSync` se reenfileirou algo. `STORES` do `indexedDB.ts` foi exportado para isso.
+- `processQueue` (`syncService.ts`): `getRegistro` entrou dentro do try por item, e a marcação de erro (`removeFromSyncQueue` + `updateSyncStatus` + `updateSyncError`) ganhou try próprio — uma falha de IndexedDB num item não aborta mais o processamento dos demais.
+
+**Verificado em dev (chrome-devtools, fazenda de testes)**: registro `pending` órfão foi reenfileirado no boot e sincronizado; offline, o aviso continua aparecendo ao tentar atualizar e o card some sozinho quando a rede volta e o registro sobe; online, ATUALIZAR DADOS com pendente na fila drena, sincroniza e atualiza o cache sem erro. Typecheck e build limpos.
+
+**Disparador**: quando mencionar "registros pendentes de sincronização", card de erro na Home, Atualizar Dados bloqueado, `countPending`, `reconcileOrphanPending` ou pending órfão, ler esta seção.
+
 ## Divergência ativo/deleted_at: "Pasto não encontrado" por duplicata (24/09/2026)
 
 O erro "Pasto não encontrado. Selecione outro pasto" na `PastagensPage` aparecia quando o pasto tinha mais de uma linha ativa com o mesmo nome na fazenda (caso da Santa Vitória: Pasto 5, 8 e 9 duplicados). Dois fatores combinados: (1) `getPastoByNome` usava `.single()`, que estoura com 0 **ou mais de 1** linha, com mensagem enganosa pois o pasto existia; (2) o delete do Painel em `Pastos.tsx`/`Lotes.tsx`/`Racas.tsx`/`Currais.tsx`/`atividadesService.ts` setava só `deleted_at` sem `ativo=false`, e o PWA lia só `ativo=true` sem filtrar `deleted_at`, então entidades "excluídas" no Painel continuavam vivas no PWA.

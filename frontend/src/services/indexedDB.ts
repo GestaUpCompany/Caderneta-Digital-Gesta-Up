@@ -37,7 +37,7 @@ export type CadernetaStore =
   | 'entrada-cantina'
   | 'ordens-servico'
 
-const STORES: CadernetaStore[] = [
+export const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
   'entrada-insumos', 'entrada-insumos-itens', 'saida-insumos', 'insumos-por-saida', 'limpeza', 'operacoes-maquinas', 'manutencao-maquinas', 'problemas', 'almoxarifado', 'leitura-cocho', 'trato-confinamento', 'fabrica-confinamento', 'fabrica-confinamento-insumos',
   'atividade-funcionarios',

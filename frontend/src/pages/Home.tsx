@@ -9,8 +9,10 @@ import { LOGO_URL, getFarmLogo } from '../utils/constants'
 
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
-import { syncAllCadastroData, setCadastroCacheTimestamp, getCadastroCacheTimestamp } from '../services/cadastroCache'
+import { syncAllCadastroData, setCadastroCacheTimestamp, getCadastroCacheTimestamp, PENDING_SYNC_ERROR_MSG } from '../services/cadastroCache'
 import { setCadastroSyncState } from '../services/cadastroSyncState'
+import { getSyncQueue } from '../services/indexedDB'
+import { setPendingCount } from '../store/slices/syncSlice'
 import {
   shouldInvalidateCache,
   setRbacVersaoCache,
@@ -29,6 +31,7 @@ export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId, controleAcessoHabilitado, expedienteHabilitado, expedienteTimezone, expedienteDias } = useSelector((state: RootState) => state.config)
+  const pendingSyncCount = useSelector((state: RootState) => state.sync.pendingCount)
   const { active: cadastroSyncActive } = useCadastroSyncState()
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null)
@@ -59,6 +62,15 @@ export default function Home() {
     if (diffMin < 720) return 'text-gray-600'
     return 'text-amber-600'
   }
+
+  // Quando a fila de sync zera, remove o aviso de "registros pendentes":
+  // sem isso o card de erro ficava preso na tela mesmo depois do sync em
+  // background resolver a pendência.
+  useEffect(() => {
+    if (pendingSyncCount === 0) {
+      setSyncErrors((prev) => prev.filter((e) => e !== PENDING_SYNC_ERROR_MSG))
+    }
+  }, [pendingSyncCount])
 
   // Atualizar timestamp periodicamente (a cada minuto) para refletir "há X min"
   useEffect(() => {
@@ -279,6 +291,11 @@ export default function Home() {
       setSyncing(false)
       setSyncProgress(null)
       setCadastroSyncState({ active: false, current: 0, total: 0, item: '' })
+      // Reflete no Redux o estado da fila após o drain feito pelo
+      // syncAllCadastroData, sem esperar o próximo tick do useSync.
+      getSyncQueue()
+        .then((queue) => dispatch(setPendingCount(queue.length)))
+        .catch(() => {})
     }
   }
 

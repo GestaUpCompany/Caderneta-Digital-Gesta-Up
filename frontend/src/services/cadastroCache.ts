@@ -2904,6 +2904,8 @@ export async function warmAllCadastroCache(
   return { success: errors.length === 0, warmedPastos, warmedLotes, warmedFormulacoes, warmedLotesRodeio, warmedMedicamentos, warmedTratamentos, warmedExtras, errors }
 }
 
+export const PENDING_SYNC_ERROR_MSG = 'Há registros pendentes de sincronização. Sincronize os registros antes de atualizar os dados.'
+
 /**
  * Sincroniza todos os dados de cadastro do Supabase em sequência
  * Ordem de dependência: Pastos → Lotes → Indivíduos → Bebedouros → Independentes
@@ -2914,6 +2916,25 @@ export async function syncAllCadastroData(
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = []
 
+  // Antes de bloquear por pendências, tenta drenar a fila: um registro recém-
+  // salvo ainda não processado pelo ciclo de 10s do useSync não deve impedir
+  // a atualização de cadastros. Offline o drain é pulado (o guard abaixo
+  // continua valendo, já que sem rede os pendentes não podem subir mesmo).
+  if (navigator.onLine) {
+    try {
+      const { isTokenValid, reauthenticateFarm } = await import('./authService')
+      const { store: appStore } = await import('../store/store')
+      const { processQueue } = await import('./syncService')
+      const acessoId = appStore.getState().config.acessoId
+      if (acessoId && !isTokenValid()) {
+        await reauthenticateFarm(acessoId)
+      }
+      await processQueue(fazendaId)
+    } catch (error) {
+      console.warn('[CadastroCache] Falha ao drenar fila de sync antes de atualizar cadastros:', error)
+    }
+  }
+
   // Guard: não atualizar cache se há registros pendentes de sync
   // Evita que o cache seja sobrescrito com dados frescos enquanto
   // registros locais ainda referenciam IDs antigos
@@ -2921,7 +2942,7 @@ export async function syncAllCadastroData(
     const pendingCount = await (await import('./indexedDB')).countPending()
     if (pendingCount > 0) {
       console.log(`[CadastroCache] Há ${pendingCount} registros pendentes de sync. Aguardando sync antes de atualizar cache.`)
-      return { success: false, errors: ['Há registros pendentes de sincronização. Sincronize os registros antes de atualizar os dados.'] }
+      return { success: false, errors: [PENDING_SYNC_ERROR_MSG] }
     }
   } catch (error) {
     console.warn('[CadastroCache] Não foi possível verificar registros pendentes:', error)

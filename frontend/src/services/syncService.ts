@@ -7,6 +7,8 @@ import {
   updateSyncError,
   updateRegistro,
   getAllRegistros,
+  getRegistrosPendentes,
+  STORES,
   SyncQueueItem,
   CadernetaStore,
 } from './indexedDB'
@@ -1431,6 +1433,37 @@ export async function pollSolicitacoesNovoLote(_fazendaId: string): Promise<numb
   return updated
 }
 
+/**
+ * Reenfileira registros com syncStatus='pending' que não têm item na syncQueue.
+ * Cobre o caso em que o item da fila foi removido sem atualizar o registro
+ * (crash entre updateSyncStatus e enqueue, limpeza parcial da fila), o que
+ * deixava o registro 'pending' para sempre e bloqueava o "Atualizar Dados"
+ * via countPending().
+ */
+export async function reconcileOrphanPending(): Promise<number> {
+  try {
+    const queue = await getSyncQueue()
+    const queuedIds = new Set(queue.map((i) => i.registroId))
+    let reenqueued = 0
+    for (const store of STORES) {
+      const pendentes = await getRegistrosPendentes(store)
+      for (const registro of pendentes) {
+        if (registro.isTestRecord || queuedIds.has(registro.id)) continue
+        await enqueueRegistro(store, registro.id, registro.supabaseId ? 'update' : 'create')
+        queuedIds.add(registro.id)
+        reenqueued++
+      }
+    }
+    if (reenqueued > 0) {
+      console.log(`[SYNC] Reconciliação: ${reenqueued} registro(s) pending órfão(s) reenfileirados`)
+    }
+    return reenqueued
+  } catch (err) {
+    console.warn('[SYNC] Reconciliação de pending órfãos falhou:', err)
+    return 0
+  }
+}
+
 export async function processQueue(
   fazendaId?: string,
   onProgress?: (remaining: number) => void
@@ -1449,15 +1482,18 @@ export async function processQueue(
       continue
     }
 
-    const registro = await getRegistro(item.store, item.registroId)
-    if (!registro) {
-      await removeFromSyncQueue(item.id)
-      remaining--
-      onProgress?.(remaining)
-      continue
-    }
-
+    // getRegistro dentro do try: uma falha de leitura no IndexedDB num item
+    // não pode abortar o processamento dos itens seguintes.
+    let registro: Registro | undefined
     try {
+      registro = await getRegistro(item.store, item.registroId)
+      if (!registro) {
+        await removeFromSyncQueue(item.id)
+        remaining--
+        onProgress?.(remaining)
+        continue
+      }
+
       // Gravar no Supabase
       if (fazendaId) {
         // Caso especial: Novo Lote (movimentacao com subtipo='Novo Lote')
@@ -1496,15 +1532,21 @@ export async function processQueue(
         failedAt: new Date().toISOString(),
         operation: item.operation,
       }
-      await removeFromSyncQueue(item.id)
-      await updateSyncStatus(item.store, item.registroId, 'error')
-      await updateSyncError(item.store, item.registroId, syncError)
+      try {
+        await removeFromSyncQueue(item.id)
+        await updateSyncStatus(item.store, item.registroId, 'error')
+        await updateSyncError(item.store, item.registroId, syncError)
+      } catch (markErr) {
+        // Se a marcação falhar, o item fica na fila para o próximo ciclo em vez
+        // de abortar o processamento dos demais.
+        console.error(`[SYNC] Falha ao marcar erro de ${item.store}/${item.registroId}:`, markErr)
+      }
       failed++
       remaining--
       onProgress?.(remaining)
 
       // Logar falha no Supabase (tabela logs_sync_errors permite INSERT anon)
-      if (fazendaId) {
+      if (fazendaId && registro) {
         let payload: any = null
         try {
           payload = registroToSupabase(item.store, registro, fazendaId)
