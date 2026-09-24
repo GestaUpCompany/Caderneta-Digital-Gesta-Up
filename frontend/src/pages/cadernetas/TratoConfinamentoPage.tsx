@@ -292,11 +292,14 @@ export default function TratoConfinamentoPage() {
       }
 
       // Para cada curral ocupado na data, monta o CurralTrato
-      const curraisTratoList: CurralTrato[] = await Promise.all(
+      const curraisTratoList: (CurralTrato | null)[] = await Promise.all(
         ocupacoesDoTipo.map(async (ocupacao) => {
           const curralId = ocupacao.curral_id as string
           const curralInfo = curraisPorId.get(curralId)
-          const curralNome = curralInfo?.nome || curralId
+          // Curral inativo/excluído não entra na folha: o cache de currais só
+          // tem ativos, então ausência aqui significa curral desativado.
+          if (!curralInfo) return null
+          const curralNome = curralInfo.nome || curralId
           const linhaId = curralInfo?.linha_id || null
           const linhaNome = linhaId ? (linhaNomePorId.get(linhaId) || null) : null
           const loteId = ocupacao.lote_id || null
@@ -504,9 +507,10 @@ export default function TratoConfinamentoPage() {
           } as CurralTrato
         })
       )
+      const curraisTratoValidos = curraisTratoList.filter((c): c is CurralTrato => c !== null)
 
       // Ordena por nome do curral
-      curraisTratoList.sort((a, b) =>
+      curraisTratoValidos.sort((a, b) =>
         a.curralNome.localeCompare(b.curralNome, 'pt-BR', { numeric: true, sensitivity: 'base' })
       )
 
@@ -514,7 +518,7 @@ export default function TratoConfinamentoPage() {
       const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
       const rascunhoData = await lerRascunho<Record<string, string>>(rascunhoKey)
       if (rascunhoData) {
-        for (const curral of curraisTratoList) {
+        for (const curral of curraisTratoValidos) {
           const valorRascunho = rascunhoData[curral.curralId]
           if (valorRascunho !== undefined && valorRascunho !== '' && !curral.salvo) {
             curral.kgReal = valorRascunho
@@ -523,19 +527,19 @@ export default function TratoConfinamentoPage() {
         }
       }
 
-      setCurrais(curraisTratoList)
+      setCurrais(curraisTratoValidos)
 
       // Auto-selecionar primeira linha e primeiro curral
       if (linhasList.length > 0) {
         const primeiraLinhaId = linhasList[0].id
         setLinhaSelecionada(primeiraLinhaId)
-        const primeiroCurralDaLinha = curraisTratoList.find(
+        const primeiroCurralDaLinha = curraisTratoValidos.find(
           (c) => c.linhaId === primeiraLinhaId
         )
-        setCurralSelecionado(primeiroCurralDaLinha?.curralId || curraisTratoList[0]?.curralId || null)
+        setCurralSelecionado(primeiroCurralDaLinha?.curralId || curraisTratoValidos[0]?.curralId || null)
       } else {
         setLinhaSelecionada(null)
-        setCurralSelecionado(curraisTratoList[0]?.curralId || null)
+        setCurralSelecionado(curraisTratoValidos[0]?.curralId || null)
       }
     } catch (error) {
       console.error('Erro ao carregar dados do trato:', error)
