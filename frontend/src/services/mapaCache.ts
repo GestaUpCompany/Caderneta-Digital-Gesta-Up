@@ -1,8 +1,22 @@
 import { getSupabaseClientWithRefresh } from './supabaseClient'
-import { saveCadastroData, getCadastroData } from './indexedDB'
+import { saveCadastroData, getCadastroData, deleteCadastroData } from './indexedDB'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 
-const MAPA_CACHE_KEY = 'mapa_fazenda'
+const MAPA_CACHE_PREFIX = 'mapa_fazenda'
+const mapaCacheKey = (fazendaId: string) => `${MAPA_CACHE_PREFIX}_${fazendaId}`
+
+// A chave legada 'mapa_fazenda' (sem fazenda) podia conter geometrias de outra
+// fazenda salvas por um login anterior no mesmo dispositivo. Remover uma vez.
+let legacyCachePurged = false
+async function purgeLegacyCache() {
+  if (legacyCachePurged) return
+  legacyCachePurged = true
+  try {
+    await deleteCadastroData(MAPA_CACHE_PREFIX)
+  } catch {
+    // falha na limpeza não bloqueia o fluxo
+  }
+}
 
 export interface MapaPasto {
   id: string
@@ -72,11 +86,12 @@ export async function getMapaVersao(fazendaId: string): Promise<string | null> {
  */
 export async function mapaPrecisaAtualizar(fazendaId: string): Promise<boolean> {
   const versaoServidor = await getMapaVersao(fazendaId)
+  const cached = await loadMapaFazenda(fazendaId)
+
+  // Sem cache desta fazenda: só baixa se o servidor tiver versão registrada.
+  if (!cached || cached.fazendaId !== fazendaId) return !!versaoServidor
+
   if (!versaoServidor) return false // sem versão no servidor, não há o que atualizar
-
-  const cached = await loadMapaFazenda()
-  if (!cached) return true // sem cache local, precisa baixar
-
   if (!cached.versao) return true // cache antigo sem versionamento, precisa baixar
 
   return versaoServidor !== cached.versao
@@ -148,7 +163,8 @@ export async function syncMapaFazenda(fazendaId: string): Promise<MapaFazendaDat
     versao,
   }
 
-  await saveCadastroData(MAPA_CACHE_KEY, data, fazendaId)
+  await purgeLegacyCache()
+  await saveCadastroData(mapaCacheKey(fazendaId), data, fazendaId)
 
   console.log('[MapaCache] Sincronizado:', {
     pastos: data.pastos.length,
@@ -168,19 +184,19 @@ export async function syncMapaFazenda(fazendaId: string): Promise<MapaFazendaDat
  * Não faz nada se estiver offline.
  */
 export async function syncMapaSePreciso(fazendaId: string): Promise<MapaFazendaData | null> {
-  if (!navigator.onLine) return loadMapaFazenda()
+  if (!navigator.onLine) return loadMapaFazenda(fazendaId)
 
   try {
     const precisa = await mapaPrecisaAtualizar(fazendaId)
     if (!precisa) {
       console.log('[MapaCache] Versão do cache está atualizada, pulando download')
-      return loadMapaFazenda()
+      return loadMapaFazenda(fazendaId)
     }
     console.log('[MapaCache] Versão nova detectada, sincronizando...')
     return syncMapaFazenda(fazendaId)
   } catch (err) {
     console.warn('[MapaCache] Erro ao verificar versão, usando cache:', err)
-    return loadMapaFazenda()
+    return loadMapaFazenda(fazendaId)
   }
 }
 
@@ -260,9 +276,13 @@ export async function getDetalhesCurral(curralId: string): Promise<DetalheCurral
 
 /**
  * Carrega geometrias do IndexedDB (cache local offline).
+ * O cache é namespacado por fazenda; nunca retorna dados de outra fazenda.
  */
-export async function loadMapaFazenda(): Promise<MapaFazendaData | null> {
-  const data = await getCadastroData(MAPA_CACHE_KEY)
+export async function loadMapaFazenda(fazendaId: string): Promise<MapaFazendaData | null> {
+  await purgeLegacyCache()
+  const data = await getCadastroData(mapaCacheKey(fazendaId))
   if (!data) return null
-  return data as MapaFazendaData
+  const mapa = data as MapaFazendaData
+  if (mapa.fazendaId && mapa.fazendaId !== fazendaId) return null
+  return mapa
 }

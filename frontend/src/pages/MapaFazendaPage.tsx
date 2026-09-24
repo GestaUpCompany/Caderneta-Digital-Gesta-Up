@@ -118,7 +118,7 @@ export default function MapaFazendaPage() {
 
     async function carregar() {
       // 1. Tentar carregar do cache local (offline)
-      const cached = await loadMapaFazenda()
+      const cached = await loadMapaFazenda(fazendaId!)
       if (cached && !cancelado) {
         setMapaData(cached)
         // Centralizar no primeiro pasto se disponível

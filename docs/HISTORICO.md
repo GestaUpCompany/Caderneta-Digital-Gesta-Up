@@ -652,3 +652,20 @@ ome, classificacao (CHECK: Pereciveis, Nao Pereciveis, Bebidas, Limpeza/Higiene,
 **Validacao** (fazenda d649c65e-16ab-4b77-a84b-df937aa41cc3): fluxo completo testado via Chrome DevTools. Selecao de classificacao Nao Pereciveis carregou 3 itens (Arroz/Pacote, Carne Bovina/kg, Ovos/Unidade). Item Arroz adicionado com quantidade 5 (inteiro), item Carne Bovina adicionado com quantidade 2.5 (decimal). Itens ja adicionados aparecem desabilitados no seletor. Display do item mostra nome, classificacao, quantidade e unidade.
 
 Disparador: quando mencionar itens_cantina, classificacao de alimentos da cantina, unidade de medida na cantina, getClassificacoesCantina, getItensCantina, ler esta secao.
+
+## Isolamento do cache do mapa por fazenda (24/09/2026)
+
+**Problema**: em logins de outra fazenda no mesmo dispositivo, o mapa exibia as geometrias da fazenda anterior. `loadMapaFazenda()` usava a chave única `mapa_fazenda` no IndexedDB e `MapaFazendaPage` renderizava o cache sem conferir o `fazendaId` da sessão.
+
+**Correção** (`frontend/src/services/mapaCache.ts`):
+
+- Chave do cache namespacada: `mapa_fazenda_<fazendaId>`; `loadMapaFazenda(fazendaId)` exige o id e retorna null se o conteúdo for de outra fazenda (sanity check em `data.fazendaId`).
+- Chave legada `mapa_fazenda` purgada uma vez por sessão (`purgeLegacyCache`).
+- `mapaPrecisaAtualizar`: cache ausente ou de outra fazenda agora conta como "precisa sincronizar" quando há versão no servidor; antes, fazenda sem linha em `mapa_versao` retornava `false` e servia o cache errado mesmo online.
+- `syncMapaSePreciso` e `MapaFazendaPage` passam `fazendaId` em todas as chamadas de `loadMapaFazenda`.
+
+A mudança acompanha hardening no banco (repo Painel Web, migration `20260924160000_isolamento_tenant_mapa.sql`): todas as RPCs de mapa/routing passaram a validar o vínculo do chamador via `caller_has_fazenda_access`, `mapa_versao` deixou `USING(true)`, e `mapa_estradas_vertices_pgr` ganhou RLS sem policies + REVOKE de grants.
+
+Typecheck (`npx tsc --noEmit`) passou.
+
+Disparador: quando mencionar "mapa de outra fazenda", "geometria errada no mapa", "cache do mapa", `mapa_fazenda` no IndexedDB, `caller_has_fazenda_access`, ler esta seção.
