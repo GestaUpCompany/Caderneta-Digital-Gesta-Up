@@ -131,8 +131,14 @@ export function calcularPeriodoTrato(registroAtual: Registro, todosRegistros?: R
   const dataAtual = parseDataRegistro(registroAtual.data)
   if (!dataAtual) return null
 
+  // A lista pode vir do IndexedDB (loteId) ou direto do Supabase (lote_id);
+  // local_id cobre o caso da linha já sincronizada do próprio registro.
+  const loteIdAtual = (registroAtual.loteId ?? (registroAtual as any).lote_id) as string | undefined
+  if (!loteIdAtual) return null
   const registrosDoMesmoLote = todosRegistros.filter(
-    r => r.loteId === registroAtual.loteId && r.id !== registroAtual.id
+    r => ((r.loteId ?? (r as any).lote_id) === loteIdAtual)
+      && r.id !== registroAtual.id
+      && (r as any).local_id !== registroAtual.id
   )
 
   let dataAnteriorMaisProxima: Date | null = null

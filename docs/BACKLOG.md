@@ -2,6 +2,18 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Unificação do share de registro (SuccessModal vs ListaRegistros) — decidido adiar (24/09/2026)
+
+**Contexto**: o share de registro individual existe em dois pontos com lógica divergente: o `SuccessModal` chama `formatarRegistroComoTexto(registro, caderneta)` sem contexto, e o `ListaRegistros` enriquece o registro inline (métricas de consumo da suplementação, tempo/intervalo de limpeza do bebedouro) e passa `todosRegistros` do IndexedDB. Mudanças de texto precisam tocar os dois lados.
+
+**O que foi tentado**: um `services/shareService.ts` com `compartilharRegistro(caderneta, registro, todosRegistros?)` centralizando enriquecer → formatar → abrir WhatsApp, chamado pelos dois pontos. Funcionou e gerou textos idênticos nos testes, mas foi revertido no mesmo dia porque a auditoria expôs o seguinte:
+
+1. **Divergências que a unificação não resolve**: páginas anexam ao `registroSalvo` campos que não são persistidos no IndexedDB, então o card nunca os teria: `n_cabecas_apos_obito` (MortePage), `metaRodeio` (RodeioPage), `categoriasEntrada` consolidado (MovimentacaoPage, entrada multi-categoria), e o objeto sintético de `novo_lote` (MovimentacaoPage, que compartilha com `caderneta='novo_lote'` string que nem é `CadernetaStore`). Para unificar de verdade, esses campos precisam ser persistidos ou recomputados no serviço.
+2. **Novos modos de falha**: share do modal passaria a depender de `await listarRegistros` (falha silenciosa sem catch) e os awaits entre o clique e o `navigator.share` podem estourar a janela de ativação do gesto em iOS/dispositivos lentos, bloqueando o share.
+3. **`periodoTratoDias` com fontes diferentes**: a página calcula sobre linhas do Supabase; a lista recalcula sobre IndexedDB. Com históricos divergentes os dois textos podem mostrar períodos diferentes mesmo unificados.
+
+**Se retomar**: envolver `compartilharRegistro` em try/catch com feedback; persistir ou recomputar no serviço os campos do item 1; decidir a precedência de `periodoTratoDias` (valor pré-calculado do save vs recálculo local); tipar `caderneta` no `SuccessModal` sem cast cego. Fluxos fora do escopo por design: resumos diários das listas, modal de sessão da pesagem e AtividadesPage (textos agregados próprios).
+
 ## Drop das colunas legadas de bezerros (aguardando migration do Painel)
 
 `lotes.qtd_bezerros`, `lotes.quantidade_bezerros` e `lote_categorias.qtd_bezerros` serão dropadas por migration no repo do Painel (detalhes completos, funções bloqueantes e plano em `GestaUp-Cadernetas-Gestao/docs/BACKLOG.md`, seção "Drop das colunas legadas de bezerros"). No PWA restam ajustes para fazer junto ou depois: remover `qtd_bezerros` do `criar_lote` em `mcp-server/index.js`, regenerar `types/supabase.ts`, remover `qtd_bezerlos`/`quantidade_bezerros` de `types/relatorioLote.ts`, atualizar `mcp-server/schema.sql`.
