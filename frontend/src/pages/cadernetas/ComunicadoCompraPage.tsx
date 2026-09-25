@@ -136,14 +136,14 @@ export default function ComunicadoCompraPage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. PARTES</h2>
           <Input
             label={<span>COMPRADOR <span className="text-red-500">*</span></span>}
-            placeholder="Quem negociou a compra pela fazenda"
+            placeholder="Em nome de quem..."
             value={form.comprador}
             onChange={setInput('comprador')}
             error={getError('comprador')}
           />
           <Input
-            label={<span>EMPRESA <span className="text-red-500">*</span></span>}
-            placeholder="Ex: Frigorífico Pantanal / Fazenda Santa Rosa"
+            label={<span>EMPRESA/FAZENDA <span className="text-red-500">*</span></span>}
+            placeholder="Ex: Fazenda Santa Rosa"
             value={form.fornecedor}
             onChange={setInput('fornecedor')}
             error={getError('fornecedor')}

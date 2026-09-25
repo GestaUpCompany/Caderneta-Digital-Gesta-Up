@@ -175,14 +175,14 @@ export default function ComunicadoVendaPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PARTES</h2>
           <Input
-            label={<span>VENDEDOR <span className="text-red-500">*</span></span>}
-            placeholder="Ex: Fazenda Boa Vista"
+            label={<span>VENDEDOR<span className="text-red-500">*</span></span>}
+            placeholder="Ex: Em nome quem..."
             value={form.vendedor}
             onChange={setInput('vendedor')}
             error={getError('vendedor')}
           />
           <Input
-            label={<span>EMPRESA <span className="text-red-500">*</span></span>}
+            label={<span>EMPRESA/FAZENDA <span className="text-red-500">*</span></span>}
             placeholder="Ex: Frigorífico Pantanal / Fazenda Y"
             value={form.comprador}
             onChange={setInput('comprador')}

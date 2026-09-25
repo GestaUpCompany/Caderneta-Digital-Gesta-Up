@@ -62,7 +62,7 @@ export default function CadastroCard({ cadastro }: Props) {
           <Campo label="Liberação Sisbov" valor={formatarDataBR(cadastro.data_liberacao_sisbov)} />
         )}
         {cadastro.data_embarque_previsto && (
-          <Campo label="Embarque previsto" valor={formatarDataBR(cadastro.data_embarque_previsto)} />
+          <Campo label="Embarque" valor={formatarDataBR(cadastro.data_embarque_previsto)} />
         )}
         <div className="col-span-2">
           <Campo label="Criado em" valor={cadastro.created_at ? new Date(cadastro.created_at).toLocaleDateString('pt-BR') : null} />

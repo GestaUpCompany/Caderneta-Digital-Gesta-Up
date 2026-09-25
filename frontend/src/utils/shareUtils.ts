@@ -292,11 +292,11 @@ const formatarComunicadoVendaComoTexto = (registro: Registro): string => {
   texto += `SEXO: *${registro.sexo || '—'}*\n`
   texto += `IDADE (ERA): *${registro.idadeEra || '—'}*\n\n`
 
-  if (registro.dataPrevistaEmbarque) texto += `EMBARQUE PREVISTO: *${registro.dataPrevistaEmbarque}*\n`
-  if (registro.dataPrevistaAbate) texto += `ABATE PREVISTO: *${registro.dataPrevistaAbate}*\n`
+  if (registro.dataPrevistaEmbarque) texto += `EMBARQUE: *${registro.dataPrevistaEmbarque}*\n`
+  if (registro.dataPrevistaAbate) texto += `ABATE: *${registro.dataPrevistaAbate}*\n`
   const preco = normalizarNumero(registro.precoArroba as any)
   if (preco !== null) texto += `PREÇO: *R$ ${formatarNumeroBR(preco)}/@*\n`
-  if (registro.dataPrevistaPagamento) texto += `PAGAMENTO PREVISTO: *${registro.dataPrevistaPagamento}*\n`
+  if (registro.dataPrevistaPagamento) texto += `PAGAMENTO: *${registro.dataPrevistaPagamento}*\n`
 
   if (registro.observacao) texto += `\n📝 ${registro.observacao}\n`
   if (registro.responsavel || registro.usuario) texto += `\n👤 ${registro.responsavel || registro.usuario}\n`
