@@ -2,6 +2,20 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## SuccessModal fechando sozinho ao salvar (SuplementacaoPage) (25/09/2026)
+
+**Problema**: em produção, salvar na SuplementacaoPage não mostrava o modal de sucesso — o registro era gravado e sincronizado normalmente, mas o usuário não via confirmação. Não era exclusivo da suplementação em tese, mas a cascata de re-renders pós-save dessa tela (`setForm(makeInitial())` dispara ~8 effects assíncronos com setState) tornava a falha determinística nela; telas com poucos re-renders (ex.: RodeioPage) escapavam por timing.
+
+**Causa raiz** (verificada por instrumentação no Chrome DevTools, poll de 50ms + log de popstate): o effect de histórico do `SuccessModal` tinha `onClose` nas deps (`[isOpen, onClose]`), e todos os pais passam `onClose` como arrow inline — nova referência a cada render. Com o modal aberto, cada re-render rodava o cleanup (`history.back()` quando `history.state.modalOpen`) e re-fazia `pushState`. Quando um `back()` resolvia depois do re-push, o popstate caía numa entrada `{modalOpen:true}` e o handler chamava `onClose` — o modal abria e fechava em ~15ms, sem frame visível. Log do bug: popstate `{idx:0}` → `{modalOpen:true}` (fecha) → `{idx:0}`.
+
+**Correção** em `components/SuccessModal.tsx`: `onClose` passou a ser lido via `onCloseRef` (atualizado a cada render, sem entrar nas deps) e o effect de histórico depende só de `[isOpen]` — re-renders com o modal aberto não geram mais ciclo de back/push. Também foi invertida a condição do `handlePopState`: agora fecha quando o popstate cai em entrada **sem** `modalOpen` (o botão voltar do aparelho leva à entrada anterior, que é o caso de uso real; antes fechava ao cair *numa* entrada modalOpen, que só acontecia na race interna). O botão voltar do Android agora de fato fecha o modal, e fechar pela UI remove a entrada do histórico como antes.
+
+**Mesmo hardening aplicado** em `components/PdfModal.tsx` (tinha `[isOpen, onClose]` com cleanup que deixava a entrada no histórico via `replaceState` — agora usa `onCloseRef`, deps `[isOpen]` e `history.back()` no cleanup) e em `components/ui/SearchableModal.tsx` (deps já eram estáveis, mas a condição do popstate era a mesma invertida — corrigida para `!e.state?.modalOpen`). Auditoria: `pushState`/`popstate` no `src` existem só nesses três componentes e no guard de sessão da `PesagemPage` (deps `[sessaoAtiva]`, mecanismo diferente e correto); as demais telas de registro usam `SuccessModal` ou feedback inline sem histórico.
+
+**Verificado em build de produção** (`vite build` + `vite preview`, chrome-devtools, fazenda de testes, usuário Victor Hugo): antes da correção o modal abria e fechava em ~15ms (registro salvo, modal ausente); depois, o modal "Salvo com sucesso" permanece aberto e `history.state` fica `{modalOpen:true}` estável. Typecheck limpo.
+
+**Disparador**: quando mencionar "modal de sucesso não aparece", SuccessModal sumindo, popstate/modalOpen, ou comportamento do botão voltar do Android em modal, ler esta seção.
+
 ## Tratos: folha por ocupação lote-curral, aba TIP e feed target do dia 1 (24/09/2026)
 
 Redesenho coordenado com o Painel (branch `feat/tratos-ocupacao` nos dois repos): a lista de currais da folha de trato deixa de vir do snapshot `programacao_tratos_currais` (que travava a participação no momento do save da programação e omitia currais que entraram depois) e passa a ser derivada da ocupação real do curral na data, via nova tabela `lote_curral_historico` criada no Painel. A programação fica só com o cronograma (quantidade de tratos, percentuais, horários).

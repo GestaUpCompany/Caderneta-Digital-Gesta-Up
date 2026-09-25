@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { CheckCircle2, Share2, Plus } from 'lucide-react'
 import { formatarRegistroComoTexto, compartilharWhatsApp, Registro } from '../utils/shareUtils'
 
@@ -41,6 +41,15 @@ export default function SuccessModal({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
+  // onClose chega como função inline nova a cada render dos pais. Se entrar nas
+  // deps do effect de histórico, todo re-render com o modal aberto dispara
+  // cleanup (history.back) + re-push, e um popstate pode cair numa entrada
+  // {modalOpen:true} — o handler então fecha o modal sozinho logo após abrir.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   // Prevenir navegação para trás quando modal está aberto (botão voltar do celular)
   useEffect(() => {
     if (isOpen) {
@@ -48,9 +57,9 @@ export default function SuccessModal({
       window.history.pushState({ modalOpen: true }, '', window.location.href)
 
       const handlePopState = (e: PopStateEvent) => {
-        if (e.state?.modalOpen) {
-          e.preventDefault()
-          onClose()
+        // Voltou para a entrada anterior à do modal (botão voltar do aparelho)
+        if (!e.state?.modalOpen) {
+          onCloseRef.current()
         }
       }
 
@@ -63,7 +72,7 @@ export default function SuccessModal({
         }
       }
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   // Prevenir scroll quando modal está aberto
   useEffect(() => {

@@ -74,8 +74,8 @@ export default function SearchableModal({
     window.history.pushState({ modalOpen: true, timestamp: Date.now() }, '', window.location.href)
 
     const handlePopState = (e: PopStateEvent) => {
-      if (e.state?.modalOpen) {
-        e.preventDefault()
+      // Voltou para a entrada anterior à do modal (botão voltar do aparelho)
+      if (!e.state?.modalOpen) {
         pushedStateRef.current = false
         setIsOpen(false)
       }

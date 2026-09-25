@@ -13,7 +13,13 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
-  const modalOpenRef = useRef(false)
+
+  // onClose chega como função inline nova a cada render dos pais; via ref o
+  // effect de histórico não re-executa (nem empilha entradas) a cada re-render.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   // Prevenir scroll quando modal está aberto
   useEffect(() => {
@@ -75,41 +81,37 @@ export default function PdfModal({ isOpen, onClose, images }: PdfModalProps) {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose()
+        onCloseRef.current()
       }
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   // Prevenir navegação para trás quando modal está aberto (botão voltar do celular)
   useEffect(() => {
     if (isOpen) {
-      modalOpenRef.current = true
       // Adicionar entrada no histórico para poder voltar para fechar o modal
       window.history.pushState({ modalOpen: true }, '', window.location.href)
 
       const handlePopState = (e: PopStateEvent) => {
-        if (e.state?.modalOpen && modalOpenRef.current) {
-          e.preventDefault()
-          e.stopPropagation()
-          modalOpenRef.current = false
-          onClose()
+        // Voltou para a entrada anterior à do modal (botão voltar do aparelho)
+        if (!e.state?.modalOpen) {
+          onCloseRef.current()
         }
       }
 
       window.addEventListener('popstate', handlePopState)
       return () => {
         window.removeEventListener('popstate', handlePopState)
-        modalOpenRef.current = false
-        // Limpar o histórico quando o modal fecha
+        // Remover a entrada do histórico se o modal for fechado sem usar o botão voltar
         if (window.history.state?.modalOpen) {
-          window.history.replaceState(null, '', window.location.href)
+          window.history.back()
         }
       }
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   // Reset zoom e posição quando modal fecha
   useEffect(() => {
