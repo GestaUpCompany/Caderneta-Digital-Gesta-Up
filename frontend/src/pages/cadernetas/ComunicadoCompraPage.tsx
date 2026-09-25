@@ -193,18 +193,22 @@ export default function ComunicadoCompraPage() {
         {/* Seção 3: Datas */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DATAS</h2>
-          <DatePicker
-            label={<span>DATA DE EMBARQUE <span className="text-red-500">*</span></span>}
-            value={form.dataSaida}
-            onChange={(val) => setForm((prev) => ({ ...prev, dataSaida: val }))}
-            error={getError('dataSaida')}
-          />
-          <DatePicker
-            label={<span>DATA DE CHEGADA NA FAZENDA <span className="text-red-500">*</span></span>}
-            value={form.dataPrevistaEmbarque}
-            onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaEmbarque: val }))}
-            error={getError('dataPrevistaEmbarque')}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <DatePicker
+              label={<span>DATA DE EMBARQUE <span className="text-red-500">*</span></span>}
+              value={form.dataSaida}
+              onChange={(val) => setForm((prev) => ({ ...prev, dataSaida: val }))}
+              error={getError('dataSaida')}
+              compact
+            />
+            <DatePicker
+              label={<span>DATA DE CHEGADA <span className="text-red-500">*</span></span>}
+              value={form.dataPrevistaEmbarque}
+              onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaEmbarque: val }))}
+              error={getError('dataPrevistaEmbarque')}
+              compact
+            />
+          </div>
         </div>
 
         {/* Seção 4: Observação */}

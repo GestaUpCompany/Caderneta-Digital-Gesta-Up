@@ -256,20 +256,31 @@ export default function ComunicadoVendaPage() {
         {/* Seção 4: Datas e valores */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. DATAS E VALORES</h2>
-          <DatePicker
-            label={<span>DATA PREVISTA DE EMBARQUE <span className="text-red-500">*</span></span>}
-            value={form.dataPrevistaEmbarque}
-            onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaEmbarque: val }))}
-            error={getError('dataPrevistaEmbarque')}
-          />
-          {form.tipoVenda === 'abate' && (
+          <div className="grid grid-cols-2 gap-4">
             <DatePicker
-              label={<span>DATA PREVISTA DE ABATE <span className="text-red-500">*</span></span>}
-              value={form.dataPrevistaAbate}
-              onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaAbate: val }))}
-              error={getError('dataPrevistaAbate')}
+              label={<span>DATA EMBARQUE <span className="text-red-500">*</span></span>}
+              value={form.dataPrevistaEmbarque}
+              onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaEmbarque: val }))}
+              error={getError('dataPrevistaEmbarque')}
+              compact
             />
-          )}
+            {form.tipoVenda === 'abate' && (
+              <DatePicker
+                label={<span>DATA ABATE <span className="text-red-500">*</span></span>}
+                value={form.dataPrevistaAbate}
+                onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaAbate: val }))}
+                error={getError('dataPrevistaAbate')}
+                compact
+              />
+            )}
+            <DatePicker
+              label="DATA PAGAMENTO"
+              value={form.dataPrevistaPagamento}
+              onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaPagamento: val }))}
+              error={getError('dataPrevistaPagamento')}
+              compact
+            />
+          </div>
           <Input
             label="PREÇO POR ARROBA (R$)"
             placeholder="Ex: 315,00"
@@ -277,12 +288,6 @@ export default function ComunicadoVendaPage() {
             onChange={setInput('precoArroba')}
             error={getError('precoArroba')}
             inputMode="decimal"
-          />
-          <DatePicker
-            label="DATA PREVISTA DE PAGAMENTO"
-            value={form.dataPrevistaPagamento}
-            onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaPagamento: val }))}
-            error={getError('dataPrevistaPagamento')}
           />
         </div>
 
