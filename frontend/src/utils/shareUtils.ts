@@ -357,6 +357,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       key !== 'lastModified' &&
       key !== 'googleRowId' &&
       key !== 'categoriasMarcadas' &&
+      key !== 'supabaseId' &&
+      key !== 'isTestRecord' &&
+      key !== 'fazendaId' &&
+      !key.endsWith('_id') &&
       value !== null &&
       value !== undefined &&
       value !== ''
@@ -637,6 +641,42 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
     if (registro.observacao) {
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
+    }
+  } else if (caderneta === 'entrada-combustivel') {
+    // Seção: Dados da Entrada (tanqueId é interno e não entra no texto)
+    texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
+    if (registro.tanqueNome) {
+      texto += `TANQUE: *${registro.tanqueNome}*\n`
+    }
+    if (registro.quantidadeL !== null && registro.quantidadeL !== undefined && registro.quantidadeL !== '') {
+      texto += `QUANTIDADE: *${formatarNumeroBR(registro.quantidadeL, String(registro.quantidadeL))} L*\n`
+    }
+    const valorTotal = normalizarNumero(registro.valorTotal as any)
+    if (valorTotal !== null) {
+      texto += `VALOR TOTAL: *R$ ${valorTotal.toFixed(2).replace('.', ',')}*\n`
+    }
+    const precoLitro = normalizarNumero(registro.precoPorLitro as any)
+    if (precoLitro !== null) {
+      texto += `PREÇO POR LITRO: *R$ ${precoLitro.toFixed(2).replace('.', ',')}*\n`
+    }
+    texto += `\n`
+    if (registro.fornecedor) {
+      texto += `FORNECEDOR: *${registro.fornecedor}*\n`
+    }
+    if (registro.placaVeiculo) {
+      texto += `PLACA DO VEÍCULO: *${registro.placaVeiculo}*\n`
+    }
+    if (registro.nomeMotorista) {
+      texto += `MOTORISTA: *${registro.nomeMotorista}*\n`
+    }
+    if (registro.notaFiscal) {
+      texto += `NOTA FISCAL: *${registro.notaFiscal}*\n`
+    }
+    if (registro.observacao) {
+      texto += `OBSERVAÇÃO: *${registro.observacao}*\n`
+    }
+    if (registro.usuario) {
+      texto += `RESPONSÁVEL: *${registro.usuario}*\n`
     }
   } else if (caderneta === 'cantina') {
     const modo = (registro.modo as string) || 'cantina'

@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Share de entrada-combustivel com campos crus e tanqueId exposto (25/09/2026)
+
+O texto compartilhável de `entrada-combustivel` saía como dump genérico de chaves (`TANQUEID`, `TANQUENOME`, `QUANTIDADEL`, `VALORTOTAL`, `PRECOPORLITRO` em ponto decimal), porque a caderneta não tinha bloco dedicado em `formatarRegistroComoTexto` (`shareUtils.ts`) e caía no fallback que imprime `key.toUpperCase()` para todos os campos do registro. Adicionado bloco `else if (caderneta === 'entrada-combustivel')` no padrão das demais: COMBUSTÍVEL, TANQUE (nome, sem o id), QUANTIDADE em L, VALOR TOTAL e PREÇO POR LITRO em `R$` pt-BR, e FORNECEDOR/PLACA DO VEÍCULO/MOTORISTA/NOTA FISCAL/OBSERVAÇÃO/RESPONSÁVEL quando preenchidos. `tanqueId` nunca entra no texto.
+
+Na sequência foi auditado o mesmo risco nas demais cadernetas: `trato-confinamento` é a única salva sem bloco dedicado (payload tem `curralId`, `loteId`, `programacaoId`), mas não tem caminho de share hoje (página não usa `SuccessModal` e não existe rota de lista), então é latente. Como blindagem, o filtro do dump genérico passou a excluir também `supabaseId` (gravado no registro do IndexedDB após o sync), `isTestRecord`, `fazendaId` e qualquer chave terminada em `_id`.
+
+**Disparador**: quando mencionar share de combustível com campos crus, `tanqueId`/`TANQUENOME` no texto, ou formatação do share de `entrada-combustivel`, ler esta seção.
+
 ## SuccessModal fechando sozinho ao salvar (SuplementacaoPage) (25/09/2026)
 
 **Problema**: em produção, salvar na SuplementacaoPage não mostrava o modal de sucesso — o registro era gravado e sincronizado normalmente, mas o usuário não via confirmação. Não era exclusivo da suplementação em tese, mas a cascata de re-renders pós-save dessa tela (`setForm(makeInitial())` dispara ~8 effects assíncronos com setState) tornava a falha determinística nela; telas com poucos re-renders (ex.: RodeioPage) escapavam por timing.
