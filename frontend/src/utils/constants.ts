@@ -71,6 +71,8 @@ export const CADERNETAS = [
   { id: 'maternidade', label: 'MATERNIDADE', emoji: '', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'pesagem', label: 'PESAGEM', emoji: '', icon: `${BASE}cadernetas/pesagem.png`, color: '#4A6FA5', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'comunicado-venda', label: 'COMUNICADO DE VENDA', emoji: '', icon: `${BASE}cadernetas/venda.png`, color: '#2F855A', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'comunicado-compra', label: 'COMUNICADO DE COMPRA', emoji: '', icon: `${BASE}cadernetas/venda.png`, color: '#1D4ED8', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'recebimento-compra', label: 'RECEBIMENTO', emoji: '', icon: `${BASE}cadernetas/movimentacao.png`, color: '#0E7490', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas' },

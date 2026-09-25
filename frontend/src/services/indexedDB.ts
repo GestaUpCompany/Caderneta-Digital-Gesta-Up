@@ -36,6 +36,7 @@ export type CadernetaStore =
   | 'entrada-almoxarifado'
   | 'entrada-cantina'
   | 'ordens-servico'
+  | 'os-recebimentos'
 
 export const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
@@ -49,10 +50,11 @@ export const STORES: CadernetaStore[] = [
   'entrada-almoxarifado',
   'entrada-cantina',
   'ordens-servico',
+  'os-recebimentos',
 ]
 
 async function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, 31, {
+  return openDB(DB_NAME, 32, {
     upgrade(db) {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) {
@@ -195,8 +197,9 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
     'atividade-sessoes': 2,
     'atividade-imprevistos': 3,
     'ordens-servico': 4,
-    'pesagem': 5,
-    'movimentacao': 6,
+    'os-recebimentos': 5,
+    'pesagem': 6,
+    'movimentacao': 7,
   }
   return all.sort((a: SyncQueueItem, b: SyncQueueItem) => {
     if (priorityOrder[a.priority] !== priorityOrder[b.priority])

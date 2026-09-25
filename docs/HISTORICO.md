@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Módulo de Compra: comunicado + recebimento por carga + processamento (27/09/2026)
+
+Segunda operação comercial sobre a arquitetura de OS da venda. O comunicado de compra (`ComunicadoCompraPage`, store `ordens-servico` com `tipo='compra'`) espelha o laudo de compra: origem, animais, preço por KG ou por UA, pagamento/favorecido, transporte, corretagem, histórico nutricional e despesas; o núcleo consultável vai em colunas e o restante em `compra_detalhes` jsonb. A lista de compra filtra `tipo='compra'` (o `ListaRegistros` ganhou prop `filtro` e a lista de venda passou a filtrar `tipo='venda'` para não misturar).
+
+O recebimento é uma caderneta própria (`recebimento-compra`, store `os-recebimentos`), um laudo por caminhão/GTA, porque cada veículo exige GTA própria: GTA, NF, transporte, contagens F/M por categoria, peso médio do balanço (kg/cab), peso origem, checklist diagnóstico de 20 itens, score corporal, destino baia/pasto + lote, assinaturas e **vídeo de descarregamento** (blob fica no IndexedDB e sobe para o bucket `videos-os` no sync, fora do pipeline de fotos; `os_documentos` recebe tipo `video` + `os_recebimento_id` + `bucket`). Cada laudo gera movimentações `Entrada`/`Compras` por categoria+sexo, com o lote receptor em `loteOrigemId` (convenção do schema para Entrada); a OS acumula cargas e vai para `recebida` via trigger. `getOrdensServicoAbertas(fazendaId, 'compra')` retorna `aberta`+`recebida` para permitir cargas adicionais.
+
+A identificação dos animais (3-5 dias após a chegada) é manejo separado: `PesagemPage` ganhou o tipo `processamento` ("Processamento/Identificação"), sem vínculo de OS, que permite criar o indivíduo na chipagem tardia.
+
+**Disparador**: quando mencionar compra de gado, recebimento, laudo de chegada, GTA, balanço/balancão, `os-recebimentos`, vídeo de descarregamento, `processamento` na pesagem ou `compra_detalhes`, ler esta seção.
+
 ## Listas de Leitura de Cocho e Trato Confinamento + share do trato (25/09/2026)
 
 Criadas `LeituraCochoListaPage.tsx` e `TratoConfinamentoListaPage.tsx` como wrappers de `ListaRegistros`, no mesmo padrão das demais cadernetas, com rotas `/caderneta/leitura-cocho/lista` e `/caderneta/trato-confinamento/lista` em `App.tsx`. A lista de trato tornou o compartilhamento da caderneta alcançável pela UI pela primeira vez, o que expôs o fallback genérico de `shareUtils.ts`: o texto saía como dump de chaves cruas (`CURRALID`, `LOTEID`, `PROGRAMACAOID`, `KGPLANEJADO`). Adicionado bloco dedicado `else if (caderneta === 'trato-confinamento')` em `formatarRegistroComoTexto` com RESPONSÁVEL, CURRAL, LOTE, TRATO (ordem), KG PLANEJADO, KG FORNECIDO e LEITURA COCHO (nota), sempre sem os IDs internos. `SyncErrorModal` também recebeu o label de `os-recebimentos`, que faltava no `Record<CadernetaStore, string>` e quebrava o typecheck.

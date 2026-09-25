@@ -106,6 +106,7 @@ const TIPOS_MANEJO: { value: string; label: string }[] = [
   { value: 'transf_saida', label: 'Transf. saída' },
   { value: 'transf_entrada', label: 'Transf. entrada' },
   { value: 'apartacao', label: 'Apartação' },
+  { value: 'processamento', label: 'Processamento' },
 ]
 
 const ERAS = [

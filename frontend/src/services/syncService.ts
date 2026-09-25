@@ -73,6 +73,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'atividades': 'atividades',
   pesagem: 'registros_pesagem',
   'ordens-servico': 'ordens_servico',
+  'os-recebimentos': 'os_recebimentos',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -351,6 +352,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         equipe: registro.equipe ? Number(registro.equipe) : null,
         equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,
         os_id: registro.osId || null,
+        os_recebimento_id: registro.osRecebimentoId || null,
         sessao_id: registro.sessaoId || null,
         individuo_id: registro.individuoId || null,
       }
@@ -696,6 +698,51 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         preco_arroba: normalizarNumero(registro.precoArroba as string | number | null | undefined),
         data_prevista_pagamento: registro.dataPrevistaPagamento ? brToIso(String(registro.dataPrevistaPagamento).split(' ')[0]) : null,
         observacao: registro.observacao || null,
+        // Compra (laudo de compra): núcleo comercial em colunas, o restante do
+        // laudo (favorecido, corretagem, nutrição, despesas) em compra_detalhes
+        fornecedor: registro.fornecedor || null,
+        origem_fazenda: registro.origemFazenda || null,
+        origem_municipio_uf: registro.origemMunicipioUf || null,
+        modo_preco: registro.modoPreco || null,
+        valor_total_previsto: normalizarNumero(registro.valorTotalPrevisto as string | number | null | undefined),
+        forma_pagamento: registro.formaPagamento || null,
+        data_saida: registro.dataSaida ? brToIso(String(registro.dataSaida).split(' ')[0]) : null,
+        valor_frete: normalizarNumero(registro.valorFrete as string | number | null | undefined),
+        compra_detalhes: registro.compraDetalhes || null,
+      }
+    }
+    case 'os-recebimentos': {
+      return {
+        id: registro.id,
+        local_id: registro.id,
+        os_id: registro.osId || null,
+        fazenda_id: fazendaId,
+        nome_usuario: registro.usuario || registro.responsavel || null,
+        sync_status: 'synced',
+        version: registro.version || 1,
+        data: brWithTimeToIso(registro.data),
+        numero_gta: registro.numeroGta || null,
+        numero_nf: registro.numeroNf || null,
+        doc_origem: registro.docOrigem || null,
+        transportadora: registro.transportadora || null,
+        placa_veiculo: registro.placaVeiculo || null,
+        placa_reboque: registro.placaReboque || null,
+        motorista: registro.motorista || null,
+        data_chegada: registro.dataChegada ? brToIso(String(registro.dataChegada).split(' ')[0]) : null,
+        hora_chegada: registro.horaChegada || null,
+        peso_medio_balancao: normalizarNumero(registro.pesoMedioBalancao as string | number | null | undefined),
+        peso_origem: normalizarNumero(registro.pesoOrigem as string | number | null | undefined),
+        hora_pesagem: registro.horaPesagem || null,
+        contagens: registro.contagens || null,
+        checklist: registro.checklist || null,
+        score_corporal: registro.scoreCorporal ? Number(registro.scoreCorporal) : null,
+        mortes: registro.mortes ? Number(registro.mortes) : 0,
+        destino: registro.destino || null,
+        lote_destino_id: registro.loteId || null,
+        lote_destino: registro.loteNome || null,
+        responsavel: registro.responsavel || null,
+        auxiliar: registro.auxiliar || null,
+        sessao_id: registro.sessaoId || null,
       }
     }
     case 'fabrica-confinamento': {
@@ -848,6 +895,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         'registros_operacoes_maquinas', 'registros_manutencao_maquinas',
         'registros_problemas', 'registros_almoxarifado', 'registros_leitura_cocho',
         'registros_oferta_trato', 'registros_pesagem', 'ordens_servico',
+        'os_recebimentos',
       ])
       const tableNameStr = Array.isArray(tableName) ? tableName[0] : tableName
       if (upsertTables.has(tableNameStr)) {
@@ -938,6 +986,26 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           case 'ordens_servico':
             result = await supabaseService.createOrdemServico(data)
             break
+          case 'os_recebimentos': {
+            result = await supabaseService.createOsRecebimento(data)
+            // Vídeo de descarregamento: blob pendente salvo no IndexedDB sobe
+            // aqui (fora do pipeline de fotos, sem compressão). Se falhar, o
+            // erro propaga e o registro fica pendente para REENVIAR — o upsert
+            // por local_id torna a tentativa seguinte idempotente.
+            const videoBlob = (registro as any).videoBlob as Blob | undefined
+            if (videoBlob && result?.id && registro.osId) {
+              await supabaseService.uploadVideoOsRecebimento(
+                result.id,
+                String(registro.osId),
+                fazendaId,
+                videoBlob,
+                ((registro as any).videoNome as string) || null,
+              )
+              // Libera o blob do IndexedDB após o upload (vídeos são pesados)
+              await updateRegistro(store, registro.id, { videoBlob: null, videoEnviado: true } as any)
+            }
+            break
+          }
         }
         // Capturar supabaseId retornado e gravar localmente
         if (result && result.id) {

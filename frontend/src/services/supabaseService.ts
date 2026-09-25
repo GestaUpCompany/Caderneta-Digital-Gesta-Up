@@ -3295,17 +3295,70 @@ export async function createOrdemServico(registro: any) {
 
 export async function getOrdensServicoAbertas(fazendaId: string, tipo: string = 'venda') {
   const client = await getSupabaseClientWithRefresh() as any
+  // Compra aceita múltiplos recebimentos (um por caminhão/GTA): uma OS já
+  // 'recebida' continua elegível para novos laudos de carga.
+  const statuses = tipo === 'compra' ? ['aberta', 'recebida'] : ['aberta']
   const { data, error } = await client
     .from('ordens_servico')
-    .select('id, numero_os, tipo, tipo_venda, status, quantidade_prevista, sexo, idade_era, data_prevista_embarque, data_prevista_abate, vendedor, comprador, created_at')
+    .select('id, numero_os, tipo, tipo_venda, status, quantidade_prevista, quantidade_embarcada, sexo, idade_era, data_prevista_embarque, data_prevista_abate, data_saida, vendedor, comprador, fornecedor, origem_fazenda, origem_municipio_uf, created_at')
     .eq('fazenda_id', fazendaId)
     .eq('tipo', tipo)
-    .eq('status', 'aberta')
+    .in('status', statuses)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (error) throw error
   return data as any[]
+}
+
+export async function createOsRecebimento(registro: any) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('os_recebimentos')
+    .upsert(registro, { onConflict: 'local_id' })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Vídeo de descarregamento: bucket dedicado 'videos-os' (documentos-os aceita
+// só imagem/PDF até 15 MB). Registra o arquivo em os_documentos com tipo
+// 'video' e vínculo ao recebimento (os_recebimento_id).
+export async function uploadVideoOsRecebimento(
+  recebimentoId: string,
+  osId: string,
+  fazendaId: string,
+  blob: Blob,
+  nomeArquivo: string | null,
+): Promise<void> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const ext = (nomeArquivo && nomeArquivo.includes('.') ? nomeArquivo.split('.').pop() : 'mp4') || 'mp4'
+  const path = `${fazendaId}/${osId}/recebimento-${recebimentoId}-${Date.now()}.${ext}`
+
+  const { error: uploadError } = await client.storage
+    .from('videos-os')
+    .upload(path, blob, { contentType: blob.type || 'video/mp4', cacheControl: '3600' })
+  if (uploadError) throw uploadError
+
+  const { error } = await client
+    .from('os_documentos')
+    .insert({
+      os_id: osId,
+      fazenda_id: fazendaId,
+      tipo: 'video',
+      arquivo_url: path,
+      nome_arquivo: nomeArquivo || 'video-descarregamento',
+      os_recebimento_id: recebimentoId,
+      bucket: 'videos-os',
+      uploaded_by: null,
+    })
+
+  if (error) {
+    await client.storage.from('videos-os').remove([path])
+    throw error
+  }
 }
 
 // ==================== LOGS DE FALHAS DE SINCRONIZAÇÃO ====================

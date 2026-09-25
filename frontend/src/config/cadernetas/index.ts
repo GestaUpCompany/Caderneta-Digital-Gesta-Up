@@ -22,6 +22,9 @@ import { pesagemConfig } from './pesagem'
 import { entradaAlmoxarifadoConfig } from './entradaAlmoxarifado'
 import { entradaCantinaConfig } from './entradaCantina'
 import { ordensServicoConfig } from './ordensServico'
+import { osRecebimentosConfig } from './osRecebimentos'
+import { leituraCochoConfig } from './leituraCocho'
+import { tratoConfinamentoConfig } from './tratoConfinamento'
 
 export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaDisplayConfig>> = {
   pastagens: pastagensConfig,
@@ -46,4 +49,7 @@ export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaD
   'entrada-almoxarifado': entradaAlmoxarifadoConfig,
   'entrada-cantina': entradaCantinaConfig,
   'ordens-servico': ordensServicoConfig,
+  'os-recebimentos': osRecebimentosConfig,
+  'leitura-cocho': leituraCochoConfig,
+  'trato-confinamento': tratoConfinamentoConfig,
 }

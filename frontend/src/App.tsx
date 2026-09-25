@@ -132,13 +132,19 @@ const ManutencaoMaquinasListaPage = lazy(() => import('./pages/cadernetas/Manute
 const ProblemasPage = lazy(() => import('./pages/cadernetas/ProblemasPage'))
 const ProblemasListaPage = lazy(() => import('./pages/cadernetas/ProblemasListaPage'))
 const LeituraCochoPage = lazy(() => import('./pages/cadernetas/LeituraCochoPage'))
+const LeituraCochoListaPage = lazy(() => import('./pages/cadernetas/LeituraCochoListaPage'))
 const TratoConfinamentoPage = lazy(() => import('./pages/cadernetas/TratoConfinamentoPage'))
+const TratoConfinamentoListaPage = lazy(() => import('./pages/cadernetas/TratoConfinamentoListaPage'))
 const FabricaConfinamentoPage = lazy(() => import('./pages/cadernetas/FabricaConfinamentoPage'))
 const FabricaConfinamentoListaPage = lazy(() => import('./pages/cadernetas/FabricaConfinamentoListaPage'))
 const PesagemPage = lazy(() => import('./pages/cadernetas/PesagemPage'))
 const PesagemListaPage = lazy(() => import('./pages/cadernetas/PesagemListaPage'))
 const ComunicadoVendaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaPage'))
 const ComunicadoVendaListaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaListaPage'))
+const ComunicadoCompraPage = lazy(() => import('./pages/cadernetas/ComunicadoCompraPage'))
+const ComunicadoCompraListaPage = lazy(() => import('./pages/cadernetas/ComunicadoCompraListaPage'))
+const RecebimentoCompraPage = lazy(() => import('./pages/cadernetas/RecebimentoCompraPage'))
+const RecebimentoCompraListaPage = lazy(() => import('./pages/cadernetas/RecebimentoCompraListaPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
@@ -626,9 +632,11 @@ function AppInner() {
 
             {/* Leitura de Cocho */}
             <Route path="/caderneta/leitura-cocho" element={<LeituraCochoPage />} />
+            <Route path="/caderneta/leitura-cocho/lista" element={<LeituraCochoListaPage />} />
 
             {/* Trato Confinamento */}
             <Route path="/caderneta/trato-confinamento" element={<TratoConfinamentoPage />} />
+            <Route path="/caderneta/trato-confinamento/lista" element={<TratoConfinamentoListaPage />} />
 
             {/* Fábrica Confinamento */}
             <Route path="/caderneta/fabrica-confinamento" element={<FabricaConfinamentoPage />} />
@@ -641,6 +649,14 @@ function AppInner() {
             {/* Comunicado de Venda (OS) */}
             <Route path="/caderneta/comunicado-venda" element={<ComunicadoVendaPage />} />
             <Route path="/caderneta/comunicado-venda/lista" element={<ComunicadoVendaListaPage />} />
+
+            {/* Comunicado de Compra (OS) */}
+            <Route path="/caderneta/comunicado-compra" element={<ComunicadoCompraPage />} />
+            <Route path="/caderneta/comunicado-compra/lista" element={<ComunicadoCompraListaPage />} />
+
+            {/* Recebimento de Compra (laudo por carga/GTA) */}
+            <Route path="/caderneta/recebimento-compra" element={<RecebimentoCompraPage />} />
+            <Route path="/caderneta/recebimento-compra/lista" element={<RecebimentoCompraListaPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

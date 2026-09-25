@@ -377,6 +377,41 @@ const ORDENS_SERVICO_LABELS = {
   dataPrevistaAbate: 'DATA PREVISTA ABATE',
   precoArroba: 'PREÇO POR ARROBA (R$)',
   dataPrevistaPagamento: 'DATA PREVISTA PAGAMENTO',
+  // Compra
+  fornecedor: 'PROPRIETÁRIO/FORNECEDOR',
+  origemFazenda: 'FAZENDA DE ORIGEM',
+  origemMunicipioUf: 'MUNICÍPIO/UF',
+  modoPreco: 'MODO DE PREÇO',
+  valorTotalPrevisto: 'VALOR TOTAL PREVISTO (R$)',
+  formaPagamento: 'FORMA DE PAGAMENTO',
+  dataSaida: 'DATA DE SAÍDA',
+  valorFrete: 'VALOR DO FRETE (R$)',
+  observacao: 'OBSERVAÇÃO',
+}
+
+const OS_RECEBIMENTOS_LABELS = {
+  ...COMMON_LABELS,
+  numeroOs: 'Nº OS',
+  numeroGta: 'Nº GTA',
+  numeroNf: 'Nº NF',
+  docOrigem: 'DOC. ORIGEM',
+  transportadora: 'TRANSPORTADORA',
+  placaVeiculo: 'PLACA VEÍCULO',
+  placaReboque: 'PLACA REBOQUE',
+  motorista: 'MOTORISTA',
+  dataChegada: 'DATA CHEGADA',
+  horaChegada: 'HORA CHEGADA',
+  pesoMedioBalancao: 'PESO MÉDIO BALANÇO (KG/CAB)',
+  pesoOrigem: 'PESO ORIGEM (KG)',
+  horaPesagem: 'HORA PESAGEM',
+  contagens: 'RECEBIDOS POR CATEGORIA',
+  checklist: 'ACHADOS NO RECEBIMENTO',
+  scoreCorporal: 'ESCORE CORPORAL',
+  mortes: 'MORTES NO TRANSPORTE',
+  destino: 'DESTINO',
+  loteNome: 'LOTE DESTINO',
+  responsavel: 'RESPONSÁVEL',
+  auxiliar: 'AUXILIAR',
   observacao: 'OBSERVAÇÃO',
 }
 
@@ -401,4 +436,5 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   'entrada-cantina': ENTRADA_CANTINA_LABELS,
   pesagem: PESAGEM_LABELS,
   'ordens-servico': ORDENS_SERVICO_LABELS,
+  'os-recebimentos': OS_RECEBIMENTOS_LABELS,
 }

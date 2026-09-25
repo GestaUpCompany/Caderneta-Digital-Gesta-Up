@@ -25,6 +25,8 @@ interface Props {
   titulo: React.ReactNode
   rotaForm: string
   extraActions?: React.ReactNode
+  // Filtro extra aplicado sobre os registros do store (ex: OS por tipo)
+  filtrarRegistro?: (registro: Registro) => boolean
 }
 
 
@@ -93,7 +95,7 @@ const formatFieldValue = (key: string, value: unknown): string => {
   return valueStr
 }
 
-export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActions }: Props) {
+export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActions, filtrarRegistro }: Props) {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
@@ -132,9 +134,13 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     temFiltrosAtivos,
   } = useSearchFiltros(registros)
 
-  // Filtragem específica para maternidade
+  // Filtragem específica para maternidade + filtro extra opcional do caller
   const registrosFiltradosFinal = useMemo(() => {
     let resultado = registrosFiltrados
+
+    if (filtrarRegistro) {
+      resultado = resultado.filter(filtrarRegistro)
+    }
 
     if (caderneta === 'maternidade') {
       if (filtroSexo) {
@@ -146,7 +152,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     }
 
     return resultado
-  }, [registrosFiltrados, caderneta, filtroSexo, filtroTipoParto])
+  }, [registrosFiltrados, caderneta, filtroSexo, filtroTipoParto, filtrarRegistro])
 
   // const handleExportCSV = () => exportToCSV(registrosFiltradosFinal, `${caderneta}_export`, colunas)
   // const handleExportJSON = () => exportToJSON(registrosFiltradosFinal, `${caderneta}_export`)

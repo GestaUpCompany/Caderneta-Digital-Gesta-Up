@@ -939,7 +939,7 @@ function isValidDateFutura(value: string): boolean {
   )
 }
 
-const TIPOS_MANEJO_PESAGEM = ['abate', 'compra', 'venda_vivo', 'transf_saida', 'transf_entrada', 'apartacao']
+const TIPOS_MANEJO_PESAGEM = ['abate', 'compra', 'venda_vivo', 'transf_saida', 'transf_entrada', 'apartacao', 'processamento']
 const IDADES_ERA = ['0-4m', '5-12m', '13-24m', '25-36m', '>36m']
 
 export function validateOrdensServico(data: Record<string, unknown>): ValidationResult {
@@ -948,8 +948,28 @@ export function validateOrdensServico(data: Record<string, unknown>): Validation
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
 
-  // Por ora só o comunicado de venda usa este store; compra/transferência
-  // terão validadores próprios quando os fluxos forem implementados.
+  // Compra: laudo de compra (origem, animais, preço, pagamento, transporte)
+  if ((data.tipo as string) === 'compra') {
+    if (!isNonEmptyString(data.fornecedor))
+      errors.push({ field: 'fornecedor', message: 'Proprietário/fornecedor é obrigatório' })
+    if (!isNonEmptyString(data.origemFazenda))
+      errors.push({ field: 'origemFazenda', message: 'Fazenda de origem é obrigatória' })
+    if (!isPositiveNumber(data.quantidadePrevista) || Number(data.quantidadePrevista) <= 0)
+      errors.push({ field: 'quantidadePrevista', message: 'Quantidade de animais deve ser maior que zero' })
+    if (!['Macho', 'Fêmea', 'Misto'].includes(data.sexo as string))
+      errors.push({ field: 'sexo', message: 'Selecione o sexo (Macho, Fêmea ou Misto)' })
+    if (!isNonEmptyString(data.modoPreco) || !['por_kg', 'por_ua'].includes(data.modoPreco as string))
+      errors.push({ field: 'modoPreco', message: 'Selecione o modo de preço (por KG ou por UA)' })
+    if (!isValidDateFutura(data.dataChegadaPrevista as string))
+      errors.push({ field: 'dataChegadaPrevista', message: 'Data prevista de chegada inválida. Use DD/MM/AAAA' })
+    if (data.valorTotalPrevisto !== undefined && data.valorTotalPrevisto !== null && data.valorTotalPrevisto !== '' && !isPositiveNumber(data.valorTotalPrevisto))
+      errors.push({ field: 'valorTotalPrevisto', message: 'Valor total deve ser um número válido' })
+    if (data.formaPagamento && !['pix', 'boleto', 'ted', 'dinheiro'].includes(data.formaPagamento as string))
+      errors.push({ field: 'formaPagamento', message: 'Forma de pagamento inválida' })
+    return { isValid: errors.length === 0, errors }
+  }
+
+  // Transferência ainda não tem fluxo próprio
   if ((data.tipo as string) !== 'venda') {
     return { isValid: errors.length === 0, errors }
   }
@@ -1048,7 +1068,33 @@ export function validatePesagem(data: Record<string, unknown>): ValidationResult
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico'
+export function validateOsRecebimento(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+
+  if (!isNonEmptyString(data.osId))
+    errors.push({ field: 'osId', message: 'Selecione a OS de compra' })
+  if (!isNonEmptyString(data.numeroGta))
+    errors.push({ field: 'numeroGta', message: 'Número da GTA é obrigatório' })
+  if (!isValidDate(data.dataChegada as string))
+    errors.push({ field: 'dataChegada', message: 'Data de chegada inválida. Use DD/MM/AAAA' })
+
+  const contagens = data.contagens as { categoria: string; femeas: number; machos: number }[] | undefined
+  const total = (contagens || []).reduce((s, c) => s + (Number(c.femeas) || 0) + (Number(c.machos) || 0), 0)
+  if (!Array.isArray(contagens) || total <= 0)
+    errors.push({ field: 'contagens', message: 'Informe a quantidade recebida por categoria/sexo' })
+  if (!isNonEmptyString(data.loteId))
+    errors.push({ field: 'loteId', message: 'Selecione o lote de destino' })
+
+  if (!isNonEmptyString(data.responsavel))
+    errors.push({ field: 'responsavel', message: 'Responsável é obrigatório' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
@@ -1077,6 +1123,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'entrada-almoxarifado': validateEntradaAlmoxarifado,
   'entrada-cantina': validateEntradaCantina,
   'ordens-servico': validateOrdensServico,
+  'os-recebimentos': validateOsRecebimento,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

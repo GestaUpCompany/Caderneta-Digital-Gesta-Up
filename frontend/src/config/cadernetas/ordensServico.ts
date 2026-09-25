@@ -6,22 +6,66 @@ const TIPO_VENDA_LABEL: Record<string, string> = {
   animal_vivo: 'Animal Vivo',
 }
 
+const MODO_PRECO_LABEL: Record<string, string> = {
+  por_kg: 'Por KG',
+  por_ua: 'Por UA',
+}
+
+const FORMA_PAGAMENTO_LABEL: Record<string, string> = {
+  pix: 'PIX',
+  boleto: 'Boleto',
+  ted: 'TED',
+  dinheiro: 'Dinheiro',
+}
+
 export const ordensServicoConfig: CadernetaDisplayConfig = {
   sections: [
     { title: 'ORDEM DE SERVIÇO', order: 1, icon: '📄' },
     { title: 'PARTES', order: 2, icon: '🤝' },
+    { title: 'ORIGEM', order: 2, icon: '📍' },
     { title: 'ANIMAIS', order: 3, icon: '🐄' },
     { title: 'DATAS E VALORES', order: 4, icon: '📅' },
-    { title: 'OBSERVAÇÃO', order: 5, icon: '📝' },
+    { title: 'PAGAMENTO E FRETE', order: 5, icon: '💰' },
+    { title: 'OBSERVAÇÃO', order: 6, icon: '📝' },
   ],
   fieldConfig: {
     numeroOs: { key: 'numeroOs', label: 'Nº OS', section: 'ORDEM DE SERVIÇO', priority: 1 },
+    tipo: {
+      key: 'tipo',
+      label: 'TIPO',
+      section: 'ORDEM DE SERVIÇO',
+      priority: 1,
+      format: (v) => String(v || 'venda').toUpperCase(),
+    },
     tipoVenda: {
       key: 'tipoVenda',
       label: 'TIPO DA VENDA',
       section: 'ORDEM DE SERVIÇO',
       priority: 2,
+      condition: (r) => (r.tipo || 'venda') === 'venda',
       format: (v) => TIPO_VENDA_LABEL[String(v)] || String(v),
+    },
+    // Compra: origem/fornecedor
+    origemFazenda: {
+      key: 'origemFazenda',
+      label: 'FAZENDA DE ORIGEM',
+      section: 'ORIGEM',
+      priority: 1,
+      condition: (r) => r.tipo === 'compra',
+    },
+    fornecedor: {
+      key: 'fornecedor',
+      label: 'PROPRIETÁRIO/FORNECEDOR',
+      section: 'ORIGEM',
+      priority: 2,
+      condition: (r) => r.tipo === 'compra',
+    },
+    origemMunicipioUf: {
+      key: 'origemMunicipioUf',
+      label: 'MUNICÍPIO/UF',
+      section: 'ORIGEM',
+      priority: 3,
+      condition: (r) => r.tipo === 'compra',
     },
     statusOs: {
       key: 'statusOs',
@@ -30,25 +74,42 @@ export const ordensServicoConfig: CadernetaDisplayConfig = {
       priority: 3,
       format: (v) => String(v || 'Aberta').toUpperCase().replace(/_/g, ' '),
     },
-    vendedor: { key: 'vendedor', section: 'PARTES', priority: 1 },
-    comprador: { key: 'comprador', section: 'PARTES', priority: 2 },
+    vendedor: {
+      key: 'vendedor',
+      section: 'PARTES',
+      priority: 1,
+      condition: (r) => (r.tipo || 'venda') === 'venda',
+    },
+    comprador: {
+      key: 'comprador',
+      section: 'PARTES',
+      priority: 2,
+      condition: (r) => (r.tipo || 'venda') === 'venda',
+    },
     vendaDireta: {
       key: 'vendaDireta',
       label: 'VENDA DIRETA',
       section: 'PARTES',
       priority: 3,
+      condition: (r) => (r.tipo || 'venda') === 'venda',
       format: (v) => (v === false ? 'Não' : 'Sim'),
     },
     corretora: {
       key: 'corretora',
       section: 'PARTES',
       priority: 4,
-      condition: (r) => r.vendaDireta === false,
+      condition: (r) => (r.tipo || 'venda') === 'venda' && r.vendaDireta === false,
     },
     quantidadePrevista: { key: 'quantidadePrevista', section: 'ANIMAIS', priority: 1 },
     sexo: { key: 'sexo', section: 'ANIMAIS', priority: 2 },
     idadeEra: { key: 'idadeEra', section: 'ANIMAIS', priority: 3 },
-    dataPrevistaEmbarque: { key: 'dataPrevistaEmbarque', section: 'DATAS E VALORES', priority: 1 },
+    dataPrevistaEmbarque: {
+      key: 'dataPrevistaEmbarque',
+      label: 'DATA PREVISTA',
+      section: 'DATAS E VALORES',
+      priority: 1,
+      format: (v, r) => `${String(v)}${r.tipo === 'compra' ? ' (chegada)' : ''}`,
+    },
     dataPrevistaAbate: {
       key: 'dataPrevistaAbate',
       section: 'DATAS E VALORES',
@@ -60,9 +121,50 @@ export const ordensServicoConfig: CadernetaDisplayConfig = {
       key: 'precoArroba',
       section: 'DATAS E VALORES',
       priority: 4,
+      condition: (r) => (r.tipo || 'venda') === 'venda',
       format: (v) => `R$ ${formatarNumeroBR(v as any)}/@`,
+    },
+    // Compra: preço/pagamento/frete
+    modoPreco: {
+      key: 'modoPreco',
+      label: 'MODO DE PREÇO',
+      section: 'PAGAMENTO E FRETE',
+      priority: 1,
+      condition: (r) => r.tipo === 'compra',
+      format: (v) => MODO_PRECO_LABEL[String(v)] || String(v || '—'),
+    },
+    valorTotalPrevisto: {
+      key: 'valorTotalPrevisto',
+      label: 'VALOR TOTAL PREVISTO',
+      section: 'PAGAMENTO E FRETE',
+      priority: 2,
+      condition: (r) => r.tipo === 'compra',
+      format: (v) => `R$ ${formatarNumeroBR(v as any)}`,
+    },
+    formaPagamento: {
+      key: 'formaPagamento',
+      label: 'FORMA DE PAGAMENTO',
+      section: 'PAGAMENTO E FRETE',
+      priority: 3,
+      condition: (r) => r.tipo === 'compra',
+      format: (v) => FORMA_PAGAMENTO_LABEL[String(v)] || String(v || '—'),
+    },
+    dataSaida: {
+      key: 'dataSaida',
+      label: 'DATA DE SAÍDA',
+      section: 'PAGAMENTO E FRETE',
+      priority: 4,
+      condition: (r) => r.tipo === 'compra',
+    },
+    valorFrete: {
+      key: 'valorFrete',
+      label: 'VALOR DO FRETE',
+      section: 'PAGAMENTO E FRETE',
+      priority: 5,
+      condition: (r) => r.tipo === 'compra',
+      format: (v) => `R$ ${formatarNumeroBR(v as any)}`,
     },
     observacao: { key: 'observacao', section: 'OBSERVAÇÃO', priority: 1, colSpan: 2 },
   },
-  hiddenFields: ['tipo', 'osId', 'supabaseId', 'syncError'],
+  hiddenFields: ['osId', 'supabaseId', 'syncError', 'compraDetalhes'],
 }

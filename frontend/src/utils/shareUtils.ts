@@ -174,6 +174,7 @@ const PESAGEM_TIPOS_MANEJO: Record<string, string> = {
   transf_saida: 'Transf. saída',
   transf_entrada: 'Transf. entrada',
   apartacao: 'Apartação',
+  processamento: 'Processamento',
 }
 
 const horaDeIso = (iso: unknown): string | null => {
@@ -304,12 +305,95 @@ const formatarComunicadoVendaComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+// Comunicado de compra (laudo de compra): texto compartilhável para WhatsApp.
+const formatarComunicadoCompraComoTexto = (registro: Registro): string => {
+  const det = (registro.compraDetalhes || {}) as any
+  const modoPreco = registro.modoPreco === 'por_kg' ? 'POR KG' : registro.modoPreco === 'por_ua' ? 'POR UA' : null
+  const valorKg = normalizarNumero(det.valorKg)
+  const valorUa = normalizarNumero(det.valorUa)
+  const total = normalizarNumero(registro.valorTotalPrevisto as any)
+
+  let texto = `📋 *COMUNICADO DE COMPRA*\n`
+  if (registro.numeroOs) texto += `🔢 OS: *${registro.numeroOs}*\n`
+  texto += `📅 Data: ${String(registro.data ?? '')}\n\n`
+
+  texto += `ORIGEM: *${registro.origemFazenda || '—'}*`
+  if (registro.origemMunicipioUf) texto += ` (${registro.origemMunicipioUf})`
+  texto += `\nPROPRIETÁRIO: *${registro.fornecedor || '—'}*\n\n`
+
+  texto += `QUANTIDADE: *${registro.quantidadePrevista || '—'} cabeças*\n`
+  texto += `SEXO: *${registro.sexo || '—'}*\n`
+  if (registro.idadeEra) texto += `IDADE (ERA): *${registro.idadeEra}*\n`
+  if (det.categoria) texto += `CATEGORIA: *${det.categoria}*\n`
+  if (det.raca) texto += `RAÇA: *${det.raca}*\n`
+  texto += `\n`
+
+  if (modoPreco) texto += `PREÇO: *${modoPreco}*\n`
+  if (valorKg !== null) texto += `VALOR/KG: *R$ ${formatarNumeroBR(valorKg)}*\n`
+  if (valorUa !== null) texto += `VALOR/UA: *R$ ${formatarNumeroBR(valorUa)}*${det.pesoMedioUa ? ` (${formatarNumeroBR(normalizarNumero(det.pesoMedioUa) || 0)} kg/cab)` : ''}\n`
+  if (total !== null) texto += `TOTAL PREVISTO: *R$ ${formatarNumeroBR(total)}*\n`
+  if (registro.dataPrevistaEmbarque) texto += `CHEGADA PREVISTA: *${registro.dataPrevistaEmbarque}*\n`
+
+  if (registro.observacao) texto += `\n📝 ${registro.observacao}\n`
+  if (registro.responsavel || registro.usuario) texto += `\n👤 ${registro.responsavel || registro.usuario}\n`
+  return texto.trimEnd()
+}
+
+// Laudo de recebimento de compra (por carga/GTA).
+const formatarRecebimentoComoTexto = (registro: Registro): string => {
+  const contagens = (registro.contagens || []) as { categoria: string; femeas: number; machos: number }[]
+  const total = contagens.reduce((s, c) => s + (c.femeas || 0) + (c.machos || 0), 0)
+
+  let texto = `📥 *LAUDO DE RECEBIMENTO*\n`
+  if (registro.numeroOs) texto += `🔢 OS: *${registro.numeroOs}*\n`
+  if (registro.numeroGta) texto += `🧾 GTA: *${registro.numeroGta}*\n`
+  if (registro.numeroNf) texto += `NF: ${registro.numeroNf}\n`
+  texto += `📅 Chegada: ${registro.dataChegada || registro.data || '—'}${registro.horaChegada ? ` ${registro.horaChegada}` : ''}\n`
+  if (registro.transportadora) texto += `🚛 ${registro.transportadora}`
+  if (registro.placaVeiculo) texto += ` • ${registro.placaVeiculo}`
+  if (registro.motorista) texto += ` • ${registro.motorista}`
+  if (registro.transportadora || registro.placaVeiculo || registro.motorista) texto += `\n`
+  texto += `\n`
+
+  texto += `RECEBIDOS: *${total} cabeças*\n`
+  for (const c of contagens) {
+    const partes: string[] = []
+    if (c.femeas > 0) partes.push(`${c.femeas}F`)
+    if (c.machos > 0) partes.push(`${c.machos}M`)
+    texto += `• ${c.categoria}: ${partes.join(' + ')}\n`
+  }
+  const balancao = normalizarNumero(registro.pesoMedioBalancao as any)
+  if (balancao !== null) texto += `PESO MÉDIO BALANÇO: *${formatarNumeroBR(balancao)} kg/cab*\n`
+  const origem = normalizarNumero(registro.pesoOrigem as any)
+  if (origem !== null) texto += `PESO ORIGEM: ${formatarNumeroBR(origem)} kg\n`
+
+  const achados = ((registro.checklist || []) as { item: string; resposta: string; observacao?: string | null }[])
+    .filter((c) => c.resposta === 'S')
+  if (achados.length > 0) {
+    texto += `\n⚠️ Achados:\n`
+    for (const a of achados) {
+      texto += `• ${a.item}${a.observacao ? ` — ${a.observacao}` : ''}\n`
+    }
+  }
+  if (registro.mortes && Number(registro.mortes) > 0) texto += `💀 Mortes no transporte: *${registro.mortes}*\n`
+  if (registro.loteNome) texto += `📍 Destino: ${registro.loteNome}${registro.destino ? ` (${registro.destino})` : ''}\n`
+
+  if (registro.observacao) texto += `\n📝 ${registro.observacao}\n`
+  if (registro.responsavel) texto += `\n👤 ${registro.responsavel}${registro.auxiliar ? ` / ${registro.auxiliar}` : ''}\n`
+  return texto.trimEnd()
+}
+
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   if (caderneta === 'pesagem') {
     return formatarPesagemComoTexto(registro, todosRegistros)
   }
   if (caderneta === 'ordens-servico') {
-    return formatarComunicadoVendaComoTexto(registro)
+    return registro.tipo === 'compra'
+      ? formatarComunicadoCompraComoTexto(registro)
+      : formatarComunicadoVendaComoTexto(registro)
+  }
+  if (caderneta === 'os-recebimentos') {
+    return formatarRecebimentoComoTexto(registro)
   }
   // Obter nome da caderneta
   const cadernetaInfo = CADERNETAS.find(c => c.id === caderneta)
@@ -1138,6 +1222,28 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const nota = leitura.nota !== null && leitura.nota !== undefined ? leitura.nota : '—'
         texto += `${data}: *${nota}*\n`
       })
+    }
+  } else if (caderneta === 'trato-confinamento') {
+    if (registro.responsavel || registro.usuario) {
+      texto += `RESPONSÁVEL: *${registro.responsavel || registro.usuario}*\n`
+    }
+    if (registro.curral) {
+      texto += `CURRAL: *${registro.curral}*\n`
+    }
+    if (registro.numeroLote) {
+      texto += `LOTE: *${registro.numeroLote}*\n`
+    }
+    if (registro.ordemTrato !== null && registro.ordemTrato !== undefined && registro.ordemTrato !== '') {
+      texto += `TRATO: *${registro.ordemTrato}*\n`
+    }
+    if (registro.kgPlanejado !== null && registro.kgPlanejado !== undefined && registro.kgPlanejado !== '') {
+      texto += `KG PLANEJADO: *${formatarNumeroBR(registro.kgPlanejado)} kg*\n`
+    }
+    if (registro.kgReal !== null && registro.kgReal !== undefined && registro.kgReal !== '') {
+      texto += `KG FORNECIDO: *${formatarNumeroBR(registro.kgReal)} kg*\n`
+    }
+    if (registro.leituraCochoNota !== null && registro.leituraCochoNota !== undefined && registro.leituraCochoNota !== '') {
+      texto += `LEITURA COCHO: *${registro.leituraCochoNota}*\n`
     }
   } else if (caderneta === 'enfermaria') {
     // Seção: INFORMAÇÕES BÁSICAS

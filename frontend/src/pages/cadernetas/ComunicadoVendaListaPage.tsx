@@ -6,6 +6,7 @@ export default function ComunicadoVendaListaPage() {
       caderneta="ordens-servico"
       titulo="COMUNICADOS DE VENDA"
       rotaForm="/caderneta/comunicado-venda"
+      filtrarRegistro={(r) => (r.tipo || 'venda') === 'venda'}
     />
   )
 }

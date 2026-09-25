@@ -41,6 +41,7 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   'entrada-almoxarifado': 'Almoxarifado (entrada)',
   'entrada-cantina': 'Cantina (entrada)',
   'ordens-servico': 'Ordens de Serviço',
+  'os-recebimentos': 'Recebimentos de OS',
 }
 
 interface SyncErrorModalProps {

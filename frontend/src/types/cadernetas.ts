@@ -235,6 +235,7 @@ export type TipoManejoPesagem =
   | 'transf_saida'
   | 'transf_entrada'
   | 'apartacao'
+  | 'processamento'
 
 export type IdadeEra = '0-4m' | '5-12m' | '13-24m' | '25-36m' | '>36m'
 
