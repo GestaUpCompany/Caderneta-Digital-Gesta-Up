@@ -20,6 +20,7 @@ interface ConfigState {
   expedienteTimezone: string
   expedienteDias: ExpedienteDias | null
   acessoConfinamento: boolean
+  travaSuplementacao: boolean
   funcionarioId: string
   funcionarioNome: string
   funcionarioCadernetas: string[]
@@ -38,6 +39,7 @@ const initialState: ConfigState = {
   expedienteTimezone: 'America/Cuiaba',
   expedienteDias: null,
   acessoConfinamento: false,
+  travaSuplementacao: false,
   funcionarioId: '',
   funcionarioNome: '',
   funcionarioCadernetas: [],

@@ -2,6 +2,12 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Trava opcional de suplementação por lote e dia (25/09/2026)
+
+Adicionada a trava retrocompatível de no máximo um trato por lote por dia. A fazenda controla a ativação por `fazendas.trava_suplementacao`, cujo padrão é `false`; fazendas existentes e PWAs antigos continuam podendo sincronizar porque `data_local` é opcional e o índice é parcial. Quando habilitada, o PWA verifica o IndexedDB, os registros carregados e faz uma consulta online com timeout; o banco permanece como garantia contra corridas entre aparelhos offline. A data local é calculada no fuso da fazenda e erros de unicidade `23505` recebem mensagem orientando a correção pelo administrativo.
+
+A migration foi aplicada antes do PWA e a flag foi ativada apenas na fazenda de testes `d649c65e-16ab-4b77-a84b-df937aa41cc3`. A implementação mantém o comportamento original quando a flag está desligada.
+
 ## Share de entrada-combustivel com campos crus e tanqueId exposto (25/09/2026)
 
 O texto compartilhável de `entrada-combustivel` saía como dump genérico de chaves (`TANQUEID`, `TANQUENOME`, `QUANTIDADEL`, `VALORTOTAL`, `PRECOPORLITRO` em ponto decimal), porque a caderneta não tinha bloco dedicado em `formatarRegistroComoTexto` (`shareUtils.ts`) e caía no fallback que imprime `key.toUpperCase()` para todos os campos do registro. Adicionado bloco `else if (caderneta === 'entrada-combustivel')` no padrão das demais: COMBUSTÍVEL, TANQUE (nome, sem o id), QUANTIDADE em L, VALOR TOTAL e PREÇO POR LITRO em `R$` pt-BR, e FORNECEDOR/PLACA DO VEÍCULO/MOTORISTA/NOTA FISCAL/OBSERVAÇÃO/RESPONSÁVEL quando preenchidos. `tanqueId` nunca entra no texto.

@@ -2661,6 +2661,7 @@ export type Database = {
           telefone: string | null
           timezone: string | null
           tolerancia_rotina_minutos: number | null
+          trava_suplementacao: boolean
           updated_at: string | null
         }
         Insert: {
@@ -2685,6 +2686,7 @@ export type Database = {
           telefone?: string | null
           timezone?: string | null
           tolerancia_rotina_minutos?: number | null
+          trava_suplementacao?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -2709,6 +2711,7 @@ export type Database = {
           telefone?: string | null
           timezone?: string | null
           tolerancia_rotina_minutos?: number | null
+          trava_suplementacao?: boolean
           updated_at?: string | null
         }
         Relationships: [
@@ -9398,6 +9401,7 @@ export type Database = {
           created_at: string | null
           custo_medio_reais_cab_dia: number | null
           data: string
+          data_local: string | null
           deleted_at: string | null
           dispositivo_id: string | null
           escopo: string
@@ -9442,6 +9446,7 @@ export type Database = {
           created_at?: string | null
           custo_medio_reais_cab_dia?: number | null
           data: string
+          data_local?: string | null
           deleted_at?: string | null
           dispositivo_id?: string | null
           escopo?: string
@@ -9486,6 +9491,7 @@ export type Database = {
           created_at?: string | null
           custo_medio_reais_cab_dia?: number | null
           data?: string
+          data_local?: string | null
           deleted_at?: string | null
           dispositivo_id?: string | null
           escopo?: string

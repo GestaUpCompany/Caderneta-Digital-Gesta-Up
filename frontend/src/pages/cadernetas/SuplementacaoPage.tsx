@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
@@ -7,8 +7,10 @@ import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import { calcularPeriodoTrato } from '../../utils/shareUtils'
 import PdfModal from '../../components/PdfModal'
-import { salvarRegistro } from '../../services/api'
-import { todayBR } from '../../utils/formatDate'
+import { salvarRegistro, listarRegistros } from '../../services/api'
+import { getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
+import { getFarmTimezoneAsync } from '../../services/checklistRegrasService'
+import { todayBR, brToIso, getDateTimePartsInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
@@ -150,7 +152,7 @@ const makeInitial = (): FormState => ({
 
 export default function SuplementacaoPage() {
   const navigate = useNavigate()
-  const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
+  const { usuario, fazendaId, travaSuplementacao } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('suplementacao')
   const { garantirExecucao } = useExecucaoRotina()
   const {
@@ -692,6 +694,69 @@ export default function SuplementacaoPage() {
   }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto, semPlanoAtivo, isSacaria, adultoAtivo, creepAtivo, adultoPreenchido, creepPreenchido, temCreepDisponivel, creepFormulacaoDetalhes, isSacariaCreep])
 
   const { isValid } = useFormValidation(form, validationRules)
+  const verificandoTravaRef = useRef(false)
+
+  const verificarTratoDuplicado = async (): Promise<any | null> => {
+    if (!travaSuplementacao || !fazendaId || !form.loteId || !form.data) return null
+    const diaBR = form.data
+    const tz = await getFarmTimezoneAsync().catch(() => DEFAULT_FARM_TIMEZONE)
+    const mesmoDia = (iso: unknown): boolean => {
+      const d = new Date(String(iso))
+      if (isNaN(d.getTime())) return false
+      const p = getDateTimePartsInTimezone(d, tz)
+      return `${p.day}/${p.month}/${p.year}` === diaBR
+    }
+
+    try {
+      const locais = await listarRegistros('suplementacao')
+      const dup = locais.find(
+        (r) => !r.isTestRecord && r.loteId === form.loteId && String(r.data || '').split(' ')[0] === diaBR
+      )
+      if (dup) return dup
+    } catch (error) {
+      console.warn('[SuplementacaoPage] Trava: falha ao ler IndexedDB:', error)
+    }
+
+    const dupPuxado = (registrosSuplementacao || []).find(
+      (r: any) => r.lote_id === form.loteId && !r.deleted_at && mesmoDia(r.data)
+    )
+    if (dupPuxado) return dupPuxado
+
+    if (navigator.onLine) {
+      try {
+        const frescos = await Promise.race([
+          getRegistrosSuplementacaoByLote(fazendaId, form.loteId),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+        ])
+        const dupOnline = (frescos || []).find((r: any) => !r.deleted_at && mesmoDia(r.data))
+        if (dupOnline) return dupOnline
+      } catch (error) {
+        console.warn('[SuplementacaoPage] Trava: consulta online falhou, seguindo com verificação local:', error)
+      }
+    }
+    return null
+  }
+
+  const handleSalvarClick = async () => {
+    if (verificandoTravaRef.current) return
+    verificandoTravaRef.current = true
+    try {
+      const dup = await verificarTratoDuplicado()
+      if (dup) {
+        const quem = dup.tratador || dup.usuario || dup.nome_usuario
+        const novosErros = [{
+          field: 'numeroLote',
+          message: `Já existe um trato lançado nesta data para este lote${quem ? ` (por ${quem})` : ''}. Para corrigir, solicite ao administrativo no painel.`,
+        }]
+        setErrors(novosErros)
+        scrollToFirstError(novosErros)
+        return
+      }
+      salvar(executarSalvamento)
+    } finally {
+      verificandoTravaRef.current = false
+    }
+  }
 
   const executarSalvamento = async () => {
     setErrors([])
@@ -726,6 +791,7 @@ export default function SuplementacaoPage() {
 
     const result = await salvarRegistro('suplementacao', {
       data: form.data,
+      dataLocal: travaSuplementacao ? brToIso(form.data) : null,
       tratador: usuario,
       usuario: usuario,
       pasto: form.pasto,
@@ -1262,7 +1328,7 @@ export default function SuplementacaoPage() {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => salvar(executarSalvamento)}
+            onClick={handleSalvarClick}
             disabled={salvando || !isValid}
             className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
               salvando || !isValid

@@ -276,6 +276,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
+        data_local: registro.dataLocal || null,
         tratador: registro.tratador || null,
         pasto: registro.pasto || null,
         pasto_id: registro.pastoId || null,
@@ -1521,12 +1522,39 @@ export async function processQueue(
     } catch (err) {
       console.error(`[SYNC] Erro ao sincronizar ${item.store}/${item.registroId}:`, err)
 
-      // Sem retries automáticos: remover da fila, marcar como erro, persistir syncError local.
-      // O reenvio manual (botão REENVIAR) continua como válvula de escape para falhas transitórias.
       const { code, message, details } = extractErrorInfo(err)
+      if (code === '23505' && item.store === 'suplementacao' && fazendaId && registro) {
+        try {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { data: existing } = await client
+            .from('registros_suplementacao')
+            .select('id')
+            .eq('fazenda_id', fazendaId)
+            .eq('local_id', registro.id)
+            .maybeSingle()
+          if (existing) {
+            await removeFromSyncQueue(item.id)
+            await updateRegistro(item.store, item.registroId, {
+              ...registro,
+              supabaseId: existing.id,
+              syncStatus: 'synced',
+              syncError: null,
+            })
+            synced++
+            remaining--
+            onProgress?.(remaining)
+            continue
+          }
+        } catch (reconcileError) {
+          console.warn('[SYNC] Não foi possível reconciliar duplicata idempotente:', reconcileError)
+        }
+      }
+
       const syncError: SyncError = {
         code,
-        message,
+        message: code === '23505' && item.store === 'suplementacao'
+          ? 'Já existe um trato lançado nesta data para este lote. Este registro não foi enviado; a correção é feita pelo administrativo no painel.'
+          : message,
         details,
         retryCount: item.retryCount + 1,
         failedAt: new Date().toISOString(),
