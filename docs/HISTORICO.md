@@ -69,6 +69,8 @@ O label `PERÍODO DE TRATO` no texto compartilhável de suplementação só apar
 
 Uma tentativa de unificar o share do `SuccessModal` e do `ListaRegistros` num `shareService` único foi implementada e validada em browser (textos idênticos nos dois fluxos, em suplementação e bebedouros), mas revertida no mesmo dia por decisão do usuário: a auditoria mostrou divergências pré-existentes que a unificação não resolveria (campos anexados só ao `registroSalvo` e não persistidos: `n_cabecas_apos_obito` na morte, `metaRodeio` no rodeio, `categoriasEntrada` na movimentação) e modos de falha novos (share do modal passaria a depender de leitura async do IndexedDB, risco de perder a janela de ativação do `navigator.share`). Detalhes no `docs/BACKLOG.md`, seção "Unificação do share de registro".
 
+Em 25/09/2026 surgiu uma segunda causa de label ausente, reportada na fazenda Guanabara: `calcularPeriodoTrato` usava `Math.floor(diffMs / 86400000)` sobre o tempo decorrido, então tratos do mesmo lote com menos de 24h de intervalo (rotina comum: trato à tarde e de novo na manhã seguinte, ~16h) retornavam 0 dias e o label era omitido. O cálculo passou a comparar dias de calendário (datas sem hora), coerente com `diferencaDias` de `supplementMetrics.ts`/`LeituraCochoPage.tsx`: datas consecutivas dão "1 dia" independente do horário; dois registros no mesmo dia continuam sem label.
+
 **Disparador**: quando mencionar "período de trato", `periodoTratoDias`, `calcularPeriodoTrato`, ou share de suplementação sem o label de dias, ler esta seção.
 
 ## Creep feeding: suplementação por alvo na SuplementacaoPage (23/09/2026)

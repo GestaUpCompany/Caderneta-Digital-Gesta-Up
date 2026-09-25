@@ -153,8 +153,12 @@ export function calcularPeriodoTrato(registroAtual: Registro, todosRegistros?: R
 
   if (!dataAnteriorMaisProxima) return null
 
-  const diffMs = dataAtual.getTime() - dataAnteriorMaisProxima.getTime()
-  const dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+  // Período em dias de calendário (sem hora): tratos em datas consecutivas
+  // contam 1 dia mesmo com menos de 24h entre eles (ex.: 14h de ontem e 7h
+  // de hoje). Com floor de 24h esses casos viravam 0 e o label sumia do share.
+  const diaAtual = new Date(dataAtual.getFullYear(), dataAtual.getMonth(), dataAtual.getDate())
+  const diaAnterior = new Date(dataAnteriorMaisProxima.getFullYear(), dataAnteriorMaisProxima.getMonth(), dataAnteriorMaisProxima.getDate())
+  const dias = Math.round((diaAtual.getTime() - diaAnterior.getTime()) / (1000 * 60 * 60 * 24))
 
   if (dias > 0) {
     return `${dias} dia${dias !== 1 ? 's' : ''}`
