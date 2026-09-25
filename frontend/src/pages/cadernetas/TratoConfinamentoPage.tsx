@@ -450,7 +450,7 @@ export default function TratoConfinamentoPage() {
           const kgMnDia = ocupacao.kg_mn_dia_dia1 != null ? Number(ocupacao.kg_mn_dia_dia1) : null
 
           if (isDia1) {
-            // Dia 1: usa o alvo da ocupação; sem alvo fica "a definir"
+            // Dia 1: usa o previsto da ocupação; sem previsto fica "a definir"
             kgBaseDia = kgMnDia
             kgPlanejado = kgMnDia != null ? kgMnDia * (percentualTrato / 100) : null
           } else if (totalRealDiaAnterior !== null && totalRealDiaAnterior > 0) {
