@@ -25,7 +25,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ProgramacaoHojePage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, funcionarioNome, fazendaId, acessoConfinamento } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, funcionarioNome, fazendaId, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
   const { programacao, horarios, loading, refresh } = useProgramacaoHoje()
 
   // Carregar regras de checklist uma única vez para a página inteira,
@@ -94,12 +94,14 @@ export default function ProgramacaoHojePage() {
   const temRegras = regrasChecklist.length > 0
 
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
+  const CADERNETAS_COMERCIAL = ['comunicado-venda', 'comunicado-compra', 'recebimento-compra']
 
   const programacaoMap = new Map(programacao.map((id) => [id, true]))
   const cadernetasProgramadas = CADERNETAS.filter(
     (c) => c.disponivel && programacaoMap.has(c.id)
   ).filter(c => {
     if (CADERNETAS_CONFINAMENTO.includes(c.id) && !acessoConfinamento) return false
+    if (CADERNETAS_COMERCIAL.includes(c.id) && !acessoComercial) return false
     return true
   })
 

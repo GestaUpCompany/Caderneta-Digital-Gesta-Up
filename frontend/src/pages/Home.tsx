@@ -188,6 +188,7 @@ export default function Home() {
         dispatch(setConfig({
           controleAcessoHabilitado: fazendaData.controle_acesso_habilitado,
           acessoConfinamento: fazendaData.acesso_confinamento || false,
+          acessoComercial: fazendaData.acesso_comercial || false,
           travaSuplementacao: fazendaData.trava_suplementacao || false,
           expedienteHabilitado: !!fazendaData.expediente_habilitado,
           expedienteTimezone: fazendaData.expediente_timezone || 'America/Cuiaba',

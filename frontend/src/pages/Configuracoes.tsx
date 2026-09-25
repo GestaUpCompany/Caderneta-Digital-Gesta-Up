@@ -38,7 +38,7 @@ export default function Configuracoes() {
     return newErrors.length === 0
   }
 
-  const validarFazendaNoSupabase = async (acessoIdRaw: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean; travaSuplementacao?: boolean }> => {
+  const validarFazendaNoSupabase = async (acessoIdRaw: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean; acessoComercial?: boolean; travaSuplementacao?: boolean }> => {
     const acessoId = acessoIdRaw.toLowerCase()
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
@@ -109,6 +109,7 @@ export default function Configuracoes() {
           logoUrl: fazenda.logo_url || undefined,
           controleAcessoHabilitado: fazenda.controle_acesso_habilitado || false,
           acessoConfinamento: fazenda.acesso_confinamento || false,
+          acessoComercial: fazenda.acesso_comercial || false,
           travaSuplementacao: fazenda.trava_suplementacao || false,
         }
       }
@@ -136,6 +137,7 @@ export default function Configuracoes() {
       logoUrl: resultSupabase.logoUrl,
       controleAcessoHabilitado: resultSupabase.controleAcessoHabilitado,
       acessoConfinamento: resultSupabase.acessoConfinamento,
+      acessoComercial: resultSupabase.acessoComercial,
       travaSuplementacao: resultSupabase.travaSuplementacao,
     }
 
@@ -168,6 +170,7 @@ export default function Configuracoes() {
       logoUrl: validacaoSupabase.logoUrl,
       controleAcessoHabilitado: validacaoSupabase.controleAcessoHabilitado || false,
       acessoConfinamento: validacaoSupabase.acessoConfinamento || false,
+      acessoComercial: validacaoSupabase.acessoComercial || false,
       travaSuplementacao: validacaoSupabase.travaSuplementacao || false,
     }
 

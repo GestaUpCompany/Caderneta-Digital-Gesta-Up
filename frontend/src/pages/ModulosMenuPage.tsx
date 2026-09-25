@@ -18,7 +18,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -27,6 +27,7 @@ export default function ModulosMenuPage() {
   const { programacao, loading: programacaoLoading } = useProgramacaoHoje()
 
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
+  const CADERNETAS_COMERCIAL = ['comunicado-venda', 'comunicado-compra', 'recebimento-compra']
 
   const cadernetasPermitidas = useMemo(() => {
     let lista = CADERNETAS
@@ -36,6 +37,11 @@ export default function ModulosMenuPage() {
       lista = lista.filter(c => !CADERNETAS_CONFINAMENTO.includes(c.id))
     }
 
+    // Filtro por módulo comercial (feature flag por fazenda)
+    if (!acessoComercial) {
+      lista = lista.filter(c => !CADERNETAS_COMERCIAL.includes(c.id))
+    }
+
     // Filtro RBAC (controle de acesso por funcionário)
     if (rbacAtivo) {
       const permitidas = new Set(funcionarioCadernetas)
@@ -43,7 +49,7 @@ export default function ModulosMenuPage() {
     }
 
     return lista
-  }, [rbacAtivo, funcionarioCadernetas, acessoConfinamento])
+  }, [rbacAtivo, funcionarioCadernetas, acessoConfinamento, acessoComercial])
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())
