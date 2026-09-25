@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Listas de Leitura de Cocho e Trato Confinamento + share do trato (25/09/2026)
+
+Criadas `LeituraCochoListaPage.tsx` e `TratoConfinamentoListaPage.tsx` como wrappers de `ListaRegistros`, no mesmo padrão das demais cadernetas, com rotas `/caderneta/leitura-cocho/lista` e `/caderneta/trato-confinamento/lista` em `App.tsx`. A lista de trato tornou o compartilhamento da caderneta alcançável pela UI pela primeira vez, o que expôs o fallback genérico de `shareUtils.ts`: o texto saía como dump de chaves cruas (`CURRALID`, `LOTEID`, `PROGRAMACAOID`, `KGPLANEJADO`). Adicionado bloco dedicado `else if (caderneta === 'trato-confinamento')` em `formatarRegistroComoTexto` com RESPONSÁVEL, CURRAL, LOTE, TRATO (ordem), KG PLANEJADO, KG FORNECIDO e LEITURA COCHO (nota), sempre sem os IDs internos. `SyncErrorModal` também recebeu o label de `os-recebimentos`, que faltava no `Record<CadernetaStore, string>` e quebrava o typecheck.
+
+Os cards da lista usavam o mesmo dump genérico (sem `CADERNETA_DISPLAY_CONFIG` as chaves viram `key.toUpperCase()`). Criados `config/cadernetas/leituraCocho.ts` e `config/cadernetas/tratoConfinamento.ts`, registrados em `config/cadernetas/index.ts`, com labels amigáveis (RESPONSÁVEL, CURRAL, LOTE, TRATO, KG PLANEJADO, KG FORNECIDO, LEITURA COCHO) e kg formatado em pt-BR; os IDs internos ficam em `hiddenFields`.
+
+**Disparador**: quando mencionar share do trato com campos crus, `PROGRAMACAOID`/`LOTEID`/`CURRALID`/`NOTACONFIGID` no texto ou no card, ou as telas de lista de leitura de cocho/trato, ler esta seção.
+
 ## Trava opcional de suplementação por lote e dia (25/09/2026)
 
 Adicionada a trava retrocompatível de no máximo um trato por lote por dia. A fazenda controla a ativação por `fazendas.trava_suplementacao`, cujo padrão é `false`; fazendas existentes e PWAs antigos continuam podendo sincronizar porque `data_local` é opcional e o índice é parcial. Quando habilitada, o PWA verifica o IndexedDB, os registros carregados e faz uma consulta online com timeout; o banco permanece como garantia contra corridas entre aparelhos offline. A data local é calculada no fuso da fazenda e erros de unicidade `23505` recebem mensagem orientando a correção pelo administrativo.
