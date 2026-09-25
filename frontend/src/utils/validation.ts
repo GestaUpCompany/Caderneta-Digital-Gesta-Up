@@ -960,11 +960,11 @@ export function validateOrdensServico(data: Record<string, unknown>): Validation
       errors.push({ field: 'sexo', message: 'Selecione o sexo (Macho, Fêmea ou Misto)' })
     if (!IDADES_ERA.includes(data.idadeEra as string))
       errors.push({ field: 'idadeEra', message: 'Selecione a idade (era)' })
-    if (!isValidDate(data.dataSaida as string))
+    if (!isValidDateFutura(data.dataSaida as string))
       errors.push({ field: 'dataSaida', message: 'Data de embarque inválida. Use DD/MM/AAAA' })
     // O form de compra mapeia "data de chegada na fazenda" para o mesmo campo da
     // venda (dataPrevistaEmbarque); aceita os dois nomes por segurança.
-    if (!isValidDate((data.dataPrevistaEmbarque ?? data.dataChegadaPrevista) as string))
+    if (!isValidDateFutura((data.dataPrevistaEmbarque ?? data.dataChegadaPrevista) as string))
       errors.push({ field: 'dataPrevistaEmbarque', message: 'Data de chegada inválida. Use DD/MM/AAAA' })
     return { isValid: errors.length === 0, errors }
   }
