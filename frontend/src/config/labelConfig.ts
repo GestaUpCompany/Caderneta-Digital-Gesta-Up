@@ -378,13 +378,13 @@ const ORDENS_SERVICO_LABELS = {
   precoArroba: 'PREÇO POR ARROBA (R$)',
   dataPrevistaPagamento: 'DATA PREVISTA PAGAMENTO',
   // Compra
-  fornecedor: 'PROPRIETÁRIO/FORNECEDOR',
+  fornecedor: 'EMPRESA',
   origemFazenda: 'FAZENDA DE ORIGEM',
   origemMunicipioUf: 'MUNICÍPIO/UF',
   modoPreco: 'MODO DE PREÇO',
   valorTotalPrevisto: 'VALOR TOTAL PREVISTO (R$)',
   formaPagamento: 'FORMA DE PAGAMENTO',
-  dataSaida: 'DATA DE SAÍDA',
+  dataSaida: 'DATA DE EMBARQUE',
   valorFrete: 'VALOR DO FRETE (R$)',
   observacao: 'OBSERVAÇÃO',
 }

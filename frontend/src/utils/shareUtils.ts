@@ -284,10 +284,8 @@ const formatarComunicadoVendaComoTexto = (registro: Registro): string => {
   texto += `🏷️ Tipo: *${tipoVenda}*\n\n`
 
   texto += `VENDEDOR: *${registro.vendedor || '—'}*\n`
-  texto += `COMPRADOR: *${registro.comprador || '—'}*\n`
-  if (registro.vendaDireta === false) {
-    texto += `CORRETORA/INTERMEDIÁRIO: *${registro.corretora || '—'}*\n`
-  }
+  texto += `EMPRESA: *${registro.comprador || '—'}*\n`
+  texto += `CORRETORA: *${registro.vendaDireta === false ? (registro.corretora || '—') : 'Direto'}*\n`
   texto += `\n`
 
   texto += `QUANTIDADE: *${registro.quantidadePrevista || '—'} cabeças*\n`
@@ -305,34 +303,22 @@ const formatarComunicadoVendaComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
-// Comunicado de compra (laudo de compra): texto compartilhável para WhatsApp.
+// Comunicado de compra: texto compartilhável formatado para WhatsApp.
 const formatarComunicadoCompraComoTexto = (registro: Registro): string => {
-  const det = (registro.compraDetalhes || {}) as any
-  const modoPreco = registro.modoPreco === 'por_kg' ? 'POR KG' : registro.modoPreco === 'por_ua' ? 'POR UA' : null
-  const valorKg = normalizarNumero(det.valorKg)
-  const valorUa = normalizarNumero(det.valorUa)
-  const total = normalizarNumero(registro.valorTotalPrevisto as any)
-
   let texto = `📋 *COMUNICADO DE COMPRA*\n`
   if (registro.numeroOs) texto += `🔢 OS: *${registro.numeroOs}*\n`
   texto += `📅 Data: ${String(registro.data ?? '')}\n\n`
 
-  texto += `ORIGEM: *${registro.origemFazenda || '—'}*`
-  if (registro.origemMunicipioUf) texto += ` (${registro.origemMunicipioUf})`
-  texto += `\nPROPRIETÁRIO: *${registro.fornecedor || '—'}*\n\n`
+  texto += `COMPRADOR: *${registro.comprador || '—'}*\n`
+  texto += `EMPRESA: *${registro.fornecedor || '—'}*\n\n`
 
-  texto += `QUANTIDADE: *${registro.quantidadePrevista || '—'} cabeças*\n`
+  texto += `ANIMAIS: *${registro.quantidadePrevista || '—'} cab*\n`
   texto += `SEXO: *${registro.sexo || '—'}*\n`
-  if (registro.idadeEra) texto += `IDADE (ERA): *${registro.idadeEra}*\n`
-  if (det.categoria) texto += `CATEGORIA: *${det.categoria}*\n`
-  if (det.raca) texto += `RAÇA: *${det.raca}*\n`
+  if (registro.idadeEra) texto += `ERA: *${registro.idadeEra}*\n`
   texto += `\n`
 
-  if (modoPreco) texto += `PREÇO: *${modoPreco}*\n`
-  if (valorKg !== null) texto += `VALOR/KG: *R$ ${formatarNumeroBR(valorKg)}*\n`
-  if (valorUa !== null) texto += `VALOR/UA: *R$ ${formatarNumeroBR(valorUa)}*${det.pesoMedioUa ? ` (${formatarNumeroBR(normalizarNumero(det.pesoMedioUa) || 0)} kg/cab)` : ''}\n`
-  if (total !== null) texto += `TOTAL PREVISTO: *R$ ${formatarNumeroBR(total)}*\n`
-  if (registro.dataPrevistaEmbarque) texto += `CHEGADA PREVISTA: *${registro.dataPrevistaEmbarque}*\n`
+  if (registro.dataSaida) texto += `EMBARQUE: *${registro.dataSaida}*\n`
+  if (registro.dataPrevistaEmbarque) texto += `CHEGADA FAZENDA: *${registro.dataPrevistaEmbarque}*\n`
 
   if (registro.observacao) texto += `\n📝 ${registro.observacao}\n`
   if (registro.responsavel || registro.usuario) texto += `\n👤 ${registro.responsavel || registro.usuario}\n`

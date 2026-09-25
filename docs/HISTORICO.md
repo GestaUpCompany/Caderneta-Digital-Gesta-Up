@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Comunicados de compra e venda simplificados (27/09/2026)
+
+Os comunicados viraram mensagens curtas para a equipe de gado (só o essencial para se preparar), seguindo o modelo fornecido pelo usuário.
+
+- **Compra** (`ComunicadoCompraPage`): de ~30 campos para 8 obrigatórios + observação: COMPRADOR (quem negociou pela fazenda, novo uso da coluna `comprador`), EMPRESA (quem vendeu, coluna `fornecedor`), QUANTIDADE, SEXO, ERA, DATA DE EMBARQUE (coluna `data_saida`) e DATA DE CHEGADA NA FAZENDA (coluna `data_prevista_embarque`, que a compra já reutilizava). Cortados do formulário: origem/localização/município, categoria, raça, jejum, tipo de pesagem, todo o bloco de preço (modo, valor/kg, valor/UA, total previsto), pagamento/favorecido, transporte (já coletado por carga no recebimento), corretagem, histórico nutricional e despesas. `compra_detalhes` deixa de ser preenchido; as colunas permanecem no schema e OS antigas seguem íntegras.
+- **Venda** (`ComunicadoVendaPage`): já estava próxima do modelo; o label COMPRADOR virou EMPRESA.
+- **`validation.ts`**: a compra exige só comprador, empresa, quantidade, sexo, era, embarque e chegada; caíram as exigências de fazenda de origem e modo de preço.
+- **`shareUtils.ts`**: corpos do WhatsApp refeitos no formato do modelo (COMPRADOR/EMPRESA/ANIMAIS/SEXO/ERA/EMBARQUE/CHEGADA na compra; VENDEDOR/EMPRESA/ANIMAIS/SEXO/ERA/EMBARQUE/ABATE/PREÇO/PAGAMENTO/CORRETORA na venda, com "CORRETORA: Direto" quando a venda é direta).
+- **Display config `ordensServico.ts`** e `labelConfig.ts`: fornecedor rotulado EMPRESA, dataSaida rotulada EMBARQUE, comprador exibido também para compra, e os campos legados (origem, modo de preço, valor total, forma de pagamento, frete) só aparecem quando preenchidos, preservando registros antigos.
+
+**Disparador**: quando mencionar comunicado simplificado, campos removidos da compra, EMPRESA no lugar de fornecedor, ou o corpo do WhatsApp dos comunicados, ler esta seção.
+
 ## Módulo de Compra: comunicado + recebimento por carga + processamento (27/09/2026)
 
 Segunda operação comercial sobre a arquitetura de OS da venda. O comunicado de compra (`ComunicadoCompraPage`, store `ordens-servico` com `tipo='compra'`) espelha o laudo de compra: origem, animais, preço por KG ou por UA, pagamento/favorecido, transporte, corretagem, histórico nutricional e despesas; o núcleo consultável vai em colunas e o restante em `compra_detalhes` jsonb. A lista de compra filtra `tipo='compra'` (o `ListaRegistros` ganhou prop `filtro` e a lista de venda passou a filtrar `tipo='venda'` para não misturar).

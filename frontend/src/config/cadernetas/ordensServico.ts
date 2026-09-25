@@ -45,27 +45,34 @@ export const ordensServicoConfig: CadernetaDisplayConfig = {
       condition: (r) => (r.tipo || 'venda') === 'venda',
       format: (v) => TIPO_VENDA_LABEL[String(v)] || String(v),
     },
-    // Compra: origem/fornecedor
-    origemFazenda: {
-      key: 'origemFazenda',
-      label: 'FAZENDA DE ORIGEM',
-      section: 'ORIGEM',
+    // Compra: comprador/empresa (e origem legada quando houver)
+    compradorOs: {
+      key: 'comprador',
+      label: 'COMPRADOR',
+      section: 'PARTES',
       priority: 1,
       condition: (r) => r.tipo === 'compra',
     },
     fornecedor: {
       key: 'fornecedor',
-      label: 'PROPRIETÁRIO/FORNECEDOR',
-      section: 'ORIGEM',
+      label: 'EMPRESA',
+      section: 'PARTES',
       priority: 2,
       condition: (r) => r.tipo === 'compra',
+    },
+    origemFazenda: {
+      key: 'origemFazenda',
+      label: 'FAZENDA DE ORIGEM',
+      section: 'ORIGEM',
+      priority: 1,
+      condition: (r) => r.tipo === 'compra' && !!r.origemFazenda,
     },
     origemMunicipioUf: {
       key: 'origemMunicipioUf',
       label: 'MUNICÍPIO/UF',
       section: 'ORIGEM',
       priority: 3,
-      condition: (r) => r.tipo === 'compra',
+      condition: (r) => r.tipo === 'compra' && !!r.origemMunicipioUf,
     },
     statusOs: {
       key: 'statusOs',
@@ -124,13 +131,13 @@ export const ordensServicoConfig: CadernetaDisplayConfig = {
       condition: (r) => (r.tipo || 'venda') === 'venda',
       format: (v) => `R$ ${formatarNumeroBR(v as any)}/@`,
     },
-    // Compra: preço/pagamento/frete
+    // Compra: preço/pagamento/frete (legado — só exibe quando preenchido)
     modoPreco: {
       key: 'modoPreco',
       label: 'MODO DE PREÇO',
       section: 'PAGAMENTO E FRETE',
       priority: 1,
-      condition: (r) => r.tipo === 'compra',
+      condition: (r) => r.tipo === 'compra' && !!r.modoPreco,
       format: (v) => MODO_PRECO_LABEL[String(v)] || String(v || '—'),
     },
     valorTotalPrevisto: {
@@ -138,7 +145,7 @@ export const ordensServicoConfig: CadernetaDisplayConfig = {
       label: 'VALOR TOTAL PREVISTO',
       section: 'PAGAMENTO E FRETE',
       priority: 2,
-      condition: (r) => r.tipo === 'compra',
+      condition: (r) => r.tipo === 'compra' && r.valorTotalPrevisto != null,
       format: (v) => `R$ ${formatarNumeroBR(v as any)}`,
     },
     formaPagamento: {
@@ -146,23 +153,23 @@ export const ordensServicoConfig: CadernetaDisplayConfig = {
       label: 'FORMA DE PAGAMENTO',
       section: 'PAGAMENTO E FRETE',
       priority: 3,
-      condition: (r) => r.tipo === 'compra',
+      condition: (r) => r.tipo === 'compra' && !!r.formaPagamento,
       format: (v) => FORMA_PAGAMENTO_LABEL[String(v)] || String(v || '—'),
-    },
-    dataSaida: {
-      key: 'dataSaida',
-      label: 'DATA DE SAÍDA',
-      section: 'PAGAMENTO E FRETE',
-      priority: 4,
-      condition: (r) => r.tipo === 'compra',
     },
     valorFrete: {
       key: 'valorFrete',
       label: 'VALOR DO FRETE',
       section: 'PAGAMENTO E FRETE',
       priority: 5,
-      condition: (r) => r.tipo === 'compra',
+      condition: (r) => r.tipo === 'compra' && r.valorFrete != null,
       format: (v) => `R$ ${formatarNumeroBR(v as any)}`,
+    },
+    dataSaida: {
+      key: 'dataSaida',
+      label: 'EMBARQUE',
+      section: 'DATAS E VALORES',
+      priority: 0,
+      condition: (r) => r.tipo === 'compra',
     },
     observacao: { key: 'observacao', section: 'OBSERVAÇÃO', priority: 1, colSpan: 2 },
   },

@@ -182,8 +182,8 @@ export default function ComunicadoVendaPage() {
             error={getError('vendedor')}
           />
           <Input
-            label={<span>COMPRADOR <span className="text-red-500">*</span></span>}
-            placeholder="Ex: Frigorífico X / Fazenda Y"
+            label={<span>EMPRESA <span className="text-red-500">*</span></span>}
+            placeholder="Ex: Frigorífico Pantanal / Fazenda Y"
             value={form.comprador}
             onChange={setInput('comprador')}
             error={getError('comprador')}

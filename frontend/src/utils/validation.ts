@@ -948,24 +948,24 @@ export function validateOrdensServico(data: Record<string, unknown>): Validation
   if (!isValidDate(data.data as string))
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
 
-  // Compra: laudo de compra (origem, animais, preço, pagamento, transporte)
+  // Compra: comunicado simplificado (comprador, empresa, animais, datas)
   if ((data.tipo as string) === 'compra') {
+    if (!isNonEmptyString(data.comprador))
+      errors.push({ field: 'comprador', message: 'Comprador é obrigatório' })
     if (!isNonEmptyString(data.fornecedor))
-      errors.push({ field: 'fornecedor', message: 'Proprietário/fornecedor é obrigatório' })
-    if (!isNonEmptyString(data.origemFazenda))
-      errors.push({ field: 'origemFazenda', message: 'Fazenda de origem é obrigatória' })
+      errors.push({ field: 'fornecedor', message: 'Empresa é obrigatória' })
     if (!isPositiveNumber(data.quantidadePrevista) || Number(data.quantidadePrevista) <= 0)
       errors.push({ field: 'quantidadePrevista', message: 'Quantidade de animais deve ser maior que zero' })
     if (!['Macho', 'Fêmea', 'Misto'].includes(data.sexo as string))
       errors.push({ field: 'sexo', message: 'Selecione o sexo (Macho, Fêmea ou Misto)' })
-    if (!isNonEmptyString(data.modoPreco) || !['por_kg', 'por_ua'].includes(data.modoPreco as string))
-      errors.push({ field: 'modoPreco', message: 'Selecione o modo de preço (por KG ou por UA)' })
-    if (!isValidDateFutura(data.dataChegadaPrevista as string))
-      errors.push({ field: 'dataChegadaPrevista', message: 'Data prevista de chegada inválida. Use DD/MM/AAAA' })
-    if (data.valorTotalPrevisto !== undefined && data.valorTotalPrevisto !== null && data.valorTotalPrevisto !== '' && !isPositiveNumber(data.valorTotalPrevisto))
-      errors.push({ field: 'valorTotalPrevisto', message: 'Valor total deve ser um número válido' })
-    if (data.formaPagamento && !['pix', 'boleto', 'ted', 'dinheiro'].includes(data.formaPagamento as string))
-      errors.push({ field: 'formaPagamento', message: 'Forma de pagamento inválida' })
+    if (!IDADES_ERA.includes(data.idadeEra as string))
+      errors.push({ field: 'idadeEra', message: 'Selecione a idade (era)' })
+    if (!isValidDate(data.dataSaida as string))
+      errors.push({ field: 'dataSaida', message: 'Data de embarque inválida. Use DD/MM/AAAA' })
+    // O form de compra mapeia "data de chegada na fazenda" para o mesmo campo da
+    // venda (dataPrevistaEmbarque); aceita os dois nomes por segurança.
+    if (!isValidDate((data.dataPrevistaEmbarque ?? data.dataChegadaPrevista) as string))
+      errors.push({ field: 'dataPrevistaEmbarque', message: 'Data de chegada inválida. Use DD/MM/AAAA' })
     return { isValid: errors.length === 0, errors }
   }
 

@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, Select, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Input, Select, DatePicker, ValidationMessage } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
-import { normalizarNumero } from '../../utils/formatNumber'
 import { RootState } from '../../store/store'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -16,90 +15,25 @@ import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 
 interface FormState {
   data: string
-  // Origem
-  origemFazenda: string
+  comprador: string
   fornecedor: string
-  origemLocalizacao: string
-  origemMunicipioUf: string
-  // Animais
   quantidadePrevista: string
   sexo: string
   idadeEra: string
-  categoria: string
-  raca: string
-  jejumHoras: string
-  tipoPesagem: string
-  // Preço
-  modoPreco: string
-  valorKg: string
-  pesoMedioUa: string
-  valorUa: string
-  valorTotalPrevisto: string
-  // Pagamento
-  formaPagamento: string
-  favorecidoNome: string
-  favorecidoCpfCnpj: string
-  favorecidoBanco: string
-  favorecidoPixConta: string
-  // Transporte
-  transportadora: string
-  motorista: string
-  tipoVeiculo: string
-  placaVeiculo: string
-  placaReboque: string
   dataSaida: string
-  dataChegadaPrevista: string
-  distanciaKm: string
-  valorFrete: string
-  // Corretagem
-  temCorretor: string
-  corretorNome: string
-  corretorComissao: string
-  corretorDadosBancarios: string
-  // Extras
-  historicoNutricional: string
-  despesas: string
+  dataPrevistaEmbarque: string
   observacao: string
 }
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  origemFazenda: '',
+  comprador: '',
   fornecedor: '',
-  origemLocalizacao: '',
-  origemMunicipioUf: '',
   quantidadePrevista: '',
   sexo: '',
   idadeEra: '',
-  categoria: '',
-  raca: '',
-  jejumHoras: '',
-  tipoPesagem: 'coletivo',
-  modoPreco: '',
-  valorKg: '',
-  pesoMedioUa: '',
-  valorUa: '',
-  valorTotalPrevisto: '',
-  formaPagamento: '',
-  favorecidoNome: '',
-  favorecidoCpfCnpj: '',
-  favorecidoBanco: '',
-  favorecidoPixConta: '',
-  transportadora: '',
-  motorista: '',
-  tipoVeiculo: '',
-  placaVeiculo: '',
-  placaReboque: '',
   dataSaida: '',
-  dataChegadaPrevista: '',
-  distanciaKm: '',
-  valorFrete: '',
-  temCorretor: 'N',
-  corretorNome: '',
-  corretorComissao: '',
-  corretorDadosBancarios: '',
-  historicoNutricional: '',
-  despesas: '',
+  dataPrevistaEmbarque: '',
   observacao: '',
 })
 
@@ -120,7 +54,7 @@ export default function ComunicadoCompraPage() {
 
   const validationRules: any = {
     data: { required: true },
-    origemFazenda: { required: true },
+    comprador: { required: true },
     fornecedor: { required: true },
     quantidadePrevista: {
       required: true,
@@ -130,24 +64,9 @@ export default function ComunicadoCompraPage() {
       },
     },
     sexo: { required: true },
-    modoPreco: { required: true },
-    dataChegadaPrevista: { required: true },
-    valorUa: {
-      custom: (_v: string, f: FormState) =>
-        f.modoPreco === 'por_ua' && !f.valorUa.trim() ? 'Informe o valor por UA' : null,
-    },
-    pesoMedioUa: {
-      custom: (_v: string, f: FormState) =>
-        f.modoPreco === 'por_ua' && !f.pesoMedioUa.trim() ? 'Informe o peso médio para UA' : null,
-    },
-    valorKg: {
-      custom: (_v: string, f: FormState) =>
-        f.modoPreco === 'por_kg' && !f.valorKg.trim() ? 'Informe o valor por KG' : null,
-    },
-    corretorNome: {
-      custom: (_v: string, f: FormState) =>
-        f.temCorretor === 'S' && !f.corretorNome.trim() ? 'Campo obrigatório' : null,
-    },
+    idadeEra: { required: true },
+    dataSaida: { required: true },
+    dataPrevistaEmbarque: { required: true },
     _responsavel: {
       custom: () => (!usuario || usuario.trim() === '') ? 'Responsável é obrigatório' : null,
     },
@@ -165,53 +84,15 @@ export default function ComunicadoCompraPage() {
       data: form.data,
       usuario: usuario,
       tipo: 'compra',
+      comprador: form.comprador.trim(),
       fornecedor: form.fornecedor.trim(),
-      origemFazenda: form.origemFazenda.trim(),
-      origemMunicipioUf: form.origemMunicipioUf.trim() || null,
       quantidadePrevista: Number(form.quantidadePrevista),
       sexo: form.sexo,
       idadeEra: form.idadeEra || null,
-      modoPreco: form.modoPreco,
-      valorTotalPrevisto: normalizarNumero(form.valorTotalPrevisto),
-      formaPagamento: form.formaPagamento || null,
       dataSaida: form.dataSaida || null,
-      dataPrevistaEmbarque: form.dataChegadaPrevista,
-      valorFrete: normalizarNumero(form.valorFrete),
+      dataPrevistaEmbarque: form.dataPrevistaEmbarque,
       observacao: form.observacao.trim() || null,
       statusOs: 'aberta',
-      compraDetalhes: {
-        origemLocalizacao: form.origemLocalizacao.trim() || null,
-        categoria: form.categoria || null,
-        raca: form.raca.trim() || null,
-        jejumHoras: form.jejumHoras ? Number(form.jejumHoras) : null,
-        tipoPesagem: form.tipoPesagem || null,
-        valorKg: normalizarNumero(form.valorKg),
-        pesoMedioUa: normalizarNumero(form.pesoMedioUa),
-        valorUa: normalizarNumero(form.valorUa),
-        favorecido: {
-          nome: form.favorecidoNome.trim() || null,
-          cpfCnpj: form.favorecidoCpfCnpj.trim() || null,
-          banco: form.favorecidoBanco.trim() || null,
-          pixConta: form.favorecidoPixConta.trim() || null,
-        },
-        transporte: {
-          transportadora: form.transportadora.trim() || null,
-          motorista: form.motorista.trim() || null,
-          tipoVeiculo: form.tipoVeiculo.trim() || null,
-          placaVeiculo: form.placaVeiculo.trim() || null,
-          placaReboque: form.placaReboque.trim() || null,
-          distanciaKm: normalizarNumero(form.distanciaKm),
-        },
-        corretor: form.temCorretor === 'S'
-          ? {
-              nome: form.corretorNome.trim(),
-              comissao: normalizarNumero(form.corretorComissao),
-              dadosBancarios: form.corretorDadosBancarios.trim() || null,
-            }
-          : null,
-        historicoNutricional: form.historicoNutricional.trim() || null,
-        despesas: form.despesas.trim() || null,
-      },
     })
 
     setSalvando(false)
@@ -250,34 +131,22 @@ export default function ComunicadoCompraPage() {
         />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 1: Origem */}
+        {/* Seção 1: Partes */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ORIGEM</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. PARTES</h2>
           <Input
-            label={<span>FAZENDA DE ORIGEM <span className="text-red-500">*</span></span>}
-            placeholder="Ex: Fazenda Boa Vista"
-            value={form.origemFazenda}
-            onChange={setInput('origemFazenda')}
-            error={getError('origemFazenda')}
+            label={<span>COMPRADOR <span className="text-red-500">*</span></span>}
+            placeholder="Quem negociou a compra pela fazenda"
+            value={form.comprador}
+            onChange={setInput('comprador')}
+            error={getError('comprador')}
           />
           <Input
-            label={<span>PROPRIETÁRIO/FORNECEDOR <span className="text-red-500">*</span></span>}
-            placeholder="Nome do proprietário"
+            label={<span>EMPRESA <span className="text-red-500">*</span></span>}
+            placeholder="Ex: Frigorífico Pantanal / Fazenda Santa Rosa"
             value={form.fornecedor}
             onChange={setInput('fornecedor')}
             error={getError('fornecedor')}
-          />
-          <Input
-            label="LOCALIZAÇÃO"
-            placeholder="Ex: Zona Rural, km 12"
-            value={form.origemLocalizacao}
-            onChange={setInput('origemLocalizacao')}
-          />
-          <Input
-            label="MUNICÍPIO/UF"
-            placeholder="Ex: Cáceres/MT"
-            value={form.origemMunicipioUf}
-            onChange={setInput('origemMunicipioUf')}
           />
         </div>
 
@@ -286,7 +155,7 @@ export default function ComunicadoCompraPage() {
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ANIMAIS</h2>
           <Input
             label={<span>QUANTIDADE DE ANIMAIS <span className="text-red-500">*</span></span>}
-            placeholder="Ex: 50"
+            placeholder="Ex: 130"
             value={form.quantidadePrevista}
             onChange={setInput('quantidadePrevista')}
             error={getError('quantidadePrevista')}
@@ -306,9 +175,10 @@ export default function ComunicadoCompraPage() {
             ]}
           />
           <Select
-            label="IDADE (ERA)"
+            label="IDADE (ERA) *"
             value={form.idadeEra}
             onChange={(e) => setForm((prev) => ({ ...prev, idadeEra: e.target.value }))}
+            error={getError('idadeEra')}
             options={[
               { value: '', label: 'Selecione...' },
               { value: '0-4m', label: '0 a 4 meses' },
@@ -318,253 +188,30 @@ export default function ComunicadoCompraPage() {
               { value: '>36m', label: 'Mais de 36 meses' },
             ]}
           />
-          <Input
-            label="CATEGORIA"
-            placeholder="Ex: Garrote, Novilha, Boi Magro"
-            value={form.categoria}
-            onChange={setInput('categoria')}
-          />
-          <Input
-            label="RAÇA"
-            placeholder="Ex: Nelore"
-            value={form.raca}
-            onChange={setInput('raca')}
-          />
-          <Input
-            label="JEJUM (HORAS)"
-            placeholder="Ex: 12"
-            value={form.jejumHoras}
-            onChange={setInput('jejumHoras')}
-            type="number"
-            inputMode="numeric"
-          />
-          <Radio
-            name="tipoPesagem"
-            label="TIPO DE PESAGEM PREVISTO"
-            value={form.tipoPesagem}
-            onChange={(v) => setForm((prev) => ({ ...prev, tipoPesagem: v }))}
-            options={[
-              { value: 'coletivo', label: 'COLETIVO (BALANÇO)' },
-              { value: 'individual', label: 'INDIVIDUAL' },
-            ]}
-            gridCols={2}
-          />
         </div>
 
-        {/* Seção 3: Preço */}
+        {/* Seção 3: Datas */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. PREÇO</h2>
-          <Radio
-            name="modoPreco"
-            label={<span>MODO DE PREÇO <span className="text-red-500">*</span></span>}
-            value={form.modoPreco}
-            onChange={(v) => setForm((prev) => ({ ...prev, modoPreco: v }))}
-            error={getError('modoPreco')}
-            options={[
-              { value: 'por_kg', label: 'POR KG' },
-              { value: 'por_ua', label: 'POR UA' },
-            ]}
-            gridCols={2}
-          />
-          {form.modoPreco === 'por_kg' && (
-            <Input
-              label={<span>VALOR POR KG (R$) <span className="text-red-500">*</span></span>}
-              placeholder="Ex: 9,80"
-              value={form.valorKg}
-              onChange={setInput('valorKg')}
-              error={getError('valorKg')}
-              inputMode="decimal"
-            />
-          )}
-          {form.modoPreco === 'por_ua' && (
-            <>
-              <Input
-                label={<span>PESO MÉDIO PARA UA (KG/CAB) <span className="text-red-500">*</span></span>}
-                placeholder="Ex: 450"
-                value={form.pesoMedioUa}
-                onChange={setInput('pesoMedioUa')}
-                error={getError('pesoMedioUa')}
-                inputMode="decimal"
-              />
-              <Input
-                label={<span>VALOR POR UA (R$) <span className="text-red-500">*</span></span>}
-                placeholder="Ex: 3.500,00"
-                value={form.valorUa}
-                onChange={setInput('valorUa')}
-                error={getError('valorUa')}
-                inputMode="decimal"
-              />
-            </>
-          )}
-          <Input
-            label="VALOR TOTAL PREVISTO (R$)"
-            placeholder="Ex: 175.000,00"
-            value={form.valorTotalPrevisto}
-            onChange={setInput('valorTotalPrevisto')}
-            error={getError('valorTotalPrevisto')}
-            inputMode="decimal"
-          />
-        </div>
-
-        {/* Seção 4: Pagamento */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. PAGAMENTO</h2>
-          <Select
-            label="FORMA DE PAGAMENTO"
-            value={form.formaPagamento}
-            onChange={(e) => setForm((prev) => ({ ...prev, formaPagamento: e.target.value }))}
-            error={getError('formaPagamento')}
-            options={[
-              { value: '', label: 'Selecione...' },
-              { value: 'pix', label: 'PIX' },
-              { value: 'boleto', label: 'Boleto' },
-              { value: 'ted', label: 'TED' },
-              { value: 'dinheiro', label: 'Dinheiro' },
-            ]}
-          />
-          <Input
-            label="FAVORECIDO (NOME)"
-            placeholder="Nome do favorecido"
-            value={form.favorecidoNome}
-            onChange={setInput('favorecidoNome')}
-          />
-          <Input
-            label="CPF/CNPJ DO FAVORECIDO"
-            placeholder="Ex: 123.456.789-00"
-            value={form.favorecidoCpfCnpj}
-            onChange={setInput('favorecidoCpfCnpj')}
-          />
-          <Input
-            label="BANCO"
-            placeholder="Ex: Banco do Brasil"
-            value={form.favorecidoBanco}
-            onChange={setInput('favorecidoBanco')}
-          />
-          <Input
-            label="CHAVE PIX / CONTA"
-            placeholder="Chave PIX ou agência e conta"
-            value={form.favorecidoPixConta}
-            onChange={setInput('favorecidoPixConta')}
-          />
-        </div>
-
-        {/* Seção 5: Transporte */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. TRANSPORTE</h2>
-          <Input
-            label="TRANSPORTADORA"
-            placeholder="Nome da transportadora"
-            value={form.transportadora}
-            onChange={setInput('transportadora')}
-          />
-          <Input
-            label="MOTORISTA"
-            placeholder="Nome do motorista"
-            value={form.motorista}
-            onChange={setInput('motorista')}
-          />
-          <Input
-            label="TIPO DE VEÍCULO"
-            placeholder="Ex: Bitrem, Truck"
-            value={form.tipoVeiculo}
-            onChange={setInput('tipoVeiculo')}
-          />
-          <Input
-            label="PLACA DO VEÍCULO"
-            placeholder="Ex: ABC-1234"
-            value={form.placaVeiculo}
-            onChange={setInput('placaVeiculo')}
-          />
-          <Input
-            label="PLACA DO REBOQUE"
-            placeholder="Ex: DEF-5678"
-            value={form.placaReboque}
-            onChange={setInput('placaReboque')}
-          />
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. DATAS</h2>
           <DatePicker
-            label="DATA DE SAÍDA"
+            label={<span>DATA DE EMBARQUE <span className="text-red-500">*</span></span>}
             value={form.dataSaida}
             onChange={(val) => setForm((prev) => ({ ...prev, dataSaida: val }))}
+            error={getError('dataSaida')}
           />
           <DatePicker
-            label={<span>DATA PREVISTA DE CHEGADA <span className="text-red-500">*</span></span>}
-            value={form.dataChegadaPrevista}
-            onChange={(val) => setForm((prev) => ({ ...prev, dataChegadaPrevista: val }))}
-            error={getError('dataChegadaPrevista')}
-          />
-          <Input
-            label="DISTÂNCIA (KM)"
-            placeholder="Ex: 350"
-            value={form.distanciaKm}
-            onChange={setInput('distanciaKm')}
-            inputMode="decimal"
-          />
-          <Input
-            label="VALOR DO FRETE (R$)"
-            placeholder="Ex: 4.500,00"
-            value={form.valorFrete}
-            onChange={setInput('valorFrete')}
-            inputMode="decimal"
+            label={<span>DATA DE CHEGADA NA FAZENDA <span className="text-red-500">*</span></span>}
+            value={form.dataPrevistaEmbarque}
+            onChange={(val) => setForm((prev) => ({ ...prev, dataPrevistaEmbarque: val }))}
+            error={getError('dataPrevistaEmbarque')}
           />
         </div>
 
-        {/* Seção 6: Corretagem */}
+        {/* Seção 4: Observação */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. CORRETAGEM</h2>
-          <Radio
-            name="temCorretor"
-            label="TEM CORRETOR?"
-            value={form.temCorretor}
-            onChange={(v) => setForm((prev) => ({ ...prev, temCorretor: v }))}
-            options={[
-              { value: 'S', label: 'SIM' },
-              { value: 'N', label: 'NÃO' },
-            ]}
-            gridCols={2}
-          />
-          {form.temCorretor === 'S' && (
-            <>
-              <Input
-                label={<span>CORRETOR <span className="text-red-500">*</span></span>}
-                placeholder="Nome do corretor"
-                value={form.corretorNome}
-                onChange={setInput('corretorNome')}
-                error={getError('corretorNome')}
-              />
-              <Input
-                label="COMISSÃO (%)"
-                placeholder="Ex: 2"
-                value={form.corretorComissao}
-                onChange={setInput('corretorComissao')}
-                inputMode="decimal"
-              />
-              <Input
-                label="DADOS BANCÁRIOS DO CORRETOR"
-                placeholder="Banco, agência, conta ou PIX"
-                value={form.corretorDadosBancarios}
-                onChange={setInput('corretorDadosBancarios')}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Seção 7: Extras */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. HISTÓRICO E DESPESAS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÃO</h2>
           <Input
-            label="HISTÓRICO NUTRICIONAL"
-            placeholder="Ex: Ração + sal mineral, há 60 dias"
-            value={form.historicoNutricional}
-            onChange={setInput('historicoNutricional')}
-          />
-          <Input
-            label="DESPESAS"
-            placeholder="Alimentação, hospedagem, combustível, outras"
-            value={form.despesas}
-            onChange={setInput('despesas')}
-          />
-          <Input
-            label="OBSERVAÇÃO"
+            label=""
             placeholder="Adicione observações (opcional)"
             value={form.observacao}
             onChange={setInput('observacao')}
