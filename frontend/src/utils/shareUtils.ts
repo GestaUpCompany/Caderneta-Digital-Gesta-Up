@@ -325,6 +325,28 @@ const formatarComunicadoCompraComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+// Comunicado de transferência entre fazendas do mesmo grupo.
+const formatarComunicadoTransferenciaComoTexto = (registro: Registro): string => {
+  let texto = `📋 *COMUNICADO DE TRANSFERÊNCIA*\n`
+  if (registro.numeroOs) texto += `🔢 OS: *${registro.numeroOs}*\n`
+  texto += `📅 Data: ${String(registro.data ?? '')}\n\n`
+
+  texto += `SOLICITANTE: *${registro.vendedor || '—'}*\n`
+  texto += `DESTINO: *${registro.fazendaDestinoNome || '—'}*\n\n`
+
+  texto += `ANIMAIS: *${registro.quantidadePrevista || '—'} cab*\n`
+  texto += `SEXO: *${registro.sexo || '—'}*\n`
+  if (registro.idadeEra) texto += `ERA: *${registro.idadeEra}*\n`
+  texto += `\n`
+
+  if (registro.dataSaida) texto += `EMBARQUE: *${registro.dataSaida}*\n`
+  if (registro.dataPrevistaEmbarque) texto += `CHEGADA NO DESTINO: *${registro.dataPrevistaEmbarque}*\n`
+
+  if (registro.observacao) texto += `\n📝 ${registro.observacao}\n`
+  if (registro.responsavel || registro.usuario) texto += `\n👤 ${registro.responsavel || registro.usuario}\n`
+  return texto.trimEnd()
+}
+
 // Laudo de recebimento de compra (por carga/GTA).
 const formatarRecebimentoComoTexto = (registro: Registro): string => {
   const contagens = (registro.contagens || []) as { categoria: string; femeas: number; machos: number }[]
@@ -374,9 +396,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     return formatarPesagemComoTexto(registro, todosRegistros)
   }
   if (caderneta === 'ordens-servico') {
-    return registro.tipo === 'compra'
-      ? formatarComunicadoCompraComoTexto(registro)
-      : formatarComunicadoVendaComoTexto(registro)
+    if (registro.tipo === 'compra') return formatarComunicadoCompraComoTexto(registro)
+    if (registro.tipo === 'transferencia') return formatarComunicadoTransferenciaComoTexto(registro)
+    return formatarComunicadoVendaComoTexto(registro)
   }
   if (caderneta === 'os-recebimentos') {
     return formatarRecebimentoComoTexto(registro)

@@ -5825,6 +5825,7 @@ export type Database = {
           data_prevista_pagamento: string | null
           deleted_at: string | null
           dispositivo_id: string | null
+          fazenda_destino_id: string | null
           fazenda_id: string
           id: string
           idade_era: string | null
@@ -5864,6 +5865,7 @@ export type Database = {
           data_prevista_pagamento?: string | null
           deleted_at?: string | null
           dispositivo_id?: string | null
+          fazenda_destino_id?: string | null
           fazenda_id: string
           id?: string
           idade_era?: string | null
@@ -5903,6 +5905,7 @@ export type Database = {
           data_prevista_pagamento?: string | null
           deleted_at?: string | null
           dispositivo_id?: string | null
+          fazenda_destino_id?: string | null
           fazenda_id?: string
           id?: string
           idade_era?: string | null

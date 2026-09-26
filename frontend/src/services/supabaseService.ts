@@ -3300,10 +3300,29 @@ export async function getOrdensServicoAbertas(fazendaId: string, tipo: string = 
   const statuses = tipo === 'compra' ? ['aberta', 'recebida'] : ['aberta']
   const { data, error } = await client
     .from('ordens_servico')
-    .select('id, numero_os, tipo, tipo_venda, status, quantidade_prevista, quantidade_embarcada, sexo, idade_era, data_prevista_embarque, data_prevista_abate, data_saida, vendedor, comprador, fornecedor, origem_fazenda, origem_municipio_uf, created_at')
+    .select('id, numero_os, tipo, tipo_venda, status, quantidade_prevista, quantidade_embarcada, sexo, idade_era, data_prevista_embarque, data_prevista_abate, data_saida, vendedor, comprador, fornecedor, origem_fazenda, origem_municipio_uf, fazenda_destino_id, fazenda_destino:fazendas!ordens_servico_fazenda_destino_id_fkey(nome), created_at')
     .eq('fazenda_id', fazendaId)
     .eq('tipo', tipo)
     .in('status', statuses)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data as any[]
+}
+
+// OS de transferência INBOUND: transferências embarcadas com destino a esta
+// fazenda (o recebimento por carga é registrado pelo peão do destino; a RLS
+// os_select_fazenda_destino permite o SELECT). 'recebida' continua elegível
+// porque a OS pode ter várias cargas.
+export async function getOrdensServicoTransferenciaEntrada(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('ordens_servico')
+    .select('id, numero_os, tipo, status, quantidade_prevista, quantidade_embarcada, sexo, idade_era, data_prevista_embarque, data_saida, vendedor, fazenda_id, fazenda_destino_id, fazenda_origem:fazendas!ordens_servico_fazenda_id_fkey(nome), created_at')
+    .eq('fazenda_destino_id', fazendaId)
+    .eq('tipo', 'transferencia')
+    .in('status', ['embarcada', 'recebida'])
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 

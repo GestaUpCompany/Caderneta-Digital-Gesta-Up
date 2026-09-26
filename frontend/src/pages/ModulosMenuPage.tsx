@@ -7,6 +7,7 @@ import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernet
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
 import { CalendarCheck, ChevronLeft } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
+import { getFazendasDoMesmoGrupoCached } from '../services/cadastroCache'
 
 // Função helper para converter HEX para RGBA com opacidade
 const hexToRgba = (hex: string, alpha: number = 0.25): string => {
@@ -18,16 +19,25 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
+  const [temFazendaNoGrupo, setTemFazendaNoGrupo] = useState(false)
 
   const rbacAtivo = controleAcessoHabilitado && funcionarioCadernetas.length > 0
   const { programacao, loading: programacaoLoading } = useProgramacaoHoje()
 
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
-  const CADERNETAS_COMERCIAL = ['comunicado-venda', 'comunicado-compra', 'recebimento-compra']
+  const CADERNETAS_COMERCIAL = ['comunicado-venda', 'comunicado-compra', 'recebimento-compra', 'comunicado-transferencia']
+
+  // Transferência só existe entre fazendas do mesmo grupo (2+ fazendas ativas)
+  useEffect(() => {
+    if (!fazendaId) return
+    getFazendasDoMesmoGrupoCached(fazendaId)
+      .then((lista) => setTemFazendaNoGrupo((lista || []).length > 0))
+      .catch(() => setTemFazendaNoGrupo(false))
+  }, [fazendaId])
 
   const cadernetasPermitidas = useMemo(() => {
     let lista = CADERNETAS
@@ -42,6 +52,11 @@ export default function ModulosMenuPage() {
       lista = lista.filter(c => !CADERNETAS_COMERCIAL.includes(c.id))
     }
 
+    // Transferência exige outra fazenda ativa no mesmo grupo
+    if (!temFazendaNoGrupo) {
+      lista = lista.filter(c => c.id !== 'comunicado-transferencia')
+    }
+
     // Filtro RBAC (controle de acesso por funcionário)
     if (rbacAtivo) {
       const permitidas = new Set(funcionarioCadernetas)
@@ -49,7 +64,7 @@ export default function ModulosMenuPage() {
     }
 
     return lista
-  }, [rbacAtivo, funcionarioCadernetas, acessoConfinamento, acessoComercial])
+  }, [rbacAtivo, funcionarioCadernetas, acessoConfinamento, acessoComercial, temFazendaNoGrupo])
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())

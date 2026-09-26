@@ -969,7 +969,25 @@ export function validateOrdensServico(data: Record<string, unknown>): Validation
     return { isValid: errors.length === 0, errors }
   }
 
-  // Transferência ainda não tem fluxo próprio
+  // Transferência: comunicado entre fazendas do mesmo grupo (sem acerto)
+  if ((data.tipo as string) === 'transferencia') {
+    if (!isNonEmptyString(data.vendedor))
+      errors.push({ field: 'vendedor', message: 'Solicitante é obrigatório' })
+    if (!isNonEmptyString(data.fazendaDestinoId))
+      errors.push({ field: 'fazendaDestinoId', message: 'Selecione a fazenda de destino' })
+    if (!isPositiveNumber(data.quantidadePrevista) || Number(data.quantidadePrevista) <= 0)
+      errors.push({ field: 'quantidadePrevista', message: 'Quantidade de animais deve ser maior que zero' })
+    if (!['Macho', 'Fêmea', 'Misto'].includes(data.sexo as string))
+      errors.push({ field: 'sexo', message: 'Selecione o sexo (Macho, Fêmea ou Misto)' })
+    if (!IDADES_ERA.includes(data.idadeEra as string))
+      errors.push({ field: 'idadeEra', message: 'Selecione a idade (era)' })
+    if (!isValidDateFutura(data.dataSaida as string))
+      errors.push({ field: 'dataSaida', message: 'Data de embarque inválida. Use DD/MM/AAAA' })
+    if (!isValidDateFutura(data.dataPrevistaEmbarque as string))
+      errors.push({ field: 'dataPrevistaEmbarque', message: 'Data de chegada no destino inválida. Use DD/MM/AAAA' })
+    return { isValid: errors.length === 0, errors }
+  }
+
   if ((data.tipo as string) !== 'venda') {
     return { isValid: errors.length === 0, errors }
   }
@@ -1010,12 +1028,15 @@ export function validatePesagem(data: Record<string, unknown>): ValidationResult
   if (!isNonEmptyString(data.tipoManejo) || !TIPOS_MANEJO_PESAGEM.includes(data.tipoManejo as string))
     errors.push({ field: 'tipoManejo', message: 'Tipo de manejo é obrigatório' })
 
-  // Abate e venda vivo são saídas comerciais: exigem OS de venda vinculada
+  // Abate, venda vivo e transferência de saída são saídas comerciais: exigem OS vinculada
   if (
     (data.tipoManejo === 'abate' || data.tipoManejo === 'venda_vivo') &&
     !isNonEmptyString(data.osId)
   ) {
     errors.push({ field: 'osId', message: 'Selecione a Ordem de Serviço de venda' })
+  }
+  if (data.tipoManejo === 'transf_saida' && !isNonEmptyString(data.osId)) {
+    errors.push({ field: 'osId', message: 'Selecione a Ordem de Serviço de transferência' })
   }
   const camposPreparacao: Record<string, string> = {
     equipeAjustada: 'Equipe ajustada',

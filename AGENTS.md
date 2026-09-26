@@ -9,7 +9,7 @@ Projeto Supabase: `nrwljcvhwbezmoummxbl` ("Cadernetas Digitais")
 
 ## Fazenda de testes
 
-`d649c65e-16ab-4b77-a84b-df937aa41cc3` ("Fazenda Gesta'Up") — usar sempre esta fazenda para testes que envolvam dados no Supabase. Não pertence a nenhum grupo (`grupo_id = null`), então funcionalidades que dependem de grupo (ex: Transferência entre fazendas) não são funcionais nela.
+`d649c65e-16ab-4b77-a84b-df937aa41cc3` ("Fazenda Gesta'Up") — usar sempre esta fazenda para testes que envolvam dados no Supabase. Pertence a um grupo junto com `a239c062-b374-4617-b803-1c53dd84dfea` ("Gesta'Up Teste"), o que permite E2E de transferência entre fazendas usando apenas fazendas de teste.
 
 ## Comandos
 

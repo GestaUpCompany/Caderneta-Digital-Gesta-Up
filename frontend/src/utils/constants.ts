@@ -73,6 +73,7 @@ export const CADERNETAS = [
   { id: 'comunicado-venda', label: 'COMUNICADO DE VENDA', emoji: '', icon: `${BASE}cadernetas/venda.png`, color: '#2F855A', disponivel: true, grupo: 'Comercial' },
   { id: 'comunicado-compra', label: 'COMUNICADO DE COMPRA', emoji: '', icon: `${BASE}cadernetas/venda.png`, color: '#1D4ED8', disponivel: true, grupo: 'Comercial' },
   { id: 'recebimento-compra', label: 'RECEBIMENTO', emoji: '', icon: `${BASE}cadernetas/movimentacao.png`, color: '#0E7490', disponivel: true, grupo: 'Comercial' },
+  { id: 'comunicado-transferencia', label: 'COMUNICADO DE TRANSFERÊNCIA', emoji: '', icon: `${BASE}cadernetas/movimentacao.png`, color: '#7C3AED', disponivel: true, grupo: 'Comercial' },
   { id: 'bebedouros', label: 'BEBEDOUROS', emoji: '', icon: `${BASE}cadernetas/bebedouros.png`, color: '#5B9BD5', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'limpeza', label: 'LIMPEZA', emoji: '', icon: `${BASE}cadernetas/limpeza.png`, color: '#10B981', disponivel: true, grupo: 'Infraestrutura & Geral' },
   { id: 'operacoes-maquinas', label: 'OPERAÇÕES MÁQUINAS', emoji: '', icon: `${BASE}cadernetas/operacoes-maquinas.png`, color: '#059669', disponivel: true, grupo: 'Máquinas' },

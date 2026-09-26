@@ -94,7 +94,7 @@ export default function ProgramacaoHojePage() {
   const temRegras = regrasChecklist.length > 0
 
   const CADERNETAS_CONFINAMENTO = ['leitura-cocho', 'trato-confinamento', 'fabrica-confinamento']
-  const CADERNETAS_COMERCIAL = ['comunicado-venda', 'comunicado-compra', 'recebimento-compra']
+  const CADERNETAS_COMERCIAL = ['comunicado-venda', 'comunicado-compra', 'recebimento-compra', 'comunicado-transferencia']
 
   const programacaoMap = new Map(programacao.map((id) => [id, true]))
   const cadernetasProgramadas = CADERNETAS.filter(

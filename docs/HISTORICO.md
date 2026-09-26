@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Módulo de transferência entre fazendas do grupo (27/09/2026)
+
+Terceiro comunicado do grupo **Comercial** (`comunicado-transferencia`), completando o módulo com venda e compra. Transferência é sempre entre fazendas do mesmo `grupo_id`: a OS tem `fazenda_id` = origem e `fazenda_destino_id` = destino (validados no banco, ver HISTORICO do painel). O comunicado (`ComunicadoTransferenciaPage`) tem solicitante, fazenda destino (select de `getFazendasDoMesmoGrupo`), quantidade, sexo, era, embarque, chegada prevista e observação. O menu só exibe a caderneta quando a fazenda tem `acessoComercial` e ao menos uma outra fazenda ativa no grupo (`modulosMenuGroups`/`ProgramacaoHojePage` checam `getFazendasDoMesmoGrupo`).
+
+Fluxo: comunicado → OS `aberta` → a Pesagem passa a listar OS de transferência da fazenda como origem (select mostra "TRA-...· Transferência → <destino>"), trava o manejo e gera `Saída/Transferência` com `fazenda_destino_id`, marcando indivíduos como `Transferido` → a caderneta Recebimento lista OS de transferência com `fazenda_destino_id` = fazenda atual e status `embarcada`/`recebida` (`getOrdensServicoTransferenciaEntrada`), reusa o laudo por carga da compra, mas `buildMovimentacaoRecebimento` retorna `[]` para transferência: **a entrada só vira movimentação quando o controller confere a carga no painel** (`conferir_recebimento_transferencia`), então não há crédito de estoque antes da conferência. Tipos de manejo `transf_saida`/`transf_entrada` continuam disponíveis para fluxo manual sem OS.
+
+E2E validado entre Fazenda Gesta'Up (origem) e Gesta'Up Teste (destino): `TRA-2026-00001`, 3 embarcadas, laudo com 2 recebidas + 1 morte, conferência no painel creditou L1, OS `fechada` sem acerto. Saldos conferidos nos dois lados (origem −3, destino +2).
+
+**Disparador**: quando mencionar comunicado de transferência, `comunicado-transferencia`, `fazenda_destino_id`, `transf_saida`/`transf_entrada`, `getOrdensServicoTransferenciaEntrada`, ou recebimento de transferência, ler esta seção.
+
 ## Comunicados de compra e venda simplificados (27/09/2026)
 
 Os comunicados viraram mensagens curtas para a equipe de gado (só o essencial para se preparar), seguindo o modelo fornecido pelo usuário. As três telas do módulo (`comunicado-venda`, `comunicado-compra`, `recebimento-compra`) formam o grupo **Comercial** no menu de cadernetas e ficam atrás do feature flag `fazendas.acesso_comercial` (mesmo padrão de `acesso_confinamento`: coluna no banco, carregada no login/`atualizarControleAcesso` para `config.acessoComercial`, filtro em `ModulosMenuPage` e `ProgramacaoHojePage`). Hoje só a fazenda de testes tem o flag; os date pickers de embarque/chegada/abate/pagamento usam a variante `compact` do `DatePicker` em grid de 2 colunas.

@@ -13,7 +13,7 @@ import { RootState } from '../../store/store'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
-import { getOrdensServicoAbertasCached, getLotesAtivosCached, getLoteByNomeCached } from '../../services/cadastroCache'
+import { getOrdensServicoAbertasCached, getOrdensServicoTransferenciaEntradaCached, getLotesAtivosCached, getLoteByNomeCached } from '../../services/cadastroCache'
 
 // Itens do checklist diagnóstico do laudo de recebimento
 const CHECKLIST_ITENS = [
@@ -137,25 +137,31 @@ export default function RecebimentoCompraPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
 
-  // OS de compra elegíveis (aberta ou já parcialmente recebida) + comunicados
+  // OS elegíveis para recebimento: compras desta fazenda (aberta/parcial) +
+  // transferências inbound embarcadas com destino a esta fazenda + comunicados
   // de compra locais ainda não sincronizados (recebimento pode ser offline).
   useEffect(() => {
     let cancelled = false
     async function load() {
       if (!fazendaId) return
       try {
-        const [remotas, locais] = await Promise.all([
+        const [remotas, transfEntrada, locais] = await Promise.all([
           getOrdensServicoAbertasCached(fazendaId, 'compra'),
+          getOrdensServicoTransferenciaEntradaCached(fazendaId),
           listarRegistros('ordens-servico'),
         ])
         const mapa = new Map<string, any>()
-        ;(remotas || []).forEach((o: any) => mapa.set(o.id, o))
+        ;(remotas || []).forEach((o: any) => mapa.set(o.id, { ...o, tipo: 'compra' }))
+        ;(transfEntrada || []).forEach((o: any) =>
+          mapa.set(o.id, { ...o, tipo: 'transferencia', origem_fazenda: o.fazenda_origem?.nome || null })
+        )
         locais
           .filter((r) => r.tipo === 'compra' && !['fechada', 'cancelada'].includes((r.statusOs as string) || 'aberta'))
           .forEach((r) => {
             const id = (r.supabaseId as string) || r.id
             mapa.set(id, {
               id,
+              tipo: 'compra',
               numero_os: (r.numeroOs as string) || null,
               quantidade_prevista: r.quantidadePrevista ? Number(r.quantidadePrevista) : null,
               fornecedor: (r.fornecedor as string) || null,
@@ -200,6 +206,9 @@ export default function RecebimentoCompraPage() {
   )
 
   const osSelecionada = osAbertas.find((o) => o.id === form.osId) || null
+  // Transferência: o laudo é gravado mas não credita estoque; a entrada no
+  // lote destino é criada pelo controller ao conferir a carga no painel.
+  const ehTransferencia = osSelecionada?.tipo === 'transferencia'
 
   const validationRules: any = {
     data: { required: true },
@@ -300,9 +309,11 @@ export default function RecebimentoCompraPage() {
 
     // Movimentações de Entrada/Compras por categoria+sexo. Convenção do schema:
     // para Entrada, lote_origem_id é o lote que RECEBE os animais.
+    // Transferência: NÃO cria movimentação aqui — o crédito no lote destino
+    // só acontece quando o controller confere a carga no painel.
     const falhas: string[] = []
     const pesoMedio = normalizarNumero(form.pesoMedioBalancao)
-    for (const c of contagensPayload) {
+    for (const c of ehTransferencia ? [] : contagensPayload) {
       const linhas: { sexo: string; cabecas: number }[] = []
       if (c.femeas > 0) linhas.push({ sexo: 'Fêmea', cabecas: c.femeas })
       if (c.machos > 0) linhas.push({ sexo: 'Macho', cabecas: c.machos })
@@ -377,7 +388,7 @@ export default function RecebimentoCompraPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ORDEM DE SERVIÇO</h2>
           <Select
-            label="OS DE COMPRA *"
+            label="OS DE COMPRA / TRANSFERÊNCIA *"
             value={form.osId}
             onChange={(e) => setForm((prev) => ({ ...prev, osId: e.target.value }))}
             error={getError('osId')}
@@ -385,19 +396,26 @@ export default function RecebimentoCompraPage() {
               { value: '', label: 'Selecione...' },
               ...osAbertas.map((o) => ({
                 value: o.id,
-                label: `${o.numero_os || 'COM-?????'} — ${o.fornecedor || o.origem_fazenda || ''} (${o.quantidade_prevista ?? '?'} cab)${o.pendenteSync ? ' ⏳' : ''}`,
+                label: o.tipo === 'transferencia'
+                  ? `${o.numero_os || 'TRA-?????'} — Transferência de ${o.origem_fazenda || 'origem'} (${o.quantidade_embarcada ?? o.quantidade_prevista ?? '?'} cab)`
+                  : `${o.numero_os || 'COM-?????'} — ${o.fornecedor || o.origem_fazenda || ''} (${o.quantidade_prevista ?? '?'} cab)${o.pendenteSync ? ' ⏳' : ''}`,
               })),
             ]}
           />
           {osAbertas.length === 0 && (
             <p className="text-sm text-gray-500">
-              Nenhuma OS de compra disponível. Crie um Comunicado de Compra primeiro.
+              Nenhuma OS de compra ou transferência disponível. Crie um comunicado primeiro.
             </p>
           )}
           {osSelecionada?.quantidade_prevista != null && (
             <p className="text-sm text-gray-600">
               Previsto: {osSelecionada.quantidade_prevista} cabeças
-              {osSelecionada.quantidade_embarcada != null && ` • Já recebido: ${osSelecionada.quantidade_embarcada}`}
+              {osSelecionada.quantidade_embarcada != null && ` • ${osSelecionada.tipo === 'transferencia' ? 'Embarcado' : 'Já recebido'}: ${osSelecionada.quantidade_embarcada}`}
+            </p>
+          )}
+          {ehTransferencia && (
+            <p className="text-sm text-violet-700 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">
+              Recebimento de transferência: o laudo será registrado, mas o saldo do lote só é creditado após a conferência da carga no painel web.
             </p>
           )}
         </div>

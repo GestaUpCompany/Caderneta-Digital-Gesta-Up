@@ -145,6 +145,8 @@ const ComunicadoCompraPage = lazy(() => import('./pages/cadernetas/ComunicadoCom
 const ComunicadoCompraListaPage = lazy(() => import('./pages/cadernetas/ComunicadoCompraListaPage'))
 const RecebimentoCompraPage = lazy(() => import('./pages/cadernetas/RecebimentoCompraPage'))
 const RecebimentoCompraListaPage = lazy(() => import('./pages/cadernetas/RecebimentoCompraListaPage'))
+const ComunicadoTransferenciaPage = lazy(() => import('./pages/cadernetas/ComunicadoTransferenciaPage'))
+const ComunicadoTransferenciaListaPage = lazy(() => import('./pages/cadernetas/ComunicadoTransferenciaListaPage'))
 
 // Lazy loading dos menus de módulos
 const ModulosMenuPage = lazy(() => import('./pages/ModulosMenuPage'))
@@ -657,6 +659,8 @@ function AppInner() {
             {/* Recebimento de Compra (laudo por carga/GTA) */}
             <Route path="/caderneta/recebimento-compra" element={<RecebimentoCompraPage />} />
             <Route path="/caderneta/recebimento-compra/lista" element={<RecebimentoCompraListaPage />} />
+            <Route path="/caderneta/comunicado-transferencia" element={<ComunicadoTransferenciaPage />} />
+            <Route path="/caderneta/comunicado-transferencia/lista" element={<ComunicadoTransferenciaListaPage />} />
 
             {/* Fallback */}
             <Route path="/caderneta/:id" element={<Navigate to="/" replace />} />

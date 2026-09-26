@@ -355,6 +355,11 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         os_recebimento_id: registro.osRecebimentoId || null,
         sessao_id: registro.sessaoId || null,
         individuo_id: registro.individuoId || null,
+        // Transferência entre fazendas (OS): saída usa tipo_saida, entrada
+        // (conferência) usa tipo_entrada; fazenda_destino_id marca a outra ponta
+        tipo_saida: registro.tipoSaida || null,
+        tipo_entrada: registro.tipoEntrada || null,
+        fazenda_destino_id: registro.fazendaDestinoId || null,
       }
     }
     case 'enfermaria':
@@ -709,6 +714,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         data_saida: registro.dataSaida ? brToIso(String(registro.dataSaida).split(' ')[0]) : null,
         valor_frete: normalizarNumero(registro.valorFrete as string | number | null | undefined),
         compra_detalhes: registro.compraDetalhes || null,
+        // Transferência: fazenda destino (mesmo grupo — validado por trigger)
+        fazenda_destino_id: registro.fazendaDestinoId || null,
       }
     }
     case 'os-recebimentos': {

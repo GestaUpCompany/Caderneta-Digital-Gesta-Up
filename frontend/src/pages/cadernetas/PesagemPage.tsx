@@ -38,6 +38,8 @@ interface AnimalDraft {
 interface OrdemServicoItem {
   id: string
   numero_os: string | null
+  /** 'venda' | 'transferencia' (compra não embarca por pesagem) */
+  tipo: string | null
   tipo_venda: 'abate' | 'animal_vivo' | null
   quantidade_prevista: number | null
   sexo: string | null
@@ -45,6 +47,9 @@ interface OrdemServicoItem {
   data_prevista_embarque: string | null
   data_prevista_abate: string | null
   comprador: string | null
+  /** transferência: fazenda destino (mesmo grupo) */
+  fazenda_destino_id: string | null
+  fazenda_destino_nome: string | null
   created_at: string | null
   /** true quando o registro só existe localmente (ainda não sincronizou) */
   pendenteSync?: boolean
@@ -53,10 +58,14 @@ interface OrdemServicoItem {
 interface SessaoPesagem {
   fase: Fase
   tipoManejo: string
-  /** OS de venda vinculada (obrigatória para abate/venda_vivo) */
+  /** OS de venda/transferência vinculada (obrigatória para abate/venda_vivo/transf_saida) */
   osId: string | null
   osNumero: string | null
   osTipoVenda: 'abate' | 'animal_vivo' | null
+  /** 'transferencia' quando a OS vinculada é de transferência entre fazendas */
+  osTipo: string | null
+  osFazendaDestinoId: string | null
+  osFazendaDestinoNome: string | null
   /** uuid da sessão: movimentações da OS exigem sessao_id (guarda de sessão única) */
   sessaoId: string
   equipeAjustada: SN
@@ -166,6 +175,9 @@ function novaSessao(): SessaoPesagem {
     osId: null,
     osNumero: null,
     osTipoVenda: null,
+    osTipo: null,
+    osFazendaDestinoId: null,
+    osFazendaDestinoNome: null,
     sessaoId: crypto.randomUUID(),
     equipeAjustada: '',
     balancaAferida: '',
@@ -394,11 +406,13 @@ export default function PesagemPage() {
         }
       }
 
-      // OS de venda abertas: cache lazy (funciona offline) + OS locais ainda
-      // não sincronizadas (comunicado criado offline pode ser pesado offline).
+      // OS de venda e transferência abertas: cache lazy (funciona offline) +
+      // OS locais ainda não sincronizadas (comunicado criado offline pode ser
+      // pesado offline).
       try {
-        const [remotas, locais, pesagens] = await Promise.all([
+        const [remotasVenda, remotasTransf, locais, pesagens] = await Promise.all([
           getOrdensServicoAbertasCached(fazendaId, 'venda'),
+          getOrdensServicoAbertasCached(fazendaId, 'transferencia'),
           listarRegistros('ordens-servico'),
           listarRegistros('pesagem'),
         ])
@@ -409,14 +423,22 @@ export default function PesagemPage() {
           pesagens.map((p) => p.osId as string | undefined).filter(Boolean)
         )
         const mapa = new Map<string, OrdemServicoItem>()
-        ;(remotas || []).forEach((o: any) => mapa.set(o.id, o))
+        ;([...(remotasVenda || []), ...(remotasTransf || [])] as any[]).forEach((o) =>
+          mapa.set(o.id, {
+            ...o,
+            tipo: o.tipo || 'venda',
+            fazenda_destino_id: o.fazenda_destino_id || null,
+            fazenda_destino_nome: o.fazenda_destino?.nome || null,
+          })
+        )
         locais
-          .filter((r) => r.tipo === 'venda' && !['fechada', 'cancelada'].includes((r.statusOs as string) || 'aberta'))
+          .filter((r) => ['venda', 'transferencia'].includes(r.tipo as string) && !['fechada', 'cancelada'].includes((r.statusOs as string) || 'aberta'))
           .forEach((r) => {
             const id = (r.supabaseId as string) || r.id
             mapa.set(id, {
               id,
               numero_os: (r.numeroOs as string) || null,
+              tipo: (r.tipo as string) || 'venda',
               tipo_venda: (r.tipoVenda as 'abate' | 'animal_vivo') || null,
               quantidade_prevista: r.quantidadePrevista ? Number(r.quantidadePrevista) : null,
               sexo: (r.sexo as string) || null,
@@ -424,6 +446,8 @@ export default function PesagemPage() {
               data_prevista_embarque: (r.dataPrevistaEmbarque as string) || null,
               data_prevista_abate: (r.dataPrevistaAbate as string) || null,
               comprador: (r.comprador as string) || null,
+              fazenda_destino_id: (r.fazendaDestinoId as string) || null,
+              fazenda_destino_nome: (r.fazendaDestinoNome as string) || null,
               created_at: (r.lastModified as string) || null,
               pendenteSync: r.syncStatus !== 'synced',
             })
@@ -588,20 +612,39 @@ export default function PesagemPage() {
   // ==================== Opções do form ====================
 
   const TIPOS_MANEJO_VENDA = ['abate', 'venda_vivo'] as const
+  const TIPOS_MANEJO_OS = ['abate', 'venda_vivo', 'transf_saida'] as const
   const tipoManejoEhVenda = (TIPOS_MANEJO_VENDA as readonly string[]).includes(sessao.tipoManejo)
+  const tipoManejoExigeOs = (TIPOS_MANEJO_OS as readonly string[]).includes(sessao.tipoManejo)
 
   // OS elegíveis para o tipo de manejo atual: 'abate'->tipo_venda 'abate',
-  // 'venda_vivo'->tipo_venda 'animal_vivo'. Sem tipo selecionado, lista todas.
+  // 'venda_vivo'->tipo_venda 'animal_vivo', 'transf_saida'->OS transferencia.
+  // Sem tipo selecionado, lista todas.
   const osDisponiveis = osAbertas.filter((o) =>
-    !tipoManejoEhVenda
-      ? true
-      : o.tipo_venda === (sessao.tipoManejo === 'abate' ? 'abate' : 'animal_vivo')
+    sessao.tipoManejo === 'transf_saida'
+      ? o.tipo === 'transferencia'
+      : !tipoManejoEhVenda
+        ? true
+        : o.tipo === 'venda' && o.tipo_venda === (sessao.tipoManejo === 'abate' ? 'abate' : 'animal_vivo')
   )
 
   const handleSelecionarOs = (osIdSelecionada: string) => {
     const os = osAbertas.find((o) => o.id === osIdSelecionada)
     if (!os) {
-      persistSessao({ ...sessao, osId: null, osNumero: null, osTipoVenda: null })
+      persistSessao({ ...sessao, osId: null, osNumero: null, osTipoVenda: null, osTipo: null, osFazendaDestinoId: null, osFazendaDestinoNome: null })
+      return
+    }
+    if (os.tipo === 'transferencia') {
+      // OS de transferência: embarque na origem é transf_saida
+      persistSessao({
+        ...sessao,
+        osId: os.id,
+        osNumero: os.numero_os,
+        osTipoVenda: null,
+        osTipo: 'transferencia',
+        osFazendaDestinoId: os.fazenda_destino_id,
+        osFazendaDestinoNome: os.fazenda_destino_nome,
+        tipoManejo: 'transf_saida',
+      })
       return
     }
     // A OS define o tipo de manejo: abate -> 'abate', animal vivo -> 'venda_vivo'
@@ -610,26 +653,33 @@ export default function PesagemPage() {
       osId: os.id,
       osNumero: os.numero_os,
       osTipoVenda: os.tipo_venda,
+      osTipo: 'venda',
+      osFazendaDestinoId: null,
+      osFazendaDestinoNome: null,
       tipoManejo: os.tipo_venda === 'abate' ? 'abate' : 'venda_vivo',
     })
   }
 
   const handleSelecionarTipoManejo = (tipo: string) => {
-    const ehVenda = (TIPOS_MANEJO_VENDA as readonly string[]).includes(tipo)
+    const exigeOs = (TIPOS_MANEJO_OS as readonly string[]).includes(tipo)
     const tipoVendaEsperado = tipo === 'abate' ? 'abate' : 'animal_vivo'
+    const osCompativel =
+      tipo === 'transf_saida'
+        ? sessao.osTipo === 'transferencia'
+        : !sessao.osTipoVenda || sessao.osTipoVenda === tipoVendaEsperado
     persistSessao({
       ...sessao,
       tipoManejo: tipo,
-      // Desvincula a OS quando o tipo não é venda ou diverge do tipo da OS
-      ...(!ehVenda || (sessao.osTipoVenda && sessao.osTipoVenda !== tipoVendaEsperado)
-        ? { osId: null, osNumero: null, osTipoVenda: null }
+      // Desvincula a OS quando o tipo não exige OS ou diverge da OS vinculada
+      ...(!exigeOs || !osCompativel
+        ? { osId: null, osNumero: null, osTipoVenda: null, osTipo: null, osFazendaDestinoId: null, osFazendaDestinoNome: null }
         : {}),
     })
   }
 
   const preparacaoCompleta =
     sessao.tipoManejo !== '' &&
-    (!tipoManejoEhVenda || !!sessao.osId) &&
+    (!tipoManejoExigeOs || !!sessao.osId) &&
     sessao.equipeAjustada !== '' &&
     sessao.balancaAferida !== '' &&
     sessao.checklistConferido !== '' &&
@@ -811,9 +861,11 @@ export default function PesagemPage() {
       persistSessao({ ...sessao, animais: animaisAtualizados })
     }
 
-    // Sessão com OS: gera as movimentações de saída (Saída/Venda) agrupadas
-    // por lote+categoria. É isso que desconta as cabeças no servidor via
-    // trigger — a pesagem em si não movimenta lote.
+    // Sessão com OS: gera as movimentações de saída agrupadas por
+    // lote+categoria. Venda -> Saída/Venda; transferência -> Saída com
+    // tipo_saida 'Transferência' e fazenda_destino_id. É isso que desconta
+    // as cabeças na origem via trigger — a pesagem em si não movimenta lote.
+    const ehTransferencia = sessao.osTipo === 'transferencia'
     const movimentacaoIds: string[] = []
     if (sessao.osId && falhas.length === 0) {
       const grupos = new Map<string, { lote: string; loteId: string | null; categoria: string; cabecas: number; pesoTotal: number; pesoCount: number }>()
@@ -844,14 +896,18 @@ export default function PesagemPage() {
           usuario,
           loteOrigem: g.lote,
           loteOrigemId: g.loteId,
-          loteDestino: 'Venda',
+          loteDestino: ehTransferencia ? (sessao.osFazendaDestinoNome || 'Transferência') : 'Venda',
           loteDestinoId: null,
           numeroCabecas: g.cabecas,
           categoria: g.categoria,
           motivoMovimentacao: 'Saída',
-          subtipo: 'Venda',
+          subtipo: ehTransferencia ? 'Saida' : 'Venda',
+          tipoSaida: ehTransferencia ? 'Transferência' : null,
+          fazendaDestinoId: ehTransferencia ? sessao.osFazendaDestinoId : null,
           pesoVivoAtualKg: g.pesoCount > 0 ? g.pesoTotal / g.pesoCount : null,
-          observacao: `Embarque ${sessao.osNumero || 'OS'}`,
+          observacao: ehTransferencia
+            ? `Embarque ${sessao.osNumero || 'OS'} → ${sessao.osFazendaDestinoNome || 'destino'}`
+            : `Embarque ${sessao.osNumero || 'OS'}`,
           osId: sessao.osId,
           sessaoId: sessao.sessaoId,
         })
@@ -1153,15 +1209,15 @@ export default function PesagemPage() {
       {/* Seção 2 — Preparação */}
       {sessao.fase === 'preparacao' && (
         <div className="flex flex-col gap-5">
-          {/* OS de venda: abate/venda vivo exigem OS; selecionar a OS define o tipo automaticamente */}
-          {(tipoManejoEhVenda || osAbertas.length > 0) && (
+          {/* OS de venda/transferência: abate/venda vivo/transf. saída exigem OS; selecionar a OS define o tipo automaticamente */}
+          {(tipoManejoExigeOs || osAbertas.length > 0) && (
             <div className="bg-white rounded-2xl border border-gray-200 p-4">
               <Select
-                label={tipoManejoEhVenda ? 'ORDEM DE SERVIÇO (OBRIGATÓRIA)' : 'ORDEM DE SERVIÇO DE VENDA (OPCIONAL)'}
+                label={tipoManejoExigeOs ? 'ORDEM DE SERVIÇO (OBRIGATÓRIA)' : 'ORDEM DE SERVIÇO (OPCIONAL)'}
                 options={[
                   {
                     value: '',
-                    label: tipoManejoEhVenda
+                    label: tipoManejoExigeOs
                       ? osDisponiveis.length === 0
                         ? 'Nenhuma OS aberta para este tipo'
                         : 'Selecione a OS...'
@@ -1169,7 +1225,9 @@ export default function PesagemPage() {
                   },
                   ...osDisponiveis.map((o) => ({
                     value: o.id,
-                    label: `${o.numero_os || 'OS aguardando sync'} · ${o.tipo_venda === 'abate' ? 'Abate' : 'Animal Vivo'}${o.quantidade_prevista ? ` · ${o.quantidade_prevista} cab` : ''}${o.pendenteSync ? ' (pendente sync)' : ''}`,
+                    label: o.tipo === 'transferencia'
+                      ? `${o.numero_os || 'OS aguardando sync'} · Transferência → ${o.fazenda_destino_nome || 'destino'}${o.quantidade_prevista ? ` · ${o.quantidade_prevista} cab` : ''}${o.pendenteSync ? ' (pendente sync)' : ''}`
+                      : `${o.numero_os || 'OS aguardando sync'} · ${o.tipo_venda === 'abate' ? 'Abate' : 'Animal Vivo'}${o.quantidade_prevista ? ` · ${o.quantidade_prevista} cab` : ''}${o.pendenteSync ? ' (pendente sync)' : ''}`,
                   })),
                 ]}
                 value={sessao.osId || ''}
@@ -1180,6 +1238,23 @@ export default function PesagemPage() {
                   {(() => {
                     const os = osAbertas.find((o) => o.id === sessao.osId)
                     if (!os) return <p className="font-semibold text-green-800">OS vinculada: {sessao.osNumero || sessao.osId}</p>
+                    if (os.tipo === 'transferencia') {
+                      return (
+                        <>
+                          <p className="font-black text-green-900">
+                            {os.numero_os || 'OS aguardando sync'} · Transferência → {os.fazenda_destino_nome || 'fazenda destino'}
+                          </p>
+                          <p className="text-green-800 mt-1">
+                            {[
+                              os.quantidade_prevista ? `${os.quantidade_prevista} cabeças previstas` : null,
+                              os.sexo,
+                              os.idade_era,
+                              os.data_prevista_embarque ? `Chegada prevista: ${os.data_prevista_embarque}` : null,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        </>
+                      )
+                    }
                     return (
                       <>
                         <p className="font-black text-green-900">
@@ -1200,9 +1275,11 @@ export default function PesagemPage() {
                   })()}
                 </div>
               )}
-              {tipoManejoEhVenda && !sessao.osId && osDisponiveis.length === 0 && (
+              {tipoManejoExigeOs && !sessao.osId && osDisponiveis.length === 0 && (
                 <p className="mt-2 text-sm font-semibold text-amber-700">
-                  Nenhuma OS de venda aberta. Crie um Comunicado de Venda primeiro (e sincronize, se estiver offline).
+                  {sessao.tipoManejo === 'transf_saida'
+                    ? 'Nenhuma OS de transferência aberta. Crie um Comunicado de Transferência primeiro (e sincronize, se estiver offline).'
+                    : 'Nenhuma OS de venda aberta. Crie um Comunicado de Venda primeiro (e sincronize, se estiver offline).'}
                 </p>
               )}
             </div>
@@ -1269,7 +1346,7 @@ export default function PesagemPage() {
               </p>
               {sessao.osId && (
                 <span className="text-xs font-bold text-green-800 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
-                  {sessao.osNumero || 'OS'} · {sessao.osTipoVenda === 'abate' ? 'Abate' : 'Animal vivo'}
+                  {sessao.osNumero || 'OS'} · {sessao.osTipo === 'transferencia' ? 'Transferência' : sessao.osTipoVenda === 'abate' ? 'Abate' : 'Animal vivo'}
                 </span>
               )}
             </div>

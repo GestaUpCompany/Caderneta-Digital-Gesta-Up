@@ -1056,6 +1056,31 @@ export async function getOrdensServicoAbertasCached(fazendaId: string, tipo: str
 }
 
 /**
+ * OS de transferência inbound (destino = esta fazenda) com cache lazy.
+ * Usado pelo laudo de recebimento — precisa funcionar offline.
+ */
+export async function getOrdensServicoTransferenciaEntradaCached(fazendaId: string): Promise<any[]> {
+  const key = buildKey('os-entrada', fazendaId, 'transferencia')
+
+  if (!navigator.onLine) {
+    const cached = getCachedQuery<any[]>(key)
+    if (cached) return cached
+    return (await getCachedQueryFromIDB<any[]>(key)) || []
+  }
+
+  try {
+    const data = await withTimeout(supabaseService.getOrdensServicoTransferenciaEntrada(fazendaId), 3000)
+    const lista = data || []
+    setCachedQuery(key, lista)
+    return lista
+  } catch {
+    const cached = getCachedQuery<any[]>(key)
+    if (cached) return cached
+    return (await getCachedQueryFromIDB<any[]>(key)) || []
+  }
+}
+
+/**
  * Busca parâmetros do plano nutricional ativo de um lote com cache lazy.
  * Usado para calcular peso projetado na data do registro.
  * Quando online, sempre consulta o Supabase (ignora cache).

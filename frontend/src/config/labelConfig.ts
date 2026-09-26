@@ -379,6 +379,8 @@ const ORDENS_SERVICO_LABELS = {
   dataPrevistaPagamento: 'DATA PREVISTA PAGAMENTO',
   // Compra
   fornecedor: 'EMPRESA',
+  // Transferência
+  fazendaDestinoNome: 'FAZENDA DE DESTINO',
   origemFazenda: 'FAZENDA DE ORIGEM',
   origemMunicipioUf: 'MUNICÍPIO/UF',
   modoPreco: 'MODO DE PREÇO',
