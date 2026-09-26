@@ -3300,7 +3300,7 @@ export async function getOrdensServicoAbertas(fazendaId: string, tipo: string = 
   const statuses = tipo === 'compra' ? ['aberta', 'recebida'] : ['aberta']
   const { data, error } = await client
     .from('ordens_servico')
-    .select('id, numero_os, tipo, tipo_venda, status, quantidade_prevista, quantidade_embarcada, sexo, idade_era, data_prevista_embarque, data_prevista_abate, data_saida, vendedor, comprador, fornecedor, origem_fazenda, origem_municipio_uf, fazenda_destino_id, fazenda_destino:fazendas!ordens_servico_fazenda_destino_id_fkey(nome), created_at')
+    .select('id, numero_os, tipo, tipo_venda, status, quantidade_prevista, quantidade_embarcada, sexo, idade_era, data_prevista_embarque, data_prevista_abate, data_saida, vendedor, comprador, fornecedor, origem_fazenda, origem_municipio_uf, fazenda_destino_id, fazenda_destino:fazendas!ordens_servico_fazenda_destino_id_fkey(nome), created_at, updated_at')
     .eq('fazenda_id', fazendaId)
     .eq('tipo', tipo)
     .in('status', statuses)

@@ -256,13 +256,18 @@ export default function RecebimentoCompraPage() {
     const recebimentoId = crypto.randomUUID()
     const sessaoId = `receb-${recebimentoId}`
 
-    const contagensPayload = contagens
-      .filter((c) => c.categoria && (Number(c.femeas) > 0 || Number(c.machos) > 0))
-      .map((c) => ({
-        categoria: c.categoria,
-        femeas: Number(c.femeas) || 0,
-        machos: Number(c.machos) || 0,
-      }))
+    // Categoria repetida em mais de uma linha é somada: o laudo tem uma linha
+    // por categoria e cada linha vira uma movimentação por sexo.
+    const contagensPorCategoria = new Map<string, { categoria: string; femeas: number; machos: number }>()
+    for (const c of contagens) {
+      const femeas = Number(c.femeas) || 0
+      const machos = Number(c.machos) || 0
+      if (!c.categoria || (femeas <= 0 && machos <= 0)) continue
+      const chave = c.categoria.trim().toLowerCase()
+      const atual = contagensPorCategoria.get(chave) || { categoria: c.categoria, femeas: 0, machos: 0 }
+      contagensPorCategoria.set(chave, { ...atual, femeas: atual.femeas + femeas, machos: atual.machos + machos })
+    }
+    const contagensPayload = [...contagensPorCategoria.values()]
 
     const result = await salvarRegistro('os-recebimentos', {
       id: recebimentoId,

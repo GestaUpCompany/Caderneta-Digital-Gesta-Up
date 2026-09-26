@@ -714,8 +714,10 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         data_saida: registro.dataSaida ? brToIso(String(registro.dataSaida).split(' ')[0]) : null,
         valor_frete: normalizarNumero(registro.valorFrete as string | number | null | undefined),
         compra_detalhes: registro.compraDetalhes || null,
-        // Transferência: fazenda destino (mesmo grupo — validado por trigger)
-        fazenda_destino_id: registro.fazendaDestinoId || null,
+        // Transferência: fazenda destino (mesmo grupo — validado por trigger).
+        // Venda/compra nunca carregam destino (CHECK no banco + a RLS da OS
+        // abriria leitura para a fazenda informada).
+        fazenda_destino_id: registro.tipo === 'transferencia' ? (registro.fazendaDestinoId || null) : null,
       }
     }
     case 'os-recebimentos': {
@@ -749,6 +751,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote_destino: registro.loteNome || null,
         responsavel: registro.responsavel || null,
         auxiliar: registro.auxiliar || null,
+        observacao: registro.observacao || null,
         sessao_id: registro.sessaoId || null,
       }
     }

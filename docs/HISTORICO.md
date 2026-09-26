@@ -2,6 +2,20 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Auditoria do módulo comercial — lado PWA (28/09/2026)
+
+Correções do PWA vindas da auditoria do módulo comercial (detalhes de banco e painel no HISTORICO do repo de gestão, migration `20260928100000`):
+
+- **Embarque duplicado**: ao finalizar a pesagem de novo (edição na revisão ou retry após falha), as saídas eram recriadas com o mesmo `sessao_id`, que o servidor aceita, dobrando o débito no lote. Agora a sessão guarda `movimentacoesSalvas` por chave `lote|categoria`: saída existente é atualizada e reenfileirada via upsert por `local_id`, e saída de grupo removido na revisão é descartada localmente.
+- **OS estornada travada**: a guarda local de embarque único bloqueava a OS para sempre após o primeiro embarque, inclusive quando o painel estornava e devolvia a OS a `aberta`. O bloqueio agora compara `updated_at` da OS com o último registro local; registro pendente de sync sempre bloqueia.
+- **Menu de transferência offline**: `getFazendasDoMesmoGrupoCached` não tinha fallback do IndexedDB nem timeout — abrir o app offline escondia a caderneta e deixava o select de destino vazio. Agora usa `getCachedQueryFromIDB` + `withTimeout` de 3s.
+- **Laudo com categoria repetida**: duas linhas com a mesma categoria no recebimento colidiam no `local_id` sintético da conferência e travavam a carga. As contagens agora são agregadas por categoria (case-insensitive) antes de salvar.
+- **Sync**: `fazenda_destino_id` só é enviado quando `tipo='transferencia'` (CHECK novo no banco), `observacao` do laudo passa a ser persistida (coluna nova), e o select de OS abertas inclui `updated_at`.
+- **Validação**: `validateOrdensServico` rejeitava mal — tipo desconhecido passava com `isValid: errors.length === 0`. Agora retorna inválido explicitamente.
+- **`types/supabase.ts` regenerado**: fecha o drift acumulado com o schema real.
+
+**Disparador**: quando mencionar débito dobrado no embarque, `movimentacoesSalvas`, OS estornada que não aceita pesagem, menu de transferência sumindo offline, ou observação do laudo perdida, ler esta seção.
+
 ## Módulo de transferência entre fazendas do grupo (27/09/2026)
 
 Terceiro comunicado do grupo **Comercial** (`comunicado-transferencia`), completando o módulo com venda e compra. Transferência é sempre entre fazendas do mesmo `grupo_id`: a OS tem `fazenda_id` = origem e `fazenda_destino_id` = destino (validados no banco, ver HISTORICO do painel). O comunicado (`ComunicadoTransferenciaPage`) tem solicitante, fazenda destino (select de `getFazendasDoMesmoGrupo`), quantidade, sexo, era, embarque, chegada prevista e observação. O menu só exibe a caderneta quando a fazenda tem `acessoComercial` e ao menos uma outra fazenda ativa no grupo (`modulosMenuGroups`/`ProgramacaoHojePage` checam `getFazendasDoMesmoGrupo`).

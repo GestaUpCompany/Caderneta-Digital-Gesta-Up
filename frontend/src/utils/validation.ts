@@ -989,7 +989,8 @@ export function validateOrdensServico(data: Record<string, unknown>): Validation
   }
 
   if ((data.tipo as string) !== 'venda') {
-    return { isValid: errors.length === 0, errors }
+    errors.push({ field: 'tipo', message: 'Tipo de comunicado inválido' })
+    return { isValid: false, errors }
   }
 
   if (!['abate', 'animal_vivo'].includes(data.tipoVenda as string))

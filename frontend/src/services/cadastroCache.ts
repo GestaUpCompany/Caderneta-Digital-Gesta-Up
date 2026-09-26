@@ -2226,18 +2226,21 @@ export async function getCurraisCached(fazendaId: string): Promise<any[] | null>
  */
 export async function getFazendasDoMesmoGrupoCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('fazendas-grupo', fazendaId)
-
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
+  // Sem o fallback do IndexedDB, abrir o app offline (cache em memória vazio)
+  // escondia a transferência do menu e deixava o destino sem opções.
+  const fromCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB(key))
     return (cached && Array.isArray(cached)) ? cached : null
   }
 
+  if (!navigator.onLine) return fromCache()
+
   try {
-    const data = await supabaseService.getFazendasDoMesmoGrupo(fazendaId)
+    const data = await withTimeout(supabaseService.getFazendasDoMesmoGrupo(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return fromCache()
   }
 }
 

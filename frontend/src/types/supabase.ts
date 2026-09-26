@@ -4293,6 +4293,64 @@ export type Database = {
           },
         ]
       }
+      lote_curral_historico: {
+        Row: {
+          created_at: string
+          curral_id: string
+          data_final: string | null
+          data_inicial: string
+          fazenda_id: string
+          id: string
+          kg_mn_dia_dia1: number | null
+          lote_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curral_id: string
+          data_final?: string | null
+          data_inicial: string
+          fazenda_id: string
+          id?: string
+          kg_mn_dia_dia1?: number | null
+          lote_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curral_id?: string
+          data_final?: string | null
+          data_inicial?: string
+          fazenda_id?: string
+          id?: string
+          kg_mn_dia_dia1?: number | null
+          lote_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lote_curral_historico_curral_id_fkey"
+            columns: ["curral_id"]
+            isOneToOne: false
+            referencedRelation: "currais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lote_curral_historico_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lote_curral_historico_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lote_historico: {
         Row: {
           categoria: string | null
@@ -4824,6 +4882,47 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      mapa_areas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          fazenda_id: string
+          geometria: unknown
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          fazenda_id: string
+          geometria: unknown
+          id?: string
+          nome: string
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          fazenda_id?: string
+          geometria?: unknown
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapa_areas_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mapa_estradas: {
         Row: {
@@ -5815,6 +5914,7 @@ export type Database = {
           categoria: string | null
           closed_at: string | null
           closed_by: string | null
+          compra_detalhes: Json | null
           comprador: string | null
           corretora: string | null
           created_at: string | null
@@ -5823,17 +5923,25 @@ export type Database = {
           data_prevista_abate: string | null
           data_prevista_embarque: string | null
           data_prevista_pagamento: string | null
+          data_saida: string | null
           deleted_at: string | null
           dispositivo_id: string | null
+          divergencia_obs: string | null
           fazenda_destino_id: string | null
           fazenda_id: string
+          forma_pagamento: string | null
+          fornecedor: string | null
           id: string
           idade_era: string | null
           local_id: string | null
+          modo_preco: string | null
+          mortes_transporte: number | null
           motivo_cancelamento: string | null
           nome_usuario: string | null
           numero_os: string | null
           observacao: string | null
+          origem_fazenda: string | null
+          origem_municipio_uf: string | null
           preco_arroba: number | null
           quantidade_embarcada: number | null
           quantidade_prevista: number | null
@@ -5845,6 +5953,8 @@ export type Database = {
           tipo_venda: string | null
           updated_at: string | null
           valor_acerto: number | null
+          valor_frete: number | null
+          valor_total_previsto: number | null
           venda_direta: boolean | null
           vendedor: string | null
           version: number | null
@@ -5855,6 +5965,7 @@ export type Database = {
           categoria?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          compra_detalhes?: Json | null
           comprador?: string | null
           corretora?: string | null
           created_at?: string | null
@@ -5863,17 +5974,25 @@ export type Database = {
           data_prevista_abate?: string | null
           data_prevista_embarque?: string | null
           data_prevista_pagamento?: string | null
+          data_saida?: string | null
           deleted_at?: string | null
           dispositivo_id?: string | null
+          divergencia_obs?: string | null
           fazenda_destino_id?: string | null
           fazenda_id: string
+          forma_pagamento?: string | null
+          fornecedor?: string | null
           id?: string
           idade_era?: string | null
           local_id?: string | null
+          modo_preco?: string | null
+          mortes_transporte?: number | null
           motivo_cancelamento?: string | null
           nome_usuario?: string | null
           numero_os?: string | null
           observacao?: string | null
+          origem_fazenda?: string | null
+          origem_municipio_uf?: string | null
           preco_arroba?: number | null
           quantidade_embarcada?: number | null
           quantidade_prevista?: number | null
@@ -5885,6 +6004,8 @@ export type Database = {
           tipo_venda?: string | null
           updated_at?: string | null
           valor_acerto?: number | null
+          valor_frete?: number | null
+          valor_total_previsto?: number | null
           venda_direta?: boolean | null
           vendedor?: string | null
           version?: number | null
@@ -5895,6 +6016,7 @@ export type Database = {
           categoria?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          compra_detalhes?: Json | null
           comprador?: string | null
           corretora?: string | null
           created_at?: string | null
@@ -5903,17 +6025,25 @@ export type Database = {
           data_prevista_abate?: string | null
           data_prevista_embarque?: string | null
           data_prevista_pagamento?: string | null
+          data_saida?: string | null
           deleted_at?: string | null
           dispositivo_id?: string | null
+          divergencia_obs?: string | null
           fazenda_destino_id?: string | null
           fazenda_id?: string
+          forma_pagamento?: string | null
+          fornecedor?: string | null
           id?: string
           idade_era?: string | null
           local_id?: string | null
+          modo_preco?: string | null
+          mortes_transporte?: number | null
           motivo_cancelamento?: string | null
           nome_usuario?: string | null
           numero_os?: string | null
           observacao?: string | null
+          origem_fazenda?: string | null
+          origem_municipio_uf?: string | null
           preco_arroba?: number | null
           quantidade_embarcada?: number | null
           quantidade_prevista?: number | null
@@ -5925,6 +6055,8 @@ export type Database = {
           tipo_venda?: string | null
           updated_at?: string | null
           valor_acerto?: number | null
+          valor_frete?: number | null
+          valor_total_previsto?: number | null
           venda_direta?: boolean | null
           vendedor?: string | null
           version?: number | null
@@ -5942,6 +6074,13 @@ export type Database = {
             columns: ["dispositivo_id"]
             isOneToOne: false
             referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_servico_fazenda_destino_id_fkey"
+            columns: ["fazenda_destino_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
             referencedColumns: ["id"]
           },
           {
@@ -5985,34 +6124,40 @@ export type Database = {
       os_documentos: {
         Row: {
           arquivo_url: string
+          bucket: string
           created_at: string | null
           deleted_at: string | null
           fazenda_id: string
           id: string
           nome_arquivo: string | null
           os_id: string
+          os_recebimento_id: string | null
           tipo: string
           uploaded_by: string | null
         }
         Insert: {
           arquivo_url: string
+          bucket?: string
           created_at?: string | null
           deleted_at?: string | null
           fazenda_id: string
           id?: string
           nome_arquivo?: string | null
           os_id: string
+          os_recebimento_id?: string | null
           tipo: string
           uploaded_by?: string | null
         }
         Update: {
           arquivo_url?: string
+          bucket?: string
           created_at?: string | null
           deleted_at?: string | null
           fazenda_id?: string
           id?: string
           nome_arquivo?: string | null
           os_id?: string
+          os_recebimento_id?: string | null
           tipo?: string
           uploaded_by?: string | null
         }
@@ -6032,10 +6177,169 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "os_documentos_os_recebimento_id_fkey"
+            columns: ["os_recebimento_id"]
+            isOneToOne: false
+            referencedRelation: "os_recebimentos"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "os_documentos_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      os_recebimentos: {
+        Row: {
+          auxiliar: string | null
+          checklist: Json | null
+          conferido: boolean
+          conferido_at: string | null
+          conferido_por: string | null
+          contagens: Json | null
+          created_at: string | null
+          data: string | null
+          data_chegada: string | null
+          deleted_at: string | null
+          destino: string | null
+          dispositivo_id: string | null
+          doc_origem: string | null
+          fazenda_id: string
+          hora_chegada: string | null
+          hora_pesagem: string | null
+          id: string
+          local_id: string | null
+          lote_destino: string | null
+          lote_destino_id: string | null
+          mortes: number | null
+          motorista: string | null
+          nome_usuario: string | null
+          numero_gta: string | null
+          numero_nf: string | null
+          observacao: string | null
+          os_id: string
+          peso_medio_balancao: number | null
+          peso_origem: number | null
+          placa_reboque: string | null
+          placa_veiculo: string | null
+          responsavel: string | null
+          score_corporal: number | null
+          sessao_id: string | null
+          sync_status: string | null
+          transportadora: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          auxiliar?: string | null
+          checklist?: Json | null
+          conferido?: boolean
+          conferido_at?: string | null
+          conferido_por?: string | null
+          contagens?: Json | null
+          created_at?: string | null
+          data?: string | null
+          data_chegada?: string | null
+          deleted_at?: string | null
+          destino?: string | null
+          dispositivo_id?: string | null
+          doc_origem?: string | null
+          fazenda_id: string
+          hora_chegada?: string | null
+          hora_pesagem?: string | null
+          id?: string
+          local_id?: string | null
+          lote_destino?: string | null
+          lote_destino_id?: string | null
+          mortes?: number | null
+          motorista?: string | null
+          nome_usuario?: string | null
+          numero_gta?: string | null
+          numero_nf?: string | null
+          observacao?: string | null
+          os_id: string
+          peso_medio_balancao?: number | null
+          peso_origem?: number | null
+          placa_reboque?: string | null
+          placa_veiculo?: string | null
+          responsavel?: string | null
+          score_corporal?: number | null
+          sessao_id?: string | null
+          sync_status?: string | null
+          transportadora?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          auxiliar?: string | null
+          checklist?: Json | null
+          conferido?: boolean
+          conferido_at?: string | null
+          conferido_por?: string | null
+          contagens?: Json | null
+          created_at?: string | null
+          data?: string | null
+          data_chegada?: string | null
+          deleted_at?: string | null
+          destino?: string | null
+          dispositivo_id?: string | null
+          doc_origem?: string | null
+          fazenda_id?: string
+          hora_chegada?: string | null
+          hora_pesagem?: string | null
+          id?: string
+          local_id?: string | null
+          lote_destino?: string | null
+          lote_destino_id?: string | null
+          mortes?: number | null
+          motorista?: string | null
+          nome_usuario?: string | null
+          numero_gta?: string | null
+          numero_nf?: string | null
+          observacao?: string | null
+          os_id?: string
+          peso_medio_balancao?: number | null
+          peso_origem?: number | null
+          placa_reboque?: string | null
+          placa_veiculo?: string | null
+          responsavel?: string | null
+          score_corporal?: number | null
+          sessao_id?: string | null
+          sync_status?: string | null
+          transportadora?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "os_recebimentos_dispositivo_id_fkey"
+            columns: ["dispositivo_id"]
+            isOneToOne: false
+            referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_recebimentos_fazenda_id_fkey"
+            columns: ["fazenda_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_recebimentos_lote_destino_id_fkey"
+            columns: ["lote_destino_id"]
+            isOneToOne: false
+            referencedRelation: "lotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "os_recebimentos_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
         ]
@@ -8410,6 +8714,7 @@ export type Database = {
           numero_cabecas: number | null
           observacao: string | null
           os_id: string | null
+          os_recebimento_id: string | null
           peso_vivo_atual_kg: number | null
           raca: string | null
           responsavel: string | null
@@ -8452,6 +8757,7 @@ export type Database = {
           numero_cabecas?: number | null
           observacao?: string | null
           os_id?: string | null
+          os_recebimento_id?: string | null
           peso_vivo_atual_kg?: number | null
           raca?: string | null
           responsavel?: string | null
@@ -8494,6 +8800,7 @@ export type Database = {
           numero_cabecas?: number | null
           observacao?: string | null
           os_id?: string | null
+          os_recebimento_id?: string | null
           peso_vivo_atual_kg?: number | null
           raca?: string | null
           responsavel?: string | null
@@ -8556,6 +8863,13 @@ export type Database = {
             columns: ["os_id"]
             isOneToOne: false
             referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_movimentacao_os_recebimento_id_fkey"
+            columns: ["os_recebimento_id"]
+            isOneToOne: false
+            referencedRelation: "os_recebimentos"
             referencedColumns: ["id"]
           },
         ]
@@ -11176,6 +11490,15 @@ export type Database = {
         }
         Returns: Record<string, unknown>[]
       }
+      alocar_lote_curral: {
+        Args: {
+          p_curral_id: string
+          p_data_entrada?: string
+          p_kg_mn_dia_dia1?: number
+          p_lote_id: string
+        }
+        Returns: Json
+      }
       aprovar_solicitacao_novo_lote: {
         Args: {
           p_categorias_editadas: Json
@@ -11273,6 +11596,11 @@ export type Database = {
         Args: { p_categoria: string; p_lote_id: string }
         Returns: number
       }
+      caller_has_fazenda_access: {
+        Args: { p_fazenda_id: string }
+        Returns: boolean
+      }
+      caller_is_peao: { Args: never; Returns: boolean }
       cancelar_os_venda: {
         Args: { p_motivo?: string; p_os_id: string; p_usuario_id?: string }
         Returns: Json
@@ -11281,6 +11609,10 @@ export type Database = {
       compute_classificacao_matriz: {
         Args: { p_individuo_id: string }
         Returns: string
+      }
+      conferir_recebimento_transferencia: {
+        Args: { p_os_recebimento_id: string; p_usuario_id?: string }
+        Returns: Json
       }
       corrigir_peso_categoria: {
         Args: {
@@ -11363,6 +11695,7 @@ export type Database = {
         Returns: undefined
       }
       current_user_has_access: { Args: never; Returns: boolean }
+      current_usuario_id: { Args: never; Returns: string }
       detectar_gaps_estradas: {
         Args: { p_fazenda_id: string; p_tolerancia_m?: number }
         Returns: {
@@ -11615,6 +11948,10 @@ export type Database = {
           p_data_inicio: string
           p_fazenda_id: string
         }
+        Returns: Json
+      }
+      get_dados_relatorio_clima: {
+        Args: { p_data_fim?: string; p_data_inicio?: string; p_token: string }
         Returns: Json
       }
       get_dados_relatorio_consumo: {
@@ -11973,6 +12310,10 @@ export type Database = {
           total: number
         }[]
       }
+      os_fazenda_pertence: {
+        Args: { p_fazenda_id: string; p_os_id: string }
+        Returns: boolean
+      }
       pgr_articulationpoints: { Args: { "": string }; Returns: number[] }
       pgr_biconnectedcomponents: {
         Args: { "": string }
@@ -12148,6 +12489,7 @@ export type Database = {
         }
         Returns: Json
       }
+      remover_area: { Args: { p_area_id: string }; Returns: boolean }
       remover_estrada: { Args: { p_estrada_id: string }; Returns: boolean }
       remover_geometria_bebedouro: {
         Args: { p_bebedouro_id: string }
@@ -12239,6 +12581,23 @@ export type Database = {
         Args: { p_geometria_geojson: string; p_pasto_id: string }
         Returns: boolean
       }
+      salvar_geometrias_mapa: {
+        Args: { p_fazenda_id: string; p_itens: Json }
+        Returns: {
+          duplicada: boolean
+          erro: string
+          idx: number
+          ok: boolean
+        }[]
+      }
+      salvar_geometrias_pastos: {
+        Args: { p_itens: Json }
+        Returns: {
+          erro: string
+          ok: boolean
+          pasto_id: string
+        }[]
+      }
       salvar_notificacoes_config: {
         Args: {
           p_fazenda_id: string
@@ -12309,6 +12668,7 @@ export type Database = {
         Args: { p_id: string; p_schema: string; p_table: string }
         Returns: undefined
       }
+      storage_os_object_access: { Args: { p_name: string }; Returns: boolean }
       transferir_lote_entre_fazendas: {
         Args: {
           p_categorias: Json
@@ -12346,6 +12706,7 @@ export type Database = {
         Args: { p_fazenda_id: string; p_papel: string }
         Returns: boolean
       }
+      user_has_os_access: { Args: { p_os_id: string }; Returns: boolean }
       user_has_programacao_access: {
         Args: { p_programacao_id: string }
         Returns: boolean
@@ -12538,9 +12899,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       maquina_veiculo_categoria: [

@@ -51,6 +51,8 @@ interface OrdemServicoItem {
   fazenda_destino_id: string | null
   fazenda_destino_nome: string | null
   created_at: string | null
+  /** última alteração da OS no servidor (estorno reabre a OS com updated_at novo) */
+  updated_at?: string | null
   /** true quando o registro só existe localmente (ainda não sincronizou) */
   pendenteSync?: boolean
 }
@@ -86,6 +88,8 @@ interface SessaoPesagem {
   animais: AnimalDraft[]
   animalAtual: AnimalDraft
   animalInicioTs: number | null
+  /** saídas da OS já gravadas localmente (chave lote|categoria -> id do registro) */
+  movimentacoesSalvas?: Record<string, string>
 }
 
 interface IndividuoCache {
@@ -410,18 +414,36 @@ export default function PesagemPage() {
       // OS locais ainda não sincronizadas (comunicado criado offline pode ser
       // pesado offline).
       try {
-        const [remotasVenda, remotasTransf, locais, pesagens] = await Promise.all([
+        const [remotasVenda, remotasTransf, locais, pesagens, movimentacoes] = await Promise.all([
           getOrdensServicoAbertasCached(fazendaId, 'venda'),
           getOrdensServicoAbertasCached(fazendaId, 'transferencia'),
           listarRegistros('ordens-servico'),
           listarRegistros('pesagem'),
+          listarRegistros('movimentacao'),
         ])
-        // Guarda de sessão única no cliente: OS que já tem pesagem gravada
-        // neste dispositivo não pode receber segundo embarque. O servidor
-        // também rejeita (trigger) para o caso multi-dispositivo.
-        const osJaPesadas = new Set(
-          pesagens.map((p) => p.osId as string | undefined).filter(Boolean)
-        )
+        // Guarda de sessão única no cliente: OS com embarque gravado neste
+        // dispositivo não recebe segundo embarque, exceto quando o servidor
+        // alterou a OS depois do último registro local (estorno devolve a OS
+        // para 'aberta' e precisa aceitar novo embarque). Registro pendente de
+        // sync sempre bloqueia. O servidor também rejeita (trigger) o caso
+        // multi-dispositivo.
+        const embarqueLocal = new Map<string, { pendente: boolean; ultimo: number }>()
+        for (const r of [...pesagens, ...movimentacoes]) {
+          if (!r.osId) continue
+          const atual = embarqueLocal.get(r.osId as string) || { pendente: false, ultimo: 0 }
+          const ts = new Date(r.lastModified as string).getTime() || 0
+          embarqueLocal.set(r.osId as string, {
+            pendente: atual.pendente || r.syncStatus !== 'synced',
+            ultimo: Math.max(atual.ultimo, ts),
+          })
+        }
+        const osBloqueada = (id: string, updatedAt?: string | null) => {
+          const e = embarqueLocal.get(id)
+          if (!e) return false
+          if (e.pendente) return true
+          const atualizadaEm = updatedAt ? new Date(updatedAt).getTime() : 0
+          return !atualizadaEm || e.ultimo >= atualizadaEm
+        }
         const mapa = new Map<string, OrdemServicoItem>()
         ;([...(remotasVenda || []), ...(remotasTransf || [])] as any[]).forEach((o) =>
           mapa.set(o.id, {
@@ -455,7 +477,7 @@ export default function PesagemPage() {
         if (!cancelled) {
           setOsAbertas(
             [...mapa.values()]
-              .filter((o) => !osJaPesadas.has(o.id))
+              .filter((o) => !osBloqueada(o.id, o.updated_at))
               .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
           )
         }
@@ -867,6 +889,10 @@ export default function PesagemPage() {
     // as cabeças na origem via trigger — a pesagem em si não movimenta lote.
     const ehTransferencia = sessao.osTipo === 'transferencia'
     const movimentacaoIds: string[] = []
+    // Saídas já gravadas numa tentativa anterior são atualizadas e reenfileiradas
+    // (upsert por local_id) em vez de recriadas: recriar gerava uma segunda
+    // saída com o mesmo sessao_id, que o servidor aceita, e dobrava o débito.
+    const movimentacoesSalvas: Record<string, string> = { ...(sessao.movimentacoesSalvas || {}) }
     if (sessao.osId && falhas.length === 0) {
       const grupos = new Map<string, { lote: string; loteId: string | null; categoria: string; cabecas: number; pesoTotal: number; pesoCount: number }>()
       for (const a of sessao.animais) {
@@ -888,8 +914,8 @@ export default function PesagemPage() {
         grupos.set(key, g)
       }
 
-      for (const g of grupos.values()) {
-        const result = await salvarRegistro('movimentacao', {
+      for (const [key, g] of grupos.entries()) {
+        const payloadMov = {
           data: dataSessao,
           horarioManejo: inicioHM,
           responsavel: usuario,
@@ -910,19 +936,46 @@ export default function PesagemPage() {
             : `Embarque ${sessao.osNumero || 'OS'}`,
           osId: sessao.osId,
           sessaoId: sessao.sessaoId,
-        })
+        }
+        const idExistente = movimentacoesSalvas[key]
+        if (idExistente) {
+          try {
+            const { data: _omitData, ...payloadMovUpdate } = payloadMov
+            await updateRegistro('movimentacao', idExistente, { ...payloadMovUpdate, syncStatus: 'pending' })
+            await removeFromSyncQueueByRegistroId(idExistente)
+            await enqueueRegistro('movimentacao', idExistente, 'create')
+            movimentacaoIds.push(idExistente)
+          } catch {
+            falhas.push(`Saída ${g.lote}/${g.categoria}: erro ao atualizar registro local`)
+          }
+          continue
+        }
+        const result = await salvarRegistro('movimentacao', payloadMov)
         if (result.success && result.registro) {
           movimentacaoIds.push(result.registro.id)
+          movimentacoesSalvas[key] = result.registro.id
         } else {
           const msgs = (result.errors || []).map((e) => e.message).join('; ')
           falhas.push(`Saída ${g.lote}/${g.categoria}: ${msgs || 'erro ao salvar movimentação'}`)
+        }
+      }
+      // Grupo que deixou de existir na revisão (animal removido/trocado de lote):
+      // a saída gravada antes não pode subir com a contagem antiga.
+      for (const [key, id] of Object.entries(movimentacoesSalvas)) {
+        if (grupos.has(key)) continue
+        try {
+          await removeFromSyncQueueByRegistroId(id)
+          await deleteRegistro('movimentacao', id)
+          delete movimentacoesSalvas[key]
+        } catch {
+          falhas.push('Erro ao descartar saída de grupo removido na revisão')
         }
       }
     }
 
     setSalvandoFinal(false)
     if (falhas.length > 0) {
-      persistSessao({ ...sessao, animais: animaisAtualizados })
+      persistSessao({ ...sessao, animais: animaisAtualizados, movimentacoesSalvas })
       setErrosFinal(falhas)
       return
     }
