@@ -35,7 +35,15 @@ export function useSalvarRegistro(cadernetaId: string) {
     salvandoRef.current = true
     setSalvando(true)
 
-    const podeContinuar = await iniciarSalvamento()
+    // Telemetria de execução nunca pode bloquear o registro: se
+    // iniciarSalvamento falhar (ex.: sync de execução offline), segue
+    // direto para o executar em vez de travar o guard.
+    let podeContinuar = true
+    try {
+      podeContinuar = await iniciarSalvamento()
+    } catch (err) {
+      console.warn('[useSalvarRegistro] iniciarSalvamento falhou, seguindo com o salvamento:', err)
+    }
     if (!podeContinuar) {
       // Modal de atraso abriu. Mantém ref=true e salvando=true
       // para bloquear novo click enquanto o modal está aberto.
@@ -53,7 +61,11 @@ export function useSalvarRegistro(cadernetaId: string) {
   }, [iniciarSalvamento])
 
   const onConfirmarObservacao = useCallback(async (observacao: string) => {
-    await confirmarObservacao(observacao)
+    try {
+      await confirmarObservacao(observacao)
+    } catch (err) {
+      console.warn('[useSalvarRegistro] confirmarObservacao falhou, seguindo com o salvamento:', err)
+    }
     const executar = executarRef.current
     executarRef.current = null
     if (executar) {

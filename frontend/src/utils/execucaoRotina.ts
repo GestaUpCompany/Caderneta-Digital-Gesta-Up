@@ -22,6 +22,9 @@ export interface ExecucaoRotina {
   observacao: string | null
   concluido: boolean
   dispositivo_id: string | null
+  // Flag local (IndexedDB apenas, nunca vai ao Supabase): true enquanto a
+  // execução tem alterações locais ainda não confirmadas no servidor.
+  pendente_sync?: boolean
   created_at?: string
   updated_at?: string
 }

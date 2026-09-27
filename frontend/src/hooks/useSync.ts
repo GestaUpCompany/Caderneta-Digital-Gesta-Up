@@ -9,6 +9,7 @@ import {
   setError,
 } from '../store/slices/syncSlice'
 import { processQueue, pollSolicitacoesNovoLote, reconcileOrphanPending } from '../services/syncService'
+import { sincronizarExecucoesPendentes } from '../services/execucaoRotinaService'
 import { getSyncQueue } from '../services/indexedDB'
 import { reauthenticateFarm, isTokenValid } from '../services/authService'
 import { SYNC_CHECK_INTERVAL_MS } from '../utils/constants'
@@ -45,6 +46,14 @@ export function useSync() {
         if (!authResult.sucesso) {
           console.error('[useSync] Falha ao reautenticar peão')
         }
+      }
+
+      // Execuções de rotina ficam fora da syncQueue (cache de cadastro).
+      // Reenvia as que ficaram pendentes no dispositivo (ex.: salvas offline).
+      try {
+        await sincronizarExecucoesPendentes(fazendaId)
+      } catch (e) {
+        console.warn('[useSync] Falha ao sincronizar execuções de rotina:', e)
       }
 
       const queue = await getSyncQueue()

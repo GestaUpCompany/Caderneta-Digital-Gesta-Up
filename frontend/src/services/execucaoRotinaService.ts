@@ -66,8 +66,9 @@ export async function garantirExecucaoRotina(
       existente.primeiro_acesso = new Date().toISOString()
       existente.primeiro_acesso_local = horaLocal
     }
+    existente.pendente_sync = true
     await salvarExecucoesLocal(fazendaId, execucoesLocais)
-    await sincronizarExecucao(existente)
+    await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, existente)
     return existente
   }
 
@@ -87,13 +88,12 @@ export async function garantirExecucaoRotina(
     observacao: null,
     concluido: false,
     dispositivo_id: getDispositivoId(),
+    pendente_sync: true,
   }
 
   execucoesLocais[chaveLocal] = nova
   await salvarExecucoesLocal(fazendaId, execucoesLocais)
-  await sincronizarExecucao(nova).catch((err) => {
-    console.warn('[ExecucaoRotina] Falha ao sincronizar execução, ficará no cache:', err)
-  })
+  await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, nova)
 
   return nova
 }
@@ -142,8 +142,9 @@ export async function registrarExecucaoRotina(
     )
     if (observacao) existente.observacao = observacao
     existente.concluido = true
+    existente.pendente_sync = true
     await salvarExecucoesLocal(fazendaId, execucoesLocais)
-    await sincronizarExecucao(existente)
+    await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, existente)
     return existente
   }
 
@@ -163,13 +164,12 @@ export async function registrarExecucaoRotina(
     observacao,
     concluido: true,
     dispositivo_id: getDispositivoId(),
+    pendente_sync: true,
   }
 
   execucoesLocais[chaveLocal] = nova
   await salvarExecucoesLocal(fazendaId, execucoesLocais)
-  await sincronizarExecucao(nova).catch((err) => {
-    console.warn('[ExecucaoRotina] Falha ao sincronizar execução, ficará no cache:', err)
-  })
+  await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, nova)
 
   return nova
 }
@@ -212,6 +212,25 @@ async function sincronizarExecucao(execucao: ExecucaoRotina): Promise<void> {
   if (error) throw error
 }
 
+// Sync best-effort: nunca propaga erro (telemetria não pode bloquear o
+// registro da caderneta). Em sucesso, limpa a flag pendente_sync no cache
+// local para que sincronizarExecucoesPendentes não reenvie à toa.
+async function sincronizarExecucaoMarcada(
+  fazendaId: string,
+  execucoesLocais: Record<string, ExecucaoRotina>,
+  execucao: ExecucaoRotina
+): Promise<void> {
+  try {
+    await sincronizarExecucao(execucao)
+    if (execucao.pendente_sync) {
+      execucao.pendente_sync = false
+      await salvarExecucoesLocal(fazendaId, execucoesLocais)
+    }
+  } catch (err) {
+    console.warn('[ExecucaoRotina] Falha ao sincronizar execução, ficará no cache:', err)
+  }
+}
+
 export async function getExecucoesRotinaDoDia(
   fazendaId: string,
   funcionarioId: string,
@@ -233,14 +252,25 @@ export async function sincronizarExecucoesPendentes(fazendaId: string): Promise<
   const cached = await getCadastroData(CACHE_KEY)
   if (!cached?.execucoes) return
 
-  const execucoes = Object.values(cached.execucoes).filter(
-    (e: any) => e.fazenda_id === fazendaId
+  const execucoesLocais: Record<string, ExecucaoRotina> = cached.execucoes
+  // pendente_sync !== false também cobre registros antigos de cache, de
+  // antes da flag existir: são reenviados uma vez e marcados como limpos.
+  const pendentes = Object.values(execucoesLocais).filter(
+    (e: any) => e.fazenda_id === fazendaId && e.pendente_sync !== false
   ) as ExecucaoRotina[]
-  for (const execucao of execucoes) {
+
+  let houveSucesso = false
+  for (const execucao of pendentes) {
     try {
       await sincronizarExecucao(execucao)
+      execucao.pendente_sync = false
+      houveSucesso = true
     } catch (err) {
       console.warn('[ExecucaoRotina] Falha ao sincronizar execução:', execucao.id, err)
     }
+  }
+
+  if (houveSucesso) {
+    await salvarExecucoesLocal(fazendaId, execucoesLocais)
   }
 }

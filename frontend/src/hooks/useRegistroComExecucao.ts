@@ -53,14 +53,22 @@ export function useRegistroComExecucao(cadernetaId: string): UseRegistroComExecu
       return false
     }
 
-    await registrarExecucao(cadernetaId, undefined, timezone)
+    try {
+      await registrarExecucao(cadernetaId, undefined, timezone)
+    } catch (err) {
+      console.warn('[useRegistroComExecucao] Falha ao registrar execução, seguindo com o salvamento:', err)
+    }
     return true
   }, [cadernetaId, isProgramacaoHoje, getHorarioProgramado, registrarExecucao, acessoId])
 
   const confirmarObservacao = useCallback(
     async (observacao?: string) => {
       const config = await getFazendaConfig(acessoId)
-      await registrarExecucao(cadernetaId, observacao, config.timezone)
+      try {
+        await registrarExecucao(cadernetaId, observacao, config.timezone)
+      } catch (err) {
+        console.warn('[useRegistroComExecucao] Falha ao registrar execução, seguindo com o salvamento:', err)
+      }
       setShowObservacaoModal(false)
     },
     [cadernetaId, registrarExecucao, acessoId]
@@ -85,7 +93,7 @@ interface FazendaConfig {
 }
 
 async function getFazendaConfig(acessoId: string | undefined): Promise<FazendaConfig> {
-  if (!acessoId) {
+  if (!acessoId || !navigator.onLine) {
     return { tolerancia: 30, timezone: DEFAULT_FARM_TIMEZONE }
   }
   try {

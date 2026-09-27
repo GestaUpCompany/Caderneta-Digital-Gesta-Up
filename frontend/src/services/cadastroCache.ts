@@ -2650,6 +2650,8 @@ export async function warmAllCadastroCache(
   // ==================== FASE LOTES: paralelizado em batches de 5 ====================
   // lote-detalhes já está no cache lazy via batch de lote_categorias.
   // Aqui só guardamos os dados brutos do lote.
+  const pastoNomeByIdWarm: Record<string, string> = {}
+  pastos.forEach((p: any) => { if (p?.id) pastoNomeByIdWarm[p.id] = p.nome })
   const LOTE_BATCH_SIZE = 5
   for (let li = 0; li < lotes.length; li += LOTE_BATCH_SIZE) {
     const batch = lotes.slice(li, li + LOTE_BATCH_SIZE)
@@ -2664,9 +2666,15 @@ export async function warmAllCadastroCache(
         const loteNome = lote.nome || lote.id
         const loteId = lote.id || lote.nome
 
-        // Guardar dados brutos do lote no cache lazy
+        // Guardar dados brutos do lote no cache lazy.
+        // O endpoint lotes-completos retorna o lote flat (sem join `pastos`),
+        // mas várias cadernetas derivam o pasto via lote.pastos?.nome —
+        // enriquecer com o join no mesmo formato do Supabase.
         if (lote.id && loteNome !== loteId) {
-          setCachedQuery(buildKey('lote', fazendaId, loteNome), lote)
+          const loteCacheado = lote.pastos?.nome || !lote.pasto_id
+            ? lote
+            : { ...lote, pastos: { nome: pastoNomeByIdWarm[lote.pasto_id] || null } }
+          setCachedQuery(buildKey('lote', fazendaId, loteNome), loteCacheado)
         } else {
           await getLoteByNomeCached(fazendaId, loteNome)
         }

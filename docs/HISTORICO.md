@@ -2,6 +2,20 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Salvar offline na Suplementação com rotina ativa (27/09/2026)
+
+Relato: com o usuário em rotina de suplementação, salvar offline travava; o modal de atraso não confirmava e o botão morria em "SALVANDO..." sem gravar. Reproduzido via DevTools emulando offline após "ATUALIZAR DADOS". Cadeia corrigida em quatro pontos:
+
+- **`execucaoRotinaService`**: `garantirExecucaoRotina` e `registrarExecucaoRotina` awaited `sincronizarExecucao` no branch "execução existente" sem catch; o `TypeError: Failed to fetch` subia e abortava tudo (o branch "nova" já tinha catch). Agora ambos passam por `sincronizarExecucaoMarcada`, que nunca propaga erro (telemetria de execução não pode bloquear o registro) e controla flag `pendente_sync` no registro local.
+- **`sincronizarExecucoesPendentes` existe e agora roda** no `useSync.runSync` (e no handler `online` do App): antes era código morto, então execuções de rotina feitas offline nunca subiriam. Filtra `pendente_sync !== false`; registros antigos sem a flag são reenviados uma vez e marcados.
+- **Timeout do Supabase**: `getFazendaByAcessoId` em `execucaoRotina`/`supabaseClient` usava timeout de 15s; offline o modal levava ~15s para abrir. Agora é `withTimeout` de 3s e short-circuit por `navigator.onLine === false` (em campo o delay some; na emulação do DevTools `onLine` não muda, então o delay de teste permanece mas o upsert falha rápido).
+- **`useSalvarRegistro`/`useRegistroComExecucao`**: exceção vinda de `iniciarSalvamento()`/`confirmarObservacao` pulava o `finally` que reseta `salvandoRef`/`salvando`, causando deadlock visual em "SALVANDO...". Agora todo caminho de erro reseta o guard.
+- **Cache de lote sem join**: `warmAllCadastroCache` gravava o lote flat no `cadastroCache` (`pasto_id` mas sem `pastos.nome`); offline, `SuplementacaoPage` derivava `pasto` de `lote.pastos?.nome`, virava `''` e `validate()` falhava "Pasto é obrigatório". O warming agora enriquece o lote com `pastos: { nome }` e a página tem fallback `lotesPastoMap[lote.nome]` para caches antigos. Corrige também Maternidade/Enfermaria/Morte, que leem o mesmo join.
+
+E2E validado: online → ATUALIZAR DADOS → offline → lote "Teste 3" (dieta "Terminação Boi") → salvar → modal "registrada no aparelho", IndexedDB com `pending` + fila → online → `synced` com `supabaseId`, registro confirmado em `registros_suplementacao`. Limitação de dev separada: `vite-plugin-pwa` tem `devOptions.enabled: false`, sem SW em `npm run dev`; navegação offline entre rotas lazy só funciona no build de produção.
+
+**Disparador**: quando mencionar salvar offline travando, "SALVANDO..." eterno, modal de atraso que não confirma, `pendente_sync`, `sincronizarExecucoesPendentes`, ou "Pasto é obrigatório" offline, ler esta seção.
+
 ## Auditoria do módulo comercial — lado PWA (28/09/2026)
 
 Correções do PWA vindas da auditoria do módulo comercial (detalhes de banco e painel no HISTORICO do repo de gestão, migration `20260928100000`):

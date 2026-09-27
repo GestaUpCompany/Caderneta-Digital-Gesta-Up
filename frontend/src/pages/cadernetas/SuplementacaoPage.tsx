@@ -332,7 +332,7 @@ export default function SuplementacaoPage() {
           return
         }
 
-        const pastoNome = lote.pastos?.nome || ''
+        const pastoNome = lote.pastos?.nome || lotesPastoMap[form.numeroLote] || ''
         setLoteSemPasto(!lote.pasto_id)
         setForm(prev => ({ ...prev, pasto: pastoNome, pastoId: lote.pasto_id || '', loteId: lote.id }))
 
