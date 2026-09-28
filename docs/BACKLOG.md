@@ -2,6 +2,12 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## CMS do texto da suplementação usa só a série do aparelho (28/09/2026)
+
+`calcularMetricasSuplementacao` é chamada no share de registro (`ListaRegistros`) e no resumo diário (`SuplementacaoListaPage`) sobre `listarRegistros('suplementacao')`, que lê só o IndexedDB local. O sync é push-only: tratos lançados em outro aparelho (ex.: outro tratador do mesmo lote) nunca entram na série local. Com a série incompleta, a "média geral" do texto diverge da série completa do banco — caso observado na Fazenda Brilhante: aparelho com 8 tratos em 8 dias gerou CMN 4,941 enquanto a série completa de 10 tratos daria 5,647.
+
+Direções possíveis (a decidir): calcular as métricas do texto sobre a série remota quando online (`getRegistrosSuplementacaoByLote`, já usada por `SuplementacaoPage`), com fallback local offline; ou puxar os registros do lote para o IndexedDB no refresh de cadastro; ou aceitar a limitação e remover o histórico do texto quando offline.
+
 ## Unificação do share de registro (SuccessModal vs ListaRegistros) — decidido adiar (24/09/2026)
 
 **Contexto**: o share de registro individual existe em dois pontos com lógica divergente: o `SuccessModal` chama `formatarRegistroComoTexto(registro, caderneta)` sem contexto, e o `ListaRegistros` enriquece o registro inline (métricas de consumo da suplementação, tempo/intervalo de limpeza do bebedouro) e passa `todosRegistros` do IndexedDB. Mudanças de texto precisam tocar os dois lados.

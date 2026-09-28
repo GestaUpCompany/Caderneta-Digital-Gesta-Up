@@ -83,7 +83,13 @@ export default function SuplementacaoListaPage() {
 
       if (!detalhesLote || !formulacaoData) return null
 
-      const categorias = detalhesLote.categorias_raw || []
+      // Escopo do registro do resumo: creep quando a linha carrega só dados de
+      // bezerro ao pé (suplementarAdulto=false) ou veio do banco como escopo
+      // 'creep'. Categorias e série seguem o mesmo escopo para peso e
+      // denominador ficarem na mesma base (adulto ÷ adulto).
+      const isCreep = registro.suplementarAdulto === false || registro.escopo === 'creep'
+      const categorias = (detalhesLote.categorias_raw || [])
+        .filter((c: any) => isCreep ? isCategoriaAoPe(c.categoria) : !isCategoriaAoPe(c.categoria))
       const formulacao = {
         nome: formulacaoData.nome,
         teor_ms_dieta: formulacaoData.teor_ms_dieta ?? null,
@@ -96,15 +102,29 @@ export default function SuplementacaoListaPage() {
       }
 
       const registrosDoLote = (todosRegistros as any[])
-        .filter(r => r.loteId === loteId)
-        .map(r => ({
-          id: r.id,
-          data: r.data,
-          kg_cocho: r.kgCocho ? Number(r.kgCocho) : null,
-          kg_deposito: r.kgDeposito ? Number(r.kgDeposito) : null,
-          formulacao: r.formulacao,
-          n_cabecas: r.nCabecasLote ? Number(r.nCabecasLote) : null,
-        }))
+        .filter(r => r.loteId === loteId
+          && (isCreep
+            ? r.suplementarAdulto === false || r.escopo === 'creep' || Number(r.creepKgCocho) > 0
+            : r.suplementarAdulto !== false && r.escopo !== 'creep'))
+        .map(r => {
+          // Linhas "só creep" já carregam os dados do creep nos campos
+          // primários; em linhas mistas o creep fica nos campos creep*.
+          const linhaCreep = r.suplementarAdulto === false || r.escopo === 'creep'
+          const usarCreep = isCreep && !linhaCreep
+          return {
+            id: r.id,
+            data: r.data,
+            kg_cocho: usarCreep
+              ? (r.creepKgCocho ? Number(r.creepKgCocho) : null)
+              : (r.kgCocho ? Number(r.kgCocho) : null),
+            kg_deposito: isCreep ? null : (r.kgDeposito ? Number(r.kgDeposito) : null),
+            formulacao: usarCreep ? (r.creepFormulacao ?? null) : r.formulacao,
+            n_cabecas: usarCreep
+              ? (r.creepNCabecas ? Number(r.creepNCabecas) : null)
+              : (r.nCabecasLote ? Number(r.nCabecasLote) : null),
+            qtd_bezerros: isCreep ? 0 : (r.qtdBezerrosLote ? Number(r.qtdBezerrosLote) : null),
+          }
+        })
 
       const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao, registro.id)
       if (!metricas) return null

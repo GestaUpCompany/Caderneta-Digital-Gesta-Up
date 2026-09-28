@@ -21,6 +21,7 @@ interface RegistroSuplementacao {
   kg_deposito: number | null
   formulacao: string | null
   n_cabecas?: number | null
+  qtd_bezerros?: number | null
 }
 
 interface Formulacao {
@@ -126,9 +127,16 @@ function calcularIntervalosTratos(
     // Usa o n_cabecas registrado no trato de origem do intervalo (snapshot do
     // número de animais naquele período). Se o registro não tiver n_cabecas
     // (registros antigos ou importados sem o campo), cai no fallback do lote.
-    const nCabecas = atual.n_cabecas && atual.n_cabecas > 0 ? atual.n_cabecas : fallbackCabecas
+    // O denominador exclui bezerros ao pé (n_cabecas - qtd_bezerros), mesma
+    // convenção das funções de consumo no banco (calcular_consumo_registro_anterior,
+    // recalc_consumo_series): a conta é por cabeça adulta sobre peso adulto.
+    const nCabecas = atual.n_cabecas && atual.n_cabecas > 0
+      ? atual.n_cabecas - (atual.qtd_bezerros || 0)
+      : fallbackCabecas
+    // Sem adultos elegíveis no intervalo, não há consumo a ratear
+    if (nCabecas <= 0) continue
     const consumoDiarioMN = kgCocho / dias
-    const consumoDiarioPorAnimal = nCabecas > 0 ? consumoDiarioMN / nCabecas : consumoDiarioMN
+    const consumoDiarioPorAnimal = consumoDiarioMN / nCabecas
 
     intervalos.push({
       inicio,

@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Base adulta para consumo de suplementação no PWA (28/09/2026)
+
+Parte PWA da correção de divergência entre o "CMS Geral (%PV)" do texto compartilhado e a coluna "Consumo (%PV)" da planilha do painel (detalhes de banco e decisão no HISTORICO do repo de gestão, migration `20260928120000`). Convenção adotada: consumo do escopo 'lote' é **kg por cabeça adulta ÷ peso adulto** — bezerros ao pé não entram em denominador nem em peso.
+
+- **`supplementMetrics.ts`**: o denominador por intervalo passou a ser `n_cabecas − qtd_bezerros` do registro (snapshot), espelhando `calcular_consumo_registro_anterior`/`recalc_consumo_series` do banco. `qtd_bezerros` null cai para `n_cabecas` inteiro (mesma semântica do banco em linhas legadas). Intervalo sem adultos elegíveis é descartado em vez de ratear por zero.
+- **`ListaRegistros.tsx` e `SuplementacaoListaPage.tsx`** (share de registro e resumo diário): a série e as categorias passadas para `calcularMetricasSuplementacao` agora seguem o escopo do registro — registro de lote calcula só sobre linhas adultas (`suplementarAdulto !== false`) com categorias não-ao-pé; registro creep (`suplementarAdulto === false` ou `escopo === 'creep'`) usa os campos `creepKgCocho`/`creepNCabecas`/`creepFormulacao` das linhas e categorias ao pé. Antes os dois caminhos passavam todas as categorias e todas as linhas do lote, misturando bases.
+- `SuplementacaoPage` já filtrava adulto/creep corretamente (série remota com `escopo`); os campos `qtd_bezerros` das linhas remotas passam a ser usados pela função sem mudança no caller.
+
+Limitação que permanece (registrada no BACKLOG): a série do cálculo local vem do IndexedDB do aparelho (sync é só push), então tratos lançados por outro tratador em outro aparelho não entram na média do texto.
+
+**Disparador**: quando mencionar divergência de CMS/%PV entre texto e planilha, `qtd_bezerros` no denominador de consumo, ou peso médio incluindo bezerros no cálculo de %PV, ler esta seção.
+
 ## Salvar offline na Suplementação com rotina ativa (27/09/2026)
 
 Relato: com o usuário em rotina de suplementação, salvar offline travava; o modal de atraso não confirmava e o botão morria em "SALVANDO..." sem gravar. Reproduzido via DevTools emulando offline após "ATUALIZAR DADOS". Cadeia corrigida em quatro pontos:
