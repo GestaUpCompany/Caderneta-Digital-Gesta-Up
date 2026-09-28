@@ -32,7 +32,7 @@ import { incorporateCacheFromSW } from './services/cadastroCache'
 
 // Envia config (token, refresh_token, fazenda_id, supabase_url, anon_key) ao SW.
 // O SW persiste em IndexedDB própria e usa para fazer fetch de cadastro em background.
-function sendConfigToSW(fazendaId: string | undefined) {
+function sendConfigToSW(fazendaId: string | undefined, logoUrl?: string) {
   if (!('serviceWorker' in navigator)) return
   const token = localStorage.getItem('supabase_token')
   const refreshToken = localStorage.getItem('supabase_refresh_token')
@@ -47,6 +47,7 @@ function sendConfigToSW(fazendaId: string | undefined) {
       fazendaId,
       supabaseUrl,
       anonKey,
+      logoUrl,
     })
   }).catch(() => {})
 }
@@ -169,7 +170,7 @@ function AppInner() {
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
-  const { fazendaId, acessoId, configurado } = useSelector((state: RootState) => state.config)
+  const { fazendaId, acessoId, configurado, logoUrl } = useSelector((state: RootState) => state.config)
   const { active: farmActive, loading: farmStatusLoading, nome: farmNome } = useFarmStatus({ acessoId, configurado })
 
   // Permite acessar a tela de configurações mesmo com fazenda inativa para trocar de fazenda
@@ -228,7 +229,7 @@ function AppInner() {
 
       initializeCadastroCache(fazendaId)
       // Enviar config ao SW para que ele possa fazer fetch de cadastro em background
-      sendConfigToSW(fazendaId)
+      sendConfigToSW(fazendaId, logoUrl)
       // Sincronizar mapa da fazenda (verifica versão antes de baixar)
       syncMapaSePreciso(fazendaId).catch((err) => {
         console.warn('[App] Falha ao sincronizar mapa:', err)
@@ -255,7 +256,7 @@ function AppInner() {
 
       previousFazendaIdRef.current = fazendaId
     }
-  }, [fazendaId, isFarmInactive])
+  }, [fazendaId, logoUrl, isFarmInactive])
 
   // Re-enviar config ao SW quando o app volta de background.
   // O token pode ter sido refreshed enquanto o app esteve aberto em background,
@@ -263,12 +264,12 @@ function AppInner() {
   useEffect(() => {
     const handleVisibility = () => {
       if (!document.hidden && fazendaId) {
-        sendConfigToSW(fazendaId)
+        sendConfigToSW(fazendaId, logoUrl)
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [fazendaId])
+  }, [fazendaId, logoUrl])
 
   // Camada 1: Foreground sync do cache de cadastro
   // Atualiza o cache automaticamente quando o app volta de background ou recupera conexão

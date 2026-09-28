@@ -152,6 +152,27 @@ export default function Configuracoes() {
     const supabaseFazendaId = validacaoSupabase.fazendaId || ''
     const supabaseAcessoId = validacaoSupabase.acessoId || ''
 
+    // Troca de fazenda: invalidar caches da fazenda anterior
+    // (bg cache de cadastro no Cache API + logo remoto no images-cache)
+    // e aquecer o logo da nova fazenda para exibição offline.
+    if ('caches' in window && supabaseFazendaId && supabaseFazendaId !== config.fazendaId) {
+      if (config.fazendaId) {
+        caches.open('cadastro-bg-cache')
+          .then((c) => c.delete(`${window.location.origin}/cadastro-bg/${config.fazendaId}`))
+          .catch(() => {})
+        if (config.logoUrl) {
+          caches.open('images-cache')
+            .then((c) => c.delete(config.logoUrl))
+            .catch(() => {})
+        }
+      }
+      if (validacaoSupabase.logoUrl) {
+        caches.open('images-cache')
+          .then((c) => c.add(validacaoSupabase.logoUrl!))
+          .catch(() => {})
+      }
+    }
+
     setValidationStatus('success')
 
     const nomeFazenda = validacaoSupabase.nome || fazenda.trim()

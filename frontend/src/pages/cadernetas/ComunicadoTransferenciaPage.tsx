@@ -207,7 +207,6 @@ export default function ComunicadoTransferenciaPage() {
                 { value: '', label: 'Selecione...' },
                 { value: 'Macho', label: 'Macho' },
                 { value: 'Fêmea', label: 'Fêmea' },
-                { value: 'Misto', label: 'Misto' },
               ]}
             />
             <Select

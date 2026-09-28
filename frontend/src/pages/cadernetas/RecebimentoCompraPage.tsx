@@ -3,22 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, Select, DatePicker, Radio, ValidationMessage } from '../../components/ui'
 import { Brush, Save, Plus, Trash2, Video } from 'lucide-react'
+import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro, listarRegistros } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
-import { normalizarNumero } from '../../utils/formatNumber'
+import { normalizarNumero, formatarNumeroBR } from '../../utils/formatNumber'
 import { RootState } from '../../store/store'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
-import { getOrdensServicoAbertasCached, getOrdensServicoTransferenciaEntradaCached, getLotesAtivosCached, getLoteByNomeCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getOrdensServicoAbertasCached, getOrdensServicoTransferenciaEntradaCached, getLotesAtivosCached, getLoteByNomeCached } from '../../services/cadastroCache'
+import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 // Itens do checklist diagnóstico do laudo de recebimento
 const CHECKLIST_ITENS = [
   'Animais estressados',
-  'Animais rastreados/machucados',
+  'Animais machucados',
   'Animal debilitado',
   'Pneumonia (tosse/secreção)',
   'Animal mancando',
@@ -68,14 +70,13 @@ interface FormState {
   motorista: string
   dataChegada: string
   horaChegada: string
-  // Pesagem coletiva
-  pesoMedioBalancao: string
-  pesoOrigem: string
+  // Balanço (pesagem do caminhão)
+  pesoEntrada: string
+  pesoSaida: string
   horaPesagem: string
   // Destino
   loteId: string
   loteNome: string
-  destino: string
   // Checklist e achados
   scoreCorporal: string
   mortes: string
@@ -99,12 +100,11 @@ const makeInitial = (): FormState => ({
   motorista: '',
   dataChegada: todayBR(),
   horaChegada: '',
-  pesoMedioBalancao: '',
-  pesoOrigem: '',
+  pesoEntrada: '',
+  pesoSaida: '',
   horaPesagem: '',
   loteId: '',
   loteNome: '',
-  destino: '',
   scoreCorporal: '',
   mortes: '0',
   responsavel: '',
@@ -132,6 +132,8 @@ export default function RecebimentoCompraPage() {
 
   const [osAbertas, setOsAbertas] = useState<any[]>([])
   const [lotes, setLotes] = useState<{ id: string; nome: string }[]>([])
+  const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -177,16 +179,25 @@ export default function RecebimentoCompraPage() {
         /* offline sem cache: lista vazia */
       }
       try {
-        const { lotes: nomes } = await getLotesAtivosCached(fazendaId)
+        const { lotes: nomes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
         const comId = await Promise.all(
           nomes.map(async (nome) => {
             const lote = await getLoteByNomeCached(fazendaId, nome)
             return lote ? { id: lote.id as string, nome } : null
           })
         )
-        if (!cancelled) setLotes(comId.filter((l): l is { id: string; nome: string } => l !== null))
+        if (!cancelled) {
+          setLotes(comId.filter((l): l is { id: string; nome: string } => l !== null))
+          setLotesPastoMap(mapa)
+        }
       } catch {
         /* sem lotes disponíveis */
+      }
+      try {
+        const cache = await getCachedCadastroData()
+        if (!cancelled) setFuncionariosDisponiveis(cache?.funcionarios || [])
+      } catch {
+        /* sem funcionários disponíveis */
       }
     }
     load()
@@ -194,6 +205,17 @@ export default function RecebimentoCompraPage() {
       cancelled = true
     }
   }, [fazendaId])
+
+  // Escutar atualizações do cache de cadastro (funcionários e lotes)
+  useEffect(() => {
+    const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
+      if (data) {
+        setFuncionariosDisponiveis(data.funcionarios || [])
+        setLotesPastoMap(data.lotesPastoMap || {})
+      }
+    })
+    return unsubscribe
+  }, [])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -204,6 +226,15 @@ export default function RecebimentoCompraPage() {
     () => contagens.reduce((s, c) => s + (Number(c.femeas) || 0) + (Number(c.machos) || 0), 0),
     [contagens]
   )
+
+  // Peso médio por cabeça: peso líquido do caminhão (entrada - saída) / cabeças
+  const pesoMedioKgCab = useMemo(() => {
+    const entrada = normalizarNumero(form.pesoEntrada)
+    const saida = normalizarNumero(form.pesoSaida)
+    if (entrada === null || saida === null || totalRecebido <= 0) return null
+    const liquido = entrada - saida
+    return liquido > 0 ? liquido / totalRecebido : null
+  }, [form.pesoEntrada, form.pesoSaida, totalRecebido])
 
   const osSelecionada = osAbertas.find((o) => o.id === form.osId) || null
   // Transferência: o laudo é gravado mas não credita estoque; a entrada no
@@ -284,8 +315,9 @@ export default function RecebimentoCompraPage() {
       motorista: form.motorista.trim() || null,
       dataChegada: form.dataChegada,
       horaChegada: form.horaChegada || null,
-      pesoMedioBalancao: normalizarNumero(form.pesoMedioBalancao),
-      pesoOrigem: normalizarNumero(form.pesoOrigem),
+      pesoMedioBalancao: pesoMedioKgCab,
+      pesoEntrada: normalizarNumero(form.pesoEntrada),
+      pesoSaida: normalizarNumero(form.pesoSaida),
       horaPesagem: form.horaPesagem || null,
       contagens: contagensPayload,
       checklist: checklist
@@ -293,7 +325,6 @@ export default function RecebimentoCompraPage() {
         .map((c) => ({ item: c.item, resposta: c.resposta, observacao: c.observacao.trim() || null })),
       scoreCorporal: form.scoreCorporal ? Number(form.scoreCorporal) : null,
       mortes: Number(form.mortes) || 0,
-      destino: form.destino || null,
       loteId: form.loteId,
       loteNome: form.loteNome,
       auxiliar: form.auxiliar.trim() || null,
@@ -317,7 +348,7 @@ export default function RecebimentoCompraPage() {
     // Transferência: NÃO cria movimentação aqui — o crédito no lote destino
     // só acontece quando o controller confere a carga no painel.
     const falhas: string[] = []
-    const pesoMedio = normalizarNumero(form.pesoMedioBalancao)
+    const pesoMedio = pesoMedioKgCab
     for (const c of ehTransferencia ? [] : contagensPayload) {
       const linhas: { sexo: string; cabecas: number }[] = []
       if (c.femeas > 0) linhas.push({ sexo: 'Fêmea', cabecas: c.femeas })
@@ -378,7 +409,7 @@ export default function RecebimentoCompraPage() {
   return (
     <>
       <CadernetaLayout
-        title="RECEBIMENTO DE COMPRA"
+        title="RECEPÇÃO ANIMAIS"
         cadernetaId="recebimento-compra"
         dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
       >
@@ -468,48 +499,26 @@ export default function RecebimentoCompraPage() {
             value={form.motorista}
             onChange={setInput('motorista')}
           />
-          <DatePicker
-            label={<span>DATA DE CHEGADA <span className="text-red-500">*</span></span>}
-            value={form.dataChegada}
-            onChange={(val) => setForm((prev) => ({ ...prev, dataChegada: val }))}
-            error={getError('dataChegada')}
-          />
-          <Input
-            label="HORA DE CHEGADA"
-            placeholder="Ex: 14:30"
-            value={form.horaChegada}
-            onChange={setInput('horaChegada')}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <DatePicker
+              label={<span>DATA DE CHEGADA <span className="text-red-500">*</span></span>}
+              value={form.dataChegada}
+              onChange={(val) => setForm((prev) => ({ ...prev, dataChegada: val }))}
+              error={getError('dataChegada')}
+              compact
+            />
+            <Input
+              label="HORA DE CHEGADA"
+              placeholder="Ex: 14:30"
+              value={form.horaChegada}
+              onChange={setInput('horaChegada')}
+            />
+          </div>
         </div>
 
-        {/* Seção 3: Pesagem coletiva */}
+        {/* Seção 3: Contagens por categoria/sexo */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. PESAGEM (BALANÇO)</h2>
-          <Input
-            label="PESO MÉDIO BALANÇO (KG/CAB)"
-            placeholder="Média do caminhão cheio menos vazio"
-            value={form.pesoMedioBalancao}
-            onChange={setInput('pesoMedioBalancao')}
-            inputMode="decimal"
-          />
-          <Input
-            label="PESO ORIGEM (KG TOTAL)"
-            placeholder="Peso informado na origem (base da quebra)"
-            value={form.pesoOrigem}
-            onChange={setInput('pesoOrigem')}
-            inputMode="decimal"
-          />
-          <Input
-            label="HORA DA PESAGEM"
-            placeholder="Ex: 14:45"
-            value={form.horaPesagem}
-            onChange={setInput('horaPesagem')}
-          />
-        </div>
-
-        {/* Seção 4: Contagens por categoria/sexo */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. QUANTIDADES RECEBIDAS</h2>
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIDADES RECEBIDAS</h2>
           {contagens.map((c, idx) => (
             <div key={idx} className="border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
@@ -560,32 +569,75 @@ export default function RecebimentoCompraPage() {
           {getError('contagens') && <p className="text-sm text-red-500">{getError('contagens')}</p>}
         </div>
 
+        {/* Seção 4: Balanço */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. BALANÇÃO</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="PESO ENTRADA (KG)"
+              placeholder="Caminhão cheio"
+              value={form.pesoEntrada}
+              onChange={setInput('pesoEntrada')}
+              inputMode="decimal"
+            />
+            <Input
+              label="PESO SAÍDA (KG)"
+              placeholder="Caminhão vazio"
+              value={form.pesoSaida}
+              onChange={setInput('pesoSaida')}
+              inputMode="decimal"
+            />
+          </div>
+          <Input
+            label="PESO MÉDIO (KG/CAB)"
+            placeholder="Calculado: (entrada − saída) ÷ cabeças"
+            value={pesoMedioKgCab !== null ? formatarNumeroBR(pesoMedioKgCab) : ''}
+            onChange={() => {}}
+            inputMode="decimal"
+            disabled
+          />
+          <Input
+            label="HORA DA PESAGEM"
+            placeholder="Ex: 14:45"
+            value={form.horaPesagem}
+            onChange={setInput('horaPesagem')}
+          />
+        </div>
+
         {/* Seção 5: Destino */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">5. DESTINO</h2>
-          <Select
-            label="LOTE DE DESTINO *"
-            value={form.loteId}
-            onChange={(e) => {
-              const lote = lotes.find((l) => l.id === e.target.value)
-              setForm((prev) => ({ ...prev, loteId: e.target.value, loteNome: lote?.nome || '' }))
-            }}
-            error={getError('loteId')}
-            options={[
-              { value: '', label: 'Selecione...' },
-              ...lotes.map((l) => ({ value: l.id, label: l.nome })),
-            ]}
-          />
-          <Radio
-            name="destino"
-            label="DESTINO FÍSICO"
-            value={form.destino}
-            onChange={(v) => setForm((prev) => ({ ...prev, destino: v }))}
-            options={[
-              { value: 'baia', label: 'BAIA' },
-              { value: 'pasto', label: 'PASTO' },
-            ]}
-            gridCols={2}
+          {lotes.length > 0 ? (
+            <SearchableModal
+              label={<span>LOTE DE DESTINO <span className="text-red-500">*</span></span>}
+              value={form.loteNome}
+              onChange={(val) => {
+                const lote = lotes.find((l) => l.nome === val)
+                setForm((prev) => ({ ...prev, loteId: lote?.id || '', loteNome: val }))
+              }}
+              error={getError('loteId')}
+              options={lotes.map((l) => l.nome)}
+              secondaryText={(lote) => lotesPastoMap[lote] || ''}
+              placeholder="Buscar pasto ou lote..."
+              id="loteId"
+              name="loteId"
+              dataField="loteId"
+            />
+          ) : (
+            <Input
+              label={<span>LOTE DE DESTINO <span className="text-red-500">*</span></span>}
+              placeholder="Carregando..."
+              value={form.loteNome}
+              onChange={setInput('loteNome')}
+              error={getError('loteId')}
+              disabled
+            />
+          )}
+          <Input
+            label="OBSERVAÇÃO"
+            placeholder=""
+            value={form.observacao}
+            onChange={setInput('observacao')}
           />
         </div>
 
@@ -672,25 +724,45 @@ export default function RecebimentoCompraPage() {
         {/* Seção 8: Responsáveis */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">8. RESPONSÁVEIS</h2>
-          <Input
-            label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
-            placeholder="Quem conferiu o recebimento"
-            value={form.responsavel}
-            onChange={setInput('responsavel')}
-            error={getError('responsavel')}
-          />
-          <Input
-            label="AUXILIAR"
-            placeholder="Assinatura do auxiliar (opcional)"
-            value={form.auxiliar}
-            onChange={setInput('auxiliar')}
-          />
-          <Input
-            label="OBSERVAÇÃO"
-            placeholder="Observações gerais do laudo"
-            value={form.observacao}
-            onChange={setInput('observacao')}
-          />
+          {funcionariosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
+              value={form.responsavel}
+              onChange={(val) => setForm((prev) => ({ ...prev, responsavel: val }))}
+              options={funcionariosDisponiveis}
+              placeholder="Buscar funcionário..."
+              error={getError('responsavel')}
+              id="responsavel"
+              name="responsavel"
+              dataField="responsavel"
+            />
+          ) : (
+            <Input
+              label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
+              placeholder="Quem conferiu o recebimento"
+              value={form.responsavel}
+              onChange={setInput('responsavel')}
+              error={getError('responsavel')}
+            />
+          )}
+          {funcionariosDisponiveis.length > 0 ? (
+            <SearchableModal
+              label="AUXILIAR"
+              value={form.auxiliar}
+              onChange={(val) => setForm((prev) => ({ ...prev, auxiliar: val }))}
+              options={funcionariosDisponiveis}
+              placeholder="Buscar funcionário..."
+              id="auxiliar"
+              name="auxiliar"
+            />
+          ) : (
+            <Input
+              label="AUXILIAR"
+              placeholder="Assinatura do auxiliar (opcional)"
+              value={form.auxiliar}
+              onChange={setInput('auxiliar')}
+            />
+          )}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -732,7 +804,7 @@ export default function RecebimentoCompraPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName="Recebimento de Compra"
+        cadernetaName="Recepção Animais"
         registro={registroSalvo}
         caderneta="os-recebimentos"
       />

@@ -188,6 +188,21 @@ async function fetchAndCacheCadastroData(): Promise<void> {
     clients.forEach((client) => {
       client.postMessage({ type: 'BG_CACHE_UPDATED', timestamp: Date.now() })
     })
+
+    // Logo da fazenda (prioridade baixa): aquecer o images-cache para
+    // exibição offline. Falhas são ignoradas, não é crítico para o app.
+    try {
+      const logoUrl = await getSWConfig('logo_url')
+      if (logoUrl) {
+        const imgCache = await caches.open('images-cache')
+        if (!(await imgCache.match(logoUrl))) {
+          const res = await fetch(logoUrl)
+          if (res.ok) await imgCache.put(logoUrl, res)
+        }
+      }
+    } catch {
+      // não crítico
+    }
   } catch (error) {
     console.error('[SW] Erro ao buscar dados de cadastro em background:', error)
   }
@@ -198,10 +213,26 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()
   } else if (event.data && event.data.type === 'SET_SW_CONFIG') {
-    const { token, refreshToken, fazendaId, supabaseUrl, anonKey } = event.data
+    const { token, refreshToken, fazendaId, supabaseUrl, anonKey, logoUrl } = event.data
     if (token) putSWConfig('supabase_token', token).catch(() => {})
     if (refreshToken) putSWConfig('supabase_refresh_token', refreshToken).catch(() => {})
-    if (fazendaId) putSWConfig('fazenda_id', fazendaId).catch(() => {})
+    if (fazendaId) {
+      // Invalidar caches da fazenda anterior ao trocar de fazenda.
+      // Lê os valores antigos antes de sobrescrever a config.
+      getSWConfig('fazenda_id').then(async (oldFazendaId) => {
+        if (oldFazendaId && oldFazendaId !== fazendaId) {
+          const bgCache = await caches.open(CADASTRO_BG_CACHE)
+          await bgCache.delete(`${self.location.origin}/cadastro-bg/${oldFazendaId}`)
+          const oldLogoUrl = await getSWConfig('logo_url')
+          if (oldLogoUrl) {
+            const imgCache = await caches.open('images-cache')
+            await imgCache.delete(oldLogoUrl)
+          }
+        }
+      }).catch(() => {})
+      putSWConfig('fazenda_id', fazendaId).catch(() => {})
+    }
+    if (logoUrl !== undefined) putSWConfig('logo_url', logoUrl).catch(() => {})
     if (supabaseUrl) putSWConfig('supabase_url', supabaseUrl).catch(() => {})
     if (anonKey) putSWConfig('supabase_anon_key', anonKey).catch(() => {})
   }
@@ -383,9 +414,27 @@ registerRoute(
   'GET'
 )
 
+// Runtime caching: imagens remotas do Supabase Storage (ex.: logo da fazenda).
+// Necessária porque regex sem protocolo só casa same-origin no workbox:
+// URLs cross-origin precisam casar desde o início da URL.
+registerRoute(
+  /^https:\/\/[^/]+\.supabase\.co\/.*\.(?:png|jpe?g|webp|gif|svg)(?:\?.*)?$/i,
+  new CacheFirst({
+    cacheName: 'images-cache',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 20,
+        maxAgeSeconds: 60 * 60 * 24 * 30,
+      }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  }),
+  'GET'
+)
+
 // Runtime caching: imagens
 registerRoute(
-  /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+  /\.(?:png|jpg|jpeg|svg|gif|webp)(?:\?.*)?$/i,
   new CacheFirst({
     cacheName: 'images-cache',
     plugins: [

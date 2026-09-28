@@ -2,6 +2,24 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Recebimento de compra: balanção com kg/cab calculado e responsáveis via modal (28/09/2026)
+
+Ajustes de formulário em `RecebimentoCompraPage`. DATA DE CHEGADA virou `DatePicker compact` em grid de 2 colunas com HORA DE CHEGADA ao lado (mesmo padrão dos comunicados). A seção de contagens passou a ser "3. QUANTIDADES RECEBIDAS" e a pesagem virou "4. BALANÇÃO": os inputs PESO MÉDIO BALANÇO e PESO ORIGEM foram substituídos por PESO ENTRADA (caminhão cheio) e PESO SAÍDA (caminhão vazio), com PESO MÉDIO (KG/CAB) autocalculado como `(entrada − saída) ÷ total de cabeças` em campo desabilitado. O valor calculado continua indo para `peso_medio_balancao` no sync e para `peso_vivo_atual_kg` das movimentações; `pesoEntrada`/`pesoSaida` ficam só no registro local (não há coluna remota), enquanto `peso_origem` segue no schema para laudos legados. Display config (`osRecebimentos.ts`), `labelConfig` e o texto do WhatsApp (`shareUtils`) foram atualizados para a nova seção BALANÇÃO e os novos campos.
+
+RESPONSÁVEL e AUXILIAR deixaram de ser texto livre e viraram `SearchableModal` alimentado por `funcionarios` do `getCachedCadastroData` + listener `CADASTRO_CACHE_UPDATED` (mesmo padrão da `RodeioPage`), com fallback para `Input` quando o cache está vazio.
+
+Na seção 5 (DESTINO), o radio DESTINO FÍSICO (baia/pasto) e o campo `destino` foram removidos do form e do payload; a coluna `os_recebimentos.destino` segue no schema para laudos antigos. O select de lote virou `SearchableModal` com `secondaryText` de pasto via `lotesPastoMap` do `getLotesAtivosCached` (padrão da `MaternidadePage`), resolvendo `loteId` por nome, e o input OBSERVAÇÃO saiu da seção 8 para baixo do lote. O `DatePicker` variant `compact` foi repaginado para o visual de input padrão (min-h 60px, borda clara, label `text-lg`, texto `text-lg`), o que alinha o par DATA/HORA DE CHEGADA e também uniformiza os pickers dos comunicados.
+
+**Disparador**: quando mencionar balanço/balanção no recebimento, peso entrada/saída do caminhão, kg/cab calculado, modal de funcionário ou de lote no recebimento, destino baia/pasto, ou `DatePicker` compact desalinhado, ler esta seção.
+
+## Opção "Misto" removida do sexo nos comunicados (28/09/2026)
+
+Os três comunicados do módulo Comercial tinham `Misto` no select de SEXO, em contradição com a regra de um comunicado por perfil. Removida a opção em `ComunicadoVendaPage`, `ComunicadoCompraPage` e `ComunicadoTransferenciaPage`, e os três branches de `validateOrdensServico` (compra/transferência/venda em `validation.ts`) passaram a aceitar só `Macho`/`Fêmea` — isso também bloqueia o salvamento de rascunhos antigos que tenham `sexo: 'Misto'` no localStorage. `ComunicadoCompraPage` ganhou o texto de apoio sobre perfis mistos que já existia nas outras duas telas. A union `'Macho' | 'Fêmea' | 'Misto'` em `RegistroOrdemServico` (`types/cadernetas.ts`) e a CHECK constraint de `ordens_servico.sexo` foram mantidas: modelam dados legados e o painel só exibe o campo.
+
+A única OS com `Misto` (`COM-2026-00002`, compra fechada da fazenda de testes) foi removida por estorno manual via MCP: soft-delete das 2 movimentações `Entrada`/`Compras` e do laudo de recebimento, recálculo de `quant_atual` do "Lote B - Garrotes" (20 → 0 na categoria garrote) e soft-delete da OS. `RecebimentoCompraPage` não tinha select de sexo: o laudo captura FÊMEAS/MACHOS por categoria em inputs numéricos.
+
+**Disparador**: quando mencionar sexo "Misto" em comunicados, select de sexo em OS, ou `validateOrdensServico` rejeitando sexo, ler esta seção.
+
 ## Tempo de ocupação/vedação não saía no texto de Pastagens (28/09/2026)
 
 O texto compartilhado do Manejo Pastagens sempre mostrava "Tempo de ocupação: —" e "Tempo de vedação: —". Causa: `PastagensPage` calcula os dois campos no formulário (`calcularDiferencaTempo` sobre a última entrada/saída do pasto, via `getUltimaDataPastoEntradaCached`/`getUltimaDataPastoSaidaCached`) e exibe no `PastoDetalhesCard`, mas o payload de `salvarRegistro` nunca incluiu `tempoOcupacao`/`tempoVedacao` — o `shareUtils` lia `registro.tempoOcupacao` inexistente. As colunas no banco tinham sido criadas e dropadas no mesmo dia em maio (`20260508194751`/`20260508195134`) porque eram `integer` e o PWA produz texto ("17 dias/410 horas", "Primeiro uso").
@@ -804,3 +822,23 @@ A mudança acompanha hardening no banco (repo Painel Web, migration `20260924160
 Typecheck (`npx tsc --noEmit`) passou.
 
 Disparador: quando mencionar "mapa de outra fazenda", "geometria errada no mapa", "cache do mapa", `mapa_fazenda` no IndexedDB, `caller_has_fazenda_access`, ler esta seção.
+
+## Recepção Animais: regroup, rename, ícones e cache offline de imagens (29/09/2026)
+
+**Mudanças na caderneta de recebimento**:
+
+- `recebimento-compra` saiu do grupo `Comercial` para `Gado & Pastagens` em `constants.ts`. Continua atrás do flag `acesso_comercial` (permanece na lista `CADERNETAS_COMERCIAL` de `ModulosMenuPage` e `ProgramacaoHojePage`), porque o laudo depende de uma OS de compra/transferência que só existe com o módulo comercial habilitado.
+- Renomeada para **RECEPÇÃO ANIMAIS** em todos os pontos visíveis (label do card, título da página, modal de sucesso, título da lista). IDs, rotas e store (`os-recebimentos`) inalterados.
+- Checklist: item "Animais rastreados/machucados" virou "Animais machucados".
+- Ícones novas gerados por IA no estilo das demais cadernetas: `cadernetas/recepcao.jpg` (caminhão descarregando Nelore, peão com tablet) para RECEPÇÃO ANIMAIS e `cadernetas/comunicado.png` (aperto de mãos + gado) compartilhado por COMUNICADO DE VENDA e COMUNICADO DE COMPRA (que já usavam o mesmo `venda.png`).
+
+**Cache offline de imagens**:
+
+- `vite.config.ts`: `jpg`/`jpeg`/`webp` incluídos no `globPatterns` do precache. Antes só `png` entrava, então `recepcao.jpg` e os `logo-*.jpg/jpeg` de fazendas não ficavam offline.
+- `sw.ts`: nova rota CacheFirst para imagens do Supabase Storage (`https://*.supabase.co/**` com extensão de imagem) compartilhando o `images-cache`. Necessária porque RegExpRoute sem protocolo só casa same-origin no workbox, então o `logo_url` remoto nunca era cacheado. Regex da rota genérica de imagens agora tolera query string.
+- `fetchAndCacheCadastroData` (periodic/bg sync): ao final, aquece o `images-cache` com o `logo_url` da fazenda (baixa prioridade, falhas ignoradas). O app passa `logoUrl` ao SW via `SET_SW_CONFIG` (`sendConfigToSW` em `App.tsx`, agora com `logoUrl` no payload e nas deps do effect).
+- Invalidação na troca de fazenda: `Configuracoes.handleSalvar` apaga a entrada `/cadastro-bg/<fazendaAnterior>` do `cadastro-bg-cache` e o logo anterior do `images-cache`, e já aquece o logo novo via `cache.add()`. O handler `SET_SW_CONFIG` no SW faz a mesma limpeza como segunda linha de defesa quando recebe `fazendaId` diferente do armazenado.
+
+Typecheck (`npx tsc --noEmit`) passou.
+
+Disparador: quando mencionar "logo da fazenda offline", "imagens offline", "images-cache", "cadastro-bg-cache", "troca de fazenda cache", `SET_SW_CONFIG`, ler esta seção.

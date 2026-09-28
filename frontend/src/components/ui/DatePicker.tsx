@@ -134,12 +134,12 @@ export default function DatePicker({
     ? variant === 'header'
       ? 'flex h-8 !min-h-0 !min-w-0 items-center gap-1 rounded-lg border border-white/25 bg-white/10 px-2 text-white shadow-inner shadow-black/5 transition-all hover:bg-white/15 active:scale-[0.99]'
       : 'rounded-xl border-2 border-gray-300 bg-white px-2 py-1 flex items-center gap-1 transition-all active:scale-[0.99]'
-    : 'w-full rounded-2xl border-2 border-gray-900 bg-white text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99] ' + (compact ? 'px-3 py-2 flex items-center justify-between gap-2' : 'rounded-3xl px-5 py-4')
+    : 'w-full rounded-2xl bg-white text-left shadow-[0px_6px_35px_rgba(0,0,0,0.08)] transition-all active:scale-[0.99] ' + (compact ? 'min-h-[60px] px-3 sm:px-4 py-3 flex items-center justify-between gap-2 border border-gray-400' : 'rounded-3xl px-5 py-4 border-2 border-gray-900')
 
   return (
     <div className={containerWidth}>
       {label && !inline && (
-        <label className={`block font-bold text-gray-900 ${compact ? 'text-sm mb-1' : 'text-lg mb-2'}`}>
+        <label className="block text-lg font-bold text-gray-900 mb-2">
           {label}
         </label>
       )}
@@ -168,9 +168,9 @@ export default function DatePicker({
           </>
         ) : compact ? (
           <>
-            <span className={`text-sm font-bold ${variant === 'header' ? 'text-white' : 'text-gray-900'}`}>{inputValue}</span>
+            <span className={`text-lg font-bold ${variant === 'header' ? 'text-white' : 'text-gray-900'}`}>{inputValue}</span>
             <svg
-              className={`h-4 w-4 ${variant === 'header' ? 'text-white/75' : 'text-gray-600'}`}
+              className={`h-5 w-5 ${variant === 'header' ? 'text-white/75' : 'text-gray-600'}`}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

@@ -370,8 +370,12 @@ const formatarRecebimentoComoTexto = (registro: Registro): string => {
     if (c.machos > 0) partes.push(`${c.machos}M`)
     texto += `• ${c.categoria}: ${partes.join(' + ')}\n`
   }
+  const pesoEntrada = normalizarNumero(registro.pesoEntrada as any)
+  if (pesoEntrada !== null) texto += `PESO ENTRADA: ${formatarNumeroBR(pesoEntrada)} kg\n`
+  const pesoSaida = normalizarNumero(registro.pesoSaida as any)
+  if (pesoSaida !== null) texto += `PESO SAÍDA: ${formatarNumeroBR(pesoSaida)} kg\n`
   const balancao = normalizarNumero(registro.pesoMedioBalancao as any)
-  if (balancao !== null) texto += `PESO MÉDIO BALANÇO: *${formatarNumeroBR(balancao)} kg/cab*\n`
+  if (balancao !== null) texto += `PESO MÉDIO: *${formatarNumeroBR(balancao)} kg/cab*\n`
   const origem = normalizarNumero(registro.pesoOrigem as any)
   if (origem !== null) texto += `PESO ORIGEM: ${formatarNumeroBR(origem)} kg\n`
 

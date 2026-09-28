@@ -171,7 +171,6 @@ export default function ComunicadoCompraPage() {
               { value: '', label: 'Selecione...' },
               { value: 'Macho', label: 'Macho' },
               { value: 'Fêmea', label: 'Fêmea' },
-              { value: 'Misto', label: 'Misto' },
             ]}
           />
           <Select
@@ -188,6 +187,9 @@ export default function ComunicadoCompraPage() {
               { value: '>36m', label: 'Mais de 36 meses' },
             ]}
           />
+          <p className="text-sm text-gray-500">
+            Um comunicado representa um único perfil de animais. Para perfis mistos, crie um comunicado separado para cada perfil.
+          </p>
         </div>
 
         {/* Seção 3: Datas */}

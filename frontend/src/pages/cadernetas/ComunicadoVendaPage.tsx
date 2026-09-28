@@ -231,7 +231,6 @@ export default function ComunicadoVendaPage() {
               { value: '', label: 'Selecione...' },
               { value: 'Macho', label: 'Macho' },
               { value: 'Fêmea', label: 'Fêmea' },
-              { value: 'Misto', label: 'Misto' },
             ]}
           />
           <Select

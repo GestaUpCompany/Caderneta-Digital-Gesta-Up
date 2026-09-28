@@ -4,7 +4,7 @@ export default function RecebimentoCompraListaPage() {
   return (
     <ListaRegistros
       caderneta="os-recebimentos"
-      titulo="RECEBIMENTOS DE COMPRA"
+      titulo="RECEPÇÃO ANIMAIS"
       rotaForm="/caderneta/recebimento-compra"
     />
   )
