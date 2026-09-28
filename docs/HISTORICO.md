@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Tempo de ocupação/vedação não saía no texto de Pastagens (28/09/2026)
+
+O texto compartilhado do Manejo Pastagens sempre mostrava "Tempo de ocupação: —" e "Tempo de vedação: —". Causa: `PastagensPage` calcula os dois campos no formulário (`calcularDiferencaTempo` sobre a última entrada/saída do pasto, via `getUltimaDataPastoEntradaCached`/`getUltimaDataPastoSaidaCached`) e exibe no `PastoDetalhesCard`, mas o payload de `salvarRegistro` nunca incluiu `tempoOcupacao`/`tempoVedacao` — o `shareUtils` lia `registro.tempoOcupacao` inexistente. As colunas no banco tinham sido criadas e dropadas no mesmo dia em maio (`20260508194751`/`20260508195134`) porque eram `integer` e o PWA produz texto ("17 dias/410 horas", "Primeiro uso").
+
+Correção: payload agora persiste os dois campos (snapshot no momento do manejo), `syncService` mapeia `tempo_ocupacao`/`tempo_vedacao`, e o banco ganhou as colunas como `text` (migration `20260928190000` no repo do painel). Painel também exibe no detalhe e na exportação da planilha.
+
+Ressalva: só vale para registros novos — registros antigos não têm o dado e seguem "—". E a fonte é `registros_pastagens` (pasto_entrada/pasto_saida por nome): se um lote mudar de pasto por outro fluxo que não gere registro de pastagens, o tempo calculado pode não refletir a ocupação real.
+
+**Disparador**: quando mencionar tempo de ocupação/vedação, "Primeiro uso" em pastagens, `calcularDiferencaTempo`, ou `getUltimaDataPasto*`, ler esta seção.
+
 ## Base adulta para consumo de suplementação no PWA (28/09/2026)
 
 Parte PWA da correção de divergência entre o "CMS Geral (%PV)" do texto compartilhado e a coluna "Consumo (%PV)" da planilha do painel (detalhes de banco e decisão no HISTORICO do repo de gestão, migration `20260928120000`). Convenção adotada: consumo do escopo 'lote' é **kg por cabeça adulta ÷ peso adulto** — bezerros ao pé não entram em denominador nem em peso.
