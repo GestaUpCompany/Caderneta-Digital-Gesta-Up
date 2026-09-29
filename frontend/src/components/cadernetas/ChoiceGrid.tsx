@@ -19,6 +19,8 @@ interface ChoiceGridProps {
   cols?: 2 | 3 | 4 | 5 | 6 | 8
   /** sm: fileira compacta de numeros. md: tiles com icone */
   size?: 'sm' | 'md'
+  /** Tamanho do texto do rotulo (default sm = 14px) */
+  labelSize?: 'xs' | 'sm'
   /** Badge verde de check no canto do tile selecionado (padrao multi) */
   showCheck?: boolean
   /** Classes extras no container da grade (ex: limitar largura) */
@@ -50,6 +52,7 @@ export default function ChoiceGrid({
   onChangeMulti,
   cols = 3,
   size = 'md',
+  labelSize = 'sm',
   showCheck,
   className = '',
   id,
@@ -111,14 +114,14 @@ export default function ChoiceGrid({
                     {option.icon}
                   </span>
                 )}
-                <span className="text-sm font-bold leading-tight">{option.label}</span>
+                <span className={`${labelSize === 'xs' ? 'text-xs' : 'text-sm'} font-bold leading-tight`}>{option.label}</span>
               </span>
             ) : (
               <>
                 {option.icon && (
                   <span className={size === 'sm' ? 'text-lg' : 'text-2xl'}>{option.icon}</span>
                 )}
-                <span className="text-sm font-bold text-center leading-tight">
+                <span className={`${labelSize === 'xs' ? 'text-xs' : 'text-sm'} font-bold text-center leading-tight`}>
                   {option.label}
                 </span>
               </>
