@@ -418,6 +418,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         umidade_relativa: registro.umidadeRelativa ? Number(registro.umidadeRelativa) : null,
         observacao: registro.observacao || null,
         medicoes: registro.medicoes || [],
+        choveu: registro.choveu ?? null,
+        esvaziou_pluviometros: registro.esvaziouPluviometros ?? null,
+        tempo_atual: registro.tempoAtual || null,
       }
     case 'abastecimento':
       return {

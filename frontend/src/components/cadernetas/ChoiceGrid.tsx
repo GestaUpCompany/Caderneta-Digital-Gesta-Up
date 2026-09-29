@@ -4,6 +4,8 @@ export interface ChoiceOption {
   value: string
   label: string
   icon?: ReactNode
+  /** success/danger: tile selecionado com tinta suave (padrao SIM/NAO) */
+  tone?: 'success' | 'danger'
 }
 
 interface ChoiceGridProps {
@@ -75,6 +77,11 @@ export default function ChoiceGrid({
     <div id={id} data-field={dataField} className={`grid ${COL_CLASSES[cols]} ${size === 'sm' ? 'gap-1.5' : 'gap-2'} ${className}`}>
       {options.map((option) => {
         const selected = isSelected(option.value)
+        const selectedClass = option.tone === 'success'
+          ? 'bg-green-100 text-green-800 border-green-500'
+          : option.tone === 'danger'
+            ? 'bg-red-50 text-red-700 border-red-400'
+            : 'bg-brand-900 text-white border-brand-900'
         return (
           <button
             key={option.value}
@@ -85,7 +92,7 @@ export default function ChoiceGrid({
               flex flex-col items-center justify-center gap-1
               ${size === 'sm' ? 'p-1 min-h-[44px] min-w-0' : 'p-2 min-h-[72px]'}
               ${selected
-                ? 'bg-brand-900 text-white border-brand-900'
+                ? selectedClass
                 : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'
               }
             `}
@@ -97,12 +104,25 @@ export default function ChoiceGrid({
                 </svg>
               </span>
             )}
-            {option.icon && (
-              <span className={size === 'sm' ? 'text-lg' : 'text-2xl'}>{option.icon}</span>
+            {option.tone ? (
+              <span className="flex items-center gap-2">
+                {option.icon && (
+                  <span className={`text-lg leading-none ${selected ? '' : option.tone === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                    {option.icon}
+                  </span>
+                )}
+                <span className="text-sm font-bold leading-tight">{option.label}</span>
+              </span>
+            ) : (
+              <>
+                {option.icon && (
+                  <span className={size === 'sm' ? 'text-lg' : 'text-2xl'}>{option.icon}</span>
+                )}
+                <span className="text-sm font-bold text-center leading-tight">
+                  {option.label}
+                </span>
+              </>
             )}
-            <span className="text-sm font-bold text-center leading-tight">
-              {option.label}
-            </span>
           </button>
         )
       })}

@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, ValidationMessage, TimeInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import StepperInput from '../../components/cadernetas/StepperInput'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import FormFooter from '../../components/cadernetas/FormFooter'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -30,8 +34,22 @@ interface MedicaoPluviometro {
   horario: string
 }
 
+const TEMPO_OPTIONS = [
+  { value: 'sol', label: 'Sol', icon: '☀️' },
+  { value: 'nublado', label: 'Nublado', icon: '⛅' },
+  { value: 'chuva_fraca', label: 'Chuva fraca', icon: '🌦️' },
+  { value: 'chuva_forte', label: 'Chuva forte', icon: '🌧️' },
+  { value: 'temporal', label: 'Temporal', icon: '⛈️' },
+  { value: 'vento_forte', label: 'Vento forte', icon: '💨' },
+  { value: 'frio', label: 'Frio', icon: '🥶' },
+  { value: 'seco_poeira', label: 'Seco / poeira', icon: '🌵' },
+]
+
 interface FormState {
   data: string
+  choveu: string
+  esvaziouPluviometros: string
+  tempoAtual: string
   temperaturaMediaCalculada: string
   umidadeRelativa: string
   observacao: string
@@ -40,6 +58,9 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
+  choveu: '',
+  esvaziouPluviometros: '',
+  tempoAtual: '',
   temperaturaMediaCalculada: '',
   umidadeRelativa: '',
   observacao: '',
@@ -65,6 +86,8 @@ export default function ClimaPage() {
   // Validation rules
   const validationRules: any = {
     data: { required: true },
+    choveu: { required: true },
+    esvaziouPluviometros: { required: true },
     _responsavel: {
       custom: () => (!usuario || usuario.trim() === '') ? 'Responsável é obrigatório' : null
     },
@@ -200,6 +223,9 @@ export default function ClimaPage() {
       data: form.data,
       responsavel: usuario,
       usuario: usuario,
+      choveu: form.choveu === '' ? null : form.choveu === 'sim',
+      esvaziouPluviometros: form.esvaziouPluviometros === '' ? null : form.esvaziouPluviometros === 'sim',
+      tempoAtual: form.tempoAtual || null,
       temperaturaMedia: temperaturaMedia,
       umidadeRelativa: form.umidadeRelativa ? Number(form.umidadeRelativa) : null,
       observacao: form.observacao,
@@ -241,154 +267,153 @@ export default function ClimaPage() {
         />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        <CadernetaSection numero={1} titulo="Chuva">
+          <div>
+            <label className="block text-[15px] font-bold text-gray-900 mb-2">
+              CHOVEU DESDE A ÚLTIMA LEITURA? <span className="text-red-500">*</span>
+            </label>
+            <ChoiceGrid
+              options={[
+                { value: 'nao', label: 'NÃO CHOVEU', icon: '☀️' },
+                { value: 'sim', label: 'CHOVEU', icon: '🌧️' },
+              ]}
+              value={form.choveu}
+              onChange={(v) => setForm((prev) => ({ ...prev, choveu: v }))}
+              cols={2}
+              dataField="choveu"
+            />
+          </div>
+          {pluviometrosDisponiveis.length === 0 ? (
+            <p className="text-gray-500 text-center py-2 text-sm">Nenhum pluviômetro cadastrado para esta fazenda.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {pluviometrosParaSelecionar.length > 0 && (
+                <select
+                  className="w-full px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 text-[16px] font-semibold text-gray-600 bg-white focus:outline-none focus:border-brand-700"
+                  value=""
+                  onChange={(e) => handleAddPluviometro(e.target.value)}
+                >
+                  <option value="">+ Adicionar pluviômetro...</option>
+                  {pluviometrosParaSelecionar.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome}{p.localizacao ? ` (${p.localizacao})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {form.medicoes.length === 0 ? (
+                <p className="text-gray-400 text-center py-2 text-sm">
+                  Nenhum pluviômetro selecionado. Use o seletor acima para adicionar.
+                </p>
+              ) : (
+                form.medicoes.map((medicao) => (
+                  <div key={medicao.pluviometroId} className="flex flex-col gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-900 leading-tight">
+                          🌧️ {medicao.pluviometroNome}
+                        </p>
+                        {medicao.pluviometroLocalizacao && (
+                          <p className="text-sm text-gray-500 mt-0.5">{medicao.pluviometroLocalizacao}</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePluviometro(medicao.pluviometroId)}
+                        className="!min-w-0 !min-h-0 w-8 h-8 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-lg leading-none flex items-center justify-center flex-shrink-0"
+                        aria-label="Remover pluviômetro"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <StepperInput
+                      value={medicao.medicao}
+                      onChange={(v) => handleMedicaoChange(medicao.pluviometroId, v)}
+                      suffix="mm"
+                      error={getError(`medicao_${medicao.pluviometroId}`)}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <TimeInput
+                        label={<span>HORÁRIO <span className="text-red-500">*</span></span>}
+                        value={medicao.horario}
+                        onChange={(v) => handleHorarioChange(medicao.pluviometroId, v)}
+                        error={getError(`horario_${medicao.pluviometroId}`)}
+                      />
+                      <Input
+                        label="TEMPERATURA (°C)"
+                        placeholder="Ex: 25.5"
+                        value={medicao.temperatura}
+                        onChange={(e) => handleTemperaturaChange(medicao.pluviometroId, e.target.value)}
+                        type="number"
+                        step="0.1"
+                        textSize="base"
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+          <div>
+            <label className="block text-[15px] font-bold text-gray-900 mb-2">
+              ESVAZIOU OS PLUVIÔMETROS? <span className="text-red-500">*</span>
+            </label>
+            <ChoiceGrid
+              options={[
+                { value: 'sim', label: 'SIM', icon: '✓', tone: 'success' },
+                { value: 'nao', label: 'NÃO', icon: '✗', tone: 'danger' },
+              ]}
+              value={form.esvaziouPluviometros}
+              onChange={(v) => setForm((prev) => ({ ...prev, esvaziouPluviometros: v }))}
+              cols={2}
+              showCheck={false}
+              dataField="esvaziouPluviometros"
+            />
+          </div>
+        </CadernetaSection>
+
+        <CadernetaSection numero={2} titulo="Tempo agora">
+          <ChoiceGrid
+            options={TEMPO_OPTIONS}
+            value={form.tempoAtual}
+            onChange={(v) => setForm((prev) => ({ ...prev, tempoAtual: v }))}
+            cols={4}
+            dataField="tempoAtual"
+          />
           <Input
-            label="UMIDADE RELATIVA DO AR (%)"
+            label="UMIDADE DO AR (SE TIVER APARELHO)"
             placeholder="Ex: 75"
             value={form.umidadeRelativa}
             onChange={setInput('umidadeRelativa')}
             error={getError('umidadeRelativa')}
             type="number"
             step="0.1"
+            suffix="%"
           />
-        </div>
-
-        {/* Seção 2: Pluviômetros */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. PLUVIÔMETROS</h2>
-          {pluviometrosDisponiveis.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nenhum pluviômetro cadastrado para esta fazenda.</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {/* Selecionar pluviômetro */}
-              {pluviometrosParaSelecionar.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-bold text-gray-700">SELECIONAR PLUVIÔMETRO</label>
-                  <select
-                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-900 bg-white focus:outline-none focus:border-green-500"
-                    value=""
-                    onChange={(e) => handleAddPluviometro(e.target.value)}
-                  >
-                    <option value="">+ Adicionar pluviômetro...</option>
-                    {pluviometrosParaSelecionar.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.nome}{p.localizacao ? ` (${p.localizacao})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Pluviômetros selecionados — cards */}
-              {form.medicoes.length === 0 ? (
-                <p className="text-gray-400 text-center py-4 text-sm">
-                  Nenhum pluviômetro selecionado. Use o seletor acima para adicionar.
-                </p>
-              ) : (
-                form.medicoes.map((medicao) => (
-                  <div key={medicao.pluviometroId} className="flex flex-col gap-3 p-4 rounded-2xl bg-gray-50 border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-gray-700">
-                        {medicao.pluviometroNome}
-                        {medicao.pluviometroLocalizacao && ` (${medicao.pluviometroLocalizacao})`}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePluviometro(medicao.pluviometroId)}
-                        className="text-gray-400 hover:text-red-500 transition-colors text-xl leading-none"
-                        aria-label="Remover pluviômetro"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <TimeInput
-                      label={<span>HORÁRIO <span className="text-red-500">*</span></span>}
-                      value={medicao.horario}
-                      onChange={(v) => handleHorarioChange(medicao.pluviometroId, v)}
-                      error={getError(`horario_${medicao.pluviometroId}`)}
-                    />
-                    <Input
-                      label={<span>MEDIÇÃO DE CHUVA (mm) <span className="text-red-500">*</span></span>}
-                      placeholder="Ex: 12.5"
-                      value={medicao.medicao}
-                      onChange={(e) => handleMedicaoChange(medicao.pluviometroId, e.target.value)}
-                      error={getError(`medicao_${medicao.pluviometroId}`)}
-                      type="number"
-                      step="0.1"
-                    />
-                    <Input
-                      label="TEMPERATURA (°C)"
-                      placeholder="Ex: 25.5"
-                      value={medicao.temperatura}
-                      onChange={(e) => handleTemperaturaChange(medicao.pluviometroId, e.target.value)}
-                      type="number"
-                      step="0.1"
-                    />
-                  </div>
-                ))
-              )}
-            </div>
+          {form.temperaturaMediaCalculada !== '' && (
+            <InfoStrip tone="success" icon="🌡️">
+              Temperatura média dos pluviômetros: {form.temperaturaMediaCalculada} °C
+            </InfoStrip>
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 3: Temperatura Média */}
-        {form.temperaturaMediaCalculada !== '' && (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">TEMPERATURA MÉDIA</h2>
-            <Input
-              label="TEMPERATURA MÉDIA (°C)"
-              value={form.temperaturaMediaCalculada}
-              readOnly
-              disabled
-            />
-          </div>
-        )}
-
-        {/* Seção 4: Observações */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. OBSERVAÇÕES</h2>
+        <CadernetaSection numero={3} titulo="Observação">
           <Input
-            label=""
-            placeholder="Adicione observações (opcional)"
+            placeholder="Detalhes adicionais (opcional)"
             value={form.observacao}
             onChange={setInput('observacao')}
             error={getError('observacao')}
           />
-        </div>
+        </CadernetaSection>
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleSalvar}
-            disabled={salvando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => limparRascunho()}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
-        )}
+        <FormFooter
+          onSalvar={handleSalvar}
+          onLimpar={() => limparRascunho()}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+        />
       </CadernetaLayout>
 
       <SuccessModal

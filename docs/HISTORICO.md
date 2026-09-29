@@ -842,3 +842,15 @@ Disparador: quando mencionar "mapa de outra fazenda", "geometria errada no mapa"
 Typecheck (`npx tsc --noEmit`) passou.
 
 Disparador: quando mencionar "logo da fazenda offline", "imagens offline", "images-cache", "cadastro-bg-cache", "troca de fazenda cache", `SET_SW_CONFIG`, ler esta seção.
+
+## Redesign visual das cadernetas: primitivos + Limpeza + Clima (28/09/2026)
+
+Começo da modernização das cadernetas a partir das referências em `layouts/` (análise aprovada pelo usuário). Sistema novo em `frontend/src/components/cadernetas/`: `CadernetaSection` (card numerado `.app-card`), `ChoiceGrid` (tiles single/multi com tom neutro/veredito e badge de check), `InfoStrip` (faixas de feedback verde/âmbar/cinza), `FormFooter` (SALVAR/LIMPAR/status) e `StepperInput` (− número +). `FotoSection` ganhou slot tracejado; labels dos `ui/` caíram para 15px; `SearchableModal` com texto de 16px; `Input` ganhou `suffix`. Limpeza migrou primeiro (QUANTAS PESSOAS, atalhos de horário, grade com emojis) e Clima depois (stepper de mm, umidade com %, tempo médio em faixa).
+
+**Exceção de processo registrada pelo usuário**: a migration `20260928120000_clima_campos_condicoes.sql` (colunas `choveu`, `esvaziou_pluviometros`, `tempo_atual` em `registros_clima`) foi criada neste repo (PWA) e aplicada via MCP, com a versão já inserida em `supabase_migrations.schema_migrations`. Diferente da regra normal em que o schema é do Painel Web — ficou decidido que as migrations criadas aqui serão **copiadas depois para o repo `GestaUp-Cadernetas-Gestao`**, e o registro em `schema_migrations` evita que o `db push` de lá tente reaplicar.
+
+**Bug pré-existente corrigido**: `useFormValidation` pulava `custom` de campos virtuais `_` (`_responsavel`, `_medicoes_min`), deixando SALVAR habilitado indevidamente; agora regras de campos `_` sempre rodam.
+
+Pendente do redesign: demais cadernetas migram uma a uma; campos que exigem mídia (áudio, foto antes/depois, multi-foto) ficam para uma fase própria de infraestrutura.
+
+**Disparador**: quando mencionar redesign de cadernetas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection`, migration criada no repo do PWA, ou "copiar migrations para o painel", ler esta seção.

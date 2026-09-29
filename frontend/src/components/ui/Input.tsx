@@ -5,6 +5,8 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string
   helper?: string
   icon?: ReactNode
+  /** Sufixo exibido dentro do campo a direita, ex: "%", "kg" */
+  suffix?: ReactNode
   fullWidth?: boolean
   textSize?: 'sm' | 'base' | 'lg' | 'xl'
 }
@@ -14,6 +16,7 @@ export default function Input({
   error,
   helper,
   icon,
+  suffix,
   fullWidth = true,
   textSize,
   className = '',
@@ -42,9 +45,14 @@ export default function Input({
         )}
         <input
           id={id}
-          className={`${baseStyles} ${stateStyles} ${icon ? 'pl-12 sm:pl-14' : ''}`}
+          className={`${baseStyles} ${stateStyles} ${icon ? 'pl-12 sm:pl-14' : ''} ${suffix ? 'pr-12' : ''}`}
           {...props}
         />
+        {suffix && (
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base font-semibold text-gray-500 pointer-events-none">
+            {suffix}
+          </span>
+        )}
       </div>
       {error ? (
         <p className="mt-2 text-base font-semibold text-red-700 flex items-center gap-2">
