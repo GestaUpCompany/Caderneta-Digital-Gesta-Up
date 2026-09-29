@@ -22,11 +22,11 @@ export default function TextArea({
   id,
   ...props
 }: TextAreaProps) {
-  const textSizeStyles = textSize === 'sm' ? 'text-sm' : textSize === 'base' ? 'text-base' : textSize === 'lg' ? 'text-lg' : 'text-lg sm:text-xl'
-  const baseStyles = `min-h-[60px] ${textSizeStyles} px-3 sm:px-4 py-3 bg-white border-2 rounded-xl focus:outline-none transition-colors w-full resize-y`
+  const textSizeStyles = textSize === 'sm' ? 'text-sm' : textSize === 'base' ? 'text-base' : textSize === 'lg' ? 'text-lg' : 'text-base'
+  const baseStyles = `min-h-[60px] ${textSizeStyles} font-bold text-gray-900 px-3 sm:px-4 py-2.5 bg-white border-2 rounded-xl focus:outline-none transition-colors w-full resize-y`
   const stateStyles = error
     ? 'border-red-500 focus:border-red-700'
-    : 'border-gray-400 focus:border-black'
+    : 'border-gray-400 focus:border-brand-700'
   const widthStyles = fullWidth ? 'w-full' : ''
 
   return (

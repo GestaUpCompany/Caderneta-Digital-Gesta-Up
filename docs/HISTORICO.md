@@ -861,4 +861,14 @@ A `ProblemasPage` seguiu a simplificação da referência `layouts/11 - Problema
 
 Detalhes funcionais: o tile de setor usa emoji por palavra-chave do nome do setor cadastrado (`setorIcon`); a faixa "Local marcado pelo GPS" resolve o nome do pasto offline via `loadMapaFazenda` + `pontoDentroPoligono` (mapaRouting), caindo para coordenadas quando fora de qualquer pasto; `ListaRegistros` já filtra campos vazios, então registros antigos continuam exibindo os campos legados e os novos exibem só os preenchidos. Áudio segue fora de escopo (fase de mídia).
 
+## Abastecimento na linguagem nova com auto-preenchimentos (28/09/2026)
+
+A `AbastecimentoPage` migrou para `CadernetaSection`/`ChoiceGrid`/`InfoStrip`/`StepperInput`/`FormFooter` sem mudança de contrato. Auto-preenchimentos adotados da referência: `quemAbasteceu` vem do login (`config.usuario`, exibido como faixa "Abastecido por"), combustível vem do `tipo_combustivel` da máquina cadastrada, e `operador_padrao` da máquina pré-seleciona o operador. Máquinas viram tiles com emoji por tipo (`maquinaIcon`); operadores viram tiles de avatar com iniciais e cores rotativas (`AVATAR_CORES`); os 16 serviços continuam todos disponíveis como tiles com emoji em 4 colunas.
+
+Novo dado derivado, sem migration: o bloco "RELÓGIO DA BOMBA" mostra ANTES lido do último `totalBomba` salvo no IndexedDB (`getAllRegistros('abastecimento')`) e AGORA digitável; a faixa confere se a diferença bate com o total abastecido (aviso, não bloqueia). A página continua sem `useRascunhoForm` (estado original) e sem foto: `FOTO DA BOMBA`/`FOTO DO PAINEL` da referência exigem duas colunas de imagem e upload duplo, adiados para a fase de mídia.
+
+## Inputs padronizados no estilo do redesign (28/09/2026)
+
+Aprovado pelo usuário: o box do relógio da bomba (`rounded-xl border-2 border-gray-400`, fundo branco, `py-2.5`, texto `text-base font-bold`, foco `border-brand-700`) virou o padrão de todos os campos compartilhados em `components/ui/`: `Input`, `Select`, `TimeInput`, `TextArea`, `SearchableModal` (trigger) e `DatePicker` (variante compacta de formulário). Saiu o mix anterior de `rounded-2xl`, borda simples, `shadow-sm` e `focus:border-black`. Lembrar que `text-base` equivale a 18px neste projeto (escala remapeada no `tailwind.config.js`). `ChoiceGrid` ganhou `labelSize="xs"` para tiles densos (combustível, serviços).
+
 **Disparador**: quando mencionar redesign de cadernetas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection`, migration criada no repo do PWA, ou "copiar migrations para o painel", ler esta seção.
