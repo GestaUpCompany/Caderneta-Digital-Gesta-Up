@@ -4,8 +4,8 @@ export interface ChoiceOption {
   value: string
   label: string
   icon?: ReactNode
-  /** success/danger: tile selecionado com tinta suave (padrao SIM/NAO) */
-  tone?: 'success' | 'danger'
+  /** success/danger: tinta suave (SIM/NAO). 'danger-solid': vermelho solido (diagnosticos) */
+  tone?: 'success' | 'danger' | 'danger-solid'
 }
 
 interface ChoiceGridProps {
@@ -84,7 +84,9 @@ export default function ChoiceGrid({
           ? 'bg-green-100 text-green-800 border-green-500'
           : option.tone === 'danger'
             ? 'bg-red-50 text-red-700 border-red-400'
-            : 'bg-brand-900 text-white border-brand-900'
+            : option.tone === 'danger-solid'
+              ? 'bg-red-600 text-white border-red-600'
+              : 'bg-brand-900 text-white border-brand-900'
         return (
           <button
             key={option.value}
@@ -107,7 +109,7 @@ export default function ChoiceGrid({
                 </svg>
               </span>
             )}
-            {option.tone ? (
+            {option.tone === 'success' || option.tone === 'danger' ? (
               <span className="flex items-center gap-2">
                 {option.icon && (
                   <span className={`text-lg leading-none ${selected ? '' : option.tone === 'success' ? 'text-green-600' : 'text-red-500'}`}>

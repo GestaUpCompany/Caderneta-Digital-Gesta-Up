@@ -871,4 +871,12 @@ Novo dado derivado, sem migration: o bloco "RELÓGIO DA BOMBA" mostra ANTES lido
 
 Aprovado pelo usuário: o box do relógio da bomba (`rounded-xl border-2 border-gray-400`, fundo branco, `py-2.5`, texto `text-base font-bold`, foco `border-brand-700`) virou o padrão de todos os campos compartilhados em `components/ui/`: `Input`, `Select`, `TimeInput`, `TextArea`, `SearchableModal` (trigger) e `DatePicker` (variante compacta de formulário). Saiu o mix anterior de `rounded-2xl`, borda simples, `shadow-sm` e `focus:border-black`. Lembrar que `text-base` equivale a 18px neste projeto (escala remapeada no `tailwind.config.js`). `ChoiceGrid` ganhou `labelSize="xs"` para tiles densos (combustível, serviços).
 
-**Disparador**: quando mencionar redesign de cadernetas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection`, migration criada no repo do PWA, ou "copiar migrations para o painel", ler esta seção.
+## Enfermaria na linguagem nova + MedicamentosSection redesenhada (28/09/2026)
+
+A `EnfermariaPage` migrou para `CadernetaSection`/`ChoiceGrid`/`FormFooter` sem mudança de contrato (mesmos campos, mesmas colunas). Diagnósticos viraram tiles 3 colunas com emoji e seleção **vermelho sólido** (`tone="danger-solid"` no `ChoiceGrid`, semântica de problema); os rótulos de exibição seguem a referência (`PICADA DE COBRA`, `TREMENDO`, `ANDANDO TORTO`) mas os **valores persistidos continuam os nomes originais** (`Cobra`, `Tremores Musculares`, `Incoordenação Motora`). Tipo vira tiles 🩹 CURATIVO / 🛡️ PREVENTIVO.
+
+`MedicamentosSection` (compartilhada com `MaternidadePage`) foi reescrita na linguagem nova: tipo do medicamento vira tiles com emoji por palavra-chave (`tipoIcon`), botão "adicionar" vira slot tracejado, princípio ativo/dose recomendada viram `InfoStrip`, e os cards de item ficaram compactos. Props e `MedicamentoItem` inalterados. Dose continua `Input` texto livre (unidade varia: ml, doses, comprimidos).
+
+Divergências da referência mantidas por decisão: `FOTO DO BRINCO`/`SEM BRINCO` não substituem o `AnimalIdentifier` (a foto não identifica o animal no banco e tiraria o auto-fill de sexo/raça/idade/lote); `GRAVAR ÁUDIO` adiado para a fase de mídia; "estoque: 8 frascos" não existe em `medicamentos` (sem coluna de estoque).
+
+**Disparador**: quando mencionar redesign de cadernetas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection`, `MedicamentosSection`, `danger-solid`, migration criada no repo do PWA, ou "copiar migrations para o painel", ler esta seção.
