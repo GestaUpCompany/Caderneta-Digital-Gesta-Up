@@ -853,4 +853,12 @@ Começo da modernização das cadernetas a partir das referências em `layouts/`
 
 Pendente do redesign: demais cadernetas migram uma a uma; campos que exigem mídia (áudio, foto antes/depois, multi-foto) ficam para uma fase própria de infraestrutura.
 
+## Problemas simplificado para aviso rápido + evidência foto/GPS (28/09/2026)
+
+A `ProblemasPage` seguiu a simplificação da referência `layouts/11 - Problemas.png`, aprovada pelo usuário com a condição de manter descrição e local. O formulário de análise de causa (~10 campos: causa identificada, causa raiz, gravidade, tipo de problema, setor que resolve e observações) virou um aviso de 4 seções: setor em tiles + local (mantido), descrição + foto + faixa de GPS, urgência (prioridade), e situação (ocorrência + já resolveu). A análise passa a ser responsabilidade do gerente no Painel; campos removidos da UI seguem indo `null` e os booleanos (`causa_identificada`, `causa_raiz_identificada`) foram ajustados no `syncService` para enviar `null` quando ausentes, não `false`.
+
+**Segunda migration no repo do PWA** (mesma exceção acima): `20260928140000_problemas_evidencia.sql` adiciona `foto_url`, `latitude`, `longitude`, `gps_accuracy` em `registros_problemas`, aplicada via MCP com versão registrada em `schema_migrations`. `problemas` entrou no `FOTO_BUCKET_BY_STORE` (`fotos-registros`).
+
+Detalhes funcionais: o tile de setor usa emoji por palavra-chave do nome do setor cadastrado (`setorIcon`); a faixa "Local marcado pelo GPS" resolve o nome do pasto offline via `loadMapaFazenda` + `pontoDentroPoligono` (mapaRouting), caindo para coordenadas quando fora de qualquer pasto; `ListaRegistros` já filtra campos vazios, então registros antigos continuam exibindo os campos legados e os novos exibem só os preenchidos. Áudio segue fora de escopo (fase de mídia).
+
 **Disparador**: quando mencionar redesign de cadernetas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection`, migration criada no repo do PWA, ou "copiar migrations para o painel", ler esta seção.

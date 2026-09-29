@@ -572,13 +572,13 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         setor: registro.setor || null,
         local: registro.local || null,
         descricao_problema: registro.descricaoProblema || null,
-        causa_identificada: registro.causaIdentificada === 'S',
+        causa_identificada: registro.causaIdentificada ? registro.causaIdentificada === 'S' : null,
         causa_identificada_obs: registro.causaIdentificadaObs || null,
         acao_corretiva_realizada: registro.acaoCorretivaRealizada === 'S',
         acao_corretiva_realizada_obs: registro.acaoCorretivaRealizadaObs || null,
         tipo_ocorrencia: registro.tipoOcorrencia || null,
         tipo_ocorrencia_obs: registro.tipoOcorrenciaObs || null,
-        causa_raiz_identificada: registro.causaRaizIdentificada === 'S',
+        causa_raiz_identificada: registro.causaRaizIdentificada ? registro.causaRaizIdentificada === 'S' : null,
         causa_raiz_identificada_obs: registro.causaRaizIdentificadaObs || null,
         gravidade_impacto: registro.gravidadeImpacto || null,
         gravidade_impacto_obs: registro.gravidadeImpactoObs || null,
@@ -586,6 +586,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo_problema_obs: registro.tipoProblemaObs || null,
         prioridade: registro.prioridade || null,
         setor_resolve: registro.setorResolve || null,
+        latitude: registro.latitude ?? null,
+        longitude: registro.longitude ?? null,
+        gps_accuracy: registro.gpsAccuracy ?? null,
       }
     case 'almoxarifado':
       return {
@@ -806,6 +809,7 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   rodeio: 'fotos-registros',
   'manutencao-maquinas': 'fotos-registros',
   limpeza: 'fotos-registros',
+  problemas: 'fotos-registros',
 }
 
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.
