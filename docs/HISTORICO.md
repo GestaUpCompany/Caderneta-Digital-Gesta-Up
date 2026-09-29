@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Capacidade do vagão virou aviso informativo na Fábrica Confinamento (29/09/2026)
+
+`FabricaConfinamentoPage`: `excedeCapacidade` deixou de bloquear o SALVAR (removido de `podeSalvar`). O aviso mudou de erro vermelho para informativo em âmbar, com estimativa de cargas: "{total} kg equivalem a aproximadamente N cargas do vagão" (`Math.ceil(totalProduzido / capacidade_kg)`). A borda do input de TOTAL PRODUZIDO passou de vermelha para âmbar nesse estado.
+
+Motivação: permitir lançar o produzido do trato de uma vez quando ele representa várias cargas físicas, em vez de salvar carga a carga. Consequência assumida: o número de saves deixa de aproximar o número de cargas físicas, e o registro guarda um único `vagao_id` mesmo se vagões diferentes foram usados. O registro continua sendo um por trato (`ordem_trato`), e o fluxo de produção parcial (`registroFabricaNaoConcluidoId`/`jaProduzidoNoTrato`) segue existindo para quem preferir lançar por carga.
+
+**Disparador**: quando mencionar trava de capacidade do vagão, "Excede a capacidade do vagão", `excedeCapacidade`, ou lançamento agregado de produção por trato, ler esta seção.
+
 ## Recebimento de compra: balanção com kg/cab calculado e responsáveis via modal (28/09/2026)
 
 Ajustes de formulário em `RecebimentoCompraPage`. DATA DE CHEGADA virou `DatePicker compact` em grid de 2 colunas com HORA DE CHEGADA ao lado (mesmo padrão dos comunicados). A seção de contagens passou a ser "3. QUANTIDADES RECEBIDAS" e a pesagem virou "4. BALANÇÃO": os inputs PESO MÉDIO BALANÇO e PESO ORIGEM foram substituídos por PESO ENTRADA (caminhão cheio) e PESO SAÍDA (caminhão vazio), com PESO MÉDIO (KG/CAB) autocalculado como `(entrada − saída) ÷ total de cabeças` em campo desabilitado. O valor calculado continua indo para `peso_medio_balancao` no sync e para `peso_vivo_atual_kg` das movimentações; `pesoEntrada`/`pesoSaida` ficam só no registro local (não há coluna remota), enquanto `peso_origem` segue no schema para laudos legados. Display config (`osRecebimentos.ts`), `labelConfig` e o texto do WhatsApp (`shareUtils`) foram atualizados para a nova seção BALANÇÃO e os novos campos.

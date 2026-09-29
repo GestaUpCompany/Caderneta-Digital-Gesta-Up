@@ -677,10 +677,9 @@ export default function FabricaConfinamentoPage() {
     if (carregando || salvando) return false
     if (!dietaSelecionadaId || !vagaoSelecionadoId) return false
     if (totalProduzidoNum <= 0) return false
-    if (excedeCapacidade) return false
     if (todosTratosConcluidos) return false
     return true
-  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, excedeCapacidade, todosTratosConcluidos])
+  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, todosTratosConcluidos])
 
   // Rascunho: persiste totalProduzido e kgProduzidoPorInsumo no IndexedDB
   const getRascunhoKey = useCallback(() => {
@@ -1153,15 +1152,17 @@ export default function FabricaConfinamentoPage() {
                   placeholder="0"
                   className={`w-full rounded-xl border-2 px-4 py-3 text-lg font-black text-gray-900 focus:outline-none ${
                     excedeCapacidade
-                      ? 'border-red-500 bg-red-50'
+                      ? 'border-amber-500 bg-amber-50'
                       : rascunhoSalvo
                         ? 'border-green-400 bg-green-50'
                         : 'border-gray-200 bg-white focus:border-[#1a3a2a]'
                   }`}
                 />
-                {excedeCapacidade && (
-                  <p className="mt-1 text-xs font-bold text-red-600">
-                    Excede a capacidade do vagão ({formatarKg(vagaoSelecionado?.capacidade_kg || 0, 0)} kg)
+                {excedeCapacidade && vagaoSelecionado?.capacidade_kg && (
+                  <p className="mt-1 text-xs font-bold text-amber-700">
+                    Excede a capacidade do vagão ({formatarKg(vagaoSelecionado.capacidade_kg, 0)} kg):{' '}
+                    {formatarKg(totalProduzidoNum, 0)} kg equivalem a aproximadamente{' '}
+                    {Math.ceil(totalProduzidoNum / vagaoSelecionado.capacidade_kg)} cargas do vagão.
                   </p>
                 )}
                 {vagaoSelecionado?.capacidade_kg && !excedeCapacidade && (
