@@ -1575,6 +1575,16 @@ export async function processQueue(
         continue
       }
 
+      // Registro selado com outra fazenda (aparelho que alterna IDs): pular
+      // em vez de gravar na fazenda atual. Sem o selo o item subiria com o
+      // fazenda_id errado; com ele, fica pendente até o usuário voltar ao ID
+      // de origem. Registros antigos sem selo seguem o comportamento anterior.
+      const registroFazendaId = (registro as any).fazendaId as string | null | undefined
+      if (fazendaId && registroFazendaId && registroFazendaId !== fazendaId) {
+        skipped++
+        continue
+      }
+
       // Gravar no Supabase
       if (fazendaId) {
         // Caso especial: Novo Lote (movimentacao com subtipo='Novo Lote')

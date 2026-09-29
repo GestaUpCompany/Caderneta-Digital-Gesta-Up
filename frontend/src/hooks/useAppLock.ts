@@ -5,6 +5,7 @@ const LAST_USER_ID_KEY = 'appLock_lastFuncionarioId'
 const LAST_USER_NAME_KEY = 'appLock_lastFuncionarioName'
 const LAST_USER_CADERNETAS_KEY = 'appLock_lastFuncionarioCadernetas'
 const LAST_ACCESS_AT_KEY = 'appLock_lastAccessAt'
+const LAST_FAZENDA_KEY = 'appLock_lastFazendaId'
 
 export const APP_LOCK_TRUST_MINUTES = 10
 const APP_LOCK_TRUST_MS = APP_LOCK_TRUST_MINUTES * 60 * 1000
@@ -18,6 +19,10 @@ export interface AppLockState {
 
 function readLastFuncionario(fazendaId: string): FuncionarioRBAC | null {
   try {
+    // Sem o selo de fazenda, um aparelho que alterna IDs mostraria o PIN do
+    // funcionário da fazenda anterior (ou o autologaria dentro do trust
+    // interval). Chaves legadas sem selo são ignoradas até o próximo login.
+    if (localStorage.getItem(LAST_FAZENDA_KEY) !== fazendaId) return null
     const id = localStorage.getItem(LAST_USER_ID_KEY)
     const name = localStorage.getItem(LAST_USER_NAME_KEY)
     const cadernetasRaw = localStorage.getItem(LAST_USER_CADERNETAS_KEY)
@@ -40,14 +45,16 @@ function readLastFuncionario(fazendaId: string): FuncionarioRBAC | null {
   }
 }
 
-function writeLastFuncionario(funcionario: FuncionarioRBAC | null) {
+function writeLastFuncionario(funcionario: FuncionarioRBAC | null, fazendaId: string) {
   if (!funcionario) {
     localStorage.removeItem(LAST_USER_ID_KEY)
     localStorage.removeItem(LAST_USER_NAME_KEY)
     localStorage.removeItem(LAST_USER_CADERNETAS_KEY)
     localStorage.removeItem(LAST_ACCESS_AT_KEY)
+    localStorage.removeItem(LAST_FAZENDA_KEY)
     return
   }
+  localStorage.setItem(LAST_FAZENDA_KEY, fazendaId)
   localStorage.setItem(LAST_USER_ID_KEY, funcionario.id)
   localStorage.setItem(LAST_USER_NAME_KEY, funcionario.nome)
   localStorage.setItem(LAST_USER_CADERNETAS_KEY, JSON.stringify(funcionario.cadernetas_permitidas || []))
@@ -102,12 +109,12 @@ export function useAppLock({
     lastLoggedIdRef.current = currentId
 
     if (funcionarioLogado) {
-      writeLastFuncionario(funcionarioLogado)
+      writeLastFuncionario(funcionarioLogado, funcionarioLogado.fazenda_id || fazendaId)
       updateLastAccessAt()
       setLastFuncionario(funcionarioLogado)
       setLocked(false)
     }
-  }, [funcionarioLogado])
+  }, [funcionarioLogado, fazendaId])
 
   // Verifica o bloqueio inicial quando a lista de funcionarios carrega
   useEffect(() => {
@@ -204,7 +211,7 @@ export function useAppLock({
   }, [fazendaId, funcionarioLogado?.id])
 
   const switchUser = useCallback(() => {
-    writeLastFuncionario(null)
+    writeLastFuncionario(null, fazendaId)
     setLastFuncionario(null)
     setLocked(false)
     void onLogout()

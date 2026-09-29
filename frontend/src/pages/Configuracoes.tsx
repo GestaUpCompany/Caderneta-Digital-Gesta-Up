@@ -7,6 +7,7 @@ import { Button, Input } from '../components/ui'
 import { ChevronLeft } from 'lucide-react'
 import ValidationModal from '../components/ValidationModal'
 import { getFazendaByAcessoId } from '../services/supabaseService'
+import { clearCadastroCache } from '../services/cadastroCache'
 import { desativarModoTeste } from '../services/api'
 import PushNotificationCard from '../components/PushNotificationCard'
 
@@ -152,10 +153,16 @@ export default function Configuracoes() {
     const supabaseFazendaId = validacaoSupabase.fazendaId || ''
     const supabaseAcessoId = validacaoSupabase.acessoId || ''
 
-    // Troca de fazenda: invalidar caches da fazenda anterior
-    // (bg cache de cadastro no Cache API + logo remoto no images-cache)
-    // e aquecer o logo da nova fazenda para exibição offline.
-    if ('caches' in window && supabaseFazendaId && supabaseFazendaId !== config.fazendaId) {
+    // Troca de fazenda: invalidar tudo que carrega dados da fazenda anterior.
+    // O clearCadastroCache zera memória + IndexedDB (cadastro, queryCache,
+    // RBAC, rotinas, mapa, execuções) de forma síncrona com a troca, sem
+    // depender do efeito do App; o Cache API segue com a limpeza antiga do
+    // bg-cache e do logo, e aquece o logo da nova fazenda para offline.
+    const trocouFazenda = !!(supabaseFazendaId && supabaseFazendaId !== config.fazendaId)
+    if (trocouFazenda) {
+      await clearCadastroCache()
+    }
+    if ('caches' in window && trocouFazenda) {
       if (config.fazendaId) {
         caches.open('cadastro-bg-cache')
           .then((c) => c.delete(`${window.location.origin}/cadastro-bg/${config.fazendaId}`))
@@ -187,13 +194,25 @@ export default function Configuracoes() {
       fazenda: nomeFazenda,
       fazendaId: supabaseFazendaId,
       acessoId: supabaseAcessoId,
-      usuario: usuario.trim(),
+      // Na troca de fazenda a identidade reseta: sem isso o nome e o
+      // funcionário logado da fazenda anterior continuam aparecendo e
+      // assinando registros no aparelho compartilhado.
+      usuario: trocouFazenda ? '' : usuario.trim(),
       logoUrl: validacaoSupabase.logoUrl,
       controleAcessoHabilitado: validacaoSupabase.controleAcessoHabilitado || false,
       acessoConfinamento: validacaoSupabase.acessoConfinamento || false,
       acessoComercial: validacaoSupabase.acessoComercial || false,
       travaSuplementacao: validacaoSupabase.travaSuplementacao || false,
+      ...(trocouFazenda ? {
+        funcionarioId: '',
+        funcionarioNome: '',
+        funcionarioCadernetas: [],
+        expedienteHabilitado: false,
+        expedienteDias: null,
+        expedienteTimezone: 'America/Cuiaba',
+      } : {}),
     }
+    if (trocouFazenda) setUsuario('')
 
     dispatch(setConfig(configData))
     dispatch(setConfigurado(true))

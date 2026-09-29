@@ -52,7 +52,11 @@ export async function getFuncionariosComAcessoOnlineFirst(fazendaId: string): Pr
   } catch (error) {
     console.warn('[FuncionarioAuth] Falha ao buscar funcionários online, usando cache:', error)
     const cached = await getCadastroData(CACHE_KEY)
-    if (cached?.funcionarios) return cached.funcionarios as FuncionarioRBAC[]
+    // Sem a checagem de fazenda, um celular que alterna IDs mostraria os
+    // funcionários da fazenda anterior no seletor de login.
+    if (cached?.fazendaId === fazendaId && cached.funcionarios) {
+      return cached.funcionarios as FuncionarioRBAC[]
+    }
     throw error
   }
 }

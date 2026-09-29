@@ -883,3 +883,41 @@ Disparador: quando mencionar "mapa de outra fazenda", "geometria errada no mapa"
 Typecheck (`npx tsc --noEmit`) passou.
 
 Disparador: quando mencionar "logo da fazenda offline", "imagens offline", "images-cache", "cadastro-bg-cache", "troca de fazenda cache", `SET_SW_CONFIG`, ler esta seção.
+
+## Isolamento total de cache na troca de ID de fazenda (29/09/2026)
+
+**Problema**: em aparelhos que alternam entre IDs de fazenda, dados da fazenda anterior vazavam para a nova sessão: o nome do último usuário aparecia na saudação e assinava registros, a tela de bloqueio PIN mostrava o funcionário da fazenda anterior (e podia autologá-lo dentro do trust interval de 10min), o seletor de funcionários listava pessoas da fazenda errada quando offline, e a troca só limpava o Cache API (bg-cache e logo), deixando IndexedDB, caches em memória e localStorage intactos.
+
+**Correção**:
+
+- `Configuracoes.handleSalvar`: na troca de fazenda, `await clearCadastroCache()` zera memória + IndexedDB (cadastro, queryCache, RBAC, rotinas, mapa, execuções) de forma síncrona com a troca, e o config reseta a identidade (`usuario`, `funcionarioId/Nome/Cadernetas`, `expediente*`). Sem isso o funcionário logado da fazenda anterior continuava ativo e assinava registros.
+- `useAppLock.ts`: chaves `appLock_lastFuncionario*` do localStorage ganharam selo `appLock_lastFazendaId`. `readLastFuncionario` retorna null quando o selo não bate com a fazenda atual, então a tela de PIN nunca mais mostra funcionário de outra fazenda nem o autologa no trust interval. Chaves legadas sem selo são ignoradas uma única vez (cai no grid completo de funcionários) até o próximo login regravar o selo.
+- `funcionarioAuthService.getFuncionariosComAcessoOnlineFirst`: o fallback offline para o cache `funcionarios_rbac` só retorna a lista quando `cached.fazendaId === fazendaId` (o `getCachedFuncionariosComAcesso` já fazia essa checagem; faltava no fallback).
+- `api.salvarRegistro`: todo registro local passa a ser selado com `fazendaId` da sessão. `listarRegistros` esconde registros selados de outra fazenda (registros antigos sem selo continuam visíveis), e `syncService.processQueue` pula itens cujo registro é selado para outra fazenda, deixando-os pendentes até o aparelho voltar ao ID de origem em vez de gravá-los na fazenda errada. O selo usa camelCase e não vaza para payloads do Supabase (registroToSupabase mapeia campos explicitamente).
+
+**Validação E2E** (gestaup <-> gestaupteste, fazendas de teste do mesmo grupo): troca para fazenda com RBAC desligado e zero funcionários removeu a tela de PIN do funcionário anterior, limpou `cadastroData` do IndexedDB e resetou a identidade no config persistido; volta para gestaup mostrou o grid de funcionários correto da fazenda em vez do PIN obsoleto. Typecheck (`npx tsc --noEmit`) limpo.
+
+Disparador: quando mencionar "cache não invalida ao trocar fazenda", "funcionário de outra fazenda", "nome errado no app", "PIN de outra pessoa", "aparelho que alterna IDs", `appLock_lastFazendaId`, ler esta seção.
+
+## Isolamento total de cache na troca de ID de fazenda (29/09/2026)
+
+**Problema**: em aparelhos que alternam entre IDs de fazenda, dados da fazenda anterior vazavam para a nova sessao: o nome do ultimo usuario aparecia na saudacao e assinava registros, a tela de bloqueio PIN mostrava o funcionario da fazenda anterior (e podia autologa-lo dentro do trust interval de 10min), o seletor de funcionarios listava pessoas da fazenda errada quando offline, e a troca so limpava o Cache API (bg-cache e logo), deixando IndexedDB, caches em memoria e localStorage intactos.
+
+**Correcao**:
+
+- : na troca de fazenda,  zera memoria + IndexedDB (cadastro, queryCache, RBAC, rotinas, mapa, execucoes) de forma sincrona com a troca, e o config reseta a identidade (, , ). Sem isso o funcionario logado da fazenda anterior continuava ativo e assinava registros.
+- : chaves  do localStorage ganharam selo .  retorna null quando o selo nao bate com a fazenda atual, entao a tela de PIN nunca mais mostra funcionario de outra fazenda nem o autologa no trust interval. Chaves legadas sem selo sao ignoradas uma unica vez (cai no grid completo de funcionarios) ate o proximo login regravar o selo.
+- : o fallback offline para o cache  so retorna a lista quando  (o  ja fazia essa checagem; faltava no fallback).
+- : todo registro local passa a ser selado com  da sessao.  esconde registros selados de outra fazenda (registros antigos sem selo continuam visiveis), e  pula itens cujo registro e selado para outra fazenda, deixando-os pendentes ate o aparelho voltar ao ID de origem em vez de grava-los na fazenda errada. O selo usa camelCase e nao vaza para payloads do Supabase (registroToSupabase mapeia campos explicitamente).
+
+**Validacao E2E** (gestaup <-> gestaupteste, fazendas de teste do mesmo grupo): troca para fazenda com RBAC desligado e zero funcionarios removeu a tela de PIN do funcionario anterior, limpou  do IndexedDB e resetou a identidade no config persistido; volta para gestaup mostrou o grid de funcionarios correto da fazenda em vez do PIN obsoleto. Typecheck (
+[41m                                                                               [0m
+[41m[37m                This is not the tsc command you are looking for                [0m
+[41m                                                                               [0m
+
+To get access to the TypeScript compiler, [34mtsc[0m, from the command line either:
+
+- Use [1mnpm install typescript[0m to first add TypeScript to your project [1mbefore[0m using npx
+- Use [1myarn[0m to avoid accidentally running code from un-installed packages) limpo.
+
+Disparador: quando mencionar cache nao invalida ao trocar fazenda, funcionario de outra fazenda, nome errado no app, PIN de outra pessoa, aparelho que alterna IDs, , ler esta secao.
