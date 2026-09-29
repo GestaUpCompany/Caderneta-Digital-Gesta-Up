@@ -4,8 +4,10 @@ import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
-import { ClipboardList, Sun, Moon, Settings } from 'lucide-react'
-import { LOGO_URL, getFarmLogo } from '../utils/constants'
+import { ClipboardList, Sun, Moon, Settings, CalendarDays, ChevronRight, RefreshCw, Loader2, UserRound, AlertTriangle, Check } from 'lucide-react'
+import { CADERNETAS } from '../utils/constants'
+import AppHeader from '../components/AppHeader'
+import { getRecentCadernetas } from '../utils/recentCadernetas'
 
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
@@ -30,7 +32,7 @@ const BASE = import.meta.env.BASE_URL
 export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { configurado, fazenda, usuario, acessoId, logoUrl, fazendaId, controleAcessoHabilitado, expedienteHabilitado, expedienteTimezone, expedienteDias } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, usuario, acessoId, fazendaId, controleAcessoHabilitado, expedienteHabilitado, expedienteTimezone, expedienteDias } = useSelector((state: RootState) => state.config)
   const pendingSyncCount = useSelector((state: RootState) => state.sync.pendingCount)
   const { active: cadastroSyncActive } = useCadastroSyncState()
   const [syncing, setSyncing] = useState(false)
@@ -132,7 +134,7 @@ export default function Home() {
   const [greeting, setGreeting] = useState('')
   const [greetingIcon, setGreetingIcon] = useState(<Sun />)
   const [currentDate, setCurrentDate] = useState('')
-  const [ultimaCaderneta, setUltimaCaderneta] = useState<string | null>(null)
+  const [ultimaCaderneta, setUltimaCaderneta] = useState<typeof CADERNETAS[0] | null>(null)
   const [versiculoDoDia, setVersiculoDoDia] = useState<Versiculo | null>(null)
   const [showTrocarHint, setShowTrocarHint] = useState(false)
 
@@ -326,9 +328,9 @@ export default function Home() {
     const dateString = now.toLocaleDateString('pt-BR', options)
     setCurrentDate(dateString.charAt(0).toUpperCase() + dateString.slice(1))
 
-    // Carregar última caderneta acessada
-    const ultima = localStorage.getItem('ultima-caderneta-acessada')
-    setUltimaCaderneta(ultima)
+    // Última caderneta acessada (mesma fonte do menu: recentCadernetas)
+    const recentId = getRecentCadernetas()[0]
+    setUltimaCaderneta(CADERNETAS.find(c => c.id === recentId && c.disponivel) || null)
 
     // Lógica de versículos
     const STORAGE_KEY = 'versiculo-do-dia'
@@ -371,371 +373,255 @@ export default function Home() {
     }
   }, [])
 
+  const MODULOS = [
+    { label: 'Cadernetas', desc: 'Registros de campo', icon: `${BASE}home/cadernetas.png`, tint: 'bg-green-50', path: '/modulos/cadernetas' },
+    { label: 'Checklists', desc: 'Rotinas e verificações', icon: `${BASE}home/checklists.png`, tint: 'bg-orange-50', path: '/modulos/checklists' },
+    { label: 'Cadastros', desc: 'Fazenda e equipe', icon: `${BASE}home/cadastro.png`, tint: 'bg-blue-50', path: '/configuracoes' },
+    { label: 'Relatórios', desc: 'Análises e PDFs', icon: `${BASE}home/relatorios.png`, tint: 'bg-violet-50', path: '/modulos/relatorios' },
+    { label: 'Mapa da fazenda', desc: 'Pastos e cercas', icon: `${BASE}home/mapa-fazenda.png`, tint: 'bg-cyan-50', path: '/mapa-fazenda' },
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)] relative">
-        <div className="relative px-3 py-3 desktop-container">
-          <button
-            onClick={() => navigate('/configuracoes')}
-            className="absolute right-3 top-3 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors w-10 h-10"
-            aria-label="Configurações"
-          >
-            <Settings className="w-5 h-5" strokeWidth={2} />
-          </button>
-
-          {/* Título e subtítulo */}
-          <div className="flex flex-col items-center">
-            <div className="mt-2 flex items-baseline justify-center gap-1.5">
-              <span className="text-2xl font-bold text-white leading-none">Manej'Us</span>
-              <span className="text-2xl font-bold text-yellow-400 leading-none">360</span>
-            </div>
-            <p className="mt-1 text-sm font-semibold text-white/75 text-center tracking-wide">
-              Gesta'Up
-            </p>
-
-            {/* Logos */}
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <img
-                src={LOGO_URL}
-                alt="GestaUp"
-                className="w-14 h-14 object-contain rounded-[22px]"
-              />
-              {configurado && fazenda && (
-                <div className="rounded-[22px] overflow-hidden flex items-center justify-center h-14 w-auto max-w-[120px] bg-white/0">
-                  <img
-                    src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
-                    alt="Logo Fazenda"
-                    className="h-14 w-auto max-w-[120px] object-contain"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Menu de Módulos - 2 botões grandes */}
-      <main className="flex-1 p-4 desktop-container">
-        {/* Banner de boas-vindas */}
-        {configurado && usuario && (
-          <div className="mb-6 p-4 rounded-xl shadow-lg animate-fade-in w-full bg-[#1a3a2a]" style={{ border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0">
-                {greetingIcon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-white truncate">
-                  {greeting}, {usuario}!
-                </p>
-                {fazenda && (
-                  <p className="text-xs text-gray-200 mt-1">
-                    {fazenda.toUpperCase()} • {currentDate}
-                  </p>
-                )}
-                {!fazenda && (
-                  <p className="text-xs text-gray-200 mt-1">
-                    {currentDate}
-                  </p>
-                )}
-              </div>
-              {rbacAtivo && (
-                <LongPressButton
-                  onLongPress={() => {
-                    setShowTrocarHint(false)
-                    handleLogout()
-                  }}
-                  onClick={() => setShowTrocarHint(true)}
-                  ariaLabel="Trocar funcionário"
-                  className="flex-shrink-0 bg-yellow-400 text-[#1a3a2a] font-bold text-xs px-3 py-2 rounded-xl active:bg-yellow-300 transition-colors select-none"
-                >
-                  TROCAR
-                </LongPressButton>
-              )}
-            </div>
-            {showTrocarHint && (
-              <p className="text-xs text-yellow-300 mt-2 font-semibold">
-                Toque e segure o botão TROCAR para trocar de funcionário
-              </p>
+    <div className="min-h-screen bg-surface flex flex-col">
+      <AppHeader
+        title={
+          configurado && usuario ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="flex items-center [&>svg]:w-5 [&>svg]:h-5">{greetingIcon}</span>
+              <span>{greeting}, {usuario}</span>
+            </span>
+          ) : (
+            "Manej'Us 360"
+          )
+        }
+        subtitle={fazenda ? fazenda.toUpperCase() : "GESTA'UP"}
+        right={
+          <div className="flex items-center gap-2">
+            {rbacAtivo && (
+              <LongPressButton
+                onLongPress={() => {
+                  setShowTrocarHint(false)
+                  handleLogout()
+                }}
+                onClick={() => setShowTrocarHint(true)}
+                ariaLabel="Trocar funcionário"
+                className="header-chip select-none"
+              >
+                <UserRound className="w-4 h-4" strokeWidth={2.5} />
+              </LongPressButton>
             )}
+            <button
+              onClick={() => navigate('/configuracoes')}
+              className="header-chip"
+              aria-label="Configurações"
+            >
+              <Settings className="w-4 h-4" strokeWidth={2.5} />
+            </button>
           </div>
+        }
+        titleExtra={
+          <div className="flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white/90 flex-shrink-0">
+            <CalendarDays className="w-3.5 h-3.5" />
+            {currentDate ? new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+          </div>
+        }
+      />
+
+      <main className="flex-1 p-4 flex flex-col gap-4 desktop-container">
+        {showTrocarHint && rbacAtivo && (
+          <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+            Toque e segure o botão de usuário no topo para trocar de funcionário.
+          </p>
         )}
 
-        {/* Sync Button and Status */}
-        {configurado && fazendaId && (
-          <div className="mb-6 flex flex-col gap-3">
-            {/* Alerta sempre visível para atualizar antes de sair ao pasto */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-              <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              <p className="text-xs text-amber-800 font-medium">
-                Vai ficar sem internet? Atualize os dados primeiro antes de sair ao pasto.
-              </p>
-            </div>
-
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-600"
-            >
-              {syncing ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  ATUALIZANDO...
-                </>
-              ) : (
-                <>
-                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  ATUALIZAR DADOS
-                </>
-              )}
-            </button>
-
-            {/* Sync Status Card: oculto enquanto o overlay global de cadastro bloqueia a tela */}
-            {!cadastroSyncActive && (syncing || syncErrors.length > 0 || (!syncing && syncErrors.length === 0 && syncProgress === null)) && (
-              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
-                {syncing && syncProgress && (
+        {/* Status de sincronização */}
+        {configurado && fazendaId && !cadastroSyncActive && (
+          <div className={`app-card p-4 ${syncErrors.length > 0 ? 'border-red-200 bg-red-50/60' : ''}`}>
+            {syncing ? (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-brand-700 flex-shrink-0" />
+                  <p className="text-sm font-semibold text-gray-900">Atualizando dados para uso offline...</p>
+                </div>
+                {syncProgress && (
                   <>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold text-gray-900">Atualizando dados para uso offline...</p>
-                    </div>
-                    {/* Progress Bar */}
                     <div className="w-full bg-gray-200 rounded-full h-2 mb-3 overflow-hidden">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300 max-w-full min-w-1"
+                        className="bg-green-600 h-2 rounded-full transition-all duration-300 max-w-full min-w-1"
                         style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
-                      ></div>
+                      />
                     </div>
-                    {/* Completed Items */}
                     {completedItems.length > 0 && (
                       <div className="space-y-1 mb-3 min-w-0">
                         {completedItems.map((item, i) => (
                           <div key={i} className="flex items-center gap-2 text-sm text-gray-600 min-w-0">
-                            <svg className="w-4 h-4 text-green-600 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                            <Check className="w-4 h-4 text-green-600 flex-shrink-0" strokeWidth={3} />
                             <span className="break-words min-w-0">{item}</span>
                           </div>
                         ))}
                       </div>
                     )}
-                    {/* Current Item */}
                     <div className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse flex-shrink-0"></div>
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse flex-shrink-0" />
                       <span className="break-words min-w-0">{syncProgress.item}</span>
                     </div>
 
                     {/* Aviso para não fechar o app */}
                     <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-                      <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
+                      <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                       <p className="text-xs text-red-800 font-bold">
                         Não feche o app até aparecer "Dados atualizados com sucesso". Caso contrário, os dados não estarão completos ao sair ao pasto.
                       </p>
                     </div>
                   </>
                 )}
-
-                {syncErrors.length > 0 && (
-                  <>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                        <svg className="w-5 h-5 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <p className="text-sm font-semibold text-red-900">Erros na sincronização</p>
-                    </div>
-                    <ul className="text-sm text-red-700 space-y-1">
-                      {syncErrors.map((error, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <span className="text-red-500">•</span>
-                          {error}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
-                {!syncing && syncErrors.length === 0 && syncProgress === null && (() => {
-                  const hoursSinceUpdate = cacheTimestamp ? (Date.now() - cacheTimestamp) / 3600000 : 999
-                  const isCritical = hoursSinceUpdate >= 48
-                  const isStale = hoursSinceUpdate >= 24
-                  const iconColor = isCritical ? 'text-red-600' : isStale ? 'text-orange-600' : 'text-green-600'
-                  const textColor = isCritical ? 'text-red-700' : isStale ? 'text-orange-700' : 'text-gray-600'
-                  const labelColor = isCritical ? 'text-red-800' : isStale ? 'text-orange-800' : getTimestampColor(cacheTimestamp)
-                  const timeLabel = cacheTimestamp ? formatTimeAgo(cacheTimestamp) : 'Nunca atualizado'
-                  return (
-                    <div className="py-1">
-                      <div className="flex items-center gap-2">
-                        {isStale ? (
-                          <svg className={`w-4 h-4 flex-shrink-0 ${iconColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        ) : (
-                          <svg className={`w-4 h-4 flex-shrink-0 ${iconColor}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                        <p className={`text-sm ${textColor}`}>
-                          {isCritical ? <>Última atualização <span className="font-bold">{timeLabel}</span>!</> : isStale ? 'Dados desatualizados' : 'Dados atualizados'}{' '}
-                          {!isCritical && (
-                            <span className={`font-semibold ${labelColor}`}>
-                              {timeLabel}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      {!cacheTimestamp && (
-                        <p className="text-xs mt-1 ml-6 text-orange-600">
-                          Clique em Atualizar Dados para baixar tudo que precisa para trabalhar offline.
-                        </p>
+              </>
+            ) : syncErrors.length > 0 ? (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <p className="text-sm font-semibold text-red-900">Erros na sincronização</p>
+                </div>
+                <ul className="text-sm text-red-700 space-y-1 mb-3">
+                  {syncErrors.map((error, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className="text-red-500">•</span>
+                      {error}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={handleSync}
+                  className="w-full bg-brand-800 text-white font-bold py-2.5 rounded-xl text-sm min-h-[44px] flex items-center justify-center gap-2 active:bg-brand-900 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  TENTAR NOVAMENTE
+                </button>
+              </>
+            ) : (() => {
+              const hoursSinceUpdate = cacheTimestamp ? (Date.now() - cacheTimestamp) / 3600000 : 999
+              const isCritical = hoursSinceUpdate >= 48
+              const isStale = hoursSinceUpdate >= 24
+              const dotColor = isCritical ? 'bg-red-500' : isStale ? 'bg-amber-500' : 'bg-green-500'
+              return (
+                <div className="flex items-center gap-3">
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-700">
+                      {cacheTimestamp ? (
+                        <>Dados atualizados <span className={`font-semibold ${getTimestampColor(cacheTimestamp)}`}>{formatTimeAgo(cacheTimestamp)}</span></>
+                      ) : (
+                        <span className="font-semibold text-red-700">Dados nunca atualizados</span>
                       )}
-                    </div>
-                  )
-                })()}
-              </div>
-            )}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {isCritical
+                        ? 'Atualize agora para trabalhar offline.'
+                        : isStale
+                        ? 'Dados desatualizados. Atualize antes de sair.'
+                        : 'Atualize antes de sair ao pasto sem sinal.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="flex-shrink-0 bg-brand-800 text-white font-bold px-4 rounded-xl text-sm min-h-[44px] flex items-center gap-2 active:bg-brand-900 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    ATUALIZAR
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         )}
-        {/* Botão de ação rápida - última caderneta acessada */}
+
+        {/* Continuar de onde parou */}
         {configurado && fazenda && ultimaCaderneta && (
           <button
-            onClick={() => navigate(`/caderneta/${ultimaCaderneta}`)}
-            className="mb-6 w-full p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 ease-out animate-fade-in flex items-center gap-4"
-            style={{ backgroundImage: 'linear-gradient(to right, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05))', border: '1px solid rgba(34, 197, 94, 0.3)' }}
+            onClick={() => navigate(`/caderneta/${ultimaCaderneta.id}`)}
+            className="app-card w-full p-3.5 flex items-center gap-3 text-left transition-transform active:scale-[0.98] animate-fade-in"
           >
-            <ClipboardList size={40} className="text-green-600" />
-            <div className="flex-1 text-left">
-              <p className="text-base font-bold text-gray-900">
-                Continuar em {ultimaCaderneta.charAt(0).toUpperCase() + ultimaCaderneta.slice(1)}
+            <div className="w-11 h-11 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center flex-shrink-0">
+              <ClipboardList className="w-5 h-5 text-green-700" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-green-700">
+                Continuar onde parou
+              </p>
+              <p className="text-sm font-bold text-gray-900 truncate">
+                {ultimaCaderneta.label}
               </p>
             </div>
-            <span className="text-2xl text-gray-400">→</span>
+            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
           </button>
         )}
         {!configurado ? (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-blue-300 rounded-3xl p-8 text-center shadow-lg animate-fade-in">
-            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+          <div className="app-card p-8 text-center animate-fade-in">
+            <div className="w-16 h-16 bg-brand-50 border border-brand-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Settings className="w-8 h-8 text-brand-700" />
             </div>
-            <p className="text-2xl font-bold text-blue-900 mb-3">
-              CONFIGURAÇÃO NECESSÁRIA
+            <p className="text-xl font-extrabold text-gray-900 mb-2">
+              Configuração necessária
             </p>
-            <p className="text-base text-gray-700 mb-8 leading-relaxed">
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
               Configure sua fazenda para começar a usar o sistema e acessar todas as funcionalidades das cadernetas.
             </p>
             <Button 
               onClick={() => navigate('/configuracoes')} 
               variant="primary"
-              className="w-full py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+              size="md"
             >
               IR PARA CONFIGURAÇÕES
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
-            {/* Botões de cima: Cadernetas e Checklists */}
-            <div className="grid grid-cols-2 gap-6">
-              {/* Botão Cadernetas */}
+          <div className="grid grid-cols-2 gap-4 animate-fade-in">
+            {MODULOS.map((modulo) => (
               <button
-                onClick={() => navigate('/modulos/cadernetas')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-green-500/20 border border-white/30"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))' }}
+                key={modulo.path}
+                onClick={() => navigate(modulo.path)}
+                className="app-card flex flex-col items-center justify-center gap-1.5 p-4 min-h-[136px] text-center transition-transform active:scale-[0.97]"
               >
-                <img src={`${BASE}home/cadernetas.png`} alt="Cadernetas" className="w-40 h-auto object-contain rounded-[32px]" />
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  CADERNETAS
+                <div className={`w-16 h-16 rounded-2xl ${modulo.tint} flex items-center justify-center mb-1`}>
+                  <img src={modulo.icon} alt="" className="w-12 h-12 object-contain" />
+                </div>
+                <span className="text-sm font-bold text-gray-900 leading-tight">
+                  {modulo.label}
+                </span>
+                <span className="text-[11px] font-medium text-gray-500 leading-tight">
+                  {modulo.desc}
                 </span>
               </button>
+            ))}
 
-              {/* Botão Checklists */}
+            {/* Atividades (só aparece se RBAC ativo e funcionário logado) */}
+            {controleAcessoHabilitado && funcionarioLogado && (
               <button
-                onClick={() => navigate('/modulos/checklists')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 border border-white/30"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.1))' }}
+                onClick={() => navigate('/atividades')}
+                className="app-card flex flex-col items-center justify-center gap-1.5 p-4 min-h-[136px] text-center transition-transform active:scale-[0.97]"
               >
-                <img src={`${BASE}home/checklists.png`} alt="Checklists" className="w-40 h-auto object-contain rounded-[32px]" />
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  CHECKLISTS
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-1">
+                  <img src={`${BASE}home/atividades.png`} alt="" className="w-12 h-12 object-contain" />
+                </div>
+                <span className="text-sm font-bold text-gray-900 leading-tight">
+                  Atividades
+                </span>
+                <span className="text-[11px] font-medium text-gray-500 leading-tight">
+                  Tarefas do dia
                 </span>
               </button>
-            </div>
-
-            {/* Botões de baixo: Configurações e Relatórios */}
-            <div className="grid grid-cols-2 gap-6">
-              {/* Botão Cadastros */}
-              <button
-                onClick={() => navigate('/configuracoes')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-blue-500/20 border border-white/30"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))' }}
-              >
-                <img src={`${BASE}home/cadastro.png`} alt="Cadastros" className="w-40 h-auto object-contain rounded-[32px]" />
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  CADASTROS
-                </span>
-              </button>
-
-              {/* Botão Relatórios */}
-              <button
-                onClick={() => navigate('/modulos/relatorios')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-purple-500/20 border border-white/30"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(168, 85, 247, 0.2), rgba(139, 92, 246, 0.1))' }}
-              >
-                <img src={`${BASE}home/relatorios.png`} alt="Relatórios" className="w-40 h-auto object-contain rounded-[32px]" />
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  RELATÓRIOS
-                </span>
-              </button>
-            </div>
-
-            {/* Botão Mapa da Fazenda + Atividades lado a lado */}
-            <div className="grid grid-cols-2 gap-6">
-              <button
-                onClick={() => navigate('/mapa-fazenda')}
-                className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 border border-white/30"
-                style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.1))' }}
-              >
-                <img src={`${BASE}home/mapa-fazenda.png`} alt="Mapa da Fazenda" className="w-40 h-auto object-contain rounded-[32px]" />
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  MAPA DA FAZENDA
-                </span>
-              </button>
-
-              {/* Botão Atividades (só aparece se RBAC ativo e funcionário logado) */}
-              {controleAcessoHabilitado && funcionarioLogado && (
-                <button
-                  onClick={() => navigate('/atividades')}
-                  className="relative w-full flex flex-col items-center justify-center gap-2 p-4 transition-all duration-300 ease-out rounded-2xl hover:scale-105 shadow-lg hover:shadow-xl hover:shadow-indigo-500/20 border border-white/30"
-                  style={{ backgroundImage: 'linear-gradient(to bottom right, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.1))' }}
-                >
-                  <img src={`${BASE}home/atividades.png`} alt="Atividades" className="w-40 h-auto object-contain rounded-[32px]" />
-                  <span className="text-base font-bold text-center leading-tight text-gray-900">
-                    ATIVIDADES
-                  </span>
-                </button>
-              )}
-            </div>
+            )}
           </div>
         )}
       </main>
 
       {/* Tela de bloqueio quando RBAC está habilitado mas nenhum funcionário tem acesso configurado */}
       {rbacMisconfigured && (
-        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-[#1a3a2a] p-6 text-center">
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-brand-900 p-6 text-center">
           <div className="text-5xl mb-4">🔒</div>
           <h2 className="text-xl font-black text-white mb-2">Controle de acesso ativado</h2>
-          <p className="text-sm text-yellow-400 font-semibold mb-4">
+          <p className="text-sm text-accent-400 font-semibold mb-4">
             Nenhum funcionário com acesso ao app foi encontrado.
           </p>
           <p className="text-xs text-gray-300 max-w-sm">
@@ -743,7 +629,7 @@ export default function Home() {
           </p>
           <button
             onClick={() => navigate('/configuracoes')}
-            className="mt-6 bg-yellow-400 text-[#1a3a2a] font-bold px-6 py-3 rounded-xl active:bg-yellow-300 transition-colors"
+            className="mt-6 bg-accent-400 text-brand-900 font-bold px-6 py-3 rounded-xl active:bg-accent-300 transition-colors"
           >
             Ir para Configurações
           </button>
@@ -752,10 +638,10 @@ export default function Home() {
 
       {/* Bloqueio por fora de expediente - so mostra quando funcionario esta logado */}
       {!appLockLoading && expedienteAtivo && !dentroExpediente && funcionarioLogado && (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#1a3a2a] p-6">
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-brand-900 p-6">
           <div className="text-5xl mb-4">⏰</div>
           <h2 className="text-xl font-black text-white mb-2">Fora do expediente</h2>
-          <p className="text-sm text-yellow-400 font-semibold mb-4 text-center max-w-sm">
+          <p className="text-sm text-accent-400 font-semibold mb-4 text-center max-w-sm">
             {expedienteDia
               ? `O expediente de hoje é das ${expedienteDia.inicio} às ${expedienteDia.fim}.`
               : 'Não há expediente hoje.'}
@@ -789,17 +675,17 @@ export default function Home() {
 
       {/* Versículo do Dia */}
       {versiculoDoDia && configurado && (
-        <div className="px-4 py-6 bg-gradient-to-r from-green-50 to-blue-50 border-t-2 border-green-200">
+        <footer className="px-4 py-6 border-t border-gray-200/80">
           <div className="max-w-md mx-auto text-center">
-            <div className="text-2xl mb-2">📖</div>
-            <p className="text-base font-semibold text-gray-800 leading-relaxed mb-2">
-              {versiculoDoDia.texto}
+            <div className="text-xl mb-2">📖</div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              "{versiculoDoDia.texto}"
             </p>
-            <p className="text-sm text-gray-600 font-medium">
+            <p className="text-xs font-semibold text-gray-500 mt-2">
               {versiculoDoDia.referencia}
             </p>
           </div>
-        </div>
+        </footer>
       )}
     </div>
   )
