@@ -4,7 +4,7 @@ import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
-import { ClipboardList, Sun, Moon, Settings, CalendarDays, ChevronRight, RefreshCw, Loader2, UserRound, AlertTriangle, Check } from 'lucide-react'
+import { ClipboardList, Sun, Moon, Settings, CalendarDays, ChevronRight, RefreshCw, Loader2, UserRound, AlertTriangle, Check, NotebookPen, ListChecks, Users, FileBarChart, Map, ListTodo } from 'lucide-react'
 import { CADERNETAS } from '../utils/constants'
 import AppHeader from '../components/AppHeader'
 import { getRecentCadernetas } from '../utils/recentCadernetas'
@@ -26,8 +26,6 @@ import { useFuncionarioAuth } from '../hooks/useFuncionarioAuth'
 import { useAppLock } from '../hooks/useAppLock'
 import { useExpediente } from '../hooks/useExpediente'
 import { useCadastroSyncState } from '../hooks/useCadastroSyncState'
-
-const BASE = import.meta.env.BASE_URL
 
 export default function Home() {
   const navigate = useNavigate()
@@ -374,11 +372,11 @@ export default function Home() {
   }, [])
 
   const MODULOS = [
-    { label: 'Cadernetas', desc: 'Registros de campo', icon: `${BASE}home/cadernetas.png`, tint: 'bg-green-50', path: '/modulos/cadernetas' },
-    { label: 'Checklists', desc: 'Rotinas e verificações', icon: `${BASE}home/checklists.png`, tint: 'bg-orange-50', path: '/modulos/checklists' },
-    { label: 'Cadastros', desc: 'Fazenda e equipe', icon: `${BASE}home/cadastro.png`, tint: 'bg-blue-50', path: '/configuracoes' },
-    { label: 'Relatórios', desc: 'Análises e PDFs', icon: `${BASE}home/relatorios.png`, tint: 'bg-violet-50', path: '/modulos/relatorios' },
-    { label: 'Mapa da fazenda', desc: 'Pastos e cercas', icon: `${BASE}home/mapa-fazenda.png`, tint: 'bg-cyan-50', path: '/mapa-fazenda' },
+    { label: 'Cadernetas', desc: 'Registros de campo', icon: NotebookPen, iconColor: 'text-green-600', tint: 'bg-green-50', path: '/modulos/cadernetas' },
+    { label: 'Checklists', desc: 'Rotinas e verificações', icon: ListChecks, iconColor: 'text-orange-500', tint: 'bg-orange-50', path: '/modulos/checklists' },
+    { label: 'Cadastros', desc: 'Fazenda e equipe', icon: Users, iconColor: 'text-blue-600', tint: 'bg-blue-50', path: '/configuracoes' },
+    { label: 'Relatórios', desc: 'Análises e PDFs', icon: FileBarChart, iconColor: 'text-violet-600', tint: 'bg-violet-50', path: '/modulos/relatorios' },
+    { label: 'Mapa da fazenda', desc: 'Pastos e cercas', icon: Map, iconColor: 'text-cyan-600', tint: 'bg-cyan-50', path: '/mapa-fazenda' },
   ]
 
   return (
@@ -584,7 +582,7 @@ export default function Home() {
                 className="app-card flex flex-col items-center justify-center gap-1.5 p-4 min-h-[136px] text-center transition-transform active:scale-[0.97]"
               >
                 <div className={`w-16 h-16 rounded-2xl ${modulo.tint} flex items-center justify-center mb-1`}>
-                  <img src={modulo.icon} alt="" className="w-12 h-12 object-contain" />
+                  <modulo.icon className={`w-7 h-7 ${modulo.iconColor}`} strokeWidth={2} />
                 </div>
                 <span className="text-sm font-bold text-gray-900 leading-tight">
                   {modulo.label}
@@ -602,7 +600,7 @@ export default function Home() {
                 className="app-card flex flex-col items-center justify-center gap-1.5 p-4 min-h-[136px] text-center transition-transform active:scale-[0.97]"
               >
                 <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-1">
-                  <img src={`${BASE}home/atividades.png`} alt="" className="w-12 h-12 object-contain" />
+                  <ListTodo className="w-7 h-7 text-indigo-600" strokeWidth={2} />
                 </div>
                 <span className="text-sm font-bold text-gray-900 leading-tight">
                   Atividades
