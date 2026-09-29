@@ -32,7 +32,7 @@ export default function TextArea({
   return (
     <div className={`${widthStyles} ${className}`}>
       {label && (
-        <label className="block text-lg font-bold text-gray-900 mb-2">
+        <label className="block text-[15px] font-bold text-gray-900 mb-2">
           {label}
         </label>
       )}
