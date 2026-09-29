@@ -4,7 +4,7 @@ import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
-import { ClipboardList, Sun, Moon, Settings, CalendarDays, ChevronRight, RefreshCw, Loader2, UserRound, AlertTriangle, Check, NotebookPen, ListChecks, Users, FileBarChart, Map, ListTodo } from 'lucide-react'
+import { ClipboardList, Sun, Moon, Settings, ChevronRight, RefreshCw, Loader2, UserRound, AlertTriangle, Check, NotebookPen, ListChecks, Users, FileBarChart, Map, ListTodo } from 'lucide-react'
 import { CADERNETAS } from '../utils/constants'
 import AppHeader from '../components/AppHeader'
 import { getRecentCadernetas } from '../utils/recentCadernetas'
@@ -131,7 +131,7 @@ export default function Home() {
   // Lógica de saudação contextual
   const [greeting, setGreeting] = useState('')
   const [greetingIcon, setGreetingIcon] = useState(<Sun />)
-  const [currentDate, setCurrentDate] = useState('')
+
   const [ultimaCaderneta, setUltimaCaderneta] = useState<typeof CADERNETAS[0] | null>(null)
   const [versiculoDoDia, setVersiculoDoDia] = useState<Versiculo | null>(null)
   const [showTrocarHint, setShowTrocarHint] = useState(false)
@@ -317,15 +317,6 @@ export default function Home() {
       setGreetingIcon(<Moon className="text-blue-400" />)
     }
 
-    // Data formatada em português
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long'
-    }
-    const dateString = now.toLocaleDateString('pt-BR', options)
-    setCurrentDate(dateString.charAt(0).toUpperCase() + dateString.slice(1))
-
     // Última caderneta acessada (mesma fonte do menu: recentCadernetas)
     const recentId = getRecentCadernetas()[0]
     setUltimaCaderneta(CADERNETAS.find(c => c.id === recentId && c.disponivel) || null)
@@ -382,17 +373,22 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <AppHeader
+        variant="start"
         title={
           configurado && usuario ? (
-            <span className="inline-flex items-center gap-2">
-              <span className="flex items-center [&>svg]:w-5 [&>svg]:h-5">{greetingIcon}</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="flex items-center [&>svg]:w-4 [&>svg]:h-4">{greetingIcon}</span>
               <span>{greeting}, {usuario}</span>
             </span>
           ) : (
             "Manej'Us 360"
           )
         }
-        subtitle={fazenda ? fazenda.toUpperCase() : "GESTA'UP"}
+        subtitle={
+          fazenda
+            ? fazenda.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+            : "Gesta'Up"
+        }
         right={
           <div className="flex items-center gap-2">
             {rbacAtivo && (
@@ -415,12 +411,6 @@ export default function Home() {
             >
               <Settings className="w-4 h-4" strokeWidth={2.5} />
             </button>
-          </div>
-        }
-        titleExtra={
-          <div className="flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white/90 flex-shrink-0">
-            <CalendarDays className="w-3.5 h-3.5" />
-            {currentDate ? new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
           </div>
         }
       />
@@ -545,7 +535,7 @@ export default function Home() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-wide text-green-700">
-                Continuar onde parou
+                Continue de onde parou
               </p>
               <p className="text-sm font-bold text-gray-900 truncate">
                 {ultimaCaderneta.label}
