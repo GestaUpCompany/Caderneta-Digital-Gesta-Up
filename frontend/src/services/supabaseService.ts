@@ -92,10 +92,19 @@ export async function deleteFazendaLogo(fazendaId: string): Promise<boolean> {
 
 // ==================== FAZENDAS ====================
 
+// Cache curto da fazenda por acessoId: a mesma linha é lida várias vezes por
+// salvamento (timezone da trava de duplicidade, config de rotina, timezone no
+// salvarRegistro). O PWA nunca escreve em fazendas, então TTL de 60s é seguro.
+const fazendaCache = new Map<string, { data: any; ts: number }>()
+const FAZENDA_CACHE_TTL_MS = 60_000
+
 export async function getFazendaByAcessoId(acessoId: string) {
   // Converter para minúsculas para validação case-insensitive
   const acessoIdNormalizado = acessoId.toLowerCase()
-  
+
+  const hit = fazendaCache.get(acessoIdNormalizado)
+  if (hit && Date.now() - hit.ts < FAZENDA_CACHE_TTL_MS) return hit.data
+
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('fazendas')
@@ -105,6 +114,7 @@ export async function getFazendaByAcessoId(acessoId: string) {
     .single()
 
   if (error) throw error
+  fazendaCache.set(acessoIdNormalizado, { data, ts: Date.now() })
   return data
 }
 

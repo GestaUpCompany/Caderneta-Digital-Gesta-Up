@@ -14,6 +14,20 @@ Correções:
 
 **Disparador**: quando mencionar "salvar não faz nada", "1 campo obrigatório" na suplementação, `getPastoByIdCached`, `lotesPastoMap` nas deps, ou banner de validação escondendo a mensagem real, ler esta seção.
 
+## Delay de 5-8s entre SALVAR e o modal de sucesso na Suplementação (29/09/2026)
+
+A cadeia serial de rede entre o clique e o `SuccessModal` fazia ~5 roundtrips seguidos: a trava de duplicidade lia `getFarmTimezoneAsync` + `getRegistrosSuplementacaoByLote` online; `iniciarSalvamento` lia `getFazendaByAcessoId` outra vez e awaitava o upsert de `execucoes_rotina`; `executarSalvamento` refazia `getPlanoNutricionalAtivoByLoteId` já buscado na seleção do lote; e `salvarRegistro` lia a fazenda uma terceira vez para o timezone. Em rede fraca somava 5-8s com o botão visualmente morto.
+
+Correções:
+
+- **`supabaseService.getFazendaByAcessoId`**: cache em memória com TTL de 60s (o PWA nunca escreve em `fazendas`). Elimina 3 fetches por salvamento.
+- **`execucaoRotinaService`**: `sincronizarExecucaoMarcada` virou fire-and-forget em `garantirExecucaoRotina`/`registrarExecucaoRotina`; telemetria deixou de bloquear o save e falhas seguem marcadas com `pendente_sync` para `sincronizarExecucoesPendentes`.
+- **`SuplementacaoPage`**: o plano nutricional fica em `planoAtivoRef` na seleção do lote e é reusado no cálculo de peso projetado do save; botão SALVAR ganhou estado `verificando` que mostra "SALVANDO..." e desabilita já no primeiro tick do clique, cobrindo o tempo da trava.
+
+Medido online no DevTools: ~1,7s do clique ao modal (o restante é a query de duplicidade online com cap de 4s + escritas no IndexedDB).
+
+**Disparador**: quando mencionar demora/lag ao salvar, "SALVANDO...", cache de fazenda, `getFazendaByAcessoId`, ou sync de execução de rotina bloqueando, ler esta seção.
+
 ## Capacidade do vagão virou aviso informativo na Fábrica Confinamento (29/09/2026)
 
 `FabricaConfinamentoPage`: `excedeCapacidade` deixou de bloquear o SALVAR (removido de `podeSalvar`). O aviso mudou de erro vermelho para informativo em âmbar, com estimativa de cargas: "{total} kg equivalem a aproximadamente N cargas do vagão" (`Math.ceil(totalProduzido / capacidade_kg)`). A borda do input de TOTAL PRODUZIDO passou de vermelha para âmbar nesse estado.

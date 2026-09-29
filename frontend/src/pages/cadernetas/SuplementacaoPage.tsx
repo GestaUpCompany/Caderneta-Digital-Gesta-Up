@@ -191,6 +191,7 @@ export default function SuplementacaoPage() {
   const [creepFormulacaoDetalhes, setCreepFormulacaoDetalhes] = useState<{ id: string | null; nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null; formaFornecimento: string | null; kgPorSaco: number | null } | null>(null)
   const [creepFormulacaoCarregada, setCreepFormulacaoCarregada] = useState(false)
   const [metricasCreep, setMetricasCreep] = useState<any>(null)
+  const planoAtivoRef = useRef<{ loteId: string; plano: any | null } | null>(null)
 
   // Categorias de bezerro(a) ao pé do lote selecionado (creep feeding)
   const categoriasAoPe = useMemo(() => {
@@ -369,12 +370,14 @@ export default function SuplementacaoPage() {
     async function carregarFormulacaoDoPlanoAtivo() {
       if (!form.loteId) {
         setSemPlanoAtivo(false)
+        planoAtivoRef.current = null
         setForm(prev => ({ ...prev, formulacao: '' }))
         return
       }
 
       try {
         const plano = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
+        planoAtivoRef.current = { loteId: form.loteId, plano }
         if (plano && plano.formulacaoNome) {
           setSemPlanoAtivo(false)
           setForm(prev => ({ ...prev, formulacao: plano.formulacaoNome }))
@@ -384,6 +387,7 @@ export default function SuplementacaoPage() {
         }
       } catch (error) {
         console.error('Erro ao carregar formulação do plano ativo:', error)
+        planoAtivoRef.current = null
         setSemPlanoAtivo(true)
         setForm(prev => ({ ...prev, formulacao: '' }))
       }
@@ -700,6 +704,9 @@ export default function SuplementacaoPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
   const verificandoTravaRef = useRef(false)
+  // Feedback imediato enquanto a trava de duplicidade roda (rede lenta):
+  // sem isso o botão parece morto por segundos antes de `salvando` ligar.
+  const [verificando, setVerificando] = useState(false)
 
   const verificarTratoDuplicado = async (): Promise<any | null> => {
     if (!travaSuplementacao || !fazendaId || !form.loteId || !form.data) return null
@@ -745,6 +752,7 @@ export default function SuplementacaoPage() {
   const handleSalvarClick = async () => {
     if (verificandoTravaRef.current) return
     verificandoTravaRef.current = true
+    setVerificando(true)
     try {
       const dup = await verificarTratoDuplicado()
       if (dup) {
@@ -760,6 +768,7 @@ export default function SuplementacaoPage() {
       salvar(executarSalvamento)
     } finally {
       verificandoTravaRef.current = false
+      setVerificando(false)
     }
   }
 
@@ -782,7 +791,11 @@ export default function SuplementacaoPage() {
     let pesoVivoKgLote = detalhesLote?.peso_vivo_kg ?? null
     if (form.loteId && form.data) {
       try {
-        const planoParams = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
+        // Reusa o plano já buscado na seleção do lote (evita roundtrip extra
+        // por salvamento; o fetch só roda se o efeito ainda não completou)
+        const planoParams = planoAtivoRef.current?.loteId === form.loteId
+          ? planoAtivoRef.current.plano
+          : await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
         if (planoParams) {
           const pesoProjetado = calcularPesoProjetado(form.data, planoParams)
           if (pesoProjetado != null) {
@@ -1334,16 +1347,16 @@ export default function SuplementacaoPage() {
           <button
             type="button"
             onClick={handleSalvarClick}
-            disabled={salvando || !isValid}
+            disabled={salvando || verificando || !isValid}
             className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
+              salvando || verificando || !isValid
                 ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
                 : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2">
               <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
+              {salvando || verificando ? 'SALVANDO...' : 'SALVAR'}
             </span>
           </button>
           <button

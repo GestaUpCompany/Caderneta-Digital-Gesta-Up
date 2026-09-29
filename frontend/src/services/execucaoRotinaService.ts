@@ -68,7 +68,9 @@ export async function garantirExecucaoRotina(
     }
     existente.pendente_sync = true
     await salvarExecucoesLocal(fazendaId, execucoesLocais)
-    await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, existente)
+    // Fire-and-forget: telemetria não pode bloquear o fluxo do usuário;
+    // falhas ficam marcadas com pendente_sync e são reenviadas depois.
+    void sincronizarExecucaoMarcada(fazendaId, execucoesLocais, existente)
     return existente
   }
 
@@ -93,7 +95,7 @@ export async function garantirExecucaoRotina(
 
   execucoesLocais[chaveLocal] = nova
   await salvarExecucoesLocal(fazendaId, execucoesLocais)
-  await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, nova)
+  void sincronizarExecucaoMarcada(fazendaId, execucoesLocais, nova)
 
   return nova
 }
@@ -144,7 +146,7 @@ export async function registrarExecucaoRotina(
     existente.concluido = true
     existente.pendente_sync = true
     await salvarExecucoesLocal(fazendaId, execucoesLocais)
-    await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, existente)
+    void sincronizarExecucaoMarcada(fazendaId, execucoesLocais, existente)
     return existente
   }
 
@@ -169,7 +171,7 @@ export async function registrarExecucaoRotina(
 
   execucoesLocais[chaveLocal] = nova
   await salvarExecucoesLocal(fazendaId, execucoesLocais)
-  await sincronizarExecucaoMarcada(fazendaId, execucoesLocais, nova)
+  void sincronizarExecucaoMarcada(fazendaId, execucoesLocais, nova)
 
   return nova
 }
