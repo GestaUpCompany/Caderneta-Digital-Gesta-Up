@@ -48,14 +48,14 @@ export default function AppHeader({ title, subtitle, left, right, titleExtra, va
               </div>
               {right && <div className="absolute right-0 top-1/2 -translate-y-1/2">{right}</div>}
             </div>
-            <div className="mt-2.5 flex items-end justify-between gap-3">
-              <div className="min-w-0">
+            <div className="mt-2.5 relative flex items-end justify-center gap-3">
+              <div className="min-w-0 text-center">
                 <h1 className="text-lg font-extrabold uppercase tracking-wide leading-tight">{title}</h1>
                 {subtitle && (
                   <p className="text-xs font-semibold text-white/70 mt-0.5 truncate">{subtitle}</p>
                 )}
               </div>
-              {titleExtra}
+              {titleExtra && <div className="absolute right-0 bottom-0">{titleExtra}</div>}
             </div>
           </>
         )}

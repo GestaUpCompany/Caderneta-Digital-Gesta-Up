@@ -5,8 +5,8 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernetas'
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
-import { CalendarCheck, ChevronLeft } from 'lucide-react'
-import { LOGO_URL, getFarmLogo } from '../utils/constants'
+import { CalendarCheck, ChevronLeft, ChevronRight, Search, ArrowUp } from 'lucide-react'
+import AppHeader from '../components/AppHeader'
 import { getFazendasDoMesmoGrupoCached } from '../services/cadastroCache'
 
 // Função helper para converter HEX para RGBA com opacidade
@@ -19,7 +19,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, logoUrl, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -108,106 +108,80 @@ export default function ModulosMenuPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)] relative">
-        <div className="relative px-3 py-3 desktop-container">
-          <button
-            onClick={() => navigate('/')}
-            className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px]"
-            aria-label="Voltar"
-          >
+    <div className="min-h-screen bg-surface flex flex-col">
+      <AppHeader
+        sticky
+        title="Cadernetas"
+        subtitle={
+          fazenda
+            ? fazenda.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+            : undefined
+        }
+        left={
+          <button onClick={() => navigate('/')} className="header-chip pl-2" aria-label="Voltar">
             <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
             <span>Voltar</span>
           </button>
+        }
+      />
 
-          {/* Título e subtítulo */}
-          <div className="flex flex-col items-center">
-            <div className="mt-2 flex items-baseline justify-center gap-1.5">
-              <span className="text-2xl font-bold text-white leading-none">Manej'Us</span>
-              <span className="text-2xl font-bold text-yellow-400 leading-none">360</span>
-            </div>
-            <p className="mt-1 text-sm font-semibold text-white/75 text-center tracking-wide">
-              Gesta'Up
-            </p>
-
-            {/* Logos */}
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <img
-                src={LOGO_URL}
-                alt="GestaUp"
-                className="w-14 h-14 object-contain rounded-[22px]"
-              />
-              {fazenda && (
-                <div className="rounded-[22px] overflow-hidden flex items-center justify-center h-14 w-auto max-w-[120px] bg-white/0">
-                  <img
-                    src={logoUrl && logoUrl.trim() !== '' ? logoUrl : getFarmLogo(fazenda)}
-                    alt="Logo Fazenda"
-                    className="h-14 w-auto max-w-[120px] object-contain"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Botão de Programação de Hoje */}
-      <div className="px-4 pt-4 desktop-container">
+      <main className="flex-1 p-4 flex flex-col gap-5 desktop-container">
+        {/* Programação de hoje */}
         <button
           onClick={() => navigate('/programacao-hoje')}
-          className="w-full bg-[#1a3a2a] hover:bg-[#142b20] text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-between"
+          className="app-card w-full p-3.5 flex items-center gap-3 text-left transition-transform active:scale-[0.98]"
         >
-          <div className="flex items-center gap-3">
-            <div className="bg-yellow-400 text-[#1a3a2a] p-2 rounded-lg">
-              <CalendarCheck size={20} />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-bold">Programação de hoje</p>
-              <p className="text-xs text-gray-300">
-                {programacaoLoading
-                  ? 'Carregando...'
-                  : programacao.length === 0
-                  ? 'Nenhuma caderneta programada'
-                  : `${programacao.length} caderneta${programacao.length > 1 ? 's' : ''} para hoje`}
-              </p>
-            </div>
+          <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
+            <CalendarCheck className="w-5 h-5 text-amber-600" />
           </div>
-          <span className="text-yellow-400 text-xl">→</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-900">Programação de hoje</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {programacaoLoading
+                ? 'Carregando...'
+                : programacao.length === 0
+                ? 'Nenhuma caderneta programada'
+                : `${programacao.length} caderneta${programacao.length > 1 ? 's' : ''} para hoje`}
+            </p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
         </button>
-      </div>
 
-      {/* Grid de Cadernetas - 6 botões grandes */}
-      <main className="flex-1 p-4 flex flex-col gap-4 desktop-container">
         {/* Últimas Cadernetas Acessadas */}
         {recentCadernetasData.length > 0 && (
-          <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100">
-            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">ÚLTIMAS ACESSADAS</h2>
-            <div className="grid grid-cols-3 gap-3">
-              {recentCadernetasData.map((caderneta) => (
-                <button
-                  key={caderneta.id}
-                  onClick={() => handleCadernetaClick(caderneta.id)}
-                  style={{ backgroundColor: hexToRgba(CADERNETA_GRUPO_CORES[caderneta.grupo] || '#E5E7EB') }}
-                  className="relative flex flex-col items-center justify-center gap-1 p-3 transition-all rounded-xl hover:scale-105 hover:shadow-md"
-                >
-                  <img
-                    src={caderneta.icon}
-                    alt={caderneta.label}
-                    className="w-16 h-auto object-contain rounded-[16px]"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.style.display = 'none'
-                      const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
-                      if (emoji) emoji.style.display = 'block'
+          <div className="app-card p-4">
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-gray-400 mb-3">Últimas acessadas</h2>
+            <div className="grid grid-cols-3 gap-2.5">
+              {recentCadernetasData.map((caderneta) => {
+                const corRecente = CADERNETA_GRUPO_CORES[caderneta.grupo] || '#6B7280'
+                return (
+                  <button
+                    key={caderneta.id}
+                    onClick={() => handleCadernetaClick(caderneta.id)}
+                    style={{
+                      backgroundColor: hexToRgba(corRecente, 0.07),
+                      borderColor: hexToRgba(corRecente, 0.18),
                     }}
-                  />
-                  <span className="text-3xl fallback-emoji hidden">{caderneta.emoji}</span>
-                  <span className="text-[0.65rem] font-bold text-center leading-tight text-gray-900">
-                    {caderneta.label}
-                  </span>
-                </button>
-              ))}
+                    className="relative flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-transform active:scale-95"
+                  >
+                    <img
+                      src={caderneta.icon}
+                      alt={caderneta.label}
+                      className="w-12 h-12 object-contain rounded-xl"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
+                        if (emoji) emoji.style.display = 'block'
+                      }}
+                    />
+                    <span className="text-2xl fallback-emoji hidden">{caderneta.emoji}</span>
+                    <span className="text-[11px] font-bold text-center leading-tight text-gray-800">
+                      {caderneta.label}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -219,21 +193,9 @@ export default function ModulosMenuPage() {
             placeholder="Buscar caderneta..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 pl-10 rounded-xl border border-gray-300 focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6] focus:ring-opacity-50 outline-none transition-all"
+            className="w-full px-4 py-3 pl-11 rounded-xl bg-white border border-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition-all"
           />
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         </div>
 
         {/* Cadernetas agrupadas por categoria */}
@@ -242,39 +204,33 @@ export default function ModulosMenuPage() {
           if (cadernetasDoGrupo.length === 0) return null
           const corGrupo = CADERNETA_GRUPO_CORES[grupoNome] || '#6B7280'
           return (
-            <div
-              key={grupoNome}
-              className="rounded-2xl p-4 shadow-lg border border-gray-100"
-              style={{ backgroundColor: hexToRgba(corGrupo, 0.06) }}
-            >
-              <h2
-                className="text-sm font-bold uppercase tracking-wide mb-3"
-                style={{ color: corGrupo }}
-              >
+            <div key={grupoNome}>
+              <h2 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider mb-3 px-0.5" style={{ color: corGrupo }}>
+                <span className="w-1 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: corGrupo }} />
                 {grupoNome}
+                <span className="flex-1 h-px bg-gray-200" />
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {cadernetasDoGrupo.map((caderneta) => (
                   <button
                     key={caderneta.id}
                     onClick={() => handleCadernetaClick(caderneta.id)}
                     disabled={!caderneta.disponivel}
-                    style={{ backgroundColor: hexToRgba(corGrupo, 0.2) }}
-                    className={`caderneta-card relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl
+                    className={`app-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[124px] transition-transform
                       ${caderneta.disponivel
-                        ? 'hover:scale-105'
+                        ? 'active:scale-[0.97]'
                         : 'opacity-50 cursor-not-allowed'
                       }`}
                   >
                     {!caderneta.disponivel && (
-                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                      <span className="absolute top-2 right-2 bg-gray-100 text-gray-500 border border-gray-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
                         EM BREVE
                       </span>
                     )}
                     <img
                       src={caderneta.icon}
                       alt={caderneta.label}
-                      className="w-40 h-auto object-contain rounded-[32px]"
+                      className="w-16 h-16 object-contain rounded-2xl"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement
                         target.style.display = 'none'
@@ -282,8 +238,8 @@ export default function ModulosMenuPage() {
                         if (emoji) emoji.style.display = 'block'
                       }}
                     />
-                    <span className="text-5xl fallback-emoji hidden">{caderneta.emoji}</span>
-                    <span className="text-sm font-bold text-center leading-tight text-gray-900">
+                    <span className="text-3xl fallback-emoji hidden">{caderneta.emoji}</span>
+                    <span className="text-xs font-bold text-center leading-tight text-gray-800">
                       {caderneta.label}
                     </span>
                   </button>
@@ -298,22 +254,10 @@ export default function ModulosMenuPage() {
       {showScrollTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-6 right-6 w-12 h-12 bg-[#3b82f6] text-white rounded-full shadow-lg hover:bg-[#2563eb] transition-all duration-300 flex items-center justify-center z-50 hover:scale-110"
+          className="fixed bottom-6 right-6 w-11 h-11 min-h-0 min-w-0 bg-white border border-gray-200 text-brand-800 rounded-full shadow-md transition-transform flex items-center justify-center z-50 active:scale-95"
           aria-label="Voltar ao topo"
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 10l7-7m0 0l7 7m-7-7v18"
-            />
-          </svg>
+          <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
         </button>
       )}
     </div>
