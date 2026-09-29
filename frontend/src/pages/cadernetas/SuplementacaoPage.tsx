@@ -15,6 +15,7 @@ import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getPastoByNomeCached,
+  getPastoByIdCached,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getFormulacaoByNomeCached,
@@ -332,7 +333,11 @@ export default function SuplementacaoPage() {
           return
         }
 
-        const pastoNome = lote.pastos?.nome || lotesPastoMap[form.numeroLote] || ''
+        let pastoNome = lote.pastos?.nome || lotesPastoMap[form.numeroLote] || ''
+        if (!pastoNome && lote.pasto_id) {
+          const pasto = await getPastoByIdCached(fazendaId, lote.pasto_id)
+          pastoNome = pasto?.nome || ''
+        }
         setLoteSemPasto(!lote.pasto_id)
         setForm(prev => ({ ...prev, pasto: pastoNome, pastoId: lote.pasto_id || '', loteId: lote.id }))
 
@@ -357,7 +362,7 @@ export default function SuplementacaoPage() {
     }
 
     carregarDetalhesLoteEPasto()
-  }, [form.numeroLote, fazendaId])
+  }, [form.numeroLote, fazendaId, lotesPastoMap])
 
   // Carregar formulação do plano nutricional ativo do lote
   useEffect(() => {

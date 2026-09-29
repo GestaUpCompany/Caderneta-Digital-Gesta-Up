@@ -7,17 +7,20 @@ export function scrollToFirstError(errors: { field: string; message: string }[])
 
   // Mapeamento de nomes de campos para IDs de elementos no DOM
   // Os campos geralmente têm IDs baseados no nome do campo
-  const firstError = errors[0]
-  const fieldName = firstError.field
-
-  // Tentar encontrar o elemento pelo ID ou name
-  let element = document.getElementById(fieldName)
-  if (!element) {
-    element = document.querySelector(`[name="${fieldName}"]`)
+  let element: Element | null = null
+  for (const error of errors) {
+    const fieldName = error.field
+    element =
+      document.getElementById(fieldName) ||
+      document.querySelector(`[name="${fieldName}"]`) ||
+      document.querySelector(`[data-field="${fieldName}"]`)
+    if (element) break
   }
+
   if (!element) {
-    // Tentar encontrar por atributo data-field ou label
-    element = document.querySelector(`[data-field="${fieldName}"]`)
+    // Campo sem elemento no DOM (ex.: campo derivado como 'pasto'):
+    // rolar até o banner de validação, ou ao topo como último recurso.
+    element = document.querySelector('[data-validation-banner]')
   }
 
   if (element) {
@@ -31,5 +34,8 @@ export function scrollToFirstError(errors: { field: string; message: string }[])
     if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
       setTimeout(() => element.focus(), 300)
     }
+    return
   }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }

@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Salvar da Suplementação falhava em silêncio quando o pasto não resolvia (29/09/2026)
+
+Relato de produção: offline, o SALVAR "não fazia nada" no primeiro clique e no segundo exibia "1 campo obrigatório". Diagnóstico: `form.pasto` é derivado na seleção do lote por `lote.pastos?.nome || lotesPastoMap[numeroLote]`; quando o cache foi montado com a tabela de pastos incompleta (o warmup grava `pastos: {nome: null}` e `lotesPastoMap` fica com `''`), `pasto_id` segue setado mas o nome fica vazio. `pasto` não entra no `validationRules`, então o botão fica habilitado; ao salvar, `validateSuplementacao` gerava `{field:'pasto', message:'Pasto é obrigatório'}`, o `ValidationMessage` só mostrava a contagem genérica, e `scrollToFirstError` não achava elemento `pasto` no DOM (campo derivado, nunca renderizado). O erro ficava invisível no topo da página e nada era persistido.
+
+Correções:
+
+- **`SuplementacaoPage`**: fallback por `pasto_id` via novo `getPastoByIdCached` em `cadastroCache` (online consulta `getPastos`; offline varre o `queryCache` por entradas `pasto:*` com o id). `lotesPastoMap` também entrou nas deps do efeito `carregarDetalhesLoteEPasto`, que antes não recalculava o pasto quando o mapa chegava depois da seleção.
+- **`ValidationMessage`**: exibe as mensagens reais dos erros (deduplicadas) além da contagem dos genéricos; trava de duplicidade, "Pasto é obrigatório" e similares agora aparecem por extenso. O root ganhou `data-validation-banner` para ser âncora de scroll.
+- **`scrollToFirstError`**: percorre todos os erros até achar um elemento no DOM; sem nenhum, rola até o banner de validação ou ao topo.
+
+**Disparador**: quando mencionar "salvar não faz nada", "1 campo obrigatório" na suplementação, `getPastoByIdCached`, `lotesPastoMap` nas deps, ou banner de validação escondendo a mensagem real, ler esta seção.
+
 ## Capacidade do vagão virou aviso informativo na Fábrica Confinamento (29/09/2026)
 
 `FabricaConfinamentoPage`: `excedeCapacidade` deixou de bloquear o SALVAR (removido de `podeSalvar`). O aviso mudou de erro vermelho para informativo em âmbar, com estimativa de cargas: "{total} kg equivalem a aproximadamente N cargas do vagão" (`Math.ceil(totalProduzido / capacidade_kg)`). A borda do input de TOTAL PRODUZIDO passou de vermelha para âmbar nesse estado.

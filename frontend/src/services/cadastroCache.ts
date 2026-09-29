@@ -937,6 +937,41 @@ export async function getPastoByNomeCached(fazendaId: string, nome: string): Pro
 }
 
 /**
+ * Busca pasto por id, online via lista do Supabase ou offline via cache de
+ * cadastro. Usado quando o lote tem pasto_id mas o join `pastos(nome)` e o
+ * lotesPastoMap vieram vazios (cache montado com tabela de pastos incompleta).
+ */
+export async function getPastoByIdCached(fazendaId: string, id: string): Promise<any | null> {
+  const findInQueryCache = (map: Record<string, { data: any }> | null | undefined): any | null => {
+    if (!map) return null
+    for (const key in map) {
+      if (key.startsWith(`pasto:${fazendaId}:`) && map[key]?.data?.id === id) {
+        return map[key].data
+      }
+    }
+    return null
+  }
+
+  if (navigator.onLine) {
+    try {
+      const pastos = await supabaseService.getPastos(fazendaId)
+      const found = pastos?.find((p: any) => p.id === id)
+      if (found) return found
+    } catch {}
+  }
+
+  const memHit = findInQueryCache(queryCache)
+  if (memHit) return memHit
+
+  try {
+    const cached = await getCadastroData(QUERY_CACHE_KEY)
+    return findInQueryCache(cached?.queryCache)
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca lote por nome com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
