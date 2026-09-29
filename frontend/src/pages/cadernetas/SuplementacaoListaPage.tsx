@@ -4,7 +4,7 @@ import ListaRegistros from '../../components/cadernetas/ListaRegistros'
 import { Button } from '../../components/ui'
 import DatePickerIcon from '../../components/ui/DatePickerIcon'
 import { listarRegistros } from '../../services/api'
-import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
+import { compartilharWhatsApp, calcularPeriodoTrato, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoSuplementacao, compartilharPdf } from '../../utils/pdfUtils'
 import { todayBR } from '../../utils/formatDate'
 import { formatarNumeroBR } from '../../utils/formatNumber'
@@ -212,6 +212,12 @@ export default function SuplementacaoListaPage() {
           }
           if (pesoVivo) {
             partes.push(`PV MÉDIO: *${formatarNumeroBR(pesoVivo, '—', 2)} kg*`)
+          }
+          const periodoTrato = r.periodoTratoDias != null
+            ? String(r.periodoTratoDias)
+            : calcularPeriodoTrato(r, todosRegistros)
+          if (periodoTrato) {
+            partes.push(`PERÍODO DE TRATO: *${periodoTrato}*`)
           }
 
           // Categorias adultas (as ao pé aparecem na seção creep)

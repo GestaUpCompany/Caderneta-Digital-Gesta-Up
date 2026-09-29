@@ -14,6 +14,12 @@ Correções:
 
 **Disparador**: quando mencionar "salvar não faz nada", "1 campo obrigatório" na suplementação, `getPastoByIdCached`, `lotesPastoMap` nas deps, ou banner de validação escondendo a mensagem real, ler esta seção.
 
+## Período de trato no resumo diário de suplementação (29/09/2026)
+
+O texto do resumo diário (`SuplementacaoListaPage.handleGerarResumoTexto`) não incluía `PERÍODO DE TRATO`, embora o compartilhamento individual (`shareUtils`) já emita o label após `PV MÉDIO`. Adicionada a mesma linha no mesmo ponto do bloco adulto, com o mesmo fallback: `r.periodoTratoDias` quando presente, senão `calcularPeriodoTrato(r, todosRegistros)` (dias desde o trato anterior do mesmo lote; tratos no mesmo dia e primeiros tratos não emitem o label). Verificado ponta a ponta: resumo de 25/09 gerou `PERÍODO DE TRATO: *2 dias*`.
+
+**Disparador**: quando mencionar label faltando no resumo diário de suplementação, período de trato no WhatsApp, ou diferença entre share individual e resumo, ler esta seção.
+
 ## Delay de 5-8s entre SALVAR e o modal de sucesso na Suplementação (29/09/2026)
 
 A cadeia serial de rede entre o clique e o `SuccessModal` fazia ~5 roundtrips seguidos: a trava de duplicidade lia `getFarmTimezoneAsync` + `getRegistrosSuplementacaoByLote` online; `iniciarSalvamento` lia `getFazendaByAcessoId` outra vez e awaitava o upsert de `execucoes_rotina`; `executarSalvamento` refazia `getPlanoNutricionalAtivoByLoteId` já buscado na seleção do lote; e `salvarRegistro` lia a fazenda uma terceira vez para o timezone. Em rede fraca somava 5-8s com o botão visualmente morto.
@@ -23,8 +29,9 @@ Correções:
 - **`supabaseService.getFazendaByAcessoId`**: cache em memória com TTL de 60s (o PWA nunca escreve em `fazendas`). Elimina 3 fetches por salvamento.
 - **`execucaoRotinaService`**: `sincronizarExecucaoMarcada` virou fire-and-forget em `garantirExecucaoRotina`/`registrarExecucaoRotina`; telemetria deixou de bloquear o save e falhas seguem marcadas com `pendente_sync` para `sincronizarExecucoesPendentes`.
 - **`SuplementacaoPage`**: o plano nutricional fica em `planoAtivoRef` na seleção do lote e é reusado no cálculo de peso projetado do save; botão SALVAR ganhou estado `verificando` que mostra "SALVANDO..." e desabilita já no primeiro tick do clique, cobrindo o tempo da trava.
+- **Trava de duplicidade (segundo corte)**: `getRegistrosSuplementacaoByLote` era chamada sem range de datas e baixava `select *` de todo o histórico do lote só para comparar o dia; agora recebe janela de ±1 dia em volta de `form.data` (absorve a diferença entre dia civil no fuso da fazenda e timestamp UTC) e é disparada em paralelo com `listarRegistros` + `getFarmTimezoneAsync`, escondendo a latência da rede embaixo das leituras locais.
 
-Medido online no DevTools: ~1,7s do clique ao modal (o restante é a query de duplicidade online com cap de 4s + escritas no IndexedDB).
+Medido online no DevTools: ~430ms do clique ao modal (primeiro corte deixou em ~1,7s; o segundo removeu o payload grande da trava, que em rede rural era a maior parcela).
 
 **Disparador**: quando mencionar demora/lag ao salvar, "SALVANDO...", cache de fazenda, `getFazendaByAcessoId`, ou sync de execução de rotina bloqueando, ler esta seção.
 

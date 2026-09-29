@@ -711,7 +711,42 @@ export default function SuplementacaoPage() {
   const verificarTratoDuplicado = async (): Promise<any | null> => {
     if (!travaSuplementacao || !fazendaId || !form.loteId || !form.data) return null
     const diaBR = form.data
-    const tz = await getFarmTimezoneAsync().catch(() => DEFAULT_FARM_TIMEZONE)
+
+    // A trava só precisa dos registros do dia. Sem range a query baixava o
+    // histórico inteiro do lote (select * de todas as datas), que em rede
+    // rural era a maior parcela do delay entre o clique e o modal. A janela
+    // de ±1 dia absorve a diferença entre o dia civil no fuso da fazenda e
+    // o timestamp UTC gravado na coluna `data`.
+    const diaBase = brToIso(diaBR)
+    const addDias = (iso: string, delta: number) => {
+      const d = new Date(`${iso}T12:00:00`)
+      d.setDate(d.getDate() + delta)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+    const dataInicio = diaBase ? `${addDias(diaBase, -1)}T00:00:00` : undefined
+    const dataFim = diaBase ? `${addDias(diaBase, 1)}T23:59:59` : undefined
+
+    // Dispara o fetch online junto com as leituras locais: no caso comum
+    // (sem duplicado) a query vai rodar de qualquer jeito, então a latência
+    // dela fica escondida embaixo do IndexedDB e do lookup de timezone.
+    const frescosPromise = navigator.onLine
+      ? Promise.race([
+          getRegistrosSuplementacaoByLote(fazendaId, form.loteId, dataInicio, dataFim),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+        ]).catch((error) => {
+          console.warn('[SuplementacaoPage] Trava: consulta online falhou, seguindo com verificação local:', error)
+          return [] as any[]
+        })
+      : Promise.resolve([] as any[])
+
+    const [tz, locais] = await Promise.all([
+      getFarmTimezoneAsync().catch(() => DEFAULT_FARM_TIMEZONE),
+      listarRegistros('suplementacao').catch((error) => {
+        console.warn('[SuplementacaoPage] Trava: falha ao ler IndexedDB:', error)
+        return [] as any[]
+      }),
+    ])
+
     const mesmoDia = (iso: unknown): boolean => {
       const d = new Date(String(iso))
       if (isNaN(d.getTime())) return false
@@ -719,34 +754,18 @@ export default function SuplementacaoPage() {
       return `${p.day}/${p.month}/${p.year}` === diaBR
     }
 
-    try {
-      const locais = await listarRegistros('suplementacao')
-      const dup = locais.find(
-        (r) => !r.isTestRecord && r.loteId === form.loteId && String(r.data || '').split(' ')[0] === diaBR
-      )
-      if (dup) return dup
-    } catch (error) {
-      console.warn('[SuplementacaoPage] Trava: falha ao ler IndexedDB:', error)
-    }
+    const dup = locais.find(
+      (r) => !r.isTestRecord && r.loteId === form.loteId && String(r.data || '').split(' ')[0] === diaBR
+    )
+    if (dup) return dup
 
     const dupPuxado = (registrosSuplementacao || []).find(
       (r: any) => r.lote_id === form.loteId && !r.deleted_at && mesmoDia(r.data)
     )
     if (dupPuxado) return dupPuxado
 
-    if (navigator.onLine) {
-      try {
-        const frescos = await Promise.race([
-          getRegistrosSuplementacaoByLote(fazendaId, form.loteId),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
-        ])
-        const dupOnline = (frescos || []).find((r: any) => !r.deleted_at && mesmoDia(r.data))
-        if (dupOnline) return dupOnline
-      } catch (error) {
-        console.warn('[SuplementacaoPage] Trava: consulta online falhou, seguindo com verificação local:', error)
-      }
-    }
-    return null
+    const frescos = await frescosPromise
+    return (frescos || []).find((r: any) => !r.deleted_at && mesmoDia(r.data)) ?? null
   }
 
   const handleSalvarClick = async () => {
