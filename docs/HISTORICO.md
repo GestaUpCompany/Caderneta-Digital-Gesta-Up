@@ -2,6 +2,37 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Remoção da trava de trato na Fábrica Confinamento (30/09/2026)
+
+Pedido de produção: a trava impedia avançar do trato N para o N+1 quando `total_produzido < total_previsto`. O registro ficava `concluido=false` e o carregamento forçava `ordemTratoAtual` de volta para o trato incompleto.
+
+Desenho final (após iterar sobre seletor livre e botão ENCERRAR TRATO, ambos descartados pelo usuário): cada SALVAR encerra o trato atual e avança para o próximo, mesmo abaixo do previsto. Não há mais estado de trato parcial criado pela página; o fluxo é sequencial e sem retorno ao trato já salvo.
+
+Mudanças em `FabricaConfinamentoPage` e `syncService`:
+
+- `handleSalvar` grava `concluido=true` incondicionalmente; `concluido` passa a significar "trato encerrado para o dia", não "meta atingida". O déficit fica registrado em `total_produzido < total_previsto`. Um trato só pode ficar sem registro se nunca for salvo (não há pular trato sem produção nesse desenho).
+- Registros `concluido=false` legados (parciais anteriores à mudança) continuam resumíveis: o carregamento retoma o primeiro trato aberto, acumula `jaProduzidoNoTrato` e o próximo save o encerra.
+- Consequência aceita: como cada save avança um trato, quem lança por carga parcial do mesmo trato (vagão encheu, descarregou, encheu de novo) precisa somar as cargas no input, coerente com a decisão anterior de lançar o produzido do trato de uma vez com capacidade de vagão apenas informativa.
+- `concluido` não é lido por nenhum consumidor downstream: o Painel (`fetchFabricaAcompanhamento`) deriva o status de produzido vs previsto, então trato encerrado com déficit segue aparecendo como `parcial` no acompanhamento.
+- Mensagem de sucesso dinâmica: abaixo do previsto informa "Trato N encerrado com déficit de X kg".
+- Novo bloco informativo âmbar lista os tratos encerrados com déficit do dia ("Trato N: produzido X de Y kg, faltaram Z kg"), alimentado pelo state `registrosFabricaDia`.
+- Correção embarcada: trato aberto criado em outro dispositivo ganhava master duplicado ao receber complemento (o lookup local por `supabaseId` falhava e o save caía no create). Agora, quando o registro remoto aberto não tem contraparte local, o carregamento cria um espelho no IndexedDB com o `supabaseId`, fazendo o complemento/encerramento atualizar o mesmo master. O espelho também é refrescado com os totais remotos quando sincronizado.
+- Auditoria offline-first corrigiu dois bugs pré-existentes do carregamento: (1) o filtro de registros locais comparava `r.data` em formato BR contra `dataISO` em ISO e nunca casava, então offline nenhum registro do dia era encontrado (trato voltava ao 1 e re-save criava master duplicado); (2) online, `registrosFabrica` vinha só do Supabase e registros locais `pending` sumiam, e salvar offline e recarregar online antes do sync reabria o trato. Agora os registros locais do dia são sempre mesclados: create pendente entra como linha fantasma, update pendente sobrescreve os totais do remoto.
+- `syncService`: o update de `registros_fabrica_confinamento` passou a gravar também `total_previsto` (antes só `total_produzido` e `concluido`), mantendo o previsto gravado consistente com o cálculo vigente no momento do save.
+- Corrupção de `total_previsto` encontrada no teste: a página gravava `totalPrevisto: String(152.475)` = "152.475", e `normalizarNumero` interpreta ponto seguido de exatamente 3 dígitos como milhar pt-BR, resultando em 152475 no banco. Corrigido gravando os campos numéricos (`totalPrevisto`, `totalProduzido`) como `number` no registro local (criação, update de trato aberto e espelho/remoto), pois `normalizarNumero(number)` retorna direto sem heurística de separador.
+- Bug pré-existente descoberto no banco: o trigger `trg_fabrica_confinamento_insumos_mov` chama `public.expandir_insumo(uuid, numeric)`, que não existe (a função foi renomeada para `expandir_premix_componentes(uuid, numeric, integer)`). Todo insert de insumo da fábrica falhava com 42883 e nenhuma baixa de estoque era gerada. Correção é migration estrutural `20261001130000_fix_trg_fabrica_insumos_expandir_premix.sql` no repo do Painel Web, pendente de `supabase db push` (a fazer após o deploy do PWA). Até lá, os inserts de insumos continuam falhando e acumulando na fila de sync.
+- Débito conhecido não tratado: `syncToSupabase` ignora `operation === 'update'` quando `registro.supabaseId` ainda não existe e a fila marca o item como synced. Na prática se recupera porque o `create` pendente do mesmo registro sobe com o estado final via upsert por `local_id`; só vira perda se o create falhar definitivamente.
+
+**Disparador**: quando mencionar trava da fábrica, trato com déficit, "faltam X kg" no carregamento de vagão, ou registro de fábrica duplicado por ordem, ler esta seção.
+
+## Estorno de entrada de 116 bois no LOTE 9 da Fazenda Chibata (30/09/2026)
+
+A pedido do usuário, estorno manual via MCP do registro `registros_movimentacao` `6b9f36ee-a71f-499c-ad35-5ff46064f78e` (Entrada de 116 cabeças "boi gordo", Nelore macho ~30 meses, 402,85 kg/cab, no LOTE 9, lançado por Carlos às 07:38). A entrada era categoria nova no lote, então o trigger `update_quant_atual_movimentacao` tinha criado a linha `lote_categorias` `c604e615` (não somado em linha existente). O estorno foi: soft-delete do registro (`deleted_at`) e DELETE da linha `lote_categorias`, que levou junto o `plano_categoria_personalizacao` auto-gerado (FK CASCADE). LOTE 9 voltou a ter só "garrote" (112 cab.), estado pré-entrada.
+
+Backups criados antes da operação, mesmo padrão do estorno de 18/09: `backup_estorno_movimentacao_20260930`, `backup_estorno_lote_categorias_20260930` e `backup_estorno_plano_personalizacao_20260930`. O trigger de quantidade só dispara em INSERT (não reverte sozinho no soft-delete), por isso a reversão de cabeças é sempre manual. O registro tinha `os_id`/`os_recebimento_id` nulos, então `trg_movimentacao_os_status` foi no-op e nenhuma OS precisou de ajuste.
+
+**Disparador**: quando mencionar estorno de movimentação, entrada errada no LOTE 9/Chibata, reversão manual de cabeças, ou "apagar registro de entrada", ler esta seção.
+
 ## Salvar da Suplementação falhava em silêncio quando o pasto não resolvia (29/09/2026)
 
 Relato de produção: offline, o SALVAR "não fazia nada" no primeiro clique e no segundo exibia "1 campo obrigatório". Diagnóstico: `form.pasto` é derivado na seleção do lote por `lote.pastos?.nome || lotesPastoMap[numeroLote]`; quando o cache foi montado com a tabela de pastos incompleta (o warmup grava `pastos: {nome: null}` e `lotesPastoMap` fica com `''`), `pasto_id` segue setado mas o nome fica vazio. `pasto` não entra no `validationRules`, então o botão fica habilitado; ao salvar, `validateSuplementacao` gerava `{field:'pasto', message:'Pasto é obrigatório'}`, o `ValidationMessage` só mostrava a contagem genérica, e `scrollToFirstError` não achava elemento `pasto` no DOM (campo derivado, nunca renderizado). O erro ficava invisível no topo da página e nada era persistido.

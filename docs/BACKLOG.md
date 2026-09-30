@@ -2,6 +2,10 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Push pendente: fix do trigger de insumos da fábrica (30/09/2026)
+
+Migration `20261001130000_fix_trg_fabrica_insumos_expandir_premix.sql` criada no repo do Painel Web mas **ainda não aplicada** (push adiado para depois do deploy do PWA). Ela corrige `trg_fabrica_confinamento_insumos_mov`, que chama a função inexistente `expandir_insumo` em vez de `expandir_premix_componentes`. Enquanto o push não rodar, todo insert em `registros_fabrica_confinamento_insumos` falha com 42883 e as baixas de estoque de suplementos não são geradas; as linhas ficam pendentes na fila de sync dos aparelhos. Após aplicar, rodar `supabase db push` no `GestaUp-Cadernetas-Gestao`, commitar a migration lá, e verificar que a fila de insumos drena (logs em `logs_sync_errors`).
+
 ## CMS do texto da suplementação usa só a série do aparelho (28/09/2026)
 
 `calcularMetricasSuplementacao` é chamada no share de registro (`ListaRegistros`) e no resumo diário (`SuplementacaoListaPage`) sobre `listarRegistros('suplementacao')`, que lê só o IndexedDB local. O sync é push-only: tratos lançados em outro aparelho (ex.: outro tratador do mesmo lote) nunca entram na série local. Com a série incompleta, a "média geral" do texto diverge da série completa do banco — caso observado na Fazenda Brilhante: aparelho com 8 tratos em 8 dias gerou CMN 4,941 enquanto a série completa de 10 tratos daria 5,647.

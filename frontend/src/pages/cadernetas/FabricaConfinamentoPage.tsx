@@ -180,7 +180,9 @@ export default function FabricaConfinamentoPage() {
   const [kgProduzidoPorInsumo, setKgProduzidoPorInsumo] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  const [sucessoMsg, setSucessoMsg] = useState('Produção salva com sucesso!')
   const [rascunhoSalvo, setRascunhoSalvo] = useState(false)
+  const [registrosFabricaDia, setRegistrosFabricaDia] = useState<RegistroFabricaExistente[]>([])
 
   // Espelho para flush síncrono no cleanup
   const totalProduzidoRef = useRef('')
@@ -498,34 +500,67 @@ export default function FabricaConfinamentoPage() {
       setCurraisFiltrados(curraisDaDieta)
 
       // Buscar registros de fábrica do dia. A produção avança independentemente da distribuição.
+      // Offline-first: sempre mesclar os registros locais do IndexedDB — um registro
+      // pendente de sync ainda não existe no Supabase e ignorá-lo aqui reabriria o
+      // trato (e geraria um master duplicado no próximo salvamento).
       let registrosFabrica: RegistroFabricaExistente[] = []
       if (navigator.onLine) {
         try {
           registrosFabrica = await getRegistrosFabricaDoDia(fazendaId, dataISO, tipoSelecionado, dietaSelecionadaId)
         } catch {
-          // offline ou erro, seguir sem registros de fábrica
+          // offline ou erro, seguir só com os registros locais
         }
-      } else {
-        // Offline: buscar registros locais no IndexedDB
-        try {
-          const registrosLocais = await getAllRegistros('fabrica-confinamento')
-          const dataISOComp = dataISO
-          registrosFabrica = (registrosLocais as any[])
-            .filter((r) => {
-              const rData = (r.data || '').slice(0, 10)
-              return rData === dataISOComp && r.tipo === tipoSelecionado && r.formulacaoId === dietaSelecionadaId
+      }
+
+      try {
+        const registrosLocais = await getAllRegistros('fabrica-confinamento')
+        const locaisDoDia = (registrosLocais as any[]).filter((r) => {
+          const raw = String(r.data || '')
+          // Registros locais gravam data em formato BR ("dd/mm/aaaa hh:mm")
+          const rDataISO = raw.includes('/') ? brToDateISO(raw) : raw.slice(0, 10)
+          return (
+            rDataISO === dataISO &&
+            r.tipo === tipoSelecionado &&
+            r.formulacaoId === dietaSelecionadaId &&
+            (!r.fazendaId || r.fazendaId === fazendaId)
+          )
+        })
+        for (const local of locaisDoDia) {
+          const concluidoLocal = local.concluido === true || local.concluido === 'true'
+          if (local.supabaseId) {
+            const remoto = registrosFabrica.find((r) => r.id === local.supabaseId)
+            if (remoto) {
+              // Update local pendente: os valores locais são mais novos que os do remoto
+              if (local.syncStatus === 'pending') {
+                remoto.total_previsto = Number(local.totalPrevisto) || remoto.total_previsto
+                remoto.total_produzido = Number(local.totalProduzido) || remoto.total_produzido
+                remoto.concluido = concluidoLocal
+              }
+            } else {
+              // O remoto não voltou na query (registro novo demais ou deletado);
+              // tratar pelo valor local para não reabrir o trato
+              registrosFabrica.push({
+                id: local.supabaseId,
+                ordem_trato: Number(local.ordemTrato) || 0,
+                total_previsto: Number(local.totalPrevisto) || 0,
+                total_produzido: Number(local.totalProduzido) || 0,
+                concluido: concluidoLocal,
+              })
+            }
+          } else {
+            // Create ainda não sincronizado: não existe no Supabase
+            registrosFabrica.push({
+              id: local.id,
+              ordem_trato: Number(local.ordemTrato) || 0,
+              total_previsto: Number(local.totalPrevisto) || 0,
+              total_produzido: Number(local.totalProduzido) || 0,
+              concluido: concluidoLocal,
             })
-            .map((r) => ({
-              id: r.supabaseId || r.id,
-              ordem_trato: r.ordemTrato,
-              total_previsto: Number(r.totalPrevisto) || 0,
-              total_produzido: Number(r.totalProduzido) || 0,
-              concluido: r.concluido === true || r.concluido === 'true',
-            }))
-            .sort((a, b) => a.ordem_trato - b.ordem_trato)
-        } catch {
-          // ignorar
+          }
         }
+        registrosFabrica.sort((a, b) => a.ordem_trato - b.ordem_trato)
+      } catch {
+        // ignorar
       }
 
       // A ordem da Fábrica depende somente da produção desta dieta.
@@ -538,11 +573,49 @@ export default function FabricaConfinamentoPage() {
         ? tratoNaoConcluido.ordem_trato
         : Math.min(maxOrdemProduzida + 1, qtdTratos)
 
+      setRegistrosFabricaDia(registrosFabrica)
+
       if (tratoNaoConcluido) {
-        // Buscar o registro local no IndexedDB pelo supabaseId para obter o ID local
+        // Buscar o registro local no IndexedDB pelo supabaseId (ou pelo id local,
+        // quando o registro ainda não sincronizou) para obter o ID local
         const registrosLocais = await getAllRegistros('fabrica-confinamento')
-        const registroLocal = registrosLocais.find((r: any) => r.supabaseId === tratoNaoConcluido.id)
-        setRegistroFabricaNaoConcluidoId(registroLocal ? registroLocal.id : null)
+        let registroLocal: any = registrosLocais.find(
+          (r: any) => r.supabaseId === tratoNaoConcluido.id || r.id === tratoNaoConcluido.id
+        )
+        if (!registroLocal) {
+          // Trato aberto criado em outro dispositivo: criar espelho local para
+          // que o complemento/encerramento atualize o mesmo master no Supabase
+          registroLocal = {
+            id: generateId(),
+            supabaseId: tratoNaoConcluido.id,
+            fazendaId,
+            data,
+            usuario,
+            tipo: tipoSelecionado,
+            formulacaoId: dietaSelecionadaId,
+            ordemTrato: String(tratoNaoConcluido.ordem_trato),
+            totalPrevisto: tratoNaoConcluido.total_previsto,
+            totalProduzido: tratoNaoConcluido.total_produzido,
+            concluido: 'false',
+            syncStatus: 'synced',
+            version: 1,
+            lastModified: new Date().toISOString(),
+          } as any
+          await saveRegistroIDB('fabrica-confinamento', registroLocal)
+        } else if (
+          registroLocal.supabaseId === tratoNaoConcluido.id &&
+          registroLocal.syncStatus !== 'pending' &&
+          (Number(registroLocal.totalProduzido) !== tratoNaoConcluido.total_produzido ||
+            String(registroLocal.totalPrevisto) !== String(tratoNaoConcluido.total_previsto))
+        ) {
+          // Espelho desatualizado (produção continuou em outro aparelho):
+          // refrescar os totais locais sem marcar como pendente
+          await updateRegistro('fabrica-confinamento', registroLocal.id, {
+            totalPrevisto: tratoNaoConcluido.total_previsto,
+            totalProduzido: tratoNaoConcluido.total_produzido,
+          })
+        }
+        setRegistroFabricaNaoConcluidoId(registroLocal.id)
       } else {
         setRegistroFabricaNaoConcluidoId(null)
       }
@@ -681,6 +754,15 @@ export default function FabricaConfinamentoPage() {
     return true
   }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, todosTratosConcluidos])
 
+  // Tratos encerrados com produção abaixo do previsto (trava informativa)
+  const deficitsTratos = useMemo(
+    () =>
+      registrosFabricaDia.filter(
+        (r) => r.concluido && r.total_produzido < r.total_previsto - 0.5
+      ),
+    [registrosFabricaDia]
+  )
+
   // Rascunho: persiste totalProduzido e kgProduzidoPorInsumo no IndexedDB
   const getRascunhoKey = useCallback(() => {
     const dataISO = brToDateISO(data)
@@ -758,12 +840,14 @@ export default function FabricaConfinamentoPage() {
     setSucesso(false)
     try {
       const novoTotalProduzido = jaProduzidoNoTrato + totalProduzidoNum
-      const concluido = novoTotalProduzido >= (totalPrevisto - 0.5)
+      // Sem trava: cada salvamento encerra o trato e avança, mesmo abaixo do
+      // previsto. O déficit fica registrado em total_produzido < total_previsto.
+      const concluido = true
 
       let registroId: string
 
       if (registroFabricaNaoConcluidoId) {
-        // Atualizar registro existente (produção parcial complementar)
+        // Atualizar registro existente (produção parcial complementar ou encerramento com déficit)
         const registroExistente = await getRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId)
         if (!registroExistente) {
           setErro('Registro de produção parcial não encontrado. Tente novamente.')
@@ -771,7 +855,8 @@ export default function FabricaConfinamentoPage() {
           return
         }
         await updateRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId, {
-          totalProduzido: String(novoTotalProduzido),
+          totalPrevisto,
+          totalProduzido: novoTotalProduzido,
           concluido: String(concluido),
           syncStatus: 'pending',
         })
@@ -790,8 +875,8 @@ export default function FabricaConfinamentoPage() {
           vagaoId: vagaoSelecionadoId,
           vagaoNome: vagaoSelecionado?.nome || '',
           ordemTrato: String(ordemTratoAtual),
-          totalPrevisto: String(totalPrevisto),
-          totalProduzido: String(totalProduzidoNum),
+          totalPrevisto,
+          totalProduzido: totalProduzidoNum,
           concluido: String(concluido),
         })
 
@@ -812,7 +897,9 @@ export default function FabricaConfinamentoPage() {
       const registroMaster = await getRegistro('fabrica-confinamento', registroId)
       const insumoRegistroId = registroMaster?.supabaseId || registroId
 
-      // Salvar insumos como registros separados no IndexedDB + enfileirar sync
+      // Salvar insumos como registros separados no IndexedDB + enfileirar sync.
+      // Só grava quando esta carga teve produção (encerrar sem input novo não gera linhas zeradas).
+      if (totalProduzidoNum > 0) {
       for (const insumo of insumos) {
         const kgPrev = kgPrevistoPorInsumo[insumo.insumo_id] || 0
         const kgProdStr = kgProduzidoPorInsumo[insumo.insumo_id] || ''
@@ -834,36 +921,55 @@ export default function FabricaConfinamentoPage() {
         await saveRegistroIDB('fabrica-confinamento-insumos', insumoRegistro)
         await enqueueRegistro('fabrica-confinamento-insumos', insumoRegistro.id, 'create')
       }
+      }
 
       registerBackgroundSync('sync-registros').catch(() => {})
 
       setSucesso(true)
+      setSucessoMsg(
+        novoTotalProduzido < totalPrevisto - 0.5
+          ? `Produção salva. Trato ${ordemTratoAtual} encerrado com déficit de ${formatarKg(totalPrevisto - novoTotalProduzido, 1)} kg do previsto.`
+          : 'Produção salva com sucesso!'
+      )
       setTotalProduzido('')
       setKgProduzidoPorInsumo({})
       setRascunhoSalvo(false)
-      // Atualizar a ordem imediatamente, sem depender do refresh do Supabase.
-      if (concluido) {
-        const proximaOrdem = ordemTratoAtual + 1
-        setRegistroFabricaNaoConcluidoId(null)
-        setJaProduzidoNoTrato(0)
-        setOrdemTratoAtual(Math.min(proximaOrdem, quantidadeTratos))
-        if (proximaOrdem > quantidadeTratos) {
-          setTodosTratosConcluidos(true)
-          setTotalPrevisto(0)
-        } else {
-          const proximoPercentual = percentuaisTratos.find(
-            (p) => p.ordem_trato === proximaOrdem
-          )?.percentual || 0
-          setTotalPrevisto(
-            curraisFiltrados.reduce(
-              (sum, curral) => sum + (curral.kgBaseDia || 0) * (proximoPercentual / 100),
-              0
-            )
-          )
+
+      // Manter o resumo de déficits atualizado sem depender de refresh do Supabase
+      setRegistrosFabricaDia((prev) => {
+        const idx = prev.findIndex((r) => r.ordem_trato === ordemTratoAtual && !r.concluido)
+        const atualizado: RegistroFabricaExistente = {
+          id: idx >= 0 ? prev[idx].id : registroId,
+          ordem_trato: ordemTratoAtual,
+          total_previsto: totalPrevisto,
+          total_produzido: novoTotalProduzido,
+          concluido,
         }
+        if (idx >= 0) {
+          const arr = [...prev]
+          arr[idx] = atualizado
+          return arr
+        }
+        return [...prev, atualizado]
+      })
+      // Atualizar a ordem imediatamente, sem depender do refresh do Supabase.
+      const proximaOrdem = ordemTratoAtual + 1
+      setRegistroFabricaNaoConcluidoId(null)
+      setJaProduzidoNoTrato(0)
+      setOrdemTratoAtual(Math.min(proximaOrdem, quantidadeTratos))
+      if (proximaOrdem > quantidadeTratos) {
+        setTodosTratosConcluidos(true)
+        setTotalPrevisto(0)
       } else {
-        setRegistroFabricaNaoConcluidoId(registroId)
-        setJaProduzidoNoTrato(novoTotalProduzido)
+        const proximoPercentual = percentuaisTratos.find(
+          (p) => p.ordem_trato === proximaOrdem
+        )?.percentual || 0
+        setTotalPrevisto(
+          curraisFiltrados.reduce(
+            (sum, curral) => sum + (curral.kgBaseDia || 0) * (proximoPercentual / 100),
+            0
+          )
+        )
       }
 
       // Limpar rascunho do IndexedDB
@@ -1068,12 +1174,12 @@ export default function FabricaConfinamentoPage() {
                 </div>
               </div>
 
-              {/* Aviso: todos os tratos do dia foram concluídos */}
+              {/* Aviso: todos os tratos do dia foram encerrados */}
               {todosTratosConcluidos && (
                 <div className="rounded-xl bg-green-50 border border-green-200 p-3 flex items-start gap-2">
                   <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                   <p className="text-sm font-bold text-green-800">
-                    Todos os {quantidadeTratos} tratos do dia foram concluídos. Nenhuma produção pendente.
+                    Todos os {quantidadeTratos} tratos do dia foram encerrados.
                   </p>
                 </div>
               )}
@@ -1083,8 +1189,24 @@ export default function FabricaConfinamentoPage() {
                 <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
                   <p className="text-sm font-bold text-blue-800">
-                    Trato {ordemTratoAtual} em aberto. Faltam produzir {formatarKg(faltamKg, 1)} kg para avançar ao próximo trato.
+                    Trato {ordemTratoAtual} em aberto. Faltam produzir {formatarKg(faltamKg, 1)} kg para completar o previsto.
                   </p>
+                </div>
+              )}
+
+              {/* Resumo informativo: tratos encerrados abaixo do previsto */}
+              {deficitsTratos.length > 0 && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-sm font-bold text-amber-800">
+                    {deficitsTratos.map((d) => (
+                      <p key={d.ordem_trato}>
+                        Trato {d.ordem_trato}: produzido {formatarKg(d.total_produzido, 0)} kg de{' '}
+                        {formatarKg(d.total_previsto, 0)} kg (faltaram{' '}
+                        {formatarKg(d.total_previsto - d.total_produzido, 0)} kg)
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1093,7 +1215,7 @@ export default function FabricaConfinamentoPage() {
                 <div className="rounded-xl bg-green-50 border border-green-200 p-3 flex items-start gap-2">
                   <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                   <p className="text-sm font-bold text-green-800">
-                    Produção salva com sucesso!
+                    {sucessoMsg}
                   </p>
                 </div>
               )}

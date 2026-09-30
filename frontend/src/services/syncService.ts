@@ -1093,6 +1093,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             const { error: fcError } = await client
               .from('registros_fabrica_confinamento')
               .update({
+                total_previsto: data.total_previsto,
                 total_produzido: data.total_produzido,
                 concluido: data.concluido,
               })
