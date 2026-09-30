@@ -182,6 +182,7 @@ export default function FabricaConfinamentoPage() {
   const [sucesso, setSucesso] = useState(false)
   const [sucessoMsg, setSucessoMsg] = useState('Produção salva com sucesso!')
   const [rascunhoSalvo, setRascunhoSalvo] = useState(false)
+  const [confirmarEncerrar, setConfirmarEncerrar] = useState(false)
   const [registrosFabricaDia, setRegistrosFabricaDia] = useState<RegistroFabricaExistente[]>([])
 
   // Espelho para flush síncrono no cleanup
@@ -623,6 +624,7 @@ export default function FabricaConfinamentoPage() {
       const todosConcluidos = maxOrdemProduzida >= qtdTratos && !tratoNaoConcluido
       setTodosTratosConcluidos(todosConcluidos)
       setOrdemTratoAtual(ordemAtual)
+      setConfirmarEncerrar(false)
 
       // Calcular kgPlanejado de cada curral para o trato atual
       const percentuais = progCompleta.percentuais
@@ -754,6 +756,17 @@ export default function FabricaConfinamentoPage() {
     return true
   }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, todosTratosConcluidos])
 
+  // Pode encerrar o trato atual (mesmo com déficit ou sem produção) e avançar?
+  const podeEncerrar = useMemo(() => {
+    if (carregando || salvando) return false
+    if (!dietaSelecionadaId || !vagaoSelecionadoId) return false
+    if (todosTratosConcluidos || quantidadeTratos <= 0) return false
+    if (ordemTratoAtual > quantidadeTratos) return false
+    // Sem previsto não há registro válido para gravar (validação exige previsto > 0)
+    if (totalPrevisto <= 0 && !registroFabricaNaoConcluidoId) return false
+    return true
+  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, todosTratosConcluidos, quantidadeTratos, ordemTratoAtual, totalPrevisto, registroFabricaNaoConcluidoId])
+
   // Tratos encerrados com produção abaixo do previsto (trava informativa)
   const deficitsTratos = useMemo(
     () =>
@@ -834,15 +847,17 @@ export default function FabricaConfinamentoPage() {
     setRascunhoSalvo(false)
   }, [salvarRascunhoFabrica])
 
-  const handleSalvar = useCallback(async () => {
-    if (!fazendaId || !podeSalvar) return
+  const handleSalvar = useCallback(async (encerrarTrato = false) => {
+    if (!fazendaId || salvando || carregando) return
+    if (encerrarTrato ? !podeEncerrar : !podeSalvar) return
     setSalvando(true)
     setSucesso(false)
+    setConfirmarEncerrar(false)
     try {
       const novoTotalProduzido = jaProduzidoNoTrato + totalProduzidoNum
-      // Sem trava: cada salvamento encerra o trato e avança, mesmo abaixo do
-      // previsto. O déficit fica registrado em total_produzido < total_previsto.
-      const concluido = true
+      // SALVAR acumula no trato aberto; o trato encerra quando atinge o previsto
+      // ou quando o usuário confirma o encerramento com déficit via ENCERRAR TRATO.
+      const concluido = encerrarTrato || novoTotalProduzido >= (totalPrevisto - 0.5)
 
       let registroId: string
 
@@ -855,6 +870,8 @@ export default function FabricaConfinamentoPage() {
           return
         }
         await updateRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId, {
+          vagaoId: vagaoSelecionadoId,
+          vagaoNome: vagaoSelecionado?.nome || '',
           totalPrevisto,
           totalProduzido: novoTotalProduzido,
           concluido: String(concluido),
@@ -927,8 +944,8 @@ export default function FabricaConfinamentoPage() {
 
       setSucesso(true)
       setSucessoMsg(
-        novoTotalProduzido < totalPrevisto - 0.5
-          ? `Produção salva. Trato ${ordemTratoAtual} encerrado com déficit de ${formatarKg(totalPrevisto - novoTotalProduzido, 1)} kg do previsto.`
+        encerrarTrato && novoTotalProduzido < totalPrevisto - 0.5
+          ? `Trato ${ordemTratoAtual} encerrado. Ficaram faltando ${formatarKg(totalPrevisto - novoTotalProduzido, 1)} kg do previsto.`
           : 'Produção salva com sucesso!'
       )
       setTotalProduzido('')
@@ -953,23 +970,28 @@ export default function FabricaConfinamentoPage() {
         return [...prev, atualizado]
       })
       // Atualizar a ordem imediatamente, sem depender do refresh do Supabase.
-      const proximaOrdem = ordemTratoAtual + 1
-      setRegistroFabricaNaoConcluidoId(null)
-      setJaProduzidoNoTrato(0)
-      setOrdemTratoAtual(Math.min(proximaOrdem, quantidadeTratos))
-      if (proximaOrdem > quantidadeTratos) {
-        setTodosTratosConcluidos(true)
-        setTotalPrevisto(0)
-      } else {
-        const proximoPercentual = percentuaisTratos.find(
-          (p) => p.ordem_trato === proximaOrdem
-        )?.percentual || 0
-        setTotalPrevisto(
-          curraisFiltrados.reduce(
-            (sum, curral) => sum + (curral.kgBaseDia || 0) * (proximoPercentual / 100),
-            0
+      if (concluido) {
+        const proximaOrdem = ordemTratoAtual + 1
+        setRegistroFabricaNaoConcluidoId(null)
+        setJaProduzidoNoTrato(0)
+        setOrdemTratoAtual(Math.min(proximaOrdem, quantidadeTratos))
+        if (proximaOrdem > quantidadeTratos) {
+          setTodosTratosConcluidos(true)
+          setTotalPrevisto(0)
+        } else {
+          const proximoPercentual = percentuaisTratos.find(
+            (p) => p.ordem_trato === proximaOrdem
+          )?.percentual || 0
+          setTotalPrevisto(
+            curraisFiltrados.reduce(
+              (sum, curral) => sum + (curral.kgBaseDia || 0) * (proximoPercentual / 100),
+              0
+            )
           )
-        )
+        }
+      } else {
+        setRegistroFabricaNaoConcluidoId(registroId)
+        setJaProduzidoNoTrato(novoTotalProduzido)
       }
 
       // Limpar rascunho do IndexedDB
@@ -981,7 +1003,7 @@ export default function FabricaConfinamentoPage() {
     } finally {
       setSalvando(false)
     }
-  }, [fazendaId, podeSalvar, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgProduzidoPorInsumo, curraisFiltrados, getRascunhoKey])
+  }, [fazendaId, podeSalvar, podeEncerrar, salvando, carregando, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, vagaoSelecionado, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgProduzidoPorInsumo, curraisFiltrados, getRascunhoKey])
 
   const handleLimpar = useCallback(() => {
     setTotalProduzido('')
@@ -989,6 +1011,7 @@ export default function FabricaConfinamentoPage() {
     setSucesso(false)
     setErro(null)
     setRascunhoSalvo(false)
+    setConfirmarEncerrar(false)
     // Limpar rascunho do IndexedDB
     if (fazendaId) {
       const key = getRascunhoKey()
@@ -999,34 +1022,70 @@ export default function FabricaConfinamentoPage() {
   const tiposVisiveis = TIPOS_PROGRAMACAO.filter((t) => tiposDisponiveis.includes(t.value))
 
   const bottomContent = (
-    <div className="flex gap-2 pb-3">
-      <button
-        onClick={handleSalvar}
-        disabled={!podeSalvar}
-        className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.99] ${
-          !podeSalvar
-            ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-            : 'border-[#1a3a2a] bg-[#1a3a2a] text-white hover:bg-[#245038]'
-        }`}
-      >
-        <span className="inline-flex items-center justify-center gap-2">
-          {salvando ? (
-            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
-          ) : (
-            <Save className="h-4 w-4" strokeWidth={2.5} />
-          )}
-          SALVAR
-        </span>
-      </button>
-      <button
-        onClick={handleLimpar}
-        className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-      >
-        <span className="inline-flex items-center justify-center gap-2">
-          <Brush className="h-4 w-4" strokeWidth={2.5} />
-          LIMPAR
-        </span>
-      </button>
+    <div className="flex flex-col gap-2 pb-3">
+      {confirmarEncerrar && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-bold text-amber-800">
+            Encerrar o trato {ordemTratoAtual}
+            {faltamKg > 0 ? ` faltando ${formatarKg(faltamKg, 1)} kg` : ''}? Não será
+            possível voltar a este trato.
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={() => handleSalvar(true)}
+              className="!min-h-0 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-600"
+            >
+              SIM, ENCERRAR
+            </button>
+            <button
+              onClick={() => setConfirmarEncerrar(false)}
+              className="!min-h-0 rounded-full bg-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-300"
+            >
+              CANCELAR
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleSalvar()}
+          disabled={!podeSalvar}
+          className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.99] ${
+            !podeSalvar
+              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+              : 'border-[#1a3a2a] bg-[#1a3a2a] text-white hover:bg-[#245038]'
+          }`}
+        >
+          <span className="inline-flex items-center justify-center gap-2">
+            {salvando ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
+            ) : (
+              <Save className="h-4 w-4" strokeWidth={2.5} />
+            )}
+            SALVAR
+          </span>
+        </button>
+        <button
+          onClick={() => setConfirmarEncerrar(true)}
+          disabled={!podeEncerrar}
+          className={`!min-h-0 rounded-2xl border-2 px-3 py-3 text-xs font-bold transition-colors active:scale-95 ${
+            !podeEncerrar
+              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+              : 'border-amber-500 bg-amber-50 text-amber-800 hover:bg-amber-100'
+          }`}
+        >
+          ENCERRAR TRATO
+        </button>
+        <button
+          onClick={handleLimpar}
+          className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+        >
+          <span className="inline-flex items-center justify-center gap-2">
+            <Brush className="h-4 w-4" strokeWidth={2.5} />
+            LIMPAR
+          </span>
+        </button>
+      </div>
     </div>
   )
 
@@ -1189,7 +1248,7 @@ export default function FabricaConfinamentoPage() {
                 <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
                   <p className="text-sm font-bold text-blue-800">
-                    Trato {ordemTratoAtual} em aberto. Faltam produzir {formatarKg(faltamKg, 1)} kg para completar o previsto.
+                    Trato {ordemTratoAtual} em aberto. Faltam produzir {formatarKg(faltamKg, 1)} kg para completar o previsto. Para seguir sem completar, use ENCERRAR TRATO.
                   </p>
                 </div>
               )}

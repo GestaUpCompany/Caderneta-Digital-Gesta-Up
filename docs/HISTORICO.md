@@ -16,20 +16,18 @@ Mudanças:
 
 **Disparador**: quando mencionar meta consumo em kg na suplementação, conversão MS para MN, `creepTeorMs`, ou divergência entre meta %PV e kg/cab/dia, ler esta seção.
 
-## Remoção da trava de trato na Fábrica Confinamento (30/09/2026)
+## Trava de trato vira ação explícita na Fábrica Confinamento (30/09/2026)
 
-Pedido de produção: a trava impedia avançar do trato N para o N+1 quando `total_produzido < total_previsto`. O registro ficava `concluido=false` e o carregamento forçava `ordemTratoAtual` de volta para o trato incompleto.
+Pedido de produção: a trava impedia avançar do trato N para o N+1 quando `total_produzido < total_previsto`, sem nenhuma saída para o usuário.
 
-Desenho final (após iterar sobre seletor livre e botão ENCERRAR TRATO, ambos descartados pelo usuário): cada SALVAR encerra o trato atual e avança para o próximo, mesmo abaixo do previsto. Não há mais estado de trato parcial criado pela página; o fluxo é sequencial e sem retorno ao trato já salvo.
+Desenho final (após iterar sobre seletor livre e "save sempre encerra", ambos descartados pelo usuário): o SALVAR acumula produção parcial no trato aberto como antes; a diferença é o botão ENCERRAR TRATO com confirmação inline de dois toques, que grava `concluido=true` mesmo com déficit e avança a ordem. O auto-encerramento quando produzido >= previsto foi mantido. Sem retorno ao trato encerrado e sem seletor livre. Trato esquecido aberto ao virar o dia não é tratado: a página filtra por data, então o registro aberto de ontem fica aberto para sempre sem bloquear o dia novo.
 
 Mudanças em `FabricaConfinamentoPage` e `syncService`:
 
-- `handleSalvar` grava `concluido=true` incondicionalmente; `concluido` passa a significar "trato encerrado para o dia", não "meta atingida". O déficit fica registrado em `total_produzido < total_previsto`. Um trato só pode ficar sem registro se nunca for salvo (não há pular trato sem produção nesse desenho).
-- Registros `concluido=false` legados (parciais anteriores à mudança) continuam resumíveis: o carregamento retoma o primeiro trato aberto, acumula `jaProduzidoNoTrato` e o próximo save o encerra.
-- Consequência aceita: como cada save avança um trato, quem lança por carga parcial do mesmo trato (vagão encheu, descarregou, encheu de novo) precisa somar as cargas no input, coerente com a decisão anterior de lançar o produzido do trato de uma vez com capacidade de vagão apenas informativa.
-- `concluido` não é lido por nenhum consumidor downstream: o Painel (`fetchFabricaAcompanhamento`) deriva o status de produzido vs previsto, então trato encerrado com déficit segue aparecendo como `parcial` no acompanhamento.
-- Mensagem de sucesso dinâmica: abaixo do previsto informa "Trato N encerrado com déficit de X kg".
-- Novo bloco informativo âmbar lista os tratos encerrados com déficit do dia ("Trato N: produzido X de Y kg, faltaram Z kg"), alimentado pelo state `registrosFabricaDia`.
+- `handleSalvar(encerrarTrato)`: SALVAR continua acumulando (`concluido = produzido >= previsto - 0.5`); ENCERRAR força `concluido=true`. Funciona também para trato sem produção nenhuma (cria master com produzido=0 encerrado — no Painel aparece como `nao_produzido`) e para encerrar um trato aberto legado sem lançar nada novo.
+- Complemento de trato aberto sobrescreve `vagao_id`/`vagaoNome` no master (último vagão usado fica registrado); o update no sync passou a gravar `vagao_id` junto.
+- `concluido` significa "encerrado" (meta atingida ou encerramento manual). Nenhum consumidor downstream lê o flag: o Painel deriva `parcial` de produzido vs previsto.
+- Mensagem de sucesso dinâmica no encerramento com déficit ("Trato N encerrado. Ficaram faltando X kg") e bloco informativo âmbar lista os tratos encerrados com déficit do dia.
 - Correção embarcada: trato aberto criado em outro dispositivo ganhava master duplicado ao receber complemento (o lookup local por `supabaseId` falhava e o save caía no create). Agora, quando o registro remoto aberto não tem contraparte local, o carregamento cria um espelho no IndexedDB com o `supabaseId`, fazendo o complemento/encerramento atualizar o mesmo master. O espelho também é refrescado com os totais remotos quando sincronizado.
 - Auditoria offline-first corrigiu dois bugs pré-existentes do carregamento: (1) o filtro de registros locais comparava `r.data` em formato BR contra `dataISO` em ISO e nunca casava, então offline nenhum registro do dia era encontrado (trato voltava ao 1 e re-save criava master duplicado); (2) online, `registrosFabrica` vinha só do Supabase e registros locais `pending` sumiam, e salvar offline e recarregar online antes do sync reabria o trato. Agora os registros locais do dia são sempre mesclados: create pendente entra como linha fantasma, update pendente sobrescreve os totais do remoto.
 - `syncService`: o update de `registros_fabrica_confinamento` passou a gravar também `total_previsto` (antes só `total_produzido` e `concluido`), mantendo o previsto gravado consistente com o cálculo vigente no momento do save.

@@ -2,6 +2,25 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Fábrica Confinamento: entidade Carga para rastrear vagões por trato (spec aprovada 30/09/2026)
+
+**Contexto**: hoje `registros_fabrica_confinamento` (master por trato) tem um único `vagao_id` e os insumos penduram direto no master. A operação precisa rastrear quantos e quais vagões produziram cada trato (ex.: trato de 1.000 kg = 500 no vagão A + 500 no vagão B), com kg realizado por insumo informado **a cada carga**. A estrutura atual perde esse rastro (segundo save sobrescreve `vagao_id`) e tem dois riscos multi-dispositivo: master duplicado por ordem (dois aparelhos offline criam linhas distintas via `local_id`) e lost update no `total_produzido` (update carrega total absoluto calculado de snapshot velho).
+
+**Modelo aprovado** — três níveis `trato → carga → insumos`:
+
+1. `CREATE TABLE registros_fabrica_confinamento_cargas`: uma linha por carga (`id`, `local_id` unique para idempotência offline, `registro_id` FK master, `vagao_id`, `kg_produzido`, `ordem`, `usuario`, `data`, `created_at`, `deleted_at`). Append-only — nunca update — o que torna a concorrência conflict-free.
+2. `ALTER TABLE registros_fabrica_confinamento_insumos ADD carga_id uuid` (nullable; legado segue via `registro_id`).
+3. `UNIQUE (fazenda_id, data, tipo, formulacao_id, ordem_trato)` no master: dois aparelhos offline convergem para a mesma linha no upsert.
+4. Trigger `AFTER INSERT/UPDATE/DELETE ON cargas` recalcula `master.total_produzido = SUM(cargas)` — incremento atômico server-side, elimina lost update. `vagao_id` do master vira informativo (último usado) para não quebrar o Painel. Trigger de estoque em insumos não muda (baixa sai por carga, mais granular).
+
+**PWA**: store IndexedDB `fabrica-confinamento-cargas`; save = upsert master + insert carga + insumos com `carga_id`; UX com SALVAR acumulando carga no trato aberto e ENCERRAR TRATO fechando e avançando; tela lista as cargas do trato ("Carga 1 · Kuhn · 500 kg"); rascunho por (trato, vagão).
+
+**Painel**: `fetchFabricaAcompanhamento` continua lendo totais do master sem mudança; evolução opcional de listar cargas/vagões por trato.
+
+**Migração de dados legados** (a decidir na implementação): deixar tratos antigos sem cargas ou gerar uma carga retroativa por master para histórico uniforme.
+
+**Disparador**: quando mencionar cargas da fábrica, rastrear vagões por trato, produção parcial multi-vagão, ou master duplicado por ordem de trato, ler esta seção.
+
 ## CMS do texto da suplementação usa só a série do aparelho (28/09/2026)
 
 `calcularMetricasSuplementacao` é chamada no share de registro (`ListaRegistros`) e no resumo diário (`SuplementacaoListaPage`) sobre `listarRegistros('suplementacao')`, que lê só o IndexedDB local. O sync é push-only: tratos lançados em outro aparelho (ex.: outro tratador do mesmo lote) nunca entram na série local. Com a série incompleta, a "média geral" do texto diverge da série completa do banco — caso observado na Fazenda Brilhante: aparelho com 8 tratos em 8 dias gerou CMN 4,941 enquanto a série completa de 10 tratos daria 5,647.
