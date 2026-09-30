@@ -885,6 +885,7 @@ export default function SuplementacaoPage() {
       creepNCabecas: creepAtivo ? creepNCabecas : null,
       creepCategorias: creepAtivo ? creepCategoriasStr : null,
       creepMetaConsumo: creepAtivo ? (creepFormulacaoDetalhes?.metaConsumo ?? null) : null,
+      creepTeorMs: creepAtivo ? (creepFormulacaoDetalhes?.teorMs ?? null) : null,
       creepPesoVivoKg: creepAtivo ? creepPesoVivoKg : null,
       kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
       possuiDeposito,

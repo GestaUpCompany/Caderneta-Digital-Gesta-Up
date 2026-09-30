@@ -2,6 +2,20 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Meta consumo kg/cab/dia da Suplementação exibida em matéria natural (30/09/2026)
+
+A meta %PV da formulação (`consumo_ms_percent_pv`) está em base de matéria seca, mas o card da caderneta e os textos de compartilhamento multiplicavam direto pelo peso vivo, exibindo kg de MS sob um label genérico "kg/cab/dia" ao lado das métricas históricas em MN. Correção aplicada: `kg MN/cab/dia = (metaConsumo%PV * pesoVivo) / teorMs` (kg MS ÷ teor MS). Label alterado para "META CONSUMO (kg MN/cab/dia)" em todos os pontos.
+
+Mudanças:
+
+- `FormulacaoDetalhesCard`: cálculo convertido para MN com guarda de `teorMs` nulo/zero (a linha não renderiza quando não dá para converter). Cobre os cards adulto e creep da `SuplementacaoPage`, que já passam `teorMs` correto por escopo.
+- `SuplementacaoPage`: novo campo `creepTeorMs` no payload do registro, junto de `creepMetaConsumo`, necessário para converter a meta creep quando adulto e creep são suplementados juntos. Em linha "só creep" o campo primário `teorMs` já carrega o teor da formulação creep e serve de fallback.
+- `SuplementacaoListaPage`, `shareUtils`, `pdfUtils`: meta kg/cab/dia convertida para MN nos blocos adulto e creep, com o mesmo fallback de `teorMs` primário quando `suplementarAdulto=false`. Registros antigos de linha mista não têm `creepTeorMs`, então neles a linha kg MN do creep simplesmente não é emitida.
+- A meta %PV continua em base MS (é como a formulação é cadastrada no plano nutricional); só o kg virou MN para ficar comparável com "CONSUMO MÉDIO (kg/MN)".
+- A pedido do usuário, foram removidos de todas as superfícies de exibição os labels TEOR MS / "Teor MS dieta", CONSUMO MÉDIO GERAL / "CMS Geral" (%PV) e CONSUMO MÉDIO GERAL / "CMN Geral" (kg/MN), além das linhas "CMS (kg/MS)" que só existiam no PDF. O que sobrou de histórico de consumo em qualquer saída (card, share individual, resumo diário, PDF): CMS/CMN de 30 dias e CUSTO MÉDIO. As métricas continuam sendo calculadas em `calcularMetricasSuplementacao` e guardadas no payload; só deixaram de ser exibidas.
+
+**Disparador**: quando mencionar meta consumo em kg na suplementação, conversão MS para MN, `creepTeorMs`, ou divergência entre meta %PV e kg/cab/dia, ler esta seção.
+
 ## Remoção da trava de trato na Fábrica Confinamento (30/09/2026)
 
 Pedido de produção: a trava impedia avançar do trato N para o N+1 quando `total_produzido < total_previsto`. O registro ficava `concluido=false` e o carregamento forçava `ordemTratoAtual` de volta para o trato incompleto.

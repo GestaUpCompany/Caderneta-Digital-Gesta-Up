@@ -200,12 +200,13 @@ export default function SuplementacaoListaPage() {
           if (r.metaConsumo != null) {
             partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(r.metaConsumo, '—', 2)}%*`)
           }
-          // Meta consumo em kg/cab/dia: teorMs% * pesoVivo / 100
+          // Meta %PV está em base MS; kg MN/cab/dia = kg MS / (teorMs/100)
           const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
           const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
-          if (r.metaConsumo != null && pesoVivo) {
-            const metaKgCabDia = (Number(r.metaConsumo) / 100) * pesoVivo
-            partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR(metaKgCabDia, '—', 3)} kg*`)
+          const teorMs = r.teorMs != null ? Number(r.teorMs) : null
+          if (r.metaConsumo != null && pesoVivo && teorMs) {
+            const metaKgCabDia = (Number(r.metaConsumo) * pesoVivo) / teorMs
+            partes.push(`META CONSUMO (kg MN/cab/dia): *${formatarNumeroBR(metaKgCabDia, '—', 3)} kg*`)
           }
           if (nCabecas) {
             partes.push(`N° CABEÇAS: *${nCabecas}*`)
@@ -217,7 +218,7 @@ export default function SuplementacaoListaPage() {
             ? String(r.periodoTratoDias)
             : calcularPeriodoTrato(r, todosRegistros)
           if (periodoTrato) {
-            partes.push(`PERÍODO DE TRATO: *${periodoTrato}*`)
+            partes.push(`INTERVALO DE TRATO: *${periodoTrato}*`)
           }
 
           // Categorias adultas (as ao pé aparecem na seção creep)
@@ -249,10 +250,15 @@ export default function SuplementacaoListaPage() {
           const creepPv = r.creepPesoVivoKg != null
             ? Number(r.creepPesoVivoKg)
             : (suplementaAdulto ? null : (r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null))
+          // Teor MS do creep: em linha mista fica em creepTeorMs; em linha só
+          // creep o campo primário teorMs já carrega o teor da formulação creep.
+          const creepTeorMs = r.creepTeorMs != null
+            ? Number(r.creepTeorMs)
+            : (suplementaAdulto ? null : (r.teorMs != null ? Number(r.teorMs) : null))
           if (creepMeta != null) {
             partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(creepMeta, '—', 2)}%*`)
-            if (creepPv) {
-              partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR((Number(creepMeta) / 100) * creepPv, '—', 3)} kg*`)
+            if (creepPv && creepTeorMs) {
+              partes.push(`META CONSUMO (kg MN/cab/dia): *${formatarNumeroBR((Number(creepMeta) * creepPv) / creepTeorMs, '—', 3)} kg*`)
             }
           }
           const creepCabecas = r.creepNCabecas ?? (suplementaAdulto ? null : r.nCabecasLote)
@@ -276,23 +282,15 @@ export default function SuplementacaoListaPage() {
         // Histórico de consumo
         const metricas = await buscarMetricas(r)
         const temConsumo = metricas && (
-          metricas.consumoMedioGeralPercentPV ||
           metricas.consumoMedio30DiasPercentPV ||
-          metricas.consumoMedioGeralKgMN ||
           metricas.consumoMedio30DiasKgMN ||
           metricas.custoMedioReaisCabDia
         )
         if (temConsumo) {
           partes.push('')
           partes.push(`HISTÓRICO DE CONSUMO`)
-          if (metricas!.consumoMedioGeralPercentPV != null) {
-            partes.push(`CMS Geral (%PV): *${Number(metricas!.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*`)
-          }
           if (metricas!.consumoMedio30DiasPercentPV != null) {
             partes.push(`CMS 30 DIAS (%PV): *${Number(metricas!.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*`)
-          }
-          if (metricas!.consumoMedioGeralKgMN != null) {
-            partes.push(`CMN Geral (kg/MN): *${Number(metricas!.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*`)
           }
           if (metricas!.consumoMedio30DiasKgMN != null) {
             partes.push(`CMN 30 dias (kg/MN): *${Number(metricas!.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*`)
