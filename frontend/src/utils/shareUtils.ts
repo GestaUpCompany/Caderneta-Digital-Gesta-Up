@@ -1,6 +1,6 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
-import { formatarNumeroBR, normalizarNumero } from './formatNumber'
+import { formatarMoedaBR, formatarNumeroBR, normalizarNumero } from './formatNumber'
 import { base64ToBlob } from './photoCompress'
 import { isCategoriaAoPe } from './categorias'
 
@@ -288,7 +288,7 @@ const formatarComunicadoVendaComoTexto = (registro: Registro): string => {
   texto += `CORRETORA: *${registro.vendaDireta === false ? (registro.corretora || '—') : 'Direto'}*\n`
   texto += `\n`
 
-  texto += `QUANTIDADE: *${registro.quantidadePrevista || '—'} cabeças*\n`
+  texto += `QUANTIDADE: *${formatarNumeroBR(registro.quantidadePrevista)} cabeças*\n`
   texto += `SEXO: *${registro.sexo || '—'}*\n`
   texto += `IDADE (ERA): *${registro.idadeEra || '—'}*\n\n`
 
@@ -312,7 +312,7 @@ const formatarComunicadoCompraComoTexto = (registro: Registro): string => {
   texto += `COMPRADOR: *${registro.comprador || '—'}*\n`
   texto += `EMPRESA: *${registro.fornecedor || '—'}*\n\n`
 
-  texto += `ANIMAIS: *${registro.quantidadePrevista || '—'} cab*\n`
+  texto += `ANIMAIS: *${formatarNumeroBR(registro.quantidadePrevista)} cab*\n`
   texto += `SEXO: *${registro.sexo || '—'}*\n`
   if (registro.idadeEra) texto += `ERA: *${registro.idadeEra}*\n`
   texto += `\n`
@@ -334,7 +334,7 @@ const formatarComunicadoTransferenciaComoTexto = (registro: Registro): string =>
   texto += `SOLICITANTE: *${registro.vendedor || '—'}*\n`
   texto += `DESTINO: *${registro.fazendaDestinoNome || '—'}*\n\n`
 
-  texto += `ANIMAIS: *${registro.quantidadePrevista || '—'} cab*\n`
+  texto += `ANIMAIS: *${formatarNumeroBR(registro.quantidadePrevista)} cab*\n`
   texto += `SEXO: *${registro.sexo || '—'}*\n`
   if (registro.idadeEra) texto += `ERA: *${registro.idadeEra}*\n`
   texto += `\n`
@@ -363,11 +363,11 @@ const formatarRecebimentoComoTexto = (registro: Registro): string => {
   if (registro.transportadora || registro.placaVeiculo || registro.motorista) texto += `\n`
   texto += `\n`
 
-  texto += `RECEBIDOS: *${total} cabeças*\n`
+  texto += `RECEBIDOS: *${formatarNumeroBR(total)} cabeças*\n`
   for (const c of contagens) {
     const partes: string[] = []
-    if (c.femeas > 0) partes.push(`${c.femeas}F`)
-    if (c.machos > 0) partes.push(`${c.machos}M`)
+    if (c.femeas > 0) partes.push(`${formatarNumeroBR(c.femeas)}F`)
+    if (c.machos > 0) partes.push(`${formatarNumeroBR(c.machos)}M`)
     texto += `• ${c.categoria}: ${partes.join(' + ')}\n`
   }
   const pesoEntrada = normalizarNumero(registro.pesoEntrada as any)
@@ -608,7 +608,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       })
     } else {
       if (registro.numeroCabecas) {
-        texto += `NÚMERO CABEÇAS: *${registro.numeroCabecas}*\n`
+        texto += `NÚMERO CABEÇAS: *${formatarNumeroBR(registro.numeroCabecas)}*\n`
       }
       if (registro.categoria) {
         texto += `CATEGORIA: *${registro.categoria}*\n`
@@ -714,7 +714,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     
     // Capacidade do bebedouro
     if (registro.capacidadeLitros) {
-      texto += `\nCAPACIDADE: *${registro.capacidadeLitros} Litros*\n`
+      texto += `\nCAPACIDADE: *${formatarNumeroBR(registro.capacidadeLitros, String(registro.capacidadeLitros))} Litros*\n`
     }
   } else if (caderneta === 'abastecimento') {
     // Seção: Dados do Abastecimento6
@@ -723,9 +723,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     texto += `OPERADOR MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
     texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
     texto += `PLACA: *${registro.placa || '—'}*\n`
-    texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'} L*\n`
+    texto += `TOTAL ABASTECIDO: *${formatarNumeroBR(registro.totalAbastecido)} L*\n`
     if (registro.totalBomba) {
-      texto += `TOTAL DA BOMBA: *${registro.totalBomba} L*\n`
+      texto += `TOTAL DA BOMBA: *${formatarNumeroBR(registro.totalBomba)} L*\n`
     }
     texto += `\n`
     
@@ -749,11 +749,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
     const valorTotal = normalizarNumero(registro.valorTotal as any)
     if (valorTotal !== null) {
-      texto += `VALOR TOTAL: *R$ ${valorTotal.toFixed(2).replace('.', ',')}*\n`
+      texto += `VALOR TOTAL: *R$ ${formatarMoedaBR(valorTotal)}*\n`
     }
     const precoLitro = normalizarNumero(registro.precoPorLitro as any)
     if (precoLitro !== null) {
-      texto += `PREÇO POR LITRO: *R$ ${precoLitro.toFixed(2).replace('.', ',')}*\n`
+      texto += `PREÇO POR LITRO: *R$ ${formatarMoedaBR(precoLitro)}*\n`
     }
     texto += `\n`
     if (registro.fornecedor) {
@@ -780,12 +780,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       // Seção: DADOS DA MARMITA
       texto += `DADOS DA MARMITA\n`
       texto += `FORNECEDOR: *${registro.fornecedor || '—'}*\n`
-      texto += `QUANTIDADE: *${registro.quantidadeMarmitas || '—'}*\n`
+      texto += `QUANTIDADE: *${formatarNumeroBR(registro.quantidadeMarmitas)}*\n`
       const preco = registro.precoUnitario ? normalizarNumero(registro.precoUnitario as any) : null
-      texto += `PREÇO UNITÁRIO: *${preco !== null ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '—'}*\n`
+      texto += `PREÇO UNITÁRIO: *${preco !== null ? 'R$ ' + formatarMoedaBR(preco) : '—'}*\n`
       if (registro.quantidadeMarmitas && preco !== null) {
         const total = Number(registro.quantidadeMarmitas) * preco
-        texto += `PREÇO TOTAL: *R$ ${total.toFixed(2).replace('.', ',')}*\n`
+        texto += `PREÇO TOTAL: *R$ ${formatarMoedaBR(total)}*\n`
       }
       texto += `DESTINATÁRIO: *${registro.destinatario || '—'}*\n`
     } else {
@@ -948,9 +948,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.produtoAplicado || registro.quantidadeTotalAplicada || registro.areaTrabalhada || registro.doseAplicada) {
       texto += `DETALHES DA APLICAÇÃO\n`
       texto += `PRODUTO APLICADO: *${registro.produtoAplicado || '—'}*\n`
-      texto += `QUANTIDADE TOTAL APLICADA: *${registro.quantidadeTotalAplicada || '—'}*\n`
-      texto += `ÁREA TRABALHADA: *${registro.areaTrabalhada || '—'}*\n`
-      texto += `DOSE APLICADA: *${registro.doseAplicada || '—'}*\n\n`
+      texto += `QUANTIDADE TOTAL APLICADA: *${formatarNumeroBR(registro.quantidadeTotalAplicada)}*\n`
+      texto += `ÁREA TRABALHADA: *${formatarNumeroBR(registro.areaTrabalhada)}*\n`
+      texto += `DOSE APLICADA: *${formatarNumeroBR(registro.doseAplicada)}*\n\n`
     }
     
     // Seção: Avaliação
@@ -1004,7 +1004,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // n_cabecas já inclui as categorias ao pé (quant_atual); não somar bezerros.
     const totalCabecasLote = Number(registro.nCabecasLote) || 0
     if (totalCabecasLote > 0) {
-      texto += `N° CABEÇAS: *${totalCabecasLote}*\n`
+      texto += `N° CABEÇAS: *${formatarNumeroBR(totalCabecasLote)}*\n`
     }
     if (registro.pesoVivoKgLote !== null && registro.pesoVivoKgLote !== undefined && Number(registro.pesoVivoKgLote) > 0) {
       texto += `PV MÉDIO: *${Number(registro.pesoVivoKgLote).toFixed(2).replace('.', ',')} kg*\n`
@@ -1029,7 +1029,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `LEITURA COCHO: *${registro.leituraCocho}*\n`
     }
     if (registro.kgCocho !== null && registro.kgCocho !== undefined && registro.kgCocho !== 0) {
-      texto += `SUPLEMENTO COCHO (KG): *${registro.kgCocho}*\n`
+      texto += `SUPLEMENTO COCHO (KG): *${formatarNumeroBR(registro.kgCocho)}*\n`
     }
     texto += `FORNECIMENTO: *${registro.formaFornecimento === 'sacaria' ? 'Sacaria' : 'A granel'}*\n`
     if (registro.qtdSacos !== null && registro.qtdSacos !== undefined && Number(registro.qtdSacos) > 0) {
@@ -1061,7 +1061,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         }
       }
       if (creepCabecas) {
-        texto += `N° BEZERROS AO PÉ: *${creepCabecas}*\n`
+        texto += `N° BEZERROS AO PÉ: *${formatarNumeroBR(creepCabecas)}*\n`
       }
       if (creepPv != null && Number(creepPv) > 0) {
         texto += `PV MÉDIO: *${Number(creepPv).toFixed(2).replace('.', ',')} kg*\n`
@@ -1070,7 +1070,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       if (creepLeitura !== null && creepLeitura !== undefined && creepLeitura !== '') {
         texto += `LEITURA COCHO: *${creepLeitura}*\n`
       }
-      texto += `SUPLEMENTO COCHO (KG): *${registro.creepKgCocho}*\n`
+      texto += `SUPLEMENTO COCHO (KG): *${formatarNumeroBR(registro.creepKgCocho)}*\n`
       texto += `FORNECIMENTO: *${creepForma === 'sacaria' ? 'Sacaria' : 'A granel'}*\n`
       if (creepSacos !== null && creepSacos !== undefined && Number(creepSacos) > 0) {
         texto += `SACOS: *${formatarNumeroBR(creepSacos)}*\n`
@@ -1078,7 +1078,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
 
     if (registro.kgDeposito !== null && registro.kgDeposito !== undefined && registro.kgDeposito !== 0) {
-      texto += `SUPLEMENTO DEPÓSITO (KG): *${registro.kgDeposito}*\n`
+      texto += `SUPLEMENTO DEPÓSITO (KG): *${formatarNumeroBR(registro.kgDeposito)}*\n`
     }
     if (registro.escoreFezes !== null && registro.escoreFezes !== undefined && registro.escoreFezes !== '') {
       texto += `ESCORE FEZES: *${registro.escoreFezes}*\n`
@@ -1367,7 +1367,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
     // Cabeças do lote após o óbito
     if (registro.n_cabecas_apos_obito !== null && registro.n_cabecas_apos_obito !== undefined) {
-      texto += `CABEÇAS APÓS ÓBITO: *${registro.n_cabecas_apos_obito}*\n`
+      texto += `CABEÇAS APÓS ÓBITO: *${formatarNumeroBR(registro.n_cabecas_apos_obito)}*\n`
     }
 
     // Seção: IDENTIFICAÇÃO DO ANIMAL
@@ -1545,7 +1545,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         texto += `${index + 1}. *${item.nome || '—'}*\n`
 
         // Quantidade
-        texto += `   Quantidade: *${item.quantidade || '—'}*\n`
+        texto += `   Quantidade: *${formatarNumeroBR(item.quantidade)}*\n`
 
         // Classificação (se preenchida)
         if (item.classificacao && item.classificacao !== '') {
@@ -1583,7 +1583,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += 'ITENS\n'
       itensEntrada.forEach((item: any, index: number) => {
         texto += `${index + 1}. *${item.nome || '—'}*\n`
-        texto += `   Quantidade: *${item.quantidade || '—'}${item.unidade_medida ? ' ' + item.unidade_medida : item.unidade ? ' ' + item.unidade : ''}*\n`
+        texto += `   Quantidade: *${formatarNumeroBR(item.quantidade)}${item.unidade_medida ? ' ' + item.unidade_medida : item.unidade ? ' ' + item.unidade : ''}*\n`
         if (item.classificacao && item.classificacao !== '') {
           texto += `   Classificação: *${item.classificacao}*\n`
         }
@@ -1633,7 +1633,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         // Only show categories if gadoContado is 'Sim'
         if (registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '' && Number(value) > 0) {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          const valorFormatado = formatFieldValue(key, value)
+          const valorFormatado = formatarNumeroBR(value, String(value))
           texto += `${label}: *${valorFormatado}*\n`
         }
       } else if (key === 'totalCabecas') {
@@ -1643,12 +1643,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
           const totalLote = Number(registro.n_cabecas) || 0
           if (totalLote > 0) {
-            texto += `TOTAL: *${totalLote} animais*\n`
+            texto += `TOTAL: *${formatarNumeroBR(totalLote)} animais*\n`
           }
         } else if (registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '') {
           // Show counted total when gado was counted
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          const valorFormatado = formatFieldValue(key, value)
+          const valorFormatado = formatarNumeroBR(value, String(value))
           texto += `${label}: *${valorFormatado}*\n`
         }
         texto += `\n`
@@ -1777,13 +1777,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       registro.itens.forEach((item: any, index: number) => {
         texto += `${index + 1}. ${item.produto || '—'}\n`
         if (item.quantidade) {
-          texto += `   Quantidade: *${item.quantidade}*\n`
+          texto += `   Quantidade: *${formatarNumeroBR(item.quantidade, String(item.quantidade))}*\n`
         }
         if (item.valorUnitario) {
-          texto += `   Valor unitário: *R$ ${item.valorUnitario}*\n`
+          texto += `   Valor unitário: *R$ ${formatarMoedaBR(item.valorUnitario) ?? item.valorUnitario}*\n`
         }
         if (item.valorTotal) {
-          texto += `   Valor total: *R$ ${item.valorTotal}*\n`
+          texto += `   Valor total: *R$ ${formatarMoedaBR(item.valorTotal) ?? item.valorTotal}*\n`
         }
         texto += `\n`
       })
@@ -1793,7 +1793,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const valor = parseFloat(item.valorTotal) || 0
         return total + valor
       }, 0)
-      texto += `VALOR TOTAL: *R$ ${valorTotalInsumos.toFixed(2).replace('.', ',')}*\n`
+      texto += `VALOR TOTAL: *R$ ${formatarMoedaBR(valorTotalInsumos)}*\n`
     }
   } else if (caderneta === 'saida-insumos') {
     // Para saída de insumos, usar ordem específica dos formulários
@@ -1958,14 +1958,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `CATEGORIAS\n`
       categorias.forEach((cat: any) => {
         const label = (LABELS_BY_CADERNETA['movimentacao']?.[cat.categoria] as string) || cat.categoria?.toUpperCase() || '—'
-        texto += `${label}: *${cat.numeroCabecas}*\n`
+        texto += `${label}: *${formatarNumeroBR(cat.numeroCabecas)}*\n`
       })
       texto += `\n`
     }
 
     // Total
     if (registro.totalCabecas) {
-      texto += `TOTAL: *${registro.totalCabecas} cabeças*\n`
+      texto += `TOTAL: *${formatarNumeroBR(registro.totalCabecas)} cabeças*\n`
     }
 
     // Aviso de aprovação pendente
@@ -1984,7 +1984,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       // Seção PASTO SAÍDA
       texto += `PASTO/CURRAL SAÍDA\n`
       texto += `Nome: *${registro.pastoSaida || '—'}*\n`
-      texto += `Área útil: *${registro.pastoSaidaAreaUtil || '—'}* ha\n`
+      texto += `Área útil: *${formatarNumeroBR(registro.pastoSaidaAreaUtil)}* ha\n`
       texto += `Espécie: *${registro.pastoSaidaEspecie || '—'}*\n`
       texto += `Avaliação saída: *${registro.avaliacaoSaida || '—'}*\n`
       texto += `Tempo de ocupação: *${registro.tempoOcupacao || '—'}*\n\n`
@@ -2007,24 +2007,24 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           const value = Number(registro[key]) || 0
           if (value > 0) {
             let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-            texto += `${label}: *${value}*\n`
+            texto += `${label}: *${formatarNumeroBR(value)}*\n`
           }
         })
         // Mostrar total quando foi contado
         if (registro.totalAnimais) {
-          texto += `TOTAL: *${registro.totalAnimais} animais*\n`
+          texto += `TOTAL: *${formatarNumeroBR(registro.totalAnimais)} animais*\n`
         }
       } else if (registro.gadoContado === 'Não') {
         // Se não foi contado, usar totalAnimais salvo no registro (calculado no PastagensPage)
         const totalLote = Number(registro.totalAnimais) || 0
-        texto += `CABEÇAS MANEJADAS: *${totalLote} animais*\n`
+        texto += `CABEÇAS MANEJADAS: *${formatarNumeroBR(totalLote)} animais*\n`
       }
       texto += `\n`
 
       // Seção PASTO ENTRADA
       texto += `PASTO/CURRAL ENTRADA\n`
       texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
-      texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
+      texto += `Área útil: *${formatarNumeroBR(registro.pastoEntradaAreaUtil)}* ha\n`
       texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
       texto += `Avaliação entrada: *${registro.avaliacaoEntrada || '—'}*\n`
       texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
@@ -2217,11 +2217,13 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       }
       // Totais
       if (registro.totalPrevisto !== null && registro.totalPrevisto !== undefined && registro.totalPrevisto !== '') {
-        const v = Number(String(registro.totalPrevisto).replace(',', '.')).toFixed(1).replace('.', ',')
+        const v = Number(String(registro.totalPrevisto).replace(',', '.'))
+          .toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
         texto += `TOTAL PREVISTO: *${v} kg*\n`
       }
       if (registro.totalProduzido !== null && registro.totalProduzido !== undefined && registro.totalProduzido !== '') {
-        const v = Number(String(registro.totalProduzido).replace(',', '.')).toFixed(1).replace('.', ',')
+        const v = Number(String(registro.totalProduzido).replace(',', '.'))
+          .toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
         texto += `TOTAL PRODUZIDO: *${v} kg*\n`
       }
     } else {
@@ -2295,8 +2297,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // Verificar se há divergência
     if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {
       const diferenca = totalInformado - totalLote
-      texto += `\n⚠️ Divergência n° cabeças: Total informado (${totalInformado}) ≠ Total lote (${totalLote})`
-      texto += `\n${diferenca > 0 ? `Excedeu ${diferenca} animais do total do lote` : `Faltam ${Math.abs(diferenca)} animais para completar o lote`}`
+      texto += `\n⚠️ Divergência n° cabeças: Total informado (${formatarNumeroBR(totalInformado)}) ≠ Total lote (${formatarNumeroBR(totalLote)})`
+      texto += `\n${diferenca > 0 ? `Excedeu ${formatarNumeroBR(diferenca)} animais do total do lote` : `Faltam ${formatarNumeroBR(Math.abs(diferenca))} animais para completar o lote`}`
     }
   }
 
@@ -2314,8 +2316,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // Verificar se há divergência
     if (totalInformado > 0 && totalLote > 0 && totalInformado !== totalLote) {
       const diferenca = totalInformado - totalLote
-      texto += `\n⚠️ Divergência n° cabeças: Total informado (${totalInformado}) ≠ Total lote (${totalLote})`
-      texto += `\n${diferenca > 0 ? `Excedeu ${diferenca} animais do total do lote` : `Faltam ${Math.abs(diferenca)} animais para completar o lote`}`
+      texto += `\n⚠️ Divergência n° cabeças: Total informado (${formatarNumeroBR(totalInformado)}) ≠ Total lote (${formatarNumeroBR(totalLote)})`
+      texto += `\n${diferenca > 0 ? `Excedeu ${formatarNumeroBR(diferenca)} animais do total do lote` : `Faltam ${formatarNumeroBR(Math.abs(diferenca))} animais para completar o lote`}`
     }
   }
 
