@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
@@ -1263,14 +1263,12 @@ export default function SuplementacaoPage() {
             </>
           )}
           {possuiDeposito && (
-            <Input
+            <NumericInput
               label={<span>Total Suplementado no Depósito (kg) <span className="text-red-500">*</span></span>}
               placeholder="0"
               value={kgDeposito}
-              onChange={(e) => setKgDeposito(e.target.value)}
-              inputMode="decimal"
-              type="number"
-              min="0"
+              onChange={(v) => setKgDeposito(v)}
+              decimalPlaces={3}
               error={getError('_kgDeposito')}
             />
           )}

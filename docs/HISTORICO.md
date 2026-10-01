@@ -2,6 +2,50 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Nome de usuário trocava sozinho ao selecionar responsável nos modais (01/10/2026)
+
+Relato de produção (Fazenda Chibata, usuário Carlos): o "SEU NOME" das Configurações mudava sozinho. Carlos lançou um abastecimento que saiu como Jefferson, corrigiu o nome, lançou outro e virou Adelson. Confirmado no banco: 4 registros de `registros_abastecimento` criados em ~15 min no mesmo aparelho, cada um com `nome_usuario` = `quem_abasteceu` de um funcionário diferente (Carlos lançava retroativo em nome da equipe).
+
+Causa-raiz: o commit `dab8955` (24/jul/2026) criou `utils/nomeUsuario.ts` (`atualizarNomeUsuarioConfig`), chamado no `onChange` dos modais de responsável de 5 cadernetas (Abastecimento, Almoxarifado entregou+pegou, EntradaInsumos, Cantina, ManutencaoMaquinas). A intenção era memorizar o nome quando o usuário selecionava a si mesmo, mas o campo é dado do registro (quem executou a ação), não identidade do aparelho. Em fluxo de registrador central, cada seleção de funcionário sobrescrevia `config.usuario`, que assina `nome_usuario` de todos os lançamentos sem modal.
+
+Correção (opção B, aprovada pelo usuário): removidas todas as chamadas de `atualizarNomeUsuarioConfig` e o arquivo `nomeUsuario.ts` deletado. `config.usuario` agora só muda em Configurações, no login de funcionário (`useFuncionarioAuth`, controle de acesso) ou na troca de fazenda. Quem não configurar nome segue bloqueado no primeiro lançamento pela validação de `nome_usuario` do `salvarRegistro`, que aponta para Configurações. Efeito colateral corrigido: `nome_usuario` volta a significar "quem lançou", não cópia do responsável do registro.
+
+**Disparador**: quando mencionar "nome de usuário mudando sozinho", "registro saiu em nome de outro funcionário", `atualizarNomeUsuarioConfig`, ou `nomeUsuario.ts`, ler esta seção.
+
+## Correção pontual dos dados da Chibata: exclusão do 9,54 kg e entrada 26/09 para 29.540 kg (01/10/2026)
+
+Operação de dados via MCP (migração pontual, sem arquivo), autorizada pelo usuário após confirmação de que a entrada correta da NF 1381 era 29.540 kg em uma única entrega, e não duas.
+
+Antes de mexer: backup das linhas afetadas em `backup.chibata_milho_fix_20261001_{itens,entradas,movs,insumo}` (2 itens, 2 entradas-pai, 20 movimentações do insumo, 1 linha de `insumos`).
+
+Aplicado:
+
+- `DELETE` em `entrada_insumos_itens` `bafab7ee-006c-4f9b-bcf7-894fcf94fe5b` (o registro errado de 9,54 kg de 30/09). O trigger `trg_entrada_insumos_itens_mov` soft-deletou a movimentação espelhada `88e0a9ff` e `update_estoque_suplemento` chamou `recalcular_custo_medio_item`, que faz replay sequencial de toda a cadeia recalculando `saldo_anterior`/`saldo_posterior` e custo médio.
+- Soft-delete do pai órfão `registros_entrada_insumos` `ebe16b2d-ed8a-400f-9f1d-9db1023b3a59` (`deleted_at`; a tabela pai não tem trigger de cascata e o item é hard delete, pois não tem `deleted_at`).
+- `UPDATE` em `entrada_insumos_itens` `e87e94dd-43de-4877-91fa-0499bc4eb967` (entrada de 26/09): `quantidade` 20000 → 29540, `valor_total` 12000.00 → 17724.00 (R$ 0,60/kg mantido). O trigger espelhou na movimentação `26d1fb66` e recalculou a cadeia.
+
+Verificação pós-operação: saldo de MILHO GRÃO da Chibata passou de 14.297,84 kg @ R$ 0,6275/kg para **23.828,30 kg @ R$ 0,6198/kg**, cadeia de saldos das 19 movimentações restantes recomputada e consistente, movimentação do item excluída com `deleted_at` marcado, entrada-pai de 30/09 soft-deletada, zero itens órfãos.
+
+## Entrada de Insumos: input numérico pt-BR e sync com quantidade numérica (01/10/2026)
+
+Relato de produção (Fazenda Chibata): entrada de MILHO GRÃO aparecia 9,54 kg na linha do tempo de estoque, mas o operador havia lançado "9.540" querendo 9.540 kg. Causa-raiz em duas camadas: o campo Quantidade era `Input type="number"` (ponto = decimal, convenção americana, ignorando a cultura do usuário), e o mapping `entrada-insumos-itens` do `syncService` enviava `quantidade`/`valor_unitario`/`valor_total` como string crua para colunas `numeric`, então o Postgres interpretou "9.540" = 9,54. O trigger `trg_entrada_insumos_itens_mov` apenas copiou o valor já corrompido; não havia conversão de unidade envolvida.
+
+Correções:
+
+- **Novo `components/ui/NumericInput.tsx`**: máscara pt-BR, aceita somente dígitos e vírgula; ponto nunca entra como dígito e aparece só como separador de milhar visual ("9540" → "9.540"). Emite valor canônico ("9540" ou "9.54") direto para salvar. Cola de clipboard passa por `normalizarNumero` (heurística pt-BR já existente em `utils/formatNumber.ts`). Exportado em `components/ui/index.ts`.
+- **`EntradaInsumosPage`**: Quantidade (kg) e Valor Unitário trocados para `NumericInput`; TOTAL (R$) e o total da entrada passam a exibir com `formatarMoedaBR`.
+- **`syncService` (mapping `entrada-insumos-itens`)**: `quantidade`, `valor_unitario` e `valor_total` agora passam por `numOrNull` (converte para `number`, vírgula → decimal, inválido → null) antes do upsert, eliminando a string crua que chegava ao Postgres. Registros locais legados com "9.540" continuam sendo lidos como 9,54 (mesma leitura que o Postgres faria). O dado corrompido da Chibata foi corrigido na operação pontual documentada na seção acima.
+- **`registroSpecialComponents`**: o detalhe do registro de entrada-insumos exibia `String(item.quantidade)` cru; agora formata quantidade com `formatarNumeroBR` (kg) e valores com `formatarMoedaBR`.
+- **Painel Web**: `NumericInput` do `@gestaup/ui` ganhou o mesmo comportamento e `EstoqueSuplementacao` trocou `parseFloat` por `parseValorBR`. Detalhes no HISTORICO do repo do Painel.
+
+Rollout posterior no mesmo dia cobriu o restante do PWA: todos os `type="number"` vivos viraram `NumericInput` (decimal: `SuplementacaoPage` kgDeposito, `MovimentacaoPage` peso médio, `MaternidadePage` pesoCria×2, `MortePage` pesoVivo, `CantinaPage` preço unitário + quantidade de item, `EntradaCantinaPage` quantidade, `ClimaPage` umidade/chuva/temperatura, `OperacoesMaquinasPage` odômetros + quantidade aplicada + área, `PesagemPage` pesoKg, `ComunicadoVendaPage` preço/@, `AlmoxarifadoPage` e `EntradaAlmoxarifadoPage` quantidade — estas duas sanitizavam `[^\d,.]` mas mantinham o ponto, mesmo bug), e os inteiros usam `decimalPlaces={0}` (cabeças por categoria, fêmeas/machos/mortes do recebimento, quantidade prevista dos comunicados, contagens do rodeio e pastagens, refeições/marmitas da cantina, impacto em minutos de Atividades). No `syncService`, `numOrNull`/`numStrOrNull` (helpers de módulo; `numStrOrNull` emite string canônica para as colunas TEXT de odômetro de manutenção/operações) substituíram todos os `Number(registro.x)` crus — incluindo peso_vivo, n_cabecas, temperatura/umidade, quantidade_prevista, marmitas, itens de saída e produção. O canônico do `NumericInput` nunca termina em 3 dígitos decimais com trailing zero (trim na emissão), evitando colisão com a heurística de milhar do `normalizarNumero` em consumidores legados.
+
+Código morto identificado: `pages/estoque-insumos/EntradaPage.tsx` e `ProducaoPage.tsx` não estão roteados (só `EstoquePage` está no `App.tsx`); mantêm o padrão inseguro e são candidatos a remoção.
+
+Typecheck `tsc --noEmit` limpo.
+
+**Disparador**: quando mencionar "entrada de insumos quantidade errada", "9.540 virou 9,54", "ponto de milhar no PWA", `NumericInput` do PWA, ou `numOrNull` no sync, ler esta seção.
+
 ## Meta consumo kg/cab/dia da Suplementação exibida em matéria natural (30/09/2026)
 
 A meta %PV da formulação (`consumo_ms_percent_pv`) está em base de matéria seca, mas o card da caderneta e os textos de compartilhamento multiplicavam direto pelo peso vivo, exibindo kg de MS sob um label genérico "kg/cab/dia" ao lado das métricas históricas em MN. Correção aplicada: `kg MN/cab/dia = (metaConsumo%PV * pesoVivo) / teorMs` (kg MS ÷ teor MS). Label alterado para "META CONSUMO (kg MN/cab/dia)" em todos os pontos.

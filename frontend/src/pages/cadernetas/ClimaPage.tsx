@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage, TimeInput } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, TimeInput, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -243,14 +243,13 @@ export default function ClimaPage() {
 
         {/* Seção 1: Dados Principais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <Input
+          <NumericInput
             label="UMIDADE RELATIVA DO AR (%)"
             placeholder="Ex: 75"
             value={form.umidadeRelativa}
-            onChange={setInput('umidadeRelativa')}
+            onChange={(v) => setForm((prev) => ({ ...prev, umidadeRelativa: v }))}
+            decimalPlaces={1}
             error={getError('umidadeRelativa')}
-            type="number"
-            step="0.1"
           />
         </div>
 
@@ -308,22 +307,20 @@ export default function ClimaPage() {
                       onChange={(v) => handleHorarioChange(medicao.pluviometroId, v)}
                       error={getError(`horario_${medicao.pluviometroId}`)}
                     />
-                    <Input
+                    <NumericInput
                       label={<span>MEDIÇÃO DE CHUVA (mm) <span className="text-red-500">*</span></span>}
-                      placeholder="Ex: 12.5"
+                      placeholder="Ex: 12,5"
                       value={medicao.medicao}
-                      onChange={(e) => handleMedicaoChange(medicao.pluviometroId, e.target.value)}
+                      onChange={(v) => handleMedicaoChange(medicao.pluviometroId, v)}
                       error={getError(`medicao_${medicao.pluviometroId}`)}
-                      type="number"
-                      step="0.1"
+                      decimalPlaces={1}
                     />
-                    <Input
+                    <NumericInput
                       label="TEMPERATURA (°C)"
-                      placeholder="Ex: 25.5"
+                      placeholder="Ex: 25,5"
                       value={medicao.temperatura}
-                      onChange={(e) => handleTemperaturaChange(medicao.pluviometroId, e.target.value)}
-                      type="number"
-                      step="0.1"
+                      onChange={(v) => handleTemperaturaChange(medicao.pluviometroId, v)}
+                      decimalPlaces={1}
                     />
                   </div>
                 ))

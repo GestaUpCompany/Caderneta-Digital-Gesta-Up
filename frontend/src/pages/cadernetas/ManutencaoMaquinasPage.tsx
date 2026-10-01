@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -13,7 +13,6 @@ import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { normalizarNumeroString } from '../../utils/formatNumber'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
@@ -257,7 +256,7 @@ export default function ManutencaoMaquinasPage() {
               <SearchableModal
                 label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
                 value={form.responsavelChecklist}
-                onChange={(val) => { set('responsavelChecklist')(val); atualizarNomeUsuarioConfig(val) }}
+                onChange={set('responsavelChecklist')}
                 error={getError('responsavelChecklist')}
                 options={funcionariosDisponiveis}
                 placeholder="Buscar funcionário..."
@@ -269,7 +268,7 @@ export default function ManutencaoMaquinasPage() {
                 label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
                 placeholder="Carregando..."
                 value={form.responsavelChecklist}
-                onChange={(e) => { setInput('responsavelChecklist')(e); atualizarNomeUsuarioConfig(e.target.value) }}
+                onChange={setInput('responsavelChecklist')}
                 error={getError('responsavelChecklist')}
                 disabled
                 id="responsavelChecklist"
@@ -329,13 +328,13 @@ export default function ManutencaoMaquinasPage() {
               readOnly
             />
           )}
-          <Input
+          <NumericInput
             label={<span>ODÔMETRO/HORÍMETRO (km) <span className="text-red-500">*</span></span>}
             placeholder="Informe a quilometragem/horímetro"
             value={form.odometro}
-            onChange={setInput('odometro')}
+            onChange={(v) => setForm((prev) => ({ ...prev, odometro: v }))}
             error={getError('odometro')}
-            inputMode="decimal"
+            decimalPlaces={2}
           />
         </div>
 

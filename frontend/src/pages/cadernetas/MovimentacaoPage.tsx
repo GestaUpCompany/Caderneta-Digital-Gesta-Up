@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, SearchableModal, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
@@ -1339,25 +1339,21 @@ export default function MovimentacaoPage() {
                             </label>
                             {catState.selecionada && (
                               <div className="flex flex-col gap-3 pl-8">
-                                <Input
+                                <NumericInput
                                   label="QUANTIDADE DE CABEÇAS"
                                   placeholder="Ex: 30"
                                   value={catState.cabecas}
-                                  onChange={(e) => setCatState({ cabecas: e.target.value })}
+                                  onChange={(v) => setCatState({ cabecas: v })}
                                   error={getError(`entrada_cabecas_${categoria}`)}
-                                  inputMode="numeric"
-                                  type="number"
-                                  min="0"
+                                  decimalPlaces={0}
                                 />
-                                <Input
+                                <NumericInput
                                   label="PESO MÉDIO ATUAL (kg)"
                                   placeholder="Ex: 440"
                                   value={catState.pesoAtual}
-                                  onChange={(e) => setCatState({ pesoAtual: e.target.value })}
+                                  onChange={(v) => setCatState({ pesoAtual: v })}
                                   error={getError(`entrada_peso_${categoria}`)}
-                                  inputMode="numeric"
-                                  type="number"
-                                  min="0"
+                                  decimalPlaces={1}
                                 />
                                 {!catExistente && (
                                   <>
@@ -1392,15 +1388,13 @@ export default function MovimentacaoPage() {
                                         <p className="mt-1 text-sm font-semibold text-red-600">{getError(`entrada_sexo_${categoria}`)}</p>
                                       )}
                                     </div>
-                                    <Input
+                                    <NumericInput
                                       label="IDADE (meses)"
                                       placeholder="Ex: 24"
                                       value={catState.idade}
-                                      onChange={(e) => setCatState({ idade: e.target.value })}
+                                      onChange={(v) => setCatState({ idade: v })}
                                       error={getError(`entrada_idade_${categoria}`)}
-                                      inputMode="numeric"
-                                      type="number"
-                                      min="0"
+                                      decimalPlaces={0}
                                     />
                                   </>
                                 )}
@@ -1465,16 +1459,13 @@ export default function MovimentacaoPage() {
               )}
               {detalhesLoteOrigem.categorias_raw.map((cat: any) => (
                 <div key={cat.categoria} className="flex flex-col gap-1">
-                  <Input
+                  <NumericInput
                     label={`${cat.categoria.toUpperCase()} (Disp.: ${cat.quant_atual || 0})`}
                     placeholder="Ex: 25"
                     value={form.cabecasPorCategoria[cat.categoria] || ''}
-                    onChange={(e) => setCabecasCategoria(cat.categoria, e.target.value)}
+                    onChange={(v) => setCabecasCategoria(cat.categoria, v)}
                     error={getError(`cabecas_${cat.categoria}`)}
-                    inputMode="numeric"
-                    type="number"
-                    min="0"
-                    max={String(cat.quant_atual || 0)}
+                    decimalPlaces={0}
                   />
                 </div>
               ))}

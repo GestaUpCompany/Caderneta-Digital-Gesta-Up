@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, Select, DatePicker, ValidationMessage } from '../../components/ui'
+import { Input, Select, DatePicker, ValidationMessage, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -188,14 +188,13 @@ export default function ComunicadoTransferenciaPage() {
         {/* Seção 2: Animais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ANIMAIS</h2>
-          <Input
+          <NumericInput
             label={<span>QUANTIDADE DE ANIMAIS <span className="text-red-500">*</span></span>}
             placeholder="Ex: 50"
             value={form.quantidadePrevista}
-            onChange={setInput('quantidadePrevista')}
+            onChange={(v) => setForm((prev) => ({ ...prev, quantidadePrevista: v }))}
             error={getError('quantidadePrevista')}
-            type="number"
-            inputMode="numeric"
+            decimalPlaces={0}
           />
           <div className="grid grid-cols-2 gap-4">
             <Select

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Button, Input, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -13,7 +13,6 @@ import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getSetoresC
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { Brush, Save } from 'lucide-react'
 
@@ -336,7 +335,7 @@ export default function AlmoxarifadoPage() {
               <SearchableModal
                 label={<span>{form.tipo === 'devolucao' ? 'QUEM RECEBEU?' : 'QUEM ENTREGOU?'} <span className="text-red-500">*</span></span>}
                 value={form.quemEntregou}
-                onChange={(val) => { set('quemEntregou')(val); atualizarNomeUsuarioConfig(val) }}
+                onChange={set('quemEntregou')}
                 error={getError('quemEntregou')}
                 options={funcionariosDisponiveis}
                 placeholder="Buscar funcionário..."
@@ -348,7 +347,7 @@ export default function AlmoxarifadoPage() {
                 label={<span>{form.tipo === 'devolucao' ? 'QUEM RECEBEU?' : 'QUEM ENTREGOU?'} <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem entregou"
                 value={form.quemEntregou}
-                onChange={(e) => { setInput('quemEntregou')(e); atualizarNomeUsuarioConfig(e.target.value) }}
+                onChange={setInput('quemEntregou')}
                 error={getError('quemEntregou')}
                 id="quemEntregou"
               />
@@ -357,7 +356,7 @@ export default function AlmoxarifadoPage() {
               <SearchableModal
                 label={<span>{form.tipo === 'devolucao' ? 'QUEM DEVOLVEU?' : 'QUEM PEGOU?'} <span className="text-red-500">*</span></span>}
                 value={form.quemPegou}
-                onChange={(val) => { set('quemPegou')(val); atualizarNomeUsuarioConfig(val) }}
+                onChange={set('quemPegou')}
                 error={getError('quemPegou')}
                 options={funcionariosDisponiveis}
                 placeholder="Buscar funcionário..."
@@ -369,7 +368,7 @@ export default function AlmoxarifadoPage() {
                 label={<span>{form.tipo === 'devolucao' ? 'QUEM DEVOLVEU?' : 'QUEM PEGOU?'} <span className="text-red-500">*</span></span>}
                 placeholder="Nome de quem pegou"
                 value={form.quemPegou}
-                onChange={(e) => { setInput('quemPegou')(e); atualizarNomeUsuarioConfig(e.target.value) }}
+                onChange={setInput('quemPegou')}
                 error={getError('quemPegou')}
                 id="quemPegou"
               />
@@ -514,12 +513,12 @@ export default function AlmoxarifadoPage() {
                 </div>
               )}
 
-              <Input
+              <NumericInput
                 label={form.tipo === 'devolucao' ? 'QUANTIDADE DEVOLVIDA?' : 'QUANTIDADE RETIRADA?'}
                 placeholder="Informe a quantidade"
                 value={itemEditando?.quantidade || ''}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.')
+                decimalPlaces={3}
+                onChange={(value) => {
                   setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
                   setItemErrors(prev => {
                     const newErrors = new Set(prev)

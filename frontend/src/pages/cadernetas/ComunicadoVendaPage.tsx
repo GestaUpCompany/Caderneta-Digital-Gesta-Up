@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, Select, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Input, Select, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -213,14 +213,13 @@ export default function ComunicadoVendaPage() {
         {/* Seção 3: Animais */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">3. ANIMAIS</h2>
-          <Input
+          <NumericInput
             label={<span>QUANTIDADE DE ANIMAIS <span className="text-red-500">*</span></span>}
             placeholder="Ex: 50"
             value={form.quantidadePrevista}
-            onChange={setInput('quantidadePrevista')}
+            onChange={(v) => setForm((prev) => ({ ...prev, quantidadePrevista: v }))}
             error={getError('quantidadePrevista')}
-            type="number"
-            inputMode="numeric"
+            decimalPlaces={0}
           />
           <Select
             label="SEXO *"
@@ -280,13 +279,13 @@ export default function ComunicadoVendaPage() {
               compact
             />
           </div>
-          <Input
+          <NumericInput
             label="PREÇO POR ARROBA (R$)"
             placeholder="Ex: 315,00"
             value={form.precoArroba}
-            onChange={setInput('precoArroba')}
+            onChange={(v) => setForm((prev) => ({ ...prev, precoArroba: v }))}
             error={getError('precoArroba')}
-            inputMode="decimal"
+            decimalPlaces={2}
           />
         </div>
 

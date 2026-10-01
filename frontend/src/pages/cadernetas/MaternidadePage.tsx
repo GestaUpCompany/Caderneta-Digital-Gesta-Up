@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Brush, Save } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, CheckboxGroup, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, Radio, CheckboxGroup, ValidationMessage, NumericInput } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
@@ -1264,13 +1264,12 @@ export default function MaternidadePage() {
               error={getError('idChipCria')}
             />
           </div>
-          <Input
+          <NumericInput
             label={<span>PESO DA CRIA (kg) {!cria1Morta && <span className="text-red-500">*</span>}</span>}
             placeholder="Ex: 32"
             value={form.pesoCria}
-            onChange={setInputEvent('pesoCria')}
-            inputMode="decimal"
-            type="number"
+            onChange={(v) => setForm((prev) => ({ ...prev, pesoCria: v }))}
+            decimalPlaces={1}
             error={getError('pesoCria')}
           />
           <Radio
@@ -1442,13 +1441,12 @@ export default function MaternidadePage() {
                     onChange={setInputEvent('idChipCria2')}
                   />
                 </div>
-                <Input
+                <NumericInput
                   label={<span>PESO DA CRIA (kg) {!cria2Morta && <span className="text-red-500">*</span>}</span>}
                   placeholder="Ex: 28"
                   value={form.pesoCria2}
-                  onChange={setInputEvent('pesoCria2')}
-                  inputMode="decimal"
-                  type="number"
+                  onChange={(v) => setForm((prev) => ({ ...prev, pesoCria2: v }))}
+                  decimalPlaces={1}
                   error={getError('pesoCria2')}
                 />
                 <Radio

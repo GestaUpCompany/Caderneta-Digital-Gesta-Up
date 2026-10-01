@@ -1,6 +1,7 @@
 import React from 'react'
 import { CadernetaStore } from '../../services/indexedDB'
 import { Registro } from '../../config/registroDisplayConfig'
+import { formatarNumeroBR, formatarMoedaBR } from '../../utils/formatNumber'
 
 type SpecialComponentFn = (registro: Registro) => React.ReactNode
 
@@ -217,12 +218,12 @@ export const SPECIAL_COMPONENTS: Partial<Record<CadernetaStore, Record<string, S
           {itens.map((item, i) => (
             <div key={i} className="bg-gray-50 rounded-lg p-2 mb-1 text-sm">
               <p className="font-semibold text-gray-900">{i + 1}. {item.produto || '—'}</p>
-              {item.quantidade !== undefined && <p className="text-gray-600">Quantidade: {String(item.quantidade)}</p>}
-              {item.valorUnitario !== undefined && <p className="text-gray-600">Valor unitário: R$ {String(item.valorUnitario)}</p>}
-              {item.valorTotal !== undefined && <p className="text-gray-600">Valor total: R$ {String(item.valorTotal)}</p>}
+              {item.quantidade !== undefined && <p className="text-gray-600">Quantidade: {formatarNumeroBR(item.quantidade, String(item.quantidade))} kg</p>}
+              {item.valorUnitario !== undefined && <p className="text-gray-600">Valor unitário: R$ {formatarMoedaBR(item.valorUnitario as string | number | null) ?? String(item.valorUnitario)}</p>}
+              {item.valorTotal !== undefined && <p className="text-gray-600">Valor total: R$ {formatarMoedaBR(item.valorTotal as string | number | null) ?? String(item.valorTotal)}</p>}
             </div>
           ))}
-          {total > 0 && <p className="text-sm font-bold text-gray-900 mt-1">VALOR TOTAL: R$ {total.toFixed(2)}</p>}
+          {total > 0 && <p className="text-sm font-bold text-gray-900 mt-1">VALOR TOTAL: R$ {formatarMoedaBR(total) ?? total.toFixed(2)}</p>}
         </div>
       )
     },

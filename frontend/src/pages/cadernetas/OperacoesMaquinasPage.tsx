@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, TimeInput } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, TimeInput, NumericInput } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -363,14 +363,13 @@ export default function OperacoesMaquinasPage() {
           readOnly 
           helper="Calculado automaticamente a partir das horas inicial e final"
         />
-        <Input label={<span>ODÔMETRO/HORÍMETRO<br /> INICIAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={setInput('odometroHorimetroInicial')} error={getError('odometroHorimetroInicial')} />
-        <Input label={<span>ODÔMETRO/HORÍMETRO<br />FINAL <span className="text-red-500">*</span></span>} type="number" placeholder="Odômetro/horímetro final" value={form.odometroHorimetroFinal} onChange={setInput('odometroHorimetroFinal')} error={getError('odometroHorimetroFinal')} />
-        <Input 
-          label="TOTAL ODÔMETRO/HORÍMETRO" 
-          type="number" 
-          placeholder="" 
-          value={form.totalOdometroHorimetro} 
-          readOnly 
+        <NumericInput label={<span>ODÔMETRO/HORÍMETRO<br /> INICIAL <span className="text-red-500">*</span></span>} decimalPlaces={2} placeholder="Odômetro/horímetro inicial" value={form.odometroHorimetroInicial} onChange={(v) => setForm((prev) => ({ ...prev, odometroHorimetroInicial: v }))} error={getError('odometroHorimetroInicial')} />
+        <NumericInput label={<span>ODÔMETRO/HORÍMETRO<br />FINAL <span className="text-red-500">*</span></span>} decimalPlaces={2} placeholder="Odômetro/horímetro final" value={form.odometroHorimetroFinal} onChange={(v) => setForm((prev) => ({ ...prev, odometroHorimetroFinal: v }))} error={getError('odometroHorimetroFinal')} />
+        <Input
+          label="TOTAL ODÔMETRO/HORÍMETRO"
+          placeholder=""
+          value={form.totalOdometroHorimetro}
+          readOnly
           helper="Calculado automaticamente a partir dos odômetros/horímetros inicial e final"
         />
       </div>
@@ -433,8 +432,8 @@ export default function OperacoesMaquinasPage() {
 
         <div className="border-t border-gray-200 pt-4">
           <Input label="INSUMO APLICADO?" placeholder="Insumo aplicado" value={form.insumoAplicado} onChange={setInput('insumoAplicado')} />
-          <Input label="QUANTIDADE TOTAL APLICADA?" type="number" placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={setInput('quantidadeTotalAplicada')} className="mt-3" />
-          <Input label="ÁREA TRABALHADA (ha)?" placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={setInput('areaTrabalhada')} className="mt-3" />
+          <NumericInput label="QUANTIDADE TOTAL APLICADA?" decimalPlaces={3} placeholder="Quantidade total aplicada" value={form.quantidadeTotalAplicada} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeTotalAplicada: v }))} className="mt-3" />
+          <NumericInput label="ÁREA TRABALHADA (ha)?" decimalPlaces={2} placeholder="Área trabalhada" value={form.areaTrabalhada} onChange={(v) => setForm((prev) => ({ ...prev, areaTrabalhada: v }))} className="mt-3" />
           <Input label="DOSE APLICADA/ha" placeholder="Dose aplicada" value={form.doseAplicada} readOnly helper="Calculado automaticamente: quantidade total / área trabalhada" className="mt-3" />
           
           <button

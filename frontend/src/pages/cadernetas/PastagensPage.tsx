@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage, TimeInput } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, TimeInput, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
@@ -803,23 +803,19 @@ export default function PastagensPage() {
                         </div>
                       </div>
                     ) : (
-                      <Input
+                      <NumericInput
                         label={
                           <span className="capitalize">{nome} <span className="text-black font-bold text-base">({maxCabecas} cab.)</span></span>
                         }
                         placeholder="0"
                         value={form.categoriasQuantidades[nome] || ''}
-                        onChange={(e) => {
-                          const val = e.target.value
+                        onChange={(val) => {
                           setForm(prev => ({
                             ...prev,
                             categoriasQuantidades: { ...prev.categoriasQuantidades, [nome]: val }
                           }))
                         }}
-                        inputMode="numeric"
-                        type="number"
-                        min="0"
-                        max={String(maxCabecas)}
+                        decimalPlaces={0}
                         error={getError(`cat_${nome}`)}
                       />
                     )}

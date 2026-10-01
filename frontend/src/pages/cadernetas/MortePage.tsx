@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
@@ -578,13 +578,12 @@ export default function MortePage() {
             error={getError('idade')}
             gridCols={2}
           />
-          <Input
+          <NumericInput
             label="PESO VIVO (kg)"
             placeholder="Ex: 450"
             value={form.pesoVivo}
-            onChange={setInput('pesoVivo')}
-            inputMode="decimal"
-            type="number"
+            onChange={(v) => setForm((p) => ({ ...p, pesoVivo: v }))}
+            decimalPlaces={1}
             error={getError('pesoVivo')}
           />
         </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
@@ -504,15 +504,13 @@ export default function RodeioPage() {
             <>
               <div className="grid grid-cols-2 gap-3">
                 {CATEGORIAS_ANIMAIS.map(({ campo, label }) => (
-                  <Input
+                  <NumericInput
                     key={campo}
                     label={label}
                     placeholder="0"
                     value={form[campo as keyof FormState] as string}
-                    onChange={setInput(campo as keyof FormState)}
-                    inputMode="numeric"
-                    type="number"
-                    min="0"
+                    onChange={set(campo as keyof FormState)}
+                    decimalPlaces={0}
                   />
                 ))}
               </div>

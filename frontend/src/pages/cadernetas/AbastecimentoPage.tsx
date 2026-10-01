@@ -12,7 +12,6 @@ import { getCachedCadastroData, getMaquinasVeiculosCached, getTanquesCombustivel
 import { getFuncionarios } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { Save } from 'lucide-react'
 
 const COMBUSTIVEL_OPTIONS = [
@@ -317,7 +316,7 @@ export default function AbastecimentoPage() {
           <SearchableModal
             label={<span>QUEM ABASTECEU? <span className="text-red-500">*</span></span>}
             value={form.quemAbasteceu}
-            onChange={(val) => { set('quemAbasteceu')(val); atualizarNomeUsuarioConfig(val) }}
+            onChange={set('quemAbasteceu')}
             error={getError('quemAbasteceu')}
             options={funcionariosDisponiveis}
             placeholder={loadingFuncionarios ? 'Carregando funcionários...' : 'Buscar funcionário...'}

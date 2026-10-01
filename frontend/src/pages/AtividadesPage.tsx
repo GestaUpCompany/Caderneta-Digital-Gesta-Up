@@ -593,10 +593,10 @@ function ImprevistoModal({ af, categorias, onClose, onConfirm }: ImprevistoModal
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">Impacto estimado em minutos (opcional)</label>
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
             value={impactoMin}
-            onChange={(e) => setImpactoMin(e.target.value)}
+            onChange={(e) => setImpactoMin(e.target.value.replace(/\D/g, ''))}
             placeholder="Ex: 45"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 min-h-[44px]"
           />
