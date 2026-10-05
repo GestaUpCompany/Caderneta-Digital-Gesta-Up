@@ -2,6 +2,21 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Menus modernizados em produção: Home, cadernetas e checklists (05/10/2026)
+
+Primeira fatia do redesign visual foi para produção sem as telas das cadernetas. Origem: `feat/layout-moderno-menus`, merge no master apenas até `b0ebb2a` (5 commits de base/menus) mais o ajuste de ícones `9992973`.
+
+O que entrou:
+
+- **`AppHeader.tsx`** (novo componente) e a base do redesign: tokens de marca em `tailwind.config.js` (`brand-*`, `accent-*`, `surface`), `.app-card` e `.header-chip` em `globals.css`.
+- **`Home.tsx`** reescrita: header compacto com saudação/fazenda (variante `start` do AppHeader), card de status de sync consolidado, "continue de onde parou" (últimas cadernetas), grid de módulos. Funcionalidades preservadas: versículo do dia, login/troca de funcionário, gate de Atividades por RBAC.
+- **Grid da Home**: voltou a usar as ilustrações PNG do layout antigo (`public/home/*.png`) em `w-16`, com ícone Lucide como fallback no `onError` (mesmo padrão do menu de cadernetas). Ordem: Cadernetas, Atividades, Relatórios, Checklists, Mapa da fazenda, Cadastros.
+- **`ModulosMenuPage`** e **`ChecklistsMenuPage`** reescritas na linguagem do AppHeader, com busca, "últimas acessadas" e agrupamento por categoria.
+
+Ficou de fora (segue na `feat/layout-moderno-menus`): os 6 commits que modernizam as telas das cadernetas (Limpeza, Clima, Problemas, Abastecimento, Enfermaria, padronização dos inputs compartilhados) e as 2 migrations ligadas a eles (campos de condição do Clima, evidência de Problemas), que dependem de aplicação no banco antes de subir.
+
+**Disparador**: quando mencionar "menus novos", "redesign da Home", `AppHeader`, "layout moderno", ou "por que o menu está diferente das telas", ler esta seção.
+
 ## Nome de usuário trocava sozinho ao selecionar responsável nos modais (01/10/2026)
 
 Relato de produção (Fazenda Chibata, usuário Carlos): o "SEU NOME" das Configurações mudava sozinho. Carlos lançou um abastecimento que saiu como Jefferson, corrigiu o nome, lançou outro e virou Adelson. Confirmado no banco: 4 registros de `registros_abastecimento` criados em ~15 min no mesmo aparelho, cada um com `nome_usuario` = `quem_abasteceu` de um funcionário diferente (Carlos lançava retroativo em nome da equipe).
