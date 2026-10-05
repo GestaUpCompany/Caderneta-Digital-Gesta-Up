@@ -27,6 +27,8 @@ import { useAppLock } from '../hooks/useAppLock'
 import { useExpediente } from '../hooks/useExpediente'
 import { useCadastroSyncState } from '../hooks/useCadastroSyncState'
 
+const BASE = import.meta.env.BASE_URL
+
 export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
@@ -363,11 +365,12 @@ export default function Home() {
   }, [])
 
   const MODULOS = [
-    { label: 'Cadernetas', desc: 'Registros de campo', icon: NotebookPen, iconColor: 'text-green-600', tint: 'bg-green-50', path: '/modulos/cadernetas' },
-    { label: 'Checklists', desc: 'Rotinas e verificações', icon: ListChecks, iconColor: 'text-orange-500', tint: 'bg-orange-50', path: '/modulos/checklists' },
-    { label: 'Cadastros', desc: 'Fazenda e equipe', icon: Users, iconColor: 'text-blue-600', tint: 'bg-blue-50', path: '/configuracoes' },
-    { label: 'Relatórios', desc: 'Análises e PDFs', icon: FileBarChart, iconColor: 'text-violet-600', tint: 'bg-violet-50', path: '/modulos/relatorios' },
-    { label: 'Mapa da fazenda', desc: 'Pastos e cercas', icon: Map, iconColor: 'text-cyan-600', tint: 'bg-cyan-50', path: '/mapa-fazenda' },
+    { label: 'Cadernetas', desc: 'Registros de campo', img: `${BASE}home/cadernetas.png`, icon: NotebookPen, iconColor: 'text-green-600', tint: 'bg-green-50', path: '/modulos/cadernetas', visivel: true },
+    { label: 'Atividades', desc: 'Tarefas do dia', img: `${BASE}home/atividades.png`, icon: ListTodo, iconColor: 'text-indigo-600', tint: 'bg-indigo-50', path: '/atividades', visivel: controleAcessoHabilitado && !!funcionarioLogado },
+    { label: 'Relatórios', desc: 'Análises e PDFs', img: `${BASE}home/relatorios.png`, icon: FileBarChart, iconColor: 'text-violet-600', tint: 'bg-violet-50', path: '/modulos/relatorios', visivel: true },
+    { label: 'Checklists', desc: 'Rotinas e verificações', img: `${BASE}home/checklists.png`, icon: ListChecks, iconColor: 'text-orange-500', tint: 'bg-orange-50', path: '/modulos/checklists', visivel: true },
+    { label: 'Mapa da fazenda', desc: 'Pastos e cercas', img: `${BASE}home/mapa-fazenda.png`, icon: Map, iconColor: 'text-cyan-600', tint: 'bg-cyan-50', path: '/mapa-fazenda', visivel: true },
+    { label: 'Cadastros', desc: 'Fazenda e equipe', img: `${BASE}home/cadastro.png`, icon: Users, iconColor: 'text-blue-600', tint: 'bg-blue-50', path: '/configuracoes', visivel: true },
   ]
 
   return (
@@ -565,14 +568,25 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 animate-fade-in">
-            {MODULOS.map((modulo) => (
+            {MODULOS.filter((modulo) => modulo.visivel).map((modulo) => (
               <button
                 key={modulo.path}
                 onClick={() => navigate(modulo.path)}
                 className="app-card flex flex-col items-center justify-center gap-1.5 p-4 min-h-[136px] text-center transition-transform active:scale-[0.97]"
               >
-                <div className={`w-16 h-16 rounded-2xl ${modulo.tint} flex items-center justify-center mb-1`}>
-                  <modulo.icon className={`w-7 h-7 ${modulo.iconColor}`} strokeWidth={2} />
+                <div className={`w-16 h-16 rounded-2xl ${modulo.tint} flex items-center justify-center mb-1 overflow-hidden`}>
+                  <img
+                    src={modulo.img}
+                    alt={modulo.label}
+                    className="w-16 h-16 object-contain rounded-2xl"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      const fallback = target.parentElement?.querySelector('.fallback-icon') as HTMLElement
+                      if (fallback) fallback.style.display = 'block'
+                    }}
+                  />
+                  <modulo.icon className={`w-7 h-7 ${modulo.iconColor} fallback-icon hidden`} strokeWidth={2} />
                 </div>
                 <span className="text-sm font-bold text-gray-900 leading-tight">
                   {modulo.label}
@@ -582,24 +596,6 @@ export default function Home() {
                 </span>
               </button>
             ))}
-
-            {/* Atividades (só aparece se RBAC ativo e funcionário logado) */}
-            {controleAcessoHabilitado && funcionarioLogado && (
-              <button
-                onClick={() => navigate('/atividades')}
-                className="app-card flex flex-col items-center justify-center gap-1.5 p-4 min-h-[136px] text-center transition-transform active:scale-[0.97]"
-              >
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-1">
-                  <ListTodo className="w-7 h-7 text-indigo-600" strokeWidth={2} />
-                </div>
-                <span className="text-sm font-bold text-gray-900 leading-tight">
-                  Atividades
-                </span>
-                <span className="text-[11px] font-medium text-gray-500 leading-tight">
-                  Tarefas do dia
-                </span>
-              </button>
-            )}
           </div>
         )}
       </main>
