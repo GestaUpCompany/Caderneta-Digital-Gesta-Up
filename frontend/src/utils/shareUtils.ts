@@ -1944,7 +1944,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `OBSERVAÇÃO: *${registro.tipoProblemaObs}*\n`
     }
     if (registro.prioridade) {
-      texto += `PRIORIDADE: *${registro.prioridade}*\n`
+      const prioridadeLabel = String(registro.prioridade)
+      texto += `PRIORIDADE: *${prioridadeLabel.charAt(0).toUpperCase() + prioridadeLabel.slice(1)}*\n`
     }
     if (registro.setorResolve) {
       texto += `SETOR QUE RESOLVE: *${registro.setorResolve}*\n`

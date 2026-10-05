@@ -285,6 +285,27 @@ const CLIMA_LABELS = {
   observacao: 'OBSERVAÇÃO',
 }
 
+const PROBLEMAS_LABELS = {
+  ...COMMON_LABELS,
+  setor: 'SETOR',
+  local: 'LOCAL',
+  descricaoProblema: 'DESCRIÇÃO DO PROBLEMA',
+  tipoOcorrencia: 'JÁ ACONTECEU ANTES?',
+  tipoOcorrenciaObs: 'OBSERVAÇÃO DA OCORRÊNCIA',
+  acaoCorretivaRealizada: 'JÁ RESOLVEU?',
+  acaoCorretivaRealizadaObs: 'OBSERVAÇÃO DA AÇÃO',
+  prioridade: 'PRIORIDADE',
+  causaIdentificada: 'CAUSA IDENTIFICADA',
+  causaIdentificadaObs: 'OBSERVAÇÃO DA CAUSA',
+  causaRaizIdentificada: 'CAUSA RAIZ IDENTIFICADA',
+  causaRaizIdentificadaObs: 'OBSERVAÇÃO DA CAUSA RAIZ',
+  gravidadeImpacto: 'GRAVIDADE/IMPACTO',
+  gravidadeImpactoObs: 'OBSERVAÇÃO DA GRAVIDADE',
+  tipoProblema: 'TIPO DE PROBLEMA',
+  tipoProblemaObs: 'OBSERVAÇÃO DO TIPO',
+  setorResolve: 'SETOR QUE RESOLVE',
+}
+
 const ENTRADA_INSUMOS_LABELS = {
   dataEntrada: 'DATA DE ENTRADA',
   horario: 'HORÁRIO',
@@ -434,6 +455,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   enfermaria: ENFERMARIA_LABELS,
   morte: MORTE_LABELS,
   clima: CLIMA_LABELS,
+  problemas: PROBLEMAS_LABELS,
   'entrada-insumos': ENTRADA_INSUMOS_LABELS,
   'saida-insumos': SAIDA_INSUMOS_LABELS,
   'insumos-por-saida': INSUMOS_POR_SAIDA_LABELS,

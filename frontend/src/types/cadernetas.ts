@@ -227,6 +227,10 @@ export interface RegistroProblemas extends Registro {
   tipoProblema?: string
   tipoProblemaObs?: string
   setorResolve?: string
+  fotoBase64?: string
+  latitude?: number | null
+  longitude?: number | null
+  gpsAccuracy?: number | null
 }
 
 export type TipoManejoPesagem =
