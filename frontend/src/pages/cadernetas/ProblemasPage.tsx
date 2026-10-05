@@ -1,49 +1,58 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, SearchableModal } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, SearchableModal, TextArea } from '../../components/ui'
+import { MapPin } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import BannerRascunho from '../../components/BannerRascunho'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import FormFooter from '../../components/cadernetas/FormFooter'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { getSetoresCached, getLocaisCached } from '../../services/cadastroCache'
+import { loadMapaFazenda } from '../../services/mapaCache'
+import { pontoDentroPoligono } from '../../services/mapaRouting'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
 
-const SETOR_OPTIONS = [
-  { value: 'Gado', label: 'GADO' },
-  { value: 'Máquinas', label: 'MÁQUINAS' },
-  { value: 'ADM', label: 'ADM' },
-  { value: 'Fábrica', label: 'FÁBRICA' },
-  { value: 'Manutenção', label: 'MANUTENÇÃO' },
-  { value: 'Terceirizado', label: 'TERCEIRIZADO' },
+const SETOR_FALLBACK = ['Gado', 'Máquinas', 'ADM', 'Fábrica', 'Manutenção', 'Terceirizado']
+
+const normalizar = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+const setorIcon = (nome: string): string => {
+  const n = normalizar(nome)
+  if (n.includes('gado')) return '🐄'
+  if (n.includes('confinamento')) return '🐂'
+  if (n.includes('maquina')) return '🚜'
+  if (n.includes('adm')) return '🏢'
+  if (n.includes('fabrica')) return '🏭'
+  if (n.includes('manutenc')) return '🔧'
+  if (n.includes('terceir')) return '👷'
+  if (n.includes('servico')) return '🧰'
+  return '📍'
+}
+
+const OCORRENCIA_OPTIONS = [
+  { value: 'Única', label: 'PRIMEIRA VEZ', icon: '1️⃣' },
+  { value: 'Repetitiva', label: 'SEMPRE ACONTECE', icon: '🔁' },
 ]
 
-const SN_OPTIONS = [
-  { value: 'S', label: 'SIM', icon: '✅' },
-  { value: 'N', label: 'NÃO', icon: '❌' },
+const RESOLVIDO_OPTIONS = [
+  { value: 'S', label: 'SIM', icon: '✓', tone: 'success' as const },
+  { value: 'N', label: 'NÃO', icon: '✕', tone: 'danger' as const },
 ]
 
-const TIPO_OCORRENCIA_OPTIONS = [
-  { value: 'Única', label: 'ÚNICA' },
-  { value: 'Repetitiva', label: 'REPETITIVA' },
-]
-
-const GRAVIDADE_OPTIONS = [
-  { value: 'baixa', label: 'BAIXA' },
-  { value: 'média', label: 'MÉDIA' },
-  { value: 'alta', label: 'ALTA' },
-]
-
-const TIPO_PROBLEMA_OPTIONS = [
-  { value: 'Estrutural', label: 'ESTRUTURAL' },
-  { value: 'Máquinas', label: 'MÁQUINAS' },
-  { value: 'Processos', label: 'PROCESSOS' },
-  { value: 'Rebanho', label: 'REBANHO' },
+const PRIORIDADE_OPTIONS = [
+  { value: 'baixa', label: 'PODE ESPERAR', icon: '🟢' },
+  { value: 'média', label: 'ESTA SEMANA', icon: '🟡' },
+  { value: 'alta', label: 'AGORA!', icon: '🔴' },
 ]
 
 interface FormState {
@@ -51,20 +60,9 @@ interface FormState {
   setor: string
   local: string
   descricaoProblema: string
-  causaIdentificada: string
-  causaIdentificadaObs: string
-  acaoCorretivaRealizada: string
-  acaoCorretivaRealizadaObs: string
   tipoOcorrencia: string
-  tipoOcorrenciaObs: string
-  causaRaizIdentificada: string
-  causaRaizIdentificadaObs: string
-  gravidadeImpacto: string
-  gravidadeImpactoObs: string
-  tipoProblema: string
-  tipoProblemaObs: string
+  acaoCorretivaRealizada: string
   prioridade: string
-  setorResolve: string
 }
 
 const makeInitial = (): FormState => ({
@@ -72,20 +70,9 @@ const makeInitial = (): FormState => ({
   setor: '',
   local: '',
   descricaoProblema: '',
-  causaIdentificada: '',
-  causaIdentificadaObs: '',
-  acaoCorretivaRealizada: '',
-  acaoCorretivaRealizadaObs: '',
   tipoOcorrencia: '',
-  tipoOcorrenciaObs: '',
-  causaRaizIdentificada: '',
-  causaRaizIdentificadaObs: '',
-  gravidadeImpacto: '',
-  gravidadeImpactoObs: '',
-  tipoProblema: '',
-  tipoProblemaObs: '',
+  acaoCorretivaRealizada: '',
   prioridade: '',
-  setorResolve: '',
 })
 
 export default function ProblemasPage() {
@@ -98,6 +85,20 @@ export default function ProblemasPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
   const [locaisDisponiveis, setLocaisDisponiveis] = useState<string[]>([])
+  const [pastoGps, setPastoGps] = useState<string | null>(null)
+
+  const {
+    fotoBase64,
+    latitude,
+    longitude,
+    gpsAccuracy,
+    capturandoFoto,
+    fotoErro,
+    capturarFotoComGps,
+    limpar: limparFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: true })
 
   // Carregar setores e locais (com cache lazy para offline)
   useEffect(() => {
@@ -118,29 +119,61 @@ export default function ProblemasPage() {
     loadData()
   }, [fazendaId])
 
+  // Resolver nome do pasto a partir das coordenadas GPS (pastos no cache do mapa)
+  useEffect(() => {
+    if (latitude == null || longitude == null || !fazendaId) {
+      setPastoGps(null)
+      return
+    }
+    let cancelado = false
+    loadMapaFazenda(fazendaId)
+      .then((mapa) => {
+        if (cancelado || !mapa) return
+        for (const pasto of mapa.pastos) {
+          const g = pasto.geometria
+          const aneis =
+            g.type === 'Polygon'
+              ? [g.coordinates[0]]
+              : g.type === 'MultiPolygon'
+                ? g.coordinates.map((c) => c[0])
+                : []
+          if (aneis.some((coords) => pontoDentroPoligono(longitude, latitude, coords as [number, number][]))) {
+            setPastoGps(pasto.nome)
+            return
+          }
+        }
+        setPastoGps(null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [latitude, longitude, fazendaId])
+
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  // Validation rules
+  const setText = (field: keyof FormState) => (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
   const validationRules: any = {
     data: { required: true },
     setor: { required: true },
     local: { required: true },
     descricaoProblema: { required: true },
-    causaIdentificada: { required: true },
-    acaoCorretivaRealizada: { required: true },
     tipoOcorrencia: { required: true },
-    causaRaizIdentificada: { required: true },
-    gravidadeImpacto: { required: true },
-    tipoProblema: { required: true },
+    acaoCorretivaRealizada: { required: true },
     prioridade: { required: true },
-    setorResolve: { required: true },
   }
 
   const { isValid } = useFormValidation(form, validationRules)
+
+  const setorOptions = (setoresDisponiveis.length > 0 ? setoresDisponiveis : SETOR_FALLBACK).map(
+    (nome) => ({ value: nome, label: nome, icon: setorIcon(nome) })
+  )
 
   const handleSalvar = async () => {
     setSalvando(true)
@@ -150,20 +183,13 @@ export default function ProblemasPage() {
       setor: form.setor,
       local: form.local,
       descricaoProblema: form.descricaoProblema,
-      causaIdentificada: form.causaIdentificada,
-      causaIdentificadaObs: form.causaIdentificadaObs || '',
-      acaoCorretivaRealizada: form.acaoCorretivaRealizada,
-      acaoCorretivaRealizadaObs: form.acaoCorretivaRealizadaObs || '',
       tipoOcorrencia: form.tipoOcorrencia,
-      tipoOcorrenciaObs: form.tipoOcorrenciaObs || '',
-      causaRaizIdentificada: form.causaRaizIdentificada,
-      causaRaizIdentificadaObs: form.causaRaizIdentificadaObs || '',
-      gravidadeImpacto: form.gravidadeImpacto,
-      gravidadeImpactoObs: form.gravidadeImpactoObs || '',
-      tipoProblema: form.tipoProblema,
-      tipoProblemaObs: form.tipoProblemaObs || '',
+      acaoCorretivaRealizada: form.acaoCorretivaRealizada,
       prioridade: form.prioridade,
-      setorResolve: form.setorResolve,
+      fotoBase64: fotoBase64 || null,
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
+      gpsAccuracy: gpsAccuracy ?? null,
       usuario: usuario,
     })
 
@@ -175,6 +201,7 @@ export default function ProblemasPage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       limparRascunho()
+      limparFoto()
     }
   }
 
@@ -202,34 +229,15 @@ export default function ProblemasPage() {
           onConfirmar={confirmarRascunho}
           onDescartar={descartarRascunho}
         />
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS PRINCIPAIS</h2>
-            <div className="flex items-center gap-2 shrink-0">
 
-            </div>
-          </div>
-          {setoresDisponiveis.length > 0 ? (
-            <SearchableModal
-              label={<span>EM QUAL SETOR HOUVE PROBLEMA? <span className="text-red-500">*</span></span>}
-              value={form.setor}
-              onChange={set('setor')}
-              options={setoresDisponiveis}
-              placeholder="Buscar setor..."
-              id="setor"
-              name="setor"
-            />
-          ) : (
-            <Radio
-              name="setor"
-              label={<span>EM QUAL SETOR HOUVE PROBLEMA? <span className="text-red-500">*</span></span>}
-              options={SETOR_OPTIONS}
-              value={form.setor}
-              onChange={set('setor')}
-              gridCols={2}
-            />
-          )}
+        <CadernetaSection numero={1} titulo="Onde é o problema?" required>
+          <ChoiceGrid
+            options={setorOptions}
+            value={form.setor}
+            onChange={set('setor')}
+            cols={3}
+            dataField="setor"
+          />
           {locaisDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>LOCAL? <span className="text-red-500">*</span></span>}
@@ -248,186 +256,119 @@ export default function ProblemasPage() {
               onChange={setInput('local')}
             />
           )}
-          <Input
-            label={<span>DESCRIÇÃO DO PROBLEMA? <span className="text-red-500">*</span></span>}
+        </CadernetaSection>
+
+        <CadernetaSection numero={2} titulo="Mostre e conte" required>
+          <TextArea
+            label={<span>DESCRIÇÃO DO PROBLEMA <span className="text-red-500">*</span></span>}
             placeholder="Descreva o problema..."
             value={form.descricaoProblema}
-            onChange={setInput('descricaoProblema')}
+            onChange={setText('descricaoProblema')}
+            rows={3}
+            textSize="base"
+            name="descricaoProblema"
           />
-        </div>
 
-        {/* Seção 2: Análise do Problema */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ANÁLISE DO PROBLEMA</h2>
-          
-          <div>
-            <Radio
-              name="causaIdentificada"
-              label={<span>CAUSA IDENTIFICADA? <span className="text-red-500">*</span></span>}
-              options={SN_OPTIONS}
-              value={form.causaIdentificada}
-              onChange={set('causaIdentificada')}
-              gridCols={2}
-            />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.causaIdentificadaObs}
-              onChange={setInput('causaIdentificadaObs')}
-              className="mt-2"
-            />
-          </div>
+          {fotoBase64 ? (
+            <div className="flex items-start gap-3">
+              <img
+                src={`data:image/jpeg;base64,${fotoBase64}`}
+                alt="Foto do problema"
+                className="w-24 h-24 rounded-xl border border-gray-200 object-cover"
+              />
+              <button
+                type="button"
+                onClick={limparFoto}
+                className="flex-1 rounded-xl bg-gray-200 px-3 py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+              >
+                🗑️ REMOVER FOTO
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => capturarFotoComGps()}
+              disabled={capturandoFoto}
+              className="w-full rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-4 py-7 flex flex-col items-center justify-center gap-2 text-gray-500 transition-colors hover:border-brand-600 hover:text-brand-700 active:scale-[0.99] disabled:opacity-60"
+            >
+              <span className="text-2xl">📷</span>
+              <span className="text-sm font-bold uppercase tracking-wide">
+                {capturandoFoto ? 'CAPTURANDO...' : 'TIRAR FOTO'}
+              </span>
+            </button>
+          )}
+          {fotoErro && (
+            <InfoStrip tone="danger">{fotoErro}</InfoStrip>
+          )}
+          <input
+            ref={fotoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
 
-          <div>
-            <Radio
-              name="acaoCorretivaRealizada"
-              label={<span>AÇÃO CORRETIVA REALIZADA? <span className="text-red-500">*</span></span>}
-              options={SN_OPTIONS}
-              value={form.acaoCorretivaRealizada}
-              onChange={set('acaoCorretivaRealizada')}
-              gridCols={2}
-            />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.acaoCorretivaRealizadaObs}
-              onChange={setInput('acaoCorretivaRealizadaObs')}
-              className="mt-2"
-            />
-          </div>
+          {latitude != null && longitude != null && (
+            <InfoStrip tone="success" icon={<MapPin className="h-4 w-4" />}>
+              Local marcado pelo GPS: {pastoGps ?? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
+            </InfoStrip>
+          )}
+        </CadernetaSection>
 
-          <div>
-            <Radio
-              name="tipoOcorrencia"
-              label={<span>TIPO DE OCORRÊNCIA? <span className="text-red-500">*</span></span>}
-              options={TIPO_OCORRENCIA_OPTIONS}
-              value={form.tipoOcorrencia}
-              onChange={set('tipoOcorrencia')}
-              gridCols={2}
-            />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.tipoOcorrenciaObs}
-              onChange={setInput('tipoOcorrenciaObs')}
-              className="mt-2"
-            />
-          </div>
-
-          <div>
-            <Radio
-              name="causaRaizIdentificada"
-              label={<span>CAUSA RAIZ IDENTIFICADA? <span className="text-red-500">*</span></span>}
-              options={SN_OPTIONS}
-              value={form.causaRaizIdentificada}
-              onChange={set('causaRaizIdentificada')}
-              gridCols={2}
-            />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.causaRaizIdentificadaObs}
-              onChange={setInput('causaRaizIdentificadaObs')}
-              className="mt-2"
-            />
-          </div>
-        </div>
-
-        {/* Seção 3: Classificação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. CLASSIFICAÇÃO</h2>
-          
-          <div>
-            <Radio
-              name="gravidadeImpacto"
-              label={<span>GRAVIDADE OU IMPACTO? <span className="text-red-500">*</span></span>}
-              options={GRAVIDADE_OPTIONS}
-              value={form.gravidadeImpacto}
-              onChange={set('gravidadeImpacto')}
-              gridCols={3}
-            />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.gravidadeImpactoObs}
-              onChange={setInput('gravidadeImpactoObs')}
-              className="mt-2"
-            />
-          </div>
-
-          <div>
-            <Radio
-              name="tipoProblema"
-              label={<span>TIPO DE PROBLEMA? <span className="text-red-500">*</span></span>}
-              options={TIPO_PROBLEMA_OPTIONS}
-              value={form.tipoProblema}
-              onChange={set('tipoProblema')}
-              gridCols={2}
-            />
-            <Input
-              placeholder="Adicionar observação (opcional)"
-              value={form.tipoProblemaObs}
-              onChange={setInput('tipoProblemaObs')}
-              className="mt-2"
-            />
-          </div>
-
-          <Radio
-            name="prioridade"
-            label={<span>PRIORIDADE? <span className="text-red-500">*</span></span>}
-            options={GRAVIDADE_OPTIONS}
+        <CadernetaSection numero={3} titulo="É urgente?" required>
+          <ChoiceGrid
+            options={PRIORIDADE_OPTIONS}
             value={form.prioridade}
             onChange={set('prioridade')}
-            gridCols={3}
+            cols={3}
+            dataField="prioridade"
           />
-          {setoresDisponiveis.length > 0 ? (
-            <SearchableModal
-              label={<span>QUAL SETOR RESOLVE? <span className="text-red-500">*</span></span>}
-              value={form.setorResolve}
-              onChange={set('setorResolve')}
-              options={setoresDisponiveis}
-              placeholder="Buscar setor..."
-              id="setorResolve"
-              name="setorResolve"
-            />
-          ) : (
-            <Input
-              label={<span>QUAL SETOR RESOLVE? <span className="text-red-500">*</span></span>}
-              placeholder="Informe o setor..."
-              value={form.setorResolve}
-              onChange={setInput('setorResolve')}
-            />
-          )}
-        </div>
+        </CadernetaSection>
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleSalvar}
-            disabled={salvando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => limparRascunho()}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
+        <CadernetaSection numero={4} titulo="Situação">
+          <div className="flex flex-col gap-2.5">
+            <p className="text-[15px] font-bold text-gray-900">
+              JÁ ACONTECEU ANTES? <span className="text-red-500">*</span>
+            </p>
+            <ChoiceGrid
+              options={OCORRENCIA_OPTIONS}
+              value={form.tipoOcorrencia}
+              onChange={set('tipoOcorrencia')}
+              cols={2}
+              dataField="tipoOcorrencia"
+            />
+          </div>
 
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
-        )}
+          <div className="flex flex-col gap-2.5">
+            <p className="text-[15px] font-bold text-gray-900">
+              VOCÊ JÁ RESOLVEU? <span className="text-red-500">*</span>
+            </p>
+            <ChoiceGrid
+              options={RESOLVIDO_OPTIONS}
+              value={form.acaoCorretivaRealizada}
+              onChange={set('acaoCorretivaRealizada')}
+              cols={2}
+              dataField="acaoCorretivaRealizada"
+            />
+          </div>
+
+          <InfoStrip icon="ℹ️">
+            Causa, tipo, gravidade e quem vai resolver: o gerente define pela foto e pela descrição.
+          </InfoStrip>
+        </CadernetaSection>
+
+        <FormFooter
+          onSalvar={handleSalvar}
+          onLimpar={() => {
+            limparRascunho()
+            limparFoto()
+          }}
+          salvando={salvando}
+          disabled={!isValid}
+          salvarLabel="ENVIAR AVISO"
+          formValido={isValid}
+        />
       </main>
 
       <SuccessModal

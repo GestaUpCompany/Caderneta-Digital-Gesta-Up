@@ -2,6 +2,25 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Telas de Clima e Problemas modernizadas em produção (05/10/2026)
+
+Segunda fatia do redesign foi para produção via `release/clima-problemas`, recorte de arquivos da `feat/layout-moderno-menus` sobre o master (não foi merge de commits, foi checkout de arquivo). Limpeza, Abastecimento e Enfermaria continuam na branch de layout.
+
+O que entrou:
+
+- **`ClimaPage`** reescrita: seções numeradas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection` (primitivos novos de formulário), seletor de pluviômetros, "tempo agora" (`tempo_atual`), umidade relativa e `esvaziou_pluviometros`. A pergunta "choveu desde a última leitura" foi removida; a coluna `choveu` permanece no banco para históricos e sai `null` nos registros novos.
+- **`ProblemasPage`** simplificada para "aviso rápido": setor + local, descrição, foto (`foto_url` via bucket `fotos-registros`), GPS (`latitude`/`longitude`/`gps_accuracy`), urgência (`prioridade` → AGORA!/ESTA SEMANA/PODE ESPERAR), recorrência (`tipo_ocorrencia`) e "já resolveu?" (`acao_corretiva_realizada`). As colunas de análise da tela antiga (`causa_*`, `gravidade_impacto`, `tipo_problema`, `setor_resolve`, `*_obs`) ficam órfãs mas continuam nullable e são exibidas em registros históricos.
+- **Infra compartilhada** que acompanha: inputs `ui/` restilizados (inclui prop `suffix` nova do Input), fix de `useFormValidation` para regras virtuais (prefixo `_`), mappings de `syncService` (clima/problemas + bucket de foto de problemas), `types/cadernetas` e `types/supabase` alinhados, `validation.ts` do problemas simplificada, labels novos em `labelConfig`, seções de `problemasConfig` reagrupadas (SITUAÇÃO + ANÁLISE só para históricos), share de clima/problemas formatado em pt-BR com GPS clicável, e `pdfUtils` com os campos novos do resumo de clima.
+- **ListaRegistros redesenhado** (afeta TODAS as listas de cadernetas, não só as duas): `AppHeader`, cards `.app-card`, pills de período/filtros com Lucide, badge real de status de sync, `cardBadge` no `CadernetaDisplayConfig` (problemas mostra a urgência colorida), modal de compartilhamento no padrão `SuccessModal`.
+- **`ResumoDiario`** (componente novo): botão e modal de resumo diário unificados nas 5 listas que tinham o recurso (Clima, Maternidade, Bebedouros, Rodeio, Suplementacao), com contagem ao vivo de registros na data e erro inline no lugar de `alert`.
+- **Migrations**: `20260928120000_clima_campos_condicoes.sql` e `20260928140000_problemas_evidencia.sql` incluídas no repo para registro; as colunas já estavam aplicadas no banco de produção (aplicação foi feita pelo repo do Painel Web, dono do schema).
+
+Ficou de fora (segue na `feat/layout-moderno-menus`): `LimpezaPage`, `AbastecimentoPage`, `EnfermariaPage` e o restyle de `FotoSection` (não incluso porque afetaria telas antigas que usam o componente e nenhuma das duas telas novas o importa).
+
+Efeito colateral consciente: como `ListaRegistros`, `ResumoDiario` e os inputs `ui/` são compartilhados, todas as listas de cadernetas e os formulários antigos ganham o visual novo nos pontos compartilhados. Dados e fluxo de sync não mudam.
+
+**Disparador**: quando mencionar "tela de clima nova", "aviso rápido de problemas", "foto do problema não aparece", "resumo diário", `cardBadge`, `ResumoDiario`, ou "por que as listas mudaram junto", ler esta seção.
+
 ## Menus modernizados em produção: Home, cadernetas e checklists (05/10/2026)
 
 Primeira fatia do redesign visual foi para produção sem as telas das cadernetas. Origem: `feat/layout-moderno-menus`, merge no master apenas até `b0ebb2a` (5 commits de base/menus) mais o ajuste de ícones `9992973`.

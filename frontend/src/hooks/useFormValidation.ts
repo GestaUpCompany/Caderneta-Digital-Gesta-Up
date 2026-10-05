@@ -124,8 +124,10 @@ export function useFormValidation<T extends Record<string, any>>(
         }
       }
 
-      // Skip other validations if value is empty and not required
-      if (!rule.required && (value === null || value === undefined || value === '')) {
+      // Skip other validations if value is empty and not required.
+      // Regras virtuais (prefixo _, ex: _responsavel, _medicoes_min) nao tem
+      // campo correspondente no form, entao o custom precisa rodar sempre.
+      if (!rule.required && !field.startsWith('_') && (value === null || value === undefined || value === '')) {
         return
       }
 

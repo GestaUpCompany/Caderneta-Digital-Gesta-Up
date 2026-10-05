@@ -1,12 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import ListaRegistros from '../../components/cadernetas/ListaRegistros'
-import { Button } from '../../components/ui'
-import DatePickerIcon from '../../components/ui/DatePickerIcon'
+import ResumoDiario from '../../components/cadernetas/ResumoDiario'
 import { listarRegistros } from '../../services/api'
 import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoRodeio, compartilharPdf } from '../../utils/pdfUtils'
-import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { getFazendasDoMesmoGrupoCached } from '../../services/cadastroCache'
 
@@ -88,9 +86,6 @@ function diagnosticosProblematicos(registro: Registro): { key: string; label: st
 }
 
 export default function RodeioListaPage() {
-  const [mostrarModalResumo, setMostrarModalResumo] = useState(false)
-  const [dataResumo, setDataResumo] = useState(todayBR())
-  const [gerando, setGerando] = useState(false)
   const [todosRegistros, setTodosRegistros] = useState<Registro[]>([])
   const { fazenda, fazendaId } = useSelector((state: RootState) => state.config)
 
@@ -103,249 +98,157 @@ export default function RodeioListaPage() {
     carregarRegistros()
   }, [carregarRegistros])
 
-  const filtrarRegistrosDoDia = () => {
-    const dataBase = dataResumo.split(' ')[0]
-    return todosRegistros.filter((r) => {
-      const dataRegistro = String(r.data).split(' ')[0]
-      return dataRegistro === dataBase
+  const filtrarRegistrosDoDia = (data: string) => {
+    const dataBase = data.split(' ')[0]
+    return todosRegistros.filter((r) => String(r.data).split(' ')[0] === dataBase)
+  }
+
+  const handleGerarResumoTexto = async (data: string) => {
+    const registrosDoDia = filtrarRegistrosDoDia(data)
+    const dataBase = data.split(' ')[0]
+    const partes: string[] = []
+
+    // Cabeçalho
+    partes.push(`📋 *RESUMO DIÁRIO — RODEIO*`)
+    // Incluir nome da fazenda quando pertence a um grupo
+    const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
+    if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
+      partes.push(`Fazenda: *${fazenda}*`)
+    }
+    partes.push(`📅 Data: *${dataBase}*`)
+    partes.push('')
+
+    // Consolidado
+    const lotesVistoriados = registrosDoDia.length
+    let totalAnimais = 0
+    let lotesContados = 0
+
+    registrosDoDia.forEach((r) => {
+      if (r.gadoContado === 'Sim') {
+        lotesContados++
+        const total = Number(r.totalCabecas) || 0
+        totalAnimais += total
+      } else {
+        const totalLote = Number((r as any).n_cabecas) || 0
+        totalAnimais += totalLote
+      }
     })
-  }
 
-  const handleAbrirResumo = () => {
-    setDataResumo(todayBR())
-    setMostrarModalResumo(true)
-  }
+    partes.push(`Lotes vistoriados: *${lotesVistoriados}*`)
+    partes.push(`Total de animais: *${totalAnimais}*`)
+    if (lotesContados > 0) {
+      partes.push(`Gado contado em ${lotesContados} lote(s)`)
+    }
 
-  const handleGerarResumoTexto = async () => {
-    setGerando(true)
-    try {
-      const registrosDoDia = filtrarRegistrosDoDia()
-
-      if (registrosDoDia.length === 0) {
-        const dataBase = dataResumo.split(' ')[0]
-        alert(`Nenhum registro encontrado para ${dataBase}`)
-        setGerando(false)
-        return
+    // Equipe: junção de todos os registros (nomes únicos)
+    const todosNomes = new Set<string>()
+    registrosDoDia.forEach((r) => {
+      if (Array.isArray(r.equipeNomes)) {
+        (r.equipeNomes as string[]).forEach((n) => {
+          if (n && n.trim() !== '') todosNomes.add(n.trim())
+        })
       }
+    })
+    const nomesUnicos = Array.from(todosNomes)
+    const totalPessoas = nomesUnicos.length
+    if (totalPessoas > 0) {
+      partes.push(`EQUIPE: *${nomesUnicos.join(', ')}* (${totalPessoas} pessoa${totalPessoas > 1 ? 's' : ''})`)
+    }
 
-      const dataBase = dataResumo.split(' ')[0]
-      const partes: string[] = []
+    // Detalhamento por registro
+    for (let i = 0; i < registrosDoDia.length; i++) {
+      const r = registrosDoDia[i]
 
-      // Cabeçalho
-      partes.push(`📋 *RESUMO DIÁRIO — RODEIO*`)
-      // Incluir nome da fazenda quando pertence a um grupo
-      const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
-      if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
-        partes.push(`Fazenda: *${fazenda}*`)
-      }
-      partes.push(`📅 Data: *${dataBase}*`)
+      partes.push('')
+      partes.push('━━━━━━━━━━━━━━━━━━━━━━━━')
       partes.push('')
 
-      // Consolidado
-      const lotesVistoriados = registrosDoDia.length
-      let totalAnimais = 0
-      let lotesContados = 0
+      partes.push(`PASTO: *${r.pasto || '—'}*`)
+      partes.push(`LOTE: *${r.numeroLote || '—'}*`)
 
-      registrosDoDia.forEach((r) => {
-        if (r.gadoContado === 'Sim') {
-          lotesContados++
-          const total = Number(r.totalCabecas) || 0
-          totalAnimais += total
-        } else {
-          const totalLote = Number((r as any).n_cabecas) || 0
-          totalAnimais += totalLote
-        }
-      })
-
-      partes.push(`Lotes vistoriados: *${lotesVistoriados}*`)
-      partes.push(`Total de animais: *${totalAnimais}*`)
-      if (lotesContados > 0) {
-        partes.push(`Gado contado em ${lotesContados} lote(s)`)
+      const horario = formatarHorarioRegistro(r.data)
+      if (horario) {
+        partes.push(`HORÁRIO: ${horario}`)
       }
 
-      // Equipe: junção de todos os registros (nomes únicos)
-      const todosNomes = new Set<string>()
-      registrosDoDia.forEach((r) => {
-        if (Array.isArray(r.equipeNomes)) {
-          (r.equipeNomes as string[]).forEach((n) => {
-            if (n && n.trim() !== '') todosNomes.add(n.trim())
-          })
-        }
-      })
-      const nomesUnicos = Array.from(todosNomes)
-      const totalPessoas = nomesUnicos.length
-      if (totalPessoas > 0) {
-        partes.push(`EQUIPE: *${nomesUnicos.join(', ')}* (${totalPessoas} pessoa${totalPessoas > 1 ? 's' : ''})`)
+      // Gado contado
+      if (r.gadoContado) {
+        partes.push(`GADO CONTADO: *${r.gadoContado === 'Sim' ? 'Sim' : 'Não'}*`)
       }
 
-      // Detalhamento por registro
-      for (let i = 0; i < registrosDoDia.length; i++) {
-        const r = registrosDoDia[i]
+      // Categorias (uma por linha, apenas > 0, apenas se gadoContado === 'Sim')
+      if (r.gadoContado === 'Sim') {
+        let temCategoria = false
+        for (const cat of CATEGORIAS_CAMPOS) {
+          const v = Number((r as any)[cat.key])
+          if (!isNaN(v) && v > 0) {
+            partes.push(`${cat.label}: *${v}*`)
+            temCategoria = true
+          }
+        }
+        if (temCategoria) partes.push('')
 
+        const total = Number(r.totalCabecas)
+        if (!isNaN(total) && total > 0) {
+          partes.push(`TOTAL: *${total} animais*`)
+        }
+      } else {
+        // Quando gado não foi contado, mostrar total do lote
+        // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
+        const totalLote = Number((r as any).n_cabecas) || 0
+        if (totalLote > 0) {
+          partes.push(`TOTAL: *${totalLote} animais*`)
+        }
+      }
+
+      // Escores
+      if (r.escoreFezes != null && r.escoreFezes !== '') {
+        partes.push(`ESCORE FEZES: *${r.escoreFezes}*`)
+      }
+      if (r.escoreGado != null && r.escoreGado !== '') {
+        partes.push(`ESCORE GADO: *${r.escoreGado}*`)
+      }
+
+      // Diagnósticos problemáticos
+      const problemas = diagnosticosProblematicos(r)
+      if (problemas.length > 0) {
         partes.push('')
-        partes.push('━━━━━━━━━━━━━━━━━━━━━━━━')
-        partes.push('')
-
-        partes.push(`PASTO: *${r.pasto || '—'}*`)
-        partes.push(`LOTE: *${r.numeroLote || '—'}*`)
-
-        const horario = formatarHorarioRegistro(r.data)
-        if (horario) {
-          partes.push(`HORÁRIO: ${horario}`)
-        }
-
-        // Gado contado
-        if (r.gadoContado) {
-          partes.push(`GADO CONTADO: *${r.gadoContado === 'Sim' ? 'Sim' : 'Não'}*`)
-        }
-
-        // Categorias (uma por linha, apenas > 0, apenas se gadoContado === 'Sim')
-        if (r.gadoContado === 'Sim') {
-          let temCategoria = false
-          for (const cat of CATEGORIAS_CAMPOS) {
-            const v = Number((r as any)[cat.key])
-            if (!isNaN(v) && v > 0) {
-              partes.push(`${cat.label}: *${v}*`)
-              temCategoria = true
-            }
-          }
-          if (temCategoria) partes.push('')
-
-          const total = Number(r.totalCabecas)
-          if (!isNaN(total) && total > 0) {
-            partes.push(`TOTAL: *${total} animais*`)
-          }
-        } else {
-          // Quando gado não foi contado, mostrar total do lote
-          // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
-          const totalLote = Number((r as any).n_cabecas) || 0
-          if (totalLote > 0) {
-            partes.push(`TOTAL: *${totalLote} animais*`)
-          }
-        }
-
-        // Escores
-        if (r.escoreFezes != null && r.escoreFezes !== '') {
-          partes.push(`ESCORE FEZES: *${r.escoreFezes}*`)
-        }
-        if (r.escoreGado != null && r.escoreGado !== '') {
-          partes.push(`ESCORE GADO: *${r.escoreGado}*`)
-        }
-
-        // Diagnósticos problemáticos
-        const problemas = diagnosticosProblematicos(r)
-        if (problemas.length > 0) {
-          partes.push('')
-          for (const p of problemas) {
-            partes.push(`⚠️ ${p.label}: *Sim*`)
-            if (p.observacao) {
-              partes.push(`OBSERVAÇÃO: *${p.observacao}*`)
-            }
+        for (const p of problemas) {
+          partes.push(`⚠️ ${p.label}: *Sim*`)
+          if (p.observacao) {
+            partes.push(`OBSERVAÇÃO: *${p.observacao}*`)
           }
         }
       }
-
-      const textoCompleto = partes.join('\n')
-
-      setMostrarModalResumo(false)
-      await compartilharWhatsApp(textoCompleto)
-    } catch (err) {
-      console.error('Erro ao gerar resumo:', err)
-      alert('Erro ao gerar resumo. Tente novamente.')
-    } finally {
-      setGerando(false)
     }
+
+    await compartilharWhatsApp(partes.join('\n'))
   }
 
-  const handleGerarResumoPdf = async () => {
-    setGerando(true)
-    try {
-      const registrosDoDia = filtrarRegistrosDoDia()
-
-      if (registrosDoDia.length === 0) {
-        const dataBase = dataResumo.split(' ')[0]
-        alert(`Nenhum registro encontrado para ${dataBase}`)
-        setGerando(false)
-        return
-      }
-
-      const dataBase = dataResumo.split(' ')[0]
-      const pdfFile = await gerarPdfResumoRodeio(registrosDoDia, dataBase, fazenda)
-
-      setMostrarModalResumo(false)
-      await compartilharPdf(
-        pdfFile,
-        `Resumo Rodeio — ${dataBase}`,
-        `Resumo diário de rodeio — ${dataBase} (${registrosDoDia.length} lote(s))`
-      )
-    } catch (err) {
-      console.error('Erro ao gerar PDF:', err)
-      alert('Erro ao gerar PDF. Tente novamente.')
-    } finally {
-      setGerando(false)
-    }
+  const handleGerarResumoPdf = async (data: string) => {
+    const registrosDoDia = filtrarRegistrosDoDia(data)
+    const dataBase = data.split(' ')[0]
+    const pdfFile = await gerarPdfResumoRodeio(registrosDoDia, dataBase, fazenda)
+    await compartilharPdf(
+      pdfFile,
+      `Resumo Rodeio — ${dataBase}`,
+      `Resumo diário de rodeio — ${dataBase} (${registrosDoDia.length} lote(s))`
+    )
   }
-
-  const extraActions = (
-    <Button onClick={handleAbrirResumo} variant="secondary" icon="📊">
-      RESUMO DIÁRIO
-    </Button>
-  )
 
   return (
-    <>
-      <ListaRegistros
-        caderneta="rodeio"
-        titulo="RODEIO GADO"
-        rotaForm="/caderneta/rodeio"
-        extraActions={extraActions}
-      />
-
-      {mostrarModalResumo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">📊 Resumo Diário</h3>
-            <p className="text-base text-gray-700 mb-4">
-              Escolha a data para gerar o resumo de rodeio do dia.
-            </p>
-            <div className="mb-6">
-              <DatePickerIcon
-                label="Data do resumo"
-                value={dataResumo}
-                onChange={setDataResumo}
-              />
-            </div>
-            <div className="flex flex-col gap-3">
-              <Button
-                onClick={handleGerarResumoTexto}
-                variant="primary"
-                fullWidth
-                loading={gerando}
-                icon="📤"
-              >
-                ENVIAR COMO TEXTO
-              </Button>
-              <Button
-                onClick={handleGerarResumoPdf}
-                variant="secondary"
-                fullWidth
-                loading={gerando}
-                icon=""
-              >
-                EXPORTAR PDF
-              </Button>
-              <Button
-                onClick={() => setMostrarModalResumo(false)}
-                variant="ghost"
-                fullWidth
-                disabled={gerando}
-              >
-                CANCELAR
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <ListaRegistros
+      caderneta="rodeio"
+      titulo="RODEIO GADO"
+      rotaForm="/caderneta/rodeio"
+      extraActions={
+        <ResumoDiario
+          descricao="rodeio"
+          contarRegistros={(d) => filtrarRegistrosDoDia(d).length}
+          onEnviarTexto={handleGerarResumoTexto}
+          onExportarPdf={handleGerarResumoPdf}
+        />
+      }
+    />
   )
 }

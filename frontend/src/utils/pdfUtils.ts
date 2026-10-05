@@ -202,6 +202,34 @@ export async function gerarPdfResumoClima(
       y += 5
     }
 
+    const tempoAtual = registro.tempoAtual as string
+    if (tempoAtual) {
+      const tempoLabels: Record<string, string> = {
+        sol: 'Sol',
+        nublado: 'Nublado',
+        chuva_fraca: 'Chuva fraca',
+        chuva_forte: 'Chuva forte',
+        temporal: 'Temporal',
+        vento_forte: 'Vento forte',
+        frio: 'Frio',
+        seco_poeira: 'Seco / poeira',
+      }
+      doc.setFont('helvetica', 'bold')
+      doc.text('Tempo no momento: ', margin + 3, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tempoLabels[tempoAtual] || tempoAtual, margin + 3 + doc.getTextWidth('Tempo no momento: ') + labelValueGap, y)
+      y += 5
+    }
+
+    const esvaziou = registro.esvaziouPluviometros
+    if (esvaziou !== null && esvaziou !== undefined && esvaziou !== '') {
+      doc.setFont('helvetica', 'bold')
+      doc.text('Esvaziou pluviômetros: ', margin + 3, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(esvaziou === true || esvaziou === 'sim' ? 'Sim' : 'Não', margin + 3 + doc.getTextWidth('Esvaziou pluviômetros: ') + labelValueGap, y)
+      y += 5
+    }
+
     const umidade = registro.umidadeRelativa
     if (umidade !== null && umidade !== undefined && umidade !== '') {
       doc.setFont('helvetica', 'bold')
@@ -748,18 +776,20 @@ export async function gerarPdfResumoSuplementacao(
       if (doisGrupos) subTituloGrupo('LOTE — CATEGORIAS ADULTAS')
 
       // Formulação
+      const teorMs = r.teorMs != null ? formatBRNum(Number(r.teorMs), 2) : null
       const formulacaoStr = String(r.formulacao || '—')
       labelValue('Formulação:', formulacaoStr)
+      if (teorMs) {
+        labelValue('Teor MS dieta:', `${teorMs}%`)
+      }
 
       // Meta e cabeças
       if (r.metaConsumo != null) {
         labelValue('Meta consumo (%PV):', `${formatBRNum(Number(r.metaConsumo), 2)}%`)
         const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
-        // Meta %PV está em base MS; kg MN/cab/dia = kg MS / (teorMs/100)
-        const teorMsNum = r.teorMs != null ? Number(r.teorMs) : null
-        if (pesoVivo && teorMsNum) {
-          const metaKg = (Number(r.metaConsumo) * pesoVivo) / teorMsNum
-          labelValue('Meta consumo (kg MN/cab/dia):', `${formatBRNum(metaKg, 3)} kg`)
+        if (r.metaConsumo != null && pesoVivo) {
+          const metaKg = (Number(r.metaConsumo) / 100) * pesoVivo
+          labelValue('Meta consumo (kg/cab/dia):', `${formatBRNum(metaKg, 3)} kg`)
         }
       }
       const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
@@ -809,15 +839,10 @@ export async function gerarPdfResumoSuplementacao(
       const creepPv = r.creepPesoVivoKg != null
         ? Number(r.creepPesoVivoKg)
         : (suplementaAdulto ? null : (r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null))
-      // Teor MS do creep: em linha mista fica em creepTeorMs; em linha só
-      // creep o campo primário teorMs já carrega o teor da formulação creep.
-      const creepTeorMs = r.creepTeorMs != null
-        ? Number(r.creepTeorMs)
-        : (suplementaAdulto ? null : (r.teorMs != null ? Number(r.teorMs) : null))
       if (creepMeta != null) {
         labelValue('Meta consumo (%PV):', `${formatBRNum(Number(creepMeta), 2)}%`, 4)
-        if (creepPv && creepTeorMs) {
-          labelValue('Meta consumo (kg MN/cab/dia):', `${formatBRNum((Number(creepMeta) * creepPv) / creepTeorMs, 3)} kg`, 4)
+        if (creepPv) {
+          labelValue('Meta consumo (kg/cab/dia):', `${formatBRNum((Number(creepMeta) / 100) * creepPv, 3)} kg`, 4)
         }
       }
       const creepCabecas = r.creepNCabecas ?? (suplementaAdulto ? null : r.nCabecasLote)
@@ -840,8 +865,12 @@ export async function gerarPdfResumoSuplementacao(
 
     // Histórico de consumo
     if (metricas) {
-      const temConsumo = metricas.consumoMedio30DiasPercentPV ||
+      const temConsumo = metricas.consumoMedioGeralPercentPV ||
+        metricas.consumoMedio30DiasPercentPV ||
+        metricas.consumoMedioGeralKgMN ||
         metricas.consumoMedio30DiasKgMN ||
+        metricas.consumoMedioGeralKgMS ||
+        metricas.consumoMedio30DiasKgMS ||
         metricas.custoMedioReaisCabDia
       if (temConsumo) {
         y += 3
@@ -852,11 +881,23 @@ export async function gerarPdfResumoSuplementacao(
         doc.text('HISTÓRICO DE CONSUMO', margin, y)
         y += 6
 
+        if (metricas.consumoMedioGeralPercentPV != null) {
+          labelValue('CMS geral (%PV):', `${formatBRNum(metricas.consumoMedioGeralPercentPV, 3)}%`, 4)
+        }
         if (metricas.consumoMedio30DiasPercentPV != null) {
           labelValue('CMS 30 dias (%PV):', `${formatBRNum(metricas.consumoMedio30DiasPercentPV, 3)}%`, 4)
         }
+        if (metricas.consumoMedioGeralKgMN != null) {
+          labelValue('CMN geral (kg/MN):', `${formatBRNum(metricas.consumoMedioGeralKgMN, 3)} kg`, 4)
+        }
         if (metricas.consumoMedio30DiasKgMN != null) {
           labelValue('CMN 30 dias (kg/MN):', `${formatBRNum(metricas.consumoMedio30DiasKgMN, 3)} kg`, 4)
+        }
+        if (metricas.consumoMedioGeralKgMS != null) {
+          labelValue('CMS geral (kg/MS):', `${formatBRNum(metricas.consumoMedioGeralKgMS, 3)} kg`, 4)
+        }
+        if (metricas.consumoMedio30DiasKgMS != null) {
+          labelValue('CMS 30 dias (kg/MS):', `${formatBRNum(metricas.consumoMedio30DiasKgMS, 3)} kg`, 4)
         }
         if (metricas.custoMedioReaisCabDia != null) {
           labelValue('Custo médio (R$/cab/dia):', `R$ ${formatBRNum(metricas.custoMedioReaisCabDia, 2)}`, 4)

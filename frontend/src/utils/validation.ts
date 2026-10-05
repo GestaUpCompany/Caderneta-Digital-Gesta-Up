@@ -740,25 +740,13 @@ export function validateProblemas(data: Record<string, unknown>): ValidationResu
   if (!data.descricaoProblema || typeof data.descricaoProblema !== 'string' || data.descricaoProblema.trim() === '')
     errors.push({ field: 'descricaoProblema', message: 'Descrição do problema é obrigatória' })
 
-  // Validar perguntas S/N
-  if (!isSnBoolean(data.causaIdentificada))
-    errors.push({ field: 'causaIdentificada', message: 'Causa identificada: selecione SIM ou NÃO' })
+  // Validar ação corretiva
   if (!isSnBoolean(data.acaoCorretivaRealizada))
-    errors.push({ field: 'acaoCorretivaRealizada', message: 'Ação corretiva realizada: selecione SIM ou NÃO' })
-  if (!isSnBoolean(data.causaRaizIdentificada))
-    errors.push({ field: 'causaRaizIdentificada', message: 'Causa raiz identificada: selecione SIM ou NÃO' })
+    errors.push({ field: 'acaoCorretivaRealizada', message: 'Você já resolveu?: selecione SIM ou NÃO' })
 
   // Validar tipo de ocorrência
   if (!data.tipoOcorrencia || typeof data.tipoOcorrencia !== 'string' || data.tipoOcorrencia.trim() === '')
     errors.push({ field: 'tipoOcorrencia', message: 'Tipo de ocorrência é obrigatório' })
-
-  // Validar gravidade/impacto
-  if (!data.gravidadeImpacto || typeof data.gravidadeImpacto !== 'string' || data.gravidadeImpacto.trim() === '')
-    errors.push({ field: 'gravidadeImpacto', message: 'Gravidade ou impacto é obrigatório' })
-
-  // Validar tipo de problema
-  if (!data.tipoProblema || typeof data.tipoProblema !== 'string' || data.tipoProblema.trim() === '')
-    errors.push({ field: 'tipoProblema', message: 'Tipo de problema é obrigatório' })
 
   // Validar prioridade
   if (!data.prioridade || typeof data.prioridade !== 'string' || data.prioridade.trim() === '')
