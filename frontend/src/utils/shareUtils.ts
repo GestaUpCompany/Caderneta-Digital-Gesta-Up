@@ -1892,63 +1892,71 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // Seção: Localização
     texto += `LOCALIZAÇÃO\n`
     texto += `SETOR: *${registro.setor || '—'}*\n`
-    texto += `LOCAL: *${registro.local || '—'}*\n\n`
+    texto += `LOCAL: *${registro.local || '—'}*\n`
+    if (registro.latitude != null && registro.longitude != null) {
+      texto += `GPS: https://maps.google.com/?q=${registro.latitude},${registro.longitude}\n`
+    }
+    texto += `\n`
 
     // Seção: Descrição do Problema
     texto += `DESCRIÇÃO DO PROBLEMA\n`
     texto += `${registro.descricaoProblema || '—'}\n\n`
 
-    // Seção: Análise
-    texto += `ANÁLISE\n`
-    if (registro.causaIdentificada) {
-      const causaLabel = registro.causaIdentificada === 'S' ? 'Sim' : 'Não'
-      texto += `CAUSA IDENTIFICADA: *${causaLabel}*\n`
+    // Seção: Situação (campos da tela atual)
+    texto += `SITUAÇÃO\n`
+    if (registro.prioridade) {
+      const prioridadeShare: Record<string, string> = { baixa: 'Pode esperar', 'média': 'Esta semana', alta: 'AGORA!' }
+      const p = String(registro.prioridade)
+      texto += `URGÊNCIA: *${prioridadeShare[p] || p.charAt(0).toUpperCase() + p.slice(1)}*\n`
     }
-    if (registro.causaIdentificadaObs && registro.causaIdentificadaObs !== '') {
-      texto += `OBSERVAÇÃO: *${registro.causaIdentificadaObs}*\n`
+    if (registro.tipoOcorrencia) {
+      const ocorrenciaShare: Record<string, string> = { 'Única': 'Primeira vez', 'Repetitiva': 'Sempre acontece' }
+      const o = String(registro.tipoOcorrencia)
+      texto += `JÁ ACONTECEU ANTES?: *${ocorrenciaShare[o] || o}*\n`
+    }
+    if (registro.tipoOcorrenciaObs && registro.tipoOcorrenciaObs !== '') {
+      texto += `OBSERVAÇÃO: *${registro.tipoOcorrenciaObs}*\n`
     }
     if (registro.acaoCorretivaRealizada) {
-      const acaoLabel = registro.acaoCorretivaRealizada === 'S' ? 'Sim' : 'Não'
-      texto += `AÇÃO CORRETIVA REALIZADA: *${acaoLabel}*\n`
+      const acaoLabel = registro.acaoCorretivaRealizada === 'S' || registro.acaoCorretivaRealizada === true ? 'Sim' : 'Não'
+      texto += `RESOLVIDO NO CAMPO?: *${acaoLabel}*\n`
     }
     if (registro.acaoCorretivaRealizadaObs && registro.acaoCorretivaRealizadaObs !== '') {
       texto += `OBSERVAÇÃO: *${registro.acaoCorretivaRealizadaObs}*\n`
     }
     texto += `\n`
 
-    // Seção: Classificação
-    texto += `CLASSIFICAÇÃO\n`
-    if (registro.tipoOcorrencia) {
-      texto += `TIPO DE OCORRÊNCIA: *${registro.tipoOcorrencia}*\n`
+    // Seção: Análise (campos da tela antiga; só imprime se houver dado histórico)
+    const analise: string[] = []
+    if (registro.causaIdentificada) {
+      analise.push(`CAUSA IDENTIFICADA: *${registro.causaIdentificada === 'S' || registro.causaIdentificada === true ? 'Sim' : 'Não'}*\n`)
     }
-    if (registro.tipoOcorrenciaObs && registro.tipoOcorrenciaObs !== '') {
-      texto += `OBSERVAÇÃO: *${registro.tipoOcorrenciaObs}*\n`
+    if (registro.causaIdentificadaObs && registro.causaIdentificadaObs !== '') {
+      analise.push(`OBSERVAÇÃO: *${registro.causaIdentificadaObs}*\n`)
     }
     if (registro.causaRaizIdentificada) {
-      const raizLabel = registro.causaRaizIdentificada === 'S' ? 'Sim' : 'Não'
-      texto += `CAUSA RAIZ IDENTIFICADA: *${raizLabel}*\n`
+      analise.push(`CAUSA RAIZ IDENTIFICADA: *${registro.causaRaizIdentificada === 'S' || registro.causaRaizIdentificada === true ? 'Sim' : 'Não'}*\n`)
     }
     if (registro.causaRaizIdentificadaObs && registro.causaRaizIdentificadaObs !== '') {
-      texto += `OBSERVAÇÃO: *${registro.causaRaizIdentificadaObs}*\n`
+      analise.push(`OBSERVAÇÃO: *${registro.causaRaizIdentificadaObs}*\n`)
     }
     if (registro.gravidadeImpacto) {
-      texto += `GRAVIDADE/IMPACTO: *${registro.gravidadeImpacto}*\n`
+      analise.push(`GRAVIDADE/IMPACTO: *${registro.gravidadeImpacto}*\n`)
     }
     if (registro.gravidadeImpactoObs && registro.gravidadeImpactoObs !== '') {
-      texto += `OBSERVAÇÃO: *${registro.gravidadeImpactoObs}*\n`
+      analise.push(`OBSERVAÇÃO: *${registro.gravidadeImpactoObs}*\n`)
     }
     if (registro.tipoProblema) {
-      texto += `TIPO DE PROBLEMA: *${registro.tipoProblema}*\n`
+      analise.push(`TIPO DE PROBLEMA: *${registro.tipoProblema}*\n`)
     }
     if (registro.tipoProblemaObs && registro.tipoProblemaObs !== '') {
-      texto += `OBSERVAÇÃO: *${registro.tipoProblemaObs}*\n`
-    }
-    if (registro.prioridade) {
-      const prioridadeLabel = String(registro.prioridade)
-      texto += `PRIORIDADE: *${prioridadeLabel.charAt(0).toUpperCase() + prioridadeLabel.slice(1)}*\n`
+      analise.push(`OBSERVAÇÃO: *${registro.tipoProblemaObs}*\n`)
     }
     if (registro.setorResolve) {
-      texto += `SETOR QUE RESOLVE: *${registro.setorResolve}*\n`
+      analise.push(`SETOR QUE RESOLVE: *${registro.setorResolve}*\n`)
+    }
+    if (analise.length > 0) {
+      texto += `ANÁLISE\n${analise.join('')}\n`
     }
   } else if (caderneta === 'novo_lote') {
     // Cabeçalho

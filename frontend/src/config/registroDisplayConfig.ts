@@ -21,10 +21,17 @@ export interface SectionConfig {
   icon?: string
 }
 
+export interface CardBadgeConfig {
+  key: string
+  format?: (value: unknown, registro: Registro) => string
+  tones?: Record<string, 'danger' | 'warning' | 'success' | 'neutral'>
+}
+
 export interface CadernetaDisplayConfig {
   sections: SectionConfig[]
   fieldConfig: Record<string, FieldConfig>
   hiddenFields?: string[]
+  cardBadge?: CardBadgeConfig
 }
 
 export const GLOBAL_HIDDEN_FIELDS = [

@@ -6,9 +6,14 @@ import { Registro } from '../../types/cadernetas'
 import { CadernetaStore } from '../../services/indexedDB'
 import { listarRegistros, reenviarRegistro, aguardarSyncConcluido } from '../../services/api'
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
-import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
-import { ChevronLeft, List, Share2 } from 'lucide-react'
+import {
+  ChevronLeft, List, Share2, Plus, Search, SlidersHorizontal, FilterX,
+  CheckCircle2, Clock, AlertTriangle, AlertCircle, XCircle,
+  RefreshCw, ChevronDown, ChevronUp, Copy, ClipboardList, Loader2,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import AppHeader from '../AppHeader'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
@@ -31,19 +36,33 @@ interface Props {
 }
 
 
-const statusLabel: Record<string, string> = {
-  pending: '⏳',
-  synced: '✅',
-  conflict: '⚠️',
-  error: '❌',
-  pending_approval: '🕐',
-  rejected: '🚫',
+const SYNC_BADGE: Record<string, { label: string; icon: LucideIcon; className: string }> = {
+  synced: { label: 'Sincronizado', icon: CheckCircle2, className: 'bg-brand-50 text-brand-700 border-brand-200' },
+  pending: { label: 'Pendente', icon: Clock, className: 'bg-amber-50 text-amber-800 border-amber-300' },
+  conflict: { label: 'Conflito', icon: AlertCircle, className: 'bg-amber-50 text-amber-800 border-amber-300' },
+  error: { label: 'Erro de sync', icon: AlertTriangle, className: 'bg-red-50 text-red-700 border-red-300' },
+  pending_approval: { label: 'Aguardando aprovação', icon: Clock, className: 'bg-amber-50 text-amber-800 border-amber-300' },
+  rejected: { label: 'Rejeitado', icon: XCircle, className: 'bg-red-50 text-red-700 border-red-300' },
 }
 
 const statusText: Record<string, string> = {
   pending_approval: 'Aguardando aprovação',
   rejected: 'Rejeitado',
 }
+
+const BADGE_TONES = {
+  danger: 'bg-red-50 text-red-700 border-red-300',
+  warning: 'bg-amber-50 text-amber-800 border-amber-300',
+  success: 'bg-brand-50 text-brand-700 border-brand-200',
+  neutral: 'bg-gray-100 text-gray-600 border-gray-300',
+} as const
+
+const PERIODOS = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'hoje', label: 'Hoje' },
+  { id: '7dias', label: '7 dias' },
+  { id: '30dias', label: '30 dias' },
+] as const
 
 const formatFieldValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined || value === '') return '—'
@@ -327,112 +346,98 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="sticky top-0 z-20 bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
-        <div className="px-3 py-3 desktop-container">
-          <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/20 active:bg-white/25 transition-colors text-white text-xs font-semibold pl-2 pr-3 py-2 min-h-[40px]"
-              aria-label="Voltar"
-            >
-              <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
-              <span>Voltar</span>
-            </button>
-
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-400/15 text-yellow-200 px-2.5 py-1.5 text-xs font-semibold">
-              <List className="w-3.5 h-3.5" strokeWidth={2.5} />
-              {registrosFiltradosFinal.length} registros
-            </span>
-          </div>
-
-          <h1 className="mt-3 text-lg font-bold leading-tight tracking-tight text-center truncate tracking-wide">{titulo}</h1>
-        </div>
-      </header>
+      <AppHeader
+        title={titulo}
+        subtitle="Registros salvos no aparelho"
+        variant="centered"
+        sticky
+        left={
+          <button
+            onClick={() => navigate(-1)}
+            className="header-chip"
+            aria-label="Voltar"
+          >
+            <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+            <span>Voltar</span>
+          </button>
+        }
+        right={
+          <span className="header-chip">
+            <List className="w-3.5 h-3.5" strokeWidth={2.5} />
+            {registrosFiltradosFinal.length}
+          </span>
+        }
+      />
 
       <main className="flex-1 p-4 flex flex-col gap-3 pb-8 desktop-container">
         {/* Ações principais */}
-        <Button onClick={() => navigate(rotaForm)} variant="primary" icon="➕">
-          NOVO REGISTRO
-        </Button>
+        <button
+          onClick={() => navigate(rotaForm)}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-brand-700 py-4 font-extrabold uppercase tracking-wide text-white shadow-md transition-all active:bg-brand-800 active:scale-[0.99]"
+        >
+          <Plus className="h-5 w-5" strokeWidth={2.5} />
+          Novo registro
+        </button>
 
         {extraActions}
 
         {/* Busca rápida */}
-        <Input
-          placeholder="🔍 Buscar por pasto, número, tratamento..."
-          value={filtros.busca}
-          onChange={(e) => setBusca(e.target.value)}
-          fullWidth
-          textSize="base"
-        />
+        <div className="app-card flex items-center gap-2.5 px-4">
+          <Search className="h-5 w-5 shrink-0 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar nos registros..."
+            value={filtros.busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="min-h-[48px] flex-1 bg-transparent text-base text-gray-900 outline-none placeholder:text-gray-400"
+          />
+        </div>
 
-        {/* Botões de período rápido */}
+        {/* Período rápido + filtros */}
         <div className="flex gap-2 overflow-x-auto pb-1">
-          <Button
-            onClick={() => handleSetPeriodoRapido('todos')}
-            variant={periodoAtivo === 'todos' ? 'secondary' : 'ghost'}
-            size="sm"
-            icon="📆"
-            className="!gap-1"
-          >
-            TODOS
-          </Button>
-          <Button
-            onClick={() => handleSetPeriodoRapido('hoje')}
-            variant={periodoAtivo === 'hoje' ? 'secondary' : 'ghost'}
-            size="sm"
-            icon="📆"
-            className="!gap-1"
-          >
-            HOJE
-          </Button>
-          <Button
-            onClick={() => handleSetPeriodoRapido('7dias')}
-            variant={periodoAtivo === '7dias' ? 'secondary' : 'ghost'}
-            size="sm"
-            icon="📆"
-            className="!gap-1"
-          >
-            7 DIAS
-          </Button>
-          <Button
-            onClick={() => handleSetPeriodoRapido('30dias')}
-            variant={periodoAtivo === '30dias' ? 'secondary' : 'ghost'}
-            size="sm"
-            icon="📆"
-            className="!gap-1"
-          >
-            30 DIAS
-          </Button>
-        </div>
-
-        {/* Botões de filtros e exportar */}
-        <div className="grid grid-cols-1 gap-3">
-          <Button
+          {PERIODOS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => handleSetPeriodoRapido(p.id)}
+              className={`shrink-0 rounded-full px-4 min-h-[40px] text-xs font-bold uppercase tracking-wide transition-colors ${
+                periodoAtivo === p.id
+                  ? 'bg-brand-700 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 active:bg-gray-50'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <button
             onClick={() => setMostrarFiltros(!mostrarFiltros)}
-            variant={temFiltrosAtivos ? 'secondary' : 'ghost'}
-            size="sm"
-            icon="🔎"
+            className={`shrink-0 rounded-full px-4 min-h-[40px] text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 transition-colors ${
+              temFiltrosAtivos || mostrarFiltros
+                ? 'bg-brand-700 text-white shadow-sm'
+                : 'bg-white border border-gray-200 text-gray-600 active:bg-gray-50'
+            }`}
           >
-            {temFiltrosAtivos ? 'FILTROS ATIVOS' : 'FILTROS'}
-          </Button>
+            <SlidersHorizontal className="h-4 w-4" strokeWidth={2.5} />
+            Filtros
+            {temFiltrosAtivos && <span className="h-2 w-2 rounded-full bg-accent-400" />}
+          </button>
+          {temFiltrosAtivos && (
+            <button
+              onClick={limparFiltros}
+              className="shrink-0 rounded-full px-4 min-h-[40px] text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 bg-white border border-gray-200 text-gray-600 transition-colors active:bg-gray-50"
+            >
+              <FilterX className="h-4 w-4" strokeWidth={2.5} />
+              Limpar
+            </button>
+          )}
         </div>
-
-        {temFiltrosAtivos && (
-          <Button
-            onClick={limparFiltros}
-            variant="secondary"
-            size="sm"
-            icon="🧹"
-          >
-            LIMPAR FILTROS
-          </Button>
-        )}
 
         {/* Painel de filtros avançados */}
         {mostrarFiltros && (
-          <div className="bg-white rounded-2xl p-4 border-2 border-gray-200 flex flex-col gap-3">
-            <h3 className="font-bold text-gray-800">🔎 Filtros Avançados</h3>
+          <div className="app-card p-4 flex flex-col gap-3">
+            <h3 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-gray-900">
+              <SlidersHorizontal className="h-4 w-4 text-brand-700" strokeWidth={2.5} />
+              Filtros avançados
+            </h3>
             <div className="grid grid-cols-2 gap-3">
               <DatePickerIcon
                 label="Data Início"
@@ -446,25 +451,25 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
               />
             </div>
             <div>
-              <label className="block text-base font-bold text-gray-800 mb-2">ORDENAÇÃO</label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Ordenação</label>
               <select
                 value={filtros.ordenacao}
                 onChange={(e) => setOrdenacao(e.target.value as any)}
-                className="w-full min-h-[60px] text-xl px-4 py-3 bg-white border-2 border-gray-400 rounded-xl"
+                className="w-full min-h-[44px] text-base px-3 py-2 bg-white border border-gray-300 rounded-xl"
               >
-                <option value="data_desc">📅 Data (mais recente)</option>
-                <option value="data_asc">📅 Data (mais antiga)</option>
+                <option value="data_desc">Data (mais recente)</option>
+                <option value="data_asc">Data (mais antiga)</option>
               </select>
             </div>
 
             {caderneta === 'maternidade' && (
               <>
                 <div>
-                  <label className="block text-base font-bold text-gray-800 mb-2">SEXO</label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Sexo</label>
                   <select
                     value={filtroSexo}
                     onChange={(e) => setFiltroSexo(e.target.value)}
-                    className="w-full min-h-[60px] text-xl px-4 py-3 bg-white border-2 border-gray-400 rounded-xl"
+                    className="w-full min-h-[44px] text-base px-3 py-2 bg-white border border-gray-300 rounded-xl"
                   >
                     <option value="">Todos</option>
                     <option value="Macho">Macho ♂️</option>
@@ -472,11 +477,11 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                   </select>
                 </div>
                 <div>
-                  <label className="block text-base font-bold text-gray-800 mb-2">TIPO DE PARTO</label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Tipo de parto</label>
                   <select
                     value={filtroTipoParto}
                     onChange={(e) => setFiltroTipoParto(e.target.value)}
-                    className="w-full min-h-[60px] text-xl px-4 py-3 bg-white border-2 border-gray-400 rounded-xl"
+                    className="w-full min-h-[44px] text-base px-3 py-2 bg-white border border-gray-300 rounded-xl"
                   >
                     <option value="">Todos</option>
                     <option value="Normal">Normal ✅</option>
@@ -494,9 +499,13 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
               </>
             )}
             {(temFiltrosAtivos || filtroSexo || filtroTipoParto) && (
-              <Button onClick={handleLimparFiltrosCompletos} variant="ghost" size="sm">
-                🧹 LIMPAR FILTROS
-              </Button>
+              <button
+                onClick={handleLimparFiltrosCompletos}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600 transition-colors active:bg-gray-50"
+              >
+                <FilterX className="h-4 w-4" strokeWidth={2.5} />
+                Limpar filtros
+              </button>
             )}
           </div>
         )}
@@ -504,16 +513,16 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
         {/* Lista de registros */}
         {carregando ? (
           <div className="flex items-center justify-center py-16">
-            <span className="text-2xl animate-spin">⏳</span>
-            <span className="ml-3 text-lg font-semibold text-gray-600">Carregando...</span>
+            <Loader2 className="h-7 w-7 animate-spin text-brand-700" />
+            <span className="ml-3 text-base font-semibold text-gray-600">Carregando...</span>
           </div>
         ) : registrosFiltradosFinal.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center border-2 border-gray-200">
-            <p className="text-5xl mb-4">📋</p>
-            <p className="text-xl font-bold text-gray-700">
+          <div className="app-card p-8 text-center">
+            <ClipboardList className="mx-auto mb-4 h-14 w-14 text-gray-300" strokeWidth={1.5} />
+            <p className="text-lg font-extrabold text-gray-800">
               {registros.length === 0 ? 'Nenhum registro ainda' : 'Nenhum resultado encontrado'}
             </p>
-            <p className="text-base text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 mt-1.5">
               {registros.length === 0
                 ? 'Toque em "NOVO REGISTRO" para começar'
                 : 'Ajuste os filtros ou limpe a busca'}
@@ -524,16 +533,38 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
             {registrosFiltradosFinal.map((registro) => (
               <div
                 key={registro.id}
-                className="bg-white rounded-2xl p-4 border-2 border-gray-200 shadow-sm"
+                className="app-card p-4"
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{statusLabel[registro.syncStatus] ?? '⏳'}</span>
-                    <span className="text-base font-bold text-gray-800">
-                      {String(registro.data ?? '').startsWith('undefined')
-                        ? [registro.dataProducao || registro.dataEntrada, String(registro.data).split(' ')[1]].filter(Boolean).join(' ')
-                        : (registro.data as string)}
-                    </span>
+                  <span className="text-base font-bold text-gray-900">
+                    {String(registro.data ?? '').startsWith('undefined')
+                      ? [registro.dataProducao || registro.dataEntrada, String(registro.data).split(' ')[1]].filter(Boolean).join(' ')
+                      : (registro.data as string)}
+                  </span>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {(() => {
+                      const badgeCfg = CADERNETA_DISPLAY_CONFIG[caderneta]?.cardBadge
+                      if (!badgeCfg) return null
+                      const raw = registro[badgeCfg.key]
+                      if (raw === null || raw === undefined || raw === '') return null
+                      const label = badgeCfg.format ? badgeCfg.format(raw, registro) : String(raw).toUpperCase()
+                      const tone = BADGE_TONES[badgeCfg.tones?.[String(raw)] ?? 'neutral']
+                      return (
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${tone}`}>
+                          {label}
+                        </span>
+                      )
+                    })()}
+                    {(() => {
+                      const meta = SYNC_BADGE[registro.syncStatus ?? 'pending'] ?? SYNC_BADGE.pending
+                      const Icon = meta.icon
+                      return (
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${meta.className}`}>
+                          <Icon className="h-3 w-3" strokeWidth={2.5} />
+                          {meta.label}
+                        </span>
+                      )
+                    })()}
                   </div>
                 </div>
 
@@ -591,7 +622,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
                               return (
                                 <div key={section.title} className="mb-3">
-                                  <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-1">
+                                  <p className="text-xs font-bold text-brand-700 uppercase tracking-wide mb-1">
                                     {section.icon} {section.title}
                                   </p>
                                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -996,18 +1027,17 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
                 <div className="flex flex-col gap-2 border-t border-gray-100 pt-3">
                   <div className="flex gap-2">
-                    <Button
+                    <button
                       onClick={() => handleCompartilhar(registro)}
-                      variant="ghost"
-                      size="sm"
-                      icon="🔗"
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
                     >
-                      COMPARTILHAR
-                    </Button>
+                      <Share2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      Compartilhar
+                    </button>
                   </div>
                   {registro.syncStatus === 'error' && (
                     <>
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3">
                         <button
                           onClick={() => setErroExpandidoId(erroExpandidoId === registro.id ? null : registro.id)}
                           className="flex items-center justify-between w-full text-left"
@@ -1015,7 +1045,9 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                           <span className="text-sm font-semibold text-red-700">
                             {translateSyncError(registro.syncError)}
                           </span>
-                          <span className="text-red-500 text-xs">{erroExpandidoId === registro.id ? '▲' : '▼'}</span>
+                          {erroExpandidoId === registro.id
+                            ? <ChevronUp className="h-4 w-4 text-red-500" />
+                            : <ChevronDown className="h-4 w-4 text-red-500" />}
                         </button>
                         {erroExpandidoId === registro.id && (
                           <div className="mt-2 pt-2 border-t border-red-100">
@@ -1039,22 +1071,25 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                             </p>
                             <button
                               onClick={() => handleCopiarErro(registro)}
-                              className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded border border-gray-200"
+                              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200"
                             >
-                              {copiadoId === registro.id ? '✅ Copiado' : '📋 Copiar para suporte'}
+                              {copiadoId === registro.id ? (
+                                <><CheckCircle2 className="h-3.5 w-3.5 text-brand-700" /> Copiado</>
+                              ) : (
+                                <><Copy className="h-3.5 w-3.5" /> Copiar para suporte</>
+                              )}
                             </button>
                           </div>
                         )}
                       </div>
-                      <Button
+                      <button
                         onClick={() => handleReenviar(registro)}
-                        variant="primary"
-                        size="sm"
-                        icon={reenviandoId === registro.id ? '⏳' : '🔄'}
                         disabled={reenviandoId === registro.id}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 py-2.5 text-xs font-bold uppercase tracking-wide text-white transition-colors active:bg-brand-800 disabled:opacity-60"
                       >
-                        {reenviandoId === registro.id ? 'ENVIANDO...' : 'REENVIAR'}
-                      </Button>
+                        <RefreshCw className={`h-4 w-4 ${reenviandoId === registro.id ? 'animate-spin' : ''}`} strokeWidth={2.5} />
+                        {reenviandoId === registro.id ? 'Enviando...' : 'Reenviar'}
+                      </button>
                     </>
                   )}
                 </div>
