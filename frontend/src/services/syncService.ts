@@ -810,6 +810,7 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   'manutencao-maquinas': 'fotos-registros',
   limpeza: 'fotos-registros',
   problemas: 'fotos-registros',
+  bebedouros: 'fotos-registros',
 }
 
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.
@@ -844,6 +845,46 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
     console.error(`[SYNC] Exceção ao fazer upload da foto (${store}):`, uploadErr)
     return null
   }
+}
+
+// Upload das fotos por item do checklist de bebedouros (o problema marcado
+// carrega foto propria). Retorna o checklist com foto_url preenchida e sem
+// fotoBase64, que nao deve ser persistido no jsonb.
+async function uploadFotosChecklistBebedouros(checklist: any, registro: Registro, fazendaId: string): Promise<any> {
+  if (!checklist || typeof checklist !== 'object') return checklist
+
+  const { base64ToBlob } = await import('../utils/photoCompress')
+  const client = await getSupabaseClientWithRefresh() as any
+  const result: Record<string, any> = {}
+
+  for (const [key, item] of Object.entries(checklist)) {
+    const it = item as any
+    if (!it || typeof it !== 'object') {
+      result[key] = it
+      continue
+    }
+    const { fotoBase64, ...rest } = it
+    if (fotoBase64) {
+      try {
+        const fotoPath = `${fazendaId}/bebedouros/${registro.id}/${key}.jpg`
+        const { error: uploadError } = await client
+          .storage
+          .from('fotos-registros')
+          .upload(fotoPath, base64ToBlob(fotoBase64), { contentType: 'image/jpeg', upsert: true })
+        if (uploadError) {
+          console.error(`[SYNC] Erro ao fazer upload da foto do checklist (${key}):`, uploadError)
+        } else {
+          const { data: urlData } = client.storage.from('fotos-registros').getPublicUrl(fotoPath)
+          rest.foto_url = urlData.publicUrl
+        }
+      } catch (uploadErr) {
+        console.error(`[SYNC] Exceção ao fazer upload da foto do checklist (${key}):`, uploadErr)
+      }
+    }
+    result[key] = rest
+  }
+
+  return result
 }
 
 // Função para gravar no Supabase
@@ -902,6 +943,11 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
     const fotoUrl = await uploadFotoRegistro(store, registro, fazendaId)
     if (fotoUrl) {
       data = { ...data, foto_url: fotoUrl }
+    }
+
+    // Fotos por item do checklist de bebedouros
+    if (store === 'bebedouros' && data.checklist) {
+      data = { ...data, checklist: await uploadFotosChecklistBebedouros(data.checklist, registro, fazendaId) }
     }
 
     if (operation === 'create') {
