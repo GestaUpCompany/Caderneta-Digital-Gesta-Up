@@ -8,7 +8,7 @@ import { listarRegistros, reenviarRegistro, aguardarSyncConcluido } from '../../
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
 import { Input, Button } from '../ui'
 import DatePickerIcon from '../ui/DatePickerIcon'
-import { ChevronLeft, List } from 'lucide-react'
+import { ChevronLeft, List, Share2 } from 'lucide-react'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
 import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
@@ -1065,28 +1065,42 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
         {/* Modal de escolha de formato de compartilhamento */}
         {mostrarModalCompartilhar && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">📤 Compartilhar Registro</h3>
-              <div className="flex flex-col gap-3">
-                <Button
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              setMostrarModalCompartilhar(false)
+              setRegistroParaCompartilhar(null)
+            }}
+          >
+            <div
+              className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Share2 className="h-12 w-12 text-green-700 mx-auto" />
+              <h3 className="text-lg font-black text-gray-900 mt-2">
+                Compartilhar registro
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                O registro será formatado como texto para enviar pelo WhatsApp.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-2">
+                <button
                   onClick={handleCompartilharTexto}
-                  variant="secondary"
-                  fullWidth
-                  icon="📋"
+                  className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
                 >
+                  <Share2 className="h-5 w-5" />
                   COMPARTILHAR
-                </Button>
-                <Button
+                </button>
+                <button
                   onClick={() => {
                     setMostrarModalCompartilhar(false)
                     setRegistroParaCompartilhar(null)
                   }}
-                  variant="ghost"
-                  fullWidth
+                  className="w-full font-bold px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 active:bg-gray-200"
                 >
                   CANCELAR
-                </Button>
+                </button>
               </div>
             </div>
           </div>
