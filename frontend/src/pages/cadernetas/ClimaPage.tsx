@@ -47,7 +47,6 @@ const TEMPO_OPTIONS = [
 
 interface FormState {
   data: string
-  choveu: string
   esvaziouPluviometros: string
   tempoAtual: string
   temperaturaMediaCalculada: string
@@ -58,7 +57,6 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  choveu: '',
   esvaziouPluviometros: '',
   tempoAtual: '',
   temperaturaMediaCalculada: '',
@@ -86,7 +84,6 @@ export default function ClimaPage() {
   // Validation rules
   const validationRules: any = {
     data: { required: true },
-    choveu: { required: true },
     esvaziouPluviometros: { required: true },
     _responsavel: {
       custom: () => (!usuario || usuario.trim() === '') ? 'Responsável é obrigatório' : null
@@ -223,7 +220,6 @@ export default function ClimaPage() {
       data: form.data,
       responsavel: usuario,
       usuario: usuario,
-      choveu: form.choveu === '' ? null : form.choveu === 'sim',
       esvaziouPluviometros: form.esvaziouPluviometros === '' ? null : form.esvaziouPluviometros === 'sim',
       tempoAtual: form.tempoAtual || null,
       temperaturaMedia: temperaturaMedia,
@@ -268,21 +264,6 @@ export default function ClimaPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         <CadernetaSection numero={1} titulo="Chuva">
-          <div>
-            <label className="block text-[15px] font-bold text-gray-900 mb-2">
-              CHOVEU DESDE A ÚLTIMA LEITURA? <span className="text-red-500">*</span>
-            </label>
-            <ChoiceGrid
-              options={[
-                { value: 'nao', label: 'NÃO CHOVEU', icon: '☀️' },
-                { value: 'sim', label: 'CHOVEU', icon: '🌧️' },
-              ]}
-              value={form.choveu}
-              onChange={(v) => setForm((prev) => ({ ...prev, choveu: v }))}
-              cols={2}
-              dataField="choveu"
-            />
-          </div>
           {pluviometrosDisponiveis.length === 0 ? (
             <p className="text-gray-500 text-center py-2 text-sm">Nenhum pluviômetro cadastrado para esta fazenda.</p>
           ) : (

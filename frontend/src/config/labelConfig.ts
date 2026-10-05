@@ -278,6 +278,8 @@ const MORTE_LABELS = {
 const CLIMA_LABELS = {
   ...COMMON_LABELS,
   responsavel: 'RESPONSÁVEL',
+  tempoAtual: 'TEMPO NO MOMENTO',
+  esvaziouPluviometros: 'ESVAZIOU PLUVIÔMETROS',
   temperaturaMedia: 'TEMPERATURA MÉDIA (°C)',
   umidadeRelativa: 'UMIDADE RELATIVA DO AR (%)',
   observacao: 'OBSERVAÇÃO',

@@ -202,6 +202,34 @@ export async function gerarPdfResumoClima(
       y += 5
     }
 
+    const tempoAtual = registro.tempoAtual as string
+    if (tempoAtual) {
+      const tempoLabels: Record<string, string> = {
+        sol: 'Sol',
+        nublado: 'Nublado',
+        chuva_fraca: 'Chuva fraca',
+        chuva_forte: 'Chuva forte',
+        temporal: 'Temporal',
+        vento_forte: 'Vento forte',
+        frio: 'Frio',
+        seco_poeira: 'Seco / poeira',
+      }
+      doc.setFont('helvetica', 'bold')
+      doc.text('Tempo no momento: ', margin + 3, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(tempoLabels[tempoAtual] || tempoAtual, margin + 3 + doc.getTextWidth('Tempo no momento: ') + labelValueGap, y)
+      y += 5
+    }
+
+    const esvaziou = registro.esvaziouPluviometros
+    if (esvaziou !== null && esvaziou !== undefined && esvaziou !== '') {
+      doc.setFont('helvetica', 'bold')
+      doc.text('Esvaziou pluviômetros: ', margin + 3, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(esvaziou === true || esvaziou === 'sim' ? 'Sim' : 'Não', margin + 3 + doc.getTextWidth('Esvaziou pluviômetros: ') + labelValueGap, y)
+      y += 5
+    }
+
     const umidade = registro.umidadeRelativa
     if (umidade !== null && umidade !== undefined && umidade !== '') {
       doc.setFont('helvetica', 'bold')

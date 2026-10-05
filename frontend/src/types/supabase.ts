@@ -7701,10 +7701,12 @@ export type Database = {
       }
       registros_clima: {
         Row: {
+          choveu: boolean | null
           created_at: string | null
           data: string
           deleted_at: string | null
           dispositivo_id: string | null
+          esvaziou_pluviometros: boolean | null
           fazenda_id: string
           id: string
           local_id: string | null
@@ -7714,15 +7716,18 @@ export type Database = {
           responsavel: string
           sync_status: string | null
           temperatura_media: number | null
+          tempo_atual: string | null
           umidade_relativa: number | null
           updated_at: string | null
           version: number | null
         }
         Insert: {
+          choveu?: boolean | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          esvaziou_pluviometros?: boolean | null
           fazenda_id: string
           id?: string
           local_id?: string | null
@@ -7732,15 +7737,18 @@ export type Database = {
           responsavel: string
           sync_status?: string | null
           temperatura_media?: number | null
+          tempo_atual?: string | null
           umidade_relativa?: number | null
           updated_at?: string | null
           version?: number | null
         }
         Update: {
+          choveu?: boolean | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
+          esvaziou_pluviometros?: boolean | null
           fazenda_id?: string
           id?: string
           local_id?: string | null
@@ -7750,6 +7758,7 @@ export type Database = {
           responsavel?: string
           sync_status?: string | null
           temperatura_media?: number | null
+          tempo_atual?: string | null
           umidade_relativa?: number | null
           updated_at?: string | null
           version?: number | null

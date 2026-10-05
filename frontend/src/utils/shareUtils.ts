@@ -1488,13 +1488,25 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
   } else if (caderneta === 'clima') {
     // Para clima, usar ordem específica
-    const ordemClima = ['responsavel', 'umidadeRelativa']
+    const ordemClima = ['responsavel', 'tempoAtual', 'esvaziouPluviometros', 'umidadeRelativa']
+    const tempoAtualLabels: Record<string, string> = {
+      sol: 'Sol',
+      nublado: 'Nublado',
+      chuva_fraca: 'Chuva fraca',
+      chuva_forte: 'Chuva forte',
+      temporal: 'Temporal',
+      vento_forte: 'Vento forte',
+      frio: 'Frio',
+      seco_poeira: 'Seco / poeira',
+    }
 
     ordemClima.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
         let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-        const valorFormatado = formatFieldValue(key, value)
+        let valorFormatado = formatFieldValue(key, value)
+        if (key === 'tempoAtual') valorFormatado = tempoAtualLabels[String(value)] || String(value)
+        if (key === 'esvaziouPluviometros') valorFormatado = value === true || value === 'sim' ? 'Sim' : 'Não'
         texto += `${label}: *${valorFormatado}*\n`
       }
     })
@@ -1512,20 +1524,20 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           if (index > 0) texto += `\n`
           texto += `*${nome}${localizacao ? ` (${localizacao})` : ''}*\n`
           if (temMedicao) {
-            texto += `  Chuva: *${m.medicao} mm*\n`
+            texto += `  Chuva: *${formatarNumeroBR(m.medicao, String(m.medicao), 1)} mm*\n`
           }
           if (temTemperatura) {
-            texto += `  Temperatura: *${m.temperatura}°C*\n`
+            texto += `  Temperatura: *${formatarNumeroBR(m.temperatura, String(m.temperatura), 1)}°C*\n`
           }
         }
       })
     }
 
-    // Temperatura média formatada com 2 casas decimais
+    // Temperatura média
     if (registro.temperaturaMedia !== null && registro.temperaturaMedia !== undefined && registro.temperaturaMedia !== '') {
       const tempMediaNum = normalizarNumero(registro.temperaturaMedia as any)
       if (tempMediaNum !== null) {
-        texto += `\nTEMPERATURA MÉDIA: *${tempMediaNum.toFixed(2).replace('.', ',')}°C*\n`
+        texto += `\nTEMPERATURA MÉDIA: *${formatarNumeroBR(tempMediaNum, '—', 1)}°C*\n`
       }
     }
 
