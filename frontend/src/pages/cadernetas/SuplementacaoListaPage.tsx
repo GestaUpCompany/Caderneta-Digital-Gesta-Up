@@ -1,12 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import ListaRegistros from '../../components/cadernetas/ListaRegistros'
-import { Button } from '../../components/ui'
-import DatePickerIcon from '../../components/ui/DatePickerIcon'
+import ResumoDiario from '../../components/cadernetas/ResumoDiario'
 import { listarRegistros } from '../../services/api'
 import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoSuplementacao, compartilharPdf } from '../../utils/pdfUtils'
-import { todayBR } from '../../utils/formatDate'
 import { formatarNumeroBR } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
 import { isCategoriaAoPe } from '../../utils/categorias'
@@ -39,9 +37,6 @@ function formatarHorarioRegistro(dataRegistro: unknown): string {
 }
 
 export default function SuplementacaoListaPage() {
-  const [mostrarModalResumo, setMostrarModalResumo] = useState(false)
-  const [dataResumo, setDataResumo] = useState(todayBR())
-  const [gerando, setGerando] = useState(false)
   const [todosRegistros, setTodosRegistros] = useState<Registro[]>([])
   const { fazenda, fazendaId } = useSelector((state: RootState) => state.config)
 
@@ -54,17 +49,9 @@ export default function SuplementacaoListaPage() {
     carregarRegistros()
   }, [carregarRegistros])
 
-  const filtrarRegistrosDoDia = () => {
-    const dataBase = dataResumo.split(' ')[0]
-    return todosRegistros.filter((r) => {
-      const dataRegistro = String(r.data).split(' ')[0]
-      return dataRegistro === dataBase
-    })
-  }
-
-  const handleAbrirResumo = () => {
-    setDataResumo(todayBR())
-    setMostrarModalResumo(true)
+  const filtrarRegistrosDoDia = (data: string) => {
+    const dataBase = data.split(' ')[0]
+    return todosRegistros.filter((r) => String(r.data).split(' ')[0] === dataBase)
   }
 
   /**
@@ -143,282 +130,198 @@ export default function SuplementacaoListaPage() {
     }
   }
 
-  const handleGerarResumoTexto = async () => {
-    setGerando(true)
-    try {
-      const registrosDoDia = filtrarRegistrosDoDia()
+  const handleGerarResumoTexto = async (data: string) => {
+    const registrosDoDia = filtrarRegistrosDoDia(data)
+    const dataBase = data.split(' ')[0]
+    const partes: string[] = []
 
-      if (registrosDoDia.length === 0) {
-        const dataBase = dataResumo.split(' ')[0]
-        alert(`Nenhum registro encontrado para ${dataBase}`)
-        setGerando(false)
-        return
+    // Cabeçalho fixo
+    partes.push(`📋 *SUPLEMENTAÇÃO*`)
+    // Incluir nome da fazenda quando pertence a um grupo
+    const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
+    if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
+      partes.push(`Fazenda: *${fazenda}*`)
+    }
+    partes.push(`📅 Data: *${dataBase}*`)
+    partes.push('')
+
+    // Processar cada registro
+    for (let i = 0; i < registrosDoDia.length; i++) {
+      const r = registrosDoDia[i]
+
+      // Cabeçalho do tratador (fixo, primeiro registro define)
+      if (i === 0) {
+        partes.push(`TRATADOR: *${r.tratador || r.usuario || '—'}*`)
+        partes.push('')
       }
 
-      const dataBase = dataResumo.split(' ')[0]
-      const partes: string[] = []
-
-      // Cabeçalho fixo
-      partes.push(`📋 *SUPLEMENTAÇÃO*`)
-      // Incluir nome da fazenda quando pertence a um grupo
-      const fazendasDoGrupo = await getFazendasDoMesmoGrupoCached(fazendaId)
-      if (fazendasDoGrupo && fazendasDoGrupo.length > 0) {
-        partes.push(`Fazenda: *${fazenda}*`)
+      // Horário do registro (extraído do mesmo campo da data, formato DD/MM/YYYY HH:MM)
+      const horario = formatarHorarioRegistro(r.data)
+      if (horario) {
+        partes.push(`HORÁRIO: ${horario}`)
       }
-      partes.push(`📅 Data: *${dataBase}*`)
+
+      // Dados do registro
+      partes.push(`PASTO/CURRAL: *${r.pasto || '—'}*`)
+      partes.push(`LOTE: *${r.numeroLote || '—'}*`)
       partes.push('')
 
-      // Processar cada registro
-      for (let i = 0; i < registrosDoDia.length; i++) {
-        const r = registrosDoDia[i]
+      const suplementaAdulto = r.suplementarAdulto !== false
+      const suplementaCreep = r.suplementarCreep === true && !!r.creepKgCocho
+      const doisGrupos = suplementaAdulto && suplementaCreep
 
-        // Cabeçalho do tratador (fixo, primeiro registro define)
-        if (i === 0) {
-          partes.push(`TRATADOR: *${r.tratador || r.usuario || '—'}*`)
+      // Bloco do lote (categorias adultas)
+      if (suplementaAdulto) {
+        if (doisGrupos) partes.push(`LOTE — CATEGORIAS ADULTAS`)
+        partes.push(`R/S - ${r.formulacao || '—'}`)
+        if (r.metaConsumo != null) {
+          partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(r.metaConsumo, '—', 2)}%*`)
+        }
+        // Meta consumo em kg/cab/dia: teorMs% * pesoVivo / 100
+        const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
+        const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
+        if (r.metaConsumo != null && pesoVivo) {
+          const metaKgCabDia = (Number(r.metaConsumo) / 100) * pesoVivo
+          partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR(metaKgCabDia, '—', 3)} kg*`)
+        }
+        if (nCabecas) {
+          partes.push(`N° CABEÇAS: *${nCabecas}*`)
+        }
+        if (pesoVivo) {
+          partes.push(`PV MÉDIO: *${formatarNumeroBR(pesoVivo, '—', 2)} kg*`)
+        }
+
+        // Categorias adultas (as ao pé aparecem na seção creep)
+        const categorias = (r.categoriasString
+          ? String(r.categoriasString).split(',').map((c: string) => c.trim()).filter(Boolean)
+          : (Array.isArray(r.categorias) ? (r.categorias as string[]) : []))
+          .filter((c: string) => doisGrupos ? !isCategoriaAoPe(c) : true)
+          .join(', ')
+        if (categorias) {
           partes.push('')
+          partes.push(`CATEGORIAS: *${categorias}*`)
         }
 
-        // Horário do registro (extraído do mesmo campo da data, formato DD/MM/YYYY HH:MM)
-        const horario = formatarHorarioRegistro(r.data)
-        if (horario) {
-          partes.push(`HORÁRIO: ${horario}`)
-        }
-
-        // Dados do registro
-        partes.push(`PASTO/CURRAL: *${r.pasto || '—'}*`)
-        partes.push(`LOTE: *${r.numeroLote || '—'}*`)
         partes.push('')
-
-        const suplementaAdulto = r.suplementarAdulto !== false
-        const suplementaCreep = r.suplementarCreep === true && !!r.creepKgCocho
-        const doisGrupos = suplementaAdulto && suplementaCreep
-
-        // Bloco do lote (categorias adultas)
-        if (suplementaAdulto) {
-          if (doisGrupos) partes.push(`LOTE — CATEGORIAS ADULTAS`)
-          partes.push(`R/S - ${r.formulacao || '—'}`)
-          if (r.metaConsumo != null) {
-            partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(r.metaConsumo, '—', 2)}%*`)
-          }
-          // Meta consumo em kg/cab/dia: teorMs% * pesoVivo / 100
-          const pesoVivo = r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null
-          const nCabecas = r.nCabecasLote ? Number(r.nCabecasLote) : null
-          if (r.metaConsumo != null && pesoVivo) {
-            const metaKgCabDia = (Number(r.metaConsumo) / 100) * pesoVivo
-            partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR(metaKgCabDia, '—', 3)} kg*`)
-          }
-          if (nCabecas) {
-            partes.push(`N° CABEÇAS: *${nCabecas}*`)
-          }
-          if (pesoVivo) {
-            partes.push(`PV MÉDIO: *${formatarNumeroBR(pesoVivo, '—', 2)} kg*`)
-          }
-
-          // Categorias adultas (as ao pé aparecem na seção creep)
-          const categorias = (r.categoriasString
-            ? String(r.categoriasString).split(',').map((c: string) => c.trim()).filter(Boolean)
-            : (Array.isArray(r.categorias) ? (r.categorias as string[]) : []))
-            .filter((c: string) => doisGrupos ? !isCategoriaAoPe(c) : true)
-            .join(', ')
-          if (categorias) {
-            partes.push('')
-            partes.push(`CATEGORIAS: *${categorias}*`)
-          }
-
-          partes.push('')
-          partes.push(`LEITURA COCHO: *${r.leituraCocho ?? '—'}*`)
-          if (r.kgCocho) {
-            partes.push(`SUPLEMENTO COCHO (KG): *${formatarNumeroBR(r.kgCocho, '—', 0)}*`)
-          }
+        partes.push(`LEITURA COCHO: *${r.leituraCocho ?? '—'}*`)
+        if (r.kgCocho) {
+          partes.push(`SUPLEMENTO COCHO (KG): *${formatarNumeroBR(r.kgCocho, '—', 0)}*`)
         }
+      }
 
-        // Creep feeding: quando só o creep foi suplementado, os campos
-        // principais do registro já carregam os dados creep (fallback)
-        if (suplementaCreep) {
-          if (suplementaAdulto) partes.push('')
-          partes.push(`CREEP FEEDING`)
-          const creepFormulacao = r.creepFormulacao || (suplementaAdulto ? null : r.formulacao)
-          partes.push(`R/S - ${creepFormulacao || '—'}`)
-          const creepMeta = r.creepMetaConsumo ?? (suplementaAdulto ? null : r.metaConsumo)
-          const creepPv = r.creepPesoVivoKg != null
-            ? Number(r.creepPesoVivoKg)
-            : (suplementaAdulto ? null : (r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null))
-          if (creepMeta != null) {
-            partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(creepMeta, '—', 2)}%*`)
-            if (creepPv) {
-              partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR((Number(creepMeta) / 100) * creepPv, '—', 3)} kg*`)
-            }
-          }
-          const creepCabecas = r.creepNCabecas ?? (suplementaAdulto ? null : r.nCabecasLote)
-          if (creepCabecas) {
-            partes.push(`N° BEZERROS AO PÉ: *${creepCabecas}*`)
-          }
+      // Creep feeding: quando só o creep foi suplementado, os campos
+      // principais do registro já carregam os dados creep (fallback)
+      if (suplementaCreep) {
+        if (suplementaAdulto) partes.push('')
+        partes.push(`CREEP FEEDING`)
+        const creepFormulacao = r.creepFormulacao || (suplementaAdulto ? null : r.formulacao)
+        partes.push(`R/S - ${creepFormulacao || '—'}`)
+        const creepMeta = r.creepMetaConsumo ?? (suplementaAdulto ? null : r.metaConsumo)
+        const creepPv = r.creepPesoVivoKg != null
+          ? Number(r.creepPesoVivoKg)
+          : (suplementaAdulto ? null : (r.pesoVivoKgLote ? Number(r.pesoVivoKgLote) : null))
+        if (creepMeta != null) {
+          partes.push(`META CONSUMO (%PV): *${formatarNumeroBR(creepMeta, '—', 2)}%*`)
           if (creepPv) {
-            partes.push(`PV MÉDIO: *${formatarNumeroBR(creepPv, '—', 2)} kg*`)
+            partes.push(`META CONSUMO (kg/cab/dia): *${formatarNumeroBR((Number(creepMeta) / 100) * creepPv, '—', 3)} kg*`)
           }
-          const creepLeitura = r.creepLeitura ?? (suplementaAdulto ? null : r.leituraCocho)
-          partes.push('')
-          if (creepLeitura != null && creepLeitura !== '') {
-            partes.push(`LEITURA COCHO: *${creepLeitura}*`)
-          }
-          partes.push(`SUPLEMENTO COCHO (KG): *${formatarNumeroBR(r.creepKgCocho, '—', 0)}*`)
         }
-        if (r.escoreFezes != null && r.escoreFezes !== '') {
-          partes.push(`ESCORE FEZES: *${r.escoreFezes}*`)
+        const creepCabecas = r.creepNCabecas ?? (suplementaAdulto ? null : r.nCabecasLote)
+        if (creepCabecas) {
+          partes.push(`N° BEZERROS AO PÉ: *${creepCabecas}*`)
         }
+        if (creepPv) {
+          partes.push(`PV MÉDIO: *${formatarNumeroBR(creepPv, '—', 2)} kg*`)
+        }
+        const creepLeitura = r.creepLeitura ?? (suplementaAdulto ? null : r.leituraCocho)
+        partes.push('')
+        if (creepLeitura != null && creepLeitura !== '') {
+          partes.push(`LEITURA COCHO: *${creepLeitura}*`)
+        }
+        partes.push(`SUPLEMENTO COCHO (KG): *${formatarNumeroBR(r.creepKgCocho, '—', 0)}*`)
+      }
+      if (r.escoreFezes != null && r.escoreFezes !== '') {
+        partes.push(`ESCORE FEZES: *${r.escoreFezes}*`)
+      }
 
-        // Histórico de consumo
-        const metricas = await buscarMetricas(r)
-        const temConsumo = metricas && (
-          metricas.consumoMedioGeralPercentPV ||
-          metricas.consumoMedio30DiasPercentPV ||
-          metricas.consumoMedioGeralKgMN ||
-          metricas.consumoMedio30DiasKgMN ||
-          metricas.custoMedioReaisCabDia
-        )
-        if (temConsumo) {
-          partes.push('')
-          partes.push(`HISTÓRICO DE CONSUMO`)
-          if (metricas!.consumoMedioGeralPercentPV != null) {
-            partes.push(`CMS Geral (%PV): *${Number(metricas!.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*`)
-          }
-          if (metricas!.consumoMedio30DiasPercentPV != null) {
-            partes.push(`CMS 30 DIAS (%PV): *${Number(metricas!.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*`)
-          }
-          if (metricas!.consumoMedioGeralKgMN != null) {
-            partes.push(`CMN Geral (kg/MN): *${Number(metricas!.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*`)
-          }
-          if (metricas!.consumoMedio30DiasKgMN != null) {
-            partes.push(`CMN 30 dias (kg/MN): *${Number(metricas!.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*`)
-          }
-          if (metricas!.custoMedioReaisCabDia != null) {
-            partes.push(`CUSTO MÉDIO (R$/cab/dia): *R$ ${Number(metricas!.custoMedioReaisCabDia).toFixed(2).replace('.', ',')}*`)
-          }
+      // Histórico de consumo
+      const metricas = await buscarMetricas(r)
+      const temConsumo = metricas && (
+        metricas.consumoMedioGeralPercentPV ||
+        metricas.consumoMedio30DiasPercentPV ||
+        metricas.consumoMedioGeralKgMN ||
+        metricas.consumoMedio30DiasKgMN ||
+        metricas.custoMedioReaisCabDia
+      )
+      if (temConsumo) {
+        partes.push('')
+        partes.push(`HISTÓRICO DE CONSUMO`)
+        if (metricas!.consumoMedioGeralPercentPV != null) {
+          partes.push(`CMS Geral (%PV): *${Number(metricas!.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*`)
         }
-
-        // Separador entre registros
-        if (i < registrosDoDia.length - 1) {
-          partes.push('')
-          partes.push('━━━━━━━━━━━━━━━━━━━━━━━━')
-          partes.push('')
+        if (metricas!.consumoMedio30DiasPercentPV != null) {
+          partes.push(`CMS 30 DIAS (%PV): *${Number(metricas!.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*`)
+        }
+        if (metricas!.consumoMedioGeralKgMN != null) {
+          partes.push(`CMN Geral (kg/MN): *${Number(metricas!.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*`)
+        }
+        if (metricas!.consumoMedio30DiasKgMN != null) {
+          partes.push(`CMN 30 dias (kg/MN): *${Number(metricas!.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*`)
+        }
+        if (metricas!.custoMedioReaisCabDia != null) {
+          partes.push(`CUSTO MÉDIO (R$/cab/dia): *R$ ${Number(metricas!.custoMedioReaisCabDia).toFixed(2).replace('.', ',')}*`)
         }
       }
 
-      const textoCompleto = partes.join('\n')
-
-      setMostrarModalResumo(false)
-      await compartilharWhatsApp(textoCompleto)
-    } catch (err) {
-      console.error('Erro ao gerar resumo:', err)
-      alert('Erro ao gerar resumo. Tente novamente.')
-    } finally {
-      setGerando(false)
+      // Separador entre registros
+      if (i < registrosDoDia.length - 1) {
+        partes.push('')
+        partes.push('━━━━━━━━━━━━━━━━━━━━━━━━')
+        partes.push('')
+      }
     }
+
+    await compartilharWhatsApp(partes.join('\n'))
   }
 
-  const handleGerarResumoPdf = async () => {
-    setGerando(true)
-    try {
-      const registrosDoDia = filtrarRegistrosDoDia()
+  const handleGerarResumoPdf = async (data: string) => {
+    const registrosDoDia = filtrarRegistrosDoDia(data)
+    const dataBase = data.split(' ')[0]
 
-      if (registrosDoDia.length === 0) {
-        const dataBase = dataResumo.split(' ')[0]
-        alert(`Nenhum registro encontrado para ${dataBase}`)
-        setGerando(false)
-        return
-      }
-
-      const dataBase = dataResumo.split(' ')[0]
-
-      // Pré-calcular métricas para cada registro
-      const metricasPorRegistro: (MetricasShare | null)[] = []
-      for (const r of registrosDoDia) {
-        const m = await buscarMetricas(r)
-        metricasPorRegistro.push(m)
-      }
-
-      const pdfFile = await gerarPdfResumoSuplementacao(
-        registrosDoDia,
-        dataBase,
-        fazenda,
-        metricasPorRegistro
-      )
-
-      setMostrarModalResumo(false)
-      await compartilharPdf(
-        pdfFile,
-        `Resumo Suplementação — ${dataBase}`,
-        `Resumo diário de suplementação — ${dataBase} (${registrosDoDia.length} registro(s))`
-      )
-    } catch (err) {
-      console.error('Erro ao gerar PDF:', err)
-      alert('Erro ao gerar PDF. Tente novamente.')
-    } finally {
-      setGerando(false)
+    // Pré-calcular métricas para cada registro
+    const metricasPorRegistro: (MetricasShare | null)[] = []
+    for (const r of registrosDoDia) {
+      const m = await buscarMetricas(r)
+      metricasPorRegistro.push(m)
     }
-  }
 
-  const extraActions = (
-    <Button onClick={handleAbrirResumo} variant="secondary" icon="📊">
-      RESUMO DIÁRIO
-    </Button>
-  )
+    const pdfFile = await gerarPdfResumoSuplementacao(
+      registrosDoDia,
+      dataBase,
+      fazenda,
+      metricasPorRegistro
+    )
+
+    await compartilharPdf(
+      pdfFile,
+      `Resumo Suplementação — ${dataBase}`,
+      `Resumo diário de suplementação — ${dataBase} (${registrosDoDia.length} registro(s))`
+    )
+  }
 
   return (
-    <>
-      <ListaRegistros
-        caderneta="suplementacao"
-        titulo="SUPLEMENTAÇÃO"
-        rotaForm="/caderneta/suplementacao"
-        extraActions={extraActions}
-      />
-
-      {/* Modal de resumo diário */}
-      {mostrarModalResumo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">📊 Resumo Diário</h3>
-            <p className="text-base text-gray-700 mb-4">
-              Escolha a data para gerar o resumo de suplementação do dia.
-            </p>
-            <div className="mb-6">
-              <DatePickerIcon
-                label="Data do resumo"
-                value={dataResumo}
-                onChange={setDataResumo}
-              />
-            </div>
-            <div className="flex flex-col gap-3">
-              <Button
-                onClick={handleGerarResumoTexto}
-                variant="primary"
-                fullWidth
-                loading={gerando}
-                icon="📤"
-              >
-                ENVIAR COMO TEXTO
-              </Button>
-              <Button
-                onClick={handleGerarResumoPdf}
-                variant="secondary"
-                fullWidth
-                loading={gerando}
-                icon=""
-              >
-                EXPORTAR PDF
-              </Button>
-              <Button
-                onClick={() => setMostrarModalResumo(false)}
-                variant="ghost"
-                fullWidth
-                disabled={gerando}
-              >
-                CANCELAR
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <ListaRegistros
+      caderneta="suplementacao"
+      titulo="SUPLEMENTAÇÃO"
+      rotaForm="/caderneta/suplementacao"
+      extraActions={
+        <ResumoDiario
+          descricao="suplementação"
+          contarRegistros={(d) => filtrarRegistrosDoDia(d).length}
+          onEnviarTexto={handleGerarResumoTexto}
+          onExportarPdf={handleGerarResumoPdf}
+        />
+      }
+    />
   )
 }
