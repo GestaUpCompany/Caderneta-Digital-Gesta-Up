@@ -5,6 +5,8 @@ import InfoStrip from './InfoStrip'
 export interface InfoCardStat {
   label: string
   value: string
+  /** quantas colunas do grid o stat ocupa (ex: 2 = largura de dois cards) */
+  span?: number
 }
 
 export interface InfoCardStatus {
@@ -72,12 +74,23 @@ export default function InfoCard({
       {stats && stats.length > 0 && (
         <div
           className="mt-3 grid gap-2"
-          style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
+          style={{
+            gridTemplateColumns: `repeat(${Math.max(
+              2,
+              stats.filter((s) => !s.span).length
+            )}, minmax(0, 1fr))`,
+          }}
         >
           {stats.map((s) => (
-            <div key={s.label} className="rounded-xl bg-gray-50 px-3 py-2">
+            <div
+              key={s.label}
+              className="rounded-xl bg-gray-50 px-3 py-2"
+              style={s.span ? { gridColumn: `span ${s.span}` } : undefined}
+            >
               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{s.label}</p>
-              <p className="mt-0.5 truncate text-sm font-extrabold text-gray-900">{s.value}</p>
+              <p className={`mt-0.5 text-sm font-extrabold text-gray-900 ${s.span ? '' : 'truncate'}`}>
+                {s.value}
+              </p>
             </div>
           ))}
         </div>

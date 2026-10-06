@@ -47,7 +47,7 @@ export interface SupplementMetrics {
   categoriasNaoElegiveis?: string[]
 }
 
-interface IntervaloTrato {
+export interface IntervaloTrato {
   inicio: Date
   fim: Date
   dias: number
@@ -60,7 +60,7 @@ interface IntervaloTrato {
 // Todas as categorias são consideradas elegíveis (incluindo bezerros)
 const CATEGORIAS_EXCLUIDAS: string[] = []
 
-function dataSemHoraUTC(dataStr: string): Date {
+export function dataSemHoraUTC(dataStr: string): Date {
   const dataPart = dataStr.substring(0, 10)
   // Formato ISO (YYYY-MM-DD), vindo do Supabase
   if (dataPart.includes('-')) {
@@ -110,7 +110,7 @@ function calcularPesoVivoMedio(categorias: LoteCategoria[]): number | null {
   return quantTotal > 0 ? pesoTotal / quantTotal : null
 }
 
-function calcularIntervalosTratos(
+export function calcularIntervalosTratos(
   registros: RegistroSuplementacao[],
   fallbackCabecas: number
 ): IntervaloTrato[] {
@@ -152,7 +152,7 @@ function calcularIntervalosTratos(
   return intervalos
 }
 
-function calcularMediaPorDiasCobertos(
+export function calcularMediaPorDiasCobertos(
   intervalos: IntervaloTrato[],
   dataInicio: Date,
   dataFim: Date

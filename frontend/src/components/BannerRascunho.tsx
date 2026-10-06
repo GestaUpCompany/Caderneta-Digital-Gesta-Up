@@ -13,32 +13,23 @@ export default function BannerRascunho({ visible, onConfirmar, onDescartar }: Ba
   if (!visible) return null
 
   return (
-    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <span className="text-2xl flex-shrink-0">📝</span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-amber-900">
-            Preenchimento em andamento recuperado
-          </p>
-          <p className="text-xs text-amber-700 mt-0.5">
-            Continuar de onde parou ou começar novamente?
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <button
-          onClick={onDescartar}
-          className="text-sm font-bold text-amber-800 bg-white border-2 border-amber-300 rounded-xl px-3 py-2 min-h-[40px] active:bg-amber-100 transition-colors"
-        >
-          Descartar
-        </button>
-        <button
-          onClick={onConfirmar}
-          className="text-sm font-bold text-white bg-amber-600 rounded-xl px-3 py-2 min-h-[40px] active:bg-amber-700 transition-colors"
-        >
-          Continuar
-        </button>
-      </div>
+    <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 shadow-sm">
+      <span className="flex-shrink-0 text-base leading-none">📝</span>
+      <p className="min-w-0 flex-1 text-xs font-semibold text-amber-900">
+        Rascunho recuperado. Continuar?
+      </p>
+      <button
+        onClick={onDescartar}
+        className="flex-shrink-0 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-bold text-amber-800 transition-colors active:bg-amber-100"
+      >
+        Descartar
+      </button>
+      <button
+        onClick={onConfirmar}
+        className="flex-shrink-0 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-bold text-white transition-colors active:bg-amber-700"
+      >
+        Continuar
+      </button>
     </div>
   )
 }
