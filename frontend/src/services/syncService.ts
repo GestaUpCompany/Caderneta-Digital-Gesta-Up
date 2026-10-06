@@ -652,6 +652,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
           ? Number(registro.leituraCochoNota)
           : null,
         programacao_id: registro.programacaoId || null,
+        vagao_id: registro.vagaoId || null,
+        fabrica_confinamento_id: registro.fabricaConfinamentoId || null,
       }
     }
     case 'pesagem': {
@@ -811,6 +813,7 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   limpeza: 'fotos-registros',
   problemas: 'fotos-registros',
   bebedouros: 'fotos-registros',
+  'trato-confinamento': 'fotos-registros',
 }
 
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.

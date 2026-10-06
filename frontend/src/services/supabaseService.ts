@@ -3240,13 +3240,67 @@ export async function getRegistrosOfertaTratoAnteriores(
   return result || []
 }
 
+/**
+ * Produções do vagão do dia (registros_fabrica_confinamento): usado pela folha
+ * de trato para exibir carregado/saldo por vagão e vincular o lançamento a
+ * uma produção quando houver mais de um vagão no mesmo trato.
+ */
+export async function getRegistrosFabricaByData(
+  fazendaId: string,
+  data: string
+) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const dataFim = new Date(data + 'T00:00:00')
+  dataFim.setDate(dataFim.getDate() + 1)
+  const dataFimISO = dataFim.toISOString().slice(0, 10)
+
+  const { data: result, error } = await client
+    .from('registros_fabrica_confinamento')
+    .select('id, data, ordem_trato, tipo, formulacao_id, vagao_id, total_previsto, total_produzido, concluido, formulacoes(nome), vagoes(nome)')
+    .eq('fazenda_id', fazendaId)
+    .gte('data', data)
+    .lt('data', dataFimISO)
+    .is('deleted_at', null)
+    .order('ordem_trato', { ascending: true })
+
+  if (error) throw error
+  return result || []
+}
+
+// Colunas novas de registros_oferta_trato (vagão + foto da balança). A migration
+// só é aplicada depois do deploy do PWA; até lá o PostgREST responde PGRST204 e
+// o sync retenta sem elas para não derrubar a fila inteira.
+const COLUNAS_NOVAS_OFERTA_TRATO = ['vagao_id', 'fabrica_confinamento_id', 'foto_url']
+
+function isErroColunaDesconhecida(error: any): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST204' || error.code === '42703') return true
+  const msg = String(error.message || '')
+  return COLUNAS_NOVAS_OFERTA_TRATO.some((c) => msg.includes(`'${c}'`))
+}
+
+function semColunasNovasOfertaTrato(registro: any) {
+  const { vagao_id: _v, fabrica_confinamento_id: _f, foto_url: _p, ...resto } = registro || {}
+  return resto
+}
+
 export async function createRegistroOfertaTrato(registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
-  const { data, error } = await client
+  let { data, error } = await client
     .from('registros_oferta_trato')
     .upsert(registro, { onConflict: 'local_id' })
     .select()
     .single()
+
+  if (error && isErroColunaDesconhecida(error)) {
+    const retry = await client
+      .from('registros_oferta_trato')
+      .upsert(semColunasNovasOfertaTrato(registro), { onConflict: 'local_id' })
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) throw error
   return data
@@ -3268,12 +3322,23 @@ export async function createRegistroPesagem(registro: any) {
 
 export async function updateRegistroOfertaTrato(id: string, registro: any) {
   const client = await getSupabaseClientWithRefresh() as any
-  const { data, error } = await client
+  let { data, error } = await client
     .from('registros_oferta_trato')
     .update(registro)
     .eq('id', id)
     .select()
     .single()
+
+  if (error && isErroColunaDesconhecida(error)) {
+    const retry = await client
+      .from('registros_oferta_trato')
+      .update(semColunasNovasOfertaTrato(registro))
+      .eq('id', id)
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) throw error
   return data
