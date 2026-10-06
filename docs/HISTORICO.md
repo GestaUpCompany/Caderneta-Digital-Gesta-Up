@@ -2,6 +2,21 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Fotos WebP e share com álbum em produção (05/10/2026)
+
+Incremento da caderneta de Bebedouros promovido via `release/bebedouros-fotos`, mesmo recorte de arquivos sobre a master.
+
+O que entrou:
+
+- **Compressão WebP**: `comprimirFoto` (photoCompress) exporta WebP q0.7 com fallback para JPEG detectado por `toDataURL` (browsers sem suporte retornam PNG silenciosamente). ~30% mais leve que JPEG. Extensão e mime reais propagados nos uploads (`syncService`, paths `*.webp`) e no share (`foto_N.webp`). Helpers novos: `imageMimeFromBase64`, `imageExtFromBase64`, `base64ToDataUrl` (detecta formato pelo magic bytes, compatível com fotos JPEG antigas). Todos os `<img>` que montavam `data:image/jpeg;base64` passaram a usar `base64ToDataUrl` (FotoSection, AtividadesPage, BebedourosPage, MortePage, ProblemasPage).
+- **Share de bebedouros com álbum**: os itens não conformes com foto ficam marcados "(foto N)" no texto e todas as fotos vão juntas como `files` na Web Share API, na mesma ordem — uma única share sheet, no WhatsApp vira álbum com legenda. Fotos locais saem do `fotoBase64`; já sincronizadas são baixadas da `foto_url` (se o download falhar, caem como link no fim do texto). `fotoUrlParaBase64` corrigido para retornar base64 puro (antes retornava o data URL com prefixo, quebrando `atob`).
+- **Warm cache de bebedouros corrigido**: a página consulta `ultima-limpeza-bebedouro-antes-{data}` mas o warm só aquecia `ultima-limpeza-bebedouro` — chaves diferentes, miss garantido offline. Agora a fase aquece os quatro dados por bebedouro (última limpeza, última limpeza antes da data de hoje, média de intervalo, pastos vinculados). Ressalva: data de registro diferente de hoje continua sem histórico offline.
+- **InfoCard**: stat "Última limpeza" exibe "N dias" sem o prefixo "há" (o share mantém "há N dias").
+
+Ficou de fora de propósito: restyle do `FotoSection` e `ChecklistSection` (checklist geral), mudanças de input em `AtividadesPage`/`MortePage`, e a remoção de `getPastoByIdCached` do `cadastroCache` (a `SuplementacaoPage` do master ainda usa) — foram trazidos só o `base64ToDataUrl` nesses arquivos e o bloco de warm novo.
+
+**Disparador**: quando mencionar "fotos grandes no Supabase", "webp", "share com foto", "histórico offline de bebedouro", ou `base64ToDataUrl`, ler esta seção.
+
 ## Tela de Bebedouros modernizada em produção (05/10/2026)
 
 Terceira fatia do redesign foi para produção via `release/bebedouros`, mesmo método de recorte de arquivos da `feat/layout-moderno-menus` sobre o master.

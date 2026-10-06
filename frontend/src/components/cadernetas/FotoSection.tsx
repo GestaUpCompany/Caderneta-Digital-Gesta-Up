@@ -1,4 +1,5 @@
 import { Button } from '../ui'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 
 interface FotoSectionProps {
   /** Titulo numerado da secao, ex: "4. FOTO" */
@@ -33,7 +34,7 @@ export default function FotoSection({
       {fotoBase64 ? (
         <div className="flex flex-col gap-3">
           <img
-            src={`data:image/jpeg;base64,${fotoBase64}`}
+            src={base64ToDataUrl(fotoBase64)}
             alt="Foto capturada"
             className="w-full max-w-sm rounded-2xl border-2 border-gray-200 mx-auto"
           />

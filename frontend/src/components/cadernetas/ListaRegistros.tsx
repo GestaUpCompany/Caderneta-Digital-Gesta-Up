@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react'
 import AppHeader from '../AppHeader'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
-import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
+import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza, extrairProblemasComFotoBebedouros, fotoUrlParaBase64 } from '../../utils/shareUtils'
 import { translateSyncError, formatSyncErrorForSupport } from '../../utils/syncErrorMessages'
 import { formatarNumeroBR, normalizarNumero } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -300,8 +300,33 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     }
 
     const texto = formatarRegistroComoTexto(registroParaShare, caderneta, registros)
-    const foto = (registroParaShare as any).fotoBase64 as string | null | undefined
-    compartilharWhatsApp(texto, foto)
+    const fotos: string[] = []
+    let textoFinal = texto
+
+    if (caderneta === 'bebedouros') {
+      // Cada problema com foto vai como imagem do album, na ordem dos
+      // marcadores "(foto N)" do texto. Item sem base64 e sem download
+      // possivel vira link no texto.
+      const problemas = extrairProblemasComFotoBebedouros(registroParaShare)
+      const linksPendentes: string[] = []
+      for (let i = 0; i < problemas.length; i++) {
+        const p = problemas[i]
+        let base64 = p.fotoBase64
+        if (!base64 && p.fotoUrl) {
+          base64 = (await fotoUrlParaBase64(p.fotoUrl)) ?? undefined
+        }
+        if (base64) fotos.push(base64)
+        else if (p.fotoUrl) linksPendentes.push(`FOTO ${i + 1}: ${p.fotoUrl}`)
+      }
+      if (linksPendentes.length > 0) {
+        textoFinal = `${texto}\n${linksPendentes.join('\n')}\n`
+      }
+    } else {
+      const foto = (registroParaShare as any).fotoBase64 as string | null | undefined
+      if (foto) fotos.push(foto)
+    }
+
+    await compartilharWhatsApp(textoFinal, fotos)
     setMostrarModalCompartilhar(false)
     setRegistroParaCompartilhar(null)
   }

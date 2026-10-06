@@ -1,7 +1,7 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
 import { formatarNumeroBR, normalizarNumero } from './formatNumber'
-import { base64ToBlob } from './photoCompress'
+import { base64ToBlob, imageExtFromBase64, imageMimeFromBase64 } from './photoCompress'
 import { isCategoriaAoPe } from './categorias'
 
 /**
@@ -662,40 +662,36 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
     // Checklist: a UI marca problemas (afirmacao negativa); no payload,
     // valor=true significa "condicao adequada". So imprime itens marcados.
-    const checklistBebedouros = [
-      { campo: 'agua_suficiente', label: 'ÁGUA INSUFICIENTE' },
-      { campo: 'vazao_bebedouro_ideal', label: 'VAZÃO DA BÓIA FORA DO IDEAL' },
-      { campo: 'boia_protecao_boas_condicoes', label: 'BÓIA/PROTEÇÃO EM MÁS CONDIÇÕES' },
-      { campo: 'aterro_acesso_bebedouro_ideal', label: 'ATERRO/ACESSO INADEQUADO' },
-      { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO INADEQUADO' },
-    ]
+    const checklistBebedouros = CHECKLIST_BEBEDOUROS_PROBLEMAS
 
-    // Filter only problematic answers (valor === false)
+    // Filter only problematic answers (valor === false). Item com foto ganha
+    // marcador "(foto N)": a imagem vai anexada na MESMA mensagem, na ordem,
+    // formando um album (ver ListaRegistros + compartilharWhatsApp).
     const problematicos = checklistBebedouros.map(({ campo, label }) => {
       let valor = null
       let observacao = null
-      let fotoUrl = null
+      let temFoto = false
       if (registro.checklist && (registro.checklist as any)[campo]) {
-        valor = (registro.checklist as any)[campo].valor
-        observacao = (registro.checklist as any)[campo].observacao
-        fotoUrl = (registro.checklist as any)[campo].foto_url
+        const item = (registro.checklist as any)[campo]
+        valor = item.valor
+        observacao = item.observacao
+        temFoto = !!(item.fotoBase64 || item.foto_url)
       } else {
         const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      return { label, valor, observacao, fotoUrl }
+      return { label, valor, observacao, temFoto }
     }).filter(item => item.valor === false)
 
     if (problematicos.length > 0) {
       texto += `\nPROBLEMAS ENCONTRADOS\n`
-      problematicos.forEach(({ label, observacao, fotoUrl }) => {
-        texto += `⚠️ *${label}*\n`
+      let numeroFoto = 0
+      problematicos.forEach(({ label, observacao, temFoto }) => {
+        const marcador = temFoto ? ` (foto ${++numeroFoto})` : ''
+        texto += `⚠️ *${label}*${marcador}\n`
         if (observacao && observacao !== '') {
           texto += `OBSERVAÇÃO: *${observacao}*\n`
-        }
-        if (fotoUrl) {
-          texto += `FOTO: ${fotoUrl}\n`
         }
       })
     }
@@ -2379,24 +2375,87 @@ const abrirUrlExterna = (url: string, texto: string) => {
 
 const isAbort = (err: unknown) => (err as DOMException)?.name === 'AbortError'
 
-export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | null) => {
+// Labels negativas do checklist de bebedouros: item marcado na tela sai como
+// valor=false na chave positiva correspondente.
+const CHECKLIST_BEBEDOUROS_PROBLEMAS = [
+  { campo: 'agua_suficiente', label: 'ÁGUA INSUFICIENTE' },
+  { campo: 'vazao_bebedouro_ideal', label: 'VAZÃO DA BÓIA FORA DO IDEAL' },
+  { campo: 'boia_protecao_boas_condicoes', label: 'BÓIA/PROTEÇÃO EM MÁS CONDIÇÕES' },
+  { campo: 'aterro_acesso_bebedouro_ideal', label: 'ATERRO/ACESSO INADEQUADO' },
+  { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO INADEQUADO' },
+]
+
+export interface ProblemaComFoto {
+  label: string
+  observacao?: string
+  fotoBase64?: string
+  fotoUrl?: string
+}
+
+/**
+ * Itens do checklist de bebedouros marcados como problema E com foto
+ * (base64 local antes do sync ou foto_url depois). Cada um vira uma
+ * mensagem separada no compartilhamento, com a imagem anexada.
+ */
+export const extrairProblemasComFotoBebedouros = (registro: Registro): ProblemaComFoto[] => {
+  const checklist = (registro as any).checklist
+  if (!checklist || typeof checklist !== 'object') return []
+
+  return CHECKLIST_BEBEDOUROS_PROBLEMAS.flatMap(({ campo, label }) => {
+    const item = checklist[campo]
+    if (!item || item.valor !== false) return []
+    const fotoBase64 = item.fotoBase64 as string | undefined
+    const fotoUrl = item.foto_url as string | undefined
+    if (!fotoBase64 && !fotoUrl) return []
+    return [{ label, observacao: item.observacao || undefined, fotoBase64, fotoUrl }]
+  })
+}
+
+// Baixa uma foto do Storage e converte para base64, para anexar no share
+// quando o registro sincronizado so tem foto_url.
+export const fotoUrlParaBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string
+        resolve(dataUrl.includes(',') ? dataUrl.split(',')[1] : null)
+      }
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | string[] | null) => {
   const textoCodificado = encodeURIComponent(texto)
   const url = `https://wa.me/?text=${textoCodificado}`
   const mobile = isMobileShare()
 
+  // Aceita 1 ou N fotos: multiplas viram um album na mesma mensagem (ordem
+  // preservada — os marcadores "(foto N)" do texto apontam para ela).
+  const fotos = (Array.isArray(fotoBase64) ? fotoBase64 : fotoBase64 ? [fotoBase64] : []).filter(Boolean)
+
   // Se houver foto, tentar anexa-la via Web Share API (files)
-  if (fotoBase64) {
+  if (fotos.length > 0) {
     try {
-      const blob = base64ToBlob(fotoBase64)
-      const file = new File([blob], 'foto_registro.jpg', { type: 'image/jpeg' })
+      const files = fotos.map((b64, i) => {
+        const mime = imageMimeFromBase64(b64)
+        return new File([base64ToBlob(b64, mime)], `foto_${i + 1}.${imageExtFromBase64(b64)}`, { type: mime })
+      })
       const nav = navigator as any
 
-      if (mobile && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
+      if (mobile && typeof nav.canShare === 'function' && nav.canShare({ files })) {
         try {
           await nav.share({
             title: 'Compartilhar Registro',
             text: texto,
-            files: [file],
+            files,
           })
           return
         } catch (err) {

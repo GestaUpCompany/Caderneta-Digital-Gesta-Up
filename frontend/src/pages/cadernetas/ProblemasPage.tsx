@@ -20,6 +20,7 @@ import { pontoDentroPoligono } from '../../services/mapaRouting'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 
 const SETOR_FALLBACK = ['Gado', 'Máquinas', 'ADM', 'Fábrica', 'Manutenção', 'Terceirizado']
 
@@ -272,7 +273,7 @@ export default function ProblemasPage() {
           {fotoBase64 ? (
             <div className="flex items-start gap-3">
               <img
-                src={`data:image/jpeg;base64,${fotoBase64}`}
+                src={base64ToDataUrl(fotoBase64)}
                 alt="Foto do problema"
                 className="w-24 h-24 rounded-xl border border-gray-200 object-cover"
               />
