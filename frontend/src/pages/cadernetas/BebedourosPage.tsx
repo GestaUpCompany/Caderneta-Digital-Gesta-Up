@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, ValidationMessage, SearchableModal } from '../../components/ui'
-import { FileText } from 'lucide-react'
+import { Droplets, FileText } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -24,8 +24,7 @@ import { usePhotoGps } from '../../hooks/usePhotoGps'
 import { useVoiceInput } from '../../hooks/useVoiceInput'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
-import BebedouroDetalhesCard from '../../components/BebedouroDetalhesCard'
-import BebedouroPastoCard from '../../components/BebedouroPastoCard'
+import InfoCard, { InfoCardStatus } from '../../components/cadernetas/InfoCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 
 const BASE = import.meta.env.BASE_URL
@@ -437,6 +436,36 @@ export default function BebedourosPage() {
       ? pastosBebedouro.map((p) => p.nome).join(' · ')
       : ''
 
+  // Resumo do bebedouro selecionado: stats de limpeza + faixa unica de decisao
+  const metaDiasLimpeza = parseInt(form.metaIntervaloLimpeza)
+  const tempoDiasLimpeza =
+    form.tempoDesdeLimpeza === 'limpo hoje'
+      ? 0
+      : parseInt(form.tempoDesdeLimpeza.replace(/\D+/g, ' ').trim())
+  const mediaDiasLimpeza = parseInt(form.intervaloMedioLimpezas)
+  const temPasto = (pastosBebedouro?.length ?? 0) > 0
+  const temMeta = !isNaN(metaDiasLimpeza) && metaDiasLimpeza > 0
+  const temHistorico = !isNaN(tempoDiasLimpeza)
+
+  const bebedouroStatus: InfoCardStatus | undefined = (() => {
+    if (form.tempoDesdeLimpeza === 'Sem histórico')
+      return { tone: 'warning', text: 'Sem histórico de limpeza registrado' }
+    if (!temMeta) return { tone: 'neutral', text: 'Meta de limpeza não definida' }
+    if (!temHistorico) return undefined
+    const atraso = tempoDiasLimpeza - metaDiasLimpeza
+    if (atraso > 2) return { tone: 'danger', text: `Limpeza atrasada há ${atraso} dias` }
+    if (atraso > 0) return { tone: 'warning', text: 'Limpeza no limite do prazo' }
+    if (!isNaN(mediaDiasLimpeza) && mediaDiasLimpeza > metaDiasLimpeza + 1)
+      return { tone: 'warning', text: 'Média de limpezas acima da meta' }
+    const restam = metaDiasLimpeza - tempoDiasLimpeza
+    return {
+      tone: 'success',
+      text: restam === 0 ? 'Limpeza vence hoje' : `No prazo: limpa de novo em ${restam} dias`,
+    }
+  })()
+
+  const bebedouroProgress = temMeta && temHistorico ? tempoDiasLimpeza / metaDiasLimpeza : null
+
   return (
     <>
       <CadernetaLayout
@@ -476,18 +505,34 @@ export default function BebedourosPage() {
             />
           )}
           {form.numeroBebedouro && (
-            <BebedouroDetalhesCard
-              tempoDesdeLimpeza={form.tempoDesdeLimpeza}
-              intervaloMedioLimpezas={form.intervaloMedioLimpezas}
-              metaIntervaloLimpeza={form.metaIntervaloLimpeza}
-            />
-          )}
-          {form.numeroBebedouro && (
-            <BebedouroPastoCard
-              nomeBebedouro={form.numeroBebedouro}
-              pastos={pastosBebedouro}
-              loading={loadingPastosBebedouro}
-            />
+            <InfoCard
+              icon={Droplets}
+              title={form.numeroBebedouro}
+              subtitle={
+                loadingPastosBebedouro
+                  ? 'Carregando pasto...'
+                  : temPasto
+                    ? pastosBebedouro!.map((p) => p.nome).join(' · ')
+                    : 'Sem pasto associado'
+              }
+              stats={[
+                { label: 'Última limpeza', value: form.tempoDesdeLimpeza || '-' },
+                {
+                  label: 'Média',
+                  value: isNaN(mediaDiasLimpeza) ? '-' : form.intervaloMedioLimpezas,
+                },
+                { label: 'Meta', value: temMeta ? form.metaIntervaloLimpeza : '-' },
+              ]}
+              progress={bebedouroProgress}
+              status={bebedouroStatus}
+            >
+              {!loadingPastosBebedouro && !temPasto && (
+                <InfoStrip tone="warning" className="mt-2">
+                  Sem pasto associado. No Manej'Us, acessar edição de pastos e vincular
+                  este bebedouro.
+                </InfoStrip>
+              )}
+            </InfoCard>
           )}
 
           <div>
@@ -563,7 +608,7 @@ export default function BebedourosPage() {
                     <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
                       <InfoStrip tone="danger" icon="⚠️">{aviso}</InfoStrip>
 
-                      {foto ? (
+                      {foto && (
                         <div className="flex items-start gap-3">
                           <img
                             src={`data:image/jpeg;base64,${foto}`}
@@ -578,8 +623,10 @@ export default function BebedourosPage() {
                             🗑️ REMOVER FOTO
                           </button>
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-2">
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {!foto && (
                           <button
                             type="button"
                             onClick={() => handleTirarFotoItem(campo)}
@@ -591,22 +638,24 @@ export default function BebedourosPage() {
                               {capturandoFoto && campoFotoAtual === campo ? 'Capturando...' : 'Foto'}
                             </span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleFalarItem(campo)}
-                            className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
-                              ouvindoVoz && campoVozAtual === campo
-                                ? 'animate-pulse bg-red-600'
-                                : 'bg-brand-900 hover:bg-brand-800'
-                            }`}
-                          >
-                            <span className="text-lg leading-none">🎤</span>
-                            <span className="text-xs font-extrabold uppercase tracking-wide">
-                              {ouvindoVoz && campoVozAtual === campo ? 'Ouvindo...' : 'Falar'}
-                            </span>
-                          </button>
-                        </div>
-                      )}
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleFalarItem(campo)}
+                          className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                            foto ? 'col-span-2' : ''
+                          } ${
+                            ouvindoVoz && campoVozAtual === campo
+                              ? 'animate-pulse bg-red-600'
+                              : 'bg-brand-900 hover:bg-brand-800'
+                          }`}
+                        >
+                          <span className="text-lg leading-none">🎤</span>
+                          <span className="text-xs font-extrabold uppercase tracking-wide">
+                            {ouvindoVoz && campoVozAtual === campo ? 'Ouvindo...' : 'Falar'}
+                          </span>
+                        </button>
+                      </div>
                       {fotoErro && campoFotoAtual === campo && (
                         <InfoStrip tone="danger">{fotoErro}</InfoStrip>
                       )}
