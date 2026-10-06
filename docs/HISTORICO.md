@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Ordem manual dos currais na folha de trato (06/10/2026)
+
+A barra inferior de currais da `TratoConfinamentoPage` passou a respeitar `currais.ordem_folha_trato`, coluna nova definida e editada por drag no painel web (Configuração de Tratos, seção "Currais em trato"). O sort em `carregarDados` usa `curraisPorId.get(curralId)?.ordem_folha_trato` com NULLs no fim e desempate por nome; a ordem se propaga para `curraisDaLinha`, para o botão "SALVAR E IR PARA X" e para a seleção inicial do curral.
+
+`getCurrais` faz `select('*')`, então a coluna entra no warm cache ("Currais (Confinamento)") sem mudança de sync. Cache quente anterior ao deploy não tem a coluna e degrada para a ordenação alfabética anterior até o próximo warm-up online. Não há edição da ordem no PWA, só consumo.
+
+**Disparador**: quando mencionar "ordem dos currais no trato", "barra de currais", `ordem_folha_trato`, ler esta seção.
+
 ## Fotos WebP e share com álbum em produção (05/10/2026)
 
 Incremento da caderneta de Bebedouros promovido via `release/bebedouros-fotos`, mesmo recorte de arquivos sobre a master.
