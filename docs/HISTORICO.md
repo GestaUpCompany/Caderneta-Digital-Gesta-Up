@@ -1076,3 +1076,7 @@ To get access to the TypeScript compiler, [34mtsc[0m, from the command line ei
 - Use [1myarn[0m to avoid accidentally running code from un-installed packages) limpo.
 
 Disparador: quando mencionar cache nao invalida ao trocar fazenda, funcionario de outra fazenda, nome errado no app, PIN de outra pessoa, aparelho que alterna IDs, , ler esta secao.
+
+## Share com fotos no app nativo via Capacitor Share/Filesystem (06/10/2026)
+
+O compartilhamento com album de fotos nao anexava nada no APK de producao: o Android WebView nao implementa `navigator.share` com `files`, entao o fluxo sempre caia no fallback `wa.me` (so texto). `compartilharWhatsApp` agora detecta `Capacitor.isNativePlatform()` e usa `@capacitor/share` + `@capacitor/filesystem` (novas deps): grava cada foto em `Directory.Cache` e chama `Share.share({ text, files: uris })` numa share sheet so. Cancelamento do usuario tratado como abort; falha real cai para o caminho web como antes. Requer rebuild do APK para ter efeito.
