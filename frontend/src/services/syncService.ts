@@ -364,6 +364,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo_saida: registro.tipoSaida || null,
         tipo_entrada: registro.tipoEntrada || null,
         fazenda_destino_id: registro.fazendaDestinoId || null,
+        foto_url: (registro as any).foto_url || null,
       }
     }
     case 'enfermaria':
@@ -811,6 +812,7 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   enfermaria: 'fotos-registros',
   maternidade: 'fotos-registros',
   rodeio: 'fotos-registros',
+  movimentacao: 'fotos-registros',
   'manutencao-maquinas': 'fotos-registros',
   limpeza: 'fotos-registros',
   problemas: 'fotos-registros',

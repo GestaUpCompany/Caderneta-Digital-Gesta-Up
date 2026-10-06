@@ -374,10 +374,16 @@ export function validateMovimentacao(data: Record<string, unknown>): ValidationR
   const motivo = data.motivoMovimentacao as string
   const subtipo = data.subtipo as string
 
-  // Para Doação, apenas data e motivo são obrigatórios
+  // Para Doação, as cabeças saem do lote de origem e não há destino
   if (motivo === 'Doação') {
-    if (!isNonEmptyString(data.motivoMovimentacao))
-      errors.push({ field: 'motivoMovimentacao', message: 'Motivo da movimentação é obrigatório' })
+    if (!isNonEmptyString(data.loteOrigem))
+      errors.push({ field: 'loteOrigem', message: 'Lote de origem é obrigatório' })
+    if (!isNonEmptyString(data.categoria))
+      errors.push({ field: 'categoria', message: 'Categoria é obrigatória' })
+    if (!isPositiveNumber(data.numeroCabecas) || Number(data.numeroCabecas) === 0)
+      errors.push({ field: 'numeroCabecas', message: 'Número de cabeças deve ser maior que zero' })
+    if (data.maxCabecasLote && Number(data.numeroCabecas) > Number(data.maxCabecasLote))
+      errors.push({ field: 'numeroCabecas', message: `Número de cabeças excede o total do lote (${data.maxCabecasLote})` })
     return { isValid: errors.length === 0, errors }
   }
 
