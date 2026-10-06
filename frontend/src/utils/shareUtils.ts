@@ -3,6 +3,9 @@ import { CADERNETAS } from './constants'
 import { formatarNumeroBR, normalizarNumero } from './formatNumber'
 import { base64ToBlob, imageExtFromBase64, imageMimeFromBase64 } from './photoCompress'
 import { isCategoriaAoPe } from './categorias'
+import { Capacitor } from '@capacitor/core'
+import { Share } from '@capacitor/share'
+import { Filesystem, Directory } from '@capacitor/filesystem'
 
 /**
  * Calcula o tempo desde a última limpeza formatado para exibição.
@@ -2440,6 +2443,34 @@ export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | 
   // Aceita 1 ou N fotos: multiplas viram um album na mesma mensagem (ordem
   // preservada — os marcadores "(foto N)" do texto apontam para ela).
   const fotos = (Array.isArray(fotoBase64) ? fotoBase64 : fotoBase64 ? [fotoBase64] : []).filter(Boolean)
+
+  // App nativo (APK): o WebView do Android nao tem Web Share API, entao o
+  // caminho web abaixo sempre cairia no wa.me sem anexo. Usa o plugin nativo:
+  // grava as fotos em cache e compartilha texto + album numa share sheet so.
+  if (fotos.length > 0 && Capacitor.isNativePlatform()) {
+    try {
+      const uris: string[] = []
+      for (let i = 0; i < fotos.length; i++) {
+        const resultado = await Filesystem.writeFile({
+          path: `share/foto_${i + 1}.${imageExtFromBase64(fotos[i])}`,
+          data: fotos[i],
+          directory: Directory.Cache,
+          recursive: true,
+        })
+        uris.push(resultado.uri)
+      }
+      await Share.share({
+        title: 'Compartilhar Registro',
+        text: texto,
+        files: uris,
+        dialogTitle: 'Compartilhar registro',
+      })
+      return
+    } catch (err) {
+      if (isAbort(err) || /cancel/i.test((err as Error)?.message || '')) return
+      console.error('[share] Falha no share nativo, tentando caminho web:', err)
+    }
+  }
 
   // Se houver foto, tentar anexa-la via Web Share API (files)
   if (fotos.length > 0) {
