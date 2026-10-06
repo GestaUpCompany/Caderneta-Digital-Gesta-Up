@@ -26,6 +26,7 @@ import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import InfoCard, { InfoCardStatus } from '../../components/cadernetas/InfoCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -516,7 +517,10 @@ export default function BebedourosPage() {
                     : 'Sem pasto associado'
               }
               stats={[
-                { label: 'Última limpeza', value: form.tempoDesdeLimpeza || '-' },
+                {
+                  label: 'Última limpeza',
+                  value: (form.tempoDesdeLimpeza || '-').replace(/^há\s*/i, ''),
+                },
                 {
                   label: 'Média',
                   value: isNaN(mediaDiasLimpeza) ? '-' : form.intervaloMedioLimpezas,
@@ -611,7 +615,7 @@ export default function BebedourosPage() {
                       {foto && (
                         <div className="flex items-start gap-3">
                           <img
-                            src={`data:image/jpeg;base64,${foto}`}
+                            src={base64ToDataUrl(foto)}
                             alt={`Foto de ${label}`}
                             className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
                           />

@@ -20,6 +20,7 @@ import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 
 function processarCategorias(categorias: string): string[] {
   if (!categorias) return []
@@ -709,7 +710,7 @@ export default function MortePage() {
           {fotoBase64 ? (
             <div className="flex flex-col gap-3">
               <img
-                src={`data:image/jpeg;base64,${fotoBase64}`}
+                src={base64ToDataUrl(fotoBase64)}
                 alt="Foto do animal"
                 className="w-full max-w-sm rounded-2xl border-2 border-gray-200 mx-auto"
               />

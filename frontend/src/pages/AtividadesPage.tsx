@@ -35,6 +35,7 @@ import {
 import { compartilharWhatsApp } from '../utils/shareUtils'
 import { enqueueRegistro } from '../services/syncService'
 import { usePhotoGps } from '../hooks/usePhotoGps'
+import { base64ToDataUrl } from '../utils/photoCompress'
 
 const PRIORIDADE_CORES: Record<number, string> = {
   1: 'bg-red-500',
@@ -1151,7 +1152,7 @@ export default function AtividadesPage() {
               {fotoBase64 ? (
                 <div className="flex flex-col gap-2">
                   <img
-                    src={`data:image/jpeg;base64,${fotoBase64}`}
+                    src={base64ToDataUrl(fotoBase64)}
                     alt="Foto da atividade"
                     className="w-full max-w-xs rounded-xl border-2 border-gray-200 mx-auto"
                   />
@@ -1311,7 +1312,7 @@ export default function AtividadesPage() {
                 {fotoBase64 ? (
                   <div className="flex flex-col gap-2">
                     <img
-                      src={`data:image/jpeg;base64,${fotoBase64}`}
+                      src={base64ToDataUrl(fotoBase64)}
                       alt="Foto da atividade"
                       className="w-full max-w-xs rounded-xl border-2 border-gray-200 mx-auto"
                     />

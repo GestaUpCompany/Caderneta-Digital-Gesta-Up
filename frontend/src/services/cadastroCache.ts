@@ -2900,11 +2900,17 @@ export async function warmAllCadastroCache(
       onProgress?.(processed, totalItems, 'Detalhes Bebedouros')
       const bebedouros = await getBebedourosCached(fazendaId)
       if (bebedouros && bebedouros.length > 0) {
-        // Paralelizar todos os bebedouros (2 queries cada, todas em paralelo)
+        // A pagina consulta "ultima limpeza ANTES de {data do registro}" e os
+        // pastos vinculados: ambos precisam ser aquecidos com a mesma chave
+        // que a consulta offline usa, senao o cache nunca bate.
+        const hojeBeb = getDateTimePartsInTimezone(new Date())
+        const dataHojeBeb = `${hojeBeb.year}-${hojeBeb.month}-${hojeBeb.day}`
         await Promise.all(
           bebedouros.flatMap(bebedouro => [
             getUltimaDataLimpezaBebedouroCached(fazendaId, bebedouro.id),
+            getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId, bebedouro.id, dataHojeBeb),
             getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id),
+            getPastosByBebedouroCached(fazendaId, bebedouro.id),
           ])
         )
         warmedExtras++

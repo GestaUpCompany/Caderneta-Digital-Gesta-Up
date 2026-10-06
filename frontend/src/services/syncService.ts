@@ -820,16 +820,17 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
   if (!bucket || !fotoBase64) return null
 
   try {
-    const { base64ToBlob } = await import('../utils/photoCompress')
-    const blob = base64ToBlob(fotoBase64)
+    const { base64ToBlob, imageMimeFromBase64, imageExtFromBase64 } = await import('../utils/photoCompress')
+    const mime = imageMimeFromBase64(fotoBase64)
+    const blob = base64ToBlob(fotoBase64, mime)
     const fotoPath = bucket === 'fotos-registros'
-      ? `${fazendaId}/${store}/${registro.id}/foto.jpg`
-      : `${fazendaId}/${registro.id}/foto.jpg`
+      ? `${fazendaId}/${store}/${registro.id}/foto.${imageExtFromBase64(fotoBase64)}`
+      : `${fazendaId}/${registro.id}/foto.${imageExtFromBase64(fotoBase64)}`
     const client = await getSupabaseClientWithRefresh() as any
     const { error: uploadError } = await client
       .storage
       .from(bucket)
-      .upload(fotoPath, blob, { contentType: 'image/jpeg', upsert: true })
+      .upload(fotoPath, blob, { contentType: mime, upsert: true })
 
     if (uploadError) {
       console.error(`[SYNC] Erro ao fazer upload da foto (${store}):`, uploadError)
@@ -853,7 +854,7 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
 async function uploadFotosChecklistBebedouros(checklist: any, registro: Registro, fazendaId: string): Promise<any> {
   if (!checklist || typeof checklist !== 'object') return checklist
 
-  const { base64ToBlob } = await import('../utils/photoCompress')
+  const { base64ToBlob, imageMimeFromBase64, imageExtFromBase64 } = await import('../utils/photoCompress')
   const client = await getSupabaseClientWithRefresh() as any
   const result: Record<string, any> = {}
 
@@ -866,11 +867,12 @@ async function uploadFotosChecklistBebedouros(checklist: any, registro: Registro
     const { fotoBase64, ...rest } = it
     if (fotoBase64) {
       try {
-        const fotoPath = `${fazendaId}/bebedouros/${registro.id}/${key}.jpg`
+        const mime = imageMimeFromBase64(fotoBase64)
+        const fotoPath = `${fazendaId}/bebedouros/${registro.id}/${key}.${imageExtFromBase64(fotoBase64)}`
         const { error: uploadError } = await client
           .storage
           .from('fotos-registros')
-          .upload(fotoPath, base64ToBlob(fotoBase64), { contentType: 'image/jpeg', upsert: true })
+          .upload(fotoPath, base64ToBlob(fotoBase64, mime), { contentType: mime, upsert: true })
         if (uploadError) {
           console.error(`[SYNC] Erro ao fazer upload da foto do checklist (${key}):`, uploadError)
         } else {
