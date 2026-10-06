@@ -2,6 +2,19 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Isolamento de tenant no Supabase e adaptações do PWA (06/10/2026)
+
+O Painel aplicou a migration `20261006180000_isolamento_tenant_lotes_pastos_fazendas.sql` fechando RLS cross-fazenda em `fazendas`, `usuario_fazenda`, `pastos`, `lotes` e `peoes` (policies `qual=true`, incluindo UPDATE público em `pastos` e auto-vínculo em `usuario_fazenda`), após incidente real em que controller de uma fazenda alterou dados de outra. O acesso passa a ser por `caller_has_fazenda_access` (vínculo `usuario_fazenda` para usuários; email JWT -> `peoes` -> `fazendas.acesso_id` para peões) e `user_has_fazenda_role` para checks por papel.
+
+Duas adaptações necessárias no PWA:
+
+- **`farmStatusService.checkFarmActiveStatus`**: usava o client `anon` puro para ler `fazendas` (guarda de boot do app). Sem policy pública, retornava "Fazenda desativada" para fazenda ativa. Passou a usar a RPC `SECURITY DEFINER` `get_fazenda_por_acesso(acesso_id)` (campos operacionais mínimos, executável por `anon` e `authenticated`, criada no Painel em `20261006200000`).
+- **`getFazendaByAcessoId`**: ganhou fallback para a mesma RPC quando o client está sem token de peão (janela de re-auth). Campos sensíveis (`cnpj`, `endereco`, `telefone`, `email`, `planilha_id`, `bounding_box`) só vêm na leitura autenticada.
+
+Verificado com Chrome DevTools na fazenda de testes: guarda de boot, warm cache completo com JWT `peao_gestaup`, SearchableModal da Movimentação exibindo lote+pasto, login por perfil+PIN e dashboard do Painel. O restante do item S3 (outras ~18 tabelas de cadastro, `usuarios`, `lote_historico`, RPCs definer sem check) segue no BACKLOG.
+
+**Disparador**: quando mencionar "Fazenda desativada indevida", "anon não lê fazendas", `get_fazenda_por_acesso`, "isolamento de tenant", ler esta seção.
+
 ## Ordem manual dos currais na folha de trato (06/10/2026)
 
 A barra inferior de currais da `TratoConfinamentoPage` passou a respeitar `currais.ordem_folha_trato`, coluna nova definida e editada por drag no painel web (Configuração de Tratos, seção "Currais em trato"). O sort em `carregarDados` usa `curraisPorId.get(curralId)?.ordem_folha_trato` com NULLs no fim e desempate por nome; a ordem se propaga para `curraisDaLinha`, para o botão "SALVAR E IR PARA X" e para a seleção inicial do curral.
