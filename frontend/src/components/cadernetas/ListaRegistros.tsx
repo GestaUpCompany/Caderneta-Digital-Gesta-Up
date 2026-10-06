@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react'
 import AppHeader from '../AppHeader'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
-import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza, extrairProblemasComFotoBebedouros, fotoUrlParaBase64 } from '../../utils/shareUtils'
+import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza, extrairProblemasComFotoBebedouros, extrairFotosSuplementacao, fotoUrlParaBase64 } from '../../utils/shareUtils'
 import { translateSyncError, formatSyncErrorForSupport } from '../../utils/syncErrorMessages'
 import { formatarNumeroBR, normalizarNumero } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -303,11 +303,13 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     const fotos: string[] = []
     let textoFinal = texto
 
-    if (caderneta === 'bebedouros') {
+    if (caderneta === 'bebedouros' || caderneta === 'suplementacao') {
       // Cada problema com foto vai como imagem do album, na ordem dos
       // marcadores "(foto N)" do texto. Item sem base64 e sem download
       // possivel vira link no texto.
-      const problemas = extrairProblemasComFotoBebedouros(registroParaShare)
+      const problemas = caderneta === 'bebedouros'
+        ? extrairProblemasComFotoBebedouros(registroParaShare)
+        : extrairFotosSuplementacao(registroParaShare)
       const linksPendentes: string[] = []
       for (let i = 0; i < problemas.length; i++) {
         const p = problemas[i]

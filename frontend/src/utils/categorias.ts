@@ -29,3 +29,11 @@ export function processarCategorias(categorias: string): string[] {
     .map(c => c.trim())
     .filter(c => c.length > 0)
 }
+
+// Iniciais maiúsculas para exibição ("bezerro ao pé" -> "Bezerro Ao Pé")
+export function capitalizarCategoria(cat: string): string {
+  return cat
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}

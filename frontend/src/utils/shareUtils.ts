@@ -1129,65 +1129,49 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
     */
     
-    // Seção: Checklist Cochos — only display problematic (false/Não) answers
-    const checklistCochos = [
-      { campo: 'limpeza_cocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
-      { campo: 'espacamento_cocho_adequado', label: 'ESPAÇAMENTO DE COCHO ESTÁ ADEQUADO?' },
-      { campo: 'cochos_condicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
-      { campo: 'aterro_acesso_ideal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' }
-    ]
+    // Seção: Problemas encontrados — checklist negativo, mesmo padrao de
+    // bebedouros. Item com foto ganha marcador "(foto N)" apontando para o
+    // album anexado na mesma mensagem (ver ListaRegistros).
+    const checklistSuplementacao = registro.checklist as any
+    const fotoCochoItem = checklistSuplementacao?.foto_cocho
+    const temFotoCocho = !!(fotoCochoItem?.fotoBase64 || fotoCochoItem?.foto_url)
+    let numeroFotoSup = 0
+    if (temFotoCocho) {
+      numeroFotoSup++
+      texto += `\nFOTO DO COCHO: *(foto ${numeroFotoSup})*\n`
+    }
 
-    const problematicosCochos = checklistCochos.map(({ campo, label }) => {
+    const problematicosCochos = CHECKLIST_SUPLEMENTACAO_PROBLEMAS.map(({ campo, label }) => {
       let valor = null
       let observacao = null
-      if (registro.checklist && (registro.checklist as any)[campo]) {
-        valor = (registro.checklist as any)[campo].valor
-        observacao = (registro.checklist as any)[campo].observacao
+      let temFoto = false
+      if (checklistSuplementacao && checklistSuplementacao[campo]) {
+        const item = checklistSuplementacao[campo]
+        valor = item.valor
+        observacao = item.observacao
+        temFoto = !!(item.fotoBase64 || item.foto_url)
       } else {
         const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      return { label, valor, observacao }
+      return { label, valor, observacao, temFoto }
     }).filter(item => item.valor === false)
 
     if (problematicosCochos.length > 0) {
-      texto += `\nCHECKLIST COCHOS\n`
-      problematicosCochos.forEach(({ label, observacao }) => {
-        texto += `⚠️ ${label}: *Não*\n`
+      texto += `\nPROBLEMAS ENCONTRADOS\n`
+      problematicosCochos.forEach(({ label, observacao, temFoto }) => {
+        const marcador = temFoto ? ` (foto ${++numeroFotoSup})` : ''
+        texto += `⚠️ *${label}*${marcador}\n`
         if (observacao && observacao !== '') {
           texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
       })
     }
 
-    // Seção: Checklist Depósito — only display problematic (false/Não) answers
-    const checklistDeposito = [
-      { campo: 'deposito_condicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' }
-    ]
-
-    const problematicosDeposito = checklistDeposito.map(({ campo, label }) => {
-      let valor = null
-      let observacao = null
-      if (registro.checklist && (registro.checklist as any)[campo]) {
-        valor = (registro.checklist as any)[campo].valor
-        observacao = (registro.checklist as any)[campo].observacao
-      } else {
-        const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
-        valor = (registro as any)[flatCampo]
-        observacao = (registro as any)[`${flatCampo}Obs`]
-      }
-      return { label, valor, observacao }
-    }).filter(item => item.valor === false)
-
-    if (problematicosDeposito.length > 0) {
-      texto += `\nCHECKLIST DEPÓSITO\n`
-      problematicosDeposito.forEach(({ label, observacao }) => {
-        texto += `⚠️ ${label}: *Não*\n`
-        if (observacao && observacao !== '') {
-          texto += `OBSERVAÇÃO: *${observacao}*\n`
-        }
-      })
+    const limpezaCocho = checklistSuplementacao?.limpeza_cocho?.valor
+    if (limpezaCocho !== null && limpezaCocho !== undefined) {
+      texto += `\nLIMPEZA DE COCHO FOI REALIZADA?: *${limpezaCocho ? 'Sim' : 'Não'}*\n`
     }
   } else if (caderneta === 'leitura-cocho') {
     // Seção: Dados Principais
@@ -2388,6 +2372,14 @@ const CHECKLIST_BEBEDOUROS_PROBLEMAS = [
   { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO INADEQUADO' },
 ]
 
+// Labels negativas do checklist de suplementacao, mesmo modelo de bebedouros.
+const CHECKLIST_SUPLEMENTACAO_PROBLEMAS = [
+  { campo: 'espacamento_cocho_adequado', label: 'ESPAÇAMENTO DO COCHO INADEQUADO' },
+  { campo: 'cochos_condicoes', label: 'COCHO EM MÁS CONDIÇÕES' },
+  { campo: 'aterro_acesso_ideal', label: 'ATERRO/ACESSO INADEQUADO' },
+  { campo: 'deposito_condicoes', label: 'DEPÓSITO EM MÁS CONDIÇÕES' },
+]
+
 export interface ProblemaComFoto {
   label: string
   observacao?: string
@@ -2412,6 +2404,37 @@ export const extrairProblemasComFotoBebedouros = (registro: Registro): ProblemaC
     if (!fotoBase64 && !fotoUrl) return []
     return [{ label, observacao: item.observacao || undefined, fotoBase64, fotoUrl }]
   })
+}
+
+/**
+ * Fotos do checklist de suplementacao no share: a foto do cocho (evidencia da
+ * leitura) sai primeiro, depois os problemas marcados com foto, na mesma
+ * ordem dos marcadores "(foto N)" do texto.
+ */
+export const extrairFotosSuplementacao = (registro: Registro): ProblemaComFoto[] => {
+  const checklist = (registro as any).checklist
+  if (!checklist || typeof checklist !== 'object') return []
+
+  const fotos: ProblemaComFoto[] = []
+  const cocho = checklist.foto_cocho
+  if (cocho && (cocho.fotoBase64 || cocho.foto_url)) {
+    fotos.push({
+      label: 'FOTO DO COCHO',
+      fotoBase64: cocho.fotoBase64 as string | undefined,
+      fotoUrl: cocho.foto_url as string | undefined,
+    })
+  }
+
+  CHECKLIST_SUPLEMENTACAO_PROBLEMAS.forEach(({ campo, label }) => {
+    const item = checklist[campo]
+    if (!item || item.valor !== false) return
+    const fotoBase64 = item.fotoBase64 as string | undefined
+    const fotoUrl = item.foto_url as string | undefined
+    if (!fotoBase64 && !fotoUrl) return
+    fotos.push({ label, observacao: item.observacao || undefined, fotoBase64, fotoUrl })
+  })
+
+  return fotos
 }
 
 // Baixa uma foto do Storage e converte para base64, para anexar no share

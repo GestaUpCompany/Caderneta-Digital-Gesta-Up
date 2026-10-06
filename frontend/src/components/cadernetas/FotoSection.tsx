@@ -1,4 +1,3 @@
-import { Button } from '../ui'
 import { base64ToDataUrl } from '../../utils/photoCompress'
 
 interface FotoSectionProps {
@@ -28,34 +27,40 @@ export default function FotoSection({
   onFileChange,
 }: FotoSectionProps) {
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4">
-      <h2 className="text-lg font-black text-gray-900 tracking-tight">{titulo}</h2>
+    <div className="app-card flex flex-col gap-4 p-5">
+      <h2 className="text-[15px] font-extrabold uppercase tracking-tight text-gray-900">{titulo}</h2>
 
       {fotoBase64 ? (
         <div className="flex flex-col gap-3">
           <img
             src={base64ToDataUrl(fotoBase64)}
             alt="Foto capturada"
-            className="w-full max-w-sm rounded-2xl border-2 border-gray-200 mx-auto"
+            className="w-full max-w-sm rounded-xl border border-gray-200 mx-auto"
           />
-          <Button onClick={onRemover} variant="secondary" icon="🗑️">
-            REMOVER FOTO
-          </Button>
+          <button
+            type="button"
+            onClick={onRemover}
+            className="w-full rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+          >
+            🗑️ REMOVER FOTO
+          </button>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {descricao && (
             <p className="text-sm text-gray-600">{descricao}</p>
           )}
-          <Button
+          <button
+            type="button"
             onClick={onTirar}
-            variant="success"
-            loading={capturando}
-            icon="📷"
-            className="!bg-green-900 !border-green-900 !active:bg-green-950"
+            disabled={capturando}
+            className="w-full rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-4 py-8 flex flex-col items-center justify-center gap-2 text-gray-500 transition-colors hover:border-brand-600 hover:text-brand-700 active:scale-[0.99] disabled:opacity-60"
           >
-            {capturando ? 'CAPTURANDO...' : textoBotao}
-          </Button>
+            <span className="text-2xl">📷</span>
+            <span className="text-sm font-bold uppercase tracking-wide">
+              {capturando ? 'CAPTURANDO...' : textoBotao}
+            </span>
+          </button>
           {erro && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-800">
               {erro}

@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
-import SearchableModal from '../../components/ui/SearchableModal'
+import { Input, DatePicker, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Beef, FileText } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { calcularPeriodoTrato } from '../../utils/shareUtils'
 import PdfModal from '../../components/PdfModal'
@@ -12,10 +11,15 @@ import { getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
 import { getFarmTimezoneAsync } from '../../services/checklistRegrasService'
 import { todayBR, brToIso, getDateTimePartsInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import CadernetaHeader from '../../components/CadernetaHeader'
+import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import InfoCard, { InfoCardStatus } from '../../components/cadernetas/InfoCard'
+import HistoricoSuplementacaoModal from '../../components/cadernetas/HistoricoSuplementacaoModal'
+import BannerRascunho from '../../components/BannerRascunho'
 import {
   getPastoByNomeCached,
-  getPastoByIdCached,
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
   getFormulacaoByNomeCached,
@@ -25,52 +29,57 @@ import {
   getNotasLeituraCochoConfigCached,
   getLotesAtivosCached,
 } from '../../services/cadastroCache'
-import LoteOcupandoPastoCard from '../../components/LoteOcupandoPastoCard'
-import FormulacaoDetalhesCard from '../../components/FormulacaoDetalhesCard'
-import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
+import {
+  calcularMetricasSuplementacao,
+  calcularIntervalosTratos,
+  calcularMediaPorDiasCobertos,
+  dataSemHoraUTC,
+} from '../../utils/supplementMetrics'
 import { calcularPesoProjetado } from '../../utils/pesoProjetado'
-import { isCategoriaAoPe, processarCategorias } from '../../utils/categorias'
-// import EspacamentoCochoCard from '../../components/EspacamentoCochoCard' // Temporariamente desabilitado
+import { isCategoriaAoPe, processarCategorias, capitalizarCategoria } from '../../utils/categorias'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 
 const BASE = import.meta.env.BASE_URL
 
-
-const LEITURAS = [
-  { value: '-1', label: '-1', icon: '🔴' },
-  { value: '0', label: '0', icon: '🟡' },
-  { value: '1', label: '1', icon: '🟢' },
-  { value: '2', label: '2', icon: '🟡' },
-  { value: '3', label: '3', icon: '🔴' },
+// Leitura do cocho (-1 a 3): descricao padrao por nota. Quando a fazenda
+// configura notas proprias, a descricao aparece na faixa de KG previsto.
+const LEITURA_OPTIONS = [
+  { value: '-1', numero: '-1', label: 'Lambido', dot: 'bg-red-500', selecionado: 'bg-red-50 border-red-500 text-red-800' },
+  { value: '0', numero: '0', label: 'Limpo', dot: 'bg-amber-400', selecionado: 'bg-amber-50 border-amber-400 text-amber-900' },
+  { value: '1', numero: '1', label: 'Ideal', dot: 'bg-green-500', selecionado: 'bg-green-50 border-green-500 text-green-800' },
+  { value: '2', numero: '2', label: 'Sobra', dot: 'bg-amber-400', selecionado: 'bg-amber-50 border-amber-400 text-amber-900' },
+  { value: '3', numero: '3', label: 'Muita sobra', dot: 'bg-red-500', selecionado: 'bg-red-50 border-red-500 text-red-800' },
 ]
 
-const ESCALA_5 = [
-  { value: '1', label: '1', icon: '🔴' },
-  { value: '2', label: '2', icon: '🟡' },
-  { value: '3', label: '3', icon: '🟢' },
-  { value: '4', label: '4', icon: '🟡' },
-  { value: '5', label: '5', icon: '🔴' },
+const FEZES_OPTIONS = [
+  { value: '1', numero: '1', label: 'Líquida', dot: 'bg-red-500', selecionado: 'bg-red-50 border-red-500 text-red-800' },
+  { value: '2', numero: '2', label: 'Mole', dot: 'bg-amber-400', selecionado: 'bg-amber-50 border-amber-400 text-amber-900' },
+  { value: '3', numero: '3', label: 'Ideal', dot: 'bg-green-500', selecionado: 'bg-green-50 border-green-500 text-green-800' },
+  { value: '4', numero: '4', label: 'Firme', dot: 'bg-amber-400', selecionado: 'bg-amber-50 border-amber-400 text-amber-900' },
+  { value: '5', numero: '5', label: 'Seca', dot: 'bg-red-500', selecionado: 'bg-red-50 border-red-500 text-red-800' },
 ]
 
-const SN_OPTIONS = [
-  { value: 'Sim', label: 'SIM', icon: '✅' },
-  { value: 'Não', label: 'NÃO', icon: '❌' },
-]
+// Checklist vira lista de problemas: clicar marca "o problema existe".
+// O payload mantem as chaves positivas (espacamento_cocho_adequado etc.):
+// valor=true significa "condicao adequada". Mesmo modelo dos bebedouros.
+const CHECKLIST_PROBLEMAS = [
+  { campo: 'espacamentoCochoAdequado', checklistKey: 'espacamento_cocho_adequado', label: 'ESPAÇAMENTO DO COCHO INADEQUADO', aviso: 'Espaçamento inadequado: mostre e conte' },
+  { campo: 'cochosCondicoes', checklistKey: 'cochos_condicoes', label: 'COCHO EM MÁS CONDIÇÕES', aviso: 'Cocho com problema: mostre e conte' },
+  { campo: 'aterroAcessoIdeal', checklistKey: 'aterro_acesso_ideal', label: 'ATERRO/ACESSO INADEQUADO', aviso: 'Acesso inadequado: mostre e conte' },
+  { campo: 'depositoCondicoes', checklistKey: 'deposito_condicoes', label: 'DEPÓSITO EM MÁS CONDIÇÕES', aviso: 'Depósito com problema: mostre e conte' },
+] as const
 
-const CHECKLIST_PERGUNTAS = [
-  { campo: 'limpezaCocho', label: 'LIMPEZA DE COCHO FOI REALIZADA?' },
-  { campo: 'espacamentoCochoAdequado', label: 'ESPAÇAMENTO DE COCHO ESTÁ ADEQUADO?' },
-  { campo: 'cochosCondicoes', label: 'COCHOS ESTÃO EM BOAS CONDIÇÕES?' },
-  { campo: 'aterroAcessoIdeal', label: 'ATERRO / ACESSO DE COCHO ESTÁ IDEAL?' },
-  // { campo: 'espacamentoCocho', label: 'ESPAÇAMENTO DO COCHO (cm/cab):' }, // Temporariamente desabilitado
-  { campo: 'depositoCondicoes', label: 'DEPÓSITO ESTÁ EM BOAS CONDIÇÕES?' },
-]
+type CampoChecklist = typeof CHECKLIST_PROBLEMAS[number]['campo']
 
 interface FormState {
   data: string
@@ -82,45 +91,27 @@ interface FormState {
   leitura: string
   kgCocho: string
   kgDeposito: string
+  fotoCocho: string
   escoreFezes: string
   // Creep feeding: campos do bezerro(a) ao pé (exibidos quando o lote tem a categoria)
   creepLeitura: string
   creepKgCocho: string
-  // Checklist fields (for UI)
+  // Checklist: itens negativos ('' = adequado, 'Não' = problema marcado)
+  // mais a pergunta de acao "limpeza de cocho foi realizada?" (Sim/Não)
   limpezaCocho: string
   limpezaCochoObs: string
-  cochosCondicoes: string
-  cochosCondicoesObs: string
-  aterroAcessoIdeal: string
-  aterroAcessoIdealObs: string
-  espacamentoCochoCmCab: string
-  espacamentoCochoObs: string
-  depositoCondicoes: string
-  depositoCondicoesObs: string
   espacamentoCochoAdequado: string
   espacamentoCochoAdequadoObs: string
-  checklist?: {
-    limpeza_cocho: {
-      valor: boolean
-      observacao: string
-    }
-    cochos_condicoes: {
-      valor: boolean
-      observacao: string
-    }
-    aterro_acesso_ideal: {
-      valor: boolean
-      observacao: string
-    }
-    deposito_condicoes: {
-      valor: boolean
-      observacao: string
-    }
-    espacamento_cocho_adequado: {
-      valor: boolean
-      observacao: string
-    }
-  }
+  espacamentoCochoAdequadoFoto: string
+  cochosCondicoes: string
+  cochosCondicoesObs: string
+  cochosCondicoesFoto: string
+  aterroAcessoIdeal: string
+  aterroAcessoIdealObs: string
+  aterroAcessoIdealFoto: string
+  depositoCondicoes: string
+  depositoCondicoesObs: string
+  depositoCondicoesFoto: string
 }
 
 const makeInitial = (): FormState => ({
@@ -133,22 +124,24 @@ const makeInitial = (): FormState => ({
   leitura: '',
   kgCocho: '',
   kgDeposito: '',
+  fotoCocho: '',
   escoreFezes: '',
   creepLeitura: '',
   creepKgCocho: '',
-  // Checklist fields
   limpezaCocho: '',
   limpezaCochoObs: '',
-  cochosCondicoes: '',
-  cochosCondicoesObs: '',
-  aterroAcessoIdeal: '',
-  aterroAcessoIdealObs: '',
-  espacamentoCochoCmCab: '',
-  espacamentoCochoObs: '',
-  depositoCondicoes: '',
-  depositoCondicoesObs: '',
   espacamentoCochoAdequado: '',
   espacamentoCochoAdequadoObs: '',
+  espacamentoCochoAdequadoFoto: '',
+  cochosCondicoes: '',
+  cochosCondicoesObs: '',
+  cochosCondicoesFoto: '',
+  aterroAcessoIdeal: '',
+  aterroAcessoIdealObs: '',
+  aterroAcessoIdealFoto: '',
+  depositoCondicoes: '',
+  depositoCondicoesObs: '',
+  depositoCondicoesFoto: '',
 })
 
 export default function SuplementacaoPage() {
@@ -164,23 +157,25 @@ export default function SuplementacaoPage() {
     onConfirmarObservacao,
     onCancelarObservacao,
   } = useSalvarRegistro('suplementacao')
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: `suplementacao:${fazendaId || 'sem-fazenda'}`, makeInitial })
 
   useEffect(() => {
     garantirExecucao('suplementacao')
   }, [garantirExecucao])
 
-  const [form, setForm] = useState<FormState>(() => makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showFezesModal, setShowFezesModal] = useState(false)
+  const [showHistoricoModal, setShowHistoricoModal] = useState(false)
   const [semPlanoAtivo, setSemPlanoAtivo] = useState<boolean>(false)
-  const [kgDeposito, setKgDeposito] = useState('')
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [loteSemPasto, setLoteSemPasto] = useState<boolean>(false)
+  const [loteNaoEncontrado, setLoteNaoEncontrado] = useState<boolean>(false)
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
@@ -190,8 +185,24 @@ export default function SuplementacaoPage() {
   const [notasConfig, setNotasConfig] = useState<any[]>([])
   const [creepFormulacaoDetalhes, setCreepFormulacaoDetalhes] = useState<{ id: string | null; nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null; formaFornecimento: string | null; kgPorSaco: number | null } | null>(null)
   const [creepFormulacaoCarregada, setCreepFormulacaoCarregada] = useState(false)
-  const [metricasCreep, setMetricasCreep] = useState<any>(null)
-  const planoAtivoRef = useRef<{ loteId: string; plano: any | null } | null>(null)
+  const [campoFotoAtual, setCampoFotoAtual] = useState<string | null>(null)
+  const [campoVozAtual, setCampoVozAtual] = useState<string | null>(null)
+  const baseVozRef = useRef('')
+
+  const {
+    capturandoFoto,
+    fotoErro,
+    capturarFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: false })
+
+  const {
+    ouvindo: ouvindoVoz,
+    erro: vozErro,
+    toggle: toggleVoz,
+    parar: pararVoz,
+  } = useVoiceInput()
 
   // Categorias de bezerro(a) ao pé do lote selecionado (creep feeding)
   const categoriasAoPe = useMemo(() => {
@@ -321,6 +332,7 @@ export default function SuplementacaoPage() {
       if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
         setLoteSemPasto(false)
+        setLoteNaoEncontrado(false)
         setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
         return
       }
@@ -330,15 +342,13 @@ export default function SuplementacaoPage() {
         if (!lote) {
           setDetalhesLote(null)
           setLoteSemPasto(false)
+          setLoteNaoEncontrado(true)
           setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
           return
         }
 
-        let pastoNome = lote.pastos?.nome || lotesPastoMap[form.numeroLote] || ''
-        if (!pastoNome && lote.pasto_id) {
-          const pasto = await getPastoByIdCached(fazendaId, lote.pasto_id)
-          pastoNome = pasto?.nome || ''
-        }
+        setLoteNaoEncontrado(false)
+        const pastoNome = lote.pastos?.nome || lotesPastoMap[form.numeroLote] || ''
         setLoteSemPasto(!lote.pasto_id)
         setForm(prev => ({ ...prev, pasto: pastoNome, pastoId: lote.pasto_id || '', loteId: lote.id }))
 
@@ -358,26 +368,25 @@ export default function SuplementacaoPage() {
         console.error('Erro ao carregar detalhes do lote:', error)
         setDetalhesLote(null)
         setLoteSemPasto(false)
+        setLoteNaoEncontrado(true)
         setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
       }
     }
 
     carregarDetalhesLoteEPasto()
-  }, [form.numeroLote, fazendaId, lotesPastoMap])
+  }, [form.numeroLote, fazendaId])
 
   // Carregar formulação do plano nutricional ativo do lote
   useEffect(() => {
     async function carregarFormulacaoDoPlanoAtivo() {
       if (!form.loteId) {
         setSemPlanoAtivo(false)
-        planoAtivoRef.current = null
         setForm(prev => ({ ...prev, formulacao: '' }))
         return
       }
 
       try {
         const plano = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
-        planoAtivoRef.current = { loteId: form.loteId, plano }
         if (plano && plano.formulacaoNome) {
           setSemPlanoAtivo(false)
           setForm(prev => ({ ...prev, formulacao: plano.formulacaoNome }))
@@ -387,7 +396,6 @@ export default function SuplementacaoPage() {
         }
       } catch (error) {
         console.error('Erro ao carregar formulação do plano ativo:', error)
-        planoAtivoRef.current = null
         setSemPlanoAtivo(true)
         setForm(prev => ({ ...prev, formulacao: '' }))
       }
@@ -545,48 +553,56 @@ export default function SuplementacaoPage() {
     }
   }, [detalhesLote, registrosSuplementacao, formulacaoDetalhes])
 
-  // Métricas da série creep: só categorias ao pé + registros escopo 'creep'
-  useEffect(() => {
-    if (!temCreepDisponivel || !creepFormulacaoDetalhes) {
-      setMetricasCreep(null)
-      return
-    }
-
-    try {
-      const registrosCreep = registrosSuplementacao.filter(
-        (r: any) => r.escopo === 'creep'
-      )
-      const formulacao = {
-        nome: creepFormulacaoDetalhes.nome,
-        teor_ms_dieta: creepFormulacaoDetalhes.teorMs,
-        meta_consumo_ms_percent_pv: creepFormulacaoDetalhes.metaConsumo,
-        custo_dieta_reais_cab_dia: creepFormulacaoDetalhes.custoDietaReaisCabDia,
-        custo_mn_tonelada: creepFormulacaoDetalhes.custoMnTonelada,
-        consumo_mn_kg_cab_dia: null,
-        consumo_ms_kg_cab_dia: null,
-        custo_ms_tonelada: null
-      }
-
-      setMetricasCreep(calcularMetricasSuplementacao(categoriasAoPe, registrosCreep, formulacao))
-    } catch (error) {
-      console.error('Erro ao calcular métricas creep:', error)
-      setMetricasCreep(null)
-    }
-  }, [categoriasAoPe, temCreepDisponivel, creepFormulacaoDetalhes, registrosSuplementacao])
-
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  // Handler específico para kgCocho: aceita apenas inteiros (sem ponto, vírgula ou decimais)
-  const setKgCochoInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
-    setForm((prev) => ({ ...prev, kgCocho: apenasDigitos }))
+  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+
+  const toggleProblema = (campo: CampoChecklist) =>
+    setForm((prev) => ({ ...prev, [campo]: prev[campo] === 'Não' ? '' : 'Não' }))
+
+  // Foto: 'fotoCocho' (evidencia da leitura) ou item do checklist.
+  const campoFotoDestino = (campo: string) =>
+    campo === 'fotoCocho' ? 'fotoCocho' : `${campo}Foto`
+
+  const handleTirarFotoItem = async (campo: string) => {
+    setCampoFotoAtual(campo)
+    const base64 = await capturarFoto()
+    // Nativo retorna a foto aqui; no web o retorno vem pelo input file hidden
+    if (base64) {
+      setForm((prev) => ({ ...prev, [campoFotoDestino(campo)]: base64 }))
+    }
   }
 
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
+  const handleFotoInputItem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const result = await handleFileInputChange(e)
+    if (result?.fotoBase64 && campoFotoAtual) {
+      setForm((prev) => ({ ...prev, [campoFotoDestino(campoFotoAtual)]: result.fotoBase64 }))
+    }
+  }
+
+  const removerFotoItem = (campo: string) =>
+    setForm((prev) => ({ ...prev, [campoFotoDestino(campo)]: '' }))
+
+  // Ditado para a observacao do item: o texto parcial e acrescentado ao que
+  // ja existia quando a gravacao comecou (da para falar mais de uma vez).
+  const handleFalarItem = async (campo: string) => {
+    if (ouvindoVoz) {
+      await pararVoz()
+      if (campoVozAtual === campo) return
+    }
+    setCampoVozAtual(campo)
+    baseVozRef.current = (((form as any)[`${campo}Obs`]) || '').trim()
+    await toggleVoz((parcial) => {
+      setForm((prev) => ({
+        ...prev,
+        [`${campo}Obs`]: baseVozRef.current ? `${baseVozRef.current} ${parcial}` : parcial,
+      }))
+    })
+  }
 
   // Calcular kg previsto com base no último kg_cocho do lote + percentual da nota selecionada
   // Série adulta apenas: registros creep têm cocho/formulação próprios
@@ -624,6 +640,125 @@ export default function SuplementacaoPage() {
   const kgPorSacoCreep = creepFormulacaoDetalhes?.kgPorSaco ?? null
   const isSacariaCreep = creepFormulacaoDetalhes?.formaFornecimento === 'sacaria' && kgPorSacoCreep !== null && kgPorSacoCreep > 0
 
+  // Cabeças adultas do lote (denominador de consumo por cabeça)
+  const cabecasAdultas = useMemo(() => {
+    const total = detalhesLote?.n_cabecas ?? 0
+    const adultas = total - creepNCabecas
+    return adultas > 0 ? adultas : 0
+  }, [detalhesLote, creepNCabecas])
+
+  // Consumo do lote: série diária kg MN/cab por intervalo de trato.
+  // Intervalo de um trato cobre da data do trato até o próximo trato.
+  const intervalosAdulto = useMemo(() => {
+    if (!detalhesLote || registrosSuplementacao.length === 0) return []
+    const registrosAdulto = registrosSuplementacao.filter(
+      (r: any) => (r.escopo || 'lote') !== 'creep'
+    )
+    return calcularIntervalosTratos(registrosAdulto, cabecasAdultas || 1)
+  }, [detalhesLote, registrosSuplementacao, cabecasAdultas])
+
+  // Janela de 7 dias ancorada na data do registro (funciona para trato retroativo)
+  const dataReferencia = useMemo(() => dataSemHoraUTC(form.data || todayBR()), [form.data])
+
+  // Intervalo aberto do ultimo trato: calcularIntervalosTratos so gera
+  // intervalos fechados entre dois tratos, entao o trato mais recente nunca
+  // apareceria na serie. O kg fornecido nele segue em consumo ate o proximo
+  // trato; ate la, rateia pelos dias decorridos ate a data do registro.
+  const intervalosComAberto = useMemo(() => {
+    if (intervalosAdulto.length === 0 && registrosSuplementacao.length === 0) return intervalosAdulto
+    const registrosAdulto = registrosSuplementacao.filter(
+      (r: any) => (r.escopo || 'lote') !== 'creep'
+    )
+    const ultimo = [...registrosAdulto].sort(
+      (a: any, b: any) => dataSemHoraUTC(b.data).getTime() - dataSemHoraUTC(a.data).getTime()
+    )[0]
+    if (!ultimo || !ultimo.kg_cocho) return intervalosAdulto
+
+    const inicio = dataSemHoraUTC(ultimo.data)
+    if (inicio > dataReferencia) return intervalosAdulto
+    const nCab = ultimo.n_cabecas && ultimo.n_cabecas > 0
+      ? ultimo.n_cabecas - (ultimo.qtd_bezerros || 0)
+      : (cabecasAdultas || 1)
+    if (nCab <= 0) return intervalosAdulto
+
+    const dias = Math.max(1, Math.round((dataReferencia.getTime() - inicio.getTime()) / 86400000))
+    const fim = new Date(dataReferencia)
+    fim.setUTCDate(fim.getUTCDate() + 1)
+    const consumoDiarioMN = ultimo.kg_cocho / dias
+    return [
+      ...intervalosAdulto,
+      { inicio, fim, dias, kgCocho: ultimo.kg_cocho, nCabecas: nCab, consumoDiarioMN, consumoDiarioPorAnimal: consumoDiarioMN / nCab },
+    ]
+  }, [intervalosAdulto, registrosSuplementacao, cabecasAdultas, dataReferencia])
+  const serie7Dias = useMemo(() => {
+    const dias: { data: Date; kgCab: number | null }[] = []
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(dataReferencia)
+      d.setUTCDate(d.getUTCDate() - i)
+      const intervalo = intervalosComAberto.find((int) => d >= int.inicio && d < int.fim)
+      dias.push({ data: d, kgCab: intervalo ? intervalo.consumoDiarioPorAnimal : null })
+    }
+    return dias
+  }, [intervalosComAberto, dataReferencia])
+
+  const media7Dias = useMemo(() => {
+    const inicio = new Date(dataReferencia)
+    inicio.setUTCDate(inicio.getUTCDate() - 6)
+    return calcularMediaPorDiasCobertos(intervalosComAberto, inicio, dataReferencia)
+  }, [intervalosComAberto, dataReferencia])
+
+  const pesoVivoLote = detalhesLote?.peso_vivo_kg ?? null
+  const teorMsLote = formulacaoDetalhes?.teorMs ?? null
+  const metaConsumoLote = formulacaoDetalhes?.metaConsumo ?? null
+
+  const media7DiasPctPV =
+    media7Dias != null && teorMsLote && pesoVivoLote
+      ? (media7Dias * (teorMsLote / 100)) / pesoVivoLote * 100
+      : null
+
+  // Meta em kg MN/cab para comparar a série diária (meta do banco é %PV em MS)
+  const metaKgCabMN =
+    metaConsumoLote && pesoVivoLote && teorMsLote
+      ? (metaConsumoLote / 100) * pesoVivoLote / (teorMsLote / 100)
+      : null
+
+  const maxKgCabSerie = useMemo(
+    () => Math.max(...serie7Dias.map((d) => d.kgCab ?? 0), metaKgCabMN ?? 0),
+    [serie7Dias, metaKgCabMN]
+  )
+
+  // Historico completo (modal): tratos do lote nos ultimos 30 dias da data do registro
+  const registrosHistorico = useMemo(() => {
+    const inicio = new Date(dataReferencia)
+    inicio.setUTCDate(inicio.getUTCDate() - 30)
+    return registrosSuplementacao.filter((r: any) => {
+      const d = dataSemHoraUTC(r.data)
+      return d >= inicio && d <= dataReferencia
+    })
+  }, [registrosSuplementacao, dataReferencia])
+
+  // Consumo do registro atual vs meta (faixa de feedback do input de kg)
+  const consumoAtual = useMemo(() => {
+    const kg = isSacaria ? kgCochoConvertido : (form.kgCocho ? Number(form.kgCocho) : null)
+    if (!kg || kg <= 0 || cabecasAdultas <= 0) return null
+    const kgCab = kg / cabecasAdultas
+    const pctPV = teorMsLote && pesoVivoLote
+      ? (kgCab * (teorMsLote / 100)) / pesoVivoLote * 100
+      : null
+    let status: 'success' | 'warning' | 'neutral' = 'success'
+    let statusTexto = 'dentro da meta'
+    if (pctPV != null && metaConsumoLote != null) {
+      if (pctPV > metaConsumoLote * 1.05) {
+        status = 'warning'
+        statusTexto = 'acima da meta'
+      } else if (pctPV < metaConsumoLote * 0.85) {
+        status = 'neutral'
+        statusTexto = 'abaixo da meta'
+      }
+    }
+    return { kgCab, pctPV, status, statusTexto }
+  }, [form.kgCocho, isSacaria, kgCochoConvertido, cabecasAdultas, teorMsLote, pesoVivoLote, metaConsumoLote])
+
   // Validation rules (dynamic: skip deposito fields when pasto has no deposito)
   const validationRules = useMemo(() => {
     const base: any = {
@@ -631,6 +766,7 @@ export default function SuplementacaoPage() {
       numeroLote: {
         required: true,
         custom: () => {
+          if (loteNaoEncontrado) return 'Lote não encontrado nesta fazenda. Selecione outro lote ou limpe o formulário.'
           if (loteSemPasto) return 'Este lote não possui pasto vinculado. Vincule um pasto ao lote antes de lançar suplementação.'
           return null
         },
@@ -680,73 +816,31 @@ export default function SuplementacaoPage() {
       }
     }
     if (possuiDeposito) {
-      base._kgDeposito = {
+      base.kgDeposito = {
         custom: () => {
-          if (!kgDeposito || kgDeposito.trim() === '' || Number(kgDeposito) <= 0) {
+          if (!form.kgDeposito || form.kgDeposito.trim() === '' || Number(form.kgDeposito) <= 0) {
             return 'KG no depósito é obrigatório e deve ser maior que zero'
           }
           return null
         }
       }
     }
+    // Modelo novo: itens do checklist nao sao obrigatorios porque "nao
+    // marcado" ja significa "condicao adequada". A unica resposta exigida e
+    // a pergunta de acao "limpeza de cocho foi realizada?".
     if (checklistAtivo) {
-      CHECKLIST_PERGUNTAS.forEach(({ campo }) => {
-        if (campo !== 'depositoCondicoes') {
-          base[campo] = { required: true }
-        }
-      })
-      if (possuiDeposito) {
-        base.depositoCondicoes = { required: true }
-      }
+      base.limpezaCocho = { required: true }
     }
     return base
-  }, [possuiDeposito, checklistAtivo, kgDeposito, loteSemPasto, semPlanoAtivo, isSacaria, adultoAtivo, creepAtivo, adultoPreenchido, creepPreenchido, temCreepDisponivel, creepFormulacaoDetalhes, isSacariaCreep])
+  }, [possuiDeposito, checklistAtivo, form.kgDeposito, loteSemPasto, loteNaoEncontrado, semPlanoAtivo, isSacaria, adultoAtivo, creepAtivo, adultoPreenchido, creepPreenchido, temCreepDisponivel, creepFormulacaoDetalhes, isSacariaCreep])
 
   const { isValid } = useFormValidation(form, validationRules)
   const verificandoTravaRef = useRef(false)
-  // Feedback imediato enquanto a trava de duplicidade roda (rede lenta):
-  // sem isso o botão parece morto por segundos antes de `salvando` ligar.
-  const [verificando, setVerificando] = useState(false)
 
   const verificarTratoDuplicado = async (): Promise<any | null> => {
     if (!travaSuplementacao || !fazendaId || !form.loteId || !form.data) return null
     const diaBR = form.data
-
-    // A trava só precisa dos registros do dia. Sem range a query baixava o
-    // histórico inteiro do lote (select * de todas as datas), que em rede
-    // rural era a maior parcela do delay entre o clique e o modal. A janela
-    // de ±1 dia absorve a diferença entre o dia civil no fuso da fazenda e
-    // o timestamp UTC gravado na coluna `data`.
-    const diaBase = brToIso(diaBR)
-    const addDias = (iso: string, delta: number) => {
-      const d = new Date(`${iso}T12:00:00`)
-      d.setDate(d.getDate() + delta)
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    }
-    const dataInicio = diaBase ? `${addDias(diaBase, -1)}T00:00:00` : undefined
-    const dataFim = diaBase ? `${addDias(diaBase, 1)}T23:59:59` : undefined
-
-    // Dispara o fetch online junto com as leituras locais: no caso comum
-    // (sem duplicado) a query vai rodar de qualquer jeito, então a latência
-    // dela fica escondida embaixo do IndexedDB e do lookup de timezone.
-    const frescosPromise = navigator.onLine
-      ? Promise.race([
-          getRegistrosSuplementacaoByLote(fazendaId, form.loteId, dataInicio, dataFim),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
-        ]).catch((error) => {
-          console.warn('[SuplementacaoPage] Trava: consulta online falhou, seguindo com verificação local:', error)
-          return [] as any[]
-        })
-      : Promise.resolve([] as any[])
-
-    const [tz, locais] = await Promise.all([
-      getFarmTimezoneAsync().catch(() => DEFAULT_FARM_TIMEZONE),
-      listarRegistros('suplementacao').catch((error) => {
-        console.warn('[SuplementacaoPage] Trava: falha ao ler IndexedDB:', error)
-        return [] as any[]
-      }),
-    ])
-
+    const tz = await getFarmTimezoneAsync().catch(() => DEFAULT_FARM_TIMEZONE)
     const mesmoDia = (iso: unknown): boolean => {
       const d = new Date(String(iso))
       if (isNaN(d.getTime())) return false
@@ -754,24 +848,39 @@ export default function SuplementacaoPage() {
       return `${p.day}/${p.month}/${p.year}` === diaBR
     }
 
-    const dup = locais.find(
-      (r) => !r.isTestRecord && r.loteId === form.loteId && String(r.data || '').split(' ')[0] === diaBR
-    )
-    if (dup) return dup
+    try {
+      const locais = await listarRegistros('suplementacao')
+      const dup = locais.find(
+        (r) => !r.isTestRecord && r.loteId === form.loteId && String(r.data || '').split(' ')[0] === diaBR
+      )
+      if (dup) return dup
+    } catch (error) {
+      console.warn('[SuplementacaoPage] Trava: falha ao ler IndexedDB:', error)
+    }
 
     const dupPuxado = (registrosSuplementacao || []).find(
       (r: any) => r.lote_id === form.loteId && !r.deleted_at && mesmoDia(r.data)
     )
     if (dupPuxado) return dupPuxado
 
-    const frescos = await frescosPromise
-    return (frescos || []).find((r: any) => !r.deleted_at && mesmoDia(r.data)) ?? null
+    if (navigator.onLine) {
+      try {
+        const frescos = await Promise.race([
+          getRegistrosSuplementacaoByLote(fazendaId, form.loteId),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+        ])
+        const dupOnline = (frescos || []).find((r: any) => !r.deleted_at && mesmoDia(r.data))
+        if (dupOnline) return dupOnline
+      } catch (error) {
+        console.warn('[SuplementacaoPage] Trava: consulta online falhou, seguindo com verificação local:', error)
+      }
+    }
+    return null
   }
 
   const handleSalvarClick = async () => {
     if (verificandoTravaRef.current) return
     verificandoTravaRef.current = true
-    setVerificando(true)
     try {
       const dup = await verificarTratoDuplicado()
       if (dup) {
@@ -787,7 +896,6 @@ export default function SuplementacaoPage() {
       salvar(executarSalvamento)
     } finally {
       verificandoTravaRef.current = false
-      setVerificando(false)
     }
   }
 
@@ -810,11 +918,7 @@ export default function SuplementacaoPage() {
     let pesoVivoKgLote = detalhesLote?.peso_vivo_kg ?? null
     if (form.loteId && form.data) {
       try {
-        // Reusa o plano já buscado na seleção do lote (evita roundtrip extra
-        // por salvamento; o fetch só roda se o efeito ainda não completou)
-        const planoParams = planoAtivoRef.current?.loteId === form.loteId
-          ? planoAtivoRef.current.plano
-          : await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
+        const planoParams = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
         if (planoParams) {
           const pesoProjetado = calcularPesoProjetado(form.data, planoParams)
           if (pesoProjetado != null) {
@@ -885,9 +989,8 @@ export default function SuplementacaoPage() {
       creepNCabecas: creepAtivo ? creepNCabecas : null,
       creepCategorias: creepAtivo ? creepCategoriasStr : null,
       creepMetaConsumo: creepAtivo ? (creepFormulacaoDetalhes?.metaConsumo ?? null) : null,
-      creepTeorMs: creepAtivo ? (creepFormulacaoDetalhes?.teorMs ?? null) : null,
       creepPesoVivoKg: creepAtivo ? creepPesoVivoKg : null,
-      kgDeposito: kgDeposito ? Number(kgDeposito) : 0,
+      kgDeposito: form.kgDeposito ? Number(form.kgDeposito) : 0,
       possuiDeposito,
       // categorias por escopo: com dieta creep a linha 'lote' não lista as
       // categorias ao pé (elas ficam em creepCategorias); sem dieta, grava
@@ -900,31 +1003,38 @@ export default function SuplementacaoPage() {
         : creepCategoriasStr,
       escoreFezes: form.escoreFezes || null,
       espacamentoCochoDetalhes: espacamentoCochoDetalhes,
-      espacamentoCochoCmCab: form.espacamentoCochoCmCab ? Number(form.espacamentoCochoCmCab) : null,
-      espacamentoCochoObs: form.espacamentoCochoObs || '',
-      checklist: checklistAtivo ? {
-        limpeza_cocho: {
-          valor: form.limpezaCocho === 'Sim',
-          observacao: form.limpezaCochoObs || ''
-        },
-        cochos_condicoes: {
-          valor: form.cochosCondicoes === 'Sim',
-          observacao: form.cochosCondicoesObs || ''
-        },
-        aterro_acesso_ideal: {
-          valor: form.aterroAcessoIdeal === 'Sim',
-          observacao: form.aterroAcessoIdealObs || ''
-        },
-        espacamento_cocho_adequado: {
-          valor: form.espacamentoCochoAdequado === 'Sim',
-          observacao: form.espacamentoCochoAdequadoObs || ''
-        },
-        ...(possuiDeposito ? {
-          deposito_condicoes: {
-            valor: form.depositoCondicoes === 'Sim',
-            observacao: form.depositoCondicoesObs || ''
-          }
-        } : {})
+      espacamentoCochoCmCab: null,
+      espacamentoCochoObs: '',
+      // valor = "a condicao esta adequada" (true) ou "problema marcado"
+      // (false). A afirmacao negativa existe so na UI; a chave e a proposicao
+      // positiva. foto_cocho carrega a evidencia da leitura e independe do
+      // checklist estar ativo para a fazenda.
+      checklist: (checklistAtivo || form.fotoCocho) ? {
+        ...(checklistAtivo ? {
+          limpeza_cocho: {
+            valor: form.limpezaCocho === 'Sim',
+            observacao: form.limpezaCochoObs || ''
+          },
+          ...Object.fromEntries(
+            CHECKLIST_PROBLEMAS
+              .filter(({ campo }) => campo !== 'depositoCondicoes' || possuiDeposito)
+              .map(({ campo, checklistKey }) => [
+                checklistKey,
+                {
+                  valor: form[campo] !== 'Não',
+                  observacao: (form as any)[`${campo}Obs`] || '',
+                  fotoBase64: (form as any)[`${campo}Foto`] || undefined,
+                },
+              ])
+          ),
+        } : {}),
+        ...(form.fotoCocho ? {
+          foto_cocho: {
+            valor: true,
+            observacao: '',
+            fotoBase64: form.fotoCocho,
+          },
+        } : {}),
       } : null,
     })
 
@@ -952,8 +1062,7 @@ export default function SuplementacaoPage() {
       }
       setRegistroSalvo(registroComPeriodo)
       setShowSuccessModal(true)
-      setForm(makeInitial())
-      setKgDeposito('')
+      limparRascunho()
     }
   }
 
@@ -967,219 +1076,155 @@ export default function SuplementacaoPage() {
     navigate('/')
   }
 
-  // Blocos reutilizáveis do formulário. Quando o lote tem bezerro(a) ao pé, cada
-  // grupo (lote adulto / creep) vira uma seção completa com formulação, métricas
-  // e campos de leitura/quantidade — sem alternar entre os dois na tela.
-  const blocoFormulacaoLote = semPlanoAtivo && form.loteId ? (
-    <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <span className="text-xl">⚠️</span>
-        <span className="text-red-700 font-bold">Sem plano nutricional ativo</span>
-      </div>
-      <p className="text-sm text-red-600">
-        Este lote não possui plano nutricional ativo. Vincule um plano no Painel Web antes de lançar suplementação.
-      </p>
-    </div>
-  ) : (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-bold text-gray-700 uppercase tracking-wide">
-        Formulação {temCreepDisponivel ? '(Lote)' : ''} {!temCreepDisponivel && <span className="text-red-500">*</span>}
-      </label>
-      <div className={`w-full px-4 py-3 rounded-xl border-2 text-base font-semibold ${
-        form.formulacao
-          ? 'bg-gray-50 border-gray-200 text-gray-900'
-          : 'bg-gray-50 border-gray-200 text-gray-400'
-      }`}>
-        {form.formulacao || (form.loteId ? 'Carregando formulação do plano ativo...' : 'Selecione um lote primeiro')}
-      </div>
-      <p className="text-xs text-gray-500">
-        A formulação é definida automaticamente pelo plano nutricional ativo do lote.
-      </p>
+  const categoriasLoteStr = detalhesLote?.categorias
+    ? processarCategorias(detalhesLote.categorias).map(capitalizarCategoria).join(', ')
+    : ''
+
+  const loteStatus: InfoCardStatus | undefined = (() => {
+    if (!detalhesLote) return undefined
+    if (loteSemPasto) return { tone: 'danger', text: 'Sem pasto vinculado: vincule um pasto ao lote no Painel Web' }
+    if (semPlanoAtivo) return { tone: 'danger', text: 'Sem plano nutricional ativo: vincule um plano no Painel Web' }
+    if (temCreepDisponivel) return { tone: 'warning', text: `Este lote tem bezerro(a) ao pé: ${creepNCabecas} cab em creep` }
+    return undefined
+  })()
+
+  const metaKgCabDia =
+    metaConsumoLote != null && pesoVivoLote != null && pesoVivoLote > 0
+      ? (metaConsumoLote / 100) * pesoVivoLote
+      : null
+
+  // Tiles de escala (leitura do cocho, escore de fezes)
+  const renderEscala = (
+    options: typeof LEITURA_OPTIONS,
+    value: string,
+    field: keyof FormState,
+  ) => (
+    <div className="grid grid-cols-5 gap-1.5" data-field={field}>
+      {options.map((opt) => {
+        const selecionado = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => set(field)(opt.value)}
+            className={`flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1.5 transition-all active:scale-95 ${
+              selecionado ? opt.selecionado : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'
+            }`}
+          >
+            <span className="flex items-center gap-1">
+              <span className={`h-2.5 w-2.5 rounded-full ${opt.dot}`} />
+              <span className="text-base font-extrabold leading-none">{opt.numero}</span>
+            </span>
+            <span className="text-[10px] font-bold leading-tight text-center">{opt.label}</span>
+          </button>
+        )
+      })}
     </div>
   )
 
-  const blocoMetricasLote = formulacaoDetalhes && (
-    <FormulacaoDetalhesCard
-      detalhes={{
-        teorMs: formulacaoDetalhes.teorMs,
-        metaConsumo: formulacaoDetalhes.metaConsumo,
-        pesoVivoKg: detalhesLote?.peso_vivo_kg ?? null,
-        consumoMedioGeralPercentPV: metricasSuplementacao?.consumoMedioGeralPercentPV,
-        consumoMedio30DiasPercentPV: metricasSuplementacao?.consumoMedio30DiasPercentPV,
-        consumoMedioGeralKgMN: metricasSuplementacao?.consumoMedioGeralKgMN,
-        consumoMedio30DiasKgMN: metricasSuplementacao?.consumoMedio30DiasKgMN,
-        consumoMedioGeralKgMS: metricasSuplementacao?.consumoMedioGeralKgMS,
-        consumoMedio30DiasKgMS: metricasSuplementacao?.consumoMedio30DiasKgMS,
-        custoMedioReaisCabDia: metricasSuplementacao?.custoMedioReaisCabDia,
-        motivoFalha: metricasSuplementacao?.motivoFalha,
-        categoriasNaoElegiveis: metricasSuplementacao?.categoriasNaoElegiveis,
-      }}
-      nomeLote={form.numeroLote}
-    />
-  )
-
-  const botaoPopLeitura = (
+  const chipPop = (onClick: () => void, label: string) => (
     <button
-      onClick={() => setShowPdfModal(true)}
-      className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+      type="button"
+      onClick={onClick}
+      className="flex !min-h-0 shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-black transition-colors hover:bg-yellow-300 active:scale-[0.98]"
     >
-      <span className="text-xl">📄</span>
-      <span>POP LEITURA DE COCHO</span>
+      <FileText className="h-3.5 w-3.5" strokeWidth={2.5} />
+      {label}
     </button>
   )
 
-  const blocoLeituraLote = (
+  // Bloco leitura + quantidade de um grupo (lote adulto ou creep)
+  const blocoLeituraQuantidade = (
+    leituraField: 'leitura' | 'creepLeitura',
+    kgField: 'kgCocho' | 'creepKgCocho',
+    sacaria: boolean,
+    kgSaco: number | null,
+    mostrarPrevisto: boolean,
+  ) => (
     <>
-      <Radio
-        name="leitura"
-        label={temCreepDisponivel ? 'LEITURA DO COCHO — LOTE (-1 a 3)' : 'LEITURA DO COCHO (-1 a 3)'}
-        options={LEITURAS}
-        value={form.leitura}
-        onChange={set('leitura')}
-        error={getError('leitura')}
-        gridCols={5}
-      />
-      {kgPrevisto != null && (
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-          <span className="text-xl">📊</span>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">KG Previsto</span>
-            <span className="text-lg font-black text-blue-900">
-              {kgPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} kg
-            </span>
-          </div>
-          <span className="text-xs text-blue-600 ml-auto text-right max-w-[50%]">
-            {(() => {
-              const notaConfig = notasConfig.find((n: any) => Number(n.nota) === Number(form.leitura))
-              return notaConfig?.descricao || ''
-            })()}
-          </span>
+      <div>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <label className="block text-[15px] font-bold text-gray-900">
+            LEITURA DO COCHO <span className="text-red-500">*</span>
+          </label>
+          {chipPop(() => setShowPdfModal(true), 'POP Cocho')}
         </div>
-      )}
-      <Input
-        label={isSacaria
-          ? <span>Quantidade de Sacos{temCreepDisponivel ? ' — Lote' : ''} {!temCreepDisponivel && <span className="text-red-500">*</span>}</span>
-          : <span>Total Suplementado no Cocho{temCreepDisponivel ? ' — Lote' : ''} (kg) {!temCreepDisponivel && <span className="text-red-500">*</span>}</span>}
-        placeholder="0"
-        value={form.kgCocho}
-        onChange={setKgCochoInput}
-        error={getError('kgCocho')}
-        inputMode="numeric"
-        type="text"
-        pattern="[0-9]*"
-      />
-      {isSacaria && kgPorSaco && (
-        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 -mt-3">
-          <span className="text-sm font-semibold text-amber-800">
-            Sacaria de {kgPorSaco.toLocaleString('pt-BR')} kg
-            {kgCochoConvertido !== null && ` = ${kgCochoConvertido.toLocaleString('pt-BR')} kg no cocho`}
-          </span>
-        </div>
-      )}
-    </>
-  )
-
-  const blocoCreep = temCreepDisponivel && (
-    <>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-bold text-amber-800 uppercase tracking-wide">
-          Formulação Creep (Bezerro(a) ao pé)
-        </label>
-        {creepFormulacaoDetalhes ? (
-          <>
-            <div className="w-full px-4 py-3 rounded-xl border-2 bg-amber-50 border-amber-200 text-base font-semibold text-amber-900">
-              {creepFormulacaoDetalhes.nome}
-            </div>
-            <p className="text-xs text-gray-500">
-              Formulação creep vinculada à categoria no cadastro do lote ({creepCategoriasStr}).
-            </p>
-          </>
-        ) : creepFormulacaoCarregada ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">⚠️</span>
-              <span className="text-red-700 font-bold">Formulação creep indisponível</span>
-            </div>
-            <p className="text-sm text-red-600">
-              A formulação vinculada à categoria bezerro(a) ao pé deste lote não é creep ou está inativa. Corrija o vínculo no cadastro do lote no Painel Web.
-            </p>
-          </div>
-        ) : null}
-        {getError('_creepFormulacao') && (
-          <p className="text-sm font-semibold text-red-600">{getError('_creepFormulacao')}</p>
+        {renderEscala(LEITURA_OPTIONS, form[leituraField], leituraField)}
+        {getError(leituraField) && (
+          <p className="mt-2 text-base font-semibold text-red-700">{getError(leituraField)}</p>
         )}
       </div>
-      {creepFormulacaoDetalhes && (
-        <FormulacaoDetalhesCard
-          detalhes={{
-            teorMs: creepFormulacaoDetalhes.teorMs,
-            metaConsumo: creepFormulacaoDetalhes.metaConsumo,
-            pesoVivoKg: creepPesoVivoKg,
-            consumoMedioGeralPercentPV: metricasCreep?.consumoMedioGeralPercentPV,
-            consumoMedio30DiasPercentPV: metricasCreep?.consumoMedio30DiasPercentPV,
-            consumoMedioGeralKgMN: metricasCreep?.consumoMedioGeralKgMN,
-            consumoMedio30DiasKgMN: metricasCreep?.consumoMedio30DiasKgMN,
-            consumoMedioGeralKgMS: metricasCreep?.consumoMedioGeralKgMS,
-            consumoMedio30DiasKgMS: metricasCreep?.consumoMedio30DiasKgMS,
-            custoMedioReaisCabDia: metricasCreep?.custoMedioReaisCabDia,
-            motivoFalha: metricasCreep?.motivoFalha,
-            categoriasNaoElegiveis: metricasCreep?.categoriasNaoElegiveis,
-          }}
-          nomeLote={`${form.numeroLote} — Creep`}
-        />
+
+      {mostrarPrevisto && kgPrevisto != null && (
+        <InfoStrip tone="neutral" icon="📊">
+          KG previsto: <strong>{kgPrevisto.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg</strong>
+          {(() => {
+            const notaConfig = notasConfig.find((n: any) => Number(n.nota) === Number(form.leitura))
+            return notaConfig?.descricao ? ` — ${notaConfig.descricao}` : ''
+          })()}
+        </InfoStrip>
       )}
-      <Radio
-        name="creepLeitura"
-        label="LEITURA DO COCHO — CREEP (-1 a 3)"
-        options={LEITURAS}
-        value={form.creepLeitura}
-        onChange={set('creepLeitura')}
-        error={getError('creepLeitura')}
-        gridCols={5}
-      />
-      <Input
-        label={isSacariaCreep
-          ? <span>Quantidade de Sacos — Creep</span>
-          : <span>Total Suplementado no Cocho — Creep (kg)</span>}
-        placeholder="0"
-        value={form.creepKgCocho}
-        onChange={(e) => {
-          const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
-          setForm((prev) => ({ ...prev, creepKgCocho: apenasDigitos }))
-        }}
-        error={getError('creepKgCocho')}
-        inputMode="numeric"
-        type="text"
-        pattern="[0-9]*"
-      />
-      {isSacariaCreep && kgPorSacoCreep && (
-        <div className="flex items-center gap-2 bg-amber-100 border border-amber-300 rounded-xl px-4 py-3 -mt-2">
-          <span className="text-sm font-semibold text-amber-900">
-            Sacaria de {kgPorSacoCreep.toLocaleString('pt-BR')} kg
-            {form.creepKgCocho && Number(form.creepKgCocho) > 0 &&
-              ` = ${(Number(form.creepKgCocho) * kgPorSacoCreep).toLocaleString('pt-BR')} kg no cocho`}
-          </span>
-        </div>
+
+      <div>
+        <Input
+          label={sacaria ? 'Quantidade de Sacos' : 'Total Suplementado no Cocho (kg)'}
+          placeholder="0"
+          value={form[kgField]}
+          onChange={(e) => {
+            const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
+            setForm((prev) => ({ ...prev, [kgField]: apenasDigitos }))
+          }}
+          error={getError(kgField)}
+          inputMode="numeric"
+          type="text"
+          pattern="[0-9]*"
+        />
+      </div>
+
+      {sacaria && kgSaco && (
+        <InfoStrip tone="warning">
+          Sacaria de {kgSaco.toLocaleString('pt-BR')} kg
+          {kgField === 'kgCocho' && kgCochoConvertido !== null &&
+            ` = ${kgCochoConvertido.toLocaleString('pt-BR')} kg no cocho`}
+          {kgField === 'creepKgCocho' && form.creepKgCocho && Number(form.creepKgCocho) > 0 &&
+            ` = ${(Number(form.creepKgCocho) * kgSaco).toLocaleString('pt-BR')} kg no cocho`}
+        </InfoStrip>
+      )}
+
+      {kgField === 'kgCocho' && consumoAtual && !sacaria && (
+        <InfoStrip tone={consumoAtual.status} icon="⚖️">
+          = {consumoAtual.kgCab.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg/cab
+          {consumoAtual.pctPV != null &&
+            ` · ${consumoAtual.pctPV.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% PV`}
+          {metaConsumoLote != null && ` — ${consumoAtual.statusTexto}`}
+        </InfoStrip>
       )}
     </>
   )
 
+  const numeroChecklist = temCreepDisponivel ? 3 : 2
+  const numeroConsumo = numeroChecklist + 1
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
+    <>
+      <CadernetaLayout
         title="SUPLEMENTAÇÃO"
         cadernetaId="suplementacao"
-        dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
-      />
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+        dateContent={
+          <DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />
+        }
+      >
+        <BannerRascunho
+          visible={rascunhoRestaurado}
+          onConfirmar={confirmarRascunho}
+          onDescartar={descartarRascunho}
+        />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        <CadernetaSection titulo="Pasto/Lote" required>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="PASTO/LOTE"
+              label=""
               value={form.numeroLote}
               onChange={set('numeroLote')}
               error={getError('numeroLote')}
@@ -1199,201 +1244,385 @@ export default function SuplementacaoPage() {
               disabled
             />
           )}
+
+          {loteNaoEncontrado && (
+            <InfoStrip tone="danger">
+              Lote "{form.numeroLote}" não encontrado nesta fazenda. Selecione outro lote ou use LIMPAR para descartar o formulário.
+            </InfoStrip>
+          )}
+
           {detalhesLote && (
-            <LoteOcupandoPastoCard
-              detalhes={{
-                nome: detalhesLote.nome || form.numeroLote,
-                categorias: detalhesLote.categorias,
-                n_cabecas: detalhesLote.n_cabecas,
-                peso_vivo_kg: detalhesLote.peso_vivo_kg,
-              }}
-              processarCategorias={processarCategorias}
-            />
+            <InfoCard
+              icon={Beef}
+              title={detalhesLote.nome || form.numeroLote}
+              subtitle={form.pasto || 'Sem pasto vinculado'}
+              stats={[
+                { label: 'Cabeças', value: detalhesLote.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-' },
+                {
+                  label: 'PV médio',
+                  value: detalhesLote.peso_vivo_kg != null
+                    ? `${Number(detalhesLote.peso_vivo_kg).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+                    : '-',
+                },
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
+              ]}
+              status={loteStatus}
+            >
+              {formulacaoDetalhes && (
+                <InfoStrip tone="warning" icon="📌" className="mt-3">
+                  Formulação do plano: <strong>{formulacaoDetalhes.nome}</strong>
+                  {metaConsumoLote != null &&
+                    ` · meta ${metaConsumoLote.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% PV`}
+                  {metaKgCabDia != null &&
+                    ` (~${metaKgCabDia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg/cab)`}
+                </InfoStrip>
+              )}
+            </InfoCard>
           )}
-        </div>
+        </CadernetaSection>
 
-        {temCreepDisponivel ? (
-          <>
-            {/* Seção: suplementação do lote (categorias adultas) */}
-            <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">1. LOTE — CATEGORIAS ADULTAS</h2>
-              <div className="flex flex-col gap-2 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm font-bold text-amber-900 uppercase tracking-wide">
-                  Este lote possui bezerro(a) ao pé ({creepNCabecas} cab)
-                </p>
-                <p className="text-xs text-amber-800">
-                  Preencha a suplementação do lote, do creep feeding ou de ambos.
-                </p>
-                {getError('_alvos') && (
-                  <p className="text-sm font-semibold text-red-600">{getError('_alvos')}</p>
-                )}
+        {/* Leitura e quantidade — lote (categorias adultas) */}
+        <CadernetaSection
+          numero={1}
+          titulo={temCreepDisponivel ? 'Leitura e Quantidade — Lote' : 'Leitura e Quantidade'}
+          required={adultoAtivo}
+        >
+          {getError('_alvos') && (
+            <InfoStrip tone="danger">{getError('_alvos')}</InfoStrip>
+          )}
+
+          {semPlanoAtivo && form.loteId && adultoAtivo && (
+            <InfoStrip tone="danger" icon="⚠️">
+              Sem plano nutricional ativo. Vincule um plano no Painel Web antes de lançar suplementação.
+            </InfoStrip>
+          )}
+
+          {adultoAtivo && blocoLeituraQuantidade('leitura', 'kgCocho', isSacaria, kgPorSaco, true)}
+
+          {!adultoAtivo && (
+            <InfoStrip tone="neutral">
+              Lote em creep feeding: preencha só se houver trato para as categorias adultas.
+            </InfoStrip>
+          )}
+
+          {/* Foto do cocho: evidencia da leitura, opcional */}
+          <div>
+            <label className="mb-2 block text-[15px] font-bold text-gray-900">FOTO DO COCHO</label>
+            {form.fotoCocho ? (
+              <div className="flex items-start gap-3">
+                <img
+                  src={base64ToDataUrl(form.fotoCocho)}
+                  alt="Foto do cocho"
+                  className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removerFotoItem('fotoCocho')}
+                  className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+                >
+                  🗑️ REMOVER FOTO
+                </button>
               </div>
-              {blocoFormulacaoLote}
-              {blocoMetricasLote}
-              {blocoLeituraLote}
-            </div>
-
-            {botaoPopLeitura}
-
-            {/* Seção: creep feeding (bezerro(a) ao pé) */}
-            <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-amber-200 flex flex-col gap-5">
-              <h2 className="text-lg font-black text-amber-900 tracking-tight">2. CREEP FEEDING — BEZERRO(A) AO PÉ ({creepNCabecas} CAB)</h2>
-              {blocoCreep}
-            </div>
-          </>
-        ) : (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">1. TIPO DE SUPLEMENTAÇÃO <span className="text-red-500">*</span></h2>
-            {blocoFormulacaoLote}
-            {blocoMetricasLote}
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleTirarFotoItem('fotoCocho')}
+                disabled={capturandoFoto}
+                className="flex w-full min-h-[56px] items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 px-3 py-2.5 text-gray-700 transition-colors hover:border-gray-400 active:scale-[0.99] disabled:opacity-60"
+              >
+                <span className="text-lg leading-none">📷</span>
+                <span className="text-xs font-extrabold uppercase tracking-wide">
+                  {capturandoFoto && campoFotoAtual === 'fotoCocho' ? 'Capturando...' : 'Foto do cocho'}
+                </span>
+              </button>
+            )}
+            {fotoErro && campoFotoAtual === 'fotoCocho' && (
+              <InfoStrip tone="danger" className="mt-2">{fotoErro}</InfoStrip>
+            )}
           </div>
-        )}
 
-        {/* Seção 3: Depósito e Fezes (leituras e quantidades ficam nas seções de cada grupo) */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">
-            {temCreepDisponivel
-              ? (possuiDeposito ? '3. DEPÓSITO E FEZES' : '3. FEZES')
-              : '2. LEITURA E QUANTIDADE'} <span className="text-red-500">*</span>
-          </h2>
-          {!temCreepDisponivel && (
-            <>
-              {botaoPopLeitura}
-              {blocoLeituraLote}
-            </>
-          )}
           {possuiDeposito && (
-            <NumericInput
+            <Input
               label={<span>Total Suplementado no Depósito (kg) <span className="text-red-500">*</span></span>}
               placeholder="0"
-              value={kgDeposito}
-              onChange={(v) => setKgDeposito(v)}
-              decimalPlaces={3}
-              error={getError('_kgDeposito')}
+              value={form.kgDeposito}
+              onChange={setInput('kgDeposito')}
+              inputMode="decimal"
+              type="number"
+              min="0"
+              error={getError('kgDeposito')}
             />
           )}
-          <button
-            onClick={() => setShowFezesModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label className="block text-[15px] font-bold text-gray-900">ESCORE DE FEZES</label>
+              {chipPop(() => setShowFezesModal(true), 'POP Fezes')}
+            </div>
+            {renderEscala(FEZES_OPTIONS, form.escoreFezes, 'escoreFezes')}
+            {getError('escoreFezes') && (
+              <p className="mt-2 text-base font-semibold text-red-700">{getError('escoreFezes')}</p>
+            )}
+          </div>
+        </CadernetaSection>
+
+        {/* Creep feeding — bezerro(a) ao pé */}
+        {temCreepDisponivel && (
+          <CadernetaSection
+            numero={2}
+            titulo={`Creep Feeding — Bezerro(a) ao pé (${creepNCabecas} cab)`}
+            className="!border-amber-200"
           >
-            <span className="text-xl">📄</span>
-            <span>POP FEZES</span>
-          </button>
-          <Radio
-            name="escoreFezes"
-            label="ESCORE DE FEZES (1 a 5)"
-            options={ESCALA_5}
-            value={form.escoreFezes}
-            onChange={set('escoreFezes')}
-            error={getError('escoreFezes')}
-            gridCols={5}
-          />
-        </div>
+            {creepFormulacaoDetalhes ? (
+              <InfoStrip tone="warning" icon="📌">
+                Formulação creep: <strong>{creepFormulacaoDetalhes.nome}</strong>
+                {creepFormulacaoDetalhes.metaConsumo != null &&
+                  ` · meta ${creepFormulacaoDetalhes.metaConsumo.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% PV`}
+              </InfoStrip>
+            ) : creepFormulacaoCarregada ? (
+              <InfoStrip tone="danger" icon="⚠️">
+                Formulação creep indisponível. A formulação vinculada à categoria ao pé não é creep ou está inativa. Corrija no cadastro do lote no Painel Web.
+              </InfoStrip>
+            ) : null}
+            {getError('_creepFormulacao') && (
+              <p className="text-sm font-semibold text-red-600">{getError('_creepFormulacao')}</p>
+            )}
 
-        {/* Seção 4: Checklist */}
+            {blocoLeituraQuantidade('creepLeitura', 'creepKgCocho', isSacariaCreep, kgPorSacoCreep, false)}
+          </CadernetaSection>
+        )}
+
         {loadingChecklistRegras ? (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">{temCreepDisponivel ? '4' : '3'}. CHECKLIST</h2>
-            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
-          </div>
+          <CadernetaSection numero={numeroChecklist} titulo="Checklist">
+            <p className="py-4 text-center text-sm text-gray-500">Carregando regras do checklist...</p>
+          </CadernetaSection>
         ) : checklistAtivo ? (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">{temCreepDisponivel ? '4' : '3'}. CHECKLIST <span className="text-red-500">*</span></h2>
-
-            {CHECKLIST_PERGUNTAS
+          <CadernetaSection numero={numeroChecklist} titulo="Checklist" required>
+            <p className="-mt-2 text-sm text-gray-500">
+              Toque em um item se encontrar o problema. Não tocar significa que está tudo certo.
+            </p>
+            {CHECKLIST_PROBLEMAS
               .filter(({ campo }) => campo !== 'depositoCondicoes' || possuiDeposito)
-              .map(({ campo, label }) => (
-              <div key={campo}>
-                <Radio
-                  name={campo}
-                  label={label}
-                  options={SN_OPTIONS}
-                  value={(form as any)[campo]}
-                  onChange={set(campo as keyof FormState)}
-                  error={getError(campo)}
-                  gridCols={2}
-                />
-                {(form as any)[campo] === 'Não' && (
-                  <Input
-                    placeholder="Adicionar observação (opcional)"
-                    value={(form as any)[`${campo}Obs`] || ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
-                    className="mt-2"
-                  />
-                )}
-                {campo === 'espacamentoCochoAdequado' && espacamentoCochoDetalhes && (
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mt-2">
-                    <h3 className="text-base font-bold text-gray-900 mb-3">ESPAÇAMENTO DO COCHO</h3>
-                    {espacamentoCochoDetalhes.erro ? (
-                      <div className="text-base text-red-600 font-medium">
-                        {espacamentoCochoDetalhes.erro}
-                      </div>
-                    ) : (
-                      <div className="space-y-2 text-base">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Espaçamento calculado:</span>
-                          <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</span>
+              .map(({ campo, label, aviso }) => {
+              const marcado = form[campo] === 'Não'
+              const foto = (form as any)[`${campo}Foto`] as string
+              return (
+                <div key={campo} className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleProblema(campo)}
+                    data-field={campo}
+                    className={`flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                      marcado
+                        ? 'border-red-500 bg-red-50 text-red-800'
+                        : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="text-sm font-bold leading-tight">{label}</span>
+                    {marcado && <span className="text-lg leading-none">⚠️</span>}
+                  </button>
+
+                  {marcado && (
+                    <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+                      <InfoStrip tone="danger" icon="⚠️">{aviso}</InfoStrip>
+
+                      {campo === 'espacamentoCochoAdequado' && espacamentoCochoDetalhes && !espacamentoCochoDetalhes.erro && (
+                        <InfoStrip tone="neutral">
+                          Espaçamento calculado: <strong>{espacamentoCochoDetalhes.espacamento_calculado_m_cab?.toFixed(2)} m/cab</strong>
+                          {` (cocho ${espacamentoCochoDetalhes.metragem_cocho_m}m · ${espacamentoCochoDetalhes.cabecas_adultas} cab)`}
+                        </InfoStrip>
+                      )}
+
+                      {foto && (
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={base64ToDataUrl(foto)}
+                            alt={`Foto de ${label}`}
+                            className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removerFotoItem(campo)}
+                            className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+                          >
+                            🗑️ REMOVER FOTO
+                          </button>
                         </div>
-                        {espacamentoCochoDetalhes.espacamento_ideal_m_cab && (
-                          <>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Espaçamento ideal:</span>
-                              <span className="font-semibold text-gray-900">{espacamentoCochoDetalhes.espacamento_ideal_m_cab?.toFixed(2)} m/cab</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Desvio:</span>
-                              <span className={`font-semibold ${espacamentoCochoDetalhes.desvio_percentual < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {espacamentoCochoDetalhes.desvio_percentual?.toFixed(1)}%
-                              </span>
-                            </div>
-                          </>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {!foto && (
+                          <button
+                            type="button"
+                            onClick={() => handleTirarFotoItem(campo)}
+                            disabled={capturandoFoto}
+                            className="flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+                          >
+                            <span className="text-lg leading-none">📷</span>
+                            <span className="text-xs font-extrabold uppercase tracking-wide">
+                              {capturandoFoto && campoFotoAtual === campo ? 'Capturando...' : 'Foto'}
+                            </span>
+                          </button>
                         )}
-                        <div className="flex flex-col gap-1 text-sm text-gray-500 pt-2 border-t border-gray-200">
-                          <span>Metragem cocho: {espacamentoCochoDetalhes.metragem_cocho_m}m</span>
-                          <span>Cabeças adultas: {espacamentoCochoDetalhes.cabecas_adultas}</span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleFalarItem(campo)}
+                          className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                            foto ? 'col-span-2' : ''
+                          } ${
+                            ouvindoVoz && campoVozAtual === campo
+                              ? 'animate-pulse bg-red-600'
+                              : 'bg-brand-900 hover:bg-brand-800'
+                          }`}
+                        >
+                          <span className="text-lg leading-none">🎤</span>
+                          <span className="text-xs font-extrabold uppercase tracking-wide">
+                            {ouvindoVoz && campoVozAtual === campo ? 'Ouvindo...' : 'Falar'}
+                          </span>
+                        </button>
                       </div>
-                    )}
-                  </div>
-                )}
+                      {fotoErro && campoFotoAtual === campo && (
+                        <InfoStrip tone="danger">{fotoErro}</InfoStrip>
+                      )}
+                      {vozErro && campoVozAtual === campo && (
+                        <InfoStrip tone="danger">{vozErro}</InfoStrip>
+                      )}
+
+                      <Input
+                        placeholder="Adicionar observação (opcional)"
+                        value={(form as any)[`${campo}Obs`] || ''}
+                        onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            <div className="mt-1">
+              <label className="mb-2 block text-[15px] font-bold text-gray-900">
+                LIMPEZA DE COCHO FOI REALIZADA? <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2" data-field="limpezaCocho">
+                {[
+                  { value: 'Sim', label: 'SIM', icon: '✓', sel: 'bg-green-100 text-green-800 border-green-500', iconColor: 'text-green-600' },
+                  { value: 'Não', label: 'NÃO', icon: '✗', sel: 'bg-red-50 text-red-700 border-red-400', iconColor: 'text-red-500' },
+                ].map((opt) => {
+                  const selecionado = form.limpezaCocho === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => set('limpezaCocho')(opt.value)}
+                      className={`flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 transition-all active:scale-95 ${
+                        selecionado ? opt.sel : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'
+                      }`}
+                    >
+                      <span className={`text-lg leading-none ${selecionado ? '' : opt.iconColor}`}>{opt.icon}</span>
+                      <span className="text-sm font-bold">{opt.label}</span>
+                    </button>
+                  )
+                })}
               </div>
-            ))}
-          </div>
+              {getError('limpezaCocho') && (
+                <p className="mt-2 text-base font-semibold text-red-700">{getError('limpezaCocho')}</p>
+              )}
+              {form.limpezaCocho === 'Não' && (
+                <Input
+                  placeholder="Adicionar observação (opcional)"
+                  value={form.limpezaCochoObs}
+                  onChange={setInput('limpezaCochoObs')}
+                  className="mt-2"
+                />
+              )}
+            </div>
+          </CadernetaSection>
         ) : null}
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleSalvarClick}
-            disabled={salvando || verificando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || verificando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando || verificando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setForm(makeInitial())}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
+        {/* Consumo do lote: média 7 dias + série diária + histórico completo */}
+        {detalhesLote && (
+          <CadernetaSection numero={numeroConsumo} titulo="Consumo do Lote">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Média 7 dias</p>
+                <p className="mt-0.5 text-base font-extrabold text-gray-900">
+                  {media7Dias != null
+                    ? `${media7Dias.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg/cab`
+                    : '-'}
+                </p>
+              </div>
+              <div className="rounded-xl bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">% do peso vivo</p>
+                <p className="mt-0.5 text-base font-extrabold text-gray-900">
+                  {media7DiasPctPV != null
+                    ? `${media7DiasPctPV.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                    : '-'}
+                </p>
+              </div>
+            </div>
+
+            {intervalosComAberto.length === 0 ? (
+              <InfoStrip tone="neutral">
+                Sem histórico de tratos para este lote.
+              </InfoStrip>
+            ) : serie7Dias.every((d) => d.kgCab == null) ? (
+              <InfoStrip tone="neutral">
+                Nenhum trato coberto na janela dos últimos 7 dias.
+              </InfoStrip>
+            ) : (
+              <div className="flex items-end gap-1.5 pt-1">
+                {serie7Dias.map((d, i) => {
+                  const altura = d.kgCab != null && maxKgCabSerie > 0
+                    ? Math.max((d.kgCab / maxKgCabSerie) * 100, 8)
+                    : 0
+                  const acimaMeta = d.kgCab != null && metaKgCabMN != null && d.kgCab > metaKgCabMN * 1.05
+                  return (
+                    <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                      <div className="flex h-16 w-full items-end rounded-md bg-gray-100">
+                        {d.kgCab != null && (
+                          <div
+                            className={`w-full rounded-md ${acimaMeta ? 'bg-amber-400' : 'bg-brand-500'}`}
+                            style={{ height: `${altura}%` }}
+                            title={`${d.kgCab.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg/cab`}
+                          />
+                        )}
+                      </div>
+                      <span className="text-[10px] font-semibold text-gray-400">
+                        {d.data.getUTCDate()}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowHistoricoModal(true)}
+              className="w-full rounded-xl border-2 border-brand-200 bg-brand-50 px-3 py-3 text-sm font-bold text-brand-700 transition-colors hover:bg-brand-100 active:scale-[0.99]"
+            >
+              Ver histórico completo do lote →
+            </button>
+          </CadernetaSection>
         )}
-      </main>
+
+        <FormFooter
+          onSalvar={handleSalvarClick}
+          onLimpar={limparRascunho}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+        />
+
+        <input
+          ref={fotoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFotoInputItem}
+          className="hidden"
+        />
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -1414,6 +1643,22 @@ export default function SuplementacaoPage() {
         ]}
       />
 
+      <PdfModal
+        isOpen={showFezesModal}
+        onClose={() => setShowFezesModal(false)}
+        images={[
+          `${BASE}docs/fezes/POP_Fezes_01.jpg`
+        ]}
+      />
+
+      <HistoricoSuplementacaoModal
+        aberto={showHistoricoModal}
+        onFechar={() => setShowHistoricoModal(false)}
+        nomeLote={detalhesLote?.nome || form.numeroLote}
+        registros={registrosHistorico}
+        intervalos={intervalosComAberto}
+      />
+
       <ObservacaoAtrasoModal
         isOpen={showObservacaoModal}
         onClose={async (observacao) => {
@@ -1426,14 +1671,6 @@ export default function SuplementacaoPage() {
         horarioProgramado={horariosModal.programado}
         horarioRegistro={horariosModal.registro}
       />
-
-      <PdfModal
-        isOpen={showFezesModal}
-        onClose={() => setShowFezesModal(false)}
-        images={[
-          `${BASE}docs/fezes/POP_Fezes_01.jpg`
-        ]}
-      />
-    </div>
+    </>
   )
 }

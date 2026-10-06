@@ -1080,3 +1080,11 @@ Disparador: quando mencionar cache nao invalida ao trocar fazenda, funcionario d
 ## Share com fotos no app nativo via Capacitor Share/Filesystem (06/10/2026)
 
 O compartilhamento com album de fotos nao anexava nada no APK de producao: o Android WebView nao implementa `navigator.share` com `files`, entao o fluxo sempre caia no fallback `wa.me` (so texto). `compartilharWhatsApp` agora detecta `Capacitor.isNativePlatform()` e usa `@capacitor/share` + `@capacitor/filesystem` (novas deps): grava cada foto em `Directory.Cache` e chama `Share.share({ text, files: uris })` numa share sheet so. Cancelamento do usuario tratado como abort; falha real cai para o caminho web como antes. Requer rebuild do APK para ter efeito.
+
+## Suplementacao promovida a producao: linguagem nova + historico de consumo (06/10/2026)
+
+Recorte para master da `SuplementacaoPage` redesenhada na `feat/layout-moderno-menus`: secoes `CadernetaSection`, card do lote em `InfoCard` (com `span` para categorias em faixa inteira e iniciais maiusculas), checklist de condicoes em afirmacoes negativas com foto/voz/obs por item (chaves positivas do jsonb preservadas), foto do cocho em `checklist.foto_cocho`, escopo adulto + creep no mesmo lancamento, card de consumo dos ultimos 7 dias (intervalo aberto do ultimo trato incluido) e `HistoricoSuplementacaoModal` com 30 dias do lote, offline via cache.
+
+Dependencias promovidas junto: `uploadFotosChecklist` generalizado para `suplementacao` no `syncService`, share de suplementacao com album de fotos numa mensagem, `InfoCard.span`, `capitalizarCategoria`, restyle do `FotoSection` (afeta Morte/Problemas/Atividades, apenas visual) e `BannerRascunho` compacto. Sem migration: tudo vai no checklist jsonb. Painel atualizado no commit `062984b` do repo manejus (espacamento, foto do cocho e fotos dos problemas no detalhe).
+
+Rascunho de suplementacao agora escopado por fazenda (`suplementacao:{fazendaId}`) e lote inexistente na fazenda atual exibe erro visivel em vez de bloquear o SALVAR em silencio. Demais cadernetas seguem com `useRascunhoForm` sem escopo (divida registrada). Colunas `consumo_medio_*`/`custo_medio_*` de `registros_suplementacao` nao sao mais escritas (mortas por decisao); o detalhe do Painel as exibe como `-` em registros novos.
