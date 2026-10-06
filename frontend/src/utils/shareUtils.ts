@@ -659,40 +659,50 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.observacao && registro.observacao !== '') {
       texto += `OBSERVAÇÃO: *${registro.observacao}*\n`
     }
-    
-    // Checklist fields — only display problematic (false/Não) answers
+
+    // Checklist: a UI marca problemas (afirmacao negativa); no payload,
+    // valor=true significa "condicao adequada". So imprime itens marcados.
     const checklistBebedouros = [
-      { campo: 'agua_suficiente', label: 'QUANTIDADE DE ÁGUA ESTÁ ADEQUADA?' },
-      { campo: 'vazao_bebedouro_ideal', label: 'VAZÃO DA BÓIA ESTÁ IDEAL?' },
-      { campo: 'aterro_acesso_bebedouro_ideal', label: 'ATERRO / ACESSO AO BEBEDOURO ESTÁ ADEQUADO?' },
-      { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO BEBEDOURO IDEAL' },
-      { campo: 'boia_protecao_boas_condicoes', label: 'BÓIA E PROTEÇÃO DA BÓIA ESTÃO EM BOAS CONDIÇÕES?' },
+      { campo: 'agua_suficiente', label: 'ÁGUA INSUFICIENTE' },
+      { campo: 'vazao_bebedouro_ideal', label: 'VAZÃO DA BÓIA FORA DO IDEAL' },
+      { campo: 'boia_protecao_boas_condicoes', label: 'BÓIA/PROTEÇÃO EM MÁS CONDIÇÕES' },
+      { campo: 'aterro_acesso_bebedouro_ideal', label: 'ATERRO/ACESSO INADEQUADO' },
+      { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO INADEQUADO' },
     ]
 
-    // Filter only problematic answers (Não = false)
+    // Filter only problematic answers (valor === false)
     const problematicos = checklistBebedouros.map(({ campo, label }) => {
       let valor = null
       let observacao = null
+      let fotoUrl = null
       if (registro.checklist && (registro.checklist as any)[campo]) {
         valor = (registro.checklist as any)[campo].valor
         observacao = (registro.checklist as any)[campo].observacao
+        fotoUrl = (registro.checklist as any)[campo].foto_url
       } else {
         const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      return { label, valor, observacao }
+      return { label, valor, observacao, fotoUrl }
     }).filter(item => item.valor === false)
 
     if (problematicos.length > 0) {
-      texto += `\nCHECKLIST\n`
-      problematicos.forEach(({ label, observacao }) => {
-        // All displayed answers are negative — add warning icon to every one
-        texto += `⚠️ ${label}: *Não*\n`
+      texto += `\nPROBLEMAS ENCONTRADOS\n`
+      problematicos.forEach(({ label, observacao, fotoUrl }) => {
+        texto += `⚠️ *${label}*\n`
         if (observacao && observacao !== '') {
           texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
+        if (fotoUrl) {
+          texto += `FOTO: ${fotoUrl}\n`
+        }
       })
+    }
+
+    const limpouHoje = (registro.checklist as any)?.limpou_hoje?.valor
+    if (limpouHoje !== null && limpouHoje !== undefined) {
+      texto += `\nLIMPOU O BEBEDOURO HOJE?: *${limpouHoje ? 'Sim' : 'Não'}*\n`
     }
     
     // Seção: Histórico de Limpeza

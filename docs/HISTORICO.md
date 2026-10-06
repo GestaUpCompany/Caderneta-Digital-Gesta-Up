@@ -2,6 +2,25 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Tela de Bebedouros modernizada em produção (05/10/2026)
+
+Terceira fatia do redesign foi para produção via `release/bebedouros`, mesmo método de recorte de arquivos da `feat/layout-moderno-menus` sobre o master.
+
+O que entrou:
+
+- **`BebedourosPage`** reescrita: seções numeradas, tiles de leitura da água, chip POP, `FormFooter` e rascunho (`useRascunhoForm` + `BannerRascunho`, a página não tinha antes). O checklist virou uma lista de afirmações negativas clicáveis ("ÁGUA INSUFICIENTE", "VAZÃO DA BÓIA FORA DO IDEAL", "BÓIA/PROTEÇÃO EM MÁS CONDIÇÕES", "ATERRO/ACESSO INADEQUADO", "ESPAÇAMENTO INADEQUADO"): clicar marca o problema (`valor: false`) e abre evidência (foto via `usePhotoGps`, observação, ditado por voz); não clicar significa condição adequada (`valor: true`). As chaves positivas do jsonb foram preservadas, então `valor` no banco continua significando "condição adequada" e os históricos seguem legíveis.
+- **Foto por item do checklist**: vai dentro do `checklist` jsonb como `foto_url`, sem migration. O sync sobe cada foto para `fotos-registros/{fazenda}/bebedouros/{registro}/{item}.jpg` e remove `fotoBase64` antes do insert (`uploadFotosChecklistBebedouros` no `syncService`).
+- **Ditado por voz**: hook `useVoiceInput` novo. No app nativo usa `@capacitor-community/speech-recognition` (SpeechRecognizer no Android / SFSpeechRecognizer no iOS); no navegador cai para Web Speech API. `RECORD_AUDIO` adicionado ao `AndroidManifest`. Requer `npx cap sync` + rebuild do app para funcionar no APK; reconhecimento offline depende do pacote de voz do aparelho, não é garantido.
+- **`limpou_hoje`**: a pergunta ficou como o único SIM/NÃO da seção e passa a controlar o histórico de limpeza: `createHistoricoLimpeza` só roda quando "Sim" (antes registrava sempre que um bebedouro era selecionado). Fazendas com checklist inativo mantêm o comportamento antigo de sempre registrar.
+- **`InfoCard`** (componente novo compartilhado): resumo da entidade selecionada com identidade (ícone + título + subtítulo), stats compactos, barra de progresso e uma faixa única de decisão. Substituiu `BebedouroDetalhesCard` e `BebedouroPastoCard` (deletados). Corrigiu de quebra um bug antigo: `parseInt("há N dias")` retornava NaN e a linha "PRÓXIMA LIMPEZA" nunca renderizava; agora vira a faixa de status ("Limpeza atrasada há X dias" etc.).
+- **Share de bebedouros**: seção virou "PROBLEMAS ENCONTRADOS" com labels negativos, observação e link da foto quando sincronizada; linha "LIMPOU O BEBEDOURO HOJE?".
+
+Ficou de fora (segue na `feat/layout-moderno-menus`): `LimpezaPage`, `AbastecimentoPage`, `EnfermariaPage`.
+
+Pendente de consumo: o Painel Web ainda não renderiza `foto_url` por item do checklist nem a chave `limpou_hoje` com label; os dados estão no jsonb, a exibição é follow-up no repo do painel.
+
+**Disparador**: quando mencionar "checklist de bebedouros", "foto no checklist", "ditado por voz", `InfoCard`, `limpou_hoje`, ou "por que o histórico de limpeza parou de registrar", ler esta seção.
+
 ## Telas de Clima e Problemas modernizadas em produção (05/10/2026)
 
 Segunda fatia do redesign foi para produção via `release/clima-problemas`, recorte de arquivos da `feat/layout-moderno-menus` sobre o master (não foi merge de commits, foi checkout de arquivo). Limpeza, Abastecimento e Enfermaria continuam na branch de layout.

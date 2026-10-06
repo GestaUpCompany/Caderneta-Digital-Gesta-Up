@@ -95,6 +95,16 @@ export interface RegistroSuplementacao extends Registro {
   kgDeposito: number
 }
 
+export interface ChecklistBebedouroItem {
+  /** "Condicao adequada" (true) ou "problema marcado" (false) */
+  valor: boolean
+  observacao: string
+  /** Base64 local antes do sync; removido do payload apos upload */
+  fotoBase64?: string
+  /** URL publica no bucket fotos-registros, preenchida pelo sync */
+  foto_url?: string
+}
+
 export interface RegistroBebedouros extends Registro {
   responsavel: string
   gado: string
@@ -102,6 +112,14 @@ export interface RegistroBebedouros extends Registro {
   leituraBebedouro: number | null
   numeroBebedouro: string
   observacao: string
+  checklist?: {
+    agua_suficiente: ChecklistBebedouroItem
+    vazao_bebedouro_ideal: ChecklistBebedouroItem
+    aterro_acesso_bebedouro_ideal: ChecklistBebedouroItem
+    espacamento_bebedouro_ideal: ChecklistBebedouroItem
+    boia_protecao_boas_condicoes: ChecklistBebedouroItem
+    limpou_hoje?: ChecklistBebedouroItem
+  } | null
 }
 
 export interface RegistroMovimentacao extends Registro {
