@@ -848,10 +848,10 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
   }
 }
 
-// Upload das fotos por item do checklist de bebedouros (o problema marcado
-// carrega foto propria). Retorna o checklist com foto_url preenchida e sem
-// fotoBase64, que nao deve ser persistido no jsonb.
-async function uploadFotosChecklistBebedouros(checklist: any, registro: Registro, fazendaId: string): Promise<any> {
+// Upload das fotos por item do checklist (o problema marcado carrega foto
+// propria). Retorna o checklist com foto_url preenchida e sem fotoBase64,
+// que nao deve ser persistido no jsonb.
+async function uploadFotosChecklist(checklist: any, registro: Registro, fazendaId: string, pasta: string): Promise<any> {
   if (!checklist || typeof checklist !== 'object') return checklist
 
   const { base64ToBlob, imageMimeFromBase64, imageExtFromBase64 } = await import('../utils/photoCompress')
@@ -868,7 +868,7 @@ async function uploadFotosChecklistBebedouros(checklist: any, registro: Registro
     if (fotoBase64) {
       try {
         const mime = imageMimeFromBase64(fotoBase64)
-        const fotoPath = `${fazendaId}/bebedouros/${registro.id}/${key}.${imageExtFromBase64(fotoBase64)}`
+        const fotoPath = `${fazendaId}/${pasta}/${registro.id}/${key}.${imageExtFromBase64(fotoBase64)}`
         const { error: uploadError } = await client
           .storage
           .from('fotos-registros')
@@ -947,9 +947,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       data = { ...data, foto_url: fotoUrl }
     }
 
-    // Fotos por item do checklist de bebedouros
-    if (store === 'bebedouros' && data.checklist) {
-      data = { ...data, checklist: await uploadFotosChecklistBebedouros(data.checklist, registro, fazendaId) }
+    // Fotos por item do checklist (bebedouros, suplementacao)
+    if ((store === 'bebedouros' || store === 'suplementacao') && data.checklist) {
+      data = { ...data, checklist: await uploadFotosChecklist(data.checklist, registro, fazendaId, store) }
     }
 
     if (operation === 'create') {

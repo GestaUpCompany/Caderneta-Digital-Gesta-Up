@@ -880,3 +880,17 @@ A `EnfermariaPage` migrou para `CadernetaSection`/`ChoiceGrid`/`FormFooter` sem 
 Divergências da referência mantidas por decisão: `FOTO DO BRINCO`/`SEM BRINCO` não substituem o `AnimalIdentifier` (a foto não identifica o animal no banco e tiraria o auto-fill de sexo/raça/idade/lote); `GRAVAR ÁUDIO` adiado para a fase de mídia; "estoque: 8 frascos" não existe em `medicamentos` (sem coluna de estoque).
 
 **Disparador**: quando mencionar redesign de cadernetas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection`, `MedicamentosSection`, `danger-solid`, migration criada no repo do PWA, ou "copiar migrations para o painel", ler esta seção.
+
+## Suplementação na linguagem nova + histórico de consumo do lote (06/10/2026)
+
+A `SuplementacaoPage` migrou para `CadernetaSection`/`InfoCard`/`InfoStrip`/`FormFooter`/`ChecklistSection` sem mudança de contrato: mesmas colunas, mesmos `local_id` (incl. `creep_*` no fan-out), mesma regra "pelo menos adulto ou creep com kg". `kgDeposito` finalmente entrou no `form` — e a página ganhou `useRascunhoForm`, que não tinha.
+
+Checklist segue o padrão de bebedouros: `limpeza_cocho` fica SIM/NÃO (ação), as afirmações de condição (`espacamento_cocho_adequado`, `cochos_condicoes`, `aterro_acesso_ideal`, `deposito_condicoes` — o último só em pasto com depósito) viram itens negativos clicáveis com foto/voz/obs por item; chaves positivas do jsonb preservadas. `FOTO DO COCHO` vai no checklist como `foto_cocho` (a tabela não tem coluna de foto) e sobe pelo `uploadFotosChecklist`, estendido para `suplementacao`/`fotos-suplementacao`.
+
+Consumo do lote: reutiliza `calcularIntervalosTratos` + novo `calcularMediaPorDiasCobertos` (exportados de `supplementMetrics`); `calcularSerieConsumoDiaria` na página constrói kg/cab por dia para o lote adulto, cobrindo também o **intervalo aberto do último trato** (rateia o kg pelos dias decorridos — sem isso o trato mais recente nunca aparecia na série). Card "Consumo do lote" mostra média 7 dias em kg/cab e %PV + barras diárias ancoradas na data do registro; `HistoricoSuplementacaoModal` lista os tratos dos últimos 30 dias (ambos os escopos, com etiqueta CREEP) a partir de `getRegistrosSuplementacaoByLoteCached`, funcionando offline.
+
+Correções no caminho: `rascunhoKey` agora é escopada por fazenda (`suplementacao:{fazendaId}`) — rascunho de outra fazenda não contamina o formulário; `loteNaoEncontrado` exibe faixa vermelha + erro de validação quando o lote não resolve na fazenda atual (antes o SALVAR ficava bloqueado em silêncio). **As demais cadernetas ainda usam `useRascunhoForm` sem escopo de fazenda** — vale a mesma correção ou escopo centralizado no hook.
+
+`InfoCard`/`InfoCardStat` ganharam `span` (stat ocupa N colunas do grid, sem truncate) para exibir CATEGORIAS em faixa inteira com nomes longos; `capitalizarCategoria` exposta em `utils/categorias.ts`. Share de suplementação reescrito no vocabulário negativo + álbum de fotos (texto com marcadores "foto N" + `fotos[]`/`fotosUrls` anexadas numa mensagem só); `ListaRegistros` chama o formatter com o registro inteiro para ter acesso às fotos. Banner de rascunho compactado para faixa única.
+
+**Colunas mortas**: `consumo_medio_*`/`custo_medio_*` de `registros_suplementacao` não são mais escritas por nenhum caminho (primário, fan-out creep, update) — decisão do usuário; as colunas seguem no banco sem uso e o payload local também não as carrega.
