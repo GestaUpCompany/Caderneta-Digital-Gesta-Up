@@ -182,7 +182,8 @@ export default function TratoConfinamentoPage() {
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const curraisRef = useRef<CurralTrato[]>([])
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-  const { capturarFoto, capturandoFoto } = usePhotoGps({ comGps: false })
+  const { capturarFoto, capturandoFoto, fotoInputRef, handleFileInputChange } = usePhotoGps({ comGps: false })
+  const fotoCurralIdRef = useRef<string | null>(null)
 
   // Carregamento inicial: notas config e tipos disponíveis
   useEffect(() => {
@@ -696,10 +697,23 @@ export default function TratoConfinamentoPage() {
 
   const tirarFotoBalanca = useCallback(
     async (curralId: string) => {
+      fotoCurralIdRef.current = curralId
       const foto = await capturarFoto()
+      // Nativo retorna a foto aqui; no web o retorno vem pelo input file hidden
       if (foto) atualizarCurral(curralId, { fotoBalanca: foto })
     },
     [capturarFoto, atualizarCurral]
+  )
+
+  const handleFotoBalancaInput = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const result = await handleFileInputChange(e)
+      const curralId = fotoCurralIdRef.current
+      if (result?.fotoBase64 && curralId) {
+        atualizarCurral(curralId, { fotoBalanca: result.fotoBase64 })
+      }
+    },
+    [handleFileInputChange, atualizarCurral]
   )
 
   const limparCurralAtual = useCallback(
@@ -1545,6 +1559,15 @@ export default function TratoConfinamentoPage() {
             )}
           </>
         ) : null}
+
+        <input
+          ref={fotoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFotoBalancaInput}
+          className="hidden"
+        />
       </div>
     </CadernetaLayout>
   )
