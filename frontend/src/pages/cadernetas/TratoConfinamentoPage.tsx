@@ -576,9 +576,17 @@ export default function TratoConfinamentoPage() {
       )
       const curraisTratoValidos = curraisTratoList.filter((c): c is CurralTrato => c !== null)
 
-      curraisTratoValidos.sort((a, b) =>
-        a.curralNome.localeCompare(b.curralNome, 'pt-BR', { numeric: true, sensitivity: 'base' })
-      )
+      // Ordem manual definida no painel (currais.ordem_folha_trato) primeiro;
+      // currais sem ordem caem no fim, por nome.
+      curraisTratoValidos.sort((a, b) => {
+        const ordemA = curraisPorId.get(a.curralId)?.ordem_folha_trato
+        const ordemB = curraisPorId.get(b.curralId)?.ordem_folha_trato
+        return (
+          (ordemA != null ? Number(ordemA) : Number.MAX_SAFE_INTEGER) -
+            (ordemB != null ? Number(ordemB) : Number.MAX_SAFE_INTEGER) ||
+          a.curralNome.localeCompare(b.curralNome, 'pt-BR', { numeric: true, sensitivity: 'base' })
+        )
+      })
 
       // Rascunho de kg por curral
       const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
