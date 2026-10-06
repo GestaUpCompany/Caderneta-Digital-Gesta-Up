@@ -13,6 +13,7 @@ export const tratoConfinamentoConfig: CadernetaDisplayConfig = {
     kgPlanejado: { key: 'kgPlanejado', label: 'KG PLANEJADO', section: 'DADOS DO TRATO', priority: 5, format: (v) => `${formatarNumeroBR(v)} kg` },
     kgReal: { key: 'kgReal', label: 'KG FORNECIDO', section: 'DADOS DO TRATO', priority: 6, format: (v) => `${formatarNumeroBR(v)} kg` },
     leituraCochoNota: { key: 'leituraCochoNota', label: 'LEITURA COCHO', section: 'DADOS DO TRATO', priority: 7 },
+    vagaoNome: { key: 'vagaoNome', label: 'VAGÃO', section: 'DADOS DO TRATO', priority: 8 },
   },
-  hiddenFields: ['curralId', 'loteId', 'programacaoId'],
+  hiddenFields: ['curralId', 'loteId', 'programacaoId', 'vagaoId', 'fabricaConfinamentoId'],
 }

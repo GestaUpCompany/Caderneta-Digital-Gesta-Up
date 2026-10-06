@@ -1710,6 +1710,34 @@ export async function getRegistrosOfertaTratoByFazendaDataCached(
 }
 
 /**
+ * Produções do vagão do dia (fábrica confinamento) com cache lazy.
+ * Usado pela folha de trato para calcular saldo por vagão.
+ */
+export async function getRegistrosFabricaByDataCached(
+  fazendaId: string,
+  data: string
+): Promise<any[]> {
+  const key = buildKey('registros-fabrica-data', fazendaId, data)
+  const cached = getCachedQuery(key) as any[] | null
+
+  if (!navigator.onLine) {
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
+  }
+
+  try {
+    const dataResult = await withTimeout(supabaseService.getRegistrosFabricaByData(fazendaId, data), 3000)
+    if (dataResult && dataResult.length > 0) setCachedQuery(key, dataResult)
+    return dataResult || []
+  } catch {
+    if (cached) return cached
+    const idbCached = await getCachedQueryFromIDB<any[]>(key)
+    return idbCached || []
+  }
+}
+
+/**
  * Registros de oferta de trato anteriores à data de referência para um curral.
  * Usado para determinar dia 1 vs dia 2+ e calcular total real do dia anterior.
  */
@@ -2955,6 +2983,7 @@ export async function warmAllCadastroCache(
       if (ocupados.size > 0) {
         allPromises.push(getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataHoje))
         allPromises.push(getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataOntem))
+        allPromises.push(getRegistrosFabricaByDataCached(fazendaId, dataHoje))
         for (const curralId of ocupados) {
           allPromises.push(getRegistrosOfertaTratoAnterioresCached(fazendaId, curralId, dataHoje))
         }
