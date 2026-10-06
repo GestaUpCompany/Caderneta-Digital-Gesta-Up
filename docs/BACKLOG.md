@@ -125,9 +125,9 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 
 | ID | Tabela/Arquivo | Problema | Correção |
 |---|---|---|---|
-| S1 | fazendas | Policies Auth delete/insert/update com qual=true, qualquer usuário autenticado pode deletar/criar/alterar qualquer fazenda | Restringir DELETE/INSERT/UPDATE ao id IN (SELECT fazenda_id FROM usuario_fazenda WHERE usuario_id = auth.uid() AND papel = 'admin') |
-| S2 | fazendas | Policy Enable public read access (role public), qualquer pessoa na internet pode listar todas as fazendas | Remover policy public; manter apenas SELECT por usuario_fazenda |
-| S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, lotes, pastos, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas | Substituir por filtro fazenda_id IN (SELECT uf.fazenda_id FROM usuario_fazenda uf JOIN usuarios u ON u.id=uf.usuario_id WHERE u.auth_id=auth.uid() AND uf.ativo=true) |
+| ~~S1~~ | fazendas | ~~Policies Auth delete/insert/update com qual=true~~ **RESOLVIDO** (06/10/2026, migration Painel `20261006180000_isolamento_tenant`): INSERT/DELETE só `is_admin_user()`; UPDATE admin/controller da própria fazenda | — |
+| ~~S2~~ | fazendas | ~~Policy Enable public read access (role public)~~ **RESOLVIDO** (06/10/2026, mesma migration): SELECT restrito a vínculo direto ou mesmo `grupo_id` (preserva transferências) | — |
+| S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, ~~lotes, pastos~~, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas. **PARCIAL** (06/10/2026): `lotes`, `pastos`, `fazendas`, `usuario_fazenda` e `peoes` isoladas via `caller_has_fazenda_access`/`user_has_fazenda_role`; RPC `sincronizar_historico_pasto_lote_edit` hardenada | Substituir nas tabelas restantes por `caller_has_fazenda_access(fazenda_id)` (cobre painel via usuario_fazenda e peão PWA via email JWT); auditar RPCs definer restantes (`transferir_lote_entre_fazendas`, `aprovar_solicitacao_novo_lote`) |
 | S4 | usuarios | Policies Allow authenticated insert/update com qual=true, qualquer usuário pode criar/alterar qualquer usuário | Restringir INSERT/UPDATE a id = auth.uid() ou role admin |
 | S5 | peoes (coluna password) | Senhas dos peões em texto plano; usadas em authController.ts:42 para signInWithPassword | **Aceito como está** (decisão do usuário, 2026-09-10): peão é perfil de acesso limitado a dados da fazenda, não tem acesso a dados sensíveis. Hashing é melhoria opcional de defesa-em-profundidade, sem urgência. Se implementar no futuro: migration que hashea as existentes + ajustar authController.ts. |
 
@@ -242,13 +242,13 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 
 | # | ID | Frente | Problema | Impacto no Painel |
 |---|---|---|---|---|
-| 1 | S3 | Segurança | 22+ tabelas com RLS qual=true | QUEBRA se isolado |
+| 1 | S3 | Segurança | 22+ tabelas com RLS qual=true (PARCIAL 06/10: lotes, pastos, fazendas, usuario_fazenda, peoes resolvidos) | QUEBRA se isolado |
 | 2 | S5 | Segurança | ~~Senhas peões em texto plano~~ (aceito como está) | NEUTRO |
-| 3 | S1 | Segurança | fazendas: DELETE/INSERT/UPDATE por qualquer usuário | QUEBRA se isolado |
+| 3 | ~~S1~~ | Segurança | ~~fazendas: DELETE/INSERT/UPDATE por qualquer usuário~~ (RESOLVIDO 06/10) | — |
 | 4 | C2, C5 | Consistência | syncService envia campos inexistentes no schema de pastagens e bebedouros | NEUTRO |
 | 5 | N1 | Negócio | Sem conflito de versão no sync | NEUTRO |
 | 6 | N3 | Negócio | Sync entrada-insumos não transacional | NEUTRO |
-| 7 | S2 | Segurança | fazendas: SELECT público | QUEBRA se isolado |
+| 7 | ~~S2~~ | Segurança | ~~fazendas: SELECT público~~ (RESOLVIDO 06/10) | — |
 | 8 | ~~C9-C10, C13~~ | Consistência | ~~Fuso horário não aplicado no PWA~~ (RESOLVIDO) | NEUTRO |
 | 9 | N4 | Negócio | currentFazendaId global | NEUTRO |
 | 10 | Log erro visível | Negócio | Erro de sync não visível + retries automáticos causam duplicatas | NEUTRO |
