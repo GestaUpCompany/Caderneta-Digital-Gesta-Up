@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { DatePicker } from '../../components/ui'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import { salvarRascunho, lerRascunho, limparRascunho } from '../../services/indexedDB'
+import { salvarRascunho, lerRascunho, getAllRegistros } from '../../services/indexedDB'
 import {
   getLoteDetalhesComCategoriasCached,
   getCurraisCached,
@@ -15,6 +17,7 @@ import {
   getTiposProgramacaoTratosCached,
   getRegistrosOfertaTratoByFazendaDataCached,
   getRegistrosOfertaTratoAnterioresCached,
+  getRegistrosFabricaByDataCached,
   getCachedCadastroData,
   getNotasLeituraCochoConfigCached,
   getLoteByNomeCached,
@@ -25,7 +28,9 @@ import {
   getLotes,
   getNotasLeituraCochoConfig,
 } from '../../services/supabaseService'
-import { Brush, Check, ChevronRight, Save } from 'lucide-react'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { base64ToDataUrl } from '../../utils/photoCompress'
+import { Brush, Camera, Check, ChevronRight, Save } from 'lucide-react'
 import { LOGO_URL } from '../../utils/constants'
 
 interface NotaConfig {
@@ -42,6 +47,7 @@ interface CurralTrato {
   linhaNome: string | null
   loteId: string | null
   loteNome: string | null
+  formulacaoId: string | null
   formulacaoNome: string | null
   quantidadeTratos: number
   ordemTrato: number // próximo trato a ser feito (count + 1)
@@ -56,6 +62,11 @@ interface CurralTrato {
   kgBaseDia: number | null
   isDia1: boolean
   tratosConcluidos: boolean
+  // trato exibido no seletor (permite revisitar trato já lançado, somente leitura)
+  tratoExibido: number
+  // vagão selecionado para o trato em edição (vagao_id ou chave da produção)
+  vagaoSelecionadoKey: string
+  fotoBalanca: string | null
   // estado de UI
   salvo: boolean
   rascunhoSalvo: boolean
@@ -73,6 +84,32 @@ interface ProgramacaoData {
   percentuais: { ordem_trato: number; percentual: number; horario_sugerido: string | null }[]
 }
 
+// Produção do vagão normalizada (sync do servidor ou registro local ainda não
+// sincronizado lançado neste aparelho pela Fábrica Confinamento).
+interface ProducaoDia {
+  id: string
+  supabaseId: string | null
+  ordemTrato: number
+  vagaoId: string | null
+  vagaoNome: string
+  formulacaoId: string | null
+  formulacaoNome: string | null
+  totalProduzido: number
+}
+
+// Agregado por vagão para o trato exibido: carregado, consumido e saldo.
+interface OpcaoVagao {
+  key: string
+  vagaoId: string | null
+  vagaoNome: string
+  producao: ProducaoDia | null // produção mais recente (para o vínculo no save)
+  carregado: number
+  consumido: number
+  saldo: number
+}
+
+const TOLERANCIA_DESVIO_PERCENT = 5
+
 function formatarKg(valor: number | null, casas = 1): string {
   if (valor === null || valor === undefined || !isFinite(valor)) return '—'
   return valor.toLocaleString('pt-BR', {
@@ -89,9 +126,7 @@ function capitalizarIniciais(texto: string): string {
     .join(' ')
 }
 
-/**
- * Converte data BR (DD/MM/AAAA) para YYYY-MM-DD (formato date do Supabase).
- */
+/** Converte data BR (DD/MM/AAAA) para YYYY-MM-DD (formato date do Supabase). */
 function brToDateISO(dataBR: string): string {
   const [day, month, year] = dataBR.split(' ')[0].split('/').map(Number)
   if (!day || !month || !year) return ''
@@ -99,6 +134,7 @@ function brToDateISO(dataBR: string): string {
 }
 
 function parseKgReal(valor: string): number {
+  if (!valor || !valor.trim()) return NaN
   const numero = Number(valor.replace(',', '.'))
   return Number.isFinite(numero) ? numero : NaN
 }
@@ -130,24 +166,29 @@ export default function TratoConfinamentoPage() {
   const [linhas, setLinhas] = useState<{ id: string; nome: string }[]>([])
   const [linhaSelecionada, setLinhaSelecionada] = useState<string | null>(null)
   const [curralSelecionado, setCurralSelecionado] = useState<string | null>(null)
-  const [showRevisarModal, setShowRevisarModal] = useState(false)
   const [salvandoFim, setSalvandoFim] = useState(false)
   const [linhaTemMais, setLinhaTemMais] = useState(false)
   const [curralTemMais, setCurralTemMais] = useState(false)
+  const [producoesDia, setProducoesDia] = useState<ProducaoDia[]>([])
+  // Lançamentos desta tela ainda não re-carregados do cache (contam no saldo do vagão)
+  const [lancadosLocal, setLancadosLocal] = useState<
+    { curralId: string; ordemTrato: number; kg: number; vagaoId: string | null; vagaoNome: string }[]
+  >([])
+  const [registrosDoDia, setRegistrosDoDia] = useState<any[]>([])
+  const [ofertasLocais, setOfertasLocais] = useState<any[]>([])
+  const [vagosPorCurral, setVagosPorCurral] = useState<Map<string, number>>(new Map())
   const linhaScrollRef = useRef<HTMLDivElement>(null)
   const curralScrollRef = useRef<HTMLDivElement>(null)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
-  // Espelho de currais para leitura síncrona em flush/cleanup (sem depender de re-render)
   const curraisRef = useRef<CurralTrato[]>([])
-  // Timers de debounce de autosave por curralId
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const { capturarFoto, capturandoFoto } = usePhotoGps({ comGps: false })
 
   // Carregamento inicial: notas config e tipos disponíveis
   useEffect(() => {
     async function carregarInicial() {
       if (!fazendaId) return
       try {
-        // Notas de leitura de cocho: usar versão cached para funcionamento offline
         let notasData: any[] | null = null
         try {
           notasData = await getNotasLeituraCochoConfigCached(fazendaId)
@@ -183,7 +224,7 @@ export default function TratoConfinamentoPage() {
     carregarInicial()
   }, [fazendaId])
 
-  // Carregamento principal: currais + programação + registros do dia
+  // Carregamento principal: currais + programação + registros do dia + produções do vagão
   const carregarDados = useCallback(async () => {
     if (!fazendaId || !tipoSelecionado) return
     setCarregando(true)
@@ -197,7 +238,6 @@ export default function TratoConfinamentoPage() {
         return
       }
 
-      // Buscar lotes: online usa supabaseService, offline usa cache lazy por nome
       let lotesData: any[] | null = null
       if (navigator.onLine) {
         try { lotesData = await getLotes(fazendaId) } catch { lotesData = null }
@@ -212,22 +252,75 @@ export default function TratoConfinamentoPage() {
         }
       }
 
-      const [progCompleta, curraisData, registrosDoDia, linhasData, ocupacoesData] = await Promise.all([
-        getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
-        getCurraisCached(fazendaId),
-        getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
-        getLinhasConfinamentoCached(fazendaId),
-        getOcupacoesCurralNaDataCached(fazendaId, dataISO),
-      ])
+      const [progCompleta, curraisData, registrosData, linhasData, ocupacoesData, fabricaData, fabricaLocal, ofertasLocalData] =
+        await Promise.all([
+          getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
+          getCurraisCached(fazendaId),
+          getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
+          getLinhasConfinamentoCached(fazendaId),
+          getOcupacoesCurralNaDataCached(fazendaId, dataISO),
+          getRegistrosFabricaByDataCached(fazendaId, dataISO),
+          getAllRegistros('fabrica-confinamento').catch(() => []),
+          getAllRegistros('trato-confinamento').catch(() => []),
+        ])
 
-      // Carregar linhas de confinamento
+      setRegistrosDoDia(registrosData || [])
+      setLancadosLocal([])
+      // Ofertas locais do dia (sincronizadas ou não): o registro local guarda
+      // vagaoId mesmo quando a linha do servidor ainda não tem a coluna, então
+      // o consumo por vagão usa o local e deduplica o servidor por local_id.
+      setOfertasLocais(
+        (ofertasLocalData || []).filter((r: any) => {
+          const d = String(r.data || '')
+          return d.startsWith(data.split(' ')[0]) && r.deletedAt !== true
+        })
+      )
+
+      // Produções do vagão normalizadas: registros do servidor + locais não
+      // sincronizados (o peão pode ter lançado a produção neste mesmo aparelho).
+      const producoes: ProducaoDia[] = (fabricaData || []).map((r: any) => ({
+        id: r.id,
+        supabaseId: r.id,
+        ordemTrato: Number(r.ordem_trato),
+        vagaoId: r.vagao_id || null,
+        vagaoNome: r.vagoes?.nome || 'Sem vagão',
+        formulacaoId: r.formulacao_id || null,
+        formulacaoNome: r.formulacoes?.nome || null,
+        totalProduzido: Number(r.total_produzido) || 0,
+      }))
+      for (const r of fabricaLocal || []) {
+        const d = String(r.data || '')
+        if (!d.startsWith(data.split(' ')[0])) continue
+        if (r.deletedAt === true) continue
+        // Já sincronizado: está na lista do servidor (por supabaseId)
+        if (r.supabaseId && producoes.some((p) => p.id === r.supabaseId)) continue
+        producoes.push({
+          id: r.id,
+          supabaseId: (r.supabaseId as string) || null,
+          ordemTrato: Number(r.ordemTrato) || 0,
+          vagaoId: (r.vagaoId as string) || null,
+          vagaoNome: (r.vagaoNome as string) || 'Sem vagão',
+          formulacaoId: (r.formulacaoId as string) || null,
+          formulacaoNome: (r.formulacaoNome as string) || null,
+          totalProduzido: Number(r.totalProduzido) || 0,
+        })
+      }
+      setProducoesDia(producoes)
+
       const linhasList = (linhasData || [])
         .filter((l: any) => l.ativo !== false)
         .map((l: any) => ({ id: l.id, nome: l.nome }))
         .sort((a: any, b: any) => a.nome.localeCompare(b.nome, 'pt-BR'))
       setLinhas(linhasList)
 
-      // Se não há programação ativa para o tipo, mostra mensagem
+      // Currais vazios por linha (ativos sem ocupação na data)
+      const vagos = new Map<string, number>()
+      for (const c of curraisData || []) {
+        if (!c.linha_id) continue
+        vagos.set(c.linha_id, (vagos.get(c.linha_id) || 0) + 1)
+      }
+      setVagosPorCurral(vagos)
+
       if (!progCompleta.programacao) {
         setProgramacao(null)
         setCurrais([])
@@ -235,9 +328,6 @@ export default function TratoConfinamentoPage() {
         return
       }
 
-      // Cronograma do tipo (quantidade de tratos, percentuais, horários).
-      // A lista de currais participantes NÃO vem da programação: vem da
-      // ocupação real do curral na data (lote_curral_historico).
       const progData: ProgramacaoData = {
         programacaoId: progCompleta.programacao.id,
         quantidadeTratos: progCompleta.programacao.quantidade_tratos,
@@ -249,13 +339,11 @@ export default function TratoConfinamentoPage() {
       }
       setProgramacao(progData)
 
-      // Mapa de lotes por id
       const lotesPorId = new Map<string, any>()
       for (const l of lotesData || []) {
         lotesPorId.set(l.id, l)
       }
 
-      // Mapa de currais por id (todos, para nome/linha; o lote vem da ocupação)
       const curraisPorId = new Map<string, any>()
       for (const c of curraisData || []) {
         if (c.id) {
@@ -263,7 +351,6 @@ export default function TratoConfinamentoPage() {
         }
       }
 
-      // Ocupação vigente de cada curral na data (maior data_inicial <= data)
       const sistemaEsperado = SISTEMA_POR_TIPO[tipoSelecionado]
       const ocupacaoPorCurral = new Map<string, any>()
       for (const o of ocupacoesData || []) {
@@ -277,27 +364,22 @@ export default function TratoConfinamentoPage() {
         return sistema === sistemaEsperado
       })
 
-      // Mapa de linha_id -> nome
       const linhaNomePorId = new Map<string, string>()
       for (const l of linhasList) {
         linhaNomePorId.set(l.id, l.nome)
       }
 
-      // Agrupa registros do dia por curral_id
       const registrosPorCurral = new Map<string, any[]>()
-      for (const r of registrosDoDia) {
+      for (const r of registrosData || []) {
         const arr = registrosPorCurral.get(r.curral_id) || []
         arr.push(r)
         registrosPorCurral.set(r.curral_id, arr)
       }
 
-      // Para cada curral ocupado na data, monta o CurralTrato
       const curraisTratoList: (CurralTrato | null)[] = await Promise.all(
         ocupacoesDoTipo.map(async (ocupacao) => {
           const curralId = ocupacao.curral_id as string
           const curralInfo = curraisPorId.get(curralId)
-          // Curral inativo/excluído não entra na folha: o cache de currais só
-          // tem ativos, então ausência aqui significa curral desativado.
           if (!curralInfo) return null
           const curralNome = curralInfo.nome || curralId
           const linhaId = curralInfo?.linha_id || null
@@ -306,11 +388,11 @@ export default function TratoConfinamentoPage() {
           const lote = loteId ? lotesPorId.get(loteId) : null
           const loteNome = ocupacao.lotes?.nome || lote?.nome || null
 
-          // Busca detalhes do lote (categorias, cabecas, peso)
           let nCabecas: number | null = null
           let pesoVivoKg: number | null = null
           let categorias = ''
           let formulacaoNome: string | null = null
+          const formulacaoId: string | null = curralInfo?.formulacao_id || null
           if (loteId) {
             try {
               const detalhes = await getLoteDetalhesComCategoriasCached(loteId)
@@ -330,13 +412,11 @@ export default function TratoConfinamentoPage() {
             }
           }
 
-          // Busca a formulação vigente do lote (última suplementação ou formulação do curral)
           if (loteId) {
             try {
-              if (curralInfo?.formulacao_id) {
-                // Buscar nome da formulação por id
+              if (formulacaoId) {
                 const { getFormulacaoById } = await import('../../services/supabaseService')
-                const form = await getFormulacaoById(curralInfo.formulacao_id)
+                const form = await getFormulacaoById(formulacaoId)
                 formulacaoNome = form?.nome || null
               }
             } catch {
@@ -344,7 +424,6 @@ export default function TratoConfinamentoPage() {
             }
           }
 
-          // Fallback: se não achou formulação por id, tenta por nome via última suplementação
           if (!formulacaoNome && loteId) {
             try {
               const { getRegistrosSuplementacaoByLoteCached } = await import(
@@ -360,23 +439,18 @@ export default function TratoConfinamentoPage() {
             }
           }
 
-          // Conta tratos já registrados no dia para este curral
           const tratosDoDia = registrosPorCurral.get(curralId) || []
           const tratosFeitos = tratosDoDia.filter((t) => t.kg_ofertado_real !== null).length
           const ordemTrato = tratosFeitos + 1
           const quantidadeTratos = progData.quantidadeTratos
           const tratosConcluidos = ordemTrato > quantidadeTratos
 
-          // Percentual e horário sugerido do trato atual
           const tratoAtual = progData.percentuais.find(
             (p) => p.ordem_trato === ordemTrato
           )
           const percentualTrato = tratoAtual?.percentual ?? 0
           const horarioSugerido = tratoAtual?.horario_sugerido ?? null
 
-          // Dia 1 é por ocupação: só contam registros desde a entrada do lote
-          // atual no curral. Registros de ocupações anteriores do mesmo curral
-          // não interferem — lote novo sempre reinicia no dia 1.
           const registrosAnterioresRaw = await getRegistrosOfertaTratoAnterioresCached(
             fazendaId,
             curralId,
@@ -391,7 +465,6 @@ export default function TratoConfinamentoPage() {
           })
           const isDia1 = registrosAnteriores.length === 0
 
-          // Busca a última leitura de cocho do lote para pegar nota e percentual_ajuste
           let leituraCochoNota: number | null = null
           let leituraPercentualAjuste: number | null = null
           if (loteId) {
@@ -403,14 +476,12 @@ export default function TratoConfinamentoPage() {
               const ultimaLeitura = leitOrdenadas[0]
               if (ultimaLeitura) {
                 leituraCochoNota = ultimaLeitura.leitura_cocho ?? null
-                // Busca o percentual_ajuste da nota config
                 if (ultimaLeitura.nota_config_id) {
                   const config = notasConfig.find((n) => n.id === ultimaLeitura.nota_config_id)
                   if (config) {
                     leituraPercentualAjuste = config.percentual_ajuste
                   }
                 }
-                // Fallback: se não tem nota_config_id, busca por nota número
                 if (leituraPercentualAjuste === null && leituraCochoNota !== null) {
                   const config = notasConfig.find((n) => n.nota === leituraCochoNota)
                   if (config) {
@@ -423,10 +494,8 @@ export default function TratoConfinamentoPage() {
             }
           }
 
-          // Calcula total real do dia anterior
           let totalRealDiaAnterior: number | null = null
           if (!isDia1 && registrosAnteriores.length > 0) {
-            // O dia anterior é a data mais recente entre os registros anteriores
             const dataAnteriorMaisRecente = String(registrosAnteriores[0].data || '')
             const diaAnterior = dataAnteriorMaisRecente.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
               || dataAnteriorMaisRecente.split(' ')[0]
@@ -442,25 +511,20 @@ export default function TratoConfinamentoPage() {
             )
           }
 
-          // Calcula kg_planejado e kg_base_dia
           let kgBaseDia: number | null = null
           let kgPlanejado: number | null = null
           let compensacaoUltimoTrato = 0
-          // Feed target do dia 1 da ocupação (opcional): null => "a definir"
           const kgMnDia = ocupacao.kg_mn_dia_dia1 != null ? Number(ocupacao.kg_mn_dia_dia1) : null
 
           if (isDia1) {
-            // Dia 1: usa o previsto da ocupação; sem previsto fica "a definir"
             kgBaseDia = kgMnDia
             kgPlanejado = kgMnDia != null ? kgMnDia * (percentualTrato / 100) : null
           } else if (totalRealDiaAnterior !== null && totalRealDiaAnterior > 0) {
-            // Dia 2+: total real dia anterior * (1 + percentual_ajuste / 100)
             const fatorAjuste = leituraPercentualAjuste !== null ? 1 + leituraPercentualAjuste / 100 : 1
             kgBaseDia = totalRealDiaAnterior * fatorAjuste
             kgPlanejado = kgBaseDia * (percentualTrato / 100)
           }
 
-          // No último trato, entregar o saldo da base ajustada depois dos tratos anteriores.
           if (ordemTrato === quantidadeTratos && !isDia1 && kgBaseDia !== null) {
             const jaDistribuido = tratosDoDia
               .filter((t) => t.kg_ofertado_real !== null && Number(t.ordem_trato) < ordemTrato)
@@ -470,7 +534,6 @@ export default function TratoConfinamentoPage() {
             compensacaoUltimoTrato = Math.max(0, kgPlanejado - previstoPercentual)
           }
 
-          // Verifica se já existe um registro para este trato do dia (permite editar)
           const registroExistente = tratosDoDia.find((t) => t.ordem_trato === ordemTrato)
           const kgRealInicial = registroExistente?.kg_ofertado_real != null
             ? String(registroExistente.kg_ofertado_real)
@@ -483,6 +546,7 @@ export default function TratoConfinamentoPage() {
             linhaNome,
             loteId,
             loteNome,
+            formulacaoId,
             formulacaoNome,
             quantidadeTratos,
             ordemTrato,
@@ -497,6 +561,9 @@ export default function TratoConfinamentoPage() {
             kgBaseDia,
             isDia1,
             tratosConcluidos,
+            tratoExibido: Math.min(ordemTrato, quantidadeTratos),
+            vagaoSelecionadoKey: '',
+            fotoBalanca: null,
             salvo: registroExistente?.kg_ofertado_real != null,
             rascunhoSalvo: false,
             salvando: false,
@@ -509,12 +576,11 @@ export default function TratoConfinamentoPage() {
       )
       const curraisTratoValidos = curraisTratoList.filter((c): c is CurralTrato => c !== null)
 
-      // Ordena por nome do curral
       curraisTratoValidos.sort((a, b) =>
         a.curralNome.localeCompare(b.curralNome, 'pt-BR', { numeric: true, sensitivity: 'base' })
       )
 
-      // Carregar rascunho salvo
+      // Rascunho de kg por curral
       const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
       const rascunhoData = await lerRascunho<Record<string, string>>(rascunhoKey)
       if (rascunhoData) {
@@ -529,7 +595,6 @@ export default function TratoConfinamentoPage() {
 
       setCurrais(curraisTratoValidos)
 
-      // Auto-selecionar primeira linha e primeiro curral
       if (linhasList.length > 0) {
         const primeiraLinhaId = linhasList[0].id
         setLinhaSelecionada(primeiraLinhaId)
@@ -553,52 +618,20 @@ export default function TratoConfinamentoPage() {
     carregarDados()
   }, [carregarDados])
 
-  // Focar no primeiro input após carregar (apenas na transição de carregando -> pronto)
-  // DESATIVADO: não abrir teclado automaticamente ao entrar na página
-  const carregandoRef = useRef(true)
-  useEffect(() => {
-    // if (carregandoRef.current && !carregando && curralSelecionado) {
-    //   const curral = currais.find((c) => c.curralId === curralSelecionado)
-    //   if (curral && !curral.tratosConcluidos) {
-    //     setTimeout(() => {
-    //       inputRefs.current[curral.curralId]?.focus()
-    //     }, 200)
-    //   }
-    // }
-    carregandoRef.current = carregando
-  }, [carregando, currais, curralSelecionado])
-
-  // Focar no input quando troca de curral selecionado
-  // DESATIVADO: não abrir teclado automaticamente ao trocar de curral
-  useEffect(() => {
-    // if (!carregando && curralSelecionado) {
-    //   const curral = currais.find((c) => c.curralId === curralSelecionado)
-    //   if (curral && !curral.tratosConcluidos) {
-    //     setTimeout(() => {
-    //       inputRefs.current[curral.curralId]?.focus()
-    //     }, 100)
-    //   }
-    // }
-  }, [carregando, curralSelecionado, currais])
-
-  // Salvar rascunho do trato (não envia ao Supabase).
-  // Recebe o valor explicitamente para funcionar imediatamente após setCurrais,
-  // sem depender do estado ainda não commitado pelo React.
+  // Salvar rascunho do trato (não envia ao Supabase)
   const salvarTratoRascunho = useCallback(
     async (curralId: string, valorKg: string): Promise<boolean> => {
       if (!fazendaId) return false
-      if (valorKg === '' ) return false
+      if (valorKg === '') return false
       const curral = curraisRef.current.find((c) => c.curralId === curralId)
       if (!curral || curral.tratosConcluidos) return false
 
-      // Marcar como rascunho salvo (verde + check)
       setCurrais((prev) =>
         prev.map((c) =>
           c.curralId === curralId ? { ...c, rascunhoSalvo: true, erroSalvar: false } : c
         )
       )
 
-      // Persistir no IndexedDB
       try {
         const dataISO = brToDateISO(data)
         const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
@@ -613,14 +646,11 @@ export default function TratoConfinamentoPage() {
     [fazendaId, data, tipoSelecionado]
   )
 
-  // Sincroniza espelho de currais para leitura síncrona em flush/cleanup
   useEffect(() => {
     curraisRef.current = currais
   }, [currais])
 
-  // Flush do autosave: dispara salvamentos pendentes antes de recarregar (troca de
-  // data/tipo/fazenda) ou desmontar o componente. Roda o cleanup antes da reexecução
-  // de carregarDados, garantindo que valores digitados nos últimos 500ms não se percam.
+  // Flush do autosave de rascunho antes de recarregar ou desmontar
   useEffect(() => {
     return () => {
       const timers = debounceTimers.current
@@ -636,15 +666,17 @@ export default function TratoConfinamentoPage() {
     }
   }, [data, tipoSelecionado, fazendaId, salvarTratoRascunho])
 
+  const atualizarCurral = useCallback((curralId: string, patch: Partial<CurralTrato>) => {
+    setCurrais((prev) => prev.map((c) => (c.curralId === curralId ? { ...c, ...patch } : c)))
+  }, [])
+
   const atualizarKgReal = useCallback((curralId: string, valor: string) => {
-    // Sanitizar: aceitar apenas números naturais (dígitos inteiros).
-    const valorSanitizado = valor.replace(/\D/g, '')
+    const valorSanitizado = valor.replace(/[^\d,]/g, '').replace(/(,.*),/g, '$1')
     setCurrais((prev) =>
       prev.map((c) =>
         c.curralId === curralId ? { ...c, kgReal: valorSanitizado, salvo: false, rascunhoSalvo: false, erroSalvar: false } : c
       )
     )
-    // Autosave debounced: cancela timer anterior e agenda novo
     const prevTimer = debounceTimers.current[curralId]
     if (prevTimer) clearTimeout(prevTimer)
     if (valorSanitizado === '') return
@@ -654,160 +686,292 @@ export default function TratoConfinamentoPage() {
     }, 500)
   }, [salvarTratoRascunho])
 
-  // Salvar todos os rascunhos de uma vez (envia ao Supabase)
-  const salvarTodosDoRascunho = useCallback(
-    async (): Promise<boolean> => {
-      const curraisComRascunho = currais.filter((c) => c.rascunhoSalvo && !c.salvo && c.kgReal !== '')
-      if (curraisComRascunho.length === 0) return false
+  const tirarFotoBalanca = useCallback(
+    async (curralId: string) => {
+      const foto = await capturarFoto()
+      if (foto) atualizarCurral(curralId, { fotoBalanca: foto })
+    },
+    [capturarFoto, atualizarCurral]
+  )
 
-      const finaisZerados = curraisComRascunho.filter((curral) =>
-        curral.ordemTrato === curral.quantidadeTratos && parseKgReal(curral.kgReal) === 0
-      )
-      if (finaisZerados.length > 0) {
-        setCurrais((prev) =>
-          prev.map((curral) =>
-            finaisZerados.some((final) => final.curralId === curral.curralId)
-              ? { ...curral, erroSalvar: true }
-              : curral
-          )
-        )
-        setErro('O último trato de cada curral precisa ser fornecido com quantidade maior que zero.')
-        return false
-      }
-
-      setSalvandoFim(true)
-      let todosOk = true
-
-      for (const curral of curraisComRascunho) {
-        setCurrais((prev) =>
-          prev.map((c) => (c.curralId === curral.curralId ? { ...c, salvando: true, erroSalvar: false } : c))
-        )
-
-        try {
-          const result = await salvarRegistro('trato-confinamento', {
-            data: data,
-            responsavel: usuario,
-            usuario: usuario,
-            curral: curral.curralNome,
-            curralId: curral.curralId,
-            numeroLote: curral.loteNome || '',
-            loteId: curral.loteId || '',
-            ordemTrato: String(curral.ordemTrato),
-            kgPlanejado: curral.kgPlanejado !== null ? String(curral.kgPlanejado) : '',
-            kgReal: curral.kgReal,
-            leituraCochoNota: curral.leituraCochoNota !== null ? String(curral.leituraCochoNota) : '',
-            programacaoId: programacao?.programacaoId || '',
-          })
-
-          if (!result.success) {
-            todosOk = false
-            setCurrais((prev) =>
-              prev.map((c) =>
-                c.curralId === curral.curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
-              )
-            )
-          } else {
-            // Após salvar com sucesso: avança para o próximo trato do curral,
-            // limpa kgReal e recalcula planejado/percentual/horário. O rascunho
-            // do IndexedDB é removido em lote abaixo (limparRascunho) se todos ok.
-            setCurrais((prev) =>
-              prev.map((c) => {
-                if (c.curralId !== curral.curralId) return c
-                const novoOrdem = c.ordemTrato + 1
-                const novoTratoConcluidos = novoOrdem > c.quantidadeTratos
-                const novoTrato = programacao?.percentuais.find(
-                  (p) => p.ordem_trato === novoOrdem
-                )
-                const novoPercentual = novoTrato?.percentual ?? 0
-                const novoHorario = novoTrato?.horario_sugerido ?? null
-                const novoKgPlanejado =
-                  c.kgBaseDia !== null ? c.kgBaseDia * (novoPercentual / 100) : null
-                return {
-                  ...c,
-                  salvando: false,
-                  salvo: false,
-                  rascunhoSalvo: false,
-                  erroSalvar: false,
-                  ordemTrato: novoOrdem,
-                  tratosConcluidos: novoTratoConcluidos,
-                  percentualTrato: novoPercentual,
-                  horarioSugerido: novoHorario,
-                  kgPlanejado: novoKgPlanejado,
-                  kgReal: '',
-                }
-              })
-            )
-          }
-        } catch (error) {
-          console.error('Erro ao salvar trato:', error)
-          todosOk = false
-          setCurrais((prev) =>
-            prev.map((c) =>
-              c.curralId === curral.curralId ? { ...c, salvando: false, salvo: false, erroSalvar: true } : c
-            )
-          )
-        }
-      }
-
-      // Limpar rascunho se todos salvaram
-      if (todosOk && fazendaId) {
+  const limparCurralAtual = useCallback(
+    (curralId: string) => {
+      atualizarCurral(curralId, { kgReal: '', fotoBalanca: null, salvo: false, rascunhoSalvo: false, erroSalvar: false })
+      if (fazendaId) {
         const dataISO = brToDateISO(data)
         const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
-        await limparRascunho(rascunhoKey)
-      }
-
-      setSalvandoFim(false)
-      return todosOk
-    },
-    [currais, fazendaId, data, usuario, programacao, tipoSelecionado]
-  )
-
-  const handleKgRealKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>, curralId: string) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        // Flush imediato do autosave do curral atual antes de avançar
-        const timer = debounceTimers.current[curralId]
-        if (timer) {
-          clearTimeout(timer)
-          delete debounceTimers.current[curralId]
-        }
-        const curral = currais.find((c) => c.curralId === curralId)
-        if (curral && curral.kgReal !== '' && !curral.tratosConcluidos) {
-          void salvarTratoRascunho(curralId, curral.kgReal)
-        }
-        const curraisDaLinha = currais.filter(
-          (c) => !linhaSelecionada || c.linhaId === linhaSelecionada
-        )
-        const index = curraisDaLinha.findIndex((c) => c.curralId === curralId)
-        if (index >= 0 && index < curraisDaLinha.length - 1) {
-          const proximo = curraisDaLinha[index + 1]
-          setCurralSelecionado(proximo.curralId)
-          setTimeout(() => {
-            inputRefs.current[proximo.curralId]?.focus()
-          }, 150)
-        }
+        lerRascunho<Record<string, string>>(rascunhoKey).then((r) => {
+          if (r) {
+            delete r[curralId]
+            salvarRascunho(rascunhoKey, r)
+          }
+        })
       }
     },
-    [salvarTratoRascunho, currais, linhaSelecionada]
+    [atualizarCurral, fazendaId, data, tipoSelecionado]
   )
 
-  const limparKgReais = useCallback(() => {
-    setCurrais((prev) =>
-      prev.map((c) => ({ ...c, kgReal: '', salvo: false, rascunhoSalvo: false, erroSalvar: false }))
-    )
-    if (fazendaId) {
+  // Produções do vagão disponíveis para um trato específico, agregadas por vagão.
+  const opcoesVagaoPorTrato = useCallback(
+    (ordemTrato: number): OpcaoVagao[] => {
+      const doTrato = producoesDia.filter((p) => p.ordemTrato === ordemTrato)
+      const grupos = new Map<string, OpcaoVagao>()
+      for (const p of doTrato) {
+        const key = p.vagaoId || `prod-${p.id}`
+        const atual = grupos.get(key) || {
+          key,
+          vagaoId: p.vagaoId,
+          vagaoNome: p.vagaoNome,
+          producao: null,
+          carregado: 0,
+          consumido: 0,
+          saldo: 0,
+        }
+        atual.carregado += p.totalProduzido
+        if (!atual.producao || p.id > (atual.producao.id || '')) atual.producao = p
+        grupos.set(key, atual)
+      }
+
+      // Deduplicação: linhas do servidor cujo local_id existe no IndexedDB já
+      // são contadas pelo registro local (que conhece o vagaoId mesmo quando o
+      // servidor ainda não tem a coluna). As demais são de outros aparelhos.
+      const localIds = new Set(ofertasLocais.map((r: any) => r.id))
+
+      // Consumido sem vagão identificado (registros antigos/pré-migration ou
+      // locais sem vínculo). Só é atribuído quando há um único vagão no trato;
+      // com dois ou mais, o dono é ambíguo e o consumo fica de fora do saldo.
+      let consumidoSemVagao = 0
+      for (const r of registrosDoDia) {
+        if (Number(r.ordem_trato) !== ordemTrato) continue
+        if (r.local_id && localIds.has(r.local_id)) continue
+        if (r.vagao_id) continue
+        consumidoSemVagao += Number(r.kg_ofertado_real) || 0
+      }
+      for (const r of ofertasLocais) {
+        if (Number(r.ordemTrato) !== ordemTrato) continue
+        if (r.vagaoId) continue
+        consumidoSemVagao += parseKgReal(String(r.kgReal ?? '')) || 0
+      }
+
+      for (const [key, op] of grupos) {
+        let consumido = 0
+        for (const r of registrosDoDia) {
+          if (Number(r.ordem_trato) !== ordemTrato) continue
+          if (r.local_id && localIds.has(r.local_id)) continue
+          if ((r.vagao_id || null) !== op.vagaoId) continue
+          consumido += Number(r.kg_ofertado_real) || 0
+        }
+        for (const r of ofertasLocais) {
+          if (Number(r.ordemTrato) !== ordemTrato) continue
+          if ((r.vagaoId || null) !== op.vagaoId) continue
+          consumido += parseKgReal(String(r.kgReal ?? '')) || 0
+        }
+        for (const l of lancadosLocal) {
+          if (l.ordemTrato !== ordemTrato) continue
+          if (l.vagaoId !== op.vagaoId) continue
+          consumido += l.kg
+        }
+        if (grupos.size === 1) consumido += consumidoSemVagao
+        op.consumido = consumido
+        op.saldo = op.carregado - consumido
+        grupos.set(key, op)
+      }
+      return [...grupos.values()]
+    },
+    [producoesDia, registrosDoDia, ofertasLocais, lancadosLocal]
+  )
+
+  // Sugere o vagão certo quando o card abre: produção cuja formulação bate com
+  // a dieta do curral; sem match, primeira opção com saldo > 0.
+  const vagaoSugerido = useCallback(
+    (curral: CurralTrato, opcoes: OpcaoVagao[]): string => {
+      if (opcoes.length === 0) return ''
+      const porDieta = opcoes.find((o) =>
+        o.producao?.formulacaoId && curral.formulacaoId && o.producao.formulacaoId === curral.formulacaoId
+      )
+      if (porDieta) return porDieta.key
+      const comSaldo = opcoes.find((o) => o.saldo > 0)
+      return (comSaldo || opcoes[0]).key
+    },
+    []
+  )
+
+  const curraisDaLinha = currais.filter((curral) => !linhaSelecionada || curral.linhaId === linhaSelecionada)
+  const linhasComCurrais = useMemo(
+    () => linhas.filter((linha) => currais.some((curral) => curral.linhaId === linha.id)),
+    [linhas, currais]
+  )
+  const curralAtual = currais.find((c) => c.curralId === curralSelecionado) || null
+  const opcoesVagaoAtual = curralAtual ? opcoesVagaoPorTrato(curralAtual.tratoExibido) : []
+  const vagaoAtual = opcoesVagaoAtual.find((o) => o.key === curralAtual?.vagaoSelecionadoKey) || null
+  const tratoEditavel = curralAtual ? curralAtual.tratoExibido === curralAtual.ordemTrato && !curralAtual.tratosConcluidos : false
+  const registroTratoExibido = curralAtual
+    ? registrosDoDia.find(
+        (r) => r.curral_id === curralAtual.curralId && Number(r.ordem_trato) === curralAtual.tratoExibido
+      ) ||
+      lancadosLocal.find(
+        (l) => l.curralId === curralAtual.curralId && l.ordemTrato === curralAtual.tratoExibido
+      ) ||
+      null
+    : null
+
+  // Autoselecionar vagão quando o card abre e ainda não há escolha válida
+  useEffect(() => {
+    if (!curralAtual || !tratoEditavel) return
+    if (opcoesVagaoAtual.length === 0) return
+    const valido = opcoesVagaoAtual.some((o) => o.key === curralAtual.vagaoSelecionadoKey)
+    if (!valido) {
+      atualizarCurral(curralAtual.curralId, { vagaoSelecionadoKey: vagaoSugerido(curralAtual, opcoesVagaoAtual) })
+    }
+  }, [curralAtual, tratoEditavel, opcoesVagaoAtual, atualizarCurral, vagaoSugerido])
+
+  // "Dá para os próximos N currais": saldo do vagão contra o previsto dos
+  // currais que ainda precisam deste trato (linha atual primeiro).
+  const coberturaVagao = useMemo(() => {
+    if (!vagaoAtual || !curralAtual) return null
+    const pendentes = [...curraisDaLinha, ...currais.filter((c) => !curraisDaLinha.includes(c))]
+      .filter((c) => !c.tratosConcluidos && c.ordemTrato === curralAtual.tratoExibido)
+      .filter((c) => c.curralId !== curralAtual.curralId)
+    let saldoRestante = vagaoAtual.saldo - (parseKgReal(curralAtual.kgReal) || 0)
+    const cobertos: string[] = []
+    for (const c of pendentes) {
+      const necessario = c.kgPlanejado ?? 0
+      if (necessario <= 0 || saldoRestante >= necessario) {
+        cobertos.push(c.curralNome)
+        saldoRestante -= Math.max(0, necessario)
+      } else {
+        break
+      }
+    }
+    return { cobertos, saldoRestante }
+  }, [vagaoAtual, curralAtual, curraisDaLinha, currais])
+
+  // Próximo curral pendente da linha para o botão "SALVAR E IR PARA X"
+  const proximoCurralPendente = useMemo(() => {
+    if (!curralAtual) return null
+    const idx = curraisDaLinha.findIndex((c) => c.curralId === curralAtual.curralId)
+    for (let i = idx + 1; i < curraisDaLinha.length; i++) {
+      if (!curraisDaLinha[i].tratosConcluidos) return curraisDaLinha[i]
+    }
+    for (let i = 0; i < idx; i++) {
+      if (!curraisDaLinha[i].tratosConcluidos) return curraisDaLinha[i]
+    }
+    return null
+  }, [curralAtual, curraisDaLinha])
+
+  // Validade do lançamento atual
+  const kgRealNum = curralAtual ? parseKgReal(curralAtual.kgReal) : NaN
+  const vagaoObrigatorio = opcoesVagaoAtual.length > 0
+  // Regra herdada da versão em produção: o último trato não pode ser 0
+  const ultimoTratoZerado = Boolean(
+    curralAtual &&
+    tratoEditavel &&
+    curralAtual.tratoExibido === curralAtual.quantidadeTratos &&
+    isFinite(kgRealNum) &&
+    kgRealNum === 0
+  )
+  const podeSalvar = Boolean(
+    curralAtual &&
+    tratoEditavel &&
+    curralAtual.kgReal !== '' &&
+    isFinite(kgRealNum) &&
+    !ultimoTratoZerado &&
+    (!vagaoObrigatorio || vagaoAtual) &&
+    !curralAtual.salvando &&
+    !salvandoFim
+  )
+
+  const salvarCurralAtual = useCallback(async () => {
+    if (!curralAtual || !fazendaId || !podeSalvar) return
+    const curral = curralAtual
+    setSalvandoFim(true)
+    atualizarCurral(curral.curralId, { salvando: true, erroSalvar: false })
+
+    try {
+      const result = await salvarRegistro('trato-confinamento', {
+        data: data,
+        responsavel: usuario,
+        usuario: usuario,
+        curral: curral.curralNome,
+        curralId: curral.curralId,
+        numeroLote: curral.loteNome || '',
+        loteId: curral.loteId || '',
+        ordemTrato: String(curral.tratoExibido),
+        kgPlanejado: curral.kgPlanejado !== null ? String(curral.kgPlanejado) : '',
+        kgReal: curral.kgReal,
+        leituraCochoNota: curral.leituraCochoNota !== null ? String(curral.leituraCochoNota) : '',
+        programacaoId: programacao?.programacaoId || '',
+        vagaoId: vagaoAtual?.vagaoId || '',
+        vagaoNome: vagaoAtual?.vagaoNome || '',
+        // Só vincula a produção quando ela já está sincronizada (id real);
+        // produção só local quebraria a FK no insert.
+        fabricaConfinamentoId: vagaoAtual?.producao?.supabaseId || '',
+        fotoBase64: curral.fotoBalanca || undefined,
+      })
+
+      if (!result.success) {
+        atualizarCurral(curral.curralId, { salvando: false, salvo: false, erroSalvar: true })
+        setErro('Erro ao salvar trato. Tente novamente.')
+        return
+      }
+
+      const kgLancado = parseKgReal(curral.kgReal) || 0
+      setLancadosLocal((prev) => [
+        ...prev,
+        {
+          curralId: curral.curralId,
+          ordemTrato: curral.tratoExibido,
+          kg: kgLancado,
+          vagaoId: vagaoAtual?.vagaoId || null,
+          vagaoNome: vagaoAtual?.vagaoNome || '',
+        },
+      ])
+
+      // Avança o trato do curral (mesma regra do fluxo em lote anterior)
+      const novoOrdem = curral.ordemTrato + 1
+      const novoTratoConcluidos = novoOrdem > curral.quantidadeTratos
+      const novoTrato = programacao?.percentuais.find((p) => p.ordem_trato === novoOrdem)
+      const novoPercentual = novoTrato?.percentual ?? 0
+      const novoHorario = novoTrato?.horario_sugerido ?? null
+      const novoKgPlanejado =
+        curral.kgBaseDia !== null ? curral.kgBaseDia * (novoPercentual / 100) : null
+      atualizarCurral(curral.curralId, {
+        salvando: false,
+        salvo: true,
+        rascunhoSalvo: false,
+        erroSalvar: false,
+        ordemTrato: novoOrdem,
+        tratosConcluidos: novoTratoConcluidos,
+        tratoExibido: Math.min(novoOrdem, curral.quantidadeTratos),
+        percentualTrato: novoPercentual,
+        horarioSugerido: novoHorario,
+        kgPlanejado: novoKgPlanejado,
+        kgReal: '',
+        fotoBalanca: null,
+        vagaoSelecionadoKey: '',
+      })
+
+      // Remove o kg deste curral do rascunho
       const dataISO = brToDateISO(data)
       const rascunhoKey = `trato-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}`
-      limparRascunho(rascunhoKey)
-    }
-  }, [fazendaId, data, tipoSelecionado])
+      const rascunhoAtual = await lerRascunho<Record<string, string>>(rascunhoKey)
+      if (rascunhoAtual) {
+        delete rascunhoAtual[curral.curralId]
+        await salvarRascunho(rascunhoKey, rascunhoAtual)
+      }
 
-  // Rascunhos prontos para revisar e salvar
-  const rascunhosPendentes = useMemo(
-    () => currais.filter((c) => c.rascunhoSalvo && !c.salvo && !c.tratosConcluidos).length,
-    [currais]
-  )
+      // Avança para o próximo curral pendente da linha
+      if (proximoCurralPendente) {
+        setCurralSelecionado(proximoCurralPendente.curralId)
+      }
+    } catch (error) {
+      console.error('Erro ao salvar trato:', error)
+      atualizarCurral(curral.curralId, { salvando: false, salvo: false, erroSalvar: true })
+      setErro('Erro ao salvar trato. Tente novamente.')
+    } finally {
+      setSalvandoFim(false)
+    }
+  }, [curralAtual, fazendaId, podeSalvar, data, usuario, programacao, vagaoAtual, proximoCurralPendente, tipoSelecionado, atualizarCurral])
 
   const tiposVisiveis = TIPOS_PROGRAMACAO.filter((t) => tiposDisponiveis.includes(t.value))
 
@@ -836,15 +1000,27 @@ export default function TratoConfinamentoPage() {
     }
   }, [linhas, currais, linhaSelecionada])
 
-  const curraisDaLinha = currais.filter((curral) => !linhaSelecionada || curral.linhaId === linhaSelecionada)
-  const linhasComCurrais = useMemo(
-    () => linhas.filter((linha) => currais.some((curral) => curral.linhaId === linha.id)),
-    [linhas, currais]
-  )
   const exibirBarraInferior = Boolean(programacao && currais.length > 0 && !carregando && !erro)
+
+  // Progresso: posição do curral na linha + % de currais com trato salvo
+  const posicaoLinha = curralAtual ? curraisDaLinha.findIndex((c) => c.curralId === curralAtual.curralId) + 1 : 0
+  const totalLinha = curraisDaLinha.length
+  // Progresso do trato exibido: currais da linha que já passaram por ele
+  const tratoExibidoAtual = curralAtual?.tratoExibido ?? 0
+  const concluidosLinha = curraisDaLinha.filter(
+    (c) => c.tratosConcluidos || c.ordemTrato > tratoExibidoAtual
+  ).length
+  const progressoPercent = totalLinha > 0 ? Math.round((concluidosLinha / totalLinha) * 100) : 0
+  const vagosDaLinha = linhaSelecionada ? Math.max(0, (vagosPorCurral.get(linhaSelecionada) || 0) - totalLinha) : 0
 
   const bottomContent = exibirBarraInferior ? (
     <div className="flex flex-col gap-3 pb-3">
+      <div className="flex items-center justify-between text-[13px] font-bold text-gray-500">
+        <span className="uppercase tracking-wide">
+          {curralAtual ? `${curralAtual.tratoExibido}º trato` : 'Trato'} · {posicaoLinha} de {totalLinha} currais
+        </span>
+        <span>{progressoPercent}%</span>
+      </div>
       {linhasComCurrais.length > 0 && (
         <div className="relative">
           <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
@@ -883,30 +1059,41 @@ export default function TratoConfinamentoPage() {
           Curral
         </span>
         <div ref={curralScrollRef} className="flex gap-2 overflow-x-auto pb-1 pr-8 scrollbar-none">
-          {curraisDaLinha.map((curral) => (
-            <button
-              key={curral.curralId}
-              type="button"
-              onClick={() => setCurralSelecionado(curral.curralId)}
-              className={`!min-h-[52px] shrink-0 rounded-xl border-2 px-4 py-3 text-center transition-all ${
-                curralSelecionado === curral.curralId
-                  ? curral.erroSalvar
-                    ? 'border-red-500 bg-red-50'
-                    : (curral.salvo || curral.rascunhoSalvo)
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-[#1a3a2a] bg-[#e8f1ec]'
-                  : curral.erroSalvar
-                    ? 'border-red-200 bg-white'
-                    : (curral.salvo || curral.rascunhoSalvo)
-                      ? 'border-green-200 bg-white'
-                      : 'border-gray-200 bg-white'
-              }`}
-            >
-              <span className="block text-sm font-bold leading-tight text-gray-900">
-                {curral.curralNome}
+          {curraisDaLinha.map((curral) => {
+            const concluido = curral.salvo || curral.tratosConcluidos
+            return (
+              <button
+                key={curral.curralId}
+                type="button"
+                onClick={() => setCurralSelecionado(curral.curralId)}
+                className={`!min-h-[52px] shrink-0 rounded-xl border-2 px-4 py-3 text-center transition-all ${
+                  curralSelecionado === curral.curralId
+                    ? curral.erroSalvar
+                      ? 'border-red-500 bg-red-50'
+                      : concluido
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-[#1a3a2a] bg-[#e8f1ec]'
+                    : curral.erroSalvar
+                      ? 'border-red-200 bg-white'
+                      : concluido
+                        ? 'border-green-200 bg-white'
+                        : 'border-gray-200 bg-white'
+                }`}
+              >
+                <span className="flex items-center justify-center gap-1 text-sm font-bold leading-tight text-gray-900">
+                  {concluido && <Check className="h-4 w-4 text-green-600" strokeWidth={3} />}
+                  {curral.curralNome}
+                </span>
+              </button>
+            )
+          })}
+          {vagosDaLinha > 0 && (
+            <div className="!min-h-[52px] shrink-0 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-center">
+              <span className="block text-sm font-bold leading-tight text-gray-400">
+                {vagosDaLinha} {vagosDaLinha === 1 ? 'vazio' : 'vazios'}
               </span>
-            </button>
-          ))}
+            </div>
+          )}
         </div>
         {curralTemMais && (
           <div className="pointer-events-none absolute right-0 bottom-0 flex h-12 w-10 items-center justify-end bg-gradient-to-r from-transparent via-white/90 to-white">
@@ -918,32 +1105,46 @@ export default function TratoConfinamentoPage() {
       <div className="mt-2 border-t border-gray-200 pt-3">
         <div className="flex gap-2">
           <button
-            onClick={() => setShowRevisarModal(true)}
-            disabled={rascunhosPendentes === 0}
+            onClick={salvarCurralAtual}
+            disabled={!podeSalvar}
             className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.99] ${
-              rascunhosPendentes === 0
+              !podeSalvar
                 ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
                 : 'border-[#1a3a2a] bg-[#1a3a2a] text-white hover:bg-[#245038]'
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2">
               <Save className="h-4 w-4" strokeWidth={2.5} />
-              SALVAR
+              {curralAtual?.salvando || salvandoFim
+                ? 'SALVANDO...'
+                : proximoCurralPendente
+                  ? `SALVAR E IR PARA ${proximoCurralPendente.curralNome.toUpperCase()} →`
+                  : 'SALVAR'}
             </span>
           </button>
-          <button
-            onClick={limparKgReais}
-            className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
+          {curralAtual && tratoEditavel && (
+            <button
+              onClick={() => limparCurralAtual(curralAtual.curralId)}
+              className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+            >
+              <span className="inline-flex items-center justify-center gap-2">
+                <Brush className="h-4 w-4" strokeWidth={2.5} />
+                LIMPAR
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>
   ) : null
+
+  // Desvio realizado vs previsto (faixa de tolerância do mockup)
+  const desvioKg = curralAtual && isFinite(kgRealNum) && curralAtual.kgPlanejado !== null
+    ? kgRealNum - curralAtual.kgPlanejado
+    : null
+  const desvioPercent = desvioKg !== null && curralAtual!.kgPlanejado! > 0
+    ? (desvioKg / curralAtual!.kgPlanejado!) * 100
+    : null
 
   return (
     <CadernetaLayout
@@ -969,311 +1170,374 @@ export default function TratoConfinamentoPage() {
       }
       bottomContent={bottomContent}
     >
-      {/* Seção 2: Tratos */}
-      <div className="-mt-1 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-visible">
-        <div className="p-3 flex flex-col gap-3">
-          {tiposVisiveis.length > 1 && (
-            <div className="flex items-center justify-end gap-1.5">
-              {tiposVisiveis.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setTipoSelecionado(t.value)}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
-                    tipoSelecionado === t.value
-                      ? 'bg-[#1a3a2a] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {!programacao ? (
-            <div className="p-8 text-center text-gray-500">
-              {carregando ? (
-                'Carregando programação...'
-              ) : (
-                <>
-                  <p className="font-bold mb-2">Nenhuma programação de tratos ativa</p>
-                  <p className="text-sm">
-                    Configure a programação de tratos no painel web antes de usar esta tela.
-                  </p>
-                </>
-              )}
-            </div>
-          ) : carregando ? (
-            <div className="p-8 text-center text-gray-500">Carregando currais...</div>
-          ) : erro ? (
-            <div className="p-8 text-center text-red-600">{erro}</div>
-          ) : currais.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              Nenhum curral ocupado por lote deste sistema nesta data.
-            </div>
-          ) : (
-            <>
-              {/* Card detalhado do curral selecionado */}
-              {(() => {
-                const curral = currais.find((c) => c.curralId === curralSelecionado)
-                if (!curral) return null
-                return (
-                  <div
-                    id={`curral-card-${curral.curralId}`}
-                    className={`rounded-2xl border-2 p-5 transition-all ${
-                      curral.erroSalvar
-                        ? 'border-red-300 bg-red-50'
-                        : (curral.salvo || curral.rascunhoSalvo)
-                          ? 'border-green-300 bg-green-50'
-                          : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    {/* Linha 1: Curral | Lote + Formulação */}
-                    <div className="mb-4 grid grid-cols-2 gap-x-3">
-                      <div className="min-w-0 flex flex-col gap-2">
-                        <span className="block break-words text-base font-bold leading-tight text-gray-900">
-                          {curral.curralNome}
-                        </span>
-                        <span className="block truncate text-sm font-bold text-gray-500">
-                          {curral.formulacaoNome || '—'}
-                        </span>
-
-                        {curral.categorias && (
-                          <div className="break-words text-sm text-gray-700">
-                            <span className="font-bold text-gray-500">Categoria: </span>
-                            <span className="whitespace-nowrap font-bold text-gray-900">
-                              {curral.categorias
-                                .split(',')
-                                .map((c) => c.trim())
-                                .filter(Boolean)
-                                .map((c) => capitalizarIniciais(c))
-                                .join(', ')}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Linha 2: Cab | PV */}
-                        <div className="mt-1 whitespace-nowrap text-sm text-gray-700">
-                          <span className="font-bold text-gray-500">Cab: </span>
-                          <span className="mr-2 font-bold text-gray-900">
-                            {curral.nCabecas ?? '—'}
-                          </span>
-                          <span className="font-bold text-gray-500">Peso: </span>
-                          <span className="mr-2 font-bold text-gray-900">
-                            {curral.pesoVivoKg != null
-                              ? `${formatarKg(curral.pesoVivoKg, 0)} kg`
-                              : '—'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 text-right">
-                        <span
-                          className="block truncate text-base font-bold leading-tight text-[#1a3a2a]"
-                          title={curral.loteNome || '—'}
-                        >
-                          {curral.loteNome || '—'}
-                        </span>
-                        {!curral.tratosConcluidos && (
-                          <div className="mt-2 text-center">
-                            <span className="block text-sm font-bold leading-tight text-gray-700">
-                              {curral.ordemTrato}º trato de {curral.quantidadeTratos}
-                            </span>
-                            {curral.horarioSugerido && (
-                              <span className="mt-0.5 block text-xs font-semibold leading-tight text-blue-600">
-                                {curral.horarioSugerido.slice(0, 5)}h
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <div className="mt-6 text-center">
-                          <span className="mb-1 block text-sm font-bold text-gray-500">
-                            Leitura
-                          </span>
-                          <span className="text-base font-bold leading-tight text-gray-900 sm:text-lg">
-                            {curral.leituraCochoNota !== null ? (
-                              <>
-                                {curral.leituraCochoNota}
-                                {curral.leituraPercentualAjuste !== null && (
-                                  <span
-                                    className={`text-xs sm:text-sm ml-1 ${
-                                      curral.leituraPercentualAjuste > 0
-                                        ? 'text-green-600'
-                                        : curral.leituraPercentualAjuste < 0
-                                          ? 'text-red-600'
-                                          : 'text-gray-500'
-                                    }`}
-                                  >
-                                    ({curral.leituraPercentualAjuste > 0 ? '+' : ''}
-                                    {curral.leituraPercentualAjuste}%)
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              '—'
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Linha 3: Trato Nº | Previsto | Real */}
-                    {curral.tratosConcluidos ? (
-                      <div className="border-t border-gray-100 pt-2 mt-2">
-                        <div className="flex items-center justify-center gap-2 py-2 text-green-700 font-bold">
-                          <Check className="w-5 h-5" />
-                          <span>
-                            Tratos do dia concluídos ({curral.quantidadeTratos}/{curral.quantidadeTratos})
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-2 sm:gap-6">
-                        <div className="flex min-w-[4.5rem] flex-col self-center text-left sm:min-w-[5rem]">
-                          <span className="mb-1 block text-sm font-black uppercase leading-none tracking-wider text-gray-500">
-                            {curral.compensacaoUltimoTrato > 0 ? 'Previsto ajustado' : 'Previsto'}
-                          </span>
-                          <span className="text-lg font-black leading-tight text-[#1a3a2a] sm:text-xl">
-                            {curral.kgPlanejado != null ? `${formatarKg(curral.kgPlanejado, 0)} kg` : 'a definir'}
-                          </span>
-                          {curral.compensacaoUltimoTrato > 0 && (
-                            <span className="mt-1 block max-w-[10rem] text-[11px] font-bold leading-tight text-amber-700">
-                              Inclui {formatarKg(curral.compensacaoUltimoTrato, 0)} kg de compensação pela leitura tardia
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex min-w-0 flex-1 flex-col items-center">
-                          <span className="self-end text-center text-sm font-black text-gray-500 uppercase tracking-wider block mb-1 w-full max-w-[10rem]">
-                            REALIZADO (KG)
-                          </span>
-                          <div className="relative flex w-full justify-end">
-                            <input
-                              ref={(el) => (inputRefs.current[curral.curralId] = el)}
-                              type="text"
-                              inputMode="numeric"
-                              value={curral.kgReal}
-                              onChange={(e) => atualizarKgReal(curral.curralId, e.target.value)}
-                              onKeyDown={(e) => {
-                                // Bloqueia teclas de letras (permite ctrl/alt/meta + qualquer coisa)
-                                if (
-                                  /^[a-zA-Z]$/.test(e.key) &&
-                                  !e.ctrlKey && !e.altKey && !e.metaKey
-                                ) {
-                                  e.preventDefault()
-                                  return
-                                }
-                                handleKgRealKeyDown(e, curral.curralId)
-                              }}
-                              placeholder=""
-                              className={`h-14 w-full max-w-[10rem] text-center text-xl font-black border-2 rounded-xl focus:outline-none transition-colors appearance-none cursor-text sm:h-16 sm:text-2xl ${
-                                curral.erroSalvar
-                                  ? 'border-red-500 bg-red-50 text-red-700'
-                                  : (curral.salvo || curral.rascunhoSalvo)
-                                    ? 'border-green-500 bg-green-50 text-green-700'
-                                    : 'border-yellow-500 bg-white text-gray-900 focus:border-yellow-600'
-                              }`}
-                            />
-                            {curral.salvando && (
-                              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
-                            )}
-                            {(curral.salvo || curral.rascunhoSalvo) && !curral.salvando && (
-                              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                <Check className="w-3 h-3 text-white" />
-                              </span>
-                            )}
-                            {curral.erroSalvar && !curral.salvando && (
-                              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                !
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Modal de Revisão */}
-      {showRevisarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden">
-            <div className="px-5 py-4 bg-[#1a3a2a] text-white">
-              <h2 className="text-lg font-black">Revisar Tratos</h2>
-              <p className="text-sm text-white/70 mt-0.5">
-                Confira os valores antes de salvar definitivamente.
-              </p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-              {currais.filter((c) => c.kgReal !== '' && !c.tratosConcluidos).length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
-                  Nenhum valor digitado para revisar.
-                </div>
-              ) : (
-                currais
-                  .filter((c) => c.kgReal !== '' && !c.tratosConcluidos)
-                  .map((curral) => (
-                    <div
-                      key={curral.curralId}
-                      className={`rounded-xl border-2 px-3 py-2.5 flex items-center justify-between gap-3 ${
-                        curral.salvo
-                          ? 'border-green-300 bg-green-50'
-                          : curral.rascunhoSalvo
-                            ? 'border-yellow-300 bg-yellow-50'
-                            : 'border-gray-200 bg-gray-50'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <span className="text-sm font-bold text-gray-900 block truncate">
-                          Curral {curral.curralNome}
-                        </span>
-                        <span className="text-xs text-gray-500 block truncate">
-                          {curral.loteNome || '—'} · Trato {curral.ordemTrato}º
-                        </span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-lg font-bold text-[#1a3a2a]">
-                          {curral.kgReal} kg
-                        </span>
-                      </div>
-                    </div>
-                  ))
-              )}
-            </div>
-
-            <div className="p-4 flex gap-3 border-t border-gray-100">
+      <div className="-mt-1 flex flex-col gap-4">
+        {tiposVisiveis.length > 1 && (
+          <div className="app-card flex items-center justify-end gap-1.5 p-3">
+            {tiposVisiveis.map((t) => (
               <button
-                onClick={() => setShowRevisarModal(false)}
-                disabled={salvandoFim}
-                className="flex-1 font-bold text-base px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors active:scale-95 disabled:opacity-50"
-              >
-                CANCELAR
-              </button>
-              <button
-                onClick={async () => {
-                  const ok = await salvarTodosDoRascunho()
-                  if (ok) {
-                    setShowRevisarModal(false)
-                  }
-                }}
-                disabled={salvandoFim || rascunhosPendentes === 0}
-                className={`flex-1 font-bold text-base px-4 py-3 rounded-2xl border-2 transition-colors active:scale-95 ${
-                  salvandoFim
-                    ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
-                    : 'bg-[#1a3a2a] text-white border-[#1a3a2a] hover:bg-[#245038]'
+                key={t.value}
+                type="button"
+                onClick={() => setTipoSelecionado(t.value)}
+                className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+                  tipoSelecionado === t.value
+                    ? 'bg-[#1a3a2a] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {salvandoFim ? 'SALVANDO...' : 'SALVAR'}
+                {t.label}
               </button>
-            </div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {!programacao ? (
+          <div className="app-card p-8 text-center text-gray-500">
+            {carregando ? (
+              'Carregando programação...'
+            ) : (
+              <>
+                <p className="font-bold mb-2">Nenhuma programação de tratos ativa</p>
+                <p className="text-sm">
+                  Configure a programação de tratos no painel web antes de usar esta tela.
+                </p>
+              </>
+            )}
+          </div>
+        ) : carregando ? (
+          <div className="app-card p-8 text-center text-gray-500">Carregando currais...</div>
+        ) : erro ? (
+          <div className="app-card p-8 text-center text-red-600">{erro}</div>
+        ) : currais.length === 0 ? (
+          <div className="app-card p-8 text-center text-gray-500">
+            Nenhum curral ocupado por lote deste sistema nesta data.
+          </div>
+        ) : curralAtual ? (
+          <>
+            {/* Card do curral: identidade + stats do lote */}
+            <div className="app-card flex flex-col gap-4 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-base font-black text-gray-900">
+                    {curralAtual.curralNome}
+                  </h2>
+                  {curralAtual.linhaNome && (
+                    <p className="text-sm font-semibold text-gray-500">{curralAtual.linhaNome}</p>
+                  )}
+                </div>
+                <div className="min-w-0 text-right">
+                  <h2 className="text-base font-black text-[#1a3a2a]">{curralAtual.loteNome || '—'}</h2>
+                  {curralAtual.categorias && (
+                    <p className="text-sm font-semibold text-gray-500">
+                      {curralAtual.categorias
+                        .split(',')
+                        .map((c) => c.trim())
+                        .filter(Boolean)
+                        .map((c) => capitalizarIniciais(c))
+                        .join(', ')}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Dieta</p>
+                  <p className="mt-0.5 truncate text-sm font-extrabold text-gray-900">
+                    {curralAtual.formulacaoNome || '—'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Cabeças</p>
+                  <p className="mt-0.5 truncate text-sm font-extrabold text-gray-900">
+                    {curralAtual.nCabecas ?? '—'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Peso médio</p>
+                  <p className="mt-0.5 truncate text-sm font-extrabold text-gray-900">
+                    {curralAtual.pesoVivoKg != null ? `${formatarKg(curralAtual.pesoVivoKg, 0)} kg` : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tratos de hoje: seletor com horário sugerido */}
+            <div className="app-card flex flex-col gap-3 p-5">
+              <h3 className="text-[13px] font-extrabold uppercase tracking-wide text-gray-500">
+                Tratos de hoje
+              </h3>
+              <div className={`grid gap-2 ${curralAtual.quantidadeTratos <= 2 ? 'grid-cols-2' : curralAtual.quantidadeTratos === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                {Array.from({ length: curralAtual.quantidadeTratos }, (_, i) => i + 1).map((ordem) => {
+                  const cfg = programacao?.percentuais.find((p) => p.ordem_trato === ordem)
+                  const feito = ordem < curralAtual.ordemTrato || curralAtual.tratosConcluidos
+                  const exibido = curralAtual.tratoExibido === ordem
+                  const futuro = ordem > curralAtual.ordemTrato && !curralAtual.tratosConcluidos
+                  return (
+                    <button
+                      key={ordem}
+                      type="button"
+                      disabled={futuro}
+                      onClick={() => atualizarCurral(curralAtual.curralId, { tratoExibido: ordem })}
+                      className={`rounded-xl border-2 px-2 py-2.5 text-center transition-all ${
+                        exibido
+                          ? 'border-[#1a3a2a] bg-[#1a3a2a] text-white'
+                          : feito
+                            ? 'border-green-300 bg-green-50 text-green-800'
+                            : futuro
+                              ? 'border-gray-200 bg-gray-50 text-gray-400'
+                              : 'border-gray-200 bg-white text-gray-900'
+                      }`}
+                    >
+                      <span className="flex items-center justify-center gap-1 text-[13px] font-bold">
+                        {feito && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                        {ordem}º trato
+                      </span>
+                      <span className={`block text-[11px] font-semibold ${exibido ? 'text-white/80' : 'text-gray-500'}`}>
+                        {cfg?.horario_sugerido ? cfg.horario_sugerido.slice(0, 5) : '—'}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Seção 1: trato atual - previsto vs realizado */}
+            <CadernetaSection numero={1} titulo={`${curralAtual.tratoExibido}º Trato`} required>
+              {curralAtual.tratosConcluidos ? (
+                <InfoStrip tone="success" icon={<Check className="h-4 w-4" strokeWidth={3} />}>
+                  Tratos do dia concluídos para este curral ({curralAtual.quantidadeTratos}/{curralAtual.quantidadeTratos}).
+                </InfoStrip>
+              ) : !tratoEditavel ? (
+                <div className="flex flex-col gap-3">
+                  <InfoStrip tone="neutral">
+                    Trato já lançado
+                    {registroTratoExibido && 'kg_ofertado_real' in (registroTratoExibido as any)
+                      ? `: ${formatarKg(Number((registroTratoExibido as any).kg_ofertado_real), 0)} kg`
+                      : (registroTratoExibido as any)?.kg != null
+                        ? `: ${formatarKg(Number((registroTratoExibido as any).kg), 0)} kg`
+                        : '.'}
+                  </InfoStrip>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-gray-100 px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                        {curralAtual.compensacaoUltimoTrato > 0 ? 'Previsto ajustado' : 'Previsto'}
+                      </p>
+                      <p className="mt-0.5 text-2xl font-black text-gray-700">
+                        {curralAtual.kgPlanejado != null ? (
+                          <>
+                            {formatarKg(curralAtual.kgPlanejado, 0)}
+                            <span className="ml-1 text-sm font-bold text-gray-500">kg</span>
+                          </>
+                        ) : (
+                          <span className="text-base">a definir</span>
+                        )}
+                      </p>
+                    </div>
+                    <div
+                      className={`rounded-xl border-2 px-3 py-2.5 ${
+                        curralAtual.erroSalvar
+                          ? 'border-red-400 bg-red-50'
+                          : curralAtual.salvo || curralAtual.rascunhoSalvo
+                            ? 'border-green-400 bg-green-50'
+                            : 'border-green-500 bg-white'
+                      }`}
+                    >
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                        Realizado <span className="text-red-500">*</span>
+                      </p>
+                      <div className="flex items-baseline gap-1">
+                        <input
+                          ref={(el) => (inputRefs.current[curralAtual.curralId] = el)}
+                          type="text"
+                          inputMode="decimal"
+                          value={curralAtual.kgReal}
+                          onChange={(e) => atualizarKgReal(curralAtual.curralId, e.target.value)}
+                          className="w-full bg-transparent text-2xl font-black text-gray-900 focus:outline-none"
+                          placeholder="0"
+                        />
+                        <span className="text-sm font-bold text-gray-500">kg</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={curralAtual.kgPlanejado == null}
+                      onClick={() =>
+                        curralAtual.kgPlanejado != null &&
+                        atualizarKgReal(curralAtual.curralId, String(Math.round(curralAtual.kgPlanejado)))
+                      }
+                      className="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:border-gray-300 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Check className="h-4 w-4" strokeWidth={2.5} />
+                        USAR PREVISTO
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => tirarFotoBalanca(curralAtual.curralId)}
+                      disabled={capturandoFoto}
+                      className="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:border-gray-300 active:scale-[0.99] disabled:opacity-60"
+                    >
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Camera className="h-4 w-4" strokeWidth={2.5} />
+                        {capturandoFoto ? 'ABRINDO...' : 'BALANÇA'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {curralAtual.fotoBalanca && (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={base64ToDataUrl(curralAtual.fotoBalanca)}
+                        alt="Foto da balança"
+                        className="h-16 w-16 rounded-xl border border-gray-200 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => atualizarCurral(curralAtual.curralId, { fotoBalanca: null })}
+                        className="text-xs font-bold text-red-600 underline"
+                      >
+                        Remover foto
+                      </button>
+                    </div>
+                  )}
+
+                  {desvioPercent !== null && (
+                    <InfoStrip
+                      tone={Math.abs(desvioPercent) <= TOLERANCIA_DESVIO_PERCENT ? 'success' : 'warning'}
+                      icon={<Check className="h-4 w-4" strokeWidth={3} />}
+                    >
+                      {desvioKg! >= 0 ? '+' : ''}
+                      {formatarKg(desvioKg!, 0)} kg ({desvioPercent >= 0 ? '+' : ''}
+                      {desvioPercent.toFixed(1).replace('.', ',')}%) ·{' '}
+                      {Math.abs(desvioPercent) <= TOLERANCIA_DESVIO_PERCENT
+                        ? `dentro da tolerância de ${TOLERANCIA_DESVIO_PERCENT}%`
+                        : `acima da tolerância de ${TOLERANCIA_DESVIO_PERCENT}%`}
+                    </InfoStrip>
+                  )}
+
+                  {ultimoTratoZerado && (
+                    <InfoStrip tone="danger">
+                      O último trato precisa ser fornecido com quantidade maior que zero.
+                    </InfoStrip>
+                  )}
+
+                  {curralAtual.compensacaoUltimoTrato > 0 && (
+                    <InfoStrip tone="warning">
+                      Inclui {formatarKg(curralAtual.compensacaoUltimoTrato, 0)} kg de compensação pela leitura tardia.
+                    </InfoStrip>
+                  )}
+
+                  {!curralAtual.isDia1 && curralAtual.leituraCochoNota !== null && (
+                    <InfoStrip tone="warning">
+                      Leitura de cocho de hoje: {curralAtual.leituraCochoNota}
+                      {(() => {
+                        const desc = notasConfig.find((n) => n.nota === curralAtual.leituraCochoNota)?.descricao
+                        return desc ? ` (${desc})` : ''
+                      })()}{' '}
+                      → previsto já inclui{' '}
+                      {curralAtual.leituraPercentualAjuste !== null
+                        ? `${curralAtual.leituraPercentualAjuste > 0 ? '+' : ''}${curralAtual.leituraPercentualAjuste}%`
+                        : 'sem ajuste'}
+                    </InfoStrip>
+                  )}
+                </div>
+              )}
+            </CadernetaSection>
+
+            {/* Seção 2: vagão (só aparece quando há produção para o trato) */}
+            {opcoesVagaoAtual.length > 0 && (
+              <CadernetaSection numero={2} titulo="Vagão" required={vagaoObrigatorio}>
+                <div className="flex flex-col gap-3">
+                  {opcoesVagaoAtual.length > 1 && (
+                    <div className={`grid gap-2 ${opcoesVagaoAtual.length === 2 ? 'grid-cols-2' : opcoesVagaoAtual.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                      {opcoesVagaoAtual.map((op) => {
+                        const selecionado = curralAtual.vagaoSelecionadoKey === op.key
+                        return (
+                          <button
+                            key={op.key}
+                            type="button"
+                            disabled={!tratoEditavel}
+                            onClick={() => atualizarCurral(curralAtual.curralId, { vagaoSelecionadoKey: op.key })}
+                            className={`rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
+                              selecionado
+                                ? 'border-[#1a3a2a] bg-[#1a3a2a] text-white'
+                                : 'border-gray-200 bg-white text-gray-900'
+                            }`}
+                          >
+                            <span className="block text-sm font-bold">{op.vagaoNome}</span>
+                            {op.producao?.formulacaoNome && (
+                              <span className={`block text-[11px] font-semibold ${selecionado ? 'text-white/75' : 'text-gray-500'}`}>
+                                {op.producao.formulacaoNome}
+                              </span>
+                            )}
+                            <span className={`block text-[11px] font-semibold ${selecionado ? 'text-white/75' : 'text-gray-500'}`}>
+                              saldo {formatarKg(op.saldo, 0)} kg
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {vagaoAtual && (
+                    <>
+                      {opcoesVagaoAtual.length === 1 && (
+                        <p className="text-sm font-bold text-gray-900">
+                          {vagaoAtual.vagaoNome}
+                          {vagaoAtual.producao?.formulacaoNome && (
+                            <span className="ml-2 text-xs font-semibold text-gray-500">
+                              {vagaoAtual.producao.formulacaoNome}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-xl bg-gray-50 px-3 py-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Carregado</p>
+                          <p className="mt-0.5 text-sm font-extrabold text-gray-900">
+                            {formatarKg(vagaoAtual.carregado, 0)} kg
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-gray-50 px-3 py-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Ainda no vagão</p>
+                          <p className={`mt-0.5 text-sm font-extrabold ${vagaoAtual.saldo <= 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                            {formatarKg(vagaoAtual.saldo, 0)} kg
+                          </p>
+                        </div>
+                      </div>
+
+                      {tratoEditavel && isFinite(kgRealNum) && kgRealNum > vagaoAtual.saldo && (
+                        <InfoStrip tone="warning">
+                          Realizado acima do saldo do vagão ({formatarKg(vagaoAtual.saldo, 0)} kg).
+                        </InfoStrip>
+                      )}
+
+                      {coberturaVagao && vagaoAtual.saldo > 0 && (
+                        <InfoStrip tone="neutral">
+                          {coberturaVagao.cobertos.length > 0
+                            ? `Dá para os próximos ${coberturaVagao.cobertos.length} ${coberturaVagao.cobertos.length === 1 ? 'curral' : 'currais'} (${coberturaVagao.cobertos.slice(0, 4).join(', ')}${coberturaVagao.cobertos.length > 4 ? '…' : ''})`
+                            : 'Não cobre o próximo curral previsto.'}
+                        </InfoStrip>
+                      )}
+                      {vagaoAtual.saldo <= 0 && (
+                        <InfoStrip tone="danger">
+                          Saldo do vagão esgotado para este trato.
+                        </InfoStrip>
+                      )}
+                    </>
+                  )}
+                </div>
+              </CadernetaSection>
+            )}
+          </>
+        ) : null}
+      </div>
     </CadernetaLayout>
   )
 }
