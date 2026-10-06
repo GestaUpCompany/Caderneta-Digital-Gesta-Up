@@ -26,22 +26,19 @@ export async function checkFarmActiveStatus(acessoId: string): Promise<FarmStatu
   try {
     const acessoIdNormalizado = acessoId.toLowerCase()
 
-    const { data, error } = await supabase
-      .from('fazendas')
-      .select('id, nome, ativo, acesso_id')
-      .ilike('acesso_id', acessoIdNormalizado)
-      .single()
+    // get_fazenda_por_acesso é SECURITY DEFINER com campos operacionais mínimos:
+    // funciona tanto anon (boot sem token do peão) quanto autenticado. O acesso
+    // direto à tabela fazendas exige vínculo desde o isolamento de tenant.
+    const { data: rows, error } = await (supabase as any).rpc('get_fazenda_por_acesso', {
+      p_acesso_id: acessoIdNormalizado,
+    })
 
     if (error) {
-      // PGRST116 = "JSON object requested, multiple (or no) rows returned" - fazenda não encontrada
-      if (error.code === 'PGRST116') {
-        return { active: false, exists: false }
-      }
-
       console.error('[FarmStatusService] Erro ao verificar status da fazenda:', error)
       return { active: true, exists: true, error: true }
     }
 
+    const data = Array.isArray(rows) ? rows[0] : rows
     if (!data) {
       return { active: false, exists: false }
     }

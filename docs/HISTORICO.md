@@ -2,6 +2,223 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Isolamento de tenant no Supabase e adaptações do PWA (06/10/2026)
+
+O Painel aplicou a migration `20261006180000_isolamento_tenant_lotes_pastos_fazendas.sql` fechando RLS cross-fazenda em `fazendas`, `usuario_fazenda`, `pastos`, `lotes` e `peoes` (policies `qual=true`, incluindo UPDATE público em `pastos` e auto-vínculo em `usuario_fazenda`), após incidente real em que controller de uma fazenda alterou dados de outra. O acesso passa a ser por `caller_has_fazenda_access` (vínculo `usuario_fazenda` para usuários; email JWT -> `peoes` -> `fazendas.acesso_id` para peões) e `user_has_fazenda_role` para checks por papel.
+
+Duas adaptações necessárias no PWA:
+
+- **`farmStatusService.checkFarmActiveStatus`**: usava o client `anon` puro para ler `fazendas` (guarda de boot do app). Sem policy pública, retornava "Fazenda desativada" para fazenda ativa. Passou a usar a RPC `SECURITY DEFINER` `get_fazenda_por_acesso(acesso_id)` (campos operacionais mínimos, executável por `anon` e `authenticated`, criada no Painel em `20261006200000`).
+- **`getFazendaByAcessoId`**: ganhou fallback para a mesma RPC quando o client está sem token de peão (janela de re-auth). Campos sensíveis (`cnpj`, `endereco`, `telefone`, `email`, `planilha_id`, `bounding_box`) só vêm na leitura autenticada.
+
+Verificado com Chrome DevTools na fazenda de testes: guarda de boot, warm cache completo com JWT `peao_gestaup`, SearchableModal da Movimentação exibindo lote+pasto, login por perfil+PIN e dashboard do Painel. O restante do item S3 (outras ~18 tabelas de cadastro, `usuarios`, `lote_historico`, RPCs definer sem check) segue no BACKLOG.
+
+**Disparador**: quando mencionar "Fazenda desativada indevida", "anon não lê fazendas", `get_fazenda_por_acesso`, "isolamento de tenant", ler esta seção.
+
+## Ordem manual dos currais na folha de trato (06/10/2026)
+
+A barra inferior de currais da `TratoConfinamentoPage` passou a respeitar `currais.ordem_folha_trato`, coluna nova definida e editada por drag no painel web (Configuração de Tratos, seção "Currais em trato"). O sort em `carregarDados` usa `curraisPorId.get(curralId)?.ordem_folha_trato` com NULLs no fim e desempate por nome; a ordem se propaga para `curraisDaLinha`, para o botão "SALVAR E IR PARA X" e para a seleção inicial do curral.
+
+`getCurrais` faz `select('*')`, então a coluna entra no warm cache ("Currais (Confinamento)") sem mudança de sync. Cache quente anterior ao deploy não tem a coluna e degrada para a ordenação alfabética anterior até o próximo warm-up online. Não há edição da ordem no PWA, só consumo.
+
+**Disparador**: quando mencionar "ordem dos currais no trato", "barra de currais", `ordem_folha_trato`, ler esta seção.
+
+## Fotos WebP e share com álbum em produção (05/10/2026)
+
+Incremento da caderneta de Bebedouros promovido via `release/bebedouros-fotos`, mesmo recorte de arquivos sobre a master.
+
+O que entrou:
+
+- **Compressão WebP**: `comprimirFoto` (photoCompress) exporta WebP q0.7 com fallback para JPEG detectado por `toDataURL` (browsers sem suporte retornam PNG silenciosamente). ~30% mais leve que JPEG. Extensão e mime reais propagados nos uploads (`syncService`, paths `*.webp`) e no share (`foto_N.webp`). Helpers novos: `imageMimeFromBase64`, `imageExtFromBase64`, `base64ToDataUrl` (detecta formato pelo magic bytes, compatível com fotos JPEG antigas). Todos os `<img>` que montavam `data:image/jpeg;base64` passaram a usar `base64ToDataUrl` (FotoSection, AtividadesPage, BebedourosPage, MortePage, ProblemasPage).
+- **Share de bebedouros com álbum**: os itens não conformes com foto ficam marcados "(foto N)" no texto e todas as fotos vão juntas como `files` na Web Share API, na mesma ordem — uma única share sheet, no WhatsApp vira álbum com legenda. Fotos locais saem do `fotoBase64`; já sincronizadas são baixadas da `foto_url` (se o download falhar, caem como link no fim do texto). `fotoUrlParaBase64` corrigido para retornar base64 puro (antes retornava o data URL com prefixo, quebrando `atob`).
+- **Warm cache de bebedouros corrigido**: a página consulta `ultima-limpeza-bebedouro-antes-{data}` mas o warm só aquecia `ultima-limpeza-bebedouro` — chaves diferentes, miss garantido offline. Agora a fase aquece os quatro dados por bebedouro (última limpeza, última limpeza antes da data de hoje, média de intervalo, pastos vinculados). Ressalva: data de registro diferente de hoje continua sem histórico offline.
+- **InfoCard**: stat "Última limpeza" exibe "N dias" sem o prefixo "há" (o share mantém "há N dias").
+
+Ficou de fora de propósito: restyle do `FotoSection` e `ChecklistSection` (checklist geral), mudanças de input em `AtividadesPage`/`MortePage`, e a remoção de `getPastoByIdCached` do `cadastroCache` (a `SuplementacaoPage` do master ainda usa) — foram trazidos só o `base64ToDataUrl` nesses arquivos e o bloco de warm novo.
+
+**Disparador**: quando mencionar "fotos grandes no Supabase", "webp", "share com foto", "histórico offline de bebedouro", ou `base64ToDataUrl`, ler esta seção.
+
+## Tela de Bebedouros modernizada em produção (05/10/2026)
+
+Terceira fatia do redesign foi para produção via `release/bebedouros`, mesmo método de recorte de arquivos da `feat/layout-moderno-menus` sobre o master.
+
+O que entrou:
+
+- **`BebedourosPage`** reescrita: seções numeradas, tiles de leitura da água, chip POP, `FormFooter` e rascunho (`useRascunhoForm` + `BannerRascunho`, a página não tinha antes). O checklist virou uma lista de afirmações negativas clicáveis ("ÁGUA INSUFICIENTE", "VAZÃO DA BÓIA FORA DO IDEAL", "BÓIA/PROTEÇÃO EM MÁS CONDIÇÕES", "ATERRO/ACESSO INADEQUADO", "ESPAÇAMENTO INADEQUADO"): clicar marca o problema (`valor: false`) e abre evidência (foto via `usePhotoGps`, observação, ditado por voz); não clicar significa condição adequada (`valor: true`). As chaves positivas do jsonb foram preservadas, então `valor` no banco continua significando "condição adequada" e os históricos seguem legíveis.
+- **Foto por item do checklist**: vai dentro do `checklist` jsonb como `foto_url`, sem migration. O sync sobe cada foto para `fotos-registros/{fazenda}/bebedouros/{registro}/{item}.jpg` e remove `fotoBase64` antes do insert (`uploadFotosChecklistBebedouros` no `syncService`).
+- **Ditado por voz**: hook `useVoiceInput` novo. No app nativo usa `@capacitor-community/speech-recognition` (SpeechRecognizer no Android / SFSpeechRecognizer no iOS); no navegador cai para Web Speech API. `RECORD_AUDIO` adicionado ao `AndroidManifest`. Requer `npx cap sync` + rebuild do app para funcionar no APK; reconhecimento offline depende do pacote de voz do aparelho, não é garantido.
+- **`limpou_hoje`**: a pergunta ficou como o único SIM/NÃO da seção e passa a controlar o histórico de limpeza: `createHistoricoLimpeza` só roda quando "Sim" (antes registrava sempre que um bebedouro era selecionado). Fazendas com checklist inativo mantêm o comportamento antigo de sempre registrar.
+- **`InfoCard`** (componente novo compartilhado): resumo da entidade selecionada com identidade (ícone + título + subtítulo), stats compactos, barra de progresso e uma faixa única de decisão. Substituiu `BebedouroDetalhesCard` e `BebedouroPastoCard` (deletados). Corrigiu de quebra um bug antigo: `parseInt("há N dias")` retornava NaN e a linha "PRÓXIMA LIMPEZA" nunca renderizava; agora vira a faixa de status ("Limpeza atrasada há X dias" etc.).
+- **Share de bebedouros**: seção virou "PROBLEMAS ENCONTRADOS" com labels negativos, observação e link da foto quando sincronizada; linha "LIMPOU O BEBEDOURO HOJE?".
+
+Ficou de fora (segue na `feat/layout-moderno-menus`): `LimpezaPage`, `AbastecimentoPage`, `EnfermariaPage`.
+
+Pendente de consumo: o Painel Web ainda não renderiza `foto_url` por item do checklist nem a chave `limpou_hoje` com label; os dados estão no jsonb, a exibição é follow-up no repo do painel.
+
+**Disparador**: quando mencionar "checklist de bebedouros", "foto no checklist", "ditado por voz", `InfoCard`, `limpou_hoje`, ou "por que o histórico de limpeza parou de registrar", ler esta seção.
+
+## Telas de Clima e Problemas modernizadas em produção (05/10/2026)
+
+Segunda fatia do redesign foi para produção via `release/clima-problemas`, recorte de arquivos da `feat/layout-moderno-menus` sobre o master (não foi merge de commits, foi checkout de arquivo). Limpeza, Abastecimento e Enfermaria continuam na branch de layout.
+
+O que entrou:
+
+- **`ClimaPage`** reescrita: seções numeradas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection` (primitivos novos de formulário), seletor de pluviômetros, "tempo agora" (`tempo_atual`), umidade relativa e `esvaziou_pluviometros`. A pergunta "choveu desde a última leitura" foi removida; a coluna `choveu` permanece no banco para históricos e sai `null` nos registros novos.
+- **`ProblemasPage`** simplificada para "aviso rápido": setor + local, descrição, foto (`foto_url` via bucket `fotos-registros`), GPS (`latitude`/`longitude`/`gps_accuracy`), urgência (`prioridade` → AGORA!/ESTA SEMANA/PODE ESPERAR), recorrência (`tipo_ocorrencia`) e "já resolveu?" (`acao_corretiva_realizada`). As colunas de análise da tela antiga (`causa_*`, `gravidade_impacto`, `tipo_problema`, `setor_resolve`, `*_obs`) ficam órfãs mas continuam nullable e são exibidas em registros históricos.
+- **Infra compartilhada** que acompanha: inputs `ui/` restilizados (inclui prop `suffix` nova do Input), fix de `useFormValidation` para regras virtuais (prefixo `_`), mappings de `syncService` (clima/problemas + bucket de foto de problemas), `types/cadernetas` e `types/supabase` alinhados, `validation.ts` do problemas simplificada, labels novos em `labelConfig`, seções de `problemasConfig` reagrupadas (SITUAÇÃO + ANÁLISE só para históricos), share de clima/problemas formatado em pt-BR com GPS clicável, e `pdfUtils` com os campos novos do resumo de clima.
+- **ListaRegistros redesenhado** (afeta TODAS as listas de cadernetas, não só as duas): `AppHeader`, cards `.app-card`, pills de período/filtros com Lucide, badge real de status de sync, `cardBadge` no `CadernetaDisplayConfig` (problemas mostra a urgência colorida), modal de compartilhamento no padrão `SuccessModal`.
+- **`ResumoDiario`** (componente novo): botão e modal de resumo diário unificados nas 5 listas que tinham o recurso (Clima, Maternidade, Bebedouros, Rodeio, Suplementacao), com contagem ao vivo de registros na data e erro inline no lugar de `alert`.
+- **Migrations**: `20260928120000_clima_campos_condicoes.sql` e `20260928140000_problemas_evidencia.sql` incluídas no repo para registro; as colunas já estavam aplicadas no banco de produção (aplicação foi feita pelo repo do Painel Web, dono do schema).
+
+Ficou de fora (segue na `feat/layout-moderno-menus`): `LimpezaPage`, `AbastecimentoPage`, `EnfermariaPage` e o restyle de `FotoSection` (não incluso porque afetaria telas antigas que usam o componente e nenhuma das duas telas novas o importa).
+
+Efeito colateral consciente: como `ListaRegistros`, `ResumoDiario` e os inputs `ui/` são compartilhados, todas as listas de cadernetas e os formulários antigos ganham o visual novo nos pontos compartilhados. Dados e fluxo de sync não mudam.
+
+**Disparador**: quando mencionar "tela de clima nova", "aviso rápido de problemas", "foto do problema não aparece", "resumo diário", `cardBadge`, `ResumoDiario`, ou "por que as listas mudaram junto", ler esta seção.
+
+## Menus modernizados em produção: Home, cadernetas e checklists (05/10/2026)
+
+Primeira fatia do redesign visual foi para produção sem as telas das cadernetas. Origem: `feat/layout-moderno-menus`, merge no master apenas até `b0ebb2a` (5 commits de base/menus) mais o ajuste de ícones `9992973`.
+
+O que entrou:
+
+- **`AppHeader.tsx`** (novo componente) e a base do redesign: tokens de marca em `tailwind.config.js` (`brand-*`, `accent-*`, `surface`), `.app-card` e `.header-chip` em `globals.css`.
+- **`Home.tsx`** reescrita: header compacto com saudação/fazenda (variante `start` do AppHeader), card de status de sync consolidado, "continue de onde parou" (últimas cadernetas), grid de módulos. Funcionalidades preservadas: versículo do dia, login/troca de funcionário, gate de Atividades por RBAC.
+- **Grid da Home**: voltou a usar as ilustrações PNG do layout antigo (`public/home/*.png`) em `w-16`, com ícone Lucide como fallback no `onError` (mesmo padrão do menu de cadernetas). Ordem: Cadernetas, Atividades, Relatórios, Checklists, Mapa da fazenda, Cadastros.
+- **`ModulosMenuPage`** e **`ChecklistsMenuPage`** reescritas na linguagem do AppHeader, com busca, "últimas acessadas" e agrupamento por categoria.
+
+Ficou de fora (segue na `feat/layout-moderno-menus`): os 6 commits que modernizam as telas das cadernetas (Limpeza, Clima, Problemas, Abastecimento, Enfermaria, padronização dos inputs compartilhados) e as 2 migrations ligadas a eles (campos de condição do Clima, evidência de Problemas), que dependem de aplicação no banco antes de subir.
+
+**Disparador**: quando mencionar "menus novos", "redesign da Home", `AppHeader`, "layout moderno", ou "por que o menu está diferente das telas", ler esta seção.
+
+## Nome de usuário trocava sozinho ao selecionar responsável nos modais (01/10/2026)
+
+Relato de produção (Fazenda Chibata, usuário Carlos): o "SEU NOME" das Configurações mudava sozinho. Carlos lançou um abastecimento que saiu como Jefferson, corrigiu o nome, lançou outro e virou Adelson. Confirmado no banco: 4 registros de `registros_abastecimento` criados em ~15 min no mesmo aparelho, cada um com `nome_usuario` = `quem_abasteceu` de um funcionário diferente (Carlos lançava retroativo em nome da equipe).
+
+Causa-raiz: o commit `dab8955` (24/jul/2026) criou `utils/nomeUsuario.ts` (`atualizarNomeUsuarioConfig`), chamado no `onChange` dos modais de responsável de 5 cadernetas (Abastecimento, Almoxarifado entregou+pegou, EntradaInsumos, Cantina, ManutencaoMaquinas). A intenção era memorizar o nome quando o usuário selecionava a si mesmo, mas o campo é dado do registro (quem executou a ação), não identidade do aparelho. Em fluxo de registrador central, cada seleção de funcionário sobrescrevia `config.usuario`, que assina `nome_usuario` de todos os lançamentos sem modal.
+
+Correção (opção B, aprovada pelo usuário): removidas todas as chamadas de `atualizarNomeUsuarioConfig` e o arquivo `nomeUsuario.ts` deletado. `config.usuario` agora só muda em Configurações, no login de funcionário (`useFuncionarioAuth`, controle de acesso) ou na troca de fazenda. Quem não configurar nome segue bloqueado no primeiro lançamento pela validação de `nome_usuario` do `salvarRegistro`, que aponta para Configurações. Efeito colateral corrigido: `nome_usuario` volta a significar "quem lançou", não cópia do responsável do registro.
+
+**Disparador**: quando mencionar "nome de usuário mudando sozinho", "registro saiu em nome de outro funcionário", `atualizarNomeUsuarioConfig`, ou `nomeUsuario.ts`, ler esta seção.
+
+## Correção pontual dos dados da Chibata: exclusão do 9,54 kg e entrada 26/09 para 29.540 kg (01/10/2026)
+
+Operação de dados via MCP (migração pontual, sem arquivo), autorizada pelo usuário após confirmação de que a entrada correta da NF 1381 era 29.540 kg em uma única entrega, e não duas.
+
+Antes de mexer: backup das linhas afetadas em `backup.chibata_milho_fix_20261001_{itens,entradas,movs,insumo}` (2 itens, 2 entradas-pai, 20 movimentações do insumo, 1 linha de `insumos`).
+
+Aplicado:
+
+- `DELETE` em `entrada_insumos_itens` `bafab7ee-006c-4f9b-bcf7-894fcf94fe5b` (o registro errado de 9,54 kg de 30/09). O trigger `trg_entrada_insumos_itens_mov` soft-deletou a movimentação espelhada `88e0a9ff` e `update_estoque_suplemento` chamou `recalcular_custo_medio_item`, que faz replay sequencial de toda a cadeia recalculando `saldo_anterior`/`saldo_posterior` e custo médio.
+- Soft-delete do pai órfão `registros_entrada_insumos` `ebe16b2d-ed8a-400f-9f1d-9db1023b3a59` (`deleted_at`; a tabela pai não tem trigger de cascata e o item é hard delete, pois não tem `deleted_at`).
+- `UPDATE` em `entrada_insumos_itens` `e87e94dd-43de-4877-91fa-0499bc4eb967` (entrada de 26/09): `quantidade` 20000 → 29540, `valor_total` 12000.00 → 17724.00 (R$ 0,60/kg mantido). O trigger espelhou na movimentação `26d1fb66` e recalculou a cadeia.
+
+Verificação pós-operação: saldo de MILHO GRÃO da Chibata passou de 14.297,84 kg @ R$ 0,6275/kg para **23.828,30 kg @ R$ 0,6198/kg**, cadeia de saldos das 19 movimentações restantes recomputada e consistente, movimentação do item excluída com `deleted_at` marcado, entrada-pai de 30/09 soft-deletada, zero itens órfãos.
+
+## Entrada de Insumos: input numérico pt-BR e sync com quantidade numérica (01/10/2026)
+
+Relato de produção (Fazenda Chibata): entrada de MILHO GRÃO aparecia 9,54 kg na linha do tempo de estoque, mas o operador havia lançado "9.540" querendo 9.540 kg. Causa-raiz em duas camadas: o campo Quantidade era `Input type="number"` (ponto = decimal, convenção americana, ignorando a cultura do usuário), e o mapping `entrada-insumos-itens` do `syncService` enviava `quantidade`/`valor_unitario`/`valor_total` como string crua para colunas `numeric`, então o Postgres interpretou "9.540" = 9,54. O trigger `trg_entrada_insumos_itens_mov` apenas copiou o valor já corrompido; não havia conversão de unidade envolvida.
+
+Correções:
+
+- **Novo `components/ui/NumericInput.tsx`**: máscara pt-BR, aceita somente dígitos e vírgula; ponto nunca entra como dígito e aparece só como separador de milhar visual ("9540" → "9.540"). Emite valor canônico ("9540" ou "9.54") direto para salvar. Cola de clipboard passa por `normalizarNumero` (heurística pt-BR já existente em `utils/formatNumber.ts`). Exportado em `components/ui/index.ts`.
+- **`EntradaInsumosPage`**: Quantidade (kg) e Valor Unitário trocados para `NumericInput`; TOTAL (R$) e o total da entrada passam a exibir com `formatarMoedaBR`.
+- **`syncService` (mapping `entrada-insumos-itens`)**: `quantidade`, `valor_unitario` e `valor_total` agora passam por `numOrNull` (converte para `number`, vírgula → decimal, inválido → null) antes do upsert, eliminando a string crua que chegava ao Postgres. Registros locais legados com "9.540" continuam sendo lidos como 9,54 (mesma leitura que o Postgres faria). O dado corrompido da Chibata foi corrigido na operação pontual documentada na seção acima.
+- **`registroSpecialComponents`**: o detalhe do registro de entrada-insumos exibia `String(item.quantidade)` cru; agora formata quantidade com `formatarNumeroBR` (kg) e valores com `formatarMoedaBR`.
+- **Painel Web**: `NumericInput` do `@gestaup/ui` ganhou o mesmo comportamento e `EstoqueSuplementacao` trocou `parseFloat` por `parseValorBR`. Detalhes no HISTORICO do repo do Painel.
+
+Rollout posterior no mesmo dia cobriu o restante do PWA: todos os `type="number"` vivos viraram `NumericInput` (decimal: `SuplementacaoPage` kgDeposito, `MovimentacaoPage` peso médio, `MaternidadePage` pesoCria×2, `MortePage` pesoVivo, `CantinaPage` preço unitário + quantidade de item, `EntradaCantinaPage` quantidade, `ClimaPage` umidade/chuva/temperatura, `OperacoesMaquinasPage` odômetros + quantidade aplicada + área, `PesagemPage` pesoKg, `ComunicadoVendaPage` preço/@, `AlmoxarifadoPage` e `EntradaAlmoxarifadoPage` quantidade — estas duas sanitizavam `[^\d,.]` mas mantinham o ponto, mesmo bug), e os inteiros usam `decimalPlaces={0}` (cabeças por categoria, fêmeas/machos/mortes do recebimento, quantidade prevista dos comunicados, contagens do rodeio e pastagens, refeições/marmitas da cantina, impacto em minutos de Atividades). No `syncService`, `numOrNull`/`numStrOrNull` (helpers de módulo; `numStrOrNull` emite string canônica para as colunas TEXT de odômetro de manutenção/operações) substituíram todos os `Number(registro.x)` crus — incluindo peso_vivo, n_cabecas, temperatura/umidade, quantidade_prevista, marmitas, itens de saída e produção. O canônico do `NumericInput` nunca termina em 3 dígitos decimais com trailing zero (trim na emissão), evitando colisão com a heurística de milhar do `normalizarNumero` em consumidores legados.
+
+Código morto identificado: `pages/estoque-insumos/EntradaPage.tsx` e `ProducaoPage.tsx` não estão roteados (só `EstoquePage` está no `App.tsx`); mantêm o padrão inseguro e são candidatos a remoção.
+
+Typecheck `tsc --noEmit` limpo.
+
+**Disparador**: quando mencionar "entrada de insumos quantidade errada", "9.540 virou 9,54", "ponto de milhar no PWA", `NumericInput` do PWA, ou `numOrNull` no sync, ler esta seção.
+
+## Meta consumo kg/cab/dia da Suplementação exibida em matéria natural (30/09/2026)
+
+A meta %PV da formulação (`consumo_ms_percent_pv`) está em base de matéria seca, mas o card da caderneta e os textos de compartilhamento multiplicavam direto pelo peso vivo, exibindo kg de MS sob um label genérico "kg/cab/dia" ao lado das métricas históricas em MN. Correção aplicada: `kg MN/cab/dia = (metaConsumo%PV * pesoVivo) / teorMs` (kg MS ÷ teor MS). Label alterado para "META CONSUMO (kg MN/cab/dia)" em todos os pontos.
+
+Mudanças:
+
+- `FormulacaoDetalhesCard`: cálculo convertido para MN com guarda de `teorMs` nulo/zero (a linha não renderiza quando não dá para converter). Cobre os cards adulto e creep da `SuplementacaoPage`, que já passam `teorMs` correto por escopo.
+- `SuplementacaoPage`: novo campo `creepTeorMs` no payload do registro, junto de `creepMetaConsumo`, necessário para converter a meta creep quando adulto e creep são suplementados juntos. Em linha "só creep" o campo primário `teorMs` já carrega o teor da formulação creep e serve de fallback.
+- `SuplementacaoListaPage`, `shareUtils`, `pdfUtils`: meta kg/cab/dia convertida para MN nos blocos adulto e creep, com o mesmo fallback de `teorMs` primário quando `suplementarAdulto=false`. Registros antigos de linha mista não têm `creepTeorMs`, então neles a linha kg MN do creep simplesmente não é emitida.
+- A meta %PV continua em base MS (é como a formulação é cadastrada no plano nutricional); só o kg virou MN para ficar comparável com "CONSUMO MÉDIO (kg/MN)".
+- A pedido do usuário, foram removidos de todas as superfícies de exibição os labels TEOR MS / "Teor MS dieta", CONSUMO MÉDIO GERAL / "CMS Geral" (%PV) e CONSUMO MÉDIO GERAL / "CMN Geral" (kg/MN), além das linhas "CMS (kg/MS)" que só existiam no PDF. O que sobrou de histórico de consumo em qualquer saída (card, share individual, resumo diário, PDF): CMS/CMN de 30 dias e CUSTO MÉDIO. As métricas continuam sendo calculadas em `calcularMetricasSuplementacao` e guardadas no payload; só deixaram de ser exibidas.
+
+**Disparador**: quando mencionar meta consumo em kg na suplementação, conversão MS para MN, `creepTeorMs`, ou divergência entre meta %PV e kg/cab/dia, ler esta seção.
+
+## Trava de trato vira ação explícita na Fábrica Confinamento (30/09/2026)
+
+Pedido de produção: a trava impedia avançar do trato N para o N+1 quando `total_produzido < total_previsto`, sem nenhuma saída para o usuário.
+
+Desenho final (após iterar sobre seletor livre e "save sempre encerra", ambos descartados pelo usuário): o SALVAR acumula produção parcial no trato aberto como antes; a diferença é o botão ENCERRAR TRATO com confirmação inline de dois toques, que grava `concluido=true` mesmo com déficit e avança a ordem. O auto-encerramento quando produzido >= previsto foi mantido. Sem retorno ao trato encerrado e sem seletor livre. Trato esquecido aberto ao virar o dia não é tratado: a página filtra por data, então o registro aberto de ontem fica aberto para sempre sem bloquear o dia novo.
+
+Mudanças em `FabricaConfinamentoPage` e `syncService`:
+
+- `handleSalvar(encerrarTrato)`: SALVAR continua acumulando (`concluido = produzido >= previsto - 0.5`); ENCERRAR força `concluido=true`. Funciona também para trato sem produção nenhuma (cria master com produzido=0 encerrado — no Painel aparece como `nao_produzido`) e para encerrar um trato aberto legado sem lançar nada novo.
+- Complemento de trato aberto sobrescreve `vagao_id`/`vagaoNome` no master (último vagão usado fica registrado); o update no sync passou a gravar `vagao_id` junto.
+- `concluido` significa "encerrado" (meta atingida ou encerramento manual). Nenhum consumidor downstream lê o flag: o Painel deriva `parcial` de produzido vs previsto.
+- Mensagem de sucesso dinâmica no encerramento com déficit ("Trato N encerrado. Ficaram faltando X kg") e bloco informativo âmbar lista os tratos encerrados com déficit do dia.
+- Correção embarcada: trato aberto criado em outro dispositivo ganhava master duplicado ao receber complemento (o lookup local por `supabaseId` falhava e o save caía no create). Agora, quando o registro remoto aberto não tem contraparte local, o carregamento cria um espelho no IndexedDB com o `supabaseId`, fazendo o complemento/encerramento atualizar o mesmo master. O espelho também é refrescado com os totais remotos quando sincronizado.
+- Auditoria offline-first corrigiu dois bugs pré-existentes do carregamento: (1) o filtro de registros locais comparava `r.data` em formato BR contra `dataISO` em ISO e nunca casava, então offline nenhum registro do dia era encontrado (trato voltava ao 1 e re-save criava master duplicado); (2) online, `registrosFabrica` vinha só do Supabase e registros locais `pending` sumiam, e salvar offline e recarregar online antes do sync reabria o trato. Agora os registros locais do dia são sempre mesclados: create pendente entra como linha fantasma, update pendente sobrescreve os totais do remoto.
+- `syncService`: o update de `registros_fabrica_confinamento` passou a gravar também `total_previsto` (antes só `total_produzido` e `concluido`), mantendo o previsto gravado consistente com o cálculo vigente no momento do save.
+- Corrupção de `total_previsto` encontrada no teste: a página gravava `totalPrevisto: String(152.475)` = "152.475", e `normalizarNumero` interpreta ponto seguido de exatamente 3 dígitos como milhar pt-BR, resultando em 152475 no banco. Corrigido gravando os campos numéricos (`totalPrevisto`, `totalProduzido`) como `number` no registro local (criação, update de trato aberto e espelho/remoto), pois `normalizarNumero(number)` retorna direto sem heurística de separador.
+- Bug pré-existente descoberto no banco: o trigger `trg_fabrica_confinamento_insumos_mov` chama `public.expandir_insumo(uuid, numeric)`, que não existe (a função foi renomeada para `expandir_premix_componentes(uuid, numeric, integer)`). Todo insert de insumo da fábrica falhava com 42883 e nenhuma baixa de estoque era gerada. Correção é migration estrutural `20261001130000_fix_trg_fabrica_insumos_expandir_premix.sql` no repo do Painel Web, pendente de `supabase db push`. Aplicada via `db push` no mesmo dia e commitada no Painel (commit 6d1329b); os insumos retidos com syncStatus `error` foram reenfileirados e subiram (upsert por `local_id` é idempotente), gerando as movimentações de estoque retroativas.
+- Débito conhecido não tratado: `syncToSupabase` ignora `operation === 'update'` quando `registro.supabaseId` ainda não existe e a fila marca o item como synced. Na prática se recupera porque o `create` pendente do mesmo registro sobe com o estado final via upsert por `local_id`; só vira perda se o create falhar definitivamente.
+
+**Disparador**: quando mencionar trava da fábrica, trato com déficit, "faltam X kg" no carregamento de vagão, ou registro de fábrica duplicado por ordem, ler esta seção.
+
+## Estorno de entrada de 116 bois no LOTE 9 da Fazenda Chibata (30/09/2026)
+
+A pedido do usuário, estorno manual via MCP do registro `registros_movimentacao` `6b9f36ee-a71f-499c-ad35-5ff46064f78e` (Entrada de 116 cabeças "boi gordo", Nelore macho ~30 meses, 402,85 kg/cab, no LOTE 9, lançado por Carlos às 07:38). A entrada era categoria nova no lote, então o trigger `update_quant_atual_movimentacao` tinha criado a linha `lote_categorias` `c604e615` (não somado em linha existente). O estorno foi: soft-delete do registro (`deleted_at`) e DELETE da linha `lote_categorias`, que levou junto o `plano_categoria_personalizacao` auto-gerado (FK CASCADE). LOTE 9 voltou a ter só "garrote" (112 cab.), estado pré-entrada.
+
+Backups criados antes da operação, mesmo padrão do estorno de 18/09: `backup_estorno_movimentacao_20260930`, `backup_estorno_lote_categorias_20260930` e `backup_estorno_plano_personalizacao_20260930`. O trigger de quantidade só dispara em INSERT (não reverte sozinho no soft-delete), por isso a reversão de cabeças é sempre manual. O registro tinha `os_id`/`os_recebimento_id` nulos, então `trg_movimentacao_os_status` foi no-op e nenhuma OS precisou de ajuste.
+
+**Disparador**: quando mencionar estorno de movimentação, entrada errada no LOTE 9/Chibata, reversão manual de cabeças, ou "apagar registro de entrada", ler esta seção.
+
+## Salvar da Suplementação falhava em silêncio quando o pasto não resolvia (29/09/2026)
+
+Relato de produção: offline, o SALVAR "não fazia nada" no primeiro clique e no segundo exibia "1 campo obrigatório". Diagnóstico: `form.pasto` é derivado na seleção do lote por `lote.pastos?.nome || lotesPastoMap[numeroLote]`; quando o cache foi montado com a tabela de pastos incompleta (o warmup grava `pastos: {nome: null}` e `lotesPastoMap` fica com `''`), `pasto_id` segue setado mas o nome fica vazio. `pasto` não entra no `validationRules`, então o botão fica habilitado; ao salvar, `validateSuplementacao` gerava `{field:'pasto', message:'Pasto é obrigatório'}`, o `ValidationMessage` só mostrava a contagem genérica, e `scrollToFirstError` não achava elemento `pasto` no DOM (campo derivado, nunca renderizado). O erro ficava invisível no topo da página e nada era persistido.
+
+Correções:
+
+- **`SuplementacaoPage`**: fallback por `pasto_id` via novo `getPastoByIdCached` em `cadastroCache` (online consulta `getPastos`; offline varre o `queryCache` por entradas `pasto:*` com o id). `lotesPastoMap` também entrou nas deps do efeito `carregarDetalhesLoteEPasto`, que antes não recalculava o pasto quando o mapa chegava depois da seleção.
+- **`ValidationMessage`**: exibe as mensagens reais dos erros (deduplicadas) além da contagem dos genéricos; trava de duplicidade, "Pasto é obrigatório" e similares agora aparecem por extenso. O root ganhou `data-validation-banner` para ser âncora de scroll.
+- **`scrollToFirstError`**: percorre todos os erros até achar um elemento no DOM; sem nenhum, rola até o banner de validação ou ao topo.
+
+**Disparador**: quando mencionar "salvar não faz nada", "1 campo obrigatório" na suplementação, `getPastoByIdCached`, `lotesPastoMap` nas deps, ou banner de validação escondendo a mensagem real, ler esta seção.
+
+## Período de trato no resumo diário de suplementação (29/09/2026)
+
+O texto do resumo diário (`SuplementacaoListaPage.handleGerarResumoTexto`) não incluía `PERÍODO DE TRATO`, embora o compartilhamento individual (`shareUtils`) já emita o label após `PV MÉDIO`. Adicionada a mesma linha no mesmo ponto do bloco adulto, com o mesmo fallback: `r.periodoTratoDias` quando presente, senão `calcularPeriodoTrato(r, todosRegistros)` (dias desde o trato anterior do mesmo lote; tratos no mesmo dia e primeiros tratos não emitem o label). Verificado ponta a ponta: resumo de 25/09 gerou `PERÍODO DE TRATO: *2 dias*`.
+
+**Disparador**: quando mencionar label faltando no resumo diário de suplementação, período de trato no WhatsApp, ou diferença entre share individual e resumo, ler esta seção.
+
+## Delay de 5-8s entre SALVAR e o modal de sucesso na Suplementação (29/09/2026)
+
+A cadeia serial de rede entre o clique e o `SuccessModal` fazia ~5 roundtrips seguidos: a trava de duplicidade lia `getFarmTimezoneAsync` + `getRegistrosSuplementacaoByLote` online; `iniciarSalvamento` lia `getFazendaByAcessoId` outra vez e awaitava o upsert de `execucoes_rotina`; `executarSalvamento` refazia `getPlanoNutricionalAtivoByLoteId` já buscado na seleção do lote; e `salvarRegistro` lia a fazenda uma terceira vez para o timezone. Em rede fraca somava 5-8s com o botão visualmente morto.
+
+Correções:
+
+- **`supabaseService.getFazendaByAcessoId`**: cache em memória com TTL de 60s (o PWA nunca escreve em `fazendas`). Elimina 3 fetches por salvamento.
+- **`execucaoRotinaService`**: `sincronizarExecucaoMarcada` virou fire-and-forget em `garantirExecucaoRotina`/`registrarExecucaoRotina`; telemetria deixou de bloquear o save e falhas seguem marcadas com `pendente_sync` para `sincronizarExecucoesPendentes`.
+- **`SuplementacaoPage`**: o plano nutricional fica em `planoAtivoRef` na seleção do lote e é reusado no cálculo de peso projetado do save; botão SALVAR ganhou estado `verificando` que mostra "SALVANDO..." e desabilita já no primeiro tick do clique, cobrindo o tempo da trava.
+- **Trava de duplicidade (segundo corte)**: `getRegistrosSuplementacaoByLote` era chamada sem range de datas e baixava `select *` de todo o histórico do lote só para comparar o dia; agora recebe janela de ±1 dia em volta de `form.data` (absorve a diferença entre dia civil no fuso da fazenda e timestamp UTC) e é disparada em paralelo com `listarRegistros` + `getFarmTimezoneAsync`, escondendo a latência da rede embaixo das leituras locais.
+
+Medido online no DevTools: ~430ms do clique ao modal (primeiro corte deixou em ~1,7s; o segundo removeu o payload grande da trava, que em rede rural era a maior parcela).
+
+**Disparador**: quando mencionar demora/lag ao salvar, "SALVANDO...", cache de fazenda, `getFazendaByAcessoId`, ou sync de execução de rotina bloqueando, ler esta seção.
+
+## Capacidade do vagão virou aviso informativo na Fábrica Confinamento (29/09/2026)
+
+`FabricaConfinamentoPage`: `excedeCapacidade` deixou de bloquear o SALVAR (removido de `podeSalvar`). O aviso mudou de erro vermelho para informativo em âmbar, com estimativa de cargas: "{total} kg equivalem a aproximadamente N cargas do vagão" (`Math.ceil(totalProduzido / capacidade_kg)`). A borda do input de TOTAL PRODUZIDO passou de vermelha para âmbar nesse estado.
+
+Motivação: permitir lançar o produzido do trato de uma vez quando ele representa várias cargas físicas, em vez de salvar carga a carga. Consequência assumida: o número de saves deixa de aproximar o número de cargas físicas, e o registro guarda um único `vagao_id` mesmo se vagões diferentes foram usados. O registro continua sendo um por trato (`ordem_trato`), e o fluxo de produção parcial (`registroFabricaNaoConcluidoId`/`jaProduzidoNoTrato`) segue existindo para quem preferir lançar por carga.
+
+**Disparador**: quando mencionar trava de capacidade do vagão, "Excede a capacidade do vagão", `excedeCapacidade`, ou lançamento agregado de produção por trato, ler esta seção.
+
 ## Recebimento de compra: balanção com kg/cab calculado e responsáveis via modal (28/09/2026)
 
 Ajustes de formulário em `RecebimentoCompraPage`. DATA DE CHEGADA virou `DatePicker compact` em grid de 2 colunas com HORA DE CHEGADA ao lado (mesmo padrão dos comunicados). A seção de contagens passou a ser "3. QUANTIDADES RECEBIDAS" e a pesagem virou "4. BALANÇÃO": os inputs PESO MÉDIO BALANÇO e PESO ORIGEM foram substituídos por PESO ENTRADA (caminhão cheio) e PESO SAÍDA (caminhão vazio), com PESO MÉDIO (KG/CAB) autocalculado como `(entrada − saída) ÷ total de cabeças` em campo desabilitado. O valor calculado continua indo para `peso_medio_balancao` no sync e para `peso_vivo_atual_kg` das movimentações; `pesoEntrada`/`pesoSaida` ficam só no registro local (não há coluna remota), enquanto `peso_origem` segue no schema para laudos legados. Display config (`osRecebimentos.ts`), `labelConfig` e o texto do WhatsApp (`shareUtils`) foram atualizados para a nova seção BALANÇÃO e os novos campos.

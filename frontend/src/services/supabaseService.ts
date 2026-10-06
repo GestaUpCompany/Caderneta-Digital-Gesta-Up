@@ -104,7 +104,18 @@ export async function getFazendaByAcessoId(acessoId: string) {
     .eq('ativo', true)
     .single()
 
-  if (error) throw error
+  if (error) {
+    // Sem token de peão o client cai para anon, que não lê a tabela fazendas
+    // desde o isolamento de tenant. Fallback para a RPC pública com os campos
+    // operacionais (timezone, flags de acesso etc.), suficiente para os
+    // consumidores deste helper.
+    const { data: rows, error: rpcError } = await (supabase as any).rpc('get_fazenda_por_acesso', {
+      p_acesso_id: acessoIdNormalizado,
+    })
+    const row = Array.isArray(rows) ? rows[0] : rows
+    if (rpcError || !row || row.ativo !== true) throw error
+    return row
+  }
   return data
 }
 
