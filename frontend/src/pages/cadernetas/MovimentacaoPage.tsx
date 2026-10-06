@@ -1046,19 +1046,19 @@ export default function MovimentacaoPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="PASTO/LOTE"
+              label="PASTO/CURRAL/LOTE"
               value={form.loteOrigem}
               onChange={(val) => setForm((p) => ({ ...p, loteOrigem: val }))}
               error={getError('loteOrigem')}
               options={lotesDisponiveis}
               secondaryText={(lote) => lotesPastoMap[lote] || ''}
-              placeholder="Buscar pasto ou lote..."
+              placeholder="Buscar pasto, curral ou lote..."
               id="loteOrigem"
               name="loteOrigem"
             />
           ) : (
             <Input
-              label="PASTO/LOTE"
+              label="PASTO/CURRAL/LOTE"
               placeholder="Carregando..."
               value={form.loteOrigem}
               onChange={setInput('loteOrigem')}
@@ -1131,13 +1131,13 @@ export default function MovimentacaoPage() {
                     <>
                       {lotesDisponiveis.length > 0 ? (
                         <SearchableModal
-                          label="SELECIONE O PASTO/LOTE:"
+                          label="SELECIONE O PASTO/CURRAL/LOTE:"
                           value={form.loteDestino}
                           onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
                           error={getError('loteDestino')}
                           options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
                           secondaryText={(lote) => lotesPastoMap[lote] || ''}
-                          placeholder="Buscar pasto ou lote..."
+                          placeholder="Buscar pasto, curral ou lote..."
                           id="loteDestino"
                           name="loteDestino"
                         />

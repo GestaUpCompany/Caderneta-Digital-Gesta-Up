@@ -127,7 +127,7 @@ async function fetchAndCacheCadastroData(): Promise<void> {
   try {
     const f = `fazenda_id=eq.${fazendaId}`
     const ativo = `&ativo=eq.true&order=nome`
-    const [pastos, lotes, frigorificos, causasMorte, bebedouros, fornecedores, funcionarios, individuos, mineral, proteinado, racao, insumos] = await Promise.all([
+    const [pastos, lotes, frigorificos, causasMorte, bebedouros, fornecedores, funcionarios, individuos, mineral, proteinado, racao, insumos, ocupacoesCurral] = await Promise.all([
       fetchTable(supabaseUrl, anonKey, token, 'pastos', `select=*&${f}${ativo}`),
       fetchTable(supabaseUrl, anonKey, token, 'lotes', `select=*&${f}${ativo}`),
       fetchTable(supabaseUrl, anonKey, token, 'frigorificos', `select=*&${f}${ativo}`),
@@ -140,13 +140,23 @@ async function fetchAndCacheCadastroData(): Promise<void> {
       fetchTable(supabaseUrl, anonKey, token, 'proteinado', `select=*&${f}${ativo}`),
       fetchTable(supabaseUrl, anonKey, token, 'racao', `select=*&${f}${ativo}`),
       fetchTable(supabaseUrl, anonKey, token, 'insumos', `select=*&${f}${ativo}`),
+      // Ocupações ativas de curral: resolve a divisão de lotes de confinamento
+      // (sem pasto_id) no lotesPastoMap. Falha degrada para divisão vazia.
+      fetchTable(supabaseUrl, anonKey, token, 'lote_curral_historico', `select=lote_id,data_inicial,currais(nome)&${f}&data_final=is.null`).catch(() => []),
     ])
 
     // Transformar em CadastroCacheData (mesmo formato do fetchCadastroData no app)
     const pastoNomeById: Record<string, string> = {}
     pastos.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+    const curralNomeByLoteId: Record<string, string> = {}
+    ocupacoesCurral
+      .slice()
+      .sort((a: any, b: any) => String(a?.data_inicial || '').localeCompare(String(b?.data_inicial || '')))
+      .forEach((o: any) => {
+        if (o?.lote_id && o?.currais?.nome) curralNomeByLoteId[o.lote_id] = o.currais.nome
+      })
     const lotesPastoMap: Record<string, string> = {}
-    lotes.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || '' })
+    lotes.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || curralNomeByLoteId[l.id] || '' })
 
     const data = {
       pastos: pastos.map((p: any) => p.nome),

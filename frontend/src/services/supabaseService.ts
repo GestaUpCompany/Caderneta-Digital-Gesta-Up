@@ -3122,6 +3122,22 @@ export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: stri
 }
 
 /**
+ * Ocupações de curral atualmente ativas (data_final IS NULL), com o nome do
+ * curral embutido. Usada para resolver a localização de lotes de confinamento
+ * (sem pasto_id) nos seletores de lote (divisão pasto/curral x lote).
+ */
+export async function getOcupacoesCurralAtivas(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: rows, error } = await client
+    .from('lote_curral_historico')
+    .select('lote_id, data_inicial, currais(nome)')
+    .eq('fazenda_id', fazendaId)
+    .is('data_final', null)
+  if (error) throw error
+  return rows || []
+}
+
+/**
  * Ocupações de curral (lote_curral_historico) que cobrem uma data.
  * Para cada curral pode haver mais de uma ocupação cobrindo o mesmo dia
  * (troca de lote): o consumidor resolve pela maior data_inicial.
