@@ -262,6 +262,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         equipe: registro.equipe ? Number(registro.equipe) : null,
         equipe_nomes: registro.equipeNomes || null,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
+        categorias_detalhes: (registro as any).categorias_detalhes || null,
+        observacao: (registro as any).observacao || null,
       }
     case 'suplementacao': {
       // Remove espacamento_cocho_ideal from checklist if it exists (migrated field)
@@ -953,6 +955,10 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
     // Fotos por item do checklist (bebedouros, suplementacao)
     if ((store === 'bebedouros' || store === 'suplementacao') && data.checklist) {
       data = { ...data, checklist: await uploadFotosChecklist(data.checklist, registro, fazendaId, store) }
+    }
+    // Rodeio: foto por item do diagnostico (animal doente/machucado etc.)
+    if (store === 'rodeio' && data.diagnosticos) {
+      data = { ...data, diagnosticos: await uploadFotosChecklist(data.diagnosticos, registro, fazendaId, store) }
     }
 
     if (operation === 'create') {

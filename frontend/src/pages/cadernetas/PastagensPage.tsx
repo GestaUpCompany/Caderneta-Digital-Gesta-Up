@@ -31,6 +31,7 @@ import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
+import { normalizeCategoriaToField } from '../../utils/categoriasRebanho'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -167,45 +168,6 @@ function processarCategorias(categorias: string): string[] {
     .split(regex)
     .map(c => c.trim())
     .filter(c => c.length > 0)
-}
-
-// Mapear texto de categoria do banco (lote_categorias.categoria) para campo do form.
-// O banco tem casing inconsistente ("boi gordo" vs "Boi Gordo") e variantes
-// ("bezerra", "bezerro ao pé", "bezerra ao pé") que precisam agrupar em "bezerro".
-function normalizeCategoriaToField(categoria: string): keyof FormState | null {
-  const norm = categoria
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/\s+ao\s+pe\s*/g, '') // remove "ao pé"
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  const map: Record<string, keyof FormState> = {
-    'vaca': 'vaca',
-    'vacas': 'vaca',
-    'touro': 'touro',
-    'touros': 'touro',
-    'boi gordo': 'boiGordo',
-    'bois gordo': 'boiGordo',
-    'boi magro': 'boiMagro',
-    'bois magro': 'boiMagro',
-    'garrote': 'garrote',
-    'garrotes': 'garrote',
-    'bezerro': 'bezerro',
-    'bezerros': 'bezerro',
-    'bezerra': 'bezerro',
-    'bezerras': 'bezerro',
-    'novilha': 'novilha',
-    'novilhas': 'novilha',
-    'tropa': 'tropa',
-    'tropas': 'tropa',
-    'outros': 'outros',
-    'outro': 'outros',
-  }
-
-  return map[norm] || null
 }
 
 export default function PastagensPage() {
