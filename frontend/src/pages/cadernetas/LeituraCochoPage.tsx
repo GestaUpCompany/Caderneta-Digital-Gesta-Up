@@ -3,6 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { DatePicker } from '../../components/ui'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import InfoCard from '../../components/cadernetas/InfoCard'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import EscalaRotulada from '../../components/cadernetas/EscalaRotulada'
+import PdfModal from '../../components/PdfModal'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -20,11 +27,14 @@ import {
   getCachedCadastroData,
   getNotasLeituraCochoConfigCached,
   getLoteByNomeCached,
+  getOcupacoesCurralNaDataCached,
 } from '../../services/cadastroCache'
 import { getLotes, getNotasLeituraCochoConfig, buildLoteDetalhesFromCategorias } from '../../services/supabaseService'
 import { salvarRascunho, lerRascunho, limparRascunho, getAllRegistros } from '../../services/indexedDB'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
-import { Brush, Check, Save } from 'lucide-react'
+import { Brush, FileText, LayoutGrid, Save } from 'lucide-react'
+
+const BASE = import.meta.env.BASE_URL
 interface NotaConfig {
   id: string
   nota: number
@@ -90,6 +100,15 @@ function capitalizarIniciais(texto: string): string {
     .join(' ')
 }
 
+// Rótulos curtos da escala padrão de leitura de cocho (a descrição completa vem do cadastro)
+const ROTULO_NOTA: Record<number, string> = {
+  [-1]: 'Lambido',
+  0: 'Limpo',
+  1: 'Ideal',
+  2: 'Sobra',
+  3: 'Muita sobra',
+}
+
 function getNotaColor(nota: number): { dot: string; border: string; bg: string; text: string } {
   switch (nota) {
     case -1:
@@ -119,6 +138,12 @@ function brToDateISO(dataBR: string): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+function somarDias(iso: string, dias: number): string {
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  const d = new Date(Date.UTC(ano, mes - 1, dia + dias))
+  return d.toISOString().slice(0, 10)
+}
+
 function diferencaDias(inicio: Date, fim: Date): number {
   const diff = Math.round((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
   return diff > 0 ? diff : 1
@@ -137,6 +162,12 @@ export default function LeituraCochoPage() {
   const [notasConfig, setNotasConfig] = useState<NotaConfig[]>([])
   const [leiturasPorLote, setLeiturasPorLote] = useState<Record<string, any[]>>({})
   const inputRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [pdfAberto, setPdfAberto] = useState(false)
+  // Foto opcional do cocho por curral (fica em memória até salvar a leitura)
+  const [fotoPorLote, setFotoPorLote] = useState<Record<string, string>>({})
+  // Dias de cocho por curral: dias desde o início da ocupação na data selecionada
+  const [diasCocho, setDiasCocho] = useState<Record<string, number>>({})
+  const { capturandoFoto, fotoErro, capturarFoto, fotoInputRef, handleFileInputChange } = usePhotoGps({ comGps: false })
 
   useEffect(() => {
     async function carregarDadosIniciais() {
@@ -393,6 +424,29 @@ export default function LeituraCochoPage() {
     carregarDadosIniciais()
   }, [fazendaId])
 
+  useEffect(() => {
+    if (!fazendaId) return
+    const dataISO = brToDateISO(data)
+    if (!dataISO) return
+    let cancelado = false
+    getOcupacoesCurralNaDataCached(fazendaId, dataISO)
+      .then((lista) => {
+        if (cancelado) return
+        const mapa: Record<string, number> = {}
+        ;(lista || []).forEach((o: any) => {
+          if (!o?.curral_id || !o?.data_inicial) return
+          const inicio = String(o.data_inicial).slice(0, 10)
+          const dias = Math.floor((Date.parse(dataISO) - Date.parse(inicio)) / 86400000) + 1
+          if (dias >= 1) mapa[o.curral_id] = dias
+        })
+        setDiasCocho(mapa)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, data])
+
   // Recomputa nota, bloqueio e rascunho conforme a data selecionada no header.
   // Considera leituras vindas do Supabase (cache) e registros locais no IndexedDB
   // (criados offline ou ainda não sincronizados).
@@ -495,9 +549,9 @@ export default function LeituraCochoPage() {
   }, [data])
 
   const salvarNota = useCallback(
-    async (id: string, notaConfigIdParam?: string) => {
+    async (id: string, notaConfigIdParam?: string): Promise<boolean> => {
       const lote = lotes.find((l) => l.id === id)
-      if (!lote || !fazendaId) return
+      if (!lote || !fazendaId) return false
 
       const configId = notaConfigIdParam ?? lote.nota
       const configSelecionada = notasConfig.find((c) => c.id === configId) || null
@@ -509,7 +563,7 @@ export default function LeituraCochoPage() {
         setLotes((prev) =>
           prev.map((l) => (l.id === id ? { ...l, salvando: false, erroSalvar: false } : l))
         )
-        return
+        return true
       }
 
       // Verificação adicional no IndexedDB (caso o registro tenha sido criado em outra sessão)
@@ -523,7 +577,7 @@ export default function LeituraCochoPage() {
         setLotes((prev) =>
           prev.map((l) => (l.id === id ? { ...l, salvando: false, bloqueado: true, notaSalva: true, erroSalvar: false } : l))
         )
-        return
+        return true
       }
 
       setLotes((prev) => prev.map((l) => (l.id === id ? { ...l, salvando: true, erroSalvar: false } : l)))
@@ -540,14 +594,19 @@ export default function LeituraCochoPage() {
           loteId: lote.id,
           leituraCocho: notaNumero !== null ? String(notaNumero) : '',
           notaConfigId: notaConfigId,
+          fotoBase64: fotoPorLote[id] || null,
         })
 
         if (!result.success) {
           setLotes((prev) =>
             prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
           )
-          return
+          return false
         }
+        setFotoPorLote((prev) => {
+          const { [id]: _removida, ...resto } = prev
+          return resto
+        })
 
         // Inclui o registro no mapa local para o estado por data ficar consistente
         // sem depender de reload nem da fila de sync.
@@ -579,14 +638,16 @@ export default function LeituraCochoPage() {
               : l
           )
         )
+        return true
       } catch (error) {
         console.error('Erro ao salvar nota:', error)
         setLotes((prev) =>
           prev.map((l) => (l.id === id ? { ...l, salvando: false, notaSalva: false, erroSalvar: true } : l))
         )
+        return false
       }
     },
-    [lotes, fazendaId, data, usuario, notasConfig, leiturasPorLote]
+    [lotes, fazendaId, data, usuario, notasConfig, leiturasPorLote, fotoPorLote]
   )
 
   // Autosave de rascunho: a cada clique numa nota, persiste no IndexedDB.
@@ -684,8 +745,94 @@ export default function LeituraCochoPage() {
     [lotesDaLinha]
   )
 
+  const loteAtual = lotesDaLinha.find((l) => l.id === loteSelecionadoId) || null
+  const linhaAtual = linhas.find((l) => l.id === linhaSelecionadaId) || null
+  const lidosLinha = lotesDaLinha.filter((l) => l.notaSalva).length
+  const progressoLinha = lotesDaLinha.length > 0 ? lidosLinha / lotesDaLinha.length : 0
+
+  // Próximo curral da linha ainda sem leitura salva (prefere os sem nota escolhida)
+  const proximoCurral = (aPartirDeId: string | null): LoteItem | null => {
+    const idx = lotesDaLinha.findIndex((l) => l.id === aPartirDeId)
+    const ordem = idx === -1 ? lotesDaLinha : [...lotesDaLinha.slice(idx + 1), ...lotesDaLinha.slice(0, idx)]
+    const naoLidos = ordem.filter((l) => !l.notaSalva && l.id !== aPartirDeId)
+    return naoLidos.find((l) => l.nota === '') || naoLidos[0] || null
+  }
+
+  const limparRascunhoDoLote = useCallback(
+    async (id: string) => {
+      if (!fazendaId) return
+      const dataISO = brToDateISO(data)
+      if (!dataISO) return
+      const rascunhoKey = `leitura-cocho-rascunho-${fazendaId}-${dataISO}`
+      const atual = await lerRascunho<Record<string, string>>(rascunhoKey)
+      if (!atual || atual[id] === undefined) return
+      const novo = { ...atual }
+      delete novo[id]
+      if (Object.keys(novo).length === 0) await limparRascunho(rascunhoKey)
+      else await salvarRascunho(rascunhoKey, novo)
+    },
+    [fazendaId, data]
+  )
+
+  // Salva o curral aberto e abre o próximo curral não lido da linha
+  const salvarEIrParaProximo = useCallback(async () => {
+    if (!loteAtual) return
+    if (loteAtual.nota !== '' && !loteAtual.notaSalva && !loteAtual.bloqueado) {
+      const ok = await salvarNota(loteAtual.id, loteAtual.nota)
+      if (!ok) return
+      await limparRascunhoDoLote(loteAtual.id)
+    }
+    const proximo = proximoCurral(loteAtual.id)
+    if (proximo) {
+      selecionarLote(proximo.id)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loteAtual, salvarNota, limparRascunhoDoLote, selecionarLote, lotesDaLinha])
+
+  const handleTirarFoto = async () => {
+    if (!loteAtual) return
+    const base64 = await capturarFoto()
+    // Nativo retorna a foto aqui; no web o retorno vem pelo input file oculto
+    if (base64) setFotoPorLote((prev) => ({ ...prev, [loteAtual.id]: base64 }))
+  }
+
+  const handleFotoInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const result = await handleFileInputChange(e)
+    if (result?.fotoBase64 && loteAtual) {
+      setFotoPorLote((prev) => ({ ...prev, [loteAtual.id]: result.fotoBase64 as string }))
+    }
+  }
+
+  const proximoDoAtual = loteAtual ? proximoCurral(loteAtual.id) : null
+  const atualPendente = !!loteAtual && loteAtual.nota !== '' && !loteAtual.notaSalva && !loteAtual.bloqueado
+  const rotuloBotaoPrincipal = (() => {
+    if (!loteAtual) return 'SALVAR'
+    if (atualPendente) return proximoDoAtual ? `SALVAR E IR PARA ${proximoDoAtual.curral.toUpperCase()} →` : 'SALVAR E CONCLUIR A LINHA'
+    if (loteAtual.notaSalva || loteAtual.bloqueado) return proximoDoAtual ? `IR PARA ${proximoDoAtual.curral.toUpperCase()} →` : 'LINHA CONCLUÍDA ✓'
+    return 'ESCOLHA A NOTA DO COCHO'
+  })()
+  const botaoPrincipalDesabilitado =
+    !loteAtual ||
+    salvandoLinha ||
+    loteAtual.salvando ||
+    (!atualPendente && (!(loteAtual.notaSalva || loteAtual.bloqueado) || !proximoDoAtual))
+
   const bottomContent = linhas.length > 0 && lotes.length > 0 ? (
     <div className="flex flex-col gap-3 pb-3">
+      <div>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-sm font-bold uppercase tracking-wide text-gray-600">
+            {linhaAtual?.nome || 'Linha'} · {lidosLinha} de {lotesDaLinha.length} currais lidos
+          </span>
+          <span className="text-sm font-extrabold text-green-700">{Math.round(progressoLinha * 100)}%</span>
+        </div>
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200">
+          <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${progressoLinha * 100}%` }} />
+        </div>
+      </div>
+
+      {linhas.length > 1 && (
       <div className="relative">
         <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
           Linha
@@ -707,6 +854,7 @@ export default function LeituraCochoPage() {
           ))}
         </div>
       </div>
+      )}
 
       <div className="relative">
         <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
@@ -732,35 +880,51 @@ export default function LeituraCochoPage() {
                       : 'border-gray-200 bg-white'
               }`}
             >
-              <span className="block text-sm font-bold leading-tight text-gray-900">
+              <span className="flex items-center justify-center gap-1.5 text-sm font-bold leading-tight text-gray-900">
+                {lote.erroSalvar ? (
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                ) : lote.salvando ? (
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-500 border-t-transparent" />
+                ) : (lote.notaSalva || lote.rascunhoSalvo) ? (
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                ) : null}
                 {lote.curral || '—'}
+                {lote.notaSalva ? ' ✓' : ''}
               </span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="mt-2 border-t border-gray-200 pt-3">
+      <div className="mt-1 border-t border-gray-200 pt-3">
+        {notasPendentes > 1 && (
+          <button
+            type="button"
+            onClick={salvarNotasLinha}
+            disabled={salvandoLinha}
+            className="mb-2 !min-h-0 w-full text-center text-sm font-bold text-green-800 underline disabled:opacity-60"
+          >
+            {salvandoLinha ? 'Salvando...' : `Salvar os ${notasPendentes} currais pendentes da linha`}
+          </button>
+        )}
         <div className="flex gap-2">
           <button
-            onClick={salvarNotasLinha}
-            disabled={salvandoLinha || notasPendentes === 0}
-            className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.99] ${
-              salvandoLinha
-                ? 'cursor-not-allowed border-gray-300 bg-gray-300 text-gray-500'
-                : notasPendentes === 0
-                  ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                  : 'border-[#1a3a2a] bg-[#1a3a2a] text-white hover:bg-[#245038]'
+            onClick={salvarEIrParaProximo}
+            disabled={botaoPrincipalDesabilitado}
+            className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-4 text-sm font-extrabold transition-colors active:scale-[0.99] ${
+              botaoPrincipalDesabilitado
+                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2">
               <Save className="h-4 w-4" strokeWidth={2.5} />
-              {salvandoLinha ? 'SALVANDO...' : 'SALVAR'}
+              {loteAtual?.salvando ? 'SALVANDO...' : rotuloBotaoPrincipal}
             </span>
           </button>
           <button
             onClick={limparNotas}
-            className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+            className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-4 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
           >
             <span className="inline-flex items-center justify-center gap-2">
               <Brush className="h-4 w-4" strokeWidth={2.5} />
@@ -772,237 +936,233 @@ export default function LeituraCochoPage() {
     </div>
   ) : null
 
-  return (
-    <CadernetaLayout
-      title="Leitura de Cocho"
-      cadernetaId="leitura-cocho"
-      onBack={() => navigate('/modulos/cadernetas')}
-      dateContent={
-        <DatePicker value={data} onChange={setData} compact inline variant="header" />
+  const renderCurral = (lote: LoteItem) => {
+    const configSel = notasConfig.find((c) => c.id === lote.nota) || null
+    // Leituras dos 3 dias anteriores à data selecionada (dia exato; sem leitura = null)
+    const dataISOSel = brToDateISO(data)
+    const todasLeituras = Object.values(leiturasPorLote).flat()
+    const leituraNoDia = (n: number): number | null => {
+      if (!dataISOSel) return null
+      const alvo = somarDias(dataISOSel, -n)
+      const r = todasLeituras.find(
+        (x: any) =>
+          String(x.data || '').slice(0, 10) === alvo &&
+          (x.lote_id === lote.id || (lote.curralId && x.curral_id === lote.curralId))
+      )
+      return r && r.leitura_cocho !== undefined ? r.leitura_cocho : null
+    }
+    const antes = { d3: leituraNoDia(3), d2: leituraNoDia(2), d1: leituraNoDia(1) }
+    // Dias seguidos com a mesma nota (a atual + dias imediatamente anteriores iguais)
+    let seguidos = 0
+    if (configSel) {
+      seguidos = 1
+      for (const anterior of [antes.d1, antes.d2, antes.d3]) {
+        if (anterior === configSel.nota) seguidos++
+        else break
       }
-      bottomContent={bottomContent}
-    >
-      {/* Seção 2: Linhas / Currais */}
-      <div className="-mt-1 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="p-3 flex flex-col gap-4">
-          {carregando ? (
-            <div className="p-8 text-center text-gray-500">Carregando currais...</div>
-          ) : erro ? (
-            <div className="p-8 text-center text-red-600">{erro}</div>
-          ) : lotes.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              Nenhum curral com lote associado foi encontrado.
+    }
+    const rotuloSel = configSel ? (ROTULO_NOTA[configSel.nota] || String(configSel.nota)).toLowerCase() : ''
+    const pct = configSel ? configSel.percentual_ajuste : 0
+    const sugestaoKg = lote.tratoAnterior != null && configSel ? lote.tratoAnterior * (1 + pct / 100) : null
+    const porCabeca =
+      lote.tratoAnterior != null && lote.quantidade ? lote.tratoAnterior / lote.quantidade : null
+    const [nomeCurtoLote, ...restoLote] = lote.nome.split(' - ')
+    const categoriasFmt = lote.categorias
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .map(capitalizarIniciais)
+      .join(', ')
+    const foto = fotoPorLote[lote.id]
+    const chipAnterior = (rotulo: string, valor: number | null) => (
+      <span key={rotulo} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-sm font-bold text-gray-800">
+        {valor !== null && <span className={`h-2.5 w-2.5 rounded-full ${getNotaColor(valor).dot}`} />}
+        {rotulo} · {valor !== null ? valor : '—'}
+      </span>
+    )
+
+    return (
+      <>
+        <InfoCard
+          icon={LayoutGrid}
+          title={lote.curral || '—'}
+          subtitle={`${linhaAtual?.nome || 'Linha'} · ${nomeCurtoLote}${restoLote.length ? ` · ${restoLote.join(' - ')}` : ''}`}
+          stats={[
+            { label: 'Cabeças', value: lote.quantidade != null ? String(lote.quantidade) : '—' },
+            { label: 'Peso médio', value: lote.pesoVivoKg != null ? `${formatarNumero(lote.pesoVivoKg, 0)} kg` : '—' },
+            { label: 'Dias de cocho', value: diasCocho[lote.curralId || ''] != null ? String(diasCocho[lote.curralId || '']) : '—' },
+            { label: 'Categoria', value: categoriasFmt || '—', span: 1 },
+            { label: 'Trato ontem', value: lote.tratoAnterior != null ? `${formatarNumeroMilhar(lote.tratoAnterior, 0)} kg` : '—', span: 1 },
+            { label: 'Por cabeça', value: porCabeca != null ? `${formatarNumero(porCabeca, 1)} kg` : '—', span: 1 },
+          ]}
+        >
+          {lote.dieta && <p className="mt-2 text-sm font-semibold text-gray-500">Dieta: {lote.dieta}</p>}
+        </InfoCard>
+
+        <CadernetaSection numero={1} titulo="Nota do cocho" required>
+          <div
+            ref={(el) => (inputRefs.current[lote.id] = el)}
+            tabIndex={-1}
+            onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
+            className="flex flex-col gap-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[15px] font-bold uppercase text-gray-900">
+                Como está o cocho agora? <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setPdfAberto(true)}
+                className="flex !min-h-0 shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-black transition-colors hover:bg-yellow-300 active:scale-[0.98]"
+              >
+                <FileText className="h-3.5 w-3.5" strokeWidth={2.5} />
+                POP Cocho
+              </button>
             </div>
-          ) : (
-            <>
-              {/* Card detalhado do curral selecionado */}
-                  {(() => {
-                    const lote = lotesDaLinha.find((l) => l.id === loteSelecionadoId)
-                    if (!lote) return null
-                    return (
-                      <div
-                        id={`lote-card-${lote.id}`}
-                        className={`rounded-2xl border-2 p-3 transition-all ${
-                          lote.erroSalvar
-                            ? 'border-red-300 bg-red-50'
-                            : (lote.notaSalva || lote.rascunhoSalvo)
-                              ? 'border-green-300 bg-green-50'
-                              : 'border-gray-200 bg-white'
-                        }`}
-                      >
-                        {/* Linha 1: Curral | Lote (alinhados no topo) */}
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-base font-bold text-gray-900 truncate block">
-                              {lote.curral || '—'}
-                            </span>
-                            <span className="text-sm font-bold text-gray-500 truncate block">
-                              {lote.dieta || '—'}
-                            </span>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-base font-bold text-[#1a3a2a] block">{lote.nome}</span>
-                          </div>
-                        </div>
 
-                        {/* Linha 2: Cab | PV | Período */}
-                        <div className="text-sm text-gray-700 mb-1">
-                          <span className="font-bold text-gray-500">Cab: </span>
-                          <span className="font-bold text-gray-900 mr-2">{lote.quantidade ?? '—'}</span>
-                          <span className="font-bold text-gray-500">Peso: </span>
-                          <span className="font-bold text-gray-900 mr-2">{formatarNumero(lote.pesoVivoKg, 2)} kg</span>
-                          <span className="font-bold text-gray-500">Período: </span>
-                          <span className="font-bold text-gray-900">{lote.periodoDias ?? '—'} d</span>
-                        </div>
+            <EscalaRotulada
+              dataField="notaCocho"
+              disabled={lote.bloqueado}
+              options={notasConfig.map((c) => ({
+                value: c.id,
+                numero: String(c.nota),
+                label: ROTULO_NOTA[c.nota] || '',
+                dot: getNotaColor(c.nota).dot,
+              }))}
+              value={lote.nota}
+              onChange={(v) => handleNotaChange(lote.id, v === lote.nota ? '' : v)}
+            />
 
-                        {/* Linha 3: Categorias em linha própria */}
-                        {lote.categorias && (
-                          <div className="text-sm text-gray-700 mb-2">
-                            <span className="font-bold text-gray-500">Categoria: </span>
-                            <span className="font-bold text-gray-900">
-                              {lote.categorias
-                                .split(',')
-                                .map((c) => c.trim())
-                                .filter(Boolean)
-                                .map((c) => capitalizarIniciais(c))
-                                .join(', ')}
-                            </span>
-                          </div>
-                        )}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-bold text-gray-500">Antes:</span>
+              {chipAnterior('3d', antes.d3)}
+              {chipAnterior('2d', antes.d2)}
+              {chipAnterior('ontem', antes.d1)}
+            </div>
 
-                        {/* Linha 4: CMS (% PV) compacto em uma linha */}
-                        <div className="border-t border-gray-100 pt-2 mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[0.55rem] font-bold text-gray-400 uppercase tracking-wider shrink-0 [writing-mode:vertical-lr] rotate-180 text-center">
-                              CMS (%PV)
-                            </span>
-                            <div className="flex justify-between gap-1 flex-1 text-center">
-                              <div>
-                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">1d</span>
-                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.ontem)}</span>
-                              </div>
-                              <div>
-                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">2d</span>
-                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.anteontem)}</span>
-                              </div>
-                              <div>
-                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">3d</span>
-                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.tresDiasAtras)}</span>
-                              </div>
-                              <div>
-                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">M. 10D</span>
-                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.dezDias)}</span>
-                              </div>
-                              <div>
-                                <span className="text-[0.6rem] font-bold text-gray-500 uppercase tracking-wider block">Geral</span>
-                                <span className="text-sm font-bold text-[#1a3a2a]">{formatarPercentual(lote.cms.geral)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+            {lote.bloqueado && (
+              <InfoStrip tone="warning" icon="🔒">
+                Leitura já registrada para este curral nesta data. Nova leitura bloqueada.
+              </InfoStrip>
+            )}
+            {lote.erroSalvar && !lote.salvando && (
+              <InfoStrip tone="danger" icon="⚠️">Não foi possível salvar a leitura. Tente de novo.</InfoStrip>
+            )}
+            {lote.rascunhoSalvo && !lote.notaSalva && (
+              <InfoStrip tone="neutral" icon="📝">Rascunho salvo neste aparelho</InfoStrip>
+            )}
 
-                        {/* Linha 5: Leitura anterior n-3, n-2, n-1 | Kg Cocho */}
-                        <div className="relative flex items-center gap-2 border-t border-gray-100 pt-2 mb-2">
-                          <span className="text-[0.55rem] font-bold text-gray-400 uppercase tracking-wider shrink-0 [writing-mode:vertical-lr] rotate-180 text-center">
-                            Leitura
-                          </span>
-                          <div className="relative flex items-end gap-4 flex-1">
-                            <div className="text-center">
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
-                                3d
-                              </span>
-                              <span className="text-base font-bold text-gray-900">
-                                {lote.leituraAnteriorN3 !== null ? lote.leituraAnteriorN3 : '—'}
-                              </span>
-                            </div>
-                            <div className="text-center">
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
-                                2d
-                              </span>
-                              <span className="text-base font-bold text-gray-900">
-                                {lote.leituraAnteriorN2 !== null ? lote.leituraAnteriorN2 : '—'}
-                              </span>
-                            </div>
-                            <div className="text-center">
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
-                                1d
-                              </span>
-                              <span className="text-base font-bold text-gray-900">
-                                {lote.leituraAnterior !== null ? lote.leituraAnterior : '—'}
-                              </span>
-                            </div>
-                            <div className="absolute left-1/2 -translate-x-1/2">
-                              <span className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider block">
-                                KG COCHO
-                              </span>
-                              <span className="text-base font-bold text-gray-900">
-                                {formatarNumeroMilhar(lote.tratoAnterior, 0)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+            {configSel?.descricao && (
+              <div className="rounded-xl bg-gray-50 px-3 py-2 text-sm font-medium leading-snug text-gray-600">
+                {configSel.descricao}
+              </div>
+            )}
 
-                        {/* Linha 6: Nota como lista de botões com círculos coloridos */}
-                        <div
-                          ref={(el) => (inputRefs.current[lote.id] = el)}
-                          tabIndex={-1}
-                          onKeyDown={(e) => handleNotaKeyDown(e, lote.id)}
-                          className="border-t border-gray-100 pt-2"
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <span className="text-[0.65rem] font-bold text-yellow-600 uppercase tracking-wider">
-                              Nota
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              {lote.salvando && (
-                                <span className="w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
-                              )}
-                              {(lote.notaSalva || lote.rascunhoSalvo) && !lote.salvando && (
-                                <span className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                  <Check className="w-3 h-3 text-white" />
-                                </span>
-                              )}
-                              {lote.erroSalvar && !lote.salvando && (
-                                <span className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">!</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-5 gap-1.5">
-                            {notasConfig.map((config) => {
-                              const cor = getNotaColor(config.nota)
-                              const isSelected = lote.nota === config.id
-                              return (
-                                <button
-                                  key={config.id}
-                                  type="button"
-                                  disabled={lote.bloqueado}
-                                  onClick={() => handleNotaChange(lote.id, isSelected ? '' : config.id)}
-                                  className={`flex flex-col items-center justify-center py-1.5 rounded-lg border-2 transition-colors active:scale-95 min-w-0 ${
-                                    lote.bloqueado
-                                      ? 'cursor-not-allowed opacity-60'
-                                      : ''
-                                  } ${
-                                    isSelected
-                                      ? `${cor.border} ${cor.bg}`
-                                      : 'border-gray-200 bg-white hover:border-gray-300'
-                                  }`}
-                                >
-                                  <span className={`w-3 h-3 rounded-full ${cor.dot} mb-0.5`} />
-                                  <span className={`text-sm font-bold ${isSelected ? cor.text : 'text-gray-700'}`}>
-                                    {config.nota}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
+            {configSel && (
+              <InfoStrip tone={pct === 0 ? 'success' : 'warning'} icon={pct > 0 ? '⬆️' : pct < 0 ? '⬇️' : '✅'}>
+                {seguidos >= 2 ? `${seguidos}º dia seguido com cocho ${rotuloSel}. ` : `Cocho ${rotuloSel}. `}
+                {pct > 0 ? `Aumentar ${formatarNumero(Math.abs(pct), 0)}% no próximo trato` : pct < 0 ? `Diminuir ${formatarNumero(Math.abs(pct), 0)}% no próximo trato` : 'Manter a oferta no próximo trato'}
+                {sugestaoKg != null ? `: ${formatarNumeroMilhar(sugestaoKg, 0)} kg` : ''} (regra do nutricionista)
+              </InfoStrip>
+            )}
 
-                        {lote.bloqueado && (
-                          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800">
-                            Leitura já registrada para este curral nesta data. Nova leitura bloqueada.
-                          </div>
-                        )}
+            {!lote.bloqueado && (
+              foto ? (
+                <div className="flex items-start gap-3">
+                  <img
+                    src={base64ToDataUrl(foto)}
+                    alt="Foto do cocho"
+                    className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFotoPorLote((prev) => { const { [lote.id]: _r, ...resto } = prev; return resto })}
+                    className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+                  >
+                    🗑️ REMOVER FOTO
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleTirarFoto}
+                  disabled={capturandoFoto}
+                  className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-sm font-extrabold uppercase tracking-wide text-gray-800 transition-colors hover:bg-gray-100 active:scale-[0.99] disabled:opacity-60"
+                >
+                  <span className="text-lg leading-none">📷</span>
+                  {capturandoFoto ? 'Capturando...' : 'Foto do cocho (opcional)'}
+                </button>
+              )
+            )}
+            {fotoErro && <InfoStrip tone="danger">{fotoErro}</InfoStrip>}
+          </div>
+        </CadernetaSection>
 
-                        {/* Descrição da nota selecionada */}
-                        {(() => {
-                          if (!lote.nota) return null
-                          const config = notasConfig.find((c) => c.id === lote.nota)
-                          if (!config?.descricao) return null
-                          return (
-                            <div className="mt-2 rounded-lg bg-gray-50 border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 font-medium leading-snug">
-                              {config.descricao}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    )
-                  })()}
-            </>
-          )}
-        </div>
-      </div>
+        <CadernetaSection numero={2} titulo="Consumo do curral">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-gray-50 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Ontem</p>
+              <p className="mt-0.5 text-2xl font-extrabold text-gray-900">{formatarPercentual(lote.cms.ontem)} <span className="text-base">PV</span></p>
+            </div>
+            <div className="rounded-xl bg-gray-50 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Média 10 dias</p>
+              <p className="mt-0.5 text-2xl font-extrabold text-gray-900">{formatarPercentual(lote.cms.dezDias)} <span className="text-base">PV</span></p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {[
+              { rotulo: '2 dias', valor: lote.cms.anteontem },
+              { rotulo: '3 dias', valor: lote.cms.tresDiasAtras },
+              { rotulo: 'Geral', valor: lote.cms.geral },
+            ].map((item) => (
+              <div key={item.rotulo} className="rounded-xl bg-gray-50 px-2 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{item.rotulo}</p>
+                <p className="text-sm font-extrabold text-gray-900">{formatarPercentual(item.valor)}</p>
+              </div>
+            ))}
+          </div>
+          <InfoStrip tone="neutral">Consumo de matéria seca por peso vivo</InfoStrip>
+        </CadernetaSection>
+      </>
+    )
+  }
 
+  return (
+    <>
+      <CadernetaLayout
+        title="Leitura de Cocho"
+        cadernetaId="leitura-cocho"
+        onBack={() => navigate('/modulos/cadernetas')}
+        dateContent={
+          <DatePicker value={data} onChange={setData} compact inline variant="header" />
+        }
+        bottomContent={bottomContent}
+      >
+        {carregando ? (
+          <InfoStrip tone="neutral">Carregando currais...</InfoStrip>
+        ) : erro ? (
+          <InfoStrip tone="danger">{erro}</InfoStrip>
+        ) : lotes.length === 0 ? (
+          <InfoStrip tone="warning">Nenhum curral com lote associado foi encontrado.</InfoStrip>
+        ) : loteAtual ? (
+          renderCurral(loteAtual)
+        ) : null}
 
-    </CadernetaLayout>
+        <input
+          ref={fotoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFotoInput}
+          className="hidden"
+        />
+      </CadernetaLayout>
+
+      <PdfModal
+        isOpen={pdfAberto}
+        onClose={() => setPdfAberto(false)}
+        images={[`${BASE}docs/cocho/POP_Cocho_01.jpg`, `${BASE}docs/cocho/POP_Cocho_02.jpg`]}
+      />
+    </>
   )
 }

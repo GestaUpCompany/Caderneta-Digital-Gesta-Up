@@ -27,6 +27,7 @@ const ESCALA_PASTO: Record<string, string> = { '1': 'Rapado', '2': 'Ideal p/ sai
 const ESCALA_ESCORE_CORPORAL: Record<string, string> = { '1': 'Muito magro', '2': 'Magro', '3': 'Bom', '4': 'Gordo', '5': 'Muito gordo' }
 const ESCALA_ESCORE_MATRIZ: Record<string, string> = { '1': 'Muito magra', '2': 'Magra', '3': 'Boa', '4': 'Gorda', '5': 'Muito gorda' }
 const ESCALA_DOCILIDADE: Record<string, string> = { '1': 'Calma', '2': 'Agitada', '3': 'Brava' }
+const ESCALA_NOTA_COCHO: Record<string, string> = { '-1': 'Lambido', '0': 'Limpo', '1': 'Ideal', '2': 'Sobra', '3': 'Muita sobra' }
 const ESCALA_ESCORE_FEZES: Record<string, string> = { '1': 'Líquida', '2': 'Mole', '3': 'Ideal', '4': 'Firme', '5': 'Seca' }
 
 function comRotulo(mapa: Record<string, string>, valor: unknown): string {
@@ -1215,7 +1216,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // Seção: Leitura do Cocho
     texto += `LEITURA DO COCHO\n`
     if (registro.leituraCocho !== null && registro.leituraCocho !== undefined && registro.leituraCocho !== '') {
-      texto += `Nota: *${registro.leituraCocho}*\n`
+      texto += `Nota: *${comRotulo(ESCALA_NOTA_COCHO, registro.leituraCocho)}*\n`
     }
 
     // Seção: Histórico de Consumo MS

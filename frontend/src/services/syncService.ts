@@ -827,6 +827,7 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   problemas: 'fotos-registros',
   bebedouros: 'fotos-registros',
   'trato-confinamento': 'fotos-registros',
+  'leitura-cocho': 'fotos-registros',
 }
 
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.
