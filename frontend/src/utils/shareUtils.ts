@@ -2306,6 +2306,17 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const v = Number(String(registro.totalProduzido).replace(',', '.')).toFixed(1).replace('.', ',')
         texto += `TOTAL PRODUZIDO: *${v} kg*\n`
       }
+      // Insumos: previsto x carregado, com diferença percentual
+      if (Array.isArray(registro.insumosResumo) && registro.insumosResumo.length > 0) {
+        texto += `\n` + `INSUMOS\n`
+        registro.insumosResumo.forEach((i: any, idx: number) => {
+          const prev = Number(i.previsto) || 0
+          const prod = Number(i.produzido) || 0
+          const fmt = (n: number) => n.toFixed(1).replace('.', ',')
+          const dif = prev > 0 ? ` (${prod - prev >= 0 ? '+' : ''}${fmt(((prod - prev) / prev) * 100)}%)` : ''
+          texto += `${idx + 1}. ${i.nome}: ${fmt(prod)} kg de ${fmt(prev)} kg${dif}\n`
+        })
+      }
     } else {
       // Para outras cadernetas, manter o fluxo normal
       camposNormais.forEach(([key, value]) => {

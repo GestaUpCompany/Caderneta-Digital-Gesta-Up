@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
@@ -176,8 +181,20 @@ export default function FabricaConfinamentoPage() {
   const [registroFabricaNaoConcluidoId, setRegistroFabricaNaoConcluidoId] = useState<string | null>(null)
   const [todosTratosConcluidos, setTodosTratosConcluidos] = useState<boolean>(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
-  const [totalProduzido, setTotalProduzido] = useState<string>('')
-  const [kgProduzidoPorInsumo, setKgProduzidoPorInsumo] = useState<Record<string, string>>({})
+  // Leitura acumulada da balança do vagão depois de cada insumo (valor digitado, vírgula decimal)
+  const [leituraPorInsumo, setLeituraPorInsumo] = useState<Record<string, string>>({})
+  const [leituraDigitada, setLeituraDigitada] = useState('')
+  const [ativoId, setAtivoId] = useState<string | null>(null)
+  const [erroLeitura, setErroLeitura] = useState<string | null>(null)
+  const {
+    fotoBase64: fotoBalanca,
+    capturandoFoto,
+    fotoErro,
+    capturarFoto,
+    limpar: limparFoto,
+    fotoInputRef,
+    handleFileInputChange,
+  } = usePhotoGps({ comGps: false })
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
   const [sucessoMsg, setSucessoMsg] = useState('Produção salva com sucesso!')
@@ -186,8 +203,7 @@ export default function FabricaConfinamentoPage() {
   const [registrosFabricaDia, setRegistrosFabricaDia] = useState<RegistroFabricaExistente[]>([])
 
   // Espelho para flush síncrono no cleanup
-  const totalProduzidoRef = useRef('')
-  const kgProduzidoPorInsumoRef = useRef<Record<string, string>>({})
+  const leituraRef = useRef<Record<string, string>>({})
   const debounceRascunhoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Carregamento inicial: tipos, vagoes
@@ -679,16 +695,16 @@ export default function FabricaConfinamentoPage() {
 
       // Restaurar rascunho salvo (se houver)
       const rascunhoKey = `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
-      const rascunho = await lerRascunho<{ totalProduzido: string; kgProduzidoPorInsumo: Record<string, string> }>(rascunhoKey)
-      if (rascunho && (rascunho.totalProduzido || (rascunho.kgProduzidoPorInsumo && Object.values(rascunho.kgProduzidoPorInsumo).some((v) => v !== '')))) {
-        setTotalProduzido(rascunho.totalProduzido || '')
-        setKgProduzidoPorInsumo(rascunho.kgProduzidoPorInsumo || {})
+      const rascunho = await lerRascunho<{ leituraPorInsumo?: Record<string, string> }>(rascunhoKey)
+      if (rascunho?.leituraPorInsumo && Object.values(rascunho.leituraPorInsumo).some((v) => v !== '')) {
+        setLeituraPorInsumo(rascunho.leituraPorInsumo)
         setRascunhoSalvo(true)
       } else {
-        setTotalProduzido('')
-        setKgProduzidoPorInsumo({})
+        setLeituraPorInsumo({})
         setRascunhoSalvo(false)
       }
+      setLeituraDigitada('')
+      setAtivoId(null)
       setSucesso(false)
     } catch (error) {
       console.error('Erro ao carregar dados da fábrica:', error)
@@ -717,29 +733,70 @@ export default function FabricaConfinamentoPage() {
     [vagoes, vagaoSelecionadoId]
   )
 
-  // Total produzido numérico
-  const totalProduzidoNum = useMemo(() => {
-    return normalizarNumero(totalProduzido) ?? 0
-  }, [totalProduzido])
-
   const tratoNaoConcluidoJaIniciado = jaProduzidoNoTrato > 0
 
-  // Faltam kg para completar o trato
-  const faltamKg = useMemo(() => {
-    const previsto = tratoNaoConcluidoJaIniciado
-      ? totalPrevisto - jaProduzidoNoTrato
-      : totalPrevisto
-    return Math.max(0, previsto - totalProduzidoNum)
-  }, [totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, tratoNaoConcluidoJaIniciado])
+  // Quanto ainda precisa ser carregado neste trato (descontando o que já foi produzido)
+  const totalAlvo = useMemo(
+    () => Math.max(0, tratoNaoConcluidoJaIniciado ? totalPrevisto - jaProduzidoNoTrato : totalPrevisto),
+    [totalPrevisto, jaProduzidoNoTrato, tratoNaoConcluidoJaIniciado]
+  )
 
-  // kg previsto por insumo (calculado sobre o total produzido, usando o percentual da formula)
+  // kg previsto por insumo (percentual MN da dieta sobre o total a carregar)
   const kgPrevistoPorInsumo = useMemo(() => {
     const result: Record<string, number> = {}
     for (const insumo of insumos) {
-      result[insumo.insumo_id] = (insumo.formula_mn_percent / 100) * totalProduzidoNum
+      result[insumo.insumo_id] = (insumo.formula_mn_percent / 100) * totalAlvo
     }
     return result
-  }, [insumos, totalProduzidoNum])
+  }, [insumos, totalAlvo])
+
+  // Leitura acumulada que a balança deve marcar após cada insumo
+  const alvoAcumulado = useMemo(() => {
+    let acc = 0
+    const result: Record<string, number> = {}
+    for (const insumo of insumos) {
+      acc += kgPrevistoPorInsumo[insumo.insumo_id] || 0
+      result[insumo.insumo_id] = acc
+    }
+    return result
+  }, [insumos, kgPrevistoPorInsumo])
+
+  // kg que entrou de cada insumo = leitura atual da balança − leitura anterior.
+  // A pesagem é sequencial: para na primeira lacuna.
+  const { kgRealPorInsumo, totalProduzidoNum } = useMemo(() => {
+    let anterior = 0
+    const real: Record<string, number> = {}
+    for (const insumo of insumos) {
+      const leitura = normalizarNumero(leituraPorInsumo[insumo.insumo_id])
+      if (leitura === null) break
+      real[insumo.insumo_id] = leitura - anterior
+      anterior = leitura
+    }
+    return { kgRealPorInsumo: real, totalProduzidoNum: anterior }
+  }, [insumos, leituraPorInsumo])
+
+  const insumosPendentes = useMemo(
+    () => insumos.filter((i) => kgRealPorInsumo[i.insumo_id] === undefined),
+    [insumos, kgRealPorInsumo]
+  )
+  const ativoEfetivoId =
+    ativoId && insumos.some((i) => i.insumo_id === ativoId)
+      ? ativoId
+      : insumosPendentes[0]?.insumo_id ?? null
+  const insumoAtivo = insumos.find((i) => i.insumo_id === ativoEfetivoId) || null
+  const idxAtivo = insumoAtivo ? insumos.findIndex((i) => i.insumo_id === insumoAtivo.insumo_id) : -1
+  const leituraAnteriorAtivo =
+    idxAtivo > 0 ? normalizarNumero(leituraPorInsumo[insumos[idxAtivo - 1].insumo_id]) ?? 0 : 0
+  const leituraDigitadaNum = normalizarNumero(leituraDigitada)
+  const alvoAtivo = insumoAtivo ? alvoAcumulado[insumoAtivo.insumo_id] : 0
+  // Quanto falta (positivo) ou passou (negativo) para o alvo da balança
+  const faltaAtivo = leituraDigitadaNum !== null ? alvoAtivo - leituraDigitadaNum : alvoAtivo - leituraAnteriorAtivo
+
+  // Faltam kg para completar o trato
+  const faltamKg = useMemo(
+    () => Math.max(0, totalAlvo - totalProduzidoNum),
+    [totalAlvo, totalProduzidoNum]
+  )
 
   // Excede capacidade do vagão?
   const excedeCapacidade = useMemo(() => {
@@ -776,20 +833,19 @@ export default function FabricaConfinamentoPage() {
     [registrosFabricaDia]
   )
 
-  // Rascunho: persiste totalProduzido e kgProduzidoPorInsumo no IndexedDB
+  // Rascunho: persiste as leituras acumuladas da balança no IndexedDB
   const getRascunhoKey = useCallback(() => {
     const dataISO = brToDateISO(data)
     return `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
   }, [fazendaId, data, tipoSelecionado, dietaSelecionadaId])
 
   const salvarRascunhoFabrica = useCallback(
-    async (total: string, insumosKg: Record<string, string>) => {
+    async (leituras: Record<string, string>) => {
       if (!fazendaId) return
       const key = getRascunhoKey()
-      const payload = { totalProduzido: total, kgProduzidoPorInsumo: insumosKg }
       try {
-        await salvarRascunho(key, payload)
-        setRascunhoSalvo(total !== '' || Object.values(insumosKg).some((v) => v !== ''))
+        await salvarRascunho(key, { leituraPorInsumo: leituras })
+        setRascunhoSalvo(Object.values(leituras).some((v) => v !== ''))
       } catch (error) {
         console.error('Erro ao salvar rascunho da fábrica:', error)
       }
@@ -803,49 +859,55 @@ export default function FabricaConfinamentoPage() {
       if (debounceRascunhoRef.current) {
         clearTimeout(debounceRascunhoRef.current)
       }
-      const total = totalProduzidoRef.current
-      const insumos = kgProduzidoPorInsumoRef.current
-      if (total !== '' || Object.values(insumos).some((v) => v !== '')) {
-        void salvarRascunhoFabrica(total, insumos)
+      const leituras = leituraRef.current
+      if (Object.values(leituras).some((v) => v !== '')) {
+        void salvarRascunhoFabrica(leituras)
       }
     }
   }, [data, tipoSelecionado, dietaSelecionadaId, fazendaId, salvarRascunhoFabrica])
 
-  // Sincroniza espelhos para flush síncrono
+  // Autosave debounced a cada leitura confirmada
   useEffect(() => {
-    totalProduzidoRef.current = totalProduzido
-  }, [totalProduzido])
-
-  useEffect(() => {
-    kgProduzidoPorInsumoRef.current = kgProduzidoPorInsumo
-  }, [kgProduzidoPorInsumo])
-
-  const handleTotalProduzidoChange = useCallback((valor: string) => {
-    const sanitizado = sanitizarDecimalComVirgula(valor)
-    setTotalProduzido(sanitizado)
-    setRascunhoSalvo(false)
-    // Autosave debounced
+    leituraRef.current = leituraPorInsumo
+    if (carregando || !Object.values(leituraPorInsumo).some((v) => v !== '')) return
     if (debounceRascunhoRef.current) clearTimeout(debounceRascunhoRef.current)
     debounceRascunhoRef.current = setTimeout(() => {
       debounceRascunhoRef.current = null
-      void salvarRascunhoFabrica(sanitizado, kgProduzidoPorInsumoRef.current)
+      void salvarRascunhoFabrica(leituraPorInsumo)
     }, 500)
-  }, [salvarRascunhoFabrica])
+  }, [leituraPorInsumo, carregando, salvarRascunhoFabrica])
 
-  const handleKgInsumoChange = useCallback((insumoId: string, valor: string) => {
-    const sanitizado = sanitizarDecimalComVirgula(valor)
-    setKgProduzidoPorInsumo((prev) => {
-      const novo = { ...prev, [insumoId]: sanitizado }
-      // Autosave debounced
-      if (debounceRascunhoRef.current) clearTimeout(debounceRascunhoRef.current)
-      debounceRascunhoRef.current = setTimeout(() => {
-        debounceRascunhoRef.current = null
-        void salvarRascunhoFabrica(totalProduzidoRef.current, novo)
-      }, 500)
-      return novo
-    })
+  const handleLeituraDigitada = (valor: string) => {
+    setLeituraDigitada(sanitizarDecimalComVirgula(valor))
+    setErroLeitura(null)
+  }
+
+  const confirmarLeitura = () => {
+    if (!insumoAtivo) return
+    if (leituraDigitadaNum === null) {
+      setErroLeitura('Digite o número que a balança marcou.')
+      return
+    }
+    if (leituraDigitadaNum < leituraAnteriorAtivo) {
+      setErroLeitura(`A balança não pode marcar menos que no insumo anterior (${formatarKg(leituraAnteriorAtivo, 1)} kg).`)
+      return
+    }
+    setLeituraPorInsumo((prev) => ({ ...prev, [insumoAtivo.insumo_id]: leituraDigitada }))
+    setAtivoId(null)
+    setLeituraDigitada('')
+    setErroLeitura(null)
     setRascunhoSalvo(false)
-  }, [salvarRascunhoFabrica])
+  }
+
+  const reabrirInsumo = (insumoId: string) => {
+    setAtivoId(insumoId)
+    setLeituraDigitada(leituraPorInsumo[insumoId] || '')
+    setErroLeitura(null)
+  }
+
+  const handleTirarFoto = async () => {
+    await capturarFoto()
+  }
 
   const handleSalvar = useCallback(async (encerrarTrato = false) => {
     if (!fazendaId || salvando || carregando) return
@@ -855,6 +917,12 @@ export default function FabricaConfinamentoPage() {
     setConfirmarEncerrar(false)
     try {
       const novoTotalProduzido = jaProduzidoNoTrato + totalProduzidoNum
+      // Resumo por insumo para o texto compartilhável (soma com cargas anteriores do mesmo trato)
+      const cargaAtual = insumos.map((i) => ({
+        nome: i.nome,
+        previsto: kgPrevistoPorInsumo[i.insumo_id] || 0,
+        produzido: kgRealPorInsumo[i.insumo_id] ?? 0,
+      }))
       // SALVAR acumula no trato aberto; o trato encerra quando atinge o previsto
       // ou quando o usuário confirma o encerramento com déficit via ENCERRAR TRATO.
       const concluido = encerrarTrato || novoTotalProduzido >= (totalPrevisto - 0.5)
@@ -869,13 +937,24 @@ export default function FabricaConfinamentoPage() {
           setSalvando(false)
           return
         }
+        const resumoAnterior: { nome: string; previsto: number; produzido: number }[] = Array.isArray(
+          (registroExistente as any).insumosResumo
+        )
+          ? (registroExistente as any).insumosResumo
+          : []
+        const insumosResumo = cargaAtual.map((c) => {
+          const ant = resumoAnterior.find((a) => a.nome === c.nome)
+          return { ...c, previsto: c.previsto + (ant?.previsto || 0), produzido: c.produzido + (ant?.produzido || 0) }
+        })
         await updateRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId, {
+          insumosResumo,
           vagaoId: vagaoSelecionadoId,
           vagaoNome: vagaoSelecionado?.nome || '',
           totalPrevisto,
           totalProduzido: novoTotalProduzido,
           concluido: String(concluido),
           syncStatus: 'pending',
+          ...(fotoBalanca ? { fotoBase64: fotoBalanca } : {}),
         })
         await enqueueRegistro('fabrica-confinamento', registroFabricaNaoConcluidoId, 'update')
         registroId = registroFabricaNaoConcluidoId
@@ -895,6 +974,8 @@ export default function FabricaConfinamentoPage() {
           totalPrevisto,
           totalProduzido: totalProduzidoNum,
           concluido: String(concluido),
+          fotoBase64: fotoBalanca || null,
+          insumosResumo: cargaAtual,
         })
 
         if (!result.success || !result.registro) {
@@ -917,27 +998,26 @@ export default function FabricaConfinamentoPage() {
       // Salvar insumos como registros separados no IndexedDB + enfileirar sync.
       // Só grava quando esta carga teve produção (encerrar sem input novo não gera linhas zeradas).
       if (totalProduzidoNum > 0) {
-      for (const insumo of insumos) {
-        const kgPrev = kgPrevistoPorInsumo[insumo.insumo_id] || 0
-        const kgProdStr = kgProduzidoPorInsumo[insumo.insumo_id] || ''
-        const kgProd = kgProdStr ? (normalizarNumero(kgProdStr) ?? 0) : 0
+        for (const insumo of insumos) {
+          const kgPrev = kgPrevistoPorInsumo[insumo.insumo_id] || 0
+          const kgProd = kgRealPorInsumo[insumo.insumo_id] ?? 0
 
-        const insumoRegistro = {
-          id: generateId(),
-          data: dataComHoraInsumos,
-          usuario,
-          registroId: insumoRegistroId,
-          insumoId: insumo.insumo_id,
-          kgPrevisto: kgPrev,
-          kgProduzido: kgProd,
-          ordem: insumo.ordem,
-          version: 1,
-          lastModified: new Date().toISOString(),
-          syncStatus: 'pending' as const,
+          const insumoRegistro = {
+            id: generateId(),
+            data: dataComHoraInsumos,
+            usuario,
+            registroId: insumoRegistroId,
+            insumoId: insumo.insumo_id,
+            kgPrevisto: kgPrev,
+            kgProduzido: kgProd,
+            ordem: insumo.ordem,
+            version: 1,
+            lastModified: new Date().toISOString(),
+            syncStatus: 'pending' as const,
+          }
+          await saveRegistroIDB('fabrica-confinamento-insumos', insumoRegistro)
+          await enqueueRegistro('fabrica-confinamento-insumos', insumoRegistro.id, 'create')
         }
-        await saveRegistroIDB('fabrica-confinamento-insumos', insumoRegistro)
-        await enqueueRegistro('fabrica-confinamento-insumos', insumoRegistro.id, 'create')
-      }
       }
 
       registerBackgroundSync('sync-registros').catch(() => {})
@@ -948,9 +1028,12 @@ export default function FabricaConfinamentoPage() {
           ? `Trato ${ordemTratoAtual} encerrado. Ficaram faltando ${formatarKg(totalPrevisto - novoTotalProduzido, 1)} kg do previsto.`
           : 'Produção salva com sucesso!'
       )
-      setTotalProduzido('')
-      setKgProduzidoPorInsumo({})
+      setLeituraPorInsumo({})
+      leituraRef.current = {}
+      setLeituraDigitada('')
+      setAtivoId(null)
       setRascunhoSalvo(false)
+      limparFoto()
 
       // Manter o resumo de déficits atualizado sem depender de refresh do Supabase
       setRegistrosFabricaDia((prev) => {
@@ -1003,23 +1086,36 @@ export default function FabricaConfinamentoPage() {
     } finally {
       setSalvando(false)
     }
-  }, [fazendaId, podeSalvar, podeEncerrar, salvando, carregando, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, vagaoSelecionado, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgProduzidoPorInsumo, curraisFiltrados, getRascunhoKey])
+  }, [fazendaId, podeSalvar, podeEncerrar, salvando, carregando, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, vagaoSelecionado, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgRealPorInsumo, fotoBalanca, limparFoto, curraisFiltrados, getRascunhoKey, dietasDisponiveis])
 
   const handleLimpar = useCallback(() => {
-    setTotalProduzido('')
-    setKgProduzidoPorInsumo({})
+    setLeituraPorInsumo({})
+    leituraRef.current = {}
+    setLeituraDigitada('')
+    setAtivoId(null)
+    setErroLeitura(null)
     setSucesso(false)
     setErro(null)
     setRascunhoSalvo(false)
     setConfirmarEncerrar(false)
+    limparFoto()
     // Limpar rascunho do IndexedDB
     if (fazendaId) {
       const key = getRascunhoKey()
       limparRascunho(key)
     }
-  }, [fazendaId, getRascunhoKey])
+  }, [fazendaId, getRascunhoKey, limparFoto])
 
   const tiposVisiveis = TIPOS_PROGRAMACAO.filter((t) => tiposDisponiveis.includes(t.value))
+  const nomesCurrais = curraisFiltrados.map((c) => c.curralNome).join(' + ')
+  const todosPesados = insumos.length > 0 && insumosPendentes.length === 0
+  const nomeCurto = (nome: string) => capitalizarIniciais(nome)
+  const pendenciaTexto =
+    insumosPendentes.length > 0 && totalProduzidoNum <= 0
+      ? 'Falta pesar o primeiro insumo'
+      : insumosPendentes.length > 0
+        ? `Falta pesar ${insumosPendentes.map((i) => nomeCurto(i.nome).toLowerCase()).join(' e ')}`
+        : undefined
 
   const bottomContent = (
     <div className="flex flex-col gap-2 pb-3">
@@ -1046,29 +1142,23 @@ export default function FabricaConfinamentoPage() {
           </div>
         </div>
       )}
+      <button
+        onClick={() => handleSalvar()}
+        disabled={!podeSalvar}
+        className={`w-full !min-h-0 rounded-2xl px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
+          !podeSalvar ? 'cursor-not-allowed bg-gray-100 text-gray-400' : 'bg-green-600 text-white hover:bg-green-700'
+        }`}
+      >
+        <span className="inline-flex items-center justify-center gap-2">
+          {salvando ? <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.5} /> : <Save className="h-5 w-5" strokeWidth={2.5} />}
+          SALVAR
+        </span>
+      </button>
       <div className="flex gap-2">
-        <button
-          onClick={() => handleSalvar()}
-          disabled={!podeSalvar}
-          className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.99] ${
-            !podeSalvar
-              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-              : 'border-[#1a3a2a] bg-[#1a3a2a] text-white hover:bg-[#245038]'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            {salvando ? (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.5} />
-            ) : (
-              <Save className="h-4 w-4" strokeWidth={2.5} />
-            )}
-            SALVAR
-          </span>
-        </button>
         <button
           onClick={() => setConfirmarEncerrar(true)}
           disabled={!podeEncerrar}
-          className={`!min-h-0 rounded-2xl border-2 px-3 py-3 text-xs font-bold transition-colors active:scale-95 ${
+          className={`flex-1 !min-h-0 rounded-2xl border-2 px-3 py-2.5 text-xs font-bold transition-colors active:scale-95 ${
             !podeEncerrar
               ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
               : 'border-amber-500 bg-amber-50 text-amber-800 hover:bg-amber-100'
@@ -1078,7 +1168,7 @@ export default function FabricaConfinamentoPage() {
         </button>
         <button
           onClick={handleLimpar}
-          className="!min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
+          className="flex-1 !min-h-0 rounded-2xl bg-gray-100 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-200 active:scale-95"
         >
           <span className="inline-flex items-center justify-center gap-2">
             <Brush className="h-4 w-4" strokeWidth={2.5} />
@@ -1086,8 +1176,70 @@ export default function FabricaConfinamentoPage() {
           </span>
         </button>
       </div>
+      {pendenciaTexto && (
+        <p className="text-center text-xs font-semibold text-gray-500">
+          <span className="text-red-500">*</span> {pendenciaTexto}
+        </p>
+      )}
     </div>
   )
+
+  const renderInsumo = (insumo: InsumoFormulacao, idx: number) => {
+    const id = insumo.insumo_id
+    const real = kgRealPorInsumo[id]
+    const feito = real !== undefined
+    const ativo = id === ativoEfetivoId
+    const prev = kgPrevistoPorInsumo[id] || 0
+    const dif = feito && prev > 0 ? ((real - prev) / prev) * 100 : null
+    const difOk = dif !== null && Math.abs(dif) <= 3
+    const leituraMarcada = feito ? normalizarNumero(leituraPorInsumo[id]) : null
+
+    return (
+      <button
+        key={id}
+        type="button"
+        onClick={() => (feito ? reabrirInsumo(id) : undefined)}
+        className={`flex w-full items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left transition-colors ${
+          ativo
+            ? 'border-brand-900 bg-white'
+            : feito
+              ? 'border-green-400 bg-green-50'
+              : 'border-gray-200 bg-white'
+        }`}
+      >
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-extrabold ${
+            feito ? 'bg-green-500 text-white' : ativo ? 'bg-brand-900 text-white' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          {feito ? '✓' : idx + 1}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-extrabold leading-tight text-gray-900">{nomeCurto(insumo.nome)}</span>
+          <span className="block text-xs font-semibold text-gray-500">
+            {insumo.formula_mn_percent.toFixed(1).replace('.', ',')}% · {formatarKg(prev, 1)} kg
+          </span>
+          {feito && dif !== null && todosPesados && (
+            <span className={`block text-xs font-bold ${difOk ? 'text-green-700' : 'text-amber-700'}`}>
+              {difOk ? '✓ ' : '⚠ '}
+              {formatarKg(real, 1)} kg ({dif > 0 ? '+' : ''}{formatarKg(dif, 1)}%)
+            </span>
+          )}
+          {feito && real < 0 && (
+            <span className="block text-xs font-bold text-red-600">Leitura menor que a anterior, confira</span>
+          )}
+        </span>
+        <span className="shrink-0 text-right">
+          <span className="block text-[11px] font-semibold leading-tight text-gray-500">
+            {feito ? 'pesou' : 'balança deve marcar'}
+          </span>
+          <span className="block text-2xl font-extrabold leading-tight text-gray-900">
+            {feito ? formatarKg(leituraMarcada, Number.isInteger(leituraMarcada) ? 0 : 1) : formatarKg(alvoAcumulado[id] ?? 0, 0)}
+          </span>
+        </span>
+      </button>
+    )
+  }
 
   return (
     <CadernetaLayout
@@ -1113,300 +1265,230 @@ export default function FabricaConfinamentoPage() {
         </button>
       }
       bottomContent={bottomContent}
-      bottomPaddingClass="pb-28"
+      bottomPaddingClass="pb-60"
     >
-      <div className="-mt-1 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-visible">
-        <div className="p-3 flex flex-col gap-4">
-          {/* Filtros */}
-          {tiposVisiveis.length > 1 && (
-            <div>
-              <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
-                Sistema de Produção
-              </span>
-              <div className="flex items-center gap-1.5">
-                {tiposVisiveis.map((t) => (
-                  <button
-                    key={t.value}
-                    type="button"
-                    onClick={() => setTipoSelecionado(t.value)}
-                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
-                      tipoSelecionado === t.value
-                        ? 'bg-[#1a3a2a] text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dieta */}
+      <CadernetaSection numero={1} titulo="Dados do carregamento">
+        {tiposVisiveis.length > 1 && (
           <div>
-            <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
-              Dieta
-            </span>
-            {dietasDisponiveis.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Nenhuma dieta encontrada para lotes de confinamento.
-              </p>
-            ) : (
-              <select
-                value={dietaSelecionadaId}
-                onChange={(e) => setDietaSelecionadaId(e.target.value)}
-                className="w-full rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
-              >
-                {dietasDisponiveis.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {capitalizarIniciais(d.nome)}
-                  </option>
-                ))}
-              </select>
-            )}
+            <span className="mb-2 block text-[15px] font-bold uppercase text-gray-900">Sistema de produção</span>
+            <ChoiceGrid
+              options={tiposVisiveis.map((t) => ({ value: t.value, label: t.label }))}
+              value={tipoSelecionado}
+              onChange={setTipoSelecionado}
+              cols={tiposVisiveis.length >= 3 ? 3 : 2}
+              size="sm"
+              labelSize="xs"
+            />
           </div>
+        )}
 
-          {/* Vagão */}
-          <div>
-            <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
-              Vagão
-            </span>
-            {vagoes.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Nenhum vagão cadastrado. Cadastre no painel web.
-              </p>
-            ) : (
-              <select
-                value={vagaoSelecionadoId}
-                onChange={(e) => setVagaoSelecionadoId(e.target.value)}
-                className="w-full rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
-              >
-                {vagoes.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nome} {v.capacidade_kg ? `(${formatarKg(v.capacidade_kg, 0)} kg)` : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Conteúdo principal */}
-          {carregando ? (
-            <div className="p-8 text-center text-gray-500">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-              Carregando...
-            </div>
-          ) : erro ? (
-            <div className="p-6 text-center text-red-600">
-              <AlertCircle className="h-6 w-6 mx-auto mb-2" />
-              {erro}
-            </div>
-          ) : !dietaSelecionadaId ? (
-            <div className="p-8 text-center text-gray-500">
-              Selecione uma dieta para continuar.
-            </div>
-          ) : curraisFiltrados.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              Nenhum curral encontrado para esta dieta e sistema de produção.
-            </div>
+        <div>
+          <span className="mb-2 block text-[15px] font-bold uppercase text-gray-900">
+            Dieta <span className="text-red-500">*</span>
+          </span>
+          {dietasDisponiveis.length === 0 ? (
+            <InfoStrip tone="warning">Nenhuma dieta encontrada para lotes deste sistema de produção.</InfoStrip>
           ) : (
-            <>
-              {/* Informativo do trato atual */}
-              <div className="rounded-2xl bg-[#e8f1ec] border border-[#1a3a2a]/20 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="block text-xs font-black uppercase tracking-wider text-[#1a3a2a]/60">
-                      Trato Atual
-                    </span>
-                    <span className="text-2xl font-black text-[#1a3a2a]">
-                      {ordemTratoAtual} <span className="text-base font-bold text-[#1a3a2a]/60">de {quantidadeTratos}</span>
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block text-xs font-black uppercase tracking-wider text-[#1a3a2a]/60">
-                      Currais
-                    </span>
-                    <span className="text-2xl font-black text-[#1a3a2a]">
-                      {curraisFiltrados.length}
-                    </span>
-                  </div>
-                </div>
+            <ChoiceGrid
+              options={dietasDisponiveis.map((d) => ({ value: d.id, label: capitalizarIniciais(d.nome), icon: '🐂' }))}
+              value={dietaSelecionadaId}
+              onChange={setDietaSelecionadaId}
+              cols={2}
+            />
+          )}
+        </div>
+
+        <div>
+          <span className="mb-2 block text-[15px] font-bold uppercase text-gray-900">
+            Vagão <span className="text-red-500">*</span>
+          </span>
+          {vagoes.length === 0 ? (
+            <InfoStrip tone="warning">Nenhum vagão cadastrado. Cadastre no painel web.</InfoStrip>
+          ) : (
+            <ChoiceGrid
+              options={vagoes.map((v) => ({
+                value: v.id,
+                label: `${v.nome}${v.capacidade_kg ? ` · ${formatarKg(v.capacidade_kg, 0)} kg` : ''}`,
+                icon: '🚜',
+              }))}
+              value={vagaoSelecionadoId}
+              onChange={setVagaoSelecionadoId}
+              cols={2}
+            />
+          )}
+        </div>
+
+        {carregando ? (
+          <div className="p-4 text-center text-gray-500">
+            <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin" />
+            Carregando...
+          </div>
+        ) : erro ? (
+          <InfoStrip tone="danger" icon={<AlertCircle className="h-5 w-5" />}>{erro}</InfoStrip>
+        ) : !dietaSelecionadaId ? (
+          <InfoStrip tone="warning">Selecione uma dieta para continuar.</InfoStrip>
+        ) : curraisFiltrados.length === 0 ? (
+          <InfoStrip tone="warning">Nenhum curral encontrado para esta dieta e sistema de produção.</InfoStrip>
+        ) : (
+          <div>
+            <span className="mb-2 block text-[15px] font-bold uppercase text-gray-900">Para quais currais?</span>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-gray-100 px-3 py-2">
+                <span className="block text-xs font-semibold text-gray-500">
+                  {ordemTratoAtual}º trato de {quantidadeTratos}
+                </span>
               </div>
-
-              {/* Aviso: todos os tratos do dia foram encerrados */}
-              {todosTratosConcluidos && (
-                <div className="rounded-xl bg-green-50 border border-green-200 p-3 flex items-start gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-                  <p className="text-sm font-bold text-green-800">
-                    Todos os {quantidadeTratos} tratos do dia foram encerrados.
-                  </p>
-                </div>
-              )}
-
-              {/* Aviso: trato atual com produção parcial não concluída */}
-              {tratoNaoConcluidoJaIniciado && faltamKg > 0 && (
-                <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                  <p className="text-sm font-bold text-blue-800">
-                    Trato {ordemTratoAtual} em aberto. Faltam produzir {formatarKg(faltamKg, 1)} kg para completar o previsto. Para seguir sem completar, use ENCERRAR TRATO.
-                  </p>
-                </div>
-              )}
-
-              {/* Resumo informativo: tratos encerrados abaixo do previsto */}
-              {deficitsTratos.length > 0 && (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-sm font-bold text-amber-800">
-                    {deficitsTratos.map((d) => (
-                      <p key={d.ordem_trato}>
-                        Trato {d.ordem_trato}: produzido {formatarKg(d.total_produzido, 0)} kg de{' '}
-                        {formatarKg(d.total_previsto, 0)} kg (faltaram{' '}
-                        {formatarKg(d.total_previsto - d.total_produzido, 0)} kg)
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Sucesso */}
-              {sucesso && (
-                <div className="rounded-xl bg-green-50 border border-green-200 p-3 flex items-start gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-                  <p className="text-sm font-bold text-green-800">
-                    {sucessoMsg}
-                  </p>
-                </div>
-              )}
-
-              {/* Total Previsto */}
-              <div className="rounded-2xl border-2 border-gray-200 bg-gray-50 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black uppercase tracking-wider text-gray-500">
-                    Total Previsto
-                  </span>
-                  <span className="text-xl font-black text-gray-900">
-                    {formatarKg(totalPrevisto, 0)} kg
-                  </span>
-                </div>
-                {tratoNaoConcluidoJaIniciado && (
-                  <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-2">
-                    <span className="text-xs font-bold text-gray-500">
-                      Já produzido neste trato
-                    </span>
-                    <span className="text-sm font-bold text-green-700">
-                      {formatarKg(jaProduzidoNoTrato, 0)} kg
-                    </span>
-                  </div>
-                )}
-                {tratoNaoConcluidoJaIniciado && faltamKg > 0 && (
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-700">
-                      Faltam produzir
-                    </span>
-                    <span className="text-sm font-black text-amber-700">
-                      {formatarKg(faltamKg, 0)} kg
-                    </span>
-                  </div>
-                )}
+              <div className="min-w-0 rounded-xl bg-gray-100 px-3 py-2">
+                <span className="block text-xs font-semibold text-gray-500">Currais</span>
+                <span className="block break-words text-sm font-extrabold leading-tight text-gray-900">{nomesCurrais}</span>
               </div>
+              <div className="rounded-xl bg-gray-100 px-3 py-2">
+                <span className="block text-xs font-semibold text-gray-500">Total</span>
+                <span className="block text-sm font-extrabold text-gray-900">{formatarKg(totalAlvo, 0)} kg</span>
+              </div>
+            </div>
+          </div>
+        )}
 
-              {/* Total Produzido */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="mb-1 block text-sm font-black uppercase tracking-wider text-gray-500">
-                    Total Produzido (kg)
-                  </span>
-                  {rascunhoSalvo && (
-                    <span className="mb-1 inline-flex items-center gap-1 text-xs font-bold text-green-600">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Rascunho salvo
-                    </span>
-                  )}
-                </div>
+        {!carregando && !erro && todosTratosConcluidos && (
+          <InfoStrip tone="success" icon={<CheckCircle2 className="h-5 w-5" />}>
+            Todos os {quantidadeTratos} tratos do dia foram encerrados.
+          </InfoStrip>
+        )}
+        {!carregando && !erro && tratoNaoConcluidoJaIniciado && faltamKg > 0 && (
+          <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+            Trato {ordemTratoAtual} em aberto: já produzido {formatarKg(jaProduzidoNoTrato, 0)} kg, faltam{' '}
+            {formatarKg(faltamKg, 0)} kg. Para seguir sem completar, use ENCERRAR TRATO.
+          </InfoStrip>
+        )}
+        {!carregando && !erro && deficitsTratos.length > 0 && (
+          <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+            <span className="block">
+              {deficitsTratos.map((d) => (
+                <span key={d.ordem_trato} className="block">
+                  Trato {d.ordem_trato}: produzido {formatarKg(d.total_produzido, 0)} kg de{' '}
+                  {formatarKg(d.total_previsto, 0)} kg (faltaram {formatarKg(d.total_previsto - d.total_produzido, 0)} kg)
+                </span>
+              ))}
+            </span>
+          </InfoStrip>
+        )}
+        {sucesso && (
+          <InfoStrip tone="success" icon={<CheckCircle2 className="h-5 w-5" />}>{sucessoMsg}</InfoStrip>
+        )}
+      </CadernetaSection>
+
+      {!carregando && !erro && curraisFiltrados.length > 0 && insumos.length > 0 && (
+        <CadernetaSection numero={2} titulo="Insumos na ordem de carregar" required>
+          <div className="flex flex-col gap-2">{insumos.map((insumo, idx) => renderInsumo(insumo, idx))}</div>
+
+          {insumoAtivo && !todosTratosConcluidos && (
+            <div className="rounded-2xl bg-brand-900 p-4 text-white">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-xs font-extrabold uppercase tracking-wide opacity-90">Quanto a balança marcou?</span>
+                <span className="text-right text-xs font-extrabold uppercase tracking-wide opacity-90">
+                  {faltaAtivo >= 0 ? 'Falta de' : 'Passou de'} {nomeCurto(insumoAtivo.nome).toLowerCase()}
+                  <span className="block text-2xl normal-case">{formatarKg(Math.abs(faltaAtivo), 1)} kg</span>
+                </span>
+              </div>
+              <div className="mt-1 flex items-end gap-2">
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={totalProduzido}
-                  onChange={(e) => handleTotalProduzidoChange(e.target.value)}
-                  disabled={todosTratosConcluidos}
+                  value={leituraDigitada}
+                  onChange={(e) => handleLeituraDigitada(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmarLeitura()
+                  }}
                   placeholder="0"
-                  className={`w-full rounded-xl border-2 px-4 py-3 text-lg font-black text-gray-900 focus:outline-none ${
-                    excedeCapacidade
-                      ? 'border-amber-500 bg-amber-50'
-                      : rascunhoSalvo
-                        ? 'border-green-400 bg-green-50'
-                        : 'border-gray-200 bg-white focus:border-[#1a3a2a]'
-                  }`}
+                  data-field="leitura-balanca"
+                  className="w-full min-w-0 border-0 border-b-4 border-green-500 bg-transparent !px-0 text-4xl font-extrabold text-white placeholder-white/40 focus:outline-none"
                 />
-                {excedeCapacidade && vagaoSelecionado?.capacidade_kg && (
-                  <p className="mt-1 text-xs font-bold text-amber-700">
-                    Excede a capacidade do vagão ({formatarKg(vagaoSelecionado.capacidade_kg, 0)} kg):{' '}
-                    {formatarKg(totalProduzidoNum, 0)} kg equivalem a aproximadamente{' '}
-                    {Math.ceil(totalProduzidoNum / vagaoSelecionado.capacidade_kg)} cargas do vagão.
-                  </p>
-                )}
-                {vagaoSelecionado?.capacidade_kg && !excedeCapacidade && (
-                  <p className="mt-1 text-xs font-bold text-gray-400">
-                    Capacidade do vagão: {formatarKg(vagaoSelecionado.capacidade_kg, 0)} kg
-                  </p>
-                )}
+                <span className="pb-1 text-lg font-semibold">kg</span>
               </div>
-
-              {/* Tabela de insumos */}
-              {insumos.length > 0 && (
-                <div>
-                  <span className="mb-2 block text-sm font-black uppercase tracking-wider text-gray-500">
-                    Insumos da Dieta
-                  </span>
-                  <div className="overflow-hidden rounded-xl border border-gray-200">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left p-2 font-bold text-gray-700">Insumo</th>
-                          <th className="text-center p-2 font-bold text-gray-700">% MN</th>
-                          <th className="text-center p-2 font-bold text-gray-700">Prev.</th>
-                          <th className="text-center p-2 font-bold text-gray-700">Real</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {insumos.map((insumo) => {
-                          const kgPrev = kgPrevistoPorInsumo[insumo.insumo_id] || 0
-                          return (
-                            <tr key={insumo.insumo_id} className="border-b border-gray-100 last:border-0">
-                              <td className="p-2 font-bold text-gray-900">
-                                {capitalizarIniciais(insumo.nome)}
-                              </td>
-                              <td className="p-2 text-center text-gray-600">
-                                {insumo.formula_mn_percent.toFixed(2).replace('.', ',')}%
-                              </td>
-                              <td className="p-2 text-center font-bold text-gray-700">
-                                {formatarKg(kgPrev, 1)}
-                              </td>
-                              <td className="p-2 text-center">
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={kgProduzidoPorInsumo[insumo.insumo_id] || ''}
-                                  onChange={(e) => handleKgInsumoChange(insumo.insumo_id, e.target.value)}
-                                  disabled={todosTratosConcluidos}
-                                  placeholder="0"
-                                  className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-center font-bold text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
-                                />
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </>
+              {erroLeitura && <p className="mt-2 text-sm font-bold text-amber-300">{erroLeitura}</p>}
+              <button
+                type="button"
+                onClick={confirmarLeitura}
+                className="mt-3 w-full !min-h-0 rounded-xl bg-green-600 px-3 py-3 text-sm font-extrabold uppercase text-white active:scale-[0.99]"
+              >
+                Confirmar {nomeCurto(insumoAtivo.nome)}
+              </button>
+            </div>
           )}
-        </div>
-      </div>
+
+          <InfoStrip>
+            Digite o número da balança do vagão depois de cada insumo. A caderneta calcula quanto entrou de cada um e
+            avisa quanto falta.
+          </InfoStrip>
+          {rascunhoSalvo && (
+            <InfoStrip tone="success" icon={<CheckCircle2 className="h-5 w-5" />}>Rascunho salvo</InfoStrip>
+          )}
+        </CadernetaSection>
+      )}
+
+      {!carregando && !erro && curraisFiltrados.length > 0 && (
+        <CadernetaSection numero={3} titulo="Fechamento">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-gray-100 px-3 py-2">
+              <span className="block text-xs font-semibold text-gray-500">Previsto</span>
+              <span className="block text-2xl font-extrabold text-gray-900">{formatarKg(totalAlvo, 0)} kg</span>
+            </div>
+            <div className="rounded-xl bg-gray-100 px-3 py-2">
+              <span className="block text-xs font-semibold text-gray-500">Carregado</span>
+              <span className="block text-2xl font-extrabold text-gray-900">
+                {totalProduzidoNum > 0 ? `${formatarKg(totalProduzidoNum, 0)} kg` : '— kg'}
+              </span>
+            </div>
+          </div>
+
+          {excedeCapacidade && vagaoSelecionado?.capacidade_kg && (
+            <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+              Excede a capacidade do vagão ({formatarKg(vagaoSelecionado.capacidade_kg, 0)} kg): {formatarKg(totalProduzidoNum, 0)} kg
+              equivalem a aproximadamente {Math.ceil(totalProduzidoNum / vagaoSelecionado.capacidade_kg)} cargas do vagão.
+            </InfoStrip>
+          )}
+
+          {fotoBalanca ? (
+            <div className="flex items-start gap-3">
+              <img
+                src={base64ToDataUrl(fotoBalanca)}
+                alt="Foto da balança"
+                className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+              />
+              <button
+                type="button"
+                onClick={limparFoto}
+                className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+              >
+                🗑️ REMOVER FOTO
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleTirarFoto}
+              disabled={capturandoFoto}
+              className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl bg-brand-900 px-3 py-3 text-sm font-extrabold uppercase tracking-wide text-white transition-colors active:scale-[0.99] disabled:opacity-60"
+            >
+              <span className="text-lg leading-none">📷</span>
+              {capturandoFoto ? 'Capturando...' : 'Foto da balança no final'}
+            </button>
+          )}
+          {fotoErro && <InfoStrip tone="danger">{fotoErro}</InfoStrip>}
+
+          <InfoStrip>Com tudo carregado, aparece a diferença de cada insumo (ok até 3%).</InfoStrip>
+        </CadernetaSection>
+      )}
+
+      <input
+        ref={fotoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
     </CadernetaLayout>
   )
 }
-
