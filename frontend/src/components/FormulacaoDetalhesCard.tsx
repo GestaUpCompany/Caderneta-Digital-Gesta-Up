@@ -22,33 +22,36 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
     return value.toFixed(decimals).replace('.', ',')
   }
 
+  // A meta %PV da formulação está em base MS (consumo_ms_percent_pv). Para
+  // exibir a meta em kg de matéria natural: kg MN = kg MS / (teorMs/100).
+  const metaKgMnCabDia =
+    detalhes.metaConsumo != null &&
+    detalhes.pesoVivoKg != null &&
+    detalhes.pesoVivoKg > 0 &&
+    detalhes.teorMs != null &&
+    detalhes.teorMs > 0
+      ? (detalhes.metaConsumo * detalhes.pesoVivoKg) / detalhes.teorMs
+      : null
+
   // Verifica se não há dados de consumo histórico
-  const semDadosHistoricos = 
-    detalhes.consumoMedioGeralPercentPV === null &&
+  const semDadosHistoricos =
     detalhes.consumoMedio30DiasPercentPV === null &&
-    detalhes.consumoMedioGeralKgMN === null &&
     detalhes.consumoMedio30DiasKgMN === null &&
     detalhes.custoMedioReaisCabDia === null
 
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex flex-col gap-3 text-base">
       <div>
-        <p className="text-gray-500 font-semibold">TEOR MS (%)</p>
-        <p className="text-gray-900 font-bold">
-          {formatNumber(detalhes.teorMs, 2)}{formatNumber(detalhes.teorMs, 2) !== null && '%'}
-        </p>
-      </div>
-      <div>
         <p className="text-gray-500 font-semibold">META CONSUMO (%PV)</p>
         <p className="text-gray-900 font-bold">
           {formatNumber(detalhes.metaConsumo, 2)}{formatNumber(detalhes.metaConsumo, 2) !== null && '%'}
         </p>
       </div>
-      {detalhes.metaConsumo != null && detalhes.pesoVivoKg != null && detalhes.pesoVivoKg > 0 && (
+      {metaKgMnCabDia != null && (
         <div>
-          <p className="text-gray-500 font-semibold">META CONSUMO (kg/cab/dia)</p>
+          <p className="text-gray-500 font-semibold">META CONSUMO (kg MN/cab/dia)</p>
           <p className="text-gray-900 font-bold">
-            {formatNumber((detalhes.metaConsumo / 100) * detalhes.pesoVivoKg, 3)}{formatNumber((detalhes.metaConsumo / 100) * detalhes.pesoVivoKg, 3) !== null && ' kg'}
+            {formatNumber(metaKgMnCabDia, 3)} kg
           </p>
         </div>
       )}
@@ -73,21 +76,9 @@ export default function FormulacaoDetalhesCard({ detalhes, nomeLote }: Formulaca
       ) : (
         <>
           <div>
-            <p className="text-gray-500 font-semibold">CONSUMO MÉDIO GERAL (%PV)</p>
-            <p className="text-gray-900 font-bold">
-              {formatNumber(detalhes.consumoMedioGeralPercentPV, 3)}{formatNumber(detalhes.consumoMedioGeralPercentPV, 3) !== null && '%'}
-            </p>
-          </div>
-          <div>
             <p className="text-gray-500 font-semibold">CONSUMO MÉDIO 30 DIAS (%PV)</p>
             <p className="text-gray-900 font-bold">
               {formatNumber(detalhes.consumoMedio30DiasPercentPV, 3)}{formatNumber(detalhes.consumoMedio30DiasPercentPV, 3) !== null && '%'}
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-500 font-semibold">CONSUMO MÉDIO GERAL (kg/MN)</p>
-            <p className="text-gray-900 font-bold">
-              {formatNumber(detalhes.consumoMedioGeralKgMN, 3)}{formatNumber(detalhes.consumoMedioGeralKgMN, 3) !== null && ' kg'}
             </p>
           </div>
           <div>

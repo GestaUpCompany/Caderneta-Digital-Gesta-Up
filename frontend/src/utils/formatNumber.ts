@@ -65,6 +65,20 @@ export function formatarNumeroBR(
 }
 
 /**
+ * Formata um valor monetário em reais para exibição (separador de milhar + 2 casas decimais).
+ * 80000 -> "80.000,00"
+ * Retorna null se o valor não for numérico.
+ */
+export function formatarMoedaBR(valor: string | number | null | undefined): string | null {
+  const num = normalizarNumero(valor)
+  if (num === null || isNaN(num)) return null
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+/**
  * Normaliza uma string numérica para o formato de string numérica canônico (ponto decimal, sem milhar).
  * "4.770,3" -> "4770.3"
  * "4.770.3" -> "4770.3"

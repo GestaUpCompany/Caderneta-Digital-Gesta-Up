@@ -274,7 +274,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       }
     case 'suplementacao': {
       // Remove espacamento_cocho_ideal from checklist if it exists (migrated field)
-      let cleanedChecklist = registro.checklist ? { ...registro.checklist } as any : null
+      const cleanedChecklist = registro.checklist ? { ...registro.checklist } as any : null
       if (cleanedChecklist && cleanedChecklist.espacamento_cocho_ideal) {
         delete cleanedChecklist.espacamento_cocho_ideal
       }

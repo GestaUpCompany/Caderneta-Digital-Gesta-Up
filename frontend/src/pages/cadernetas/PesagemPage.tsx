@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
-import { Input, Select, Button } from '../../components/ui'
+import { Input, Select, Button, NumericInput } from '../../components/ui'
 import { salvarRegistro, aguardarSyncConcluido, listarRegistros } from '../../services/api'
 import { enqueueRegistro } from '../../services/syncService'
 import { todayBR } from '../../utils/formatDate'
@@ -1184,13 +1184,13 @@ export default function PesagemPage() {
         </div>
 
         <div className="w-1/2 mx-auto">
-          <Input
+          <NumericInput
             id="pesagem-peso-input"
             label="PESO (kg)"
-            inputMode="decimal"
             placeholder="Ex: 285,5"
             value={animal.pesoKg}
-            onChange={(e) => onChange({ pesoKg: e.target.value.replace(/[^\d,.]/g, '') })}
+            onChange={(v) => onChange({ pesoKg: v })}
+            decimalPlaces={1}
           />
         </div>
       </div>

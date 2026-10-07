@@ -18,7 +18,6 @@ import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { normalizarNumeroString } from '../../utils/formatNumber'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
@@ -459,7 +458,7 @@ export default function ManutencaoMaquinasPage() {
             <SearchableModal
               label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
               value={form.responsavelChecklist}
-              onChange={(val) => { set('responsavelChecklist')(val); atualizarNomeUsuarioConfig(val); setTrocandoResponsavel(false) }}
+              onChange={(val) => { set('responsavelChecklist')(val); setTrocandoResponsavel(false) }}
               error={getError('responsavelChecklist')}
               options={funcionariosDisponiveis}
               placeholder="Buscar funcionário..."
@@ -471,7 +470,7 @@ export default function ManutencaoMaquinasPage() {
               label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.responsavelChecklist}
-              onChange={(e) => { setInput('responsavelChecklist')(e); atualizarNomeUsuarioConfig(e.target.value) }}
+              onChange={setInput('responsavelChecklist')}
               error={getError('responsavelChecklist')}
               disabled
               id="responsavelChecklist"

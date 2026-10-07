@@ -92,10 +92,19 @@ export async function deleteFazendaLogo(fazendaId: string): Promise<boolean> {
 
 // ==================== FAZENDAS ====================
 
+// Cache curto da fazenda por acessoId: a mesma linha é lida várias vezes por
+// salvamento (timezone da trava de duplicidade, config de rotina, timezone no
+// salvarRegistro). O PWA nunca escreve em fazendas, então TTL de 60s é seguro.
+const fazendaCache = new Map<string, { data: any; ts: number }>()
+const FAZENDA_CACHE_TTL_MS = 60_000
+
 export async function getFazendaByAcessoId(acessoId: string) {
   // Converter para minúsculas para validação case-insensitive
   const acessoIdNormalizado = acessoId.toLowerCase()
-  
+
+  const hit = fazendaCache.get(acessoIdNormalizado)
+  if (hit && Date.now() - hit.ts < FAZENDA_CACHE_TTL_MS) return hit.data
+
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('fazendas')
@@ -114,8 +123,10 @@ export async function getFazendaByAcessoId(acessoId: string) {
     })
     const row = Array.isArray(rows) ? rows[0] : rows
     if (rpcError || !row || row.ativo !== true) throw error
+    fazendaCache.set(acessoIdNormalizado, { data: row, ts: Date.now() })
     return row
   }
+  fazendaCache.set(acessoIdNormalizado, { data, ts: Date.now() })
   return data
 }
 
@@ -3120,6 +3131,22 @@ export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: stri
     percentuais: percRes.data || [],
     currais: curraisRes.data || [],
   }
+}
+
+/**
+ * Ocupações de curral atualmente ativas (data_final IS NULL), com o nome do
+ * curral embutido. Usada para resolver a localização de lotes de confinamento
+ * (sem pasto_id) nos seletores de lote (divisão pasto/curral x lote).
+ */
+export async function getOcupacoesCurralAtivas(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data: rows, error } = await client
+    .from('lote_curral_historico')
+    .select('lote_id, data_inicial, currais(nome)')
+    .eq('fazenda_id', fazendaId)
+    .is('data_final', null)
+  if (error) throw error
+  return rows || []
 }
 
 /**

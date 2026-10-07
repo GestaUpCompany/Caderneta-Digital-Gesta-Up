@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, SearchableModal, NumericInput } from '../../components/ui'
 import { MapPin } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -1093,7 +1093,7 @@ export default function MovimentacaoPage() {
               name="loteOrigem"
             />
           ) : (
-            <Input label="PASTO/LOTE" placeholder="Carregando..." value={form.loteOrigem} onChange={setInput('loteOrigem')} error={getError('loteOrigem')} disabled id="loteOrigem" />
+            <Input label="PASTO/CURRAL/LOTE" placeholder="Carregando..." value={form.loteOrigem} onChange={setInput('loteOrigem')} error={getError('loteOrigem')} disabled id="loteOrigem" />
           )}
           {detalhesLoteOrigem && (
             <InfoCard
@@ -1165,7 +1165,7 @@ export default function MovimentacaoPage() {
               </div>
 
               {(form.subtipo === 'Apartação' || form.subtipo === 'Refugo de Cocho') &&
-                campoLoteDestino('SELECIONE O PASTO/LOTE:', 'Buscar pasto ou lote...')}
+                campoLoteDestino('SELECIONE O PASTO/CURRAL/LOTE:', 'Buscar pasto, curral ou lote...')}
 
               {form.subtipo === 'Transferência' && (
                 <>
@@ -1339,15 +1339,13 @@ export default function MovimentacaoPage() {
                                 error={getError(`entrada_cabecas_${categoria}`)}
                               />
                             </div>
-                            <Input
+                            <NumericInput
                               label="PESO MÉDIO ATUAL (kg)"
                               placeholder="Ex: 440"
                               value={catState.pesoAtual}
-                              onChange={(e) => setCatState({ pesoAtual: e.target.value })}
+                              onChange={(v) => setCatState({ pesoAtual: v })}
                               error={getError(`entrada_peso_${categoria}`)}
-                              inputMode="numeric"
-                              type="number"
-                              min="0"
+                              decimalPlaces={1}
                             />
                             {!catExistente && (
                               <>
@@ -1376,15 +1374,13 @@ export default function MovimentacaoPage() {
                                   />
                                   {mensagemErroCampo(`entrada_sexo_${categoria}`)}
                                 </div>
-                                <Input
+                                <NumericInput
                                   label="IDADE (meses)"
                                   placeholder="Ex: 24"
                                   value={catState.idade}
-                                  onChange={(e) => setCatState({ idade: e.target.value })}
+                                  onChange={(v) => setCatState({ idade: v })}
                                   error={getError(`entrada_idade_${categoria}`)}
-                                  inputMode="numeric"
-                                  type="number"
-                                  min="0"
+                                  decimalPlaces={0}
                                 />
                               </>
                             )}

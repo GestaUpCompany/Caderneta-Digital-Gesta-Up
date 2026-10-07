@@ -651,7 +651,7 @@ export default function BebedourosPage() {
                           } ${
                             ouvindoVoz && campoVozAtual === campo
                               ? 'animate-pulse bg-red-600'
-                              : 'bg-gray-600 hover:bg-gray-700'
+                              : 'bg-brand-900 hover:bg-brand-800'
                           }`}
                         >
                           <span className="text-lg leading-none">🎤</span>

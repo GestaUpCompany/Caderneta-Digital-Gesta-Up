@@ -2,6 +2,12 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Correção manual de entrada em lote errado (07/10/2026)
+
+Fazenda Sementes Tropical - Arizona: entrada de 46 Bezerro (registro `cf0da262`, lançada 06/10 pela Carol) tinha ido para o lote AR-26-06 mas o lote correto era AR-26-13. Correção pontual via MCP (sem migration): soft-delete do registro errado (`deleted_at`), reinsert com `lote_origem`/`lote_origem_id` = AR-26-13 e novo `local_id` `correcao-1791374174` (registro `ed004f1a`), deixando o trigger `update_quant_atual_movimentacao` refazer o lado do destino (quant_atual 197, peso ponderado 220,59, datas 06/10). O lado do AR-26-06 foi restaurado manualmente em `lote_categorias` com base no `audit_log` (quant_atual 53, peso 209,20, data_pesagem 2026-06-22, data_ajuste_peso NULL, periodo 16, dias_restantes_meta 50). Padrão reutilizável para correções desse tipo: estornar o registro (soft-delete) + reinsert corrigido para o trigger recalcular o destino + restaurar a origem via `audit_log` e `calculate_quant_atual`.
+
+**Disparador**: quando mencionar "entrada em lote errado", "corrigir movimentação", "registro correcao-", AR-26-06/AR-26-13 da Sementes Tropical, ler esta seção.
+
 ## Isolamento de tenant no Supabase e adaptações do PWA (06/10/2026)
 
 O Painel aplicou a migration `20261006180000_isolamento_tenant_lotes_pastos_fazendas.sql` fechando RLS cross-fazenda em `fazendas`, `usuario_fazenda`, `pastos`, `lotes` e `peoes` (policies `qual=true`, incluindo UPDATE público em `pastos` e auto-vínculo em `usuario_fazenda`), após incidente real em que controller de uma fazenda alterou dados de outra. O acesso passa a ser por `caller_has_fazenda_access` (vínculo `usuario_fazenda` para usuários; email JWT -> `peoes` -> `fazendas.acesso_id` para peões) e `user_has_fazenda_role` para checks por papel.
@@ -1112,6 +1118,33 @@ Correções no caminho: `rascunhoKey` agora é escopada por fazenda (`suplementa
 
 **Colunas mortas**: `consumo_medio_*`/`custo_medio_*` de `registros_suplementacao` não são mais escritas por nenhum caminho (primário, fan-out creep, update) — decisão do usuário; as colunas seguem no banco sem uso e o payload local também não as carrega.
 
+## Isolamento total de cache na troca de ID de fazenda (29/09/2026)
+
+**Problema**: em aparelhos que alternam entre IDs de fazenda, dados da fazenda anterior vazavam para a nova sessão: o nome do último usuário aparecia na saudação e assinava registros, a tela de bloqueio PIN mostrava o funcionário da fazenda anterior (e podia autologá-lo dentro do trust interval de 10min), o seletor de funcionários listava pessoas da fazenda errada quando offline, e a troca só limpava o Cache API (bg-cache e logo), deixando IndexedDB, caches em memória e localStorage intactos.
+
+**Correção**:
+
+- `Configuracoes.handleSalvar`: na troca de fazenda, `await clearCadastroCache()` zera memória + IndexedDB (cadastro, queryCache, RBAC, rotinas, mapa, execuções) de forma síncrona com a troca, e o config reseta a identidade (`usuario`, `funcionarioId/Nome/Cadernetas`, `expediente*`). Sem isso o funcionário logado da fazenda anterior continuava ativo e assinava registros.
+- `useAppLock.ts`: chaves `appLock_lastFuncionario*` do localStorage ganharam selo `appLock_lastFazendaId`. `readLastFuncionario` retorna null quando o selo não bate com a fazenda atual, então a tela de PIN nunca mais mostra funcionário de outra fazenda nem o autologa no trust interval. Chaves legadas sem selo são ignoradas uma única vez (cai no grid completo de funcionários) até o próximo login regravar o selo.
+- `funcionarioAuthService.getFuncionariosComAcessoOnlineFirst`: o fallback offline para o cache `funcionarios_rbac` só retorna a lista quando `cached.fazendaId === fazendaId` (o `getCachedFuncionariosComAcesso` já fazia essa checagem; faltava no fallback).
+- `api.salvarRegistro`: todo registro local passa a ser selado com `fazendaId` da sessão. `listarRegistros` esconde registros selados de outra fazenda (registros antigos sem selo continuam visíveis), e `syncService.processQueue` pula itens cujo registro é selado para outra fazenda, deixando-os pendentes até o aparelho voltar ao ID de origem em vez de gravá-los na fazenda errada. O selo usa camelCase e não vaza para payloads do Supabase (registroToSupabase mapeia campos explicitamente).
+
+**Validação E2E** (gestaup <-> gestaupteste, fazendas de teste do mesmo grupo): troca para fazenda com RBAC desligado e zero funcionários removeu a tela de PIN do funcionário anterior, limpou `cadastroData` do IndexedDB e resetou a identidade no config persistido; volta para gestaup mostrou o grid de funcionários correto da fazenda em vez do PIN obsoleto. Typecheck (`npx tsc --noEmit`) limpo.
+
+Disparador: quando mencionar "cache não invalida ao trocar fazenda", "funcionário de outra fazenda", "nome errado no app", "PIN de outra pessoa", "aparelho que alterna IDs", `appLock_lastFazendaId`, ler esta seção.
+
+## Share com fotos no app nativo via Capacitor Share/Filesystem (06/10/2026)
+
+O compartilhamento com album de fotos nao anexava nada no APK de producao: o Android WebView nao implementa `navigator.share` com `files`, entao o fluxo sempre caia no fallback `wa.me` (so texto). `compartilharWhatsApp` agora detecta `Capacitor.isNativePlatform()` e usa `@capacitor/share` + `@capacitor/filesystem` (novas deps): grava cada foto em `Directory.Cache` e chama `Share.share({ text, files: uris })` numa share sheet so. Cancelamento do usuario tratado como abort; falha real cai para o caminho web como antes. Requer rebuild do APK para ter efeito.
+
+## Suplementacao promovida a producao: linguagem nova + historico de consumo (06/10/2026)
+
+Recorte para master da `SuplementacaoPage` redesenhada na `feat/layout-moderno-menus`: secoes `CadernetaSection`, card do lote em `InfoCard` (com `span` para categorias em faixa inteira e iniciais maiusculas), checklist de condicoes em afirmacoes negativas com foto/voz/obs por item (chaves positivas do jsonb preservadas), foto do cocho em `checklist.foto_cocho`, escopo adulto + creep no mesmo lancamento, card de consumo dos ultimos 7 dias (intervalo aberto do ultimo trato incluido) e `HistoricoSuplementacaoModal` com 30 dias do lote, offline via cache.
+
+Dependencias promovidas junto: `uploadFotosChecklist` generalizado para `suplementacao` no `syncService`, share de suplementacao com album de fotos numa mensagem, `InfoCard.span`, `capitalizarCategoria`, restyle do `FotoSection` (afeta Morte/Problemas/Atividades, apenas visual) e `BannerRascunho` compacto. Sem migration: tudo vai no checklist jsonb. Painel atualizado no commit `062984b` do repo manejus (espacamento, foto do cocho e fotos dos problemas no detalhe).
+
+Rascunho de suplementacao agora escopado por fazenda (`suplementacao:{fazendaId}`) e lote inexistente na fazenda atual exibe erro visivel em vez de bloquear o SALVAR em silencio. Demais cadernetas seguem com `useRascunhoForm` sem escopo (divida registrada). Colunas `consumo_medio_*`/`custo_medio_*` de `registros_suplementacao` nao sao mais escritas (mortas por decisao); o detalhe do Painel as exibe como `-` em registros novos.
+
 ## Trato Confinamento na linguagem nova + vagão e foto da balança (06/10/2026)
 
 A `TratoConfinamentoPage` migrou para o layout do mockup: card do curral com dieta/cabeças/peso médio, tiles de trato com `horario_sugerido` e estado (feito/atual/futuro — trato já lançado é revisitável em leitura), caixas PREVISTO vs REALIZADO, `InfoStrip` de tolerância (desvio em kg e % contra `TOLERANCIA_DESVIO_PERCENT = 5` do app), seletores de linha e curral na barra inferior com progresso "Nº TRATO · i de N currais · %", tile tracejado de currais vazios e botão progressivo "SALVAR E IR PARA {próximo}". Toda a lógica de cálculo foi preservada (kg_mn_dia dia 1, total do dia anterior × ajuste da leitura, compensação do último trato, rascunho de kg por curral).
@@ -1120,6 +1153,6 @@ Vagão por trato (novo): `getRegistrosFabricaByData`/`Cached` trazem as produç�
 
 Foto da balança: botão BALANÇA usa `usePhotoGps` (câmera nativa no celular, input de arquivo na web) e salva em `fotoBase64`; `trato-confinamento` entrou no `FOTO_BUCKET_BY_STORE` (`fotos-registros`) e a URL vai para `foto_url` no sync.
 
-Payload/sync: `vagaoId`, `vagaoNome` e `fabricaConfinamentoId` (só quando a produção já tem id do Supabase — id local do IndexedDB quebraria a FK) seguem no registro local e são mapeados para `vagao_id`/`fabrica_confinamento_id`. **Sequenciamento deploy → migration**: como as colunas novas só existem após `supabase/migrations/20261006120000_oferta_trato_vagao_e_foto.sql` (repo do Painel, propositalmente não aplicada até depois do deploy do PWA), `createRegistroOfertaTrato`/`updateRegistroOfertaTrato` retentam sem as 3 colunas quando o PostgREST responde PGRST204 — o sync não derruba no intervalo e passa a gravar vagão/foto assim que a coluna existir. Registros lançados antes da migration guardam `vagaoId` localmente e o saldo já os conta.
+Payload/sync: `vagaoId`, `vagaoNome` e `fabricaConfinamentoId` (só quando a produção já tem id do Supabase — id local do IndexedDB quebraria a FK) seguem no registro local e são mapeados para `vagao_id`/`fabrica_confinamento_id`. **Sequenciamento deploy → migration**: como as colunas novas só existem após `supabase/migrations/20261006120000_oferta_trato_vagao_e_foto.sql` (repo do Painel), `createRegistroOfertaTrato`/`updateRegistroOfertaTrato` retentam sem as 3 colunas quando o PostgREST responde PGRST204 — o sync não derruba no intervalo e passa a gravar vagão/foto assim que a coluna existir. Registros lançados antes da migration guardam `vagaoId` localmente e o saldo já os conta.
 
-Migration pendente (Painel): adiciona `fabrica_confinamento_id`, `vagao_id` e `foto_url` a `registros_oferta_trato` + índices parciais; aplicar com `supabase db push` depois do deploy do PWA.
+Migration aplicada no Painel: `20261006120000_oferta_trato_vagao_e_foto.sql` adiciona `fabrica_confinamento_id`, `vagao_id` e `foto_url` a `registros_oferta_trato` + índices parciais.

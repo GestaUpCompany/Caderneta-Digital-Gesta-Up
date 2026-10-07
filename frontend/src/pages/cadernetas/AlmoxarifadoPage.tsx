@@ -18,7 +18,6 @@ import { getCachedCadastroData, getClassificacoesAlmoxarifadoCached, getSetoresC
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { iniciais, corAvatar } from '../../utils/avatar'
 
@@ -481,7 +480,7 @@ export default function AlmoxarifadoPage() {
             <SearchableModal
               label={<span>{devolucao ? 'QUEM RECEBEU?' : 'QUEM ENTREGOU?'} <span className="text-red-500">*</span></span>}
               value={form.quemEntregou}
-              onChange={(val) => { set('quemEntregou')(val); atualizarNomeUsuarioConfig(val); setTrocandoEntregou(false) }}
+              onChange={(val) => { set('quemEntregou')(val); setTrocandoEntregou(false) }}
               error={getError('quemEntregou')}
               options={funcionariosDisponiveis}
               placeholder="Buscar funcionário..."
@@ -493,7 +492,7 @@ export default function AlmoxarifadoPage() {
               label={<span>{devolucao ? 'QUEM RECEBEU?' : 'QUEM ENTREGOU?'} <span className="text-red-500">*</span></span>}
               placeholder="Nome de quem entregou"
               value={form.quemEntregou}
-              onChange={(e) => { set('quemEntregou')(e.target.value); atualizarNomeUsuarioConfig(e.target.value) }}
+              onChange={(e) => set('quemEntregou')(e.target.value)}
               error={getError('quemEntregou')}
               id="quemEntregou"
             />

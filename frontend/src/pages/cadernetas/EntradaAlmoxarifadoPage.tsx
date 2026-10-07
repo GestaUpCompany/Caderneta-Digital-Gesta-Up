@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage } from '../../components/ui'
+import { Button, Input, DatePicker, ValidationMessage, NumericInput } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
@@ -436,12 +436,12 @@ export default function EntradaAlmoxarifadoPage() {
                 </div>
               )}
 
-              <Input
+              <NumericInput
                 label="QUANTIDADE DA ENTRADA?"
                 placeholder="Informe a quantidade"
                 value={itemEditando?.quantidade || ''}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.')
+                decimalPlaces={3}
+                onChange={(value) => {
                   setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
                   setItemErrors(prev => {
                     const newErrors = new Set(prev)

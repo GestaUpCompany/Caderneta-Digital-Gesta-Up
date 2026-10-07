@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, Select, DatePicker, Radio, ValidationMessage } from '../../components/ui'
+import { Input, Select, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
 import { Brush, Save, Plus, Trash2, Video } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
@@ -539,19 +539,17 @@ export default function RecebimentoCompraPage() {
                 ]}
               />
               <div className="grid grid-cols-2 gap-3">
-                <Input
+                <NumericInput
                   label="FÊMEAS"
-                  type="number"
-                  inputMode="numeric"
+                  decimalPlaces={0}
                   value={c.femeas}
-                  onChange={(e) => setContagem(idx, 'femeas', e.target.value)}
+                  onChange={(v) => setContagem(idx, 'femeas', v)}
                 />
-                <Input
+                <NumericInput
                   label="MACHOS"
-                  type="number"
-                  inputMode="numeric"
+                  decimalPlaces={0}
                   value={c.machos}
-                  onChange={(e) => setContagem(idx, 'machos', e.target.value)}
+                  onChange={(v) => setContagem(idx, 'machos', v)}
                 />
               </div>
             </div>
@@ -573,19 +571,19 @@ export default function RecebimentoCompraPage() {
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">4. BALANÇÃO</h2>
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <NumericInput
               label="PESO ENTRADA (KG)"
               placeholder="Caminhão cheio"
               value={form.pesoEntrada}
-              onChange={setInput('pesoEntrada')}
-              inputMode="decimal"
+              onChange={(v) => setForm((prev) => ({ ...prev, pesoEntrada: v }))}
+              decimalPlaces={0}
             />
-            <Input
+            <NumericInput
               label="PESO SAÍDA (KG)"
               placeholder="Caminhão vazio"
               value={form.pesoSaida}
-              onChange={setInput('pesoSaida')}
-              inputMode="decimal"
+              onChange={(v) => setForm((prev) => ({ ...prev, pesoSaida: v }))}
+              decimalPlaces={0}
             />
           </div>
           <Input
@@ -680,12 +678,11 @@ export default function RecebimentoCompraPage() {
               { value: '5', label: '5 — Gordo' },
             ]}
           />
-          <Input
+          <NumericInput
             label="MORTES NO TRANSPORTE"
-            type="number"
-            inputMode="numeric"
+            decimalPlaces={0}
             value={form.mortes}
-            onChange={setInput('mortes')}
+            onChange={(v) => setForm((prev) => ({ ...prev, mortes: v }))}
           />
         </div>
 

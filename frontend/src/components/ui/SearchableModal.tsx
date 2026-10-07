@@ -16,7 +16,7 @@ interface SearchableModalProps {
   onCreateMulti?: (ids: { manejo: string; brinco: string; chip: string }, createField?: 'manejo' | 'brinco' | 'chip') => void
   createNewLabel?: string
   createField?: 'manejo' | 'brinco' | 'chip'
-  /** Quando informado, exibe um texto secundário (ex: pasto) à esquerda de cada opção, com a opção original (ex: lote) à direita. Também é usado na busca. */
+  /** Quando informado, exibe um texto secundário (ex: pasto ou curral) à esquerda de cada opção, com a opção original (ex: lote) à direita. Também é usado na busca. */
   secondaryText?: (option: string) => string
 }
 
@@ -211,7 +211,7 @@ export default function SearchableModal({
                     <div className="space-y-2">
                       {secondaryText && (
                         <div className="flex items-center justify-between gap-2 px-4 pb-1 text-base font-bold text-gray-500 uppercase tracking-wide">
-                          <span>Pasto</span>
+                          <span>Pasto/Curral</span>
                           <span>Lote</span>
                         </div>
                       )}

@@ -49,7 +49,7 @@ export interface CadastroCacheData {
   formulacoes?: string[]
   pastosDetalhes?: Record<string, PastoDetalhes>
   lotesDetalhes?: Record<string, LoteDetalhes>
-  /** Mapa nome do lote -> nome do pasto onde o lote está. Usado para exibir o pasto ao lado do lote nos seletores. */
+  /** Mapa nome do lote -> divisão onde o lote está (nome do pasto ou do curral). Usado para exibir a divisão ao lado do lote nos seletores. */
   lotesPastoMap?: Record<string, string>
   individuos?: { id: string; id_manejo: string | null; id_brinco: string | null; id_chip: string | null; id_provisorio_cria: string | null; sexo: string; raca: string; categoria: string; classificacao_matriz: string | null; numero_partos: number | null; status: string }[]
 }
@@ -330,7 +330,7 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
       // Buscar do Supabase
       console.log('[CadastroCache] Buscando dados do Supabase para fazenda:', fazendaId)
       
-      const [pastosData, lotesData, frigorificosData, causasMorteData, bebedourosData, fornecedoresData, funcionariosData, individuosData, mineralData, proteinadoData, racaoData, insumosData] = await Promise.all([
+      const [pastosData, lotesData, frigorificosData, causasMorteData, bebedourosData, fornecedoresData, funcionariosData, individuosData, mineralData, proteinadoData, racaoData, insumosData, ocupacoesCurralData] = await Promise.all([
         supabaseService.getPastos(fazendaId),
         supabaseService.getLotes(fazendaId),
         supabaseService.getFrigorificos(fazendaId),
@@ -342,15 +342,13 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         supabaseService.getMineral(fazendaId),
         supabaseService.getProteinado(fazendaId),
         supabaseService.getRacao(fazendaId),
-        supabaseService.getInsumos(fazendaId)
+        supabaseService.getInsumos(fazendaId),
+        supabaseService.getOcupacoesCurralAtivas(fazendaId).catch(() => [])
       ])
 
       const pastos = pastosData?.map((p: any) => p.nome) || []
       const lotes = lotesData?.map((l: any) => l.nome) || []
-      const pastoNomeById: Record<string, string> = {}
-      pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-      const lotesPastoMap: Record<string, string> = {}
-      lotesData?.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || '' })
+      const lotesPastoMap = buildLotesLocalMap(lotesData, pastosData, ocupacoesCurralData)
       const frigorificos = frigorificosData?.map((f: any) => f.nome) || []
       const causasMorte = causasMorteData?.map((c: any) => c.nome) || []
       const bebedouros = bebedourosData?.map((b: any) => b.nome) || []
@@ -652,6 +650,34 @@ function dedupSorted(list: string[] | undefined): string[] {
   return Array.from(new Set(list || [])).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }
 
+/**
+ * Constrói o mapa nome do lote -> divisão onde ele está (pasto ou curral).
+ * Lotes com pasto_id resolvem pelo nome do pasto; lotes de confinamento
+ * (pasto_id nulo) resolvem pelo curral da ocupação ativa em
+ * lote_curral_historico (data_final IS NULL). Se houver mais de uma ocupação
+ * ativa para o mesmo lote, vale a de data_inicial mais recente.
+ */
+function buildLotesLocalMap(
+  lotesData: any[] | null | undefined,
+  pastosData: any[] | null | undefined,
+  ocupacoesCurral: any[] | null | undefined
+): Record<string, string> {
+  const pastoNomeById: Record<string, string> = {}
+  pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+  const curralNomeByLoteId: Record<string, string> = {}
+  ;(ocupacoesCurral || [])
+    .slice()
+    .sort((a: any, b: any) => String(a?.data_inicial || '').localeCompare(String(b?.data_inicial || '')))
+    .forEach((o: any) => {
+      if (o?.lote_id && o?.currais?.nome) curralNomeByLoteId[o.lote_id] = o.currais.nome
+    })
+  const mapa: Record<string, string> = {}
+  lotesData?.forEach((l: any) => {
+    mapa[l.nome] = pastoNomeById[l.pasto_id] || curralNomeByLoteId[l.id] || ''
+  })
+  return mapa
+}
+
 export async function getCachedCadastroData(): Promise<CadastroCacheData | null> {
   // Se já tem dados em memória, retorna
   if (cacheData) {
@@ -704,7 +730,7 @@ export async function getCachedCadastroData(): Promise<CadastroCacheData | null>
 }
 
 /**
- * Retorna lotes ativos (ativo=true) com o mapa lote→pasto.
+ * Retorna lotes ativos (ativo=true) com o mapa lote→divisão (pasto ou curral).
  * Quando online, busca sempre do Supabase (getLotes filtra ativo=true)
  * para garantir que lotes recém-inativados não apareçam nos seletores.
  * Quando offline, cai no cache em memória/IndexedDB.
@@ -714,15 +740,13 @@ export async function getLotesAtivosCached(
 ): Promise<{ lotes: string[]; lotesPastoMap: Record<string, string> }> {
   if (navigator.onLine) {
     try {
-      const [lotesData, pastosData] = await Promise.all([
+      const [lotesData, pastosData, ocupacoesCurralData] = await Promise.all([
         supabaseService.getLotes(fazendaId),
         supabaseService.getPastos(fazendaId),
+        supabaseService.getOcupacoesCurralAtivas(fazendaId).catch(() => []),
       ])
       const lotes = Array.from(new Set(lotesData?.map((l: any) => l.nome) || []))
-      const pastoNomeById: Record<string, string> = {}
-      pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-      const lotesPastoMap: Record<string, string> = {}
-      lotesData?.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || '' })
+      const lotesPastoMap = buildLotesLocalMap(lotesData, pastosData, ocupacoesCurralData)
       return { lotes, lotesPastoMap }
     } catch (error) {
       console.error('[CadastroCache] Erro ao buscar lotes ativos do Supabase, usando cache:', error)
@@ -789,14 +813,12 @@ export async function ensureLotesPastoMap(
     return cache.lotesPastoMap || {}
   }
   try {
-    const [lotesData, pastosData] = await Promise.all([
+    const [lotesData, pastosData, ocupacoesCurralData] = await Promise.all([
       supabaseService.getLotes(fazendaId),
       supabaseService.getPastos(fazendaId),
+      supabaseService.getOcupacoesCurralAtivas(fazendaId).catch(() => []),
     ])
-    const pastoNomeById: Record<string, string> = {}
-    pastosData?.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-    const mapa: Record<string, string> = {}
-    lotesData?.forEach((l: any) => { mapa[l.nome] = pastoNomeById[l.pasto_id] || '' })
+    const mapa = buildLotesLocalMap(lotesData, pastosData, ocupacoesCurralData)
 
     // Só considerar a reconstrução válida se ela própria for utilizável.
     // Caso contrário (ex.: getPastos ainda retornou vazio), preservar o
@@ -3194,12 +3216,17 @@ export async function syncAllCadastroData(
     // ~8 segundos em 11 steps sem motivo real.
   }
 
-  // Construir lotesPastoMap a partir dos dados brutos de pastos e lotes
-  const pastoNomeById: Record<string, string> = {}
-  rawPastos.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
-  result.lotesPastoMap = {}
-  const lotesPastoMap = result.lotesPastoMap
-  rawLotes.forEach((l: any) => { lotesPastoMap[l.nome] = pastoNomeById[l.pasto_id] || '' })
+  // Construir lotesPastoMap a partir dos dados brutos de pastos e lotes,
+  // resolvendo o curral para lotes de confinamento (sem pasto_id).
+  // Falha na query de ocupações degrada para o comportamento anterior
+  // (divisão vazia) em vez de derrubar o sync.
+  let ocupacoesCurralData: any[] = []
+  try {
+    ocupacoesCurralData = await supabaseService.getOcupacoesCurralAtivas(fazendaId)
+  } catch (e) {
+    console.warn('[CadastroCache] Falha ao buscar ocupações de curral para lotesPastoMap:', e)
+  }
+  result.lotesPastoMap = buildLotesLocalMap(rawLotes, rawPastos, ocupacoesCurralData)
 
   // Salvar no cache
   await saveToCache(result)

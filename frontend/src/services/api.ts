@@ -38,7 +38,7 @@ export async function salvarRegistro(
   const responsavelPayload = ((dataSemCamposValidacao.responsavel as string) || '').trim()
 
   // Determinar nome_usuario final
-  let nomeUsuarioFinal = usuarioPayload || responsavelPayload || usuarioConfigurado
+  const nomeUsuarioFinal = usuarioPayload || responsavelPayload || usuarioConfigurado
 
   // Se mesmo assim estiver vazio, bloquear o lançamento
   if (!nomeUsuarioFinal) {
@@ -68,6 +68,10 @@ export async function salvarRegistro(
   const registro = {
     ...dataComUsuario,
     data: dataComHora,
+    // Fazenda de origem do registro: permite ao sync ignorar registros
+    // pendentes de outra fazenda (aparelho que alterna IDs) em vez de
+    // gravá-los na fazenda errada, e filtra listas locais por fazenda.
+    fazendaId: configState.fazendaId || null,
     // Permite que a caderneta forneça um id próprio (ex: OS usa uuid real para
     // ser referenciável como FK offline antes do sync)
     id: (dataComUsuario.id as string) || generateId(),
@@ -106,13 +110,20 @@ export async function salvarRegistro(
 }
 
 export async function listarRegistros(caderneta: CadernetaStore): Promise<Registro[]> {
-  const registros = await getAllRegistros(caderneta)
-  
+  const todosRegistros = await getAllRegistros(caderneta)
+
+  // Esconder registros marcados como de outra fazenda (aparelho que alterna
+  // IDs). Registros antigos sem o selo fazendaId continuam visíveis.
+  const fazendaAtual = store.getState().config.fazendaId
+  const registros = fazendaAtual
+    ? todosRegistros.filter(r => !(r as any).fazendaId || (r as any).fazendaId === fazendaAtual)
+    : todosRegistros
+
   // Para entrada-insumos, carregar itens do store separado
   if (caderneta === 'entrada-insumos') {
     const itensStore = 'entrada-insumos-itens' as CadernetaStore
     const todosItens = await getAllRegistros(itensStore)
-    
+
     // Agrupar itens por entrada_id
     const itensPorEntrada = todosItens.reduce((acc, item) => {
       const entradaId = item.entradaId as string
@@ -127,7 +138,7 @@ export async function listarRegistros(caderneta: CadernetaStore): Promise<Regist
       })
       return acc
     }, {} as Record<string, any[]>)
-    
+
     // Anexar itens aos registros
     return registros.map(registro => ({
       ...registro,
@@ -138,7 +149,7 @@ export async function listarRegistros(caderneta: CadernetaStore): Promise<Regist
       return dateB - dateA
     })
   }
-  
+
   return registros.sort((a, b) => {
     const dateA = new Date(a.lastModified).getTime()
     const dateB = new Date(b.lastModified).getTime()

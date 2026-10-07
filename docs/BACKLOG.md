@@ -2,6 +2,25 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Fábrica Confinamento: entidade Carga para rastrear vagões por trato (spec aprovada 30/09/2026)
+
+**Contexto**: hoje `registros_fabrica_confinamento` (master por trato) tem um único `vagao_id` e os insumos penduram direto no master. A operação precisa rastrear quantos e quais vagões produziram cada trato (ex.: trato de 1.000 kg = 500 no vagão A + 500 no vagão B), com kg realizado por insumo informado **a cada carga**. A estrutura atual perde esse rastro (segundo save sobrescreve `vagao_id`) e tem dois riscos multi-dispositivo: master duplicado por ordem (dois aparelhos offline criam linhas distintas via `local_id`) e lost update no `total_produzido` (update carrega total absoluto calculado de snapshot velho).
+
+**Modelo aprovado** — três níveis `trato → carga → insumos`:
+
+1. `CREATE TABLE registros_fabrica_confinamento_cargas`: uma linha por carga (`id`, `local_id` unique para idempotência offline, `registro_id` FK master, `vagao_id`, `kg_produzido`, `ordem`, `usuario`, `data`, `created_at`, `deleted_at`). Append-only — nunca update — o que torna a concorrência conflict-free.
+2. `ALTER TABLE registros_fabrica_confinamento_insumos ADD carga_id uuid` (nullable; legado segue via `registro_id`).
+3. `UNIQUE (fazenda_id, data, tipo, formulacao_id, ordem_trato)` no master: dois aparelhos offline convergem para a mesma linha no upsert.
+4. Trigger `AFTER INSERT/UPDATE/DELETE ON cargas` recalcula `master.total_produzido = SUM(cargas)` — incremento atômico server-side, elimina lost update. `vagao_id` do master vira informativo (último usado) para não quebrar o Painel. Trigger de estoque em insumos não muda (baixa sai por carga, mais granular).
+
+**PWA**: store IndexedDB `fabrica-confinamento-cargas`; save = upsert master + insert carga + insumos com `carga_id`; UX com SALVAR acumulando carga no trato aberto e ENCERRAR TRATO fechando e avançando; tela lista as cargas do trato ("Carga 1 · Kuhn · 500 kg"); rascunho por (trato, vagão).
+
+**Painel**: `fetchFabricaAcompanhamento` continua lendo totais do master sem mudança; evolução opcional de listar cargas/vagões por trato.
+
+**Migração de dados legados** (a decidir na implementação): deixar tratos antigos sem cargas ou gerar uma carga retroativa por master para histórico uniforme.
+
+**Disparador**: quando mencionar cargas da fábrica, rastrear vagões por trato, produção parcial multi-vagão, ou master duplicado por ordem de trato, ler esta seção.
+
 ## CMS do texto da suplementação usa só a série do aparelho (28/09/2026)
 
 `calcularMetricasSuplementacao` é chamada no share de registro (`ListaRegistros`) e no resumo diário (`SuplementacaoListaPage`) sobre `listarRegistros('suplementacao')`, que lê só o IndexedDB local. O sync é push-only: tratos lançados em outro aparelho (ex.: outro tratador do mesmo lote) nunca entram na série local. Com a série incompleta, a "média geral" do texto diverge da série completa do banco — caso observado na Fazenda Brilhante: aparelho com 8 tratos em 8 dias gerou CMN 4,941 enquanto a série completa de 10 tratos daria 5,647.
@@ -106,9 +125,9 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 
 | ID | Tabela/Arquivo | Problema | Correção |
 |---|---|---|---|
-| S1 | fazendas | Policies Auth delete/insert/update com qual=true, qualquer usuário autenticado pode deletar/criar/alterar qualquer fazenda | Restringir DELETE/INSERT/UPDATE ao id IN (SELECT fazenda_id FROM usuario_fazenda WHERE usuario_id = auth.uid() AND papel = 'admin') |
-| S2 | fazendas | Policy Enable public read access (role public), qualquer pessoa na internet pode listar todas as fazendas | Remover policy public; manter apenas SELECT por usuario_fazenda |
-| S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, lotes, pastos, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas | Substituir por filtro fazenda_id IN (SELECT uf.fazenda_id FROM usuario_fazenda uf JOIN usuarios u ON u.id=uf.usuario_id WHERE u.auth_id=auth.uid() AND uf.ativo=true) |
+| ~~S1~~ | fazendas | ~~Policies Auth delete/insert/update com qual=true~~ **RESOLVIDO** (06/10/2026, migration Painel `20261006180000_isolamento_tenant`): INSERT/DELETE só `is_admin_user()`; UPDATE admin/controller da própria fazenda | — |
+| ~~S2~~ | fazendas | ~~Policy Enable public read access (role public)~~ **RESOLVIDO** (06/10/2026, mesma migration): SELECT restrito a vínculo direto ou mesmo `grupo_id` (preserva transferências) | — |
+| S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, ~~lotes, pastos~~, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas. **PARCIAL** (06/10/2026): `lotes`, `pastos`, `fazendas`, `usuario_fazenda` e `peoes` isoladas via `caller_has_fazenda_access`/`user_has_fazenda_role`; RPC `sincronizar_historico_pasto_lote_edit` hardenada | Substituir nas tabelas restantes por `caller_has_fazenda_access(fazenda_id)` (cobre painel via usuario_fazenda e peão PWA via email JWT); auditar RPCs definer restantes (`transferir_lote_entre_fazendas`, `aprovar_solicitacao_novo_lote`) |
 | S4 | usuarios | Policies Allow authenticated insert/update com qual=true, qualquer usuário pode criar/alterar qualquer usuário | Restringir INSERT/UPDATE a id = auth.uid() ou role admin |
 | S5 | peoes (coluna password) | Senhas dos peões em texto plano; usadas em authController.ts:42 para signInWithPassword | **Aceito como está** (decisão do usuário, 2026-09-10): peão é perfil de acesso limitado a dados da fazenda, não tem acesso a dados sensíveis. Hashing é melhoria opcional de defesa-em-profundidade, sem urgência. Se implementar no futuro: migration que hashea as existentes + ajustar authController.ts. |
 
@@ -223,13 +242,13 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 
 | # | ID | Frente | Problema | Impacto no Painel |
 |---|---|---|---|---|
-| 1 | S3 | Segurança | 22+ tabelas com RLS qual=true | QUEBRA se isolado |
+| 1 | S3 | Segurança | 22+ tabelas com RLS qual=true (PARCIAL 06/10: lotes, pastos, fazendas, usuario_fazenda, peoes resolvidos) | QUEBRA se isolado |
 | 2 | S5 | Segurança | ~~Senhas peões em texto plano~~ (aceito como está) | NEUTRO |
-| 3 | S1 | Segurança | fazendas: DELETE/INSERT/UPDATE por qualquer usuário | QUEBRA se isolado |
+| 3 | ~~S1~~ | Segurança | ~~fazendas: DELETE/INSERT/UPDATE por qualquer usuário~~ (RESOLVIDO 06/10) | — |
 | 4 | C2, C5 | Consistência | syncService envia campos inexistentes no schema de pastagens e bebedouros | NEUTRO |
 | 5 | N1 | Negócio | Sem conflito de versão no sync | NEUTRO |
 | 6 | N3 | Negócio | Sync entrada-insumos não transacional | NEUTRO |
-| 7 | S2 | Segurança | fazendas: SELECT público | QUEBRA se isolado |
+| 7 | ~~S2~~ | Segurança | ~~fazendas: SELECT público~~ (RESOLVIDO 06/10) | — |
 | 8 | ~~C9-C10, C13~~ | Consistência | ~~Fuso horário não aplicado no PWA~~ (RESOLVIDO) | NEUTRO |
 | 9 | N4 | Negócio | currentFazendaId global | NEUTRO |
 | 10 | Log erro visível | Negócio | Erro de sync não visível + retries automáticos causam duplicatas | NEUTRO |

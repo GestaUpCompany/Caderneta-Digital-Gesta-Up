@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, DatePicker, ValidationMessage, Button } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, Button, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -441,17 +441,12 @@ export default function EntradaCantinaPage() {
               </div>
             )}
 
-            <Input
+            <NumericInput
               label={itemEditando?.unidade_medida ? `QUANTIDADE (${itemEditando.unidade_medida})` : 'QUANTIDADE'}
-              type="number"
               placeholder="Informe a quantidade"
               value={itemEditando?.quantidade || ''}
-              onChange={(e) => {
-                const unidade = itemEditando?.unidade_medida || ''
-                const permiteDecimal = ['kg', 'g', 'L', 'mL'].includes(unidade)
-                const value = permiteDecimal
-                  ? e.target.value.replace(/[^0-9.,]/g, '').replace(/,/g, '.')
-                  : e.target.value.replace(/[^0-9]/g, '')
+              decimalPlaces={['kg', 'g', 'L', 'mL'].includes(itemEditando?.unidade_medida || '') ? 3 : 0}
+              onChange={(value) => {
                 setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
                 setItemErrors(prev => {
                   const newErrors = new Set(prev)

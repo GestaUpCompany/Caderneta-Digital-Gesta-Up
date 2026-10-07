@@ -7,14 +7,14 @@ import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { store } from '../../store/store'
 import CadernetaHeader from '../../components/CadernetaHeader'
-import { Input, DatePicker, Button, ValidationMessage, SearchableModal, TimeInput } from '../../components/ui'
+import { Input, DatePicker, Button, ValidationMessage, SearchableModal, TimeInput, NumericInput } from '../../components/ui'
+import { formatarMoedaBR } from '../../utils/formatNumber'
 import SuccessModal from '../../components/SuccessModal'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { getInsumos, createInsumo, getFormulacoes, createFormulacao } from '../../services/supabaseService'
 import { getCachedCadastroData } from '../../services/cadastroCache'
 import { useCadastroOptions } from '../../hooks/useCadastroOptions'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 import { Brush, Save } from 'lucide-react'
 
 interface ItemEntrada {
@@ -481,29 +481,23 @@ export default function EntradaInsumosPage() {
                   />
 
                   <div className="flex flex-col gap-3">
-                    <Input
+                    <NumericInput
                       label="QUANTIDADE (kg)"
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      decimalPlaces={3}
                       value={item.quantidade}
-                      onChange={(e) => updateItem(item.id, 'quantidade', e.target.value)}
+                      onChange={(v) => updateItem(item.id, 'quantidade', v)}
                       error={getError(`item_${index}_quantidade`)}
-                      inputMode="decimal"
                     />
-                    <Input
+                    <NumericInput
                       label="VALOR UNITÁRIO (R$)"
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      decimalPlaces={4}
                       value={item.valorUnitario}
-                      onChange={(e) => updateItem(item.id, 'valorUnitario', e.target.value)}
+                      onChange={(v) => updateItem(item.id, 'valorUnitario', v)}
                       error={getError(`item_${index}_valorUnitario`)}
-                      inputMode="decimal"
                     />
                     <Input
                       label="TOTAL (R$)"
-                      value={item.valorTotal}
+                      value={formatarMoedaBR(item.valorTotal) ?? ''}
                       readOnly
                     />
                   </div>
@@ -532,7 +526,7 @@ export default function EntradaInsumosPage() {
               ))}
               
               <span className="text-base text-gray-600">
-                Total: R$ {getValorTotalEntrada()}
+                Total: R$ {formatarMoedaBR(getValorTotalEntrada()) ?? getValorTotalEntrada()}
               </span>
               
               <Button 
@@ -586,7 +580,7 @@ export default function EntradaInsumosPage() {
               <SearchableModal
                 label="RESPONSÁVEL RECEBIMENTO"
                 value={form.responsavelRecebimento}
-                onChange={(val) => { set('responsavelRecebimento')(val); atualizarNomeUsuarioConfig(val) }}
+                onChange={set('responsavelRecebimento')}
                 error={getError('responsavelRecebimento')}
                 options={funcionariosOptions}
                 placeholder="Buscar funcionário..."

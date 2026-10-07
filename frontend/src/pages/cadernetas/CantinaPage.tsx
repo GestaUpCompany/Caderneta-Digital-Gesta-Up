@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, Button } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, Button, NumericInput } from '../../components/ui'
 import { Brush, Save } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -11,7 +11,6 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { getCachedCadastroData, getClassificacoesCantinaCached, getItensCantinaCached } from '../../services/cadastroCache'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { atualizarNomeUsuarioConfig } from '../../utils/nomeUsuario'
 
 interface ItemCantina {
   itemId: string
@@ -378,7 +377,7 @@ export default function CantinaPage() {
         <SearchableModal
           label={<span>QUEM COZINHOU? <span className="text-red-500">*</span></span>}
           value={form.quemCozinhou}
-          onChange={(val) => { setForm((p) => ({ ...p, quemCozinhou: val })); atualizarNomeUsuarioConfig(val) }}
+          onChange={(val) => setForm((p) => ({ ...p, quemCozinhou: val }))}
           error={getError('quemCozinhou')}
           options={funcionariosDisponiveis}
           placeholder="Buscar funcionário..."
@@ -401,10 +400,10 @@ export default function CantinaPage() {
       {/* Seção 2: Refeições */}
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
         <h2 className="text-lg font-black text-gray-900 tracking-tight">2. REFEIÇÕES <span className="text-red-500">*</span></h2>
-        <Input label="N° CAFÉ DA MANHÃ?" type="number" placeholder="Quantidade" value={form.numeroCafeManha} onChange={setInput('numeroCafeManha')} error={getError('numeroCafeManha')} />
-        <Input label="N° LANCHES?" type="number" placeholder="Quantidade" value={form.numeroLanches} onChange={setInput('numeroLanches')} error={getError('numeroLanches')} />
-        <Input label="N° REFEIÇÕES ALMOÇO?" type="number" placeholder="Quantidade" value={form.numeroRefeicoesAlmoco} onChange={setInput('numeroRefeicoesAlmoco')} error={getError('numeroRefeicoesAlmoco')} />
-        <Input label="N° REFEIÇÕES JANTAR?" type="number" placeholder="Quantidade" value={form.numeroRefeicoesJantar} onChange={setInput('numeroRefeicoesJantar')} error={getError('numeroRefeicoesJantar')} />
+        <NumericInput label="N° CAFÉ DA MANHÃ?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroCafeManha} onChange={(v) => setForm((prev) => ({ ...prev, numeroCafeManha: v }))} error={getError('numeroCafeManha')} />
+        <NumericInput label="N° LANCHES?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroLanches} onChange={(v) => setForm((prev) => ({ ...prev, numeroLanches: v }))} error={getError('numeroLanches')} />
+        <NumericInput label="N° REFEIÇÕES ALMOÇO?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroRefeicoesAlmoco} onChange={(v) => setForm((prev) => ({ ...prev, numeroRefeicoesAlmoco: v }))} error={getError('numeroRefeicoesAlmoco')} />
+        <NumericInput label="N° REFEIÇÕES JANTAR?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroRefeicoesJantar} onChange={(v) => setForm((prev) => ({ ...prev, numeroRefeicoesJantar: v }))} error={getError('numeroRefeicoesJantar')} />
       </div>
 
       {/* Seção 3: Itens */}
@@ -551,17 +550,12 @@ export default function CantinaPage() {
               </div>
             )}
 
-            <Input
+            <NumericInput
               label={itemEditando?.unidade_medida ? `QUANTIDADE (${itemEditando.unidade_medida})` : 'QUANTIDADE'}
-              type="number"
               placeholder="Informe a quantidade"
               value={itemEditando?.quantidade || ''}
-              onChange={(e) => {
-                const unidade = itemEditando?.unidade_medida || ''
-                const permiteDecimal = ['kg', 'g', 'L', 'mL'].includes(unidade)
-                const value = permiteDecimal
-                  ? e.target.value.replace(/[^0-9.,]/g, '').replace(/,/g, '.')
-                  : e.target.value.replace(/[^0-9]/g, '')
+              decimalPlaces={['kg', 'g', 'L', 'mL'].includes(itemEditando?.unidade_medida || '') ? 3 : 0}
+              onChange={(value) => {
                 setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
                 setItemErrors(prev => {
                   const newErrors = new Set(prev)
@@ -614,8 +608,8 @@ export default function CantinaPage() {
               <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA MARMITA</h2>
             </div>
             <Input label={<span>FORNECEDOR <span className="text-red-500">*</span></span>} placeholder="Nome do fornecedor" value={form.fornecedor} onChange={setInput('fornecedor')} error={getError('fornecedor')} />
-            <Input label={<span>QUANTIDADE DE MARMITAS <span className="text-red-500">*</span></span>} type="number" placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={setInput('quantidadeMarmitas')} error={getError('quantidadeMarmitas')} />
-            <Input label={<span>PREÇO UNITÁRIO (R$) <span className="text-red-500">*</span></span>} type="number" step="0.01" placeholder="0,00" value={form.precoUnitario} onChange={setInput('precoUnitario')} error={getError('precoUnitario')} />
+            <NumericInput label={<span>QUANTIDADE DE MARMITAS <span className="text-red-500">*</span></span>} decimalPlaces={0} placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeMarmitas: v }))} error={getError('quantidadeMarmitas')} />
+            <NumericInput label={<span>PREÇO UNITÁRIO (R$) <span className="text-red-500">*</span></span>} decimalPlaces={2} placeholder="0,00" value={form.precoUnitario} onChange={(v) => setForm((prev) => ({ ...prev, precoUnitario: v }))} error={getError('precoUnitario')} />
             {form.quantidadeMarmitas && form.precoUnitario && !isNaN(Number(form.quantidadeMarmitas)) && !isNaN(Number(form.precoUnitario)) && (
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <p className="text-sm text-gray-600 font-semibold">PREÇO TOTAL</p>

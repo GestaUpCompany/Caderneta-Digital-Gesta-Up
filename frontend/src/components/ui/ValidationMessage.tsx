@@ -12,7 +12,7 @@ export default function ValidationMessage({ errors }: ValidationMessageProps) {
 
   if (nomeUsuarioError) {
     return (
-      <div className="bg-red-50 border border-red-300 rounded-lg p-4 shadow-sm">
+      <div data-validation-banner className="bg-red-50 border border-red-300 rounded-lg p-4 shadow-sm">
         <div className="flex items-start gap-2">
           <span className="text-xl">⚠️</span>
           <div className="flex-1">
@@ -29,13 +29,27 @@ export default function ValidationMessage({ errors }: ValidationMessageProps) {
     )
   }
 
+  const genericCount = errors.filter(e => !e.message || e.message === 'Campo obrigatório').length
+  const detalhes = [...new Set(errors.map(e => e.message).filter(m => m && m !== 'Campo obrigatório'))]
+
   return (
-    <div className="bg-red-50 border border-red-300 rounded-lg p-3 shadow-sm">
-      <div className="flex items-center gap-2">
+    <div data-validation-banner className="bg-red-50 border border-red-300 rounded-lg p-3 shadow-sm">
+      <div className="flex items-start gap-2">
         <span className="text-xl">⚠️</span>
-        <p className="text-sm font-semibold text-red-800">
-          {errors.length} {errors.length === 1 ? 'campo obrigatório' : 'campos obrigatórios'}
-        </p>
+        <div className="flex-1">
+          {genericCount > 0 && (
+            <p className="text-sm font-semibold text-red-800">
+              {genericCount} {genericCount === 1 ? 'campo obrigatório' : 'campos obrigatórios'}
+            </p>
+          )}
+          {detalhes.length > 0 && (
+            <ul className={genericCount > 0 ? 'mt-1 space-y-0.5' : 'space-y-0.5'}>
+              {detalhes.map(m => (
+                <li key={m} className="text-sm font-semibold text-red-800">{m}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   )
