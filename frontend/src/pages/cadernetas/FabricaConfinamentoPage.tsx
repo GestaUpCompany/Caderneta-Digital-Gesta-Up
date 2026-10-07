@@ -915,6 +915,11 @@ export default function FabricaConfinamentoPage() {
     setSalvando(true)
     setSucesso(false)
     setConfirmarEncerrar(false)
+    // Cancela autosave pendente: ele recriaria o rascunho depois do salvamento
+    if (debounceRascunhoRef.current) {
+      clearTimeout(debounceRascunhoRef.current)
+      debounceRascunhoRef.current = null
+    }
     try {
       const novoTotalProduzido = jaProduzidoNoTrato + totalProduzidoNum
       // Resumo por insumo para o texto compartilhável (soma com cargas anteriores do mesmo trato)
@@ -976,6 +981,7 @@ export default function FabricaConfinamentoPage() {
           concluido: String(concluido),
           fotoBase64: fotoBalanca || null,
           insumosResumo: cargaAtual,
+          curraisNomes: curraisFiltrados.map((c) => c.curralNome).join(' + '),
         })
 
         if (!result.success || !result.registro) {
@@ -1215,7 +1221,7 @@ export default function FabricaConfinamentoPage() {
           {feito ? '✓' : idx + 1}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-base font-extrabold leading-tight text-gray-900">{nomeCurto(insumo.nome)}</span>
+          <span className="block text-[15px] font-extrabold leading-tight text-gray-900">{nomeCurto(insumo.nome)}</span>
           <span className="block text-xs font-semibold text-gray-500">
             {insumo.formula_mn_percent.toFixed(1).replace('.', ',')}% · {formatarKg(prev, 1)} kg
           </span>
@@ -1384,27 +1390,35 @@ export default function FabricaConfinamentoPage() {
 
           {insumoAtivo && !todosTratosConcluidos && (
             <div className="rounded-2xl bg-brand-900 p-4 text-white">
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-xs font-extrabold uppercase tracking-wide opacity-90">Quanto a balança marcou?</span>
-                <span className="text-right text-xs font-extrabold uppercase tracking-wide opacity-90">
-                  {faltaAtivo >= 0 ? 'Falta de' : 'Passou de'} {nomeCurto(insumoAtivo.nome).toLowerCase()}
-                  <span className="block text-2xl normal-case">{formatarKg(Math.abs(faltaAtivo), 1)} kg</span>
-                </span>
-              </div>
-              <div className="mt-1 flex items-end gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={leituraDigitada}
-                  onChange={(e) => handleLeituraDigitada(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') confirmarLeitura()
-                  }}
-                  placeholder="0"
-                  data-field="leitura-balanca"
-                  className="w-full min-w-0 border-0 border-b-4 border-green-500 bg-transparent !px-0 text-4xl font-extrabold text-white placeholder-white/40 focus:outline-none"
-                />
-                <span className="pb-1 text-lg font-semibold">kg</span>
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[11px] font-extrabold uppercase leading-tight tracking-wide opacity-90">
+                    Quanto a balança marcou?
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={leituraDigitada}
+                      onChange={(e) => handleLeituraDigitada(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') confirmarLeitura()
+                      }}
+                      placeholder="0"
+                      data-field="leitura-balanca"
+                      className="w-28 min-w-0 border-0 border-b-4 border-green-500 bg-transparent !px-0 !py-0 text-4xl font-extrabold leading-tight text-white placeholder-white/40 focus:outline-none"
+                    />
+                    <span className="text-base font-semibold">kg</span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className="block whitespace-nowrap text-[11px] font-extrabold uppercase leading-tight tracking-wide opacity-90">
+                    {faltaAtivo >= 0 ? 'Falta' : 'Passou'} de {nomeCurto(insumoAtivo.nome).split(' ')[0]}
+                  </span>
+                  <span className="block whitespace-nowrap text-2xl font-extrabold leading-tight">
+                    {formatarKg(Math.abs(faltaAtivo), 1)} kg
+                  </span>
+                </div>
               </div>
               {erroLeitura && <p className="mt-2 text-sm font-bold text-amber-300">{erroLeitura}</p>}
               <button

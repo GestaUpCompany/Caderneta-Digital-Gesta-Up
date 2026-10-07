@@ -2293,6 +2293,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       if (registro.vagaoNome) {
         texto += `VAGÃO: *${registro.vagaoNome}*\n`
       }
+      if (registro.curraisNomes) {
+        texto += `CURRAIS: *${registro.curraisNomes}*\n`
+      }
       // Trato
       if (registro.ordemTrato !== null && registro.ordemTrato !== undefined && registro.ordemTrato !== '') {
         texto += `TRATO: *${registro.ordemTrato}*\n`
@@ -2306,6 +2309,18 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const v = Number(String(registro.totalProduzido).replace(',', '.')).toFixed(1).replace('.', ',')
         texto += `TOTAL PRODUZIDO: *${v} kg*\n`
       }
+      {
+        const prevN = Number(String(registro.totalPrevisto).replace(',', '.'))
+        const prodN = Number(String(registro.totalProduzido).replace(',', '.'))
+        if (prevN > 0 && Number.isFinite(prodN)) {
+          const difPct = ((prodN - prevN) / prevN) * 100
+          texto += `DIFERENÇA: *${difPct >= 0 ? '+' : ''}${difPct.toFixed(1).replace('.', ',')}%*\n`
+        }
+        const concluidoTrato = registro.concluido === true || registro.concluido === 'true'
+        texto += concluidoTrato
+          ? `SITUAÇÃO: *Trato encerrado*\n`
+          : `SITUAÇÃO: *Em aberto (produção parcial)*\n`
+      }
       // Insumos: previsto x carregado, com diferença percentual
       if (Array.isArray(registro.insumosResumo) && registro.insumosResumo.length > 0) {
         texto += `\n` + `INSUMOS\n`
@@ -2313,8 +2328,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           const prev = Number(i.previsto) || 0
           const prod = Number(i.produzido) || 0
           const fmt = (n: number) => n.toFixed(1).replace('.', ',')
-          const dif = prev > 0 ? ` (${prod - prev >= 0 ? '+' : ''}${fmt(((prod - prev) / prev) * 100)}%)` : ''
-          texto += `${idx + 1}. ${i.nome}: ${fmt(prod)} kg de ${fmt(prev)} kg${dif}\n`
+          const difPct = prev > 0 ? ((prod - prev) / prev) * 100 : null
+          const dif = difPct !== null ? `${difPct >= 0 ? '+' : ''}${fmt(difPct)}%` : ''
+          const marca = difPct !== null && Math.abs(difPct) > 3 ? '⚠️' : '✅'
+          texto += `${idx + 1}. ${i.nome}: *${fmt(prod)} kg* (prev. ${fmt(prev)} kg${dif ? `, ${dif}` : ''}) ${marca}\n`
         })
       }
     } else {
