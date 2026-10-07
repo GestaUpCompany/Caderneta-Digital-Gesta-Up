@@ -2,6 +2,23 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Itens de Produção Fábrica perdidos: estoque sem crédito (07/10/2026)
+
+**Sintoma**: registros de Produção Fábrica chegavam ao Supabase, mas o estoque dos produtos finais (ex.: E/A Engorda TIP 1,8%) não era creditado; histórico do Painel parava em 30/09. Fazenda `d3965505-74d5-4af7-9858-f773d2e8aab3`.
+
+**Causa**: o crédito ('producao' na formulação) e a baixa dos insumos vêm do trigger `trg_saida_insumos_itens_mov`, disparado só pelos itens (`saida_insumos_itens`). Os inserts dos itens estouravam `57014` (statement timeout de 8s da role `authenticated`): como o peão o trigger levava ~4,8s (como superusuário, ~120ms), porque o RLS era reavaliado em cada UPDATE do replay WAC (policies com subselect em `usuario_fazenda`/`usuarios`). No PWA o cabeçalho ficava `synced` mesmo com os itens falhando, e como não há retry automático o erro ficava invisível.
+
+**O que foi feito**:
+- **Backfill pontual** (via MCP, sem arquivo): 28 itens recuperados do `payload` de `logs_sync_errors` e reinseridos um cabeçalho por vez com `statement_timeout` de 120s; logs marcados com `resolved_at`. `estoque_atual` de E/A Engorda e Ração 0,5% Seca REP. conferido com a soma das movimentações.
+- **PWA** (`syncService.ts`, `ProducaoFabricaPage.tsx`): o cabeçalho de `saida-insumos` passa a enviar os itens no mesmo passo (`sincronizarItensSaida`, upsert por `local_id`, também no caminho `update` do REENVIAR); se um item falhar, o cabeçalho vai para `error` (visível com REENVIAR) em vez de `synced`. Item legado na fila resolve o id local do cabeçalho (`resolverSaidaIdSupabase`). O enqueue do item foi mantido como rede de segurança. Sem retries automáticos (decisão de 10/09 preservada).
+- **Painel** (migration `20261007210000_cascata_estoque_security_definer.sql`, aplicada via `db push`): triggers da cascata (`trg_saida_insumos_itens_mov`, `trg_fabrica_confinamento_insumos_mov`, `trg_suplementacao_mov`, `trg_mov_supl_auditoria`, `update_estoque_suplemento`) viram `SECURITY DEFINER` com `search_path` fixo; `recalcular_custo_medio_item(uuid,text,uuid)` e o ramo incremental passam a filtrar `fazenda_id` nos UPDATEs de `insumos`/`formulacoes`/movimentações. Auxiliares seguem `INVOKER` (sem nova superfície de RPC).
+
+**Verificado** (fazenda de testes `d649c65e`, transações revertidas, como `peao_gestaup`): trigger 844 ms -> 21 ms antes do push e 99 ms com as funções reais após o push; regressão OK (2 itens geram 4 movimentações e 2 produções, `estoque_atual` = soma das movimentações); isolamento OK (usuário da fazenda B barrado com 42501 ao inserir item em cabeçalho da fazenda A; replay com `fazenda_id` errado não altera insumo de outra fazenda). Sem erros novos em `logs_sync_errors` após o push.
+
+**Pendências**: ver `docs/BACKLOG.md` ("Estoque de suplementação: pendências após o incidente de itens perdidos").
+
+**Disparador**: quando mencionar `saida_insumos_itens`, itens perdidos de produção, estoque de formulação sem crédito, `trg_saida_insumos_itens_mov`, timeout 57014 em insumos-por-saida ou `sincronizarItensSaida`, ler esta seção.
+
 ## Correção manual de entrada em lote errado (07/10/2026)
 
 Fazenda Sementes Tropical - Arizona: entrada de 46 Bezerro (registro `cf0da262`, lançada 06/10 pela Carol) tinha ido para o lote AR-26-06 mas o lote correto era AR-26-13. Correção pontual via MCP (sem migration): soft-delete do registro errado (`deleted_at`), reinsert com `lote_origem`/`lote_origem_id` = AR-26-13 e novo `local_id` `correcao-1791374174` (registro `ed004f1a`), deixando o trigger `update_quant_atual_movimentacao` refazer o lado do destino (quant_atual 197, peso ponderado 220,59, datas 06/10). O lado do AR-26-06 foi restaurado manualmente em `lote_categorias` com base no `audit_log` (quant_atual 53, peso 209,20, data_pesagem 2026-06-22, data_ajuste_peso NULL, periodo 16, dias_restantes_meta 50). Padrão reutilizável para correções desse tipo: estornar o registro (soft-delete) + reinsert corrigido para o trigger recalcular o destino + restaurar a origem via `audit_log` e `calculate_quant_atual`.

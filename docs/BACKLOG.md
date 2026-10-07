@@ -88,6 +88,28 @@ Criar rota `/admin/erros-sync` com:
 
 ---
 
+## Estoque de suplementação: pendências após o incidente de itens perdidos (07/10/2026)
+
+Incidente: itens de Produção Fábrica (`saida_insumos_itens`) estouravam `57014` e o estoque dos produtos finais não era creditado (fazenda `d3965505-74d5-4af7-9858-f773d2e8aab3`). Backfill de 28 itens feito via MCP; correção no PWA (cabeçalho passa a enviar os itens e vira `error` se algum falhar); correção estrutural no Painel (trigger-cascata `SECURITY DEFINER`). Ver `docs/HISTORICO.md`. Ficam pendentes:
+
+**Aplicado em 07/10/2026**: migration `20261007210000_cascata_estoque_security_definer.sql` (ver `docs/HISTORICO.md`). Falta commitar/pushar o arquivo no repo do Painel e commitar as mudanças do PWA.
+
+**Para discutir com o usuário**
+- **Sobrecarga legada `recalcular_custo_medio_item(text, uuid, uuid)`**: ainda trata `estorno` (removido em 01/10) e faz `UPDATE` em `insumos`/`formulacoes` sem `fazenda_id`. É `INVOKER` e chamável como RPC por `authenticated`; nenhuma função nem código do Painel/PWA a chama (só aparece nos tipos gerados). Candidata a `DROP FUNCTION` numa migration própria.
+- **Id local de 21/09** (`e16b4577-1790016222334`): 6 itens (12.000,1 kg) enfileirados com o id LOCAL do cabeçalho, nunca viraram UUID. Descobrir a qual cabeçalho pertencem (data/formulação/soma) ou descartar. Os logs seguem sem `resolved_at`.
+- **4 cabeçalhos sem itens e sem log de erro** (itens nunca saíram do aparelho, sem payload para recuperar): SAL UREADO 02/10 (300 kg, `5d2978ad`), Engorda 1,8% 03/10 (5.700 kg, `c29dba87`), PROTEINADO 0,3% 06/10 (3.660 kg, `754242b9`) e 28/09 (3.660 kg, `88010c16`). Opções: peão relança, estimar pelos % da formulação × `total_produzido` (estimativa, não dado real) ou ignorar.
+- **Bugs separados vistos nos logs**: `maternidade` com `42601` ("INSERT has more target columns than expressions", 7 erros em 06/10) e `entrada-combustivel` com `42P10` (sem constraint única para o `ON CONFLICT`, 3 erros).
+- **Residual do PWA**: se o cabeçalho sincronizar antes de os itens serem gravados no IndexedDB, o item sobe pela fila e, se falhar, só o item fica em `error` (cabeçalho `synced`). Janela pequena; avaliar tornar a gravação cabeçalho+itens atômica.
+
+**Melhorias de médio prazo (estoque/RLS, sem mexer em segurança)**
+- Trocar `auth.uid()` por `(select auth.uid())` nas policies e marcar as funções de acesso (`user_has_fazenda_access`, `user_has_fazenda_role`, `current_user_has_access`, `is_admin_user`) como `STABLE`, para o Postgres avaliar uma vez por statement e não por linha. O plano de execução do insert do peão mostrou `usuarios` varrida por seq scan e as funções reavaliadas por linha. Beneficia todas as telas.
+- Replay incremental: `recalcular_custo_medio_item` percorre o histórico inteiro do item a cada movimentação (125 linhas só no E/A Engorda). Recalcular a partir da movimentação alterada.
+- Cada produção com 6 insumos dispara 6 replays da MESMA formulação (linha quente). Avaliar crédito da formulação agregado por cabeçalho em vez de por item.
+
+**Segurança (S3 — evidência nova)**: `insumos` e `formulacoes` seguem com policies `qual=true` para `authenticated`. Qualquer usuário autenticado lê e altera insumos e fórmulas de qualquer fazenda. Já listado em S3 abaixo; ao escopar essas duas tabelas por `caller_has_fazenda_access(fazenda_id)` conferir que a cascata de estoque (agora `SECURITY DEFINER`) continua escrevendo normalmente e que o escopo por `fazenda_id` dentro dela foi mantido.
+
+**Disparador**: quando mencionar `saida_insumos_itens`, itens perdidos de produção, estoque de formulação sem crédito, `trg_saida_insumos_itens_mov` ou timeout 57014 em insumos-por-saida, ler esta seção.
+
 ## Auditoria de código (julho/2026) — itens pendentes
 
 Foram identificadas 87 falhas em 4 frentes. 30 itens já foram resolvidos (ver `docs/HISTORICO.md`). Os 57 pendentes estão listados abaixo.
@@ -127,7 +149,7 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 |---|---|---|---|
 | ~~S1~~ | fazendas | ~~Policies Auth delete/insert/update com qual=true~~ **RESOLVIDO** (06/10/2026, migration Painel `20261006180000_isolamento_tenant`): INSERT/DELETE só `is_admin_user()`; UPDATE admin/controller da própria fazenda | — |
 | ~~S2~~ | fazendas | ~~Policy Enable public read access (role public)~~ **RESOLVIDO** (06/10/2026, mesma migration): SELECT restrito a vínculo direto ou mesmo `grupo_id` (preserva transferências) | — |
-| S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, ~~lotes, pastos~~, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas. **PARCIAL** (06/10/2026): `lotes`, `pastos`, `fazendas`, `usuario_fazenda` e `peoes` isoladas via `caller_has_fazenda_access`/`user_has_fazenda_role`; RPC `sincronizar_historico_pasto_lote_edit` hardenada | Substituir nas tabelas restantes por `caller_has_fazenda_access(fazenda_id)` (cobre painel via usuario_fazenda e peão PWA via email JWT); auditar RPCs definer restantes (`transferir_lote_entre_fazendas`, `aprovar_solicitacao_novo_lote`) |
+| S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, ~~lotes, pastos~~, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas. **PARCIAL** (06/10/2026): `lotes`, `pastos`, `fazendas`, `usuario_fazenda` e `peoes` isoladas via `caller_has_fazenda_access`/`user_has_fazenda_role`; RPC `sincronizar_historico_pasto_lote_edit` hardenada | Substituir nas tabelas restantes por `caller_has_fazenda_access(fazenda_id)` (cobre painel via usuario_fazenda e peão PWA via email JWT). **Prioridade alta para `insumos` e `formulacoes`** (07/10/2026): qualquer autenticado altera estoque e custo de outra fazenda; ver seção "Estoque de suplementação: pendências"; auditar RPCs definer restantes (`transferir_lote_entre_fazendas`, `aprovar_solicitacao_novo_lote`) |
 | S4 | usuarios | Policies Allow authenticated insert/update com qual=true, qualquer usuário pode criar/alterar qualquer usuário | Restringir INSERT/UPDATE a id = auth.uid() ou role admin |
 | S5 | peoes (coluna password) | Senhas dos peões em texto plano; usadas em authController.ts:42 para signInWithPassword | **Aceito como está** (decisão do usuário, 2026-09-10): peão é perfil de acesso limitado a dados da fazenda, não tem acesso a dados sensíveis. Hashing é melhoria opcional de defesa-em-profundidade, sem urgência. Se implementar no futuro: migration que hashea as existentes + ajustar authController.ts. |
 

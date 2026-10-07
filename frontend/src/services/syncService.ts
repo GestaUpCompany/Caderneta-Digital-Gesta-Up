@@ -3,6 +3,7 @@ import {
   getRegistro,
   addToSyncQueue,
   removeFromSyncQueue,
+  removeFromSyncQueueByRegistroId,
   updateSyncStatus,
   updateSyncError,
   updateRegistro,
@@ -1004,6 +1005,36 @@ async function criarItensPendentes(store: CadernetaStore, data: any, fazendaId: 
   return { ...data, [campo]: itensFinais }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Itens da produção guardam o id LOCAL do cabeçalho até ele sincronizar; só o
+// UUID do Supabase serve como saida_id.
+async function resolverSaidaIdSupabase(saidaId: string | null): Promise<string> {
+  if (saidaId && UUID_RE.test(saidaId)) return saidaId
+  const cabecalho = saidaId ? await getRegistro('saida-insumos', saidaId) : undefined
+  if (cabecalho?.supabaseId) return cabecalho.supabaseId as string
+  throw new Error('Produção ainda não enviada ao servidor. Reenvie o registro de Produção Fábrica.')
+}
+
+// Envia os itens (insumos-por-saida) de um cabeçalho de produção. O upsert por
+// local_id torna o reenvio idempotente; a fila dos itens é esvaziada porque o
+// cabeçalho é o dono do envio.
+async function sincronizarItensSaida(saidaLocalId: string, saidaSupabaseId: string): Promise<void> {
+  const itens = await getAllRegistros('insumos-por-saida')
+  for (const item of itens) {
+    if (item.idSaida !== saidaLocalId && item.idSaida !== saidaSupabaseId) continue
+    const payload = registroToSupabase('insumos-por-saida', { ...item, idSaida: saidaSupabaseId }, '')
+    await supabaseService.createSaidaInsumosItem(payload)
+    await updateRegistro('insumos-por-saida', item.id, {
+      ...item,
+      idSaida: saidaSupabaseId,
+      syncStatus: 'synced',
+      syncError: null,
+    })
+    await removeFromSyncQueueByRegistroId(item.id)
+  }
+}
+
 async function syncToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string, operation: 'create' | 'update'): Promise<void> {
   try {
     const tableName = CADERNETA_TO_SUPABASE_TABLE[store]
@@ -1229,7 +1260,11 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           await supabaseService.createEntradaInsumosItem(data)
           break
         case 'saida_insumos_itens':
-          await supabaseService.createSaidaInsumosItem(data)
+          // Item legado na fila: resolve o id local do cabeçalho antes do upsert
+          await supabaseService.createSaidaInsumosItem({
+            ...data,
+            saida_id: await resolverSaidaIdSupabase(data.saida_id),
+          })
           break
         case 'registros_saida_insumos': {
           const saidaResult = await supabaseService.createRegistroSaidaInsumos(data)
@@ -1239,15 +1274,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             supabaseId: saidaResult.id,
             syncStatus: 'synced'
           })
-          // Atualizar itens com o novo ID do Supabase
-          const itensSaida = await getAllRegistros('insumos-por-saida')
-          for (const item of itensSaida) {
-            if (item.idSaida === registro.id) {
-              await updateRegistro('insumos-por-saida', item.id, {
-                idSaida: saidaResult.id
-              })
-            }
-          }
+          // Os itens seguem o cabeçalho: se algum falhar, o erro propaga e o
+          // cabeçalho fica em 'error' (visível, com REENVIAR) em vez de 'synced'
+          await sincronizarItensSaida(registro.id, saidaResult.id)
           break
         }
         case 'registros_problemas':
@@ -1442,6 +1471,8 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_saida_insumos':
           await supabaseService.updateRegistroSaidaInsumos(supabaseId, data)
+          // REENVIAR de um cabeçalho já criado também reenvia os itens (upsert por local_id)
+          await sincronizarItensSaida(registro.id, supabaseId)
           break
         case 'registros_problemas':
           await supabaseService.updateRegistroProblemas(supabaseId, data)

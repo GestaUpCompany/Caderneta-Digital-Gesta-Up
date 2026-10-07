@@ -254,6 +254,9 @@ export default function ProducaoFabricaPage() {
             syncStatus: 'pending' as const,
           }
           await saveRegistroIDB('insumos-por-saida', insumoRegistro)
+          // Rede de segurança: normalmente o cabeçalho envia os itens
+          // (syncService.sincronizarItensSaida) e esvazia estas entradas da fila;
+          // se o cabeçalho sincronizar antes dos itens serem gravados, o item sobe por aqui
           await enqueueRegistro('insumos-por-saida', insumoRegistro.id, 'create')
         }
       }
