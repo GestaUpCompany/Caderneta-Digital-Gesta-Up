@@ -34,7 +34,7 @@ import {
 } from '../../services/cadastroCache'
 import { transferirLoteEntreFazendas, getPastos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { isCategoriaAoPe, processarCategorias, capitalizarCategoria } from '../../utils/categorias'
+import { isCategoriaAoPe, processarCategorias, capitalizarCategoria, getCategoriasPorDestino } from '../../utils/categorias'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
@@ -93,20 +93,6 @@ const ESCALA_EQUIPE = [
   { value: '5', label: '5' },
   { value: '6', label: '6+' },
 ]
-
-// Categorias disponíveis para Entrada conforme destino do lote
-const CATEGORIAS_ABATE = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Boi Magro', 'Boi Gordo', 'Vaca']
-const CATEGORIAS_REPRODUCAO = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Tourinho', 'Touro', 'Vaca']
-const CATEGORIAS_ENFERMARIA = [...new Set([...CATEGORIAS_ABATE, ...CATEGORIAS_REPRODUCAO])]
-
-function getCategoriasPorDestino(destino: string | null | undefined): string[] {
-  if (!destino) return []
-  const d = destino.toLowerCase()
-  if (d === 'corte') return CATEGORIAS_ABATE
-  if (d === 'reprodução' || d === 'reproducao') return CATEGORIAS_REPRODUCAO
-  if (d === 'enfermaria') return CATEGORIAS_ENFERMARIA
-  return []
-}
 
 interface FormState {
   data: string

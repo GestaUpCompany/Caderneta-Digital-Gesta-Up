@@ -862,33 +862,57 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
   }
 }
 
-// Pastagens: foto do pasto de saida/entrada (fotoSaidaBase64/fotoEntradaBase64 no registro local).
-async function uploadFotoPasto(registro: Registro, fazendaId: string, tipo: 'saida' | 'entrada'): Promise<string | null> {
-  const fotoBase64 = (registro as any)[tipo === 'saida' ? 'fotoSaidaBase64' : 'fotoEntradaBase64']
+// Foto adicional de um registro (campo base64 proprio): pastagens (saida/entrada) e morte (brinco/cabeca).
+async function uploadFotoNomeada(
+  registro: Registro,
+  fazendaId: string,
+  opts: { campoBase64: string; bucket: string; pasta: string; nome: string }
+): Promise<string | null> {
+  const fotoBase64 = (registro as any)[opts.campoBase64]
   if (!fotoBase64) return null
 
   try {
     const { base64ToBlob, imageMimeFromBase64, imageExtFromBase64 } = await import('../utils/photoCompress')
     const mime = imageMimeFromBase64(fotoBase64)
     const blob = base64ToBlob(fotoBase64, mime)
-    const fotoPath = `${fazendaId}/pastagens/${registro.id}/${tipo}.${imageExtFromBase64(fotoBase64)}`
+    const fotoPath = `${fazendaId}/${opts.pasta}${registro.id}/${opts.nome}.${imageExtFromBase64(fotoBase64)}`
     const client = await getSupabaseClientWithRefresh() as any
     const { error: uploadError } = await client
       .storage
-      .from('fotos-registros')
+      .from(opts.bucket)
       .upload(fotoPath, blob, { contentType: mime, upsert: true })
 
     if (uploadError) {
-      console.error(`[SYNC] Erro ao fazer upload da foto do pasto de ${tipo}:`, uploadError)
+      console.error(`[SYNC] Erro ao fazer upload da foto ${opts.nome}:`, uploadError)
       return null
     }
 
-    const { data: urlData } = client.storage.from('fotos-registros').getPublicUrl(fotoPath)
+    const { data: urlData } = client.storage.from(opts.bucket).getPublicUrl(fotoPath)
     return urlData.publicUrl
   } catch (uploadErr) {
-    console.error(`[SYNC] Excecao ao fazer upload da foto do pasto de ${tipo}:`, uploadErr)
+    console.error(`[SYNC] Excecao ao fazer upload da foto ${opts.nome}:`, uploadErr)
     return null
   }
+}
+
+// Pastagens: foto do pasto de saida/entrada.
+function uploadFotoPasto(registro: Registro, fazendaId: string, tipo: 'saida' | 'entrada') {
+  return uploadFotoNomeada(registro, fazendaId, {
+    campoBase64: tipo === 'saida' ? 'fotoSaidaBase64' : 'fotoEntradaBase64',
+    bucket: 'fotos-registros',
+    pasta: 'pastagens/',
+    nome: tipo,
+  })
+}
+
+// Morte: fotos extras do brinco e da cabeca (a foto do animal segue em foto_url).
+function uploadFotoMorte(registro: Registro, fazendaId: string, tipo: 'brinco' | 'cabeca') {
+  return uploadFotoNomeada(registro, fazendaId, {
+    campoBase64: tipo === 'brinco' ? 'fotoBrincoBase64' : 'fotoCabecaBase64',
+    bucket: 'fotos-morte',
+    pasta: '',
+    nome: tipo,
+  })
 }
 
 // Upload das fotos por item do checklist (o problema marcado carrega foto
@@ -988,6 +1012,14 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
     const fotoUrl = await uploadFotoRegistro(store, registro, fazendaId)
     if (fotoUrl) {
       data = { ...data, foto_url: fotoUrl }
+    }
+
+    // Morte: fotos extras do brinco e da cabeça
+    if (store === 'morte') {
+      const fotoBrincoUrl = await uploadFotoMorte(registro, fazendaId, 'brinco')
+      if (fotoBrincoUrl) data = { ...data, foto_brinco_url: fotoBrincoUrl }
+      const fotoCabecaUrl = await uploadFotoMorte(registro, fazendaId, 'cabeca')
+      if (fotoCabecaUrl) data = { ...data, foto_cabeca_url: fotoCabecaUrl }
     }
 
     // Pastagens: foto do pasto de saída e de entrada (obrigatórias, com GPS)
