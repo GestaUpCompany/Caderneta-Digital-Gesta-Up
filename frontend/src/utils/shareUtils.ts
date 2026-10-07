@@ -22,6 +22,30 @@ export function formatarTempoDesdeLimpeza(ultimaDataLimpeza: string | null): str
   return `há ${diffDias} ${diffDias === 1 ? 'dia' : 'dias'}`
 }
 
+// Rótulos das escalas 1-5 usadas nas telas (valor inteiro conhecido -> "2 - Ideal p/ sair")
+const ESCALA_PASTO: Record<string, string> = { '1': 'Rapado', '2': 'Ideal p/ sair', '3': 'Médio', '4': 'Ideal p/ entrar', '5': 'Passado' }
+const ESCALA_ESCORE_CORPORAL: Record<string, string> = { '1': 'Muito magro', '2': 'Magro', '3': 'Bom', '4': 'Gordo', '5': 'Muito gordo' }
+const ESCALA_ESCORE_FEZES: Record<string, string> = { '1': 'Líquida', '2': 'Mole', '3': 'Ideal', '4': 'Firme', '5': 'Seca' }
+
+function comRotulo(mapa: Record<string, string>, valor: unknown): string {
+  const v = String(valor ?? '')
+  return mapa[v] ? `${v} - ${mapa[v]}` : v
+}
+
+// Equipe de 6 pessoas é gravada como 6 e exibida como "6+" nas telas
+function formatarEquipe(valor: unknown): string {
+  return String(valor) === '6' ? '6+' : String(valor)
+}
+
+// categorias_detalhes pode vir como array (antes do sync) ou string JSON (depois)
+function lerCategoriasDetalhes(registro: any): { nome: string; quant_atual: number; quant_informada: number }[] {
+  let d = registro?.categorias_detalhes
+  if (typeof d === 'string') {
+    try { d = JSON.parse(d) } catch { d = null }
+  }
+  return Array.isArray(d) ? d.filter((c: any) => c && c.nome) : []
+}
+
 // Fields where "Sim" should have a warning icon (negative when true)
 const INVERTED_WARNING_FIELDS: Record<string, string[]> = {
   pastagens: [
@@ -1384,7 +1408,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += '\nCLASSIFICAÇÃO\n'
       if (registro.categoria) {
         const label = LABELS_BY_CADERNETA[caderneta]?.['categoria'] || 'CATEGORIA'
-        texto += `${label}: *${registro.categoria}*\n`
+        texto += `${label}: *${capitalizarCategoria(String(registro.categoria))}*\n`
       }
       if (registro.categoria === 'Outros' && registro.categoriaOutros) {
         const label = LABELS_BY_CADERNETA[caderneta]?.['categoriaOutros'] || 'CATEGORIA OUTROS'
@@ -1623,6 +1647,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       'escoreGado'
     ]
     
+    // Contagem por categoria (nomes reais do lote); sem ela, usa os campos fixos como antes
+    const detalhesRodeio = lerCategoriasDetalhes(registro)
+    const usaDetalhesRodeio = registro.gadoContado === 'Sim' && detalhesRodeio.length > 0
+
     ordemRodeio.forEach(key => {
       const value = registro[key]
       
@@ -1633,13 +1661,20 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           const valorFormatado = value === 'Sim' ? 'Sim' : 'Não'
           texto += `${label}: *${valorFormatado}*\n`
         }
+        if (usaDetalhesRodeio) {
+          detalhesRodeio.forEach(c => {
+            const informada = Number(c.quant_informada) || 0
+            const cadastro = Number(c.quant_atual) || 0
+            texto += `${capitalizarCategoria(c.nome)}: *${informada}* (cadastro: ${cadastro})\n`
+          })
+        }
         return
       }
       
       // Para campos numéricos (categorias), não incluir se for 0 ou se gadoContado !== 'Sim'
       if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
         // Only show categories if gadoContado is 'Sim'
-        if (registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '' && Number(value) > 0) {
+        if (!usaDetalhesRodeio && registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '' && Number(value) > 0) {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = formatFieldValue(key, value)
           texto += `${label}: *${valorFormatado}*\n`
@@ -1663,14 +1698,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       } else if (key === 'escoreFezes') {
         if (value !== null && value !== undefined && value !== '') {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          const valorFormatado = formatFieldValue(key, value)
+          const valorFormatado = comRotulo(ESCALA_ESCORE_FEZES, value)
           texto += `${label}: *${valorFormatado}*\n\n`
         }
       } else if (key === 'equipe') {
         // Show equipe number and names
         if (value !== null && value !== undefined && value !== '') {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          const valorFormatado = formatFieldValue(key, value)
+          const valorFormatado = formatarEquipe(value)
           texto += `${label}: *${valorFormatado}*\n`
           
           // Show team member names if available
@@ -1685,7 +1720,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       } else if (key === 'escoreGado') {
         if (value !== null && value !== undefined && value !== '') {
           let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-          const valorFormatado = formatFieldValue(key, value)
+          const valorFormatado = comRotulo(ESCALA_ESCORE_CORPORAL, value)
           texto += `${label}: *${valorFormatado}*\n\n`
         }
       } else if (value !== null && value !== undefined && value !== '') {
@@ -1739,6 +1774,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           texto += `OBSERVAÇÃO: *${data.observacao}*\n`
         }
       })
+    }
+
+    // Observação do lote (campo novo, ditado/digitado)
+    if (registro.observacao && String(registro.observacao).trim() !== '') {
+      texto += `\nOBSERVAÇÃO DO LOTE: *${registro.observacao}*\n`
     }
 
     // Adicionar info de meta rodeio se disponível
@@ -2003,7 +2043,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `Nome: *${registro.pastoSaida || '—'}*\n`
       texto += `Área útil: *${registro.pastoSaidaAreaUtil || '—'}* ha\n`
       texto += `Espécie: *${registro.pastoSaidaEspecie || '—'}*\n`
-      texto += `Avaliação saída: *${registro.avaliacaoSaida || '—'}*\n`
+      texto += `Avaliação saída: *${registro.avaliacaoSaida ? comRotulo(ESCALA_PASTO, registro.avaliacaoSaida) : '—'}*\n`
       texto += `Tempo de ocupação: *${registro.tempoOcupacao || '—'}*\n\n`
 
       // Seção LOTE SAÍDA
@@ -2019,14 +2059,22 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
       // Se foi contado, mostrar categorias individuais
       if (registro.gadoContado === 'Sim') {
-        const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
-        categorias.forEach(key => {
-          const value = Number(registro[key]) || 0
-          if (value > 0) {
-            let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
-            texto += `${label}: *${value}*\n`
-          }
-        })
+        const detalhesCat = lerCategoriasDetalhes(registro)
+        if (detalhesCat.length > 0) {
+          // Nomes reais das categorias do lote (tela nova)
+          detalhesCat.filter(c => Number(c.quant_informada) > 0).forEach(c => {
+            texto += `${capitalizarCategoria(c.nome)}: *${c.quant_informada}*\n`
+          })
+        } else {
+          const categorias = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros']
+          categorias.forEach(key => {
+            const value = Number(registro[key]) || 0
+            if (value > 0) {
+              let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+              texto += `${label}: *${value}*\n`
+            }
+          })
+        }
         // Mostrar total quando foi contado
         if (registro.totalAnimais) {
           texto += `TOTAL: *${registro.totalAnimais} animais*\n`
@@ -2043,20 +2091,20 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
       texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
       texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
-      texto += `Avaliação entrada: *${registro.avaliacaoEntrada || '—'}*\n`
+      texto += `Avaliação entrada: *${registro.avaliacaoEntrada ? comRotulo(ESCALA_PASTO, registro.avaliacaoEntrada) : '—'}*\n`
       texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
 
       // Escore do gado
       if (registro.escoreGado) {
-        texto += `ESCORE DO GADO: *${registro.escoreGado}*\n`
+        texto += `ESCORE DO GADO: *${comRotulo(ESCALA_ESCORE_CORPORAL, registro.escoreGado)}*\n`
       }
       // Escore de fezes
       if (registro.escoreFezes) {
-        texto += `ESCORE DE FEZES: *${registro.escoreFezes}*\n`
+        texto += `ESCORE DE FEZES: *${comRotulo(ESCALA_ESCORE_FEZES, registro.escoreFezes)}*\n`
       }
       // N° pessoas no manejo
       if (registro.numeroPessoasManejo) {
-        texto += `N° PESSOAS NO MANEJO: *${registro.numeroPessoasManejo}*\n`
+        texto += `N° PESSOAS NO MANEJO: *${formatarEquipe(registro.numeroPessoasManejo)}*\n`
         const equipeNomes = registro.equipe_nomes as any
         // Handle both JSONB string (after sync) and array (before sync)
         let nomesArray: string[] = []
