@@ -891,8 +891,8 @@ export default function PastagensPage() {
                 { label: 'Ocupação', value: form.tempoOcupacao || '-', span: 1 },
                 { label: 'Altura saída', value: detalhesPastoSaida.alturaSaida ? `${detalhesPastoSaida.alturaSaida} cm` : '-', span: 1 },
                 ...(ocupacaoSaida?.taxaLotacao != null ? [{ label: 'Lotação', value: `${ocupacaoSaida.taxaLotacao} UA/ha`, span: 1 }] : []),
-                ...(ocupacaoModuloSaida?.taxaLotacao != null ? [{ label: 'Lotação módulo', value: `${ocupacaoModuloSaida.taxaLotacao} UA/ha`, span: 1 }] : []),
-                { label: 'Espécie', value: detalhesPastoSaida.especie || '-', span: 2 },
+                { label: 'Espécie', value: detalhesPastoSaida.especie || '-', span: 1 },
+                ...(ocupacaoModuloSaida?.taxaLotacao != null ? [{ label: 'Lotação módulo', value: `${ocupacaoModuloSaida.taxaLotacao} UA/ha`, span: 2 }] : []),
                 ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
               ]}
               progress={saidaProgress}
