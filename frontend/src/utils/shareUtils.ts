@@ -1621,13 +1621,21 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `RECEBIDO POR: *${registro.quemRecebeu}*\n`
     }
 
+    if (caderneta === 'entrada-almoxarifado') {
+      if (registro.semNota === true) texto += `NOTA FISCAL: *Chegou sem nota*
+`
+      else if (registro.fotoBase64 || registro.foto_url) texto += `NOTA FISCAL: *Foto anexada*
+`
+    }
+
     if (itensEntrada.length > 0) {
       // Agrupa por classificação: "Carnes: 20 kg Carne bovina · 10 kg Frango"
       const grupos = new Map<string, string[]>()
       itensEntrada.forEach((item: any) => {
         const un = item.unidade_medida || item.unidade || ''
         const qtd = item.quantidade ? String(item.quantidade).replace('.', ',') : '—'
-        const linha = `${qtd}${un && un !== 'Unidade' ? ' ' + un : ''} ${item.nome || '—'}`
+        const validade = item.validade ? ` (val. ${item.validade})` : ''
+        const linha = `${qtd}${un && un !== 'Unidade' ? ' ' + un : ''} ${item.nome || '—'}${validade}`
         const chave = item.classificacao || 'Itens'
         grupos.set(chave, [...(grupos.get(chave) || []), linha])
       })
@@ -1638,6 +1646,18 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           texto += `• ${l}\n`
         })
       })
+    }
+
+    if (caderneta === 'entrada-almoxarifado') {
+      const simNao = (v: unknown) => (v === true ? 'Sim' : v === false ? 'Não' : null)
+      const chegouTudo = simNao(registro.chegouTudo)
+      const danificado = simNao(registro.itemDanificado)
+      if (chegouTudo || danificado) texto += `
+`
+      if (chegouTudo) texto += `CHEGOU TUDO QUE ESTÁ NA NOTA?: *${chegouTudo}*
+`
+      if (danificado) texto += `ITEM DANIFICADO OU VENCIDO?: *${danificado}*
+`
     }
 
     if (registro.observacao && registro.observacao !== '') {

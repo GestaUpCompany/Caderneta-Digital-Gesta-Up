@@ -7532,12 +7532,15 @@ export type Database = {
       }
       registros_almoxarifado: {
         Row: {
+          chegou_tudo: boolean | null
           created_at: string | null
           data: string
           deleted_at: string | null
           dispositivo_id: string | null
           fazenda_id: string
+          foto_url: string | null
           id: string
+          item_danificado: boolean | null
           itens: Json | null
           local_id: string | null
           nome_usuario: string | null
@@ -7545,6 +7548,7 @@ export type Database = {
           quem_entregou: string | null
           quem_pegou: string | null
           quem_recebeu: string | null
+          sem_nota: boolean | null
           setor: string | null
           sync_status: string | null
           tipo: string
@@ -7552,12 +7556,15 @@ export type Database = {
           version: number | null
         }
         Insert: {
+          chegou_tudo?: boolean | null
           created_at?: string | null
           data: string
           deleted_at?: string | null
           dispositivo_id?: string | null
           fazenda_id: string
+          foto_url?: string | null
           id?: string
+          item_danificado?: boolean | null
           itens?: Json | null
           local_id?: string | null
           nome_usuario?: string | null
@@ -7565,6 +7572,7 @@ export type Database = {
           quem_entregou?: string | null
           quem_pegou?: string | null
           quem_recebeu?: string | null
+          sem_nota?: boolean | null
           setor?: string | null
           sync_status?: string | null
           tipo?: string
@@ -7572,12 +7580,15 @@ export type Database = {
           version?: number | null
         }
         Update: {
+          chegou_tudo?: boolean | null
           created_at?: string | null
           data?: string
           deleted_at?: string | null
           dispositivo_id?: string | null
           fazenda_id?: string
+          foto_url?: string | null
           id?: string
+          item_danificado?: boolean | null
           itens?: Json | null
           local_id?: string | null
           nome_usuario?: string | null
@@ -7585,6 +7596,7 @@ export type Database = {
           quem_entregou?: string | null
           quem_pegou?: string | null
           quem_recebeu?: string | null
+          sem_nota?: boolean | null
           setor?: string | null
           sync_status?: string | null
           tipo?: string
