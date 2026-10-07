@@ -1039,9 +1039,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (registro.metaConsumo !== null && registro.metaConsumo !== undefined) {
       texto += `META CONSUMO (%PV): *${Number(registro.metaConsumo).toFixed(2).replace('.', ',')}%*\n`
     }
-    if (registro.metaConsumo != null && registro.pesoVivoKgLote != null && Number(registro.pesoVivoKgLote) > 0) {
-      const metaKgCabDia = (Number(registro.metaConsumo) / 100) * Number(registro.pesoVivoKgLote)
-      texto += `META CONSUMO (kg/cab/dia): *${metaKgCabDia.toFixed(3).replace('.', ',')} kg*\n`
+    // A meta %PV é base MS; kg MN = kg MS / (teorMs/100). Sem teor MS, omite.
+    if (registro.metaConsumo != null && registro.pesoVivoKgLote != null && Number(registro.pesoVivoKgLote) > 0 && Number(registro.teorMs) > 0) {
+      const metaKgMnCabDia = (Number(registro.metaConsumo) * Number(registro.pesoVivoKgLote)) / Number(registro.teorMs)
+      texto += `META CONSUMO (kg MN/cab/dia): *${metaKgMnCabDia.toFixed(3).replace('.', ',')} kg*\n`
     }
     // n_cabecas já inclui as categorias ao pé (quant_atual); não somar bezerros.
     const totalCabecasLote = Number(registro.nCabecasLote) || 0
@@ -1055,7 +1056,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       ? String(registro.periodoTratoDias)
       : calcularPeriodoTrato(registro, todosRegistros)
     if (periodoTrato) {
-      texto += `PERÍODO DE TRATO: *${periodoTrato}*\n`
+      texto += `INTERVALO DE TRATO: *${periodoTrato}*\n`
     }
     texto += `\n`
 
@@ -1084,6 +1085,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     if (suplementaCreep) {
       const creepFormulacao = registro.creepFormulacao || (suplementaAdulto ? null : registro.formulacao)
       const creepMeta = registro.creepMetaConsumo ?? (suplementaAdulto ? null : registro.metaConsumo)
+      const creepTeorMs = registro.creepTeorMs ?? (suplementaAdulto ? null : registro.teorMs)
       const creepPv = registro.creepPesoVivoKg ?? (suplementaAdulto ? null : registro.pesoVivoKgLote)
       const creepCabecas = registro.creepNCabecas ?? (suplementaAdulto ? null : registro.nCabecasLote)
       const creepLeitura = registro.creepLeitura ?? (suplementaAdulto ? null : registro.leituraCocho)
@@ -1097,9 +1099,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `*${creepFormulacao || '—'}*\n`
       if (creepMeta !== null && creepMeta !== undefined) {
         texto += `META CONSUMO (%PV): *${Number(creepMeta).toFixed(2).replace('.', ',')}%*\n`
-        if (creepPv != null && Number(creepPv) > 0) {
-          const creepMetaKgCabDia = (Number(creepMeta) / 100) * Number(creepPv)
-          texto += `META CONSUMO (kg/cab/dia): *${creepMetaKgCabDia.toFixed(3).replace('.', ',')} kg*\n`
+        if (creepPv != null && Number(creepPv) > 0 && Number(creepTeorMs) > 0) {
+          const creepMetaKgMnCabDia = (Number(creepMeta) * Number(creepPv)) / Number(creepTeorMs)
+          texto += `META CONSUMO (kg MN/cab/dia): *${creepMetaKgMnCabDia.toFixed(3).replace('.', ',')} kg*\n`
         }
       }
       if (creepCabecas) {
@@ -1127,17 +1129,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
 
     // Seção: Histórico de Consumo
-    const temConsumo = registro.consumoMedioGeralPercentPV || registro.consumoMedio30DiasPercentPV || registro.consumoMedioGeralKgMN || registro.consumoMedio30DiasKgMN || registro.custoMedioReaisCabDia
+    const temConsumo = registro.consumoMedio30DiasPercentPV || registro.consumoMedio30DiasKgMN || registro.custoMedioReaisCabDia
     if (temConsumo) {
       texto += `\nHISTÓRICO DE CONSUMO\n`
-      if (registro.consumoMedioGeralPercentPV !== null && registro.consumoMedioGeralPercentPV !== undefined) {
-        texto += `CMS Geral (%PV): *${Number(registro.consumoMedioGeralPercentPV).toFixed(3).replace('.', ',')}%*\n`
-      }
       if (registro.consumoMedio30DiasPercentPV !== null && registro.consumoMedio30DiasPercentPV !== undefined) {
         texto += `CMS 30 DIAS (%PV): *${Number(registro.consumoMedio30DiasPercentPV).toFixed(3).replace('.', ',')}%*\n`
-      }
-      if (registro.consumoMedioGeralKgMN !== null && registro.consumoMedioGeralKgMN !== undefined) {
-        texto += `CMN Geral (kg/MN): *${Number(registro.consumoMedioGeralKgMN).toFixed(3).replace('.', ',')} kg*\n`
       }
       if (registro.consumoMedio30DiasKgMN !== null && registro.consumoMedio30DiasKgMN !== undefined) {
         texto += `CMN 30 dias (kg/MN): *${Number(registro.consumoMedio30DiasKgMN).toFixed(3).replace('.', ',')} kg*\n`

@@ -637,6 +637,11 @@ export default function SuplementacaoPage() {
   const creepAtivo = temCreepDisponivel && creepPreenchido
 
   // Formulação creep em sacaria (mesmo padrão da formulação do lote)
+  const kgDepositoConvertido = useMemo(() => {
+    const sacos = Number(form.kgDeposito)
+    if (!isSacaria || !kgPorSaco || !sacos || sacos <= 0) return null
+    return sacos * kgPorSaco
+  }, [isSacaria, kgPorSaco, form.kgDeposito])
   const kgPorSacoCreep = creepFormulacaoDetalhes?.kgPorSaco ?? null
   const isSacariaCreep = creepFormulacaoDetalhes?.formaFornecimento === 'sacaria' && kgPorSacoCreep !== null && kgPorSacoCreep > 0
 
@@ -819,7 +824,9 @@ export default function SuplementacaoPage() {
       base.kgDeposito = {
         custom: () => {
           if (!form.kgDeposito || form.kgDeposito.trim() === '' || Number(form.kgDeposito) <= 0) {
-            return 'KG no depósito é obrigatório e deve ser maior que zero'
+            return isSacaria
+              ? 'Número de sacos no depósito é obrigatório e deve ser maior que zero'
+              : 'KG no depósito é obrigatório e deve ser maior que zero'
           }
           return null
         }
@@ -989,8 +996,11 @@ export default function SuplementacaoPage() {
       creepNCabecas: creepAtivo ? creepNCabecas : null,
       creepCategorias: creepAtivo ? creepCategoriasStr : null,
       creepMetaConsumo: creepAtivo ? (creepFormulacaoDetalhes?.metaConsumo ?? null) : null,
+      creepTeorMs: creepAtivo ? (creepFormulacaoDetalhes?.teorMs ?? null) : null,
       creepPesoVivoKg: creepAtivo ? creepPesoVivoKg : null,
-      kgDeposito: form.kgDeposito ? Number(form.kgDeposito) : 0,
+      kgDeposito: form.kgDeposito
+        ? (isSacaria && kgPorSaco ? Number(form.kgDeposito) * kgPorSaco : Number(form.kgDeposito))
+        : 0,
       possuiDeposito,
       // categorias por escopo: com dieta creep a linha 'lote' não lista as
       // categorias ao pé (elas ficam em creepCategorias); sem dieta, grava
@@ -1343,15 +1353,29 @@ export default function SuplementacaoPage() {
 
           {possuiDeposito && (
             <Input
-              label={<span>Total Suplementado no Depósito (kg) <span className="text-red-500">*</span></span>}
+              label={<span>{isSacaria ? 'Quantidade de Sacos no Depósito' : 'Total Suplementado no Depósito (kg)'} <span className="text-red-500">*</span></span>}
               placeholder="0"
               value={form.kgDeposito}
-              onChange={setInput('kgDeposito')}
-              inputMode="decimal"
-              type="number"
-              min="0"
+              onChange={isSacaria
+                ? (e) => {
+                    const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
+                    setForm((prev) => ({ ...prev, kgDeposito: apenasDigitos }))
+                  }
+                : setInput('kgDeposito')}
+              inputMode={isSacaria ? 'numeric' : 'decimal'}
+              type={isSacaria ? 'text' : 'number'}
+              pattern={isSacaria ? '[0-9]*' : undefined}
+              min={isSacaria ? undefined : '0'}
               error={getError('kgDeposito')}
             />
+          )}
+
+          {possuiDeposito && isSacaria && kgPorSaco && (
+            <InfoStrip tone="warning">
+              Sacaria de {kgPorSaco.toLocaleString('pt-BR')} kg
+              {kgDepositoConvertido !== null &&
+                ` = ${kgDepositoConvertido.toLocaleString('pt-BR')} kg no depósito`}
+            </InfoStrip>
           )}
 
           <div>
