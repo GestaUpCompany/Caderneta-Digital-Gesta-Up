@@ -255,10 +255,24 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
             }
           })
 
+          // Teor MS do cadastro: registros vindos do Supabase não carregam teorMs.
+          // Linha só creep usa a formulação principal como creep.
+          let creepTeorMs: number | null = null
+          const nomeCreep = registroParaCompartilhar.creepFormulacao as string | undefined
+          if (nomeCreep) {
+            const creepData = await getFormulacaoByNomeCached(fazendaId, nomeCreep)
+            creepTeorMs = creepData?.teor_ms_dieta ?? null
+          }
+          registroParaShare = {
+            ...registroParaShare,
+            teorMs: formulacaoData.teor_ms_dieta ?? registroParaCompartilhar.teorMs ?? null,
+            creepTeorMs: creepTeorMs ?? registroParaCompartilhar.creepTeorMs ?? null,
+          }
+
           const metricas = calcularMetricasSuplementacao(categorias, registrosDoLote, formulacao, registroParaCompartilhar.id)
           if (metricas) {
             registroParaShare = {
-              ...registroParaCompartilhar,
+              ...registroParaShare,
               consumoMedioGeralPercentPV: metricas.consumoMedioGeralPercentPV,
               consumoMedio30DiasPercentPV: metricas.consumoMedio30DiasPercentPV,
               consumoMedioGeralKgMN: metricas.consumoMedioGeralKgMN,

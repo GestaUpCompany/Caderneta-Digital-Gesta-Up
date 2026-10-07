@@ -1,13 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Button, Input, DatePicker, ValidationMessage, SearchableModal, Radio, NumericInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage, SearchableModal } from '../../components/ui'
+import { Beef, X } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
+import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoCard from '../../components/cadernetas/InfoCard'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import StepperInput from '../../components/cadernetas/StepperInput'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
@@ -16,20 +23,13 @@ import {
 } from '../../services/cadastroCache'
 import { getFormulacoes } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { base64ToDataUrl } from '../../utils/photoCompress'
-
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
-}
+import { capitalizarCategoria, getCategoriasPorDestino, normalizarCategoria, processarCategorias } from '../../utils/categorias'
 
 const SEXO = [
   { value: 'Macho', label: 'MACHO', icon: '♂️' },
@@ -59,39 +59,38 @@ const SN_OPTIONS = [
   { value: 'N', label: 'NÃO', icon: '❌' },
 ]
 
-const CATEGORIAS = [
-  { value: 'Vaca', label: 'VACA' },
-  { value: 'Touro', label: 'TOURO' },
-  { value: 'Boi Gordo', label: 'BOI GORDO' },
-  { value: 'Boi Magro', label: 'BOI MAGRO' },
-  { value: 'Garrote', label: 'GARROTE' },
-  { value: 'Bezerro', label: 'BEZERRO' },
-  { value: 'Novilha', label: 'NOVILHA' },
-  { value: 'Tropa', label: 'TROPA' },
-  { value: 'Outros', label: 'OUTROS' },
-]
+// Ícone decorativo por categoria (a lista de categorias vem sempre do lote / do destino do lote)
+function iconeCategoria(nome: string): string | undefined {
+  const n = normalizarCategoria(nome)
+  if (n.startsWith('vaca') || n.startsWith('novilha')) return '🐄'
+  if (n.startsWith('touro') || n.startsWith('tourinho') || n.startsWith('boi') || n.startsWith('garrote')) return '🐂'
+  if (n.startsWith('bezerr')) return '🐮'
+  if (n.startsWith('tropa')) return '🐃'
+  return undefined
+}
 
+// Diagnóstico em dois blocos visuais; a ordem relativa dos itens é a original.
 const DIAGNOSTICOS = [
-  { campo: 'secrecaoOrificios', label: 'ALGUMA SECREÇÃO NOS ORIFÍCIOS?' },
-  { campo: 'sintomasPneumonia', label: 'SINTOMAS DE PNEUMONIA?' },
-  { campo: 'inchaco', label: 'EXISTE ALGUM SANGRAMENTO?' },
-  { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO / PEDALAGEM E TREMORES MUSCULARES DA MORTE?' },
-  { campo: 'apatiaFraqueza', label: 'APATIA OU FRAQUEZA?' },
-  { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS / TIMPANISMO / DIARREIA?' },
-  { campo: 'fraturas', label: 'ALGUMA FRATURA / DESLOCAMENTO DE MEMBROS?' },
-  { campo: 'decomposicao', label: 'ANIMAL EM DECOMPOSIÇÃO / PUTREFAÇÃO?' },
-  { campo: 'doencasPrevias', label: 'HAVIA DOENÇAS PRÉVIAS?' },
-  { campo: 'medicamentosRecentes', label: 'RECEBEU MEDICAMENTOS RECENTEMENTE?' },
-  { campo: 'morteSubita', label: 'A MORTE FOI SÚBITA?' },
-  { campo: 'animalSozinho', label: 'ANIMAL MORREU SOZINHO?' },
-  { campo: 'salivacaoExcessiva', label: 'SALIVAÇÃO EXCESSIVA?' },
-  { campo: 'sinaisIntoxicacao', label: 'EXISTEM SINAIS DE INTOXICAÇÃO?' },
-  { campo: 'carrapatosMoscas', label: 'PRESENÇA DE CARRAPATOS / MOSCAS?' },
-  { campo: 'encontradoVivo', label: 'ANIMAL FOI ENCONTRADO VIVO?' },
-  { campo: 'medicado', label: 'ANIMAL CHEGOU A SER MEDICADO?' },
-  { campo: 'animalInchado', label: 'ANIMAL ESTAVA INCHADO?' },
-  { campo: 'animalBicheira', label: 'ANIMAL COM BICHEIRA?' },
-]
+  { campo: 'secrecaoOrificios', label: 'ALGUMA SECREÇÃO NOS ORIFÍCIOS?', grupo: 'sinais', rotulo: 'Secreção nos orifícios', icone: '🤧' },
+  { campo: 'sintomasPneumonia', label: 'SINTOMAS DE PNEUMONIA?', grupo: 'sinais', rotulo: 'Sintomas de pneumonia', icone: '🫁' },
+  { campo: 'inchaco', label: 'EXISTE ALGUM SANGRAMENTO?', grupo: 'sinais', rotulo: 'Sangramento', icone: '🩸' },
+  { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO / PEDALAGEM E TREMORES MUSCULARES DA MORTE?', grupo: 'sinais', rotulo: 'Incoordenação / tremores', icone: '⚡' },
+  { campo: 'apatiaFraqueza', label: 'APATIA OU FRAQUEZA?', grupo: 'sinais', rotulo: 'Apatia / fraqueza', icone: '😞' },
+  { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS / TIMPANISMO / DIARREIA?', grupo: 'sinais', rotulo: 'Desordem digestiva (timpanismo / diarreia)', icone: '🤢' },
+  { campo: 'fraturas', label: 'ALGUMA FRATURA / DESLOCAMENTO DE MEMBROS?', grupo: 'sinais', rotulo: 'Fratura / deslocamento', icone: '🦴' },
+  { campo: 'decomposicao', label: 'ANIMAL EM DECOMPOSIÇÃO / PUTREFAÇÃO?', grupo: 'sinais', rotulo: 'Em decomposição', icone: '🦠' },
+  { campo: 'doencasPrevias', label: 'HAVIA DOENÇAS PRÉVIAS?', grupo: 'antes' },
+  { campo: 'medicamentosRecentes', label: 'RECEBEU MEDICAMENTOS RECENTEMENTE?', grupo: 'antes' },
+  { campo: 'morteSubita', label: 'A MORTE FOI SÚBITA?', grupo: 'antes' },
+  { campo: 'animalSozinho', label: 'ANIMAL MORREU SOZINHO?', grupo: 'antes' },
+  { campo: 'salivacaoExcessiva', label: 'SALIVAÇÃO EXCESSIVA?', grupo: 'sinais', rotulo: 'Salivação excessiva', icone: '💧' },
+  { campo: 'sinaisIntoxicacao', label: 'EXISTEM SINAIS DE INTOXICAÇÃO?', grupo: 'sinais', rotulo: 'Sinais de intoxicação', icone: '☠️' },
+  { campo: 'carrapatosMoscas', label: 'PRESENÇA DE CARRAPATOS / MOSCAS?', grupo: 'sinais', rotulo: 'Carrapatos / moscas', icone: '🪰' },
+  { campo: 'encontradoVivo', label: 'ANIMAL FOI ENCONTRADO VIVO?', grupo: 'antes' },
+  { campo: 'medicado', label: 'ANIMAL CHEGOU A SER MEDICADO?', grupo: 'antes' },
+  { campo: 'animalInchado', label: 'ANIMAL ESTAVA INCHADO?', grupo: 'sinais', rotulo: 'Inchado', icone: '🎈' },
+  { campo: 'animalBicheira', label: 'ANIMAL COM BICHEIRA?', grupo: 'sinais', rotulo: 'Bicheira', icone: '🪱' },
+] as const
 
 // Fields where "Não" means a problem exists (observation should show on "Não")
 const INVERTED_DIAGNOSTICOS = [
@@ -156,7 +155,8 @@ const makeInitial = (): FormState => ({
 export default function MortePage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(makeInitial)
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'morte', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -166,21 +166,16 @@ export default function MortePage() {
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [causasMorte, setCausasMorte] = useState<{ value: string; label: string }[]>([])
   const [dietas, setDietas] = useState<{ value: string; label: string }[]>([])
+  const [alvoVoz, setAlvoVoz] = useState<string | null>(null)
+  const baseVozRef = useRef('')
 
-  // Hook reutilizavel de foto + GPS (correcao iOS inclusa)
-  const {
-    fotoBase64,
-    latitude,
-    longitude,
-    gpsAccuracy,
-    capturandoFoto,
-    capturandoGps,
-    fotoErro,
-    capturarFotoComGps,
-    limpar: limparFotoGps,
-    fotoInputRef,
-    handleFileInputChange,
-  } = usePhotoGps({ gpsObrigatorio: true })
+  // Foto do animal: obrigatória, com GPS obrigatório (correção iOS inclusa no hook)
+  const fotoAnimal = usePhotoGps({ gpsObrigatorio: true })
+  // Fotos de apoio (brinco e cabeça): só imagem
+  const fotoBrinco = usePhotoGps({ comGps: false })
+  const fotoCabeca = usePhotoGps({ comGps: false })
+
+  const { ouvindo: ouvindoVoz, erro: vozErro, toggle: toggleVoz, parar: pararVoz } = useVoiceInput()
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -194,14 +189,34 @@ export default function MortePage() {
       }
     }))
 
-  const setDiagnosticoObs = (campo: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const setDiagnosticoObsTexto = (campo: string, texto: string) =>
     setForm((p) => ({
       ...p,
       diagnosticos: {
         ...p.diagnosticos,
-        [campo]: { ...p.diagnosticos[campo], observacao: e.target.value }
+        [campo]: { ...p.diagnosticos[campo], observacao: texto }
       }
     }))
+
+  // Ditado: o texto parcial é acrescentado ao que já existia quando a gravação começou.
+  // alvo: 'identificacao' ou o nome do campo de diagnóstico.
+  const handleFalar = async (alvo: string) => {
+    if (ouvindoVoz) {
+      await pararVoz()
+      if (alvoVoz === alvo) return
+    }
+    setAlvoVoz(alvo)
+    baseVozRef.current = (alvo === 'identificacao'
+      ? form.observacaoIdentificacao
+      : form.diagnosticos[alvo]?.observacao || ''
+    ).trim()
+    await toggleVoz((parcial) => {
+      const texto = baseVozRef.current ? `${baseVozRef.current} ${parcial}` : parcial
+      if (alvo === 'identificacao') setForm((p) => ({ ...p, observacaoIdentificacao: texto }))
+      else setDiagnosticoObsTexto(alvo, texto)
+    })
+  }
+  const ouvindoAlvo = (alvo: string) => ouvindoVoz && alvoVoz === alvo
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
@@ -209,6 +224,9 @@ export default function MortePage() {
   const validationRules: any = {
     data: { required: true },
     lote: { required: true },
+    fotoAnimal: {
+      custom: () => (!fotoAnimal.fotoBase64 ? 'Tire a foto do animal (com localização)' : null),
+    },
     observacaoIdentificacao: {
       custom: (_value: any, formState: any) => {
         const semBrinco = !formState.brinco || formState.brinco.trim() === ''
@@ -356,28 +374,12 @@ export default function MortePage() {
     carregarFormulacoes()
   }, [fazendaId])
 
-  const handleTirarFoto = async () => {
-    const result = await capturarFotoComGps()
-    if (result) {
-      setForm((prev) => ({
-        ...prev,
-        fotoBase64: result.fotoBase64,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        gpsAccuracy: result.gpsAccuracy,
-      }))
-    }
-  }
-
-  const handleRemoverFoto = () => {
-    limparFotoGps()
-    setForm((prev) => ({
-      ...prev,
-      fotoBase64: null,
-      latitude: null,
-      longitude: null,
-      gpsAccuracy: null,
-    }))
+  const resetarTudo = () => {
+    limparRascunho()
+    fotoAnimal.limpar()
+    fotoBrinco.limpar()
+    fotoCabeca.limpar()
+    setErrors([])
   }
 
   const handleSalvar = async () => {
@@ -400,7 +402,7 @@ export default function MortePage() {
       chip: form.chip,
       observacaoIdentificacao: form.observacaoIdentificacao,
       categoria: categoriaFinal,
-      categoriaOutros: form.categoriaOutros,
+      categoriaOutros: '',
       sexo: form.sexo,
       raca: racaFinal,
       idade: form.idade,
@@ -409,10 +411,12 @@ export default function MortePage() {
       nutricaoAtual: form.nutricaoAtual || null,
       nutricaoAnterior: form.nutricaoAnterior || null,
       diagnosticos: form.diagnosticos,
-      fotoBase64: fotoBase64 || null,
-      latitude: latitude || null,
-      longitude: longitude || null,
-      gpsAccuracy: gpsAccuracy || null,
+      fotoBase64: fotoAnimal.fotoBase64 || null,
+      fotoBrincoBase64: fotoBrinco.fotoBase64 || null,
+      fotoCabecaBase64: fotoCabeca.fotoBase64 || null,
+      latitude: fotoAnimal.latitude || null,
+      longitude: fotoAnimal.longitude || null,
+      gpsAccuracy: fotoAnimal.gpsAccuracy || null,
     })
 
     setSalvando(false)
@@ -427,8 +431,7 @@ export default function MortePage() {
         n_cabecas_apos_obito: cabecasApos,
       })
       setShowSuccessModal(true)
-      setForm(makeInitial())
-      limparFotoGps()
+      resetarTudo()
     }
   }
 
@@ -442,34 +445,215 @@ export default function MortePage() {
     navigate('/')
   }
 
+  // Categorias: as do lote (já variam conforme o destino do lote); sem categorias cadastradas,
+  // usa a lista do destino do lote (mesma da Movimentação). "Outros" não é opção.
+  const categoriasOpcoes: string[] = (() => {
+    const nomesCats: string[] = (detalhesLote?.categorias_raw || []).map((c: any) => c.categoria).filter(Boolean)
+    const base = nomesCats.length > 0
+      ? nomesCats
+      : (() => {
+          const porDestino = getCategoriasPorDestino(detalhesLote?.destino)
+          return porDestino.length > 0 ? porDestino : getCategoriasPorDestino('enfermaria')
+        })()
+    return base.filter((v) => v.toLowerCase() !== 'outros')
+  })()
+
+  const categoriasLoteStr = detalhesLote?.categorias
+    ? processarCategorias(detalhesLote.categorias).map(capitalizarCategoria).join(', ')
+    : ''
+
+  const rotulo = 'text-[13px] font-bold uppercase text-gray-900'
+
+  const diagnosticoRespondido = DIAGNOSTICOS.filter((d) => !!form.diagnosticos[d.campo]?.valor).length
+
+  const pendenciaTexto = (() => {
+    if (!form.lote) return 'Falta escolher o pasto/lote'
+    if (!fotoAnimal.fotoBase64) return 'Falta a foto do animal'
+    const semBrinco = !form.brinco.trim()
+    const semChip = !form.chip.trim()
+    if (semBrinco && semChip && !form.observacaoIdentificacao.trim()) return 'Falta o brinco/chip ou o motivo de não ter'
+    if (!form.categoria) return 'Falta a categoria'
+    if (!form.sexo) return 'Falta o sexo'
+    if (!form.raca) return 'Falta a raça'
+    if (form.raca === 'Outros' && !form.racaOutros.trim()) return 'Falta informar a raça'
+    if (!form.idade) return 'Falta a idade'
+    if (!form.causaMorte) return 'Falta a causa da morte'
+    if (form.causaMorte === 'Outros' && !form.causaMorteOutros.trim()) return 'Falta especificar a causa'
+    if (!DIAGNOSTICOS.some((d) => d.grupo === 'sinais' && !!form.diagnosticos[d.campo]?.valor)) return "Falta marcar o que viu (ou 'Nada disso')"
+    if (diagnosticoRespondido < DIAGNOSTICOS.length) return `Faltam ${DIAGNOSTICOS.length - diagnosticoRespondido} respostas em "O que você viu?"`
+    return undefined
+  })()
+
+  /** Tile de foto (3 por linha). Preenchido: miniatura com ✓ e botão de remover; tocar refaz. */
+  const tileFoto = (
+    nome: string,
+    h: ReturnType<typeof usePhotoGps>,
+    onTirar: () => void,
+    obrigatoria?: boolean,
+    campo?: string
+  ) => (
+    <div className="flex flex-col gap-1" data-field={campo}>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={onTirar}
+          disabled={h.capturandoFoto || h.capturandoGps}
+          className={`relative flex h-24 w-full items-center justify-center overflow-hidden rounded-xl border-2 transition-all active:scale-95 disabled:opacity-60 ${
+            h.fotoBase64 ? 'border-green-500' : 'border-dashed border-gray-300 bg-white hover:border-gray-400'
+          }`}
+        >
+          {h.fotoBase64 ? (
+            <>
+              <img src={base64ToDataUrl(h.fotoBase64)} alt={`Foto: ${nome}`} className="h-full w-full object-cover" />
+              <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-sm font-black text-white">✓</span>
+              <span className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5 text-center text-xs font-bold text-white">{nome}</span>
+            </>
+          ) : (
+            <span className="flex flex-col items-center gap-1 text-sm font-bold text-gray-700">
+              <span className="text-xl leading-none">📷</span>
+              {h.capturandoFoto || h.capturandoGps ? '...' : nome}
+              {obrigatoria && <span className="text-[10px] font-semibold text-red-500">obrigatória</span>}
+            </span>
+          )}
+        </button>
+        {h.fotoBase64 && (
+          <button
+            type="button"
+            onClick={h.limpar}
+            aria-label={`Remover foto ${nome}`}
+            className="absolute right-1.5 top-1.5 flex !min-h-0 h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={3} />
+          </button>
+        )}
+      </div>
+      <input
+        ref={h.fotoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={h.handleFileInputChange}
+        className="hidden"
+      />
+    </div>
+  )
+
+  // "Marque todos": tocar = S (sinal presente); na 1ª interação do grupo os demais viram N.
+  const SINAIS = DIAGNOSTICOS.filter((d) => d.grupo === 'sinais') as unknown as {
+    campo: string; label: string; rotulo: string; icone: string
+  }[]
+  const sinaisRespondido = SINAIS.some((d) => !!form.diagnosticos[d.campo]?.valor)
+  const sinaisMarcados = SINAIS.filter((d) => form.diagnosticos[d.campo]?.valor === 'S')
+
+  const toggleSinal = (campo: string) =>
+    setForm((p) => {
+      const atual = p.diagnosticos[campo]?.valor
+      const diag = { ...p.diagnosticos }
+      for (const d of SINAIS) {
+        if (d.campo === campo) diag[campo] = { ...diag[campo], valor: atual === 'S' ? 'N' : 'S' }
+        else if (!diag[d.campo]?.valor) diag[d.campo] = { ...diag[d.campo], valor: 'N' }
+      }
+      return { ...p, diagnosticos: diag }
+    })
+
+  const marcarNadaDisso = () =>
+    setForm((p) => {
+      const diag = { ...p.diagnosticos }
+      for (const d of SINAIS) diag[d.campo] = { ...diag[d.campo], valor: 'N', observacao: '' }
+      return { ...p, diagnosticos: diag }
+    })
+
+  const obsDoItem = (campo: string) => (
+    <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+      <button
+        type="button"
+        onClick={() => handleFalar(campo)}
+        className={`flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-white transition-colors active:scale-[0.99] ${
+          ouvindoAlvo(campo) ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'
+        }`}
+      >
+        <span className="text-lg leading-none">🎤</span>
+        <span className="text-xs font-extrabold uppercase tracking-wide">{ouvindoAlvo(campo) ? 'Ouvindo...' : 'Falar'}</span>
+      </button>
+      {vozErro && alvoVoz === campo && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+      <Input
+        placeholder="Adicionar observação (opcional)"
+        value={form.diagnosticos[campo]?.observacao || ''}
+        onChange={(e) => setDiagnosticoObsTexto(campo, e.target.value)}
+      />
+    </div>
+  )
+
+  const diagnosticoBloco = (grupo: 'sinais' | 'antes') =>
+    DIAGNOSTICOS.filter((d) => d.grupo === grupo).map(({ campo, label }) => {
+      const valor = form.diagnosticos[campo]?.valor
+      const isInverted = INVERTED_DIAGNOSTICOS.includes(campo)
+      const mostrarObs = isInverted ? valor === 'N' : valor === 'S'
+      return (
+        <div key={campo} className="flex flex-col gap-2">
+          <label className="text-[14px] font-bold text-gray-900">
+            {label} <span className="text-red-500">*</span>
+          </label>
+          <ChoiceGrid
+            options={SN_OPTIONS}
+            value={valor || ''}
+            onChange={setDiagnosticoValor(campo)}
+            cols={2}
+            size="sm"
+            dataField={campo}
+          />
+          {getError(campo) && <p className="text-base font-semibold text-red-700">{getError(campo)}</p>}
+          {mostrarObs && (
+            <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+              <button
+                type="button"
+                onClick={() => handleFalar(campo)}
+                className={`flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-white transition-colors active:scale-[0.99] ${
+                  ouvindoAlvo(campo) ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'
+                }`}
+              >
+                <span className="text-lg leading-none">🎤</span>
+                <span className="text-xs font-extrabold uppercase tracking-wide">{ouvindoAlvo(campo) ? 'Ouvindo...' : 'Falar'}</span>
+              </button>
+              {vozErro && alvoVoz === campo && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+              <Input
+                placeholder="Adicionar observação (opcional)"
+                value={form.diagnosticos[campo]?.observacao || ''}
+                onChange={(e) => setDiagnosticoObsTexto(campo, e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      )
+    })
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
+    <>
+      <CadernetaLayout
         title="MORTE"
         cadernetaId="morte"
         dateContent={<DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} variant="header" compact inline />}
-      />
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+      >
+        <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
+        {/* Pasto/Lote */}
+        <CadernetaSection titulo="Pasto/Lote" required>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
+              label=""
               value={form.lote}
               onChange={(val) => setForm((p) => ({ ...p, lote: val }))}
               error={getError('lote')}
               options={lotesDisponiveis}
               secondaryText={(lote) => lotesPastoMap[lote] || ''}
-              placeholder="Buscar pasto ou lote..."
+              placeholder="Selecione o pasto/lote..."
               id="lote"
               name="lote"
             />
           ) : (
             <Input
-              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
+              label="PASTO/LOTE"
               placeholder="Carregando..."
               value={form.lote}
               onChange={setInput('lote')}
@@ -479,13 +663,50 @@ export default function MortePage() {
             />
           )}
           {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
+            <InfoCard
+              icon={Beef}
+              title={form.lote}
+              subtitle={form.pasto || 'Sem pasto associado'}
+              stats={[
+                { label: 'Cabeças', value: detalhesLote.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-', span: 1 },
+                {
+                  label: 'PV médio',
+                  value: detalhesLote.peso_vivo_kg != null
+                    ? `${Number(detalhesLote.peso_vivo_kg).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+                    : '-',
+                  span: 1,
+                },
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
+              ]}
+            />
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 2: Identificação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. IDENTIFICAÇÃO</h2>
+        {/* 1. Fotos do animal */}
+        <CadernetaSection numero={1} titulo="Fotos do animal" required>
+          <div className="grid grid-cols-3 gap-2">
+            {tileFoto('Animal', fotoAnimal, () => fotoAnimal.capturarFotoComGps(), true, 'fotoAnimal')}
+            {tileFoto('Brinco', fotoBrinco, () => fotoBrinco.capturarFoto())}
+            {tileFoto('Cabeça', fotoCabeca, () => fotoCabeca.capturarFoto())}
+          </div>
+          {fotoAnimal.fotoBase64 && fotoAnimal.latitude != null && fotoAnimal.longitude != null ? (
+            <InfoStrip tone="success" icon="📍">
+              Local marcado pelo GPS da foto: {fotoAnimal.latitude.toFixed(5)}, {fotoAnimal.longitude.toFixed(5)}
+              {fotoAnimal.gpsAccuracy ? ` (±${Math.round(fotoAnimal.gpsAccuracy)} m)` : ''}
+            </InfoStrip>
+          ) : (
+            <InfoStrip tone="neutral" icon="📍">
+              A foto do animal marca o local pelo GPS automaticamente. Brinco e cabeça são opcionais.
+            </InfoStrip>
+          )}
+          {fotoAnimal.fotoErro && <InfoStrip tone="danger">{fotoAnimal.fotoErro}</InfoStrip>}
+          {fotoBrinco.fotoErro && <InfoStrip tone="danger">{fotoBrinco.fotoErro}</InfoStrip>}
+          {fotoCabeca.fotoErro && <InfoStrip tone="danger">{fotoCabeca.fotoErro}</InfoStrip>}
+          {getError('fotoAnimal') && <p className="text-base font-semibold text-red-700">{getError('fotoAnimal')}</p>}
+        </CadernetaSection>
+
+        {/* 2. Identificação */}
+        <CadernetaSection numero={2} titulo="Identificação">
           <Input
             label="ID. BRINCO"
             placeholder="Número do brinco"
@@ -500,62 +721,67 @@ export default function MortePage() {
             onChange={setInput('chip')}
             error={getError('chip')}
           />
-          <p className="text-base text-gray-500 -mt-2">
+          <p className="-mt-2 text-sm text-gray-500">
             Caso o animal tenha perdido ou não possua brinco ou chip, informe o motivo no campo abaixo
           </p>
-          <Input
-            label={<span>OBS. IDENTIFICAÇÃO {!form.brinco && !form.chip && <span className="text-red-500">*</span>}</span>}
-            placeholder=""
-            value={form.observacaoIdentificacao}
-            onChange={setInput('observacaoIdentificacao')}
-            error={getError('observacaoIdentificacao')}
-          />
-        </div>
+          <div className="flex flex-col gap-2" data-field="observacaoIdentificacao">
+            <Input
+              label={<span>OBS. IDENTIFICAÇÃO {!form.brinco && !form.chip && <span className="text-red-500">*</span>}</span>}
+              placeholder=""
+              value={form.observacaoIdentificacao}
+              onChange={setInput('observacaoIdentificacao')}
+              error={getError('observacaoIdentificacao')}
+            />
+            <button
+              type="button"
+              onClick={() => handleFalar('identificacao')}
+              className={`flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-white transition-colors active:scale-[0.99] ${
+                ouvindoAlvo('identificacao') ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'
+              }`}
+            >
+              <span className="text-lg leading-none">🎤</span>
+              <span className="text-sm font-extrabold uppercase tracking-wide">
+                {ouvindoAlvo('identificacao') ? 'Ouvindo...' : 'Gravar áudio'}
+              </span>
+            </button>
+            {vozErro && alvoVoz === 'identificacao' && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+          </div>
 
-        {/* Seção 3: Quantificação de Animais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. CLASSIFICAÇÃO DO GADO</h2>
-          {(() => {
-            const catsRaw = detalhesLote?.categorias_raw || []
-            const nomesCats = catsRaw.map((c: any) => c.categoria).filter(Boolean)
-            const options = (nomesCats.length > 0 ? nomesCats : CATEGORIAS.map(c => c.value))
-              .filter((v: string) => v.toLowerCase() !== 'outros')
-              .map((v: string) => ({ value: v, label: v.toUpperCase() }))
-            return (
-              <Radio
-                name="categoria"
-                label={<span>CATEGORIA: <span className="text-red-500">*</span></span>}
-                options={options}
-                value={form.categoria}
-                onChange={(val) => setForm((p) => ({ ...p, categoria: val }))}
-                error={getError('categoria')}
-                gridCols={2}
-              />
-            )
-          })()}
-        </div>
+          <div className="flex flex-col gap-2" data-field="categoria">
+            <label className={rotulo}>Categoria <span className="text-red-500">*</span></label>
+            <ChoiceGrid
+              options={categoriasOpcoes.map((c) => ({ value: c, label: capitalizarCategoria(c), icon: iconeCategoria(c) }))}
+              value={form.categoria}
+              onChange={(val) => setForm((p) => ({ ...p, categoria: val }))}
+              cols={3}
+              labelSize="xs"
+            />
+            {getError('categoria') && <p className="text-base font-semibold text-red-700">{getError('categoria')}</p>}
+          </div>
 
-        {/* Seção 4: Sexo e Raça */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. SEXO E RAÇA</h2>
-          <Radio
-            name="sexo"
-            label={<span>SEXO <span className="text-red-500">*</span></span>}
-            options={SEXO}
-            value={form.sexo}
-            onChange={(val) => setForm((p) => ({ ...p, sexo: val }))}
-            error={getError('sexo')}
-            gridCols={2}
-          />
-          <Radio
-            name="raca"
-            label={<span>RAÇA <span className="text-red-500">*</span></span>}
-            options={RACAS}
-            value={form.raca}
-            onChange={(val) => setForm((p) => ({ ...p, raca: val }))}
-            error={getError('raca')}
-            gridCols={2}
-          />
+          <div className="flex flex-col gap-2" data-field="sexo">
+            <label className={rotulo}>Sexo <span className="text-red-500">*</span></label>
+            <ChoiceGrid
+              options={SEXO}
+              value={form.sexo}
+              onChange={(val) => setForm((p) => ({ ...p, sexo: val }))}
+              cols={2}
+            />
+            {getError('sexo') && <p className="text-base font-semibold text-red-700">{getError('sexo')}</p>}
+          </div>
+
+          <div className="flex flex-col gap-2" data-field="raca">
+            <label className={rotulo}>Raça <span className="text-red-500">*</span></label>
+            <ChoiceGrid
+              options={RACAS}
+              value={form.raca}
+              onChange={(val) => setForm((p) => ({ ...p, raca: val }))}
+              cols={3}
+              size="sm"
+              labelSize="xs"
+            />
+            {getError('raca') && <p className="text-base font-semibold text-red-700">{getError('raca')}</p>}
+          </div>
           {form.raca === 'Outros' && (
             <Input
               label={<span>QUAL RAÇA? <span className="text-red-500">*</span></span>}
@@ -565,33 +791,80 @@ export default function MortePage() {
               error={getError('racaOutros')}
             />
           )}
-        </div>
 
-        {/* Seção 5: Idade e Peso */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. IDADE E PESO</h2>
-          <Radio
-            name="idade"
-            label={<span>IDADE <span className="text-red-500">*</span></span>}
-            options={IDADES}
-            value={form.idade}
-            onChange={(val) => setForm((p) => ({ ...p, idade: val }))}
-            error={getError('idade')}
-            gridCols={2}
-          />
-          <NumericInput
-            label="PESO VIVO (kg)"
-            placeholder="Ex: 450"
-            value={form.pesoVivo}
-            onChange={(v) => setForm((p) => ({ ...p, pesoVivo: v }))}
-            decimalPlaces={1}
-            error={getError('pesoVivo')}
-          />
-        </div>
+          <div className="flex flex-col gap-2" data-field="idade">
+            <label className={rotulo}>Idade <span className="text-red-500">*</span></label>
+            <ChoiceGrid
+              options={IDADES}
+              value={form.idade}
+              onChange={(val) => setForm((p) => ({ ...p, idade: val }))}
+              cols={2}
+              size="sm"
+              labelSize="xs"
+            />
+            {getError('idade') && <p className="text-base font-semibold text-red-700">{getError('idade')}</p>}
+          </div>
 
-        {/* Seção 6: Causa da Morte */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. CAUSA DA MORTE</h2>
+          <div className="flex flex-col gap-2">
+            <label className={rotulo}>Peso vivo (opcional)</label>
+            <StepperInput
+              value={form.pesoVivo}
+              onChange={(val) => setForm((p) => ({ ...p, pesoVivo: val }))}
+              min={0}
+              step={10}
+              allowDecimals={false}
+              suffix="kg"
+              error={getError('pesoVivo')}
+            />
+          </div>
+        </CadernetaSection>
+
+        {/* 3. O que você viu */}
+        <CadernetaSection numero={3} titulo="O que você viu?" required>
+          <div className="flex flex-col gap-3" data-field="sinais">
+            <p className="text-sm font-extrabold uppercase text-gray-500">Marque todos os sinais que viu</p>
+            <ChoiceGrid
+              mode="multi"
+              showCheck={false}
+              values={sinaisMarcados.map((d) => d.campo)}
+              onChangeMulti={(vals) => {
+                const novo = vals.find((v) => !sinaisMarcados.some((d) => d.campo === v))
+                const removido = sinaisMarcados.find((d) => !vals.includes(d.campo))
+                const alvo = novo ?? removido?.campo
+                if (alvo) toggleSinal(alvo)
+              }}
+              options={[
+                ...SINAIS.map((d) => ({ value: d.campo, label: d.rotulo, icon: d.icone, tone: 'danger-solid' as const })),
+              ]}
+              cols={3}
+              labelSize="xs"
+            />
+            <button
+              type="button"
+              onClick={marcarNadaDisso}
+              className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-bold transition-all active:scale-[0.99] ${
+                sinaisRespondido && sinaisMarcados.length === 0
+                  ? 'border-brand-900 bg-brand-900 text-white'
+                  : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+              }`}
+            >
+              <span className="text-lg leading-none">🚫</span> Nada disso
+            </button>
+            {sinaisMarcados.map((d) => (
+              <div key={d.campo} className="flex flex-col gap-2">
+                <p className="text-sm font-bold text-red-700">{d.icone} {d.rotulo}</p>
+                {obsDoItem(d.campo)}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-5">
+            <p className="text-sm font-extrabold uppercase text-gray-500">Antes de morrer</p>
+            {diagnosticoBloco('antes')}
+          </div>
+        </CadernetaSection>
+
+        {/* 4. Causa e nutrição */}
+        <CadernetaSection numero={4} titulo="Causa e nutrição">
           {causasMorte.length > 0 ? (
             <SearchableModal
               label={<span>CAUSA DA MORTE <span className="text-red-500">*</span></span>}
@@ -623,37 +896,6 @@ export default function MortePage() {
               error={getError('causaMorteOutros')}
             />
           )}
-        </div>
-
-        {/* Seção 7: Diagnóstico */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. DIAGNÓSTICO <span className="text-red-500">*</span></h2>
-          {DIAGNOSTICOS.map(({ campo, label }) => (
-            <div key={campo}>
-              <Radio
-                name={campo}
-                label={<span>{label} <span className="text-red-500">*</span></span>}
-                options={SN_OPTIONS}
-                value={form.diagnosticos[campo]?.valor || ''}
-                onChange={setDiagnosticoValor(campo)}
-                error={getError(campo)}
-                gridCols={2}
-              />
-              {(() => {
-                const valor = form.diagnosticos[campo]?.valor
-                const isInverted = INVERTED_DIAGNOSTICOS.includes(campo)
-                const shouldShowObs = isInverted ? valor === 'N' : valor === 'S'
-                return shouldShowObs ? (
-                  <Input
-                    placeholder="Adicionar observação (opcional)"
-                    value={form.diagnosticos[campo]?.observacao || ''}
-                    onChange={setDiagnosticoObs(campo)}
-                    className="mt-2"
-                  />
-                ) : null
-              })()}
-            </div>
-          ))}
 
           {dietas.length > 0 ? (
             <>
@@ -700,97 +942,17 @@ export default function MortePage() {
               />
             </>
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 8: Foto e Localização */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. FOTO E LOCALIZAÇÃO</h2>
-
-          {fotoBase64 ? (
-            <div className="flex flex-col gap-3">
-              <img
-                src={base64ToDataUrl(fotoBase64)}
-                alt="Foto do animal"
-                className="w-full max-w-sm rounded-2xl border-2 border-gray-200 mx-auto"
-              />
-              <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2 text-sm text-green-800">
-                <span className="text-lg">📍</span>
-                <div>
-                  <p className="font-semibold">Localização capturada</p>
-                  <p className="text-xs text-green-700">
-                    {latitude?.toFixed(6)}, {longitude?.toFixed(6)}
-                    {gpsAccuracy ? ` (precisão: ~${Math.round(gpsAccuracy)}m)` : ''}
-                  </p>
-                </div>
-              </div>
-              <Button onClick={handleRemoverFoto} variant="secondary" icon="🗑️">
-                REMOVER FOTO
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-gray-600">
-                Tire uma foto do animal com a localização capturada automaticamente. A coordenada GPS é registrada no momento da foto.
-              </p>
-              <Button
-                onClick={handleTirarFoto}
-                variant="success"
-                loading={capturandoFoto || capturandoGps}
-                icon="📷"
-                className="!bg-green-900 !border-green-900 !active:bg-green-950"
-              >
-                {(capturandoFoto || capturandoGps) ? 'CAPTURANDO...' : 'TIRAR FOTO DO ANIMAL'}
-              </Button>
-              {fotoErro && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-800">
-                  {fotoErro}
-                </div>
-              )}
-              <input
-                ref={fotoInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleSalvar}
-            disabled={salvando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setForm(makeInitial()); limparFotoGps() }}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
-        )}
-      </main>
+        <FormFooter
+          onSalvar={handleSalvar}
+          onLimpar={resetarTudo}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+          pendenciaTexto={pendenciaTexto}
+        />
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -801,7 +963,6 @@ export default function MortePage() {
         registro={registroSalvo}
         caderneta="morte"
       />
-
-    </div>
+    </>
   )
 }

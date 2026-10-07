@@ -1,17 +1,23 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage, TimeInput, NumericInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage } from '../../components/ui'
+import { FileText, MapPin } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
-import PastoDetalhesCard from '../../components/PastoDetalhesCard'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoCard, { InfoCardStatus } from '../../components/cadernetas/InfoCard'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import StepperInput from '../../components/cadernetas/StepperInput'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import EscalaRotulada from '../../components/cadernetas/EscalaRotulada'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR, getCurrentTimeInTimezone } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getCachedCadastroData,
   getPastoByNomeCached,
@@ -26,41 +32,78 @@ import { getPastos, getFuncionarios } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { base64ToDataUrl } from '../../utils/photoCompress'
+import { processarCategorias, capitalizarCategoria } from '../../utils/categorias'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
+import { normalizeCategoriaToField } from '../../utils/categoriasRebanho'
 
 const BASE = import.meta.env.BASE_URL
 
-const AVALIACOES = [
-  { value: '1', label: '1', icon: '🔴' },
-  { value: '2', label: '2', icon: '🟢' },
-  { value: '3', label: '3', icon: '🟡' },
-  { value: '4', label: '4', icon: '🟢' },
-  { value: '5', label: '5', icon: '🔴' },
+const AVALIACOES_PASTO = [
+  { value: '1', label: 'Rapado', dot: 'bg-red-500' },
+  { value: '2', label: 'Ideal p/ sair', dot: 'bg-green-500' },
+  { value: '3', label: 'Médio', dot: 'bg-yellow-400' },
+  { value: '4', label: 'Ideal p/ entrar', dot: 'bg-green-500' },
+  { value: '5', label: 'Passado', dot: 'bg-red-500' },
 ]
 
-const ESCORES = [
-  { value: '1', label: '1', color: 'bg-red-500' },
-  { value: '1.5', label: '1.5', color: 'bg-red-500' },
-  { value: '2', label: '2', color: 'bg-yellow-400' },
-  { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
-  { value: '3', label: '3', color: 'bg-green-500' },
-  { value: '3.5', label: '3.5', color: 'bg-green-500' },
-  { value: '4', label: '4', color: 'bg-yellow-400' },
-  { value: '4.5', label: '4.5', color: 'bg-yellow-400' },
-  { value: '5', label: '5', color: 'bg-red-500' },
+const ESCORES_CORPORAIS = [
+  { value: '1', label: 'Muito magro', dot: 'bg-red-500' },
+  { value: '2', label: 'Magro', dot: 'bg-yellow-400' },
+  { value: '3', label: 'Bom', dot: 'bg-green-500' },
+  { value: '4', label: 'Gordo', dot: 'bg-yellow-400' },
+  { value: '5', label: 'Muito gordo', dot: 'bg-red-500' },
 ]
 
-// Fields where "Sim" means a problem exists (observation should show on "Sim")
-const INVERTED_DIAGNOSTICOS = [
-  'animaisMachucadosDoentesBichados',
-  'carrapatosMoscas',
-  'animaisEntreverados',
-  'animalMorto',
+const ESCORES_FEZES = [
+  { value: '1', label: 'Líquida', dot: 'bg-red-500' },
+  { value: '2', label: 'Mole', dot: 'bg-yellow-400' },
+  { value: '3', label: 'Ideal', dot: 'bg-green-500' },
+  { value: '4', label: 'Firme', dot: 'bg-yellow-400' },
+  { value: '5', label: 'Seca', dot: 'bg-red-500' },
 ]
+
+const EQUIPE_OPTIONS = [
+  { value: '1', label: '1' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3' },
+  { value: '4', label: '4' },
+  { value: '5', label: '5' },
+  { value: '6', label: '6+' },
+]
+
+const CONTADO_OPTIONS = [
+  { value: 'Sim', label: 'SIM' },
+  { value: 'Não', label: 'NÃO' },
+]
+
+// Checklist de problemas: tocar no item = a afirmação negativa se aplica; não tocar = conforme.
+// O payload mantém o formato histórico: itens "invertidos" guardam S = problema; os demais guardam N = problema.
+const DIAGNOSTICOS = [
+  { campo: 'bebedourosCochos', label: 'BEBEDOUROS / COCHOS COM PROBLEMA', invertido: false, aviso: 'Bebedouros/cochos com problema: mostre e conte' },
+  { campo: 'pastagensTaxaLotacao', label: 'PASTAGEM / LOTAÇÃO INADEQUADA', invertido: false, aviso: 'Pastagem/lotação inadequada: mostre e conte' },
+  { campo: 'cercasCochosPorteiras', label: 'CERCAS / PORTEIRAS COM PROBLEMA', invertido: false, aviso: 'Cercas/porteiras com problema: mostre e conte' },
+  { campo: 'animaisMachucadosDoentesBichados', label: 'ANIMAL MACHUCADO / DOENTE / BICHADO', invertido: true, aviso: 'Animal com problema: foto do animal e do brinco' },
+  { campo: 'carrapatosMoscas', label: 'CARRAPATO / MOSCA', invertido: true, aviso: 'Carrapato/mosca: mostre e conte' },
+  { campo: 'animaisEntreverados', label: 'ANIMAL ENTREVERADO', invertido: true, aviso: 'Animal entreverado: mostre e conte' },
+  { campo: 'animalMorto', label: 'ANIMAL MORTO', invertido: true, aviso: 'Animal morto: foto do animal e do brinco' },
+] as const
+
+// Chave usada em categoriasQuantidades quando o lote não tem categorias cadastradas.
+const CHAVE_TOTAL = '__total__'
+
+interface DiagnosticoItem {
+  valor: string | null
+  observacao: string
+  fotoBase64?: string
+}
 
 interface FormState {
   data: string
@@ -80,34 +123,14 @@ interface FormState {
   avaliacaoEntrada: string
   tempoVedacao: string
   gadoContado: string
-  vaca: string
-  touro: string
-  bezerro: string
-  boiGordo: string
-  boiMagro: string
-  garrote: string
-  novilha: string
-  tropa: string
-  outros: string
   escoreGado: string
-  bebedourosCochos: string
-  bebedourosCochosObs: string
-  pastagensTaxaLotacao: string
-  pastagensTaxaLotacaoObs: string
-  animaisMachucadosDoentesBichados: string
-  animaisMachucadosDoentesBichadosObs: string
-  cercasCochosPorteiras: string
-  cercasCochosPorteirasObs: string
-  carrapatosMoscas: string
-  carrapatosMoscasObs: string
-  animaisEntreverados: string
-  animaisEntreveradosObs: string
-  animalMorto: string
-  animalMortoObs: string
   escoreFezes: string
   numeroPessoasManejo: string
   equipeNomes: string[]
   categoriasQuantidades: Record<string, string>
+  diagnosticos: Record<string, DiagnosticoItem>
+  fotoSaidaEm: string
+  fotoEntradaEm: string
 }
 
 const makeInitial = (): FormState => ({
@@ -128,85 +151,20 @@ const makeInitial = (): FormState => ({
   avaliacaoEntrada: '',
   tempoVedacao: '',
   gadoContado: '',
-  vaca: '',
-  touro: '',
-  bezerro: '',
-  boiGordo: '',
-  boiMagro: '',
-  garrote: '',
-  novilha: '',
-  tropa: '',
-  outros: '',
   escoreGado: '',
-  bebedourosCochos: '',
-  bebedourosCochosObs: '',
-  pastagensTaxaLotacao: '',
-  pastagensTaxaLotacaoObs: '',
-  animaisMachucadosDoentesBichados: '',
-  animaisMachucadosDoentesBichadosObs: '',
-  cercasCochosPorteiras: '',
-  cercasCochosPorteirasObs: '',
-  carrapatosMoscas: '',
-  carrapatosMoscasObs: '',
-  animaisEntreverados: '',
-  animaisEntreveradosObs: '',
-  animalMorto: '',
-  animalMortoObs: '',
   escoreFezes: '',
   numeroPessoasManejo: '',
   equipeNomes: [],
   categoriasQuantidades: {},
+  diagnosticos: DIAGNOSTICOS.reduce((acc, { campo }) => {
+    acc[campo] = { valor: '', observacao: '' }
+    return acc
+  }, {} as Record<string, DiagnosticoItem>),
+  fotoSaidaEm: '',
+  fotoEntradaEm: '',
 })
 
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
-}
-
-// Mapear texto de categoria do banco (lote_categorias.categoria) para campo do form.
-// O banco tem casing inconsistente ("boi gordo" vs "Boi Gordo") e variantes
-// ("bezerra", "bezerro ao pé", "bezerra ao pé") que precisam agrupar em "bezerro".
-function normalizeCategoriaToField(categoria: string): keyof FormState | null {
-  const norm = categoria
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/\s+ao\s+pe\s*/g, '') // remove "ao pé"
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  const map: Record<string, keyof FormState> = {
-    'vaca': 'vaca',
-    'vacas': 'vaca',
-    'touro': 'touro',
-    'touros': 'touro',
-    'boi gordo': 'boiGordo',
-    'bois gordo': 'boiGordo',
-    'boi magro': 'boiMagro',
-    'bois magro': 'boiMagro',
-    'garrote': 'garrote',
-    'garrotes': 'garrote',
-    'bezerro': 'bezerro',
-    'bezerros': 'bezerro',
-    'bezerra': 'bezerro',
-    'bezerras': 'bezerro',
-    'novilha': 'novilha',
-    'novilhas': 'novilha',
-    'tropa': 'tropa',
-    'tropas': 'tropa',
-    'outros': 'outros',
-    'outro': 'outros',
-  }
-
-  return map[norm] || null
-}
+type AlvoVoz = { campo: string }
 
 export default function PastagensPage() {
   const navigate = useNavigate()
@@ -226,7 +184,8 @@ export default function PastagensPage() {
     garantirExecucao('pastagens')
   }, [garantirExecucao])
 
-  const [form, setForm] = useState<FormState>(() => makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'pastagens', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
@@ -240,15 +199,30 @@ export default function PastagensPage() {
   const [ocupacaoSaida, setOcupacaoSaida] = useState<any>(null)
   const [ocupacaoModuloSaida, setOcupacaoModuloSaida] = useState<any>(null)
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
+  const [campoFotoAtual, setCampoFotoAtual] = useState<string | null>(null)
+  const [alvoVoz, setAlvoVoz] = useState<AlvoVoz | null>(null)
+  const baseVozRef = useRef('')
+
+  // Fotos obrigatórias dos pastos (com GPS, não obrigatório): saída e entrada
+  const fotoSaida = usePhotoGps({ comGps: true })
+  const fotoEntrada = usePhotoGps({ comGps: true })
+
+  // Foto por item do checklist (animal doente, morto etc.)
+  const {
+    capturandoFoto: capturandoFotoItem,
+    fotoErro: fotoErroItem,
+    capturarFoto: capturarFotoItem,
+    fotoInputRef: fotoItemInputRef,
+    handleFileInputChange: handleFileInputItem,
+  } = usePhotoGps({ comGps: false })
+
+  const { ouvindo: ouvindoVoz, erro: vozErro, toggle: toggleVoz, parar: pararVoz } = useVoiceInput()
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-  const setTimeInput = (field: keyof FormState) => (value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }))
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
@@ -264,6 +238,81 @@ export default function PastagensPage() {
     if (cats.length === 0) return null
     return cats as { nome: string; maxCabecas: number }[]
   }, [detalhesLote])
+
+  // Hora do manejo automática (somente leitura); o valor gravado é recalculado no momento de salvar
+  const [horaAtual, setHoraAtual] = useState(() => getCurrentTimeInTimezone().slice(0, 5))
+  useEffect(() => {
+    const id = setInterval(() => setHoraAtual(getCurrentTimeInTimezone().slice(0, 5)), 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Momento em que cada foto de pasto foi tirada ("fotos marcadas com local e hora")
+  useEffect(() => {
+    const em = fotoSaida.fotoBase64 ? new Date().toISOString() : ''
+    setForm((prev) => (!em && !prev.fotoSaidaEm ? prev : { ...prev, fotoSaidaEm: em }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fotoSaida.fotoBase64])
+  useEffect(() => {
+    const em = fotoEntrada.fotoBase64 ? new Date().toISOString() : ''
+    setForm((prev) => (!em && !prev.fotoEntradaEm ? prev : { ...prev, fotoEntradaEm: em }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fotoEntrada.fotoBase64])
+
+  const setDiagnostico = (campo: string, patch: Partial<DiagnosticoItem>) =>
+    setForm((prev) => ({
+      ...prev,
+      diagnosticos: { ...prev.diagnosticos, [campo]: { ...prev.diagnosticos[campo], ...patch } },
+    }))
+
+  // Valor gravado quando o problema está marcado / quando está conforme (padrão, sem toque)
+  const valorProblema = (invertido: boolean) => (invertido ? 'S' : 'N')
+  const valorConforme = (invertido: boolean) => (invertido ? 'N' : 'S')
+
+  const temProblema = (campo: string, invertido: boolean) =>
+    form.diagnosticos[campo]?.valor === valorProblema(invertido)
+
+  const toggleProblema = (campo: string, invertido: boolean) =>
+    setDiagnostico(campo, { valor: temProblema(campo, invertido) ? '' : valorProblema(invertido) })
+
+  const handleTirarFotoItem = async (campo: string) => {
+    setCampoFotoAtual(campo)
+    const base64 = await capturarFotoItem()
+    // Nativo retorna a foto aqui; no web o retorno vem pelo input file hidden
+    if (base64) setDiagnostico(campo, { fotoBase64: base64 })
+  }
+
+  const handleFotoInputItem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const result = await handleFileInputItem(e)
+    if (result?.fotoBase64 && campoFotoAtual) setDiagnostico(campoFotoAtual, { fotoBase64: result.fotoBase64 })
+  }
+
+  // Ditado: o texto parcial é acrescentado ao que já existia quando a gravação começou.
+  const handleFalar = async (campo: string) => {
+    if (ouvindoVoz) {
+      await pararVoz()
+      if (alvoVoz?.campo === campo) return
+    }
+    setAlvoVoz({ campo })
+    baseVozRef.current = (form.diagnosticos[campo]?.observacao || '').trim()
+    await toggleVoz((parcial) => {
+      const texto = baseVozRef.current ? `${baseVozRef.current} ${parcial}` : parcial
+      setDiagnostico(campo, { observacao: texto })
+    })
+  }
+
+  const ouvindoCampo = (campo: string) => ouvindoVoz && alvoVoz?.campo === campo
+
+  const handleEquipe = (value: string) => {
+    const numPessoas = Number(value) || 0
+    setForm((prev) => ({
+      ...prev,
+      numeroPessoasManejo: value,
+      equipeNomes: Array.from({ length: numPessoas }, (_, i) => prev.equipeNomes[i] || ''),
+    }))
+  }
+
+  const setCategoriaQtd = (chave: string) => (val: string) =>
+    setForm((prev) => ({ ...prev, categoriasQuantidades: { ...prev.categoriasQuantidades, [chave]: val } }))
 
   // Carregar pastos e lotes do cache global, com fallback para Supabase
   useEffect(() => {
@@ -485,6 +534,10 @@ export default function PastagensPage() {
   const total = Object.values(form.categoriasQuantidades).reduce(
     (acc, v) => acc + (Number(v) || 0), 0
   )
+  const totalLote = detalhesLote?.n_cabecas || 0
+  const diferenca = total - totalLote
+  const mostrarDivergencia =
+    form.gadoContado === 'Sim' && !!detalhesLote && Object.values(form.categoriasQuantidades).some((v) => v !== '')
 
   // Validation rules
   const validationRules: any = {
@@ -498,20 +551,12 @@ export default function PastagensPage() {
     escoreGado: { required: true },
     escoreFezes: { required: true },
     numeroPessoasManejo: { required: true },
-  }
-  if (checklistAtivo) {
-    const checklistFields = [
-      'bebedourosCochos',
-      'pastagensTaxaLotacao',
-      'animaisMachucadosDoentesBichados',
-      'cercasCochosPorteiras',
-      'carrapatosMoscas',
-      'animaisEntreverados',
-      'animalMorto',
-    ]
-    checklistFields.forEach((campo) => {
-      validationRules[campo] = { required: true }
-    })
+    fotoSaida: {
+      custom: () => (form.pastoSaida && !fotoSaida.fotoBase64 ? 'Tire a foto do pasto de saída' : null),
+    },
+    fotoEntrada: {
+      custom: () => (form.pastoEntrada && !fotoEntrada.fotoBase64 ? 'Tire a foto do pasto de entrada' : null),
+    },
   }
 
   // Add dynamic validation for animal categories when gadoContado is 'Sim'
@@ -599,9 +644,22 @@ export default function PastagensPage() {
       totalAnimais = detalhesLote.n_cabecas || 0
     }
 
+    // Avaliação geral: sem toque = conforme. Observação/foto só fazem sentido com o problema marcado.
+    const avaliacaoGeral: Record<string, { valor: string; observacao: string; fotoBase64?: string }> = {}
+    const flat: Record<string, string> = {}
+    for (const { campo, invertido } of DIAGNOSTICOS) {
+      const d = form.diagnosticos[campo]
+      const problema = d?.valor === valorProblema(invertido)
+      const valor = problema ? valorProblema(invertido) : valorConforme(invertido)
+      const observacao = problema ? d?.observacao || '' : ''
+      avaliacaoGeral[campo] = problema && d?.fotoBase64 ? { valor, observacao, fotoBase64: d.fotoBase64 } : { valor, observacao }
+      flat[campo] = valor
+      flat[`${campo}Obs`] = observacao
+    }
+
     const result = await salvarRegistro('pastagens', {
       data: form.data,
-      horarioManejo: form.horarioManejo,
+      horarioManejo: getCurrentTimeInTimezone().slice(0, 5),
       manejador: usuario,
       usuario: usuario,
       numeroLote: form.numeroLote,
@@ -631,23 +689,21 @@ export default function PastagensPage() {
       outros: camposFixos.outros,
       categorias_detalhes: categoriasDetalhes.length > 0 ? categoriasDetalhes : null,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
-      bebedourosCochos: form.bebedourosCochos,
-      bebedourosCochosObs: form.bebedourosCochosObs,
-      pastagensTaxaLotacao: form.pastagensTaxaLotacao,
-      pastagensTaxaLotacaoObs: form.pastagensTaxaLotacaoObs,
-      animaisMachucadosDoentesBichados: form.animaisMachucadosDoentesBichados,
-      animaisMachucadosDoentesBichadosObs: form.animaisMachucadosDoentesBichadosObs,
-      cercasCochosPorteiras: form.cercasCochosPorteiras,
-      cercasCochosPorteirasObs: form.cercasCochosPorteirasObs,
-      carrapatosMoscas: form.carrapatosMoscas,
-      carrapatosMoscasObs: form.carrapatosMoscasObs,
-      animaisEntreverados: form.animaisEntreverados,
-      animaisEntreveradosObs: form.animaisEntreveradosObs,
-      animalMorto: form.animalMorto,
-      animalMortoObs: form.animalMortoObs,
+      ...flat,
+      avaliacaoGeral: checklistAtivo ? avaliacaoGeral : null,
       escoreFezes: form.escoreFezes || null,
       numeroPessoasManejo: form.numeroPessoasManejo ? Number(form.numeroPessoasManejo) : 0,
       equipe_nomes: form.equipeNomes || null,
+      fotoSaidaBase64: fotoSaida.fotoBase64 || null,
+      fotoSaidaLatitude: fotoSaida.latitude,
+      fotoSaidaLongitude: fotoSaida.longitude,
+      fotoSaidaGpsAccuracy: fotoSaida.gpsAccuracy,
+      fotoSaidaEm: form.fotoSaidaEm || null,
+      fotoEntradaBase64: fotoEntrada.fotoBase64 || null,
+      fotoEntradaLatitude: fotoEntrada.latitude,
+      fotoEntradaLongitude: fotoEntrada.longitude,
+      fotoEntradaGpsAccuracy: fotoEntrada.gpsAccuracy,
+      fotoEntradaEm: form.fotoEntradaEm || null,
     })
 
     if (!result.success && result.errors) {
@@ -656,8 +712,15 @@ export default function PastagensPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial())
+      resetarTudo()
     }
+  }
+
+  const resetarTudo = () => {
+    limparRascunho()
+    fotoSaida.limpar()
+    fotoEntrada.limpar()
+    setErrors([])
   }
 
   const handleNewRecord = () => {
@@ -670,25 +733,131 @@ export default function PastagensPage() {
     navigate('/')
   }
 
+  // Status de ocupação do pasto de saída em relação à meta
+  const saidaStatus: InfoCardStatus | undefined = (() => {
+    if (!ocupacaoSaida) return undefined
+    if (ocupacaoSaida.metaDias == null) return { tone: 'neutral', text: 'Sem meta de ocupação definida' }
+    if (ocupacaoSaida.metaExcedida) {
+      const extra = ocupacaoSaida.desvioPercentual != null ? ` (+${ocupacaoSaida.desvioPercentual}%)` : ''
+      return { tone: 'danger', text: `Ocupação acima da meta${extra}` }
+    }
+    return { tone: 'success', text: `Dentro da meta de ocupação (${ocupacaoSaida.metaDias} dias)` }
+  })()
+  const saidaProgress =
+    ocupacaoSaida?.metaDias && ocupacaoSaida.periodoDias != null ? ocupacaoSaida.periodoDias / ocupacaoSaida.metaDias : null
+
+  const categoriasLoteStr = detalhesLote?.categorias
+    ? processarCategorias(detalhesLote.categorias).map(capitalizarCategoria).join(', ')
+    : ''
+
+  const pendenciaTexto = (() => {
+    if (!form.pastoSaida) return 'Falta escolher o pasto de saída'
+    if (!form.avaliacaoSaida) return 'Falta a avaliação do pasto de saída'
+    if (!fotoSaida.fotoBase64) return 'Falta a foto do pasto de saída'
+    if (!form.pastoEntrada) return 'Falta escolher o pasto de entrada'
+    if (!form.avaliacaoEntrada) return 'Falta a avaliação do pasto de entrada'
+    if (!fotoEntrada.fotoBase64) return 'Falta a foto do pasto de entrada'
+    if (!form.gadoContado) return 'Falta informar se o gado foi contado'
+    if (form.gadoContado === 'Sim' && !Object.values(form.categoriasQuantidades).some((v) => Number(v) > 0)) return 'Falta informar a quantidade de animais'
+    if (!form.escoreGado) return 'Falta o escore corporal'
+    if (!form.escoreFezes) return 'Falta o escore de fezes'
+    if (!form.numeroPessoasManejo) return 'Falta o número de pessoas no manejo'
+    if (Number(form.numeroPessoasManejo) > 0 && form.equipeNomes.some((n) => !n || !n.trim())) return 'Falta o nome de todas as pessoas da equipe'
+    return undefined
+  })()
+
+  const chipPop = (onClick: () => void, texto: string) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex !min-h-0 shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-black transition-colors hover:bg-yellow-300 active:scale-[0.98]"
+    >
+      <FileText className="h-3.5 w-3.5" strokeWidth={2.5} />
+      {texto}
+    </button>
+  )
+
+  const rotulo = 'text-[13px] font-bold uppercase text-gray-900'
+
+  /** Bloco de foto obrigatória do pasto (com GPS e hora). */
+  const blocoFotoPasto = (tipo: 'saida' | 'entrada') => {
+    const h = tipo === 'saida' ? fotoSaida : fotoEntrada
+    const nomePasto = tipo === 'saida' ? form.pastoSaida : form.pastoEntrada
+    const campo = tipo === 'saida' ? 'fotoSaida' : 'fotoEntrada'
+    return (
+      <div className="flex flex-col gap-2" data-field={campo}>
+        <label className={rotulo}>
+          Foto do pasto de {tipo === 'saida' ? 'saída' : 'entrada'} <span className="text-red-500">*</span>
+        </label>
+        {h.fotoBase64 ? (
+          <div className="flex items-stretch gap-2">
+            <div className="relative h-24 flex-1 overflow-hidden rounded-xl border-2 border-green-500">
+              <img src={base64ToDataUrl(h.fotoBase64)} alt={`Foto do pasto ${nomePasto}`} className="h-full w-full object-cover" />
+              <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-sm font-black text-white">✓</span>
+              <span className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-center text-xs font-bold text-white">{nomePasto}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => h.capturarFotoComGps()}
+              disabled={h.capturandoFoto}
+              className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 transition-colors hover:border-gray-400 active:scale-[0.99] disabled:opacity-60"
+            >
+              <span className="text-lg leading-none">📷</span>
+              {h.capturandoFoto ? 'Capturando...' : 'Refazer foto'}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => h.capturarFotoComGps()}
+            disabled={h.capturandoFoto || !nomePasto}
+            className="flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+          >
+            <span className="text-lg leading-none">📷</span>
+            <span className="text-sm font-extrabold uppercase tracking-wide">
+              {h.capturandoFoto ? 'Capturando...' : nomePasto ? `Tirar foto do ${nomePasto}` : 'Escolha o pasto primeiro'}
+            </span>
+          </button>
+        )}
+        {h.fotoBase64 && (
+          h.latitude != null && h.longitude != null ? (
+            <InfoStrip tone="success" icon="📍">
+              GPS marcado: {h.latitude.toFixed(5)}, {h.longitude.toFixed(5)}
+              {h.gpsAccuracy != null && ` (±${Math.round(h.gpsAccuracy)} m)`}
+            </InfoStrip>
+          ) : (
+            <InfoStrip tone="warning" icon="📍">Foto sem localização: GPS indisponível{h.gpsErro ? ` (${h.gpsErro})` : ''}</InfoStrip>
+          )
+        )}
+        {h.fotoErro && <InfoStrip tone="danger">{h.fotoErro}</InfoStrip>}
+        {getError(campo) && <p className="text-base font-semibold text-red-700">{getError(campo)}</p>}
+        <input
+          ref={h.fotoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={h.handleFileInputChange}
+          className="hidden"
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
+    <>
+      <CadernetaLayout
         title="MANEJO PASTAGENS"
         cadernetaId="pastagens"
         dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
-      />
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+      >
+        <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 2: Entrada e Saída */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ENTRADA E SAÍDA</h2>
-          <TimeInput
-            label="HORÁRIO DO MANEJO"
-            value={form.horarioManejo}
-            onChange={setTimeInput('horarioManejo')}
-          />
+        {/* 1. Entrada e saída */}
+        <CadernetaSection numero={1} titulo="Entrada e saída">
+          <InfoStrip tone="neutral" icon="🕐">Horário do manejo: {horaAtual} (automático)</InfoStrip>
+
+          {/* Pasto de saída */}
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>PASTO DE SAÍDA <span className="text-red-500">*</span></span>}
@@ -708,32 +877,43 @@ export default function PastagensPage() {
               onChange={setInput('pastoSaida')}
               error={getError('pastoSaida')}
               disabled
+              id="pastoSaida"
             />
           )}
           {detalhesPastoSaida && (
-            <PastoDetalhesCard detalhes={detalhesPastoSaida} tipo="saida" tempo={form.tempoOcupacao} ocupacao={ocupacaoSaida} ocupacaoModulo={ocupacaoModuloSaida} />
+            <InfoCard
+              icon={MapPin}
+              title={form.pastoSaida}
+              subtitle={form.numeroLote ? `Lote ${form.numeroLote}` : 'Sem lote'}
+              stats={[
+                { label: 'Área útil', value: detalhesPastoSaida.areaUtil ? `${detalhesPastoSaida.areaUtil} ha` : '-', span: 1 },
+                { label: 'Cabeças', value: detalhesLote?.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-', span: 1 },
+                { label: 'Ocupação', value: form.tempoOcupacao || '-', span: 1 },
+                { label: 'Altura saída', value: detalhesPastoSaida.alturaSaida ? `${detalhesPastoSaida.alturaSaida} cm` : '-', span: 1 },
+                ...(ocupacaoSaida?.taxaLotacao != null ? [{ label: 'Lotação', value: `${ocupacaoSaida.taxaLotacao} UA/ha`, span: 1 }] : []),
+                { label: 'Espécie', value: detalhesPastoSaida.especie || '-', span: 1 },
+                ...(ocupacaoModuloSaida?.taxaLotacao != null ? [{ label: 'Lotação módulo', value: `${ocupacaoModuloSaida.taxaLotacao} UA/ha`, span: 2 }] : []),
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
+              ]}
+              progress={saidaProgress}
+              status={saidaStatus}
+            />
           )}
-          {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
-          )}
-          <Radio
-            name="avaliacaoSaida"
-            label={<span>AVALIAÇÃO DO PASTO DE SAÍDA <span className="text-red-500">*</span></span>}
-            options={AVALIACOES}
-            value={form.avaliacaoSaida}
-            onChange={set('avaliacaoSaida')}
-            gridCols={5}
-            error={getError('avaliacaoSaida')}
-          />
 
-          {/* Botão de PDF POP */}
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP MANEJO PASTAGENS</span>
-          </button>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className={rotulo}>
+                Avaliação do pasto de saída <span className="text-red-500">*</span>
+              </label>
+              {chipPop(() => setShowPdfModal(true), 'POP Pastagens')}
+            </div>
+            <EscalaRotulada options={AVALIACOES_PASTO} value={form.avaliacaoSaida} onChange={set('avaliacaoSaida')} dataField="avaliacaoSaida" />
+            {getError('avaliacaoSaida') && <p className="text-base font-semibold text-red-700">{getError('avaliacaoSaida')}</p>}
+          </div>
+
+          {blocoFotoPasto('saida')}
+
+          {/* Pasto de entrada */}
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>PASTO DE ENTRADA <span className="text-red-500">*</span></span>}
@@ -757,430 +937,284 @@ export default function PastagensPage() {
             />
           )}
           {detalhesPastoEntrada && (
-            <PastoDetalhesCard detalhes={detalhesPastoEntrada} tipo="entrada" tempo={form.tempoVedacao} />
+            <InfoCard
+              icon={MapPin}
+              title={form.pastoEntrada}
+              subtitle="Pasto vazio, pronto para receber"
+              stats={[
+                { label: 'Área útil', value: detalhesPastoEntrada.areaUtil ? `${detalhesPastoEntrada.areaUtil} ha` : '-', span: 1 },
+                { label: 'Altura entrada', value: detalhesPastoEntrada.alturaEntrada ? `${detalhesPastoEntrada.alturaEntrada} cm` : '-', span: 1 },
+                { label: 'Vedação', value: form.tempoVedacao || '-', span: 2 },
+                { label: 'Espécie', value: detalhesPastoEntrada.especie || '-', span: 2 },
+              ]}
+            />
           )}
-          <Radio
-            name="avaliacaoEntrada"
-            label={<span>AVALIAÇÃO DO PASTO DE ENTRADA <span className="text-red-500">*</span></span>}
-            options={AVALIACOES}
-            value={form.avaliacaoEntrada}
-            onChange={set('avaliacaoEntrada')}
-            gridCols={5}
-            error={getError('avaliacaoEntrada')}
-          />
-        </div>
 
-        {/* Seção 4: Quantidade de Animais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIDADE DE ANIMAIS</h2>
-          <Radio
-            name="gadoContado"
-            label={<span>O GADO FOI CONTADO? <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'Sim', label: 'SIM' },
-              { value: 'Não', label: 'NÃO' }
-            ]}
-            value={form.gadoContado}
-            onChange={set('gadoContado')}
-            gridCols={2}
-            error={getError('gadoContado')}
-          />
+          <div className="flex flex-col gap-2">
+            <label className={rotulo}>
+              Avaliação do pasto de entrada <span className="text-red-500">*</span>
+            </label>
+            <EscalaRotulada options={AVALIACOES_PASTO} value={form.avaliacaoEntrada} onChange={set('avaliacaoEntrada')} dataField="avaliacaoEntrada" />
+            {getError('avaliacaoEntrada') && <p className="text-base font-semibold text-red-700">{getError('avaliacaoEntrada')}</p>}
+          </div>
+
+          {blocoFotoPasto('entrada')}
+          <InfoStrip tone="neutral" icon="📍">As fotos ficam marcadas com o local (GPS) e a hora.</InfoStrip>
+        </CadernetaSection>
+
+        {/* 2. Quantidade de animais */}
+        <CadernetaSection numero={2} titulo="Quantidade de animais">
+          <div>
+            <label className="mb-2 block text-[15px] font-bold text-gray-900">
+              O GADO FOI CONTADO? <span className="text-red-500">*</span>
+            </label>
+            <ChoiceGrid
+              options={CONTADO_OPTIONS}
+              value={form.gadoContado}
+              onChange={set('gadoContado')}
+              cols={2}
+              dataField="gadoContado"
+            />
+            {getError('gadoContado') && (
+              <p className="mt-2 text-base font-semibold text-red-700">{getError('gadoContado')}</p>
+            )}
+          </div>
+
           {form.gadoContado === 'Sim' && (
             <>
-              {getError('categorias') && (
-                <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>
-              )}
-              <div className="grid grid-cols-2 gap-3 overflow-hidden">
-                {(categoriasDoLote || []).map(({ nome, maxCabecas }) => (
-                  <div key={nome} className="flex flex-col gap-1">
-                    {maxCabecas === 0 ? (
-                      <div className="w-full">
-                        <label className="block text-lg font-bold text-gray-900 mb-2">
-                          <span className="capitalize">{nome} <span className="text-gray-400 font-normal text-base">(0 cab.)</span></span>
-                        </label>
-                        <div className="min-h-[60px] flex items-center justify-center bg-gray-100 border border-gray-200 rounded-2xl text-gray-400 font-semibold text-base">
-                          Sem cabeças para movimentar
-                        </div>
-                      </div>
-                    ) : (
-                      <NumericInput
-                        label={
-                          <span className="capitalize">{nome} <span className="text-black font-bold text-base">({maxCabecas} cab.)</span></span>
-                        }
-                        placeholder="0"
-                        value={form.categoriasQuantidades[nome] || ''}
-                        onChange={(val) => {
-                          setForm(prev => ({
-                            ...prev,
-                            categoriasQuantidades: { ...prev.categoriasQuantidades, [nome]: val }
-                          }))
-                        }}
-                        decimalPlaces={0}
-                        error={getError(`cat_${nome}`)}
-                      />
-                    )}
+              {!form.pastoSaida && <InfoStrip tone="warning" icon="⚠️">Escolha o pasto de saída para ver as categorias do lote</InfoStrip>}
+              {getError('categorias') && <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>}
+              {(categoriasDoLote
+                ? categoriasDoLote.map((c) => ({ chave: c.nome, nome: c.nome, cadastro: c.maxCabecas }))
+                : [{ chave: CHAVE_TOTAL, nome: 'Total de cabeças', cadastro: totalLote }]
+              ).map((cat) => (
+                <div key={cat.chave} className="flex flex-col gap-2" data-field={`cat_${cat.chave}`}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[15px] font-bold capitalize text-gray-900">
+                      {categoriasDoLote && categoriasDoLote.length === 1 ? 'Quantos passaram?' : cat.nome}
+                    </span>
+                    {detalhesLote && <span className="text-sm font-semibold text-gray-500">cadastro: {cat.cadastro} cab.</span>}
                   </div>
-                ))}
-              </div>
-              {total > 0 && (
-                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 flex items-center justify-between">
-                  <span className="text-lg font-bold text-gray-700">TOTAL</span>
-                  <span className="text-2xl font-bold text-black">{total} animais</span>
+                  <StepperInput
+                    value={form.categoriasQuantidades[cat.chave] ?? ''}
+                    onChange={setCategoriaQtd(cat.chave)}
+                    min={0}
+                    max={categoriasDoLote ? cat.cadastro : undefined}
+                    allowDecimals={false}
+                    suffix="cabeças"
+                    error={getError(`cat_${cat.chave}`)}
+                  />
                 </div>
+              ))}
+              {categoriasDoLote && categoriasDoLote.length > 1 && total > 0 && (
+                <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                  <span className="text-sm font-bold text-gray-600">TOTAL CONTADO</span>
+                  <span className="text-xl font-extrabold text-gray-900">{total} cabeças</span>
+                </div>
+              )}
+              {mostrarDivergencia && (
+                diferenca === 0 ? (
+                  <InfoStrip tone="success" icon="✅">Bateu com o lote ({totalLote})</InfoStrip>
+                ) : (
+                  <InfoStrip tone="danger" icon="⚠️">
+                    {diferenca < 0
+                      ? `Faltam ${Math.abs(diferenca)} cabeças (cadastro: ${totalLote})`
+                      : `Excedeu ${diferenca} cabeças (cadastro: ${totalLote})`}
+                  </InfoStrip>
+                )
               )}
             </>
           )}
+
           {form.gadoContado === 'Não' && detalhesLote && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <p className="text-gray-500 font-semibold mb-2">CABEÇAS MANEJADAS</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {detalhesLote.n_cabecas || 0} animais
-              </p>
-            </div>
+            <InfoStrip tone="neutral">Será registrado o cadastro do lote: {totalLote} cabeças manejadas</InfoStrip>
           )}
-          {form.gadoContado === 'Sim' && total > 0 && detalhesLote && (
-            (() => {
-              const totalCabecasLote = detalhesLote.n_cabecas || 0
-              const diferenca = total - totalCabecasLote
-              if (diferenca !== 0) {
-                return (
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-                    <p className="text-base font-semibold text-orange-800 text-justify">
-                      ⚠️ O total informado ({total} animais) não coincide com o total do lote ({totalCabecasLote} animais)
-                    </p>
-                    <p className="text-base text-orange-700 mt-1">
-                      {diferenca > 0 
-                        ? `Excedeu ${diferenca} animais do total do lote` 
-                        : `Faltam ${Math.abs(diferenca)} animais para completar o lote`
-                      }
-                    </p>
-                  </div>
+        </CadernetaSection>
+
+        {/* 3. Avaliação do gado e equipe */}
+        <CadernetaSection numero={3} titulo="Avaliação do gado e equipe">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className={rotulo}>
+                Escore corporal <span className="text-red-500">*</span>
+              </label>
+              {chipPop(() => setShowEscoreModal(true), 'POP Escore')}
+            </div>
+            <EscalaRotulada options={ESCORES_CORPORAIS} value={form.escoreGado} onChange={set('escoreGado')} dataField="escoreGado" />
+            {getError('escoreGado') && <p className="text-base font-semibold text-red-700">{getError('escoreGado')}</p>}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className={rotulo}>
+                Escore de fezes <span className="text-red-500">*</span>
+              </label>
+              {chipPop(() => setShowFezesModal(true), 'POP Fezes')}
+            </div>
+            <EscalaRotulada options={ESCORES_FEZES} value={form.escoreFezes} onChange={set('escoreFezes')} dataField="escoreFezes" />
+            {getError('escoreFezes') && <p className="text-base font-semibold text-red-700">{getError('escoreFezes')}</p>}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className={rotulo}>
+              Nº pessoas no manejo <span className="text-red-500">*</span>
+            </label>
+            <ChoiceGrid options={EQUIPE_OPTIONS} value={form.numeroPessoasManejo} onChange={handleEquipe} cols={6} size="sm" dataField="numeroPessoasManejo" />
+            {getError('numeroPessoasManejo') && <p className="text-base font-semibold text-red-700">{getError('numeroPessoasManejo')}</p>}
+          </div>
+
+          {Number(form.numeroPessoasManejo) > 0 && (
+            <div className="flex flex-col gap-3">
+              {getError('equipeNomes') && <p className="text-sm font-semibold text-red-600">{getError('equipeNomes')}</p>}
+              {Array.from({ length: Number(form.numeroPessoasManejo) }).map((_, index) => (
+                funcionariosDisponiveis.length > 0 ? (
+                  <SearchableModal
+                    key={index}
+                    label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
+                    value={form.equipeNomes[index] || ''}
+                    onChange={(val) =>
+                      setForm((prev) => {
+                        const nomes = [...prev.equipeNomes]
+                        nomes[index] = val
+                        return { ...prev, equipeNomes: nomes }
+                      })
+                    }
+                    options={funcionariosDisponiveis}
+                    placeholder="Buscar funcionário..."
+                    id={`equipeNome-${index}`}
+                    name={`equipeNome-${index}`}
+                  />
+                ) : (
+                  <Input
+                    key={index}
+                    label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
+                    placeholder="Nome"
+                    value={form.equipeNomes[index] || ''}
+                    onChange={(e) =>
+                      setForm((prev) => {
+                        const nomes = [...prev.equipeNomes]
+                        nomes[index] = e.target.value
+                        return { ...prev, equipeNomes: nomes }
+                      })
+                    }
+                  />
                 )
-              }
-              return null
-            })()
+              ))}
+            </div>
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 5: Avaliação do Gado e Equipe */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. AVALIAÇÃO DO GADO E EQUIPE</h2>
-          <div>
-            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">ESCORE DO GADO <span className="text-red-500">*</span></label>
-            <button
-              onClick={() => setShowEscoreModal(true)}
-              className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors mb-3"
-            >
-              <span className="text-xl">📄</span>
-              <span>POP ESCORE CORPORAL</span>
-            </button>
-            <div className="grid grid-cols-3 gap-2">
-              {ESCORES.map((escore) => (
-                <button
-                  key={escore.value}
-                  type="button"
-                  onClick={() => set('escoreGado')(escore.value)}
-                  className={`
-                    py-3 px-2 rounded-xl font-bold text-black text-base
-                    transition-all duration-200
-                    ${form.escoreGado === escore.value ? escore.color : 'bg-gray-200 text-gray-700'}
-                    hover:opacity-80
-                  `}
-                >
-                  {escore.label}
-                </button>
-              ))}
-            </div>
-            {getError('escoreGado') && (
-              <p className="text-base font-semibold text-red-700 mt-2">⚠️ {getError('escoreGado')}</p>
-            )}
-          </div>
-          <div>
-            <button
-              onClick={() => setShowFezesModal(true)}
-              className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-            >
-              <span className="text-xl">📄</span>
-              <span>POP ESCORE DE FEZES</span>
-            </button>
-            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap mt-3">ESCORE DE FEZES <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-5 gap-2">
-              {[
-                { value: '1', icon: '🔴' },
-                { value: '2', icon: '🟡' },
-                { value: '3', icon: '🟢' },
-                { value: '4', icon: '🟡' },
-                { value: '5', icon: '🔴' },
-              ].map((escore) => (
-                <label
-                  key={escore.value}
-                  className={`
-                    cursor-pointer rounded-xl border-2
-                    transition-all active:scale-95
-                    flex flex-col items-center justify-center gap-1
-                    p-2 min-h-[70px]
-                    ${form.escoreFezes === escore.value ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-                  `}
-                >
-                  <input type="radio" name="escoreFezes" className="sr-only" value={escore.value} checked={form.escoreFezes === escore.value} onChange={(e) => setInput('escoreFezes')(e)} />
-                  <span className="text-2xl sm:text-3xl">{escore.icon}</span>
-                  <span className="text-base sm:text-lg font-bold text-center leading-tight">{escore.value}</span>
-                </label>
-              ))}
-            </div>
-            {getError('escoreFezes') && (
-              <p className="text-base font-semibold text-red-700 mt-2">⚠️ {getError('escoreFezes')}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">N° PESSOAS NO MANEJO <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-5 gap-2">
-              {[1, 2, 3, 4, 5].map((num) => (
-                <label
-                  key={num}
-                  className={`
-                    cursor-pointer rounded-xl border-2
-                    transition-all active:scale-95
-                    flex flex-col items-center justify-center gap-1
-                    p-2 min-h-[70px]
-                    ${form.numeroPessoasManejo === String(num) ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-                  `}
-                >
-                  <input type="radio" name="numeroPessoasManejo" className="sr-only" value={num} checked={form.numeroPessoasManejo === String(num)} onChange={(e) => {
-                    setInput('numeroPessoasManejo')(e)
-                    // Reset equipeNomes when number changes
-                    const numPessoas = Number(e.target.value) || 0
-                    setForm(prev => ({
-                      ...prev,
-                      equipeNomes: Array(numPessoas).fill('')
-                    }))
-                  }} />
-                  <span className="text-base sm:text-lg font-bold text-center leading-tight">{num}</span>
-                </label>
-              ))}
-            </div>
-            {form.numeroPessoasManejo && Number(form.numeroPessoasManejo) > 0 && (
-              <div className="flex flex-col gap-3 mt-3">
-                {getError('equipeNomes') && (
-                  <p className="text-base font-semibold text-red-700">⚠️ {getError('equipeNomes')}</p>
-                )}
-                {Array.from({ length: Number(form.numeroPessoasManejo) }).map((_, index) => (
-                  funcionariosDisponiveis.length > 0 ? (
-                    <SearchableModal
-                      key={index}
-                      label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
-                      value={form.equipeNomes[index] || ''}
-                      onChange={(val) => {
-                        const newNomes = [...form.equipeNomes]
-                        newNomes[index] = val
-                        setForm(prev => ({ ...prev, equipeNomes: newNomes }))
-                      }}
-                      options={funcionariosDisponiveis}
-                      placeholder="Buscar funcionário..."
-                      id={`equipeNome-${index}`}
-                      name={`equipeNome-${index}`}
-                    />
-                  ) : (
-                    <Input
-                      key={index}
-                      label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
-                      placeholder="Carregando..."
-                      value={form.equipeNomes[index] || ''}
-                      onChange={(e) => {
-                        const newNomes = [...form.equipeNomes]
-                        newNomes[index] = e.target.value
-                        setForm(prev => ({ ...prev, equipeNomes: newNomes }))
-                      }}
-                      disabled
-                    />
-                  )
-                ))}
-              </div>
-            )}
-            {getError('numeroPessoasManejo') && (
-              <p className="text-base font-semibold text-red-700 mt-2">⚠️ {getError('numeroPessoasManejo')}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Seção 6: Avaliação Geral */}
+        {/* 4. Avaliação geral */}
         {loadingChecklistRegras ? (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">4. AVALIAÇÃO GERAL</h2>
-            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
-          </div>
+          <CadernetaSection numero={4} titulo="Avaliação geral">
+            <p className="py-4 text-center text-sm text-gray-500">Carregando regras do checklist...</p>
+          </CadernetaSection>
         ) : checklistAtivo ? (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">4. AVALIAÇÃO GERAL</h2>
-            <Radio
-              name="bebedourosCochos"
-              label={<span>BEBEDOUROS / COCHOS OK? <span className="text-red-500">*</span></span>}
-              options={[
-                { value: 'S', label: 'SIM', icon: '✅' },
-                { value: 'N', label: 'NÃO', icon: '❌' }
-              ]}
-              value={form.bebedourosCochos}
-              onChange={set('bebedourosCochos')}
-              gridCols={2}
-              error={getError('bebedourosCochos')}
-            />
-            {form.bebedourosCochos === 'N' && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.bebedourosCochosObs}
-                onChange={setInput('bebedourosCochosObs')}
-              />
-            )}
-            <Radio
-              name="pastagensTaxaLotacao"
-              label={<span>PASTAGENS / TAXA DE LOTAÇÃO ADEQUADA? <span className="text-red-500">*</span></span>}
-              options={[
-                { value: 'S', label: 'SIM', icon: '✅' },
-                { value: 'N', label: 'NÃO', icon: '❌' }
-              ]}
-              value={form.pastagensTaxaLotacao}
-              onChange={set('pastagensTaxaLotacao')}
-              gridCols={2}
-              error={getError('pastagensTaxaLotacao')}
-            />
-            {form.pastagensTaxaLotacao === 'N' && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.pastagensTaxaLotacaoObs}
-                onChange={setInput('pastagensTaxaLotacaoObs')}
-              />
-            )}
-            <Radio
-              name="animaisMachucadosDoentesBichados"
-              label={<span>ANIMAIS MACHUCADOS / DOENTES / BICHADOS? <span className="text-red-500">*</span></span>}
-              options={[
-                { value: 'S', label: 'SIM', icon: '✅' },
-                { value: 'N', label: 'NÃO', icon: '❌' }
-              ]}
-              value={form.animaisMachucadosDoentesBichados}
-              onChange={set('animaisMachucadosDoentesBichados')}
-              gridCols={2}
-              error={getError('animaisMachucadosDoentesBichados')}
-            />
-            {form.animaisMachucadosDoentesBichados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisMachucadosDoentesBichados') && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.animaisMachucadosDoentesBichadosObs}
-                onChange={setInput('animaisMachucadosDoentesBichadosObs')}
-              />
-            )}
-            <Radio
-              name="cercasCochosPorteiras"
-              label={<span>CERCAS / COCHOS / PORTEIRAS OK? <span className="text-red-500">*</span></span>}
-              options={[
-                { value: 'S', label: 'SIM', icon: '✅' },
-                { value: 'N', label: 'NÃO', icon: '❌' }
-              ]}
-              value={form.cercasCochosPorteiras}
-              onChange={set('cercasCochosPorteiras')}
-              gridCols={2}
-              error={getError('cercasCochosPorteiras')}
-            />
-            {form.cercasCochosPorteiras === 'N' && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.cercasCochosPorteirasObs}
-                onChange={setInput('cercasCochosPorteirasObs')}
-              />
-            )}
-            <Radio
-              name="carrapatosMoscas"
-              label={<span>CARRAPATOS / MOSCAS? <span className="text-red-500">*</span></span>}
-              options={[
-                { value: 'S', label: 'SIM', icon: '✅' },
-                { value: 'N', label: 'NÃO', icon: '❌' }
-              ]}
-              value={form.carrapatosMoscas}
-              onChange={set('carrapatosMoscas')}
-              gridCols={2}
-              error={getError('carrapatosMoscas')}
-            />
-            {form.carrapatosMoscas === 'S' && INVERTED_DIAGNOSTICOS.includes('carrapatosMoscas') && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.carrapatosMoscasObs}
-                onChange={setInput('carrapatosMoscasObs')}
-              />
-            )}
-            <Radio
-              name="animaisEntreverados"
-              label={<span>ANIMAIS ENTREVERADOS? <span className="text-red-500">*</span></span>}
-              options={[
-                { value: 'S', label: 'SIM', icon: '✅' },
-                { value: 'N', label: 'NÃO', icon: '❌' }
-              ]}
-              value={form.animaisEntreverados}
-              onChange={set('animaisEntreverados')}
-              gridCols={2}
-              error={getError('animaisEntreverados')}
-            />
-            {form.animaisEntreverados === 'S' && INVERTED_DIAGNOSTICOS.includes('animaisEntreverados') && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.animaisEntreveradosObs}
-                onChange={setInput('animaisEntreveradosObs')}
-              />
-            )}
-            <Radio
-              name="animalMorto"
-              label={<span>ANIMAL MORTO? <span className="text-red-500">*</span></span>}
-              options={[
-                { value: 'S', label: 'SIM', icon: '✅' },
-                { value: 'N', label: 'NÃO', icon: '❌' }
-              ]}
-              value={form.animalMorto}
-              onChange={set('animalMorto')}
-              gridCols={2}
-              error={getError('animalMorto')}
-            />
-            {form.animalMorto === 'S' && INVERTED_DIAGNOSTICOS.includes('animalMorto') && (
-              <Input
-                placeholder="Adicionar observação (opcional)"
-                value={form.animalMortoObs}
-                onChange={setInput('animalMortoObs')}
-              />
-            )}
-          </div>
+          <CadernetaSection numero={4} titulo="Avaliação geral">
+            <p className="-mt-2 text-sm text-gray-500">
+              Toque em um item se encontrar o problema. Não tocar significa que está tudo certo.
+            </p>
+            {DIAGNOSTICOS.map(({ campo, label, invertido, aviso }) => {
+              const item = form.diagnosticos[campo]
+              const problema = temProblema(campo, invertido)
+              return (
+                <div key={campo} className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleProblema(campo, invertido)}
+                    data-field={campo}
+                    className={`flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                      problema
+                        ? 'border-red-500 bg-red-50 text-red-800'
+                        : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="text-sm font-bold leading-tight">{label}</span>
+                    {problema && <span className="text-lg leading-none">⚠️</span>}
+                  </button>
+
+                  {problema && (
+                    <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+                      <InfoStrip tone="danger" icon="⚠️">{aviso}</InfoStrip>
+
+                      {item?.fotoBase64 && (
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={base64ToDataUrl(item.fotoBase64)}
+                            alt={`Foto: ${label}`}
+                            className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDiagnostico(campo, { fotoBase64: '' })}
+                            className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+                          >
+                            🗑️ REMOVER FOTO
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {!item?.fotoBase64 && (
+                          <button
+                            type="button"
+                            onClick={() => handleTirarFotoItem(campo)}
+                            disabled={capturandoFotoItem}
+                            className="flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+                          >
+                            <span className="text-lg leading-none">📷</span>
+                            <span className="text-xs font-extrabold uppercase tracking-wide">
+                              {capturandoFotoItem && campoFotoAtual === campo ? 'Capturando...' : 'Foto'}
+                            </span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleFalar(campo)}
+                          className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                            item?.fotoBase64 ? 'col-span-2' : ''
+                          } ${ouvindoCampo(campo) ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+                        >
+                          <span className="text-lg leading-none">🎤</span>
+                          <span className="text-xs font-extrabold uppercase tracking-wide">
+                            {ouvindoCampo(campo) ? 'Ouvindo...' : 'Falar'}
+                          </span>
+                        </button>
+                      </div>
+                      {fotoErroItem && campoFotoAtual === campo && <InfoStrip tone="danger">{fotoErroItem}</InfoStrip>}
+                      {vozErro && alvoVoz?.campo === campo && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+
+                      <Input
+                        placeholder="Adicionar observação (opcional)"
+                        value={item?.observacao || ''}
+                        onChange={(e) => setDiagnostico(campo, { observacao: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </CadernetaSection>
         ) : null}
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => salvar(executarSalvamento)}
-            disabled={salvando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setForm(makeInitial()); setErrors([]) }}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
-        )}
-      </main>
+        <FormFooter
+          onSalvar={() => salvar(executarSalvamento)}
+          onLimpar={resetarTudo}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+          pendenciaTexto={pendenciaTexto}
+        />
+
+        <input
+          ref={fotoItemInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFotoInputItem}
+          className="hidden"
+        />
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -1218,18 +1252,14 @@ export default function PastagensPage() {
       <PdfModal
         isOpen={showEscoreModal}
         onClose={() => setShowEscoreModal(false)}
-        images={[
-          `${BASE}docs/ECC/POP_ECC.jpeg`
-        ]}
+        images={[`${BASE}docs/ECC/POP_ECC.jpeg`]}
       />
 
       <PdfModal
         isOpen={showFezesModal}
         onClose={() => setShowFezesModal(false)}
-        images={[
-          `${BASE}docs/fezes/POP_Fezes_01.jpg`
-        ]}
+        images={[`${BASE}docs/fezes/POP_Fezes_01.jpg`]}
       />
-    </div>
+    </>
   )
 }

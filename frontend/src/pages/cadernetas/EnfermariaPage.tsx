@@ -1,13 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage, SearchableModal, Radio } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage, SearchableModal, TextArea } from '../../components/ui'
+import { Beef, X } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import CadernetaHeader from '../../components/CadernetaHeader'
+import CadernetaLayout from '../../components/CadernetaLayout'
+import InfoCard from '../../components/cadernetas/InfoCard'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import BannerRascunho from '../../components/BannerRascunho'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import FormFooter from '../../components/cadernetas/FormFooter'
 import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
@@ -17,38 +23,29 @@ import {
 import { getLoteById } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
-import FotoSection from '../../components/cadernetas/FotoSection'
+import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { base64ToDataUrl } from '../../utils/photoCompress'
+import { capitalizarCategoria, processarCategorias as processarCategoriasUtil } from '../../utils/categorias'
 import MedicamentosSection, { MedicamentoItem } from '../../components/cadernetas/MedicamentosSection'
 
 const DIAGNOSTICOS = [
-  'Pneumonia',
-  'Cobra',
-  'Tremores Musculares',
-  'Incoordenação Motora',
-  'Febre',
-  'Sangramento',
-  'Fratura',
-  'Diarreia',
-  'Empanzinado',
-  'Cegueira',
-  'Bicheira',
-  'Inchaço',
+  { value: 'Pneumonia', label: 'PNEUMONIA', icon: '🫁' },
+  { value: 'Cobra', label: 'PICADA DE COBRA', icon: '🐍' },
+  { value: 'Tremores Musculares', label: 'TREMENDO', icon: '〰️' },
+  { value: 'Incoordenação Motora', label: 'ANDANDO TORTO', icon: '🌀' },
+  { value: 'Febre', label: 'FEBRE', icon: '🌡️' },
+  { value: 'Sangramento', label: 'SANGRAMENTO', icon: '🩸' },
+  { value: 'Fratura', label: 'FRATURA', icon: '🦴' },
+  { value: 'Diarreia', label: 'DIARREIA', icon: '💩' },
+  { value: 'Empanzinado', label: 'EMPANZINADO', icon: '🎈' },
+  { value: 'Cegueira', label: 'CEGUEIRA', icon: '👁️' },
+  { value: 'Bicheira', label: 'BICHEIRA', icon: '🪰' },
+  { value: 'Inchaço', label: 'INCHAÇO', icon: '⭕' },
 ]
-
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
-}
 
 function calcularIdade(dataNascimento: string | null | undefined): string {
   if (!dataNascimento) return ''
@@ -114,7 +111,8 @@ const makeInitial = (): FormState => ({
 export default function EnfermariaPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(makeInitial)
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'enfermaria', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -137,16 +135,22 @@ export default function EnfermariaPage() {
     handleFileInputChange,
   } = usePhotoGps({ comGps: false })
 
-  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
+  // Foto do brinco (opcional)
+  const fotoBrinco = usePhotoGps({ comGps: false })
+  const { ouvindo: ouvindoVoz, erro: vozErro, toggle: toggleVoz, parar: pararVoz } = useVoiceInput()
+  const baseVozRef = useRef('')
 
-  const toggleDiagnostico = (diagnostico: string) => {
-    setForm((prev) => ({
-      ...prev,
-      diagnosticos: prev.diagnosticos.includes(diagnostico)
-        ? prev.diagnosticos.filter((d) => d !== diagnostico)
-        : [...prev.diagnosticos, diagnostico]
-    }))
+  // Ditado: o texto parcial é acrescentado ao que já existia quando a gravação começou.
+  const handleFalar = async () => {
+    if (ouvindoVoz) {
+      await pararVoz()
+      return
+    }
+    baseVozRef.current = form.observacaoTratamento.trim()
+    await toggleVoz((parcial) => {
+      const texto = baseVozRef.current ? `${baseVozRef.current} ${parcial}` : parcial
+      setForm((prev) => ({ ...prev, observacaoTratamento: texto }))
+    })
   }
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
@@ -167,6 +171,12 @@ export default function EnfermariaPage() {
     diagnosticos: {
       custom: (value: string[]) => {
         if (!value || value.length === 0) return 'Selecione pelo menos um diagnóstico'
+        return null
+      }
+    },
+    medicamentos: {
+      custom: (value: MedicamentoItem[]) => {
+        if (!value || value.length === 0) return 'Adicione pelo menos um medicamento'
         return null
       }
     },
@@ -257,16 +267,18 @@ export default function EnfermariaPage() {
     carregarDetalhesLote()
   }, [form.lote, fazendaId])
 
+  const handleLimpar = () => {
+    limparRascunho()
+    limparFoto()
+    fotoBrinco.limpar()
+    setLoteAutoIdentificado(false)
+    setMensagemLote('')
+    setDetalhesLote(null)
+  }
+
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
-
-    // Validar que pelo menos um medicamento foi adicionado
-    if (form.medicamentos.length === 0) {
-      setErrors([{ field: 'medicamentos', message: 'Adicione pelo menos um medicamento' }])
-      setSalvando(false)
-      return
-    }
 
     const result = await salvarRegistro('enfermaria', {
       data: form.data,
@@ -289,6 +301,7 @@ export default function EnfermariaPage() {
       observacaoTratamento: form.observacaoTratamento,
       tipoRegistro: form.tipoRegistro,
       fotoBase64: fotoBase64 || null,
+      fotoBrincoBase64: fotoBrinco.fotoBase64 || null,
     })
 
     setSalvando(false)
@@ -298,8 +311,7 @@ export default function EnfermariaPage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial())
-      limparFoto()
+      handleLimpar()
     }
   }
 
@@ -313,20 +325,30 @@ export default function EnfermariaPage() {
     navigate('/')
   }
 
+  const categoriasLoteStr = detalhesLote?.categorias
+    ? processarCategoriasUtil(detalhesLote.categorias).map(capitalizarCategoria).join(', ')
+    : ''
+
+  const pendenciaTexto = (() => {
+    if (!form.idManejo.trim() && !form.brinco.trim() && !form.chip.trim()) return 'Falta o ID manejo, brinco ou chip'
+    if (!form.lote) return 'Falta escolher o pasto/lote'
+    if (form.diagnosticos.length === 0) return 'Falta marcar o que o animal tem'
+    if (!form.tipoRegistro) return 'Falta escolher curativo ou preventivo'
+    if (form.medicamentos.length === 0) return 'Falta adicionar um medicamento'
+    return undefined
+  })()
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
+    <>
+      <CadernetaLayout
         title="ENFERMARIA"
         cadernetaId="enfermaria"
         dateContent={<DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} variant="header" compact inline />}
-      />
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+      >
+        <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 2: Identificação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. IDENTIFICAÇÃO</h2>
+        <CadernetaSection numero={1} titulo="IDENTIFICAÇÃO">
           {loteAutoIdentificado ? (
             <Input
               label={<span>LOTE <span className="text-red-500">*</span></span>}
@@ -361,8 +383,6 @@ export default function EnfermariaPage() {
               label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
               placeholder="Carregando..."
               value={form.lote}
-              onChange={setInput('lote')}
-              error={getError('lote')}
               disabled
               id="lote"
             />
@@ -371,7 +391,22 @@ export default function EnfermariaPage() {
             <p className="text-sm text-amber-600 font-medium">{mensagemLote}</p>
           )}
           {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
+            <InfoCard
+              icon={Beef}
+              title={form.lote}
+              subtitle={form.pasto || 'Sem pasto associado'}
+              stats={[
+                { label: 'Cabeças', value: detalhesLote.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-', span: 1 },
+                {
+                  label: 'PV médio',
+                  value: detalhesLote.peso_vivo_kg != null
+                    ? `${Number(detalhesLote.peso_vivo_kg).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+                    : '-',
+                  span: 1,
+                },
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
+              ]}
+            />
           )}
           <AnimalIdentifier
             fazendaId={fazendaId}
@@ -420,115 +455,179 @@ export default function EnfermariaPage() {
               }))
             }}
           />
-        </div>
 
-        {/* Seção 3: Diagnóstico */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. DIAGNÓSTICO <span className="text-red-500">*</span></h2>
-          <div className="grid grid-cols-2 gap-2">
-            {DIAGNOSTICOS.map((diagnostico) => {
-              const selecionado = form.diagnosticos.includes(diagnostico)
-              return (
+          {/* Foto do brinco (opcional) */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-bold uppercase text-gray-900">Foto do brinco (opcional)</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => fotoBrinco.capturarFoto()}
+                disabled={fotoBrinco.capturandoFoto}
+                className={`relative flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl border-2 px-3 py-2.5 transition-all active:scale-[0.99] disabled:opacity-60 ${
+                  fotoBrinco.fotoBase64
+                    ? 'h-24 border-green-500 p-0'
+                    : 'border-brand-900 bg-brand-900 text-white hover:bg-brand-800'
+                }`}
+              >
+                {fotoBrinco.fotoBase64 ? (
+                  <>
+                    <img src={base64ToDataUrl(fotoBrinco.fotoBase64)} alt="Foto do brinco" className="h-full w-full object-cover" />
+                    <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-sm font-black text-white">✓</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg leading-none">📷</span>
+                    <span className="text-sm font-extrabold uppercase tracking-wide">
+                      {fotoBrinco.capturandoFoto ? 'Capturando...' : 'Foto do brinco'}
+                    </span>
+                  </>
+                )}
+              </button>
+              {fotoBrinco.fotoBase64 && (
                 <button
-                  key={diagnostico}
                   type="button"
-                  onClick={() => toggleDiagnostico(diagnostico)}
-                  className={`
-                    cursor-pointer rounded-xl border-2
-                    transition-all active:scale-95
-                    flex flex-col items-center justify-center gap-1
-                    p-2 min-h-[70px]
-                    ${selecionado ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-                  `}
+                  onClick={fotoBrinco.limpar}
+                  aria-label="Remover foto do brinco"
+                  className="absolute right-1.5 top-1.5 flex !min-h-0 h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
                 >
-                  <span className="text-sm sm:text-base font-bold text-center leading-tight">{diagnostico.toUpperCase()}</span>
+                  <X className="h-3.5 w-3.5" strokeWidth={3} />
                 </button>
-              )
-            })}
+              )}
+            </div>
+            {fotoBrinco.fotoErro && <InfoStrip tone="danger">{fotoBrinco.fotoErro}</InfoStrip>}
+            <input
+              ref={fotoBrinco.fotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={fotoBrinco.handleFileInputChange}
+              className="hidden"
+            />
           </div>
+        </CadernetaSection>
+
+        <CadernetaSection numero={2} titulo="O QUE ELE TEM? (MARQUE TODOS)" required>
+          <ChoiceGrid
+            options={DIAGNOSTICOS.map((d) => ({ ...d, tone: 'danger-solid' as const }))}
+            mode="multi"
+            values={form.diagnosticos}
+            onChangeMulti={(vals) => setForm((p) => ({ ...p, diagnosticos: vals }))}
+            cols={3}
+            showCheck={false}
+            labelSize="xs"
+            dataField="diagnosticos"
+          />
           {getError('diagnosticos') && (
-            <span className="text-sm text-red-500">{getError('diagnosticos')}</span>
+            <p className="text-sm text-red-500">{getError('diagnosticos')}</p>
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 4: Tratamento */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. TRATAMENTOS <span className="text-red-500">*</span></h2>
+        <CadernetaSection numero={3} titulo="TRATAMENTO">
+          <div className="flex flex-col gap-2" data-field="tipoRegistro">
+            <p className="text-[15px] font-bold text-gray-900">
+              TIPO <span className="text-red-500">*</span>
+            </p>
+            <ChoiceGrid
+              options={[
+                { value: 'Curativo', label: 'CURATIVO', icon: '🩹' },
+                { value: 'Preventivo', label: 'PREVENTIVO', icon: '🛡️' },
+              ]}
+              value={form.tipoRegistro}
+              onChange={(val) => setForm((p) => ({ ...p, tipoRegistro: val }))}
+              cols={2}
+              showCheck={false}
+            />
+            {getError('tipoRegistro') && (
+              <p className="text-sm text-red-500">{getError('tipoRegistro')}</p>
+            )}
+          </div>
 
-          <Radio
-            name="tipoRegistro"
-            label={<span>TIPO <span className="text-red-500">*</span></span>}
-            options={[
-              { value: 'Curativo', label: 'CURATIVO' },
-              { value: 'Preventivo', label: 'PREVENTIVO' },
-            ]}
-            value={form.tipoRegistro}
-            onChange={(val) => setForm((p) => ({ ...p, tipoRegistro: val }))}
-            error={getError('tipoRegistro')}
-            gridCols={2}
-          />
+          <div className="flex flex-col gap-2" data-field="medicamentos">
+            <p className="text-[15px] font-bold text-gray-900">
+              MEDICAMENTO <span className="text-red-500">*</span>
+            </p>
+            <MedicamentosSection
+              items={form.medicamentos}
+              onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
+              medicamentosDisponiveis={medicamentosDisponiveis}
+            />
+            {getError('medicamentos') && (
+              <p className="text-sm text-red-500">{getError('medicamentos')}</p>
+            )}
+          </div>
+        </CadernetaSection>
 
-          <MedicamentosSection
-            items={form.medicamentos}
-            onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
-            medicamentosDisponiveis={medicamentosDisponiveis}
-          />
-
-          <Input
+        <CadernetaSection numero={4} titulo="Foto ou recado">
+          {fotoBase64 && (
+            <div className="flex flex-col gap-3">
+              <img
+                src={base64ToDataUrl(fotoBase64)}
+                alt="Foto do animal"
+                className="mx-auto w-full max-w-sm rounded-xl border border-gray-200"
+              />
+              <button
+                type="button"
+                onClick={limparFoto}
+                className="w-full rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+              >
+                🗑️ REMOVER FOTO
+              </button>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {!fotoBase64 && (
+              <button
+                type="button"
+                onClick={capturarFoto}
+                disabled={capturandoFoto}
+                className="flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+              >
+                <span className="text-lg leading-none">📷</span>
+                <span className="text-sm font-extrabold uppercase tracking-wide">
+                  {capturandoFoto ? 'Capturando...' : 'Tirar foto'}
+                </span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleFalar}
+              className={`flex min-h-[56px] items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                fotoBase64 ? 'col-span-2' : ''
+              } ${ouvindoVoz ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+            >
+              <span className="text-lg leading-none">🎤</span>
+              <span className="text-sm font-extrabold uppercase tracking-wide">{ouvindoVoz ? 'Ouvindo...' : 'Gravar áudio'}</span>
+            </button>
+          </div>
+          {fotoErro && <InfoStrip tone="danger">{fotoErro}</InfoStrip>}
+          {vozErro && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+          <TextArea
             label="OBSERVAÇÃO"
             placeholder="Detalhes adicionais (opcional)"
             value={form.observacaoTratamento}
-            onChange={setInput('observacaoTratamento')}
+            onChange={(e) => setForm((p) => ({ ...p, observacaoTratamento: e.target.value }))}
+            rows={2}
           />
-        </div>
+          <input
+            ref={fotoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
+        </CadernetaSection>
 
-        {/* Seção 5: Foto */}
-        <FotoSection
-          titulo="4. FOTO"
-          descricao="Tire uma foto do animal ou do ferimento para anexar ao registro."
-          textoBotao="TIRAR FOTO DO ANIMAL"
-          fotoBase64={fotoBase64}
-          capturando={capturandoFoto}
-          erro={fotoErro}
-          onTirar={capturarFoto}
-          onRemover={limparFoto}
-          fotoInputRef={fotoInputRef}
-          onFileChange={handleFileInputChange}
+        <FormFooter
+          onSalvar={handleSalvar}
+          onLimpar={handleLimpar}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+          pendenciaTexto={pendenciaTexto}
         />
-
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleSalvar}
-            disabled={salvando || !isValid || form.medicamentos.length === 0}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid || form.medicamentos.length === 0
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setForm(makeInitial()); limparFoto() }}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
-        )}
-      </main>
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -539,6 +638,6 @@ export default function EnfermariaPage() {
         registro={registroSalvo}
         caderneta="enfermaria"
       />
-    </div>
+    </>
   )
 }
