@@ -25,6 +25,8 @@ export function formatarTempoDesdeLimpeza(ultimaDataLimpeza: string | null): str
 // Rótulos das escalas 1-5 usadas nas telas (valor inteiro conhecido -> "2 - Ideal p/ sair")
 const ESCALA_PASTO: Record<string, string> = { '1': 'Rapado', '2': 'Ideal p/ sair', '3': 'Médio', '4': 'Ideal p/ entrar', '5': 'Passado' }
 const ESCALA_ESCORE_CORPORAL: Record<string, string> = { '1': 'Muito magro', '2': 'Magro', '3': 'Bom', '4': 'Gordo', '5': 'Muito gordo' }
+const ESCALA_ESCORE_MATRIZ: Record<string, string> = { '1': 'Muito magra', '2': 'Magra', '3': 'Boa', '4': 'Gorda', '5': 'Muito gorda' }
+const ESCALA_DOCILIDADE: Record<string, string> = { '1': 'Calma', '2': 'Agitada', '3': 'Brava' }
 const ESCALA_ESCORE_FEZES: Record<string, string> = { '1': 'Líquida', '2': 'Mole', '3': 'Ideal', '4': 'Firme', '5': 'Seca' }
 
 function comRotulo(mapa: Record<string, string>, valor: unknown): string {
@@ -2211,10 +2213,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         texto += `CATEGORIA MÃE: *${registro.categoriaMae}*\n`
       }
       if (registro.escoreMatriz) {
-        texto += `ESCORE MATRIZ: *${registro.escoreMatriz}*\n`
+        texto += `ESCORE MATRIZ: *${comRotulo(ESCALA_ESCORE_MATRIZ, registro.escoreMatriz)}*\n`
       }
       if (registro.docilidadeMatriz) {
-        texto += `DOCILIDADE MATRIZ: *${registro.docilidadeMatriz}*\n`
+        texto += `DOCILIDADE MATRIZ: *${comRotulo(ESCALA_DOCILIDADE, registro.docilidadeMatriz)}*\n`
       }
       // Mãe adotiva (guacho)
       if (registro.individuoIdMaeAdotiva || registro.idManejoMaeAdotiva || registro.idBrincoMaeAdotiva || registro.idChipMaeAdotiva) {
@@ -2262,6 +2264,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       }
       if (registro.tratamento) {
         texto += `TRATAMENTO: *${registro.tratamento}*\n`
+      }
+      // Medicamentos aplicados na cria (mesmo formato da Enfermaria)
+      if (Array.isArray(registro.medicamentos) && registro.medicamentos.length > 0) {
+        texto += `\nMEDICAMENTOS\n`
+        registro.medicamentos.forEach((med: any, index: number) => {
+          texto += `${index + 1}. ${med.tipo}${med.nomeComercial ? ` - ${med.nomeComercial}` : ''}\n`
+          if (med.doseAplicada) texto += `   Dose aplicada: ${med.doseAplicada}\n`
+        })
       }
     } else if (caderneta === 'fabrica-confinamento') {
       // Responsável

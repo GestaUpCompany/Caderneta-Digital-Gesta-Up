@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react'
-import { Brush, Save } from 'lucide-react'
+import { Beef, FileText, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, CheckboxGroup, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
 import { todayBR, brToIso } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import CadernetaHeader from '../../components/CadernetaHeader'
+import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoCard from '../../components/cadernetas/InfoCard'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import StepperInput from '../../components/cadernetas/StepperInput'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import BannerRascunho from '../../components/BannerRascunho'
 import {
   getLoteByNomeCached,
   getLoteDetalhesComCategoriasCached,
@@ -24,25 +31,21 @@ import { createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import MedicamentosSection, { MedicamentoItem } from '../../components/cadernetas/MedicamentosSection'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation, ValidationRules } from '../../hooks/useFormValidation'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
-import FotoSection from '../../components/cadernetas/FotoSection'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { base64ToDataUrl } from '../../utils/photoCompress'
+import { capitalizarCategoria, processarCategorias } from '../../utils/categorias'
 
 const BASE = import.meta.env.BASE_URL
 
-const TIPOS_PARTO = [
-  { value: 'Normal', label: 'NORMAL', icon: '✅' },
-  { value: 'Cesárea', label: 'CESÁREA', icon: '🏥' },
-]
-
 const PROBLEMAS_PARTO = [
   { value: 'Aborto', label: 'ABORTO', icon: '❌' },
-  { value: 'Natimorto', label: 'NATIMORTO', icon: '💀' },
+  { value: 'Natimorto', label: 'NASCEU MORTO', icon: '🕊️' },
   { value: 'Distócico', label: 'DISTÓCICO', icon: '⚠️' },
-  { value: 'Deficiência Física', label: 'DEFICIÊNCIA FÍSICA', icon: '♿' },
-  { value: 'Retenção de Placenta', label: 'RETENÇÃO DE PLACENTA', icon: '🩸' },
+  { value: 'Deficiência Física', label: 'DEFEITO FÍSICO', icon: '♿' },
+  { value: 'Retenção de Placenta', label: 'PLACENTA PRESA', icon: '🩸' },
 ]
 
 const SEXO = [
@@ -91,17 +94,6 @@ const ESCORES = [
   { value: '4.5', label: '4.5', color: 'bg-yellow-400' },
   { value: '5', label: '5', color: 'bg-red-500' },
 ]
-
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
-}
 
 interface FormState {
   data: string
@@ -220,7 +212,8 @@ const makeInitial = (): FormState => ({
 export default function MaternidadePage() {
   const navigate = useNavigate()
   const { usuario, fazendaId, testModeAtivo } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(makeInitial())
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'maternidade', makeInitial })
   const [animalIdentifierKey, setAnimalIdentifierKey] = useState(0)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -236,16 +229,9 @@ export default function MaternidadePage() {
   const [racasDisponiveis, setRacasDisponiveis] = useState<any[]>([])
   const [medicamentosDisponiveis, setMedicamentosDisponiveis] = useState<any[]>([])
 
-  // Hook reutilizavel de foto (sem GPS nesta caderneta)
-  const {
-    fotoBase64,
-    capturandoFoto,
-    fotoErro,
-    capturarFoto,
-    limpar: limparFoto,
-    fotoInputRef,
-    handleFileInputChange,
-  } = usePhotoGps({ comGps: false })
+  // Fotos (sem GPS nesta caderneta): da cria/mãe (foto_url) e do brinco da mãe (opcional)
+  const fotoCria = usePhotoGps({ comGps: false })
+  const fotoBrincoMae = usePhotoGps({ comGps: false })
 
   // Aborto ou natimorto: a cria é tratada como animal morto — sem identificação, sem indivíduo no rebanho
   const isAborto = form.problemasParto.includes('Aborto')
@@ -382,49 +368,6 @@ export default function MaternidadePage() {
 
   const setInputEvent = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-  const handleTratamentosChange = (newTratamentos: string[]) => {
-    setForm(prev => ({
-      ...prev,
-      tratamentos: newTratamentos
-    }))
-  }
-
-  const handleTratamentos2Change = (newTratamentos: string[]) => {
-    setForm(prev => ({
-      ...prev,
-      tratamentos2: newTratamentos
-    }))
-  }
-
-  const handleTipoPartoChange = (newTipoParto: string[]) => {
-    setForm(prev => {
-      const prevParto = prev.tipoParto
-      // Exclusão mútua: Normal e Cesárea não podem coexistir
-      // Se selecionou Cesárea, remove Normal (e consequentemente Auxiliado)
-      if (newTipoParto.includes('Cesárea') && !prevParto.includes('Cesárea')) {
-        return {
-          ...prev,
-          tipoParto: ['Cesárea'],
-          partoAuxiliado: false,
-        }
-      }
-      // Se selecionou Normal enquanto Cesárea estava marcada, remove Cesárea
-      if (newTipoParto.includes('Normal') && prevParto.includes('Cesárea')) {
-        return {
-          ...prev,
-          tipoParto: ['Normal'],
-          partoAuxiliado: prev.partoAuxiliado,
-        }
-      }
-      // Fluxo normal: desmarcar auxiliado se Normal foi removido
-      return {
-        ...prev,
-        tipoParto: newTipoParto,
-        partoAuxiliado: newTipoParto.includes('Normal') ? prev.partoAuxiliado : false,
-      }
-    })
-  }
 
   const handleProblemasPartoChange = (newProblemas: string[]) => {
     setForm(prev => ({
@@ -825,7 +768,8 @@ export default function MaternidadePage() {
       idChipMaeAdotiva: guacho1 ? form.idChipMaeAdotiva : null,
       categoriaMaeAdotiva: guacho1 ? form.categoriaMaeAdotiva : null,
       racaMaeAdotiva: guacho1 ? form.racaMaeAdotiva : null,
-      fotoBase64: fotoBase64 || null,
+      fotoBase64: fotoCria.fotoBase64 || null,
+      fotoBrincoMaeBase64: fotoBrincoMae.fotoBase64 || null,
       usuario: usuario,
     })
 
@@ -872,7 +816,7 @@ export default function MaternidadePage() {
           idChipMaeAdotiva: guacho2 ? form.idChipMaeAdotiva2 : null,
           categoriaMaeAdotiva: guacho2 ? form.categoriaMaeAdotiva2 : null,
           racaMaeAdotiva: guacho2 ? form.racaMaeAdotiva2 : null,
-          fotoBase64: fotoBase64 || null,
+          fotoBase64: fotoCria.fotoBase64 || null,
         })
       } catch (err) {
         console.error('Erro ao salvar registro da 2ª cria (gêmeos):', err)
@@ -886,8 +830,9 @@ export default function MaternidadePage() {
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
-      setForm(makeInitial())
-      limparFoto()
+      limparRascunho()
+      fotoCria.limpar()
+      fotoBrincoMae.limpar()
       setAnimalIdentifierKey(k => k + 1)
       // Invalida cache de detalhes do lote para refletir o novo bezerro/bezerra
       if (form.loteId) {
@@ -897,8 +842,9 @@ export default function MaternidadePage() {
   }
 
   const handleLimpar = () => {
-    setForm(makeInitial())
-    limparFoto()
+    limparRascunho()
+    fotoCria.limpar()
+    fotoBrincoMae.limpar()
     setAnimalIdentifierKey(k => k + 1)
     setErrors([])
   }
@@ -913,42 +859,330 @@ export default function MaternidadePage() {
     navigate('/')
   }
 
+  // ---------- Apoio da UI nova (mesmo estado e mesmo payload de antes) ----------
+  const categoriasLoteStr = detalhesLote?.categorias
+    ? processarCategorias(detalhesLote.categorias).map(capitalizarCategoria).join(', ')
+    : ''
+
+  // Parto em escolha única: Normal / Precisa ajudar (Normal + Auxiliado) / Cesárea
+  const partoOpcao = form.tipoParto.includes('Cesárea')
+    ? 'Cesárea'
+    : form.tipoParto.includes('Normal')
+      ? (form.partoAuxiliado ? 'Auxiliado' : 'Normal')
+      : ''
+  const selecionarParto = (v: string) =>
+    setForm((prev) =>
+      v === 'Cesárea'
+        ? { ...prev, tipoParto: ['Cesárea'], partoAuxiliado: false }
+        : { ...prev, tipoParto: ['Normal'], partoAuxiliado: v === 'Auxiliado' }
+    )
+
+  const opcoesRaca = racasDisponiveis.length > 0
+    ? racasDisponiveis.map((r: any) => r.nome as string)
+    : RACAS_PADRAO.map((r) => r.value)
+
+  const iconeCuidado = (nome: string): string => {
+    const n = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    if (n.includes('colostro')) return '🍼'
+    if (n.includes('umbigo')) return '🩹'
+    if (n.includes('brinco') || n.includes('orelha')) return '🏷️'
+    if (n.includes('repelente')) return '🧴'
+    if (n.includes('vermifug')) return '🐛'
+    if (n.includes('antibiot')) return '💉'
+    if (n.includes('soro')) return '🧪'
+    if (n.includes('pesagem')) return '⚖️'
+    if (n.includes('tatuagem')) return '🖋️'
+    if (n.includes('probiot')) return '💊'
+    if (n.includes('unguento')) return '🧴'
+    return '💊'
+  }
+
+  const rotulo = 'text-[13px] font-bold uppercase text-gray-900'
+  const erroTexto = (field: string) =>
+    getError(field) ? <p className="text-base font-semibold text-red-700">{getError(field)}</p> : null
+
+  const tileFoto = (
+    nome: string,
+    h: ReturnType<typeof usePhotoGps>,
+    onTirar: () => void,
+  ) => (
+    <div className="flex flex-col gap-2">
+      <label className={rotulo}>{nome}</label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={onTirar}
+          disabled={h.capturandoFoto}
+          className={`relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl border-2 transition-all active:scale-[0.99] disabled:opacity-60 ${
+            h.fotoBase64 ? 'h-24 border-green-500' : 'min-h-[56px] border-brand-900 bg-brand-900 px-3 py-2.5 text-white hover:bg-brand-800'
+          }`}
+        >
+          {h.fotoBase64 ? (
+            <>
+              <img src={base64ToDataUrl(h.fotoBase64)} alt={nome} className="h-full w-full object-cover" />
+              <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-sm font-black text-white">✓</span>
+            </>
+          ) : (
+            <>
+              <span className="text-lg leading-none">📷</span>
+              <span className="text-sm font-extrabold uppercase tracking-wide">{h.capturandoFoto ? 'Capturando...' : nome}</span>
+            </>
+          )}
+        </button>
+        {h.fotoBase64 && (
+          <button
+            type="button"
+            onClick={h.limpar}
+            aria-label={`Remover ${nome}`}
+            className="absolute right-1.5 top-1.5 flex !min-h-0 h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={3} />
+          </button>
+        )}
+      </div>
+      {h.fotoErro && <InfoStrip tone="danger">{h.fotoErro}</InfoStrip>}
+      <input
+        ref={h.fotoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={h.handleFileInputChange}
+        className="hidden"
+      />
+    </div>
+  )
+
+  /** Bloco de uma cria (n = 1 ou 2): mesmas chaves de estado de antes, sufixo '' ou '2'. */
+  const renderCria = (n: 1 | 2) => {
+    const sfx = n === 1 ? '' : '2'
+    const k = (base: string) => (base + sfx) as keyof FormState
+    const f = form as any
+    const guacho = !!f[k('guachoCria')]
+    const toggleGuacho = n === 1 ? handleGuachoCriaToggle : handleGuachoCria2Toggle
+    const tratamentos: string[] = f[k('tratamentos')]
+    const adotivaNova = !f[k('individuoIdMaeAdotiva')] && (f[k('idManejoMaeAdotiva')] || f[k('idBrincoMaeAdotiva')] || f[k('idChipMaeAdotiva')])
+    const categoriaAdotivaAtual = f[k('categoriaMaeAdotiva')]
+
+    return (
+      <>
+        <Input
+          label={<span>ID PROVISÓRIO <span className="text-red-500">*</span></span>}
+          placeholder={n === 1 ? 'Ex: 2023-145' : 'Ex: 2023-146'}
+          value={f[k('idProvisorioCria')]}
+          onChange={setInputEvent(k('idProvisorioCria'))}
+          error={getError(`idProvisorioCria${sfx}`)}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="ID BRINCO"
+            placeholder="Opcional"
+            value={f[k('idBrincoCria')]}
+            onChange={setInputEvent(k('idBrincoCria'))}
+            error={getError(`idBrincoCria${sfx}`)}
+          />
+          <Input
+            label="ID CHIP"
+            placeholder="Opcional"
+            value={f[k('idChipCria')]}
+            onChange={setInputEvent(k('idChipCria'))}
+            error={getError(`idChipCria${sfx}`)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2" data-field={`pesoCria${sfx}`}>
+          <label className={rotulo}>Peso ao nascer <span className="text-red-500">*</span></label>
+          <StepperInput
+            value={f[k('pesoCria')]}
+            onChange={(v) => setForm((prev) => ({ ...prev, [k('pesoCria')]: v }))}
+            min={0}
+            step={0.5}
+            suffix="kg"
+            error={getError(`pesoCria${sfx}`)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2" data-field={`sexo${sfx}`}>
+          <label className={rotulo}>Sexo <span className="text-red-500">*</span></label>
+          <ChoiceGrid
+            options={SEXO}
+            value={f[k('sexo')]}
+            onChange={(v) => setForm((prev) => ({ ...prev, [k('sexo')]: v }))}
+            cols={2}
+          />
+          {erroTexto(`sexo${sfx}`)}
+        </div>
+
+        <div data-field={`raca${sfx}`}>
+          <SearchableModal
+            label={<span>RAÇA <span className="text-red-500">*</span></span>}
+            value={f[k('raca')]}
+            onChange={(v) => setForm((prev) => ({ ...prev, [k('raca')]: v }))}
+            error={getError(`raca${sfx}`)}
+            options={opcoesRaca}
+            placeholder="Buscar raça..."
+            id={`raca${sfx}`}
+            name={`raca${sfx}`}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2" data-field={`tratamentos${sfx}`}>
+          <label className={rotulo}>Primeiros cuidados (marque todos) <span className="text-red-500">*</span></label>
+          <ChoiceGrid
+            mode="multi"
+            showCheck
+            options={tratamentosDisponiveis.map((t: any) => ({ value: t.nome, label: String(t.nome).toUpperCase(), icon: iconeCuidado(t.nome) }))}
+            values={tratamentos}
+            onChangeMulti={(vals) => setForm((prev) => ({ ...prev, [k('tratamentos')]: vals }))}
+            cols={3}
+            labelSize="xs"
+          />
+          {erroTexto(`tratamentos${sfx}`)}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className={rotulo}>Medicamentos (opcional)</label>
+          <MedicamentosSection
+            items={f[k('medicamentos')]}
+            onChange={(items) => setForm((prev) => ({ ...prev, [k('medicamentos')]: items }))}
+            medicamentosDisponiveis={medicamentosDisponiveis}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className={rotulo}>Bezerro guacho (outra vaca adotou)?</label>
+          <ChoiceGrid
+            options={[{ value: 'S', label: 'SIM', icon: '✅' }, { value: 'N', label: 'NÃO', icon: '❌' }]}
+            value={guacho ? 'S' : 'N'}
+            onChange={(v) => toggleGuacho(v === 'S')}
+            cols={2}
+            size="sm"
+          />
+          <p className="text-xs text-gray-500">Bezerro abandonado pela mãe biológica e adotado por outra. Informe a mãe adotiva abaixo.</p>
+        </div>
+
+        {guacho && (
+          <div className="flex flex-col gap-4 rounded-xl border border-green-200 bg-green-50 p-4">
+            <span className="text-base font-bold text-green-800">MÃE ADOTIVA</span>
+            <AnimalIdentifier
+              fazendaId={fazendaId}
+              valueManejo={f[k('idManejoMaeAdotiva')]}
+              valueBrinco={f[k('idBrincoMaeAdotiva')]}
+              valueChip={f[k('idChipMaeAdotiva')]}
+              onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
+                setForm((prev) => ({
+                  ...prev,
+                  [k('idManejoMaeAdotiva')]: idManejo,
+                  [k('idBrincoMaeAdotiva')]: idBrinco,
+                  [k('idChipMaeAdotiva')]: idChip,
+                  [k('individuoIdMaeAdotiva')]: individuoId || '',
+                  // Preencher raça e classificação do animal existente
+                  [k('racaMaeAdotiva')]: animalData?.raca || '',
+                  [k('categoriaMaeAdotiva')]: animalData?.classificacao_matriz || '',
+                }))
+              }}
+              required={true}
+              showAnimalCard={true}
+            />
+            {/* Dados da nova mãe adotiva (quando não encontrada na base) */}
+            {adotivaNova && (
+              <>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="font-medium text-gray-500">SEXO</p>
+                    <p className="font-bold text-gray-900">Fêmea</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-500">STATUS</p>
+                    <p className="font-bold text-gray-900">Vivo</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-500">CATEGORIA</p>
+                    <p className="font-bold text-gray-900">{categoriaAdotivaAtual === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'}</p>
+                  </div>
+                </div>
+                <div data-field={`racaMaeAdotiva${sfx}`}>
+                  <SearchableModal
+                    label={<span>RAÇA <span className="text-red-500">*</span></span>}
+                    value={f[k('racaMaeAdotiva')]}
+                    onChange={(v) => setForm((prev) => ({ ...prev, [k('racaMaeAdotiva')]: v }))}
+                    error={getError(`racaMaeAdotiva${sfx}`)}
+                    options={opcoesRaca}
+                    placeholder="Buscar raça..."
+                    id={`racaMaeAdotiva${sfx}`}
+                    name={`racaMaeAdotiva${sfx}`}
+                  />
+                </div>
+                <div className="flex flex-col gap-2" data-field={`categoriaMaeAdotiva${sfx}`}>
+                  <label className={rotulo}>Classificação da matriz adotiva <span className="text-red-500">*</span></label>
+                  <ChoiceGrid
+                    options={CATEGORIAS_MAE}
+                    value={categoriaAdotivaAtual}
+                    onChange={(v) => setForm((prev) => ({ ...prev, [k('categoriaMaeAdotiva')]: v }))}
+                    cols={2}
+                    size="sm"
+                  />
+                  {erroTexto(`categoriaMaeAdotiva${sfx}`)}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  const aviso = (texto: string) => (
+    <InfoStrip tone="danger" icon="💀">{texto}</InfoStrip>
+  )
+
+  const pendenciaTexto = (() => {
+    if (!form.lote) return 'Falta escolher o pasto/lote'
+    if (!form.idManejoMae.trim() && !form.idBrincoMae.trim() && !form.idChipMae.trim()) return 'Falta identificar a mãe (manejo, brinco ou chip)'
+    if (!form.categoriaMae) return 'Falta a classificação da matriz'
+    if (!form.escoreMatriz) return 'Falta o escore da matriz'
+    if (!form.docilidadeMatriz) return 'Falta a docilidade da matriz'
+    if (form.tipoParto.length === 0) return 'Falta informar como foi o parto'
+    return validationErrors && Object.keys(validationErrors).length > 0 ? 'Falta preencher os dados da cria' : undefined
+  })()
+
+  const novaMae = !form.individuoIdMae && (form.idManejoMae || form.idBrincoMae || form.idChipMae)
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
+    <>
+      <CadernetaLayout
         title="MATERNIDADE"
         cadernetaId="maternidade"
         dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
-      />
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+      >
+        <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         <button
+          type="button"
           onClick={() => setShowPdfModal(true)}
-          className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
+          className="flex !min-h-0 w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 font-bold text-black transition-colors hover:bg-yellow-300"
         >
-          <span className="text-xl">📄</span>
+          <FileText className="h-5 w-5" strokeWidth={2.5} />
           <span>POP MATERNIDADE</span>
         </button>
 
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        {/* Pasto/Lote */}
+        <CadernetaSection titulo="Pasto/Lote" required>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
+              label=""
               value={form.lote}
               onChange={set('lote')}
               error={getError('lote')}
               options={lotesDisponiveis}
               secondaryText={(lote) => lotesPastoMap[lote] || ''}
-              placeholder="Buscar pasto ou lote..."
+              placeholder="Selecione o pasto/lote..."
               id="lote"
               name="lote"
             />
           ) : (
             <Input
-              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
+              label="PASTO/LOTE"
               placeholder="Carregando..."
               value={form.lote}
               onChange={setInputEvent('lote')}
@@ -958,17 +1192,31 @@ export default function MaternidadePage() {
             />
           )}
           {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} />
+            <InfoCard
+              icon={Beef}
+              title={form.lote}
+              subtitle={detalhesLote.pastos?.nome || lotesPastoMap[form.lote] || 'Sem pasto associado'}
+              stats={[
+                { label: 'Cabeças', value: detalhesLote.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-', span: 1 },
+                {
+                  label: 'PV médio',
+                  value: detalhesLote.peso_vivo_kg != null
+                    ? `${Number(detalhesLote.peso_vivo_kg).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+                    : '-',
+                  span: 1,
+                },
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
+              ]}
+            />
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 2: Dados da Mãe */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. IDENTIFICAÇÃO DA MÃE</h2>
+        {/* 1. A mãe */}
+        <CadernetaSection numero={1} titulo="A mãe">
           {hasIndividuos === true && (
-            <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
-              💡 <strong>Não encontrou a mãe?</strong> Clique em qualquer um dos 3 campos de busca abaixo, vá em <strong>NOVO</strong> no final da tela que se abrir e informe o ID Manejo, Brinco e/ou Chip para cadastrá-la automaticamente.
-            </p>
+            <InfoStrip tone="neutral" icon="💡">
+              <strong>Não encontrou a mãe?</strong> Clique em qualquer um dos 3 campos de busca abaixo, vá em <strong>NOVO</strong> no final da tela que se abrir e informe o ID Manejo, Brinco e/ou Chip para cadastrá-la automaticamente.
+            </InfoStrip>
           )}
           <AnimalIdentifier
             key={animalIdentifierKey}
@@ -994,230 +1242,159 @@ export default function MaternidadePage() {
             required={true}
             showAnimalCard={true}
           />
+
+          {tileFoto('Foto do brinco da mãe (opcional)', fotoBrincoMae, () => fotoBrincoMae.capturarFoto())}
+
           {/* Dados da nova mãe (quando não encontrada na base) */}
-          {!form.individuoIdMae && (form.idManejoMae || form.idBrincoMae || form.idChipMae) && (
-            <div className="bg-green-50 rounded-xl p-4 border border-green-200 flex flex-col gap-4">
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-base font-bold text-green-800">🆕 DADOS DA NOVA MÃE</span>
-              </div>
+          {novaMae && (
+            <div className="flex flex-col gap-4 rounded-xl border border-green-200 bg-green-50 p-4">
+              <span className="text-base font-bold text-green-800">🆕 DADOS DA NOVA MÃE</span>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-gray-500 font-medium">SEXO</p>
-                  <p className="text-gray-900 font-bold">Fêmea</p>
+                  <p className="font-medium text-gray-500">SEXO</p>
+                  <p className="font-bold text-gray-900">Fêmea</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 font-medium">STATUS</p>
-                  <p className="text-gray-900 font-bold">Vivo</p>
+                  <p className="font-medium text-gray-500">STATUS</p>
+                  <p className="font-bold text-gray-900">Vivo</p>
                 </div>
-              </div>
-              <Radio
-                name="racaMae"
-                label={<span>RAÇA <span className="text-red-500">*</span></span>}
-                options={racasDisponiveis.length > 0
-                  ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
-                  : RACAS_PADRAO}
-                value={form.racaMae}
-                onChange={set('racaMae')}
-                error={getError('racaMae')}
-                gridCols={2}
-              />
-              <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-gray-500 font-medium">CATEGORIA</p>
-                  <p className="text-gray-900 font-bold">Vaca Parida</p>
+                  <p className="font-medium text-gray-500">CATEGORIA</p>
+                  <p className="font-bold text-gray-900">Vaca Parida</p>
                 </div>
               </div>
-            </div>
-          )}
-          <Radio
-            name="categoriaMae"
-            label={<span>CLASSIFICAÇÃO DA MATRIZ <span className="text-red-500">*</span></span>}
-            options={CATEGORIAS_MAE}
-            value={form.categoriaMae}
-            onChange={set('categoriaMae')}
-            error={getError('categoriaMae')}
-            gridCols={2}
-            disabled={!!form.individuoIdMae}
-          />
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-base font-bold text-gray-900 mb-4">ESCORE DA MATRIZ <span className="text-red-500">*</span></h3>
-            <button
-              onClick={() => setShowEscoreModal(true)}
-              className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors mb-4"
-            >
-              <span className="text-xl">📄</span>
-              <span>POP ESCORE CORPORAL</span>
-            </button>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-              {ESCORES.map((escore) => (
-                <button
-                  key={escore.value}
-                  onClick={() => set('escoreMatriz')(escore.value)}
-                  className={`py-3 px-4 rounded-xl font-bold transition-all transform hover:scale-105 ${
-                    form.escoreMatriz === escore.value ? `${escore.color} text-black` : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  {escore.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-base font-bold text-gray-900 mb-4">DOCILIDADE DA MATRIZ <span className="text-red-500">*</span></h3>
-            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">AVALIAÇÃO DE DOCILIDADE</label>
-            <p className="text-sm text-gray-600 mb-3">1 - Mais dócil | 3 - Mais brava</p>
-            <div className="grid grid-cols-3 gap-2">
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.docilidadeMatriz === '1' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="docilidadeMatriz" className="sr-only" value="1" checked={form.docilidadeMatriz === '1'} onChange={() => set('docilidadeMatriz')('1')} />
-                <span className="text-2xl sm:text-3xl">🟢</span>
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">1</span>
-              </label>
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.docilidadeMatriz === '2' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="docilidadeMatriz" className="sr-only" value="2" checked={form.docilidadeMatriz === '2'} onChange={() => set('docilidadeMatriz')('2')} />
-                <span className="text-2xl sm:text-3xl">🟡</span>
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">2</span>
-              </label>
-              <label className={`
-                cursor-pointer rounded-xl border-2 
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.docilidadeMatriz === '3' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="docilidadeMatriz" className="sr-only" value="3" checked={form.docilidadeMatriz === '3'} onChange={() => set('docilidadeMatriz')('3')} />
-                <span className="text-2xl sm:text-3xl">🔴</span>
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">3</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* Seção 3: Parto */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. PARTO <span className="text-red-500">*</span></h2>
-          <CheckboxGroup
-            label=""
-            options={TIPOS_PARTO}
-            selectedValues={form.tipoParto}
-            onChange={handleTipoPartoChange}
-            error={getError('tipoParto')}
-            gridCols={2}
-            hideCheckbox={true}
-            id="tipoParto"
-            dataField="tipoParto"
-          />
-
-          {/* Sub-opção: Auxiliado (apenas quando Normal está selecionado) */}
-          {form.tipoParto.includes('Normal') && (
-            <div className="ml-2">
-              <label className={`
-                cursor-pointer rounded-xl border-2 px-4 py-2.5
-                transition-all active:scale-95
-                flex items-center justify-center gap-2
-                ${form.partoAuxiliado
-                  ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
-                  : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input
-                  type="checkbox"
-                  checked={form.partoAuxiliado}
-                  onChange={(e) => setForm(prev => ({ ...prev, partoAuxiliado: e.target.checked }))}
-                  className="sr-only"
+              <div data-field="racaMae">
+                <SearchableModal
+                  label={<span>RAÇA <span className="text-red-500">*</span></span>}
+                  value={form.racaMae}
+                  onChange={set('racaMae')}
+                  error={getError('racaMae')}
+                  options={opcoesRaca}
+                  placeholder="Buscar raça..."
+                  id="racaMae"
+                  name="racaMae"
                 />
-                <span className="text-2xl sm:text-3xl">🤝</span>
-                <span className="text-sm font-bold tracking-tight">AUXILIADO</span>
-              </label>
+              </div>
             </div>
           )}
 
-          <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-base font-bold text-gray-900 mb-3">PROBLEMAS DE PARTO <span className="text-sm font-normal text-gray-500">(opcional)</span></h3>
-            <CheckboxGroup
-              label=""
-              options={PROBLEMAS_PARTO}
-              selectedValues={form.problemasParto}
-              onChange={handleProblemasPartoChange}
-              gridCols={2}
-              hideCheckbox={true}
-              id="problemasParto"
+          <div className="flex flex-col gap-2" data-field="categoriaMae">
+            <label className={rotulo}>Classificação da matriz <span className="text-red-500">*</span></label>
+            <div className={form.individuoIdMae ? 'pointer-events-none opacity-60' : ''}>
+              <ChoiceGrid
+                options={CATEGORIAS_MAE}
+                value={form.categoriaMae}
+                onChange={set('categoriaMae')}
+                cols={2}
+                size="sm"
+              />
+            </div>
+            {erroTexto('categoriaMae')}
+          </div>
+
+          <div className="flex flex-col gap-2" data-field="escoreMatriz">
+            <div className="flex items-center justify-between gap-2">
+              <label className={rotulo}>Escore da matriz <span className="text-red-500">*</span></label>
+              <button
+                type="button"
+                onClick={() => setShowEscoreModal(true)}
+                className="flex !min-h-0 shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-black transition-colors hover:bg-yellow-300 active:scale-[0.98]"
+              >
+                <FileText className="h-3.5 w-3.5" strokeWidth={2.5} />
+                POP Escore
+              </button>
+            </div>
+            <ChoiceGrid
+              options={ESCORES.map((e) => ({
+                value: e.value,
+                label: e.label,
+                icon: e.color === 'bg-red-500' ? '🔴' : e.color === 'bg-yellow-400' ? '🟡' : '🟢',
+              }))}
+              value={form.escoreMatriz}
+              onChange={set('escoreMatriz')}
+              cols={5}
+              size="sm"
+              labelSize="xs"
+            />
+            <p className="text-xs text-gray-500">1 Muito magra · 3 Boa · 5 Muito gorda (aceita meios pontos)</p>
+            {erroTexto('escoreMatriz')}
+          </div>
+
+          <div className="flex flex-col gap-2" data-field="docilidadeMatriz">
+            <label className={rotulo}>Docilidade da matriz <span className="text-red-500">*</span></label>
+            <ChoiceGrid
+              options={[
+                { value: '1', label: 'CALMA', icon: '😊' },
+                { value: '2', label: 'AGITADA', icon: '😐' },
+                { value: '3', label: 'BRAVA', icon: '😠' },
+              ]}
+              value={form.docilidadeMatriz}
+              onChange={set('docilidadeMatriz')}
+              cols={3}
+              labelSize="xs"
+            />
+            {erroTexto('docilidadeMatriz')}
+          </div>
+        </CadernetaSection>
+
+        {/* 2. Parto */}
+        <CadernetaSection numero={2} titulo="Parto" required>
+          <div className="flex flex-col gap-2" data-field="tipoParto">
+            <label className={rotulo}>Como foi? <span className="text-red-500">*</span></label>
+            <ChoiceGrid
+              options={[
+                { value: 'Normal', label: 'NORMAL', icon: '✅' },
+                { value: 'Auxiliado', label: 'PRECISOU AJUDAR', icon: '🤝' },
+                { value: 'Cesárea', label: 'CESÁREA', icon: '🏥' },
+              ]}
+              value={partoOpcao}
+              onChange={selecionarParto}
+              cols={3}
+              labelSize="xs"
+            />
+            {erroTexto('tipoParto')}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className={rotulo}>Teve problema? (marque todos)</label>
+            <ChoiceGrid
+              mode="multi"
+              showCheck={false}
+              options={PROBLEMAS_PARTO.map((p) => ({ ...p, tone: 'danger-solid' as const }))}
+              values={form.problemasParto}
+              onChangeMulti={handleProblemasPartoChange}
+              cols={2}
+              labelSize="xs"
               dataField="problemasParto"
             />
           </div>
 
-          {/* Checkbox isolado: Gêmeos */}
-          <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-base font-bold text-gray-900 mb-3">OPÇÃO ADICIONAL</h3>
-            <div className="grid grid-cols-1 gap-3">
-              <label className={`
-                cursor-pointer rounded-xl border-2 px-4 py-3
-                transition-all active:scale-95
-                flex items-center justify-center
-                ${form.gemelos
-                  ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
-                  : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input
-                  type="checkbox"
-                  checked={form.gemelos}
-                  onChange={(e) => handleGemelosToggle(e.target.checked)}
-                  className="sr-only"
-                />
-                <span className="text-base font-bold tracking-tight">GÊMEOS</span>
-              </label>
-            </div>
-
+          <div className="flex flex-col gap-2">
+            <label className={rotulo}>Quantos bezerros?</label>
+            <ChoiceGrid
+              options={[
+                { value: '1', label: '1', icon: '🐮' },
+                { value: '2', label: '2 (GÊMEOS)', icon: '🐮🐮' },
+              ]}
+              value={form.gemelos ? '2' : '1'}
+              onChange={(v) => handleGemelosToggle(v === '2')}
+              cols={2}
+              labelSize="xs"
+            />
             {/* Sub-opção de gêmeos: 2ª cria viva ou natimorta (em aborto todas as crias são mortas) */}
             {form.gemelos && !isAborto && (
-              <div className="mt-3">
-                <p className="text-sm font-semibold text-gray-700 mb-2">2ª cria:</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`
-                    cursor-pointer rounded-xl border-2 px-4 py-2.5
-                    transition-all active:scale-95
-                    flex items-center justify-center
-                    ${!form.gemelosNatimorto
-                      ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
-                      : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-                  `}>
-                    <input
-                      type="radio"
-                      name="gemelosNatimorto"
-                      className="sr-only"
-                      checked={!form.gemelosNatimorto}
-                      onChange={() => setForm(prev => ({ ...prev, gemelosNatimorto: false }))}
-                    />
-                    <span className="text-sm font-bold tracking-tight">VIVA</span>
-                  </label>
-                  <label className={`
-                    cursor-pointer rounded-xl border-2 px-4 py-2.5
-                    transition-all active:scale-95
-                    flex items-center justify-center
-                    ${form.gemelosNatimorto
-                      ? 'bg-red-600 text-white border-red-600'
-                      : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-                  `}>
-                    <input
-                      type="radio"
-                      name="gemelosNatimorto"
-                      className="sr-only"
-                      checked={form.gemelosNatimorto}
-                      onChange={() => setForm(prev => ({ ...prev, gemelosNatimorto: true }))}
-                    />
-                    <span className="text-sm font-bold tracking-tight">NATIMORTA</span>
-                  </label>
-                </div>
+              <div className="mt-1 flex flex-col gap-2">
+                <p className="text-sm font-semibold text-gray-700">2ª cria:</p>
+                <ChoiceGrid
+                  options={[
+                    { value: 'viva', label: 'VIVA', icon: '✅' },
+                    { value: 'natimorta', label: 'NATIMORTA', icon: '💀', tone: 'danger-solid' as const },
+                  ]}
+                  value={form.gemelosNatimorto ? 'natimorta' : 'viva'}
+                  onChange={(v) => setForm((prev) => ({ ...prev, gemelosNatimorto: v === 'natimorta' }))}
+                  cols={2}
+                  size="sm"
+                />
               </div>
             )}
           </div>
@@ -1228,429 +1405,41 @@ export default function MaternidadePage() {
             value={form.observacaoParto}
             onChange={setInputEvent('observacaoParto')}
           />
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 4: 1ª Cria (identificação + sexo + raça + primeiros cuidados) — oculta quando a cria morre */}
+        {/* 3. A cria (1ª) — oculta quando a cria morre */}
         {cria1Morta ? (
-          <div className="bg-red-50 border border-red-200 rounded-3xl p-4 flex items-center gap-3">
-            <span className="text-2xl">💀</span>
-            <p className="text-sm text-red-800 font-medium">
-              A cria será registrada como {isAborto ? 'abortada' : 'natimorta'} e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.
-            </p>
-          </div>
+          aviso(`A cria será registrada como ${isAborto ? 'abortada' : 'natimorta'} e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.`)
         ) : (
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. 1ª CRIA</h2>
-          <Input
-            label={<span>ID PROVISÓRIO <span className="text-red-500">*</span></span>}
-            placeholder="Ex: 2023-145"
-            value={form.idProvisorioCria}
-            onChange={setInputEvent('idProvisorioCria')}
-            error={getError('idProvisorioCria')}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="ID BRINCO"
-              placeholder="Opcional"
-              value={form.idBrincoCria}
-              onChange={setInputEvent('idBrincoCria')}
-              error={getError('idBrincoCria')}
-            />
-            <Input
-              label="ID CHIP"
-              placeholder="Opcional"
-              value={form.idChipCria}
-              onChange={setInputEvent('idChipCria')}
-              error={getError('idChipCria')}
-            />
-          </div>
-          <Input
-            label={<span>PESO DA CRIA (kg) {!cria1Morta && <span className="text-red-500">*</span>}</span>}
-            placeholder="Ex: 32"
-            value={form.pesoCria}
-            onChange={setInputEvent('pesoCria')}
-            inputMode="decimal"
-            type="number"
-            error={getError('pesoCria')}
-          />
-          <Radio
-            name="sexo"
-            label={<span>SEXO <span className="text-red-500">*</span></span>}
-            options={SEXO}
-            value={form.sexo}
-            onChange={set('sexo')}
-            error={getError('sexo')}
-            gridCols={2}
-          />
-          <Radio
-            name="raca"
-            label={<span>RAÇA <span className="text-red-500">*</span></span>}
-            options={racasDisponiveis.length > 0
-              ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
-              : RACAS_PADRAO}
-            value={form.raca}
-            onChange={set('raca')}
-            error={getError('raca')}
-            gridCols={2}
-          />
-
-          <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-base font-bold text-gray-900 mb-3">PRIMEIROS CUIDADOS <span className="text-red-500">*</span></h3>
-            <CheckboxGroup
-              label=""
-              options={tratamentosDisponiveis.map(t => ({ value: t.nome, label: t.nome.toUpperCase() }))}
-              selectedValues={form.tratamentos}
-              onChange={handleTratamentosChange}
-              error={getError('tratamentos')}
-              gridCols={2}
-              hideCheckbox={true}
-              id="tratamentos"
-              dataField="tratamentos"
-            />
-          </div>
-
-          {/* Medicamentos: opcional, mesma lógica da Enfermaria */}
-          <div className="border-t border-gray-100 pt-4 flex flex-col gap-4">
-            <h3 className="text-base font-bold text-gray-900">MEDICAMENTOS <span className="text-sm font-normal text-gray-500">(opcional)</span></h3>
-            <MedicamentosSection
-              items={form.medicamentos}
-              onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
-              medicamentosDisponiveis={medicamentosDisponiveis}
-            />
-          </div>
-
-          {/* Guacho: opção específica da 1ª cria */}
-          <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-base font-bold text-gray-900 mb-3">OPÇÃO ADICIONAL</h3>
-            <label className={`
-              cursor-pointer rounded-xl border-2 px-4 py-3
-              transition-all active:scale-95
-              flex items-center justify-center
-              ${form.guachoCria
-                ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
-                : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-            `}>
-              <input
-                type="checkbox"
-                checked={form.guachoCria}
-                onChange={(e) => handleGuachoCriaToggle(e.target.checked)}
-                className="sr-only"
-              />
-              <span className="text-base font-bold tracking-tight">GUACHO</span>
-            </label>
-            <p className="text-xs text-gray-500 mt-2">
-              Bezerro abandonado pela mãe biológica e adotado por outra. Informe a mãe adotiva abaixo.
-            </p>
-          </div>
-
-          {/* Mãe adotiva da 1ª cria (visível apenas quando guacho) */}
-          {form.guachoCria && (
-            <div className="bg-green-50 rounded-xl p-4 border border-green-200 flex flex-col gap-4">
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-base font-bold text-green-800">MÃE ADOTIVA</span>
-              </div>
-              <AnimalIdentifier
-                fazendaId={fazendaId}
-                valueManejo={form.idManejoMaeAdotiva}
-                valueBrinco={form.idBrincoMaeAdotiva}
-                valueChip={form.idChipMaeAdotiva}
-                onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
-                  setForm(prev => ({
-                    ...prev,
-                    idManejoMaeAdotiva: idManejo,
-                    idBrincoMaeAdotiva: idBrinco,
-                    idChipMaeAdotiva: idChip,
-                    individuoIdMaeAdotiva: individuoId || '',
-                    // Preencher raça e classificação do animal existente
-                    racaMaeAdotiva: animalData?.raca || '',
-                    categoriaMaeAdotiva: animalData?.classificacao_matriz || '',
-                  }))
-                }}
-                required={true}
-                showAnimalCard={true}
-              />
-              {/* Dados da nova mãe adotiva (quando não encontrada na base) */}
-              {!form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva) && (
-                <>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-gray-500 font-medium">SEXO</p>
-                      <p className="text-gray-900 font-bold">Fêmea</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500 font-medium">STATUS</p>
-                      <p className="text-gray-900 font-bold">Vivo</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500 font-medium">CATEGORIA</p>
-                      <p className="text-gray-900 font-bold">{form.categoriaMaeAdotiva === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'}</p>
-                    </div>
-                  </div>
-                  <Radio
-                    name="racaMaeAdotiva"
-                    label={<span>RAÇA <span className="text-red-500">*</span></span>}
-                    options={racasDisponiveis.length > 0
-                      ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
-                      : RACAS_PADRAO}
-                    value={form.racaMaeAdotiva}
-                    onChange={set('racaMaeAdotiva')}
-                    error={getError('racaMaeAdotiva')}
-                    gridCols={2}
-                  />
-                  <Radio
-                    name="categoriaMaeAdotiva"
-                    label={<span>CLASSIFICAÇÃO DA MATRIZ ADOTIVA <span className="text-red-500">*</span></span>}
-                    options={CATEGORIAS_MAE}
-                    value={form.categoriaMaeAdotiva}
-                    onChange={set('categoriaMaeAdotiva')}
-                    error={getError('categoriaMaeAdotiva')}
-                    gridCols={2}
-                  />
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          <CadernetaSection numero={3} titulo={form.gemelos ? 'A cria (1ª)' : 'A cria'}>
+            {renderCria(1)}
+          </CadernetaSection>
         )}
 
-        {/* Seção 5: 2ª Cria (condicional - apenas para gêmeos) */}
+        {/* 4. 2ª cria (gêmeos) */}
         {form.gemelos && (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border-2 border-[#1a3a2a] flex flex-col gap-5">
-            <h2 className="text-lg font-black text-[#1a3a2a] tracking-tight">4. 2ª CRIA (GÊMEOS)</h2>
-
-            {/* Campos de identificação: apenas se 2ª cria viva (aborto conta como morta) */}
-            {!cria2Morta && (
-              <>
-                <Input
-                  label={<span>ID PROVISÓRIO <span className="text-red-500">*</span></span>}
-                  placeholder="Ex: 2023-146"
-                  value={form.idProvisorioCria2}
-                  onChange={setInputEvent('idProvisorioCria2')}
-                  error={getError('idProvisorioCria2')}
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    label="ID BRINCO"
-                    placeholder="Opcional"
-                    value={form.idBrincoCria2}
-                    onChange={setInputEvent('idBrincoCria2')}
-                  />
-                  <Input
-                    label="ID CHIP"
-                    placeholder="Opcional"
-                    value={form.idChipCria2}
-                    onChange={setInputEvent('idChipCria2')}
-                  />
-                </div>
-                <Input
-                  label={<span>PESO DA CRIA (kg) {!cria2Morta && <span className="text-red-500">*</span>}</span>}
-                  placeholder="Ex: 28"
-                  value={form.pesoCria2}
-                  onChange={setInputEvent('pesoCria2')}
-                  inputMode="decimal"
-                  type="number"
-                  error={getError('pesoCria2')}
-                />
-                <Radio
-                  name="sexo2"
-                  label={<span>SEXO <span className="text-red-500">*</span></span>}
-                  options={SEXO}
-                  value={form.sexo2}
-                  onChange={set('sexo2')}
-                  error={getError('sexo2')}
-                  gridCols={2}
-                />
-                <Radio
-                  name="raca2"
-                  label={<span>RAÇA <span className="text-red-500">*</span></span>}
-                  options={racasDisponiveis.length > 0
-                    ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
-                    : RACAS_PADRAO}
-                  value={form.raca2}
-                  onChange={set('raca2')}
-                  error={getError('raca2')}
-                  gridCols={2}
-                />
-
-                <div className="border-t border-gray-100 pt-4">
-                  <h3 className="text-base font-bold text-[#1a3a2a] mb-3">PRIMEIROS CUIDADOS <span className="text-red-500">*</span></h3>
-                  <CheckboxGroup
-                    label=""
-                    options={tratamentosDisponiveis.map(t => ({ value: t.nome, label: t.nome.toUpperCase() }))}
-                    selectedValues={form.tratamentos2}
-                    onChange={handleTratamentos2Change}
-                    error={getError('tratamentos2')}
-                    gridCols={2}
-                    hideCheckbox={true}
-                    id="tratamentos2"
-                    dataField="tratamentos2"
-                  />
-                </div>
-
-                {/* Medicamentos: opcional, mesma lógica da Enfermaria */}
-                <div className="border-t border-gray-100 pt-4 flex flex-col gap-4">
-                  <h3 className="text-base font-bold text-[#1a3a2a]">MEDICAMENTOS <span className="text-sm font-normal text-gray-500">(opcional)</span></h3>
-                  <MedicamentosSection
-                    items={form.medicamentos2}
-                    onChange={(items) => setForm(prev => ({ ...prev, medicamentos2: items }))}
-                    medicamentosDisponiveis={medicamentosDisponiveis}
-                  />
-                </div>
-
-                {/* Guacho: opção específica da 2ª cria */}
-                <div className="border-t border-gray-100 pt-4">
-                  <h3 className="text-base font-bold text-[#1a3a2a] mb-3">OPÇÃO ADICIONAL</h3>
-                  <label className={`
-                    cursor-pointer rounded-xl border-2 px-4 py-3
-                    transition-all active:scale-95
-                    flex items-center justify-center
-                    ${form.guachoCria2
-                      ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]'
-                      : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-                  `}>
-                    <input
-                      type="checkbox"
-                      checked={form.guachoCria2}
-                      onChange={(e) => handleGuachoCria2Toggle(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <span className="text-base font-bold tracking-tight">GUACHO</span>
-                  </label>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Bezerro abandonado pela mãe biológica e adotado por outra. Informe a mãe adotiva abaixo.
-                  </p>
-                </div>
-
-                {/* Mãe adotiva da 2ª cria (visível apenas quando guacho) */}
-                {form.guachoCria2 && (
-                  <div className="bg-green-50 rounded-xl p-4 border border-green-200 flex flex-col gap-4">
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-base font-bold text-green-800">MÃE ADOTIVA DA 2ª CRIA</span>
-                    </div>
-                    <AnimalIdentifier
-                      fazendaId={fazendaId}
-                      valueManejo={form.idManejoMaeAdotiva2}
-                      valueBrinco={form.idBrincoMaeAdotiva2}
-                      valueChip={form.idChipMaeAdotiva2}
-                      onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
-                        setForm(prev => ({
-                          ...prev,
-                          idManejoMaeAdotiva2: idManejo,
-                          idBrincoMaeAdotiva2: idBrinco,
-                          idChipMaeAdotiva2: idChip,
-                          individuoIdMaeAdotiva2: individuoId || '',
-                          // Preencher raça e classificação do animal existente
-                          racaMaeAdotiva2: animalData?.raca || '',
-                          categoriaMaeAdotiva2: animalData?.classificacao_matriz || '',
-                        }))
-                      }}
-                      required={true}
-                      showAnimalCard={true}
-                    />
-                    {/* Dados da nova mãe adotiva (quando não encontrada na base) */}
-                    {!form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2) && (
-                      <>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <p className="text-gray-500 font-medium">SEXO</p>
-                            <p className="text-gray-900 font-bold">Fêmea</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500 font-medium">STATUS</p>
-                            <p className="text-gray-900 font-bold">Vivo</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500 font-medium">CATEGORIA</p>
-                            <p className="text-gray-900 font-bold">{form.categoriaMaeAdotiva2 === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'}</p>
-                          </div>
-                        </div>
-                        <Radio
-                          name="racaMaeAdotiva2"
-                          label={<span>RAÇA <span className="text-red-500">*</span></span>}
-                          options={racasDisponiveis.length > 0
-                            ? racasDisponiveis.map((r: any) => ({ value: r.nome, label: r.nome.toUpperCase() }))
-                            : RACAS_PADRAO}
-                          value={form.racaMaeAdotiva2}
-                          onChange={set('racaMaeAdotiva2')}
-                          error={getError('racaMaeAdotiva2')}
-                          gridCols={2}
-                        />
-                        <Radio
-                          name="categoriaMaeAdotiva2"
-                          label={<span>CLASSIFICAÇÃO DA MATRIZ ADOTIVA <span className="text-red-500">*</span></span>}
-                          options={CATEGORIAS_MAE}
-                          value={form.categoriaMaeAdotiva2}
-                          onChange={set('categoriaMaeAdotiva2')}
-                          error={getError('categoriaMaeAdotiva2')}
-                          gridCols={2}
-                        />
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Confirmação cria morta: sem campos de identificação nem cuidados */}
-            {cria2Morta && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-                <span className="text-2xl">💀</span>
-                <p className="text-sm text-red-800 font-medium">
-                  A 2ª cria será registrada como {isAborto ? 'abortada' : 'natimorta'} e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.
-                </p>
-              </div>
-            )}
-          </div>
+          <CadernetaSection numero={4} titulo="2ª cria (gêmeos)">
+            {cria2Morta
+              ? aviso(`A 2ª cria será registrada como ${isAborto ? 'abortada' : 'natimorta'} e não entrará no rebanho. Não é necessário informar identificação, peso, sexo, raça ou primeiros cuidados.`)
+              : renderCria(2)}
+          </CadernetaSection>
         )}
 
-        {/* Seção 5: Foto */}
-        <FotoSection
-          titulo="5. FOTO"
-          descricao="Tire uma foto da cria ou da mãe para anexar ao registro."
-          textoBotao="TIRAR FOTO"
-          fotoBase64={fotoBase64}
-          capturando={capturandoFoto}
-          erro={fotoErro}
-          onTirar={capturarFoto}
-          onRemover={limparFoto}
-          fotoInputRef={fotoInputRef}
-          onFileChange={handleFileInputChange}
+        {/* Foto da cria */}
+        <CadernetaSection numero={form.gemelos ? 5 : 4} titulo="Foto da cria">
+          {tileFoto('Foto da cria (opcional)', fotoCria, () => fotoCria.capturarFoto())}
+          <p className="text-sm text-gray-500">Tire uma foto da cria ou da mãe para anexar ao registro.</p>
+        </CadernetaSection>
+
+        <FormFooter
+          onSalvar={handleSalvar}
+          onLimpar={handleLimpar}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+          pendenciaTexto={pendenciaTexto}
         />
-
-        {/* Ações */}
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleSalvar}
-            disabled={salvando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={handleLimpar}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
-        )}
-      </main>
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -1683,6 +1472,6 @@ export default function MaternidadePage() {
           `${BASE}docs/ECC/POP_ECC.jpeg`
         ]}
       />
-    </div>
+    </>
   )
 }
