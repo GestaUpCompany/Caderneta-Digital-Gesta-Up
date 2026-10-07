@@ -32,9 +32,9 @@ export async function loadCadastroData(
   try {
     let pastos: string[] = []
     let lotes: string[] = []
-    let fornecedores: string[] = []
-    let funcionarios: string[] = []
-    let frigorificos: string[] = []
+    const fornecedores: string[] = []
+    const funcionarios: string[] = []
+    const frigorificos: string[] = []
 
     if (fazendaId) {
       // Buscar do Supabase

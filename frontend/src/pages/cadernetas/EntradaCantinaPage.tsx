@@ -1,17 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, DatePicker, ValidationMessage, Button, NumericInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage } from '../../components/ui'
+import { Minus, Plus, Mic } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import FormFooter from '../../components/cadernetas/FormFooter'
 import { salvarRegistro } from '../../services/api'
-import { todayBR } from '../../utils/formatDate'
+import { todayBR, getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { getItensCantinaCached, updateItemCantinaSaldoCache } from '../../services/cadastroCache'
 import { CLASSIFICACOES_CANTINA, UNIDADES_CANTINA, UNIDADE_DESCRICOES } from '../../utils/constants'
-import { useFormValidation } from '../../hooks/useFormValidation'
+import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { iconeDoItem } from '../../utils/iconeItem'
+import { iniciais, corAvatar } from '../../utils/avatar'
 
 interface ItemEntrada {
   itemId: string
@@ -22,172 +28,174 @@ interface ItemEntrada {
   novoItem?: boolean
 }
 
-interface FormState {
-  data: string
-  itens: ItemEntrada[]
-  observacao: string
+interface ItemCatalogo {
+  id: string
+  nome: string
+  unidade_medida: string
+  estoque_atual?: number
+  classificacao: string
 }
 
-const makeInitial = (): FormState => ({
-  data: todayBR(),
-  itens: [],
-  observacao: '',
-})
+const ICONES_CLASSIFICACAO: Record<string, string> = {
+  'Perecíveis': '🧊',
+  'Não Perecíveis': '🍚',
+  'Bebidas': '🥤',
+  'Limpeza/Higiene': '🧼',
+  'Hortifruti': '🥬',
+  'Carnes': '🥩',
+}
 
-const makeInitialItem = (): ItemEntrada => ({
-  itemId: '',
-  nome: '',
-  classificacao: '',
-  unidade_medida: '',
-  quantidade: '',
-})
+const UNIDADES_DECIMAIS = ['kg', 'g', 'L', 'mL']
+const unidadeInteira = (unidade?: string) => !UNIDADES_DECIMAIS.includes(unidade || '')
+const numeroDe = (valor: string | undefined) => {
+  const n = Number(String(valor ?? '').replace(',', '.'))
+  return isNaN(n) ? 0 : n
+}
+const formatarQtd = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+const rotuloUnidade = (un: string) => (un === 'Unidade' ? '' : ` ${un}`)
+
+// Emoji pelo nome do item; sem correspondencia, avatar de iniciais (nunca repete o de outro item)
+function IconeItem({ nome }: { nome: string }) {
+  const emoji = iconeDoItem(nome)
+  if (emoji) return <span className="flex h-9 w-9 shrink-0 items-center justify-center text-2xl leading-none">{emoji}</span>
+  return (
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${corAvatar(nome)}`}>
+      {iniciais(nome)}
+    </span>
+  )
+}
 
 export default function EntradaCantinaPage() {
   const navigate = useNavigate()
-  const { fazendaId } = useSelector((state: RootState) => state.config)
-  const [form, setForm] = useState<FormState>(makeInitial())
+  const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
+  const [data, setData] = useState(todayBR())
+  const [observacao, setObservacao] = useState('')
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
-  const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
-  const [itemEditando, setItemEditando] = useState<ItemEntrada | null>(null)
-  const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
-  const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
-  const [criandoNovoItem, setCriandoNovoItem] = useState(false)
-  const classificacoesDisponiveis: string[] = [...CLASSIFICACOES_CANTINA]
 
-  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
+  const [classificacaoAtiva, setClassificacaoAtiva] = useState<string>(CLASSIFICACOES_CANTINA[0])
+  const [itensDaClassificacao, setItensDaClassificacao] = useState<any[]>([])
+  // Itens cadastrados já vistos (de qualquer classificação), para montar o registro
+  const [catalogo, setCatalogo] = useState<Record<string, ItemCatalogo>>({})
+  const [quantidades, setQuantidades] = useState<Record<string, string>>({})
+  // Itens criados no PWA (uuid local); o sync cria no servidor antes de postar o registro
+  const [itensNovos, setItensNovos] = useState<ItemEntrada[]>([])
+  const [recarregar, setRecarregar] = useState(0)
+
+  const [mostrarNovo, setMostrarNovo] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novaUnidade, setNovaUnidade] = useState('')
+  const [novaQuantidade, setNovaQuantidade] = useState('')
+  const [novoErro, setNovoErro] = useState<string | null>(null)
+  const { ouvindo, toggle: toggleVoz, erro: erroVoz } = useVoiceInput()
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  const handleAdicionarItem = () => {
-    setItemEditando(makeInitialItem())
-    setItemEditandoIndex(null)
-    setItemErrors(new Set())
-    setCriandoNovoItem(false)
-    setMostrarFormularioItem(true)
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-  }
-
-  const handleEditarItem = (index: number) => {
-    setItemEditando({ ...form.itens[index] })
-    setItemEditandoIndex(index)
-    setItemErrors(new Set())
-    setCriandoNovoItem(!!form.itens[index].novoItem)
-    setMostrarFormularioItem(true)
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-  }
-
-  const handleSalvarItem = () => {
-    if (!itemEditando) return
-
-    const errors = new Set<string>()
-    if (!itemEditando.classificacao) errors.add('classificacao')
-    if (criandoNovoItem) {
-      if (!itemEditando.nome?.trim()) errors.add('itemId')
-      if (!itemEditando.unidade_medida) errors.add('unidade_medida')
-    } else if (!itemEditando.itemId) {
-      errors.add('itemId')
-    }
-    if (!itemEditando.quantidade || Number(itemEditando.quantidade) <= 0) errors.add('quantidade')
-
-    if (errors.size > 0) {
-      setItemErrors(errors)
-      return
-    }
-
-    const itemFinal = { ...itemEditando }
-    if (criandoNovoItem && !itemFinal.itemId) {
-      // Item criado no PWA: uuid local; o sync chama a RPC criar_item_* antes
-      // de postar o registro e reescreve o itemId com o id definitivo.
-      itemFinal.itemId = crypto.randomUUID()
-      itemFinal.nome = itemFinal.nome.trim()
-      itemFinal.novoItem = true
-      setItensDisponiveis(prev => [
-        ...prev,
-        { id: itemFinal.itemId, nome: itemFinal.nome, unidade_medida: itemFinal.unidade_medida, controla_estoque: true, estoque_atual: 0 }
-      ])
-    }
-
-    if (itemEditandoIndex !== null) {
-      setForm(prev => ({
-        ...prev,
-        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? { ...itemFinal } : item)
-      }))
-    } else {
-      setForm(prev => ({
-        ...prev,
-        itens: [...prev.itens, { ...itemFinal }]
-      }))
-    }
-    setItemEditando(null)
-    setItemEditandoIndex(null)
-    setMostrarFormularioItem(false)
-    setCriandoNovoItem(false)
-    setItemErrors(new Set())
-  }
-
-  const handleRemoverItem = (index: number) => {
-    setForm(prev => ({
-      ...prev,
-      itens: prev.itens.filter((_, i) => i !== index)
-    }))
-  }
-
-  const itensJaAdicionados = new Set(
-    form.itens
-      .filter((_, i) => i !== itemEditandoIndex)
-      .map(item => item.itemId)
-  )
-
-  const validationRules: any = {
-    data: { required: true },
-    itens: {
-      custom: (_value: any, form: any) => {
-        return form.itens && form.itens.length > 0 ? null : 'Adicione pelo menos um item'
-      }
-    },
-  }
-
-  const { isValid } = useFormValidation(form, validationRules)
-
   useEffect(() => {
-    async function carregarItens() {
-      if (itemEditando?.classificacao && fazendaId) {
-        try {
-          const data = await getItensCantinaCached(fazendaId, itemEditando.classificacao)
-          if (data) {
-            setItensDisponiveis(data.filter((item: any) => item.controla_estoque))
-          }
-        } catch (error) {
-          console.error('Erro ao carregar itens da cantina:', error)
-        }
-      } else {
-        setItensDisponiveis([])
-      }
+    if (!fazendaId) return
+    let cancelado = false
+    getItensCantinaCached(fazendaId, classificacaoAtiva)
+      .then((lista) => {
+        if (cancelado) return
+        const controlados = (lista || []).filter((item: any) => item.controla_estoque)
+        setItensDaClassificacao(controlados)
+        setCatalogo((prev) => {
+          const novo = { ...prev }
+          controlados.forEach((item: any) => {
+            novo[item.id] = {
+              id: item.id,
+              nome: item.nome,
+              unidade_medida: item.unidade_medida,
+              estoque_atual: item.estoque_atual,
+              classificacao: classificacaoAtiva,
+            }
+          })
+          return novo
+        })
+      })
+      .catch((error) => console.error('Erro ao carregar itens da cantina:', error))
+    return () => {
+      cancelado = true
     }
-    carregarItens()
-  }, [itemEditando?.classificacao, fazendaId])
+  }, [classificacaoAtiva, fazendaId, recarregar])
+
+  const setQuantidade = (item: { id: string; unidade_medida: string }, bruto: string) => {
+    const limpo = unidadeInteira(item.unidade_medida)
+      ? bruto.replace(/[^0-9]/g, '')
+      : bruto.replace(/[^0-9,.]/g, '').replace(',', '.')
+    setQuantidades((prev) => ({ ...prev, [item.id]: limpo }))
+  }
+
+  const bump = (item: { id: string; unidade_medida: string }, delta: number) => {
+    const atual = numeroDe(quantidades[item.id])
+    const prox = Math.max(0, Math.round((atual + delta) * 1000) / 1000)
+    setQuantidades((prev) => ({ ...prev, [item.id]: prox === 0 ? '' : String(prox) }))
+  }
+
+  // Itens do registro: cadastrados com quantidade > 0 + itens novos
+  const itensDoRegistro: ItemEntrada[] = useMemo(() => {
+    const cadastrados = Object.entries(quantidades)
+      .filter(([, q]) => numeroDe(q) > 0)
+      .map(([id, q]) => {
+        const c = catalogo[id]
+        return c
+          ? { itemId: id, nome: c.nome, classificacao: c.classificacao, unidade_medida: c.unidade_medida, quantidade: q }
+          : null
+      })
+      .filter((i): i is ItemEntrada => i !== null)
+    return [...cadastrados, ...itensNovos.filter((i) => numeroDe(i.quantidade) > 0)]
+  }, [quantidades, catalogo, itensNovos])
+
+  const horaRecebimento = useMemo(() => getCurrentTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 5), [])
+  const formValido = !!data && itensDoRegistro.length > 0
+
+  const handleAdicionarNovo = () => {
+    if (!novoNome.trim()) return setNovoErro('Informe o nome do item')
+    if (!novaUnidade) return setNovoErro('Escolha a unidade de medida')
+    if (numeroDe(novaQuantidade) <= 0) return setNovoErro('Informe a quantidade que chegou')
+    setItensNovos((prev) => [
+      ...prev,
+      {
+        itemId: crypto.randomUUID(),
+        nome: novoNome.trim(),
+        classificacao: classificacaoAtiva,
+        unidade_medida: novaUnidade,
+        quantidade: novaQuantidade.replace(',', '.'),
+        novoItem: true,
+      },
+    ])
+    setNovoNome('')
+    setNovaUnidade('')
+    setNovaQuantidade('')
+    setNovoErro(null)
+    setMostrarNovo(false)
+  }
+
+  const handleVoz = async () => {
+    await toggleVoz((texto) => setNovoNome(texto))
+  }
 
   const handleSalvar = async () => {
+    if (!formValido) {
+      setErrors([{ field: 'itens', message: 'Adicione pelo menos um item' }])
+      return
+    }
     setSalvando(true)
     setErrors([])
 
     const itensStorage: Record<string, string> = {}
-    form.itens.forEach((item) => {
-      if (item.quantidade) {
-        itensStorage[`${item.nome} (${item.unidade_medida})`] = item.quantidade
-      }
+    itensDoRegistro.forEach((item) => {
+      itensStorage[`${item.nome} (${item.unidade_medida})`] = item.quantidade
     })
 
     const result = await salvarRegistro('entrada-cantina', {
-      data: form.data,
+      data,
       itens: itensStorage,
-      itensDetalhe: form.itens,
-      observacao: form.observacao,
+      itensDetalhe: itensDoRegistro,
+      quemRecebeu: usuario || '',
+      observacao,
     })
 
     setSalvando(false)
@@ -198,16 +206,30 @@ export default function EntradaCantinaPage() {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       if (fazendaId) {
-        await Promise.all(form.itens.map((item) =>
-          updateItemCantinaSaldoCache(fazendaId, item.itemId, Number(String(item.quantidade).replace(',', '.')))
+        await Promise.all(itensDoRegistro.map((item) =>
+          updateItemCantinaSaldoCache(fazendaId, item.itemId, numeroDe(item.quantidade))
         ))
       }
     }
   }
 
+  const limparForm = () => {
+    setData(todayBR())
+    setObservacao('')
+    setQuantidades({})
+    setItensNovos([])
+    setMostrarNovo(false)
+    setNovoNome('')
+    setNovaUnidade('')
+    setNovaQuantidade('')
+    setNovoErro(null)
+    setErrors([])
+    setRecarregar((n) => n + 1)
+  }
+
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    setForm(makeInitial())
+    limparForm()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -216,315 +238,226 @@ export default function EntradaCantinaPage() {
     navigate('/')
   }
 
-  const handleLimpar = () => {
-    setForm(makeInitial())
-    setErrors([])
-  }
+  const novosDaClassificacao = itensNovos.filter((i) => i.classificacao === classificacaoAtiva)
 
   return (
     <CadernetaLayout
-      title="CANTINA"
+      title="CANTINA · ENTRADA"
       cadernetaId="entrada-cantina"
-      dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
+      dateContent={<DatePicker value={data} onChange={setData} variant="header" compact inline />}
     >
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-      {/* Seção 1: Itens */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ITENS DA ENTRADA <span className="text-red-500">*</span></h2>
+      <CadernetaSection numero={1} titulo="O que chegou?" required>
+        <div>
+          <label className="mb-2 block text-[15px] font-bold uppercase text-gray-900">
+            Tipo <span className="text-red-500">*</span>
+          </label>
+          <ChoiceGrid
+            options={CLASSIFICACOES_CANTINA.map((c) => ({
+              value: c,
+              label: c === 'Limpeza/Higiene' ? 'Limpeza / higiene' : c,
+              icon: ICONES_CLASSIFICACAO[c],
+            }))}
+            value={classificacaoAtiva}
+            onChange={(v) => {
+              setClassificacaoAtiva(v)
+              setMostrarNovo(false)
+            }}
+            cols={3}
+            labelSize="xs"
+          />
+        </div>
 
-        {form.itens.length > 0 && (
-          <div className="flex flex-col gap-3">
-            {form.itens.map((item, index) => (
-              <div key={index} className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="text-lg font-bold text-gray-800 uppercase">{item.nome}</p>
-                    <p className="text-base text-gray-600">Classificação: {item.classificacao}</p>
-                    <p className="text-lg text-gray-900">Quantidade: {item.quantidade} {item.unidade_medida}</p>
-                  </div>
-                  <div className="flex gap-2 ml-2">
-                    <button
-                      onClick={() => handleEditarItem(index)}
-                      className="text-blue-500 text-2xl"
-                      title="Editar item"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      onClick={() => handleRemoverItem(index)}
-                      className="text-red-500 text-2xl"
-                      title="Remover item"
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!mostrarFormularioItem ? (
-          <Button
-            onClick={handleAdicionarItem}
-            variant="secondary"
-            icon="➕"
-            fullWidth
-          >
-            ADICIONAR ITEM
-          </Button>
-        ) : (
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 flex flex-col gap-4">
-            <h3 className="text-base font-bold text-gray-900">
-              {itemEditandoIndex !== null ? 'EDITAR ITEM' : 'NOVO ITEM'}
-            </h3>
-
-            {itemErrors.size > 0 && (
-              <ValidationMessage
-                errors={Array.from(itemErrors).map(field => ({
-                  field,
-                  message: 'Preencha todos os campos obrigatórios'
-                }))}
-              />
-            )}
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
-              <div className="grid grid-cols-2 gap-2">
-                {classificacoesDisponiveis.map((classificacao) => (
-                  <button
-                    key={classificacao}
-                    type="button"
-                    onClick={() => {
-                      setItemEditando(prev => prev ? { ...prev, classificacao, itemId: '', nome: '', unidade_medida: '', novoItem: false } : null)
-                      setCriandoNovoItem(false)
-                      setItemErrors(prev => {
-                        const newErrors = new Set(prev)
-                        newErrors.delete('classificacao')
-                        newErrors.delete('itemId')
-                        return newErrors
-                      })
-                    }}
-                    className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                      itemEditando?.classificacao === classificacao
-                        ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                        : itemErrors.has('classificacao')
-                        ? 'border-red-500 bg-red-50 text-red-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    {classificacao}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {itemEditando?.classificacao && !criandoNovoItem && (
-              <div className="flex flex-col gap-3">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {itensDisponiveis.length > 0 ? (
-                      itensDisponiveis.map((item) => {
-                        const jaAdicionado = itensJaAdicionados.has(item.id)
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            disabled={jaAdicionado}
-                            onClick={() => {
-                              setItemEditando(prev => prev ? {
-                                ...prev,
-                                itemId: item.id,
-                                nome: item.nome,
-                                unidade_medida: item.unidade_medida,
-                                novoItem: false,
-                              } : null)
-                              setItemErrors(prev => {
-                                const newErrors = new Set(prev)
-                                newErrors.delete('itemId')
-                                return newErrors
-                              })
-                            }}
-                            className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                              itemEditando?.itemId === item.id
-                                ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                                : jaAdicionado
-                                ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
-                                : itemErrors.has('itemId')
-                                ? 'border-red-500 bg-red-50 text-red-700'
-                                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                            }`}
-                          >
-                            {item.nome} ({item.unidade_medida}){` · saldo ${Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')}`}
-                          </button>
-                        )
-                      })
-                    ) : (
-                      <p className="text-sm text-gray-500 col-span-2">Nenhum item com controle de estoque nesta classificação</p>
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCriandoNovoItem(true)
-                    setItemEditando(prev => prev ? { ...prev, itemId: '', nome: '', unidade_medida: '', novoItem: false } : null)
-                    setItemErrors(prev => {
-                      const newErrors = new Set(prev)
-                      newErrors.delete('itemId')
-                      return newErrors
-                    })
-                  }}
-                  className="w-full min-h-[44px] px-3 py-2 rounded-xl text-sm font-bold border-2 border-dashed border-[#1a3b2c] text-[#1a3b2c] bg-white hover:bg-green-50 transition-all"
-                >
-                  ＋ CADASTRAR NOVO ITEM
-                </button>
-              </div>
-            )}
-
-            {itemEditando?.classificacao && criandoNovoItem && (
-              <div className="flex flex-col gap-4">
-                <Input
-                  label="NOME DO NOVO ITEM"
-                  placeholder="Ex.: Café torrado"
-                  value={itemEditando.nome}
-                  onChange={(e) => {
-                    setItemEditando(prev => prev ? { ...prev, nome: e.target.value } : null)
-                    setItemErrors(prev => {
-                      const newErrors = new Set(prev)
-                      newErrors.delete('itemId')
-                      return newErrors
-                    })
-                  }}
-                  error={itemErrors.has('itemId') ? 'Campo obrigatório' : undefined}
-                />
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">UNIDADE DE MEDIDA</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {UNIDADES_CANTINA.map((un) => (
+        <div className="flex flex-col" data-field="itens">
+          {itensDaClassificacao.length === 0 && novosDaClassificacao.length === 0 ? (
+            <p className="py-2 text-sm text-gray-500">Nenhum item com controle de estoque nesta classificação</p>
+          ) : (
+            <>
+              {itensDaClassificacao.map((item) => {
+                const qtd = quantidades[item.id] ?? ''
+                const unidade = item.unidade_medida
+                return (
+                  <div key={item.id} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
+                    <IconeItem nome={item.nome} />
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-base font-bold leading-tight text-gray-900">{item.nome}</p>
+                      <p className="text-sm text-gray-500">
+                        tem {Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')} {unidade}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-stretch gap-1">
                       <button
-                        key={un}
                         type="button"
-                        onClick={() => {
-                          setItemEditando(prev => prev ? { ...prev, unidade_medida: un } : null)
-                          setItemErrors(prev => {
-                            const newErrors = new Set(prev)
-                            newErrors.delete('unidade_medida')
-                            return newErrors
-                          })
-                        }}
-                        className={`min-h-[44px] px-1 py-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center ${
-                          itemEditando?.unidade_medida === un
-                            ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                            : itemErrors.has('unidade_medida')
-                            ? 'border-red-500 bg-red-50 text-red-700'
-                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        }`}
+                        onClick={() => bump(item, -1)}
+                        aria-label={`Diminuir ${item.nome}`}
+                        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-gray-700 active:scale-95"
                       >
-                        <span className="text-sm font-bold leading-tight">{un}</span>
-                        <span className={`text-[9px] leading-tight ${itemEditando?.unidade_medida === un ? 'text-white/80' : itemErrors.has('unidade_medida') ? 'text-red-500' : 'text-gray-400'}`}>
-                          {UNIDADE_DESCRICOES[un] ?? ''}
-                        </span>
+                        <Minus className="h-4 w-4" strokeWidth={2.5} />
                       </button>
-                    ))}
+                      <input
+                        type="text"
+                        inputMode={unidadeInteira(unidade) ? 'numeric' : 'decimal'}
+                        value={qtd}
+                        placeholder="0"
+                        onChange={(e) => setQuantidade({ id: item.id, unidade_medida: unidade }, e.target.value)}
+                        aria-label={`Quantidade de ${item.nome}`}
+                        className="!min-h-0 h-10 w-10 min-w-0 rounded-xl border-2 border-transparent bg-transparent text-center text-xl font-extrabold text-gray-900 focus:border-gray-300 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => bump(item, 1)}
+                        aria-label={`Aumentar ${item.nome}`}
+                        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl bg-brand-900 text-white active:scale-95"
+                      >
+                        <Plus className="h-5 w-5" strokeWidth={2.5} />
+                      </button>
+                    </div>
                   </div>
+                )
+              })}
+              {novosDaClassificacao.map((item) => (
+                <div key={item.itemId} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
+                  <IconeItem nome={item.nome} />
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-base font-bold leading-tight text-gray-900">{item.nome}</p>
+                    <p className="text-sm text-gray-500">item novo · {item.unidade_medida}</p>
+                  </div>
+                  <span className="shrink-0 text-xl font-extrabold text-gray-900">{formatarQtd(numeroDe(item.quantidade))}</span>
+                  <button
+                    type="button"
+                    onClick={() => setItensNovos((prev) => prev.filter((i) => i.itemId !== item.itemId))}
+                    aria-label={`Remover ${item.nome}`}
+                    className="flex !min-h-0 h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-lg text-gray-600 active:scale-95"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+        {getError('itens') && <p className="text-base font-semibold text-red-700">{getError('itens')}</p>}
+
+        {!mostrarNovo ? (
+          <button
+            type="button"
+            onClick={() => setMostrarNovo(true)}
+            className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-sm font-extrabold uppercase tracking-wide text-gray-800 transition-colors hover:bg-gray-100 active:scale-[0.99]"
+          >
+            <span className="text-lg leading-none">➕</span>
+            Item novo (falar ou digitar)
+          </button>
+        ) : (
+          <div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="text-base font-bold uppercase text-gray-900">Item novo · {classificacaoAtiva}</h3>
+            {novoErro && <InfoStrip tone="danger">{novoErro}</InfoStrip>}
+            <div>
+              <label className="mb-2 block text-sm font-bold uppercase text-gray-700">Nome</label>
+              <div className="flex items-stretch gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input placeholder="Ex.: Café torrado" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} />
                 </div>
                 <button
                   type="button"
-                  onClick={() => setCriandoNovoItem(false)}
-                  className="text-sm font-bold text-gray-600 underline self-start"
+                  onClick={handleVoz}
+                  aria-label="Falar o nome do item"
+                  className={`flex !min-h-0 w-14 shrink-0 items-center justify-center rounded-xl text-white active:scale-95 ${
+                    ouvindo ? 'animate-pulse bg-red-600' : 'bg-gray-600'
+                  }`}
                 >
-                  Voltar para itens cadastrados
+                  <Mic className="h-5 w-5" strokeWidth={2.5} />
                 </button>
               </div>
-            )}
-
-            <NumericInput
-              label={itemEditando?.unidade_medida ? `QUANTIDADE (${itemEditando.unidade_medida})` : 'QUANTIDADE'}
-              placeholder="Informe a quantidade"
-              value={itemEditando?.quantidade || ''}
-              decimalPlaces={['kg', 'g', 'L', 'mL'].includes(itemEditando?.unidade_medida || '') ? 3 : 0}
-              onChange={(value) => {
-                setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
-                setItemErrors(prev => {
-                  const newErrors = new Set(prev)
-                  newErrors.delete('quantidade')
-                  return newErrors
-                })
-              }}
-              error={itemErrors.has('quantidade') ? 'Campo obrigatório' : undefined}
-            />
-
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  setMostrarFormularioItem(false)
-                  setItemEditando(null)
-                  setItemEditandoIndex(null)
-                  setCriandoNovoItem(false)
-                }}
-                variant="secondary"
-                icon="✕"
-                fullWidth
+              {erroVoz && <p className="mt-1 text-sm font-semibold text-red-700">{erroVoz}</p>}
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-bold uppercase text-gray-700">Unidade de medida</label>
+              <ChoiceGrid
+                options={UNIDADES_CANTINA.map((u) => ({ value: u, label: u === 'Unidade' ? 'Unidade' : u }))}
+                value={novaUnidade}
+                onChange={setNovaUnidade}
+                cols={3}
                 size="sm"
+                labelSize="xs"
+              />
+              {novaUnidade && (
+                <p className="mt-1 text-xs text-gray-500">{UNIDADE_DESCRICOES[novaUnidade] ?? ''}</p>
+              )}
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-bold uppercase text-gray-700">
+                Quantidade{novaUnidade ? ` (${novaUnidade})` : ''}
+              </label>
+              <input
+                type="text"
+                inputMode={unidadeInteira(novaUnidade) ? 'numeric' : 'decimal'}
+                value={novaQuantidade}
+                placeholder="0"
+                onChange={(e) =>
+                  setNovaQuantidade(
+                    unidadeInteira(novaUnidade)
+                      ? e.target.value.replace(/[^0-9]/g, '')
+                      : e.target.value.replace(/[^0-9,.]/g, '').replace(',', '.')
+                  )
+                }
+                className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-3 text-xl font-extrabold text-gray-900 focus:border-brand-900 focus:outline-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarNovo(false)
+                  setNovoErro(null)
+                }}
+                className="flex-1 !min-h-0 rounded-xl bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 active:scale-95"
               >
                 CANCELAR
-              </Button>
-              <Button
-                onClick={handleSalvarItem}
-                variant="success"
-                icon="✓"
-                fullWidth
-                size="sm"
+              </button>
+              <button
+                type="button"
+                onClick={handleAdicionarNovo}
+                className="flex-1 !min-h-0 rounded-xl bg-brand-900 px-3 py-3 text-sm font-bold text-white active:scale-95"
               >
-                CONFIRMAR
-              </Button>
+                ADICIONAR
+              </button>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Seção 2: Observações */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. OBSERVAÇÕES</h2>
-        <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
-      </div>
+        {itensDoRegistro.length > 0 && (
+          <div className="flex flex-col gap-1 rounded-xl bg-gray-100 p-3">
+            <p className="text-sm font-bold text-gray-600">Chegando agora</p>
+            <p className="text-sm font-semibold text-gray-800">
+              {itensDoRegistro
+                .map((i) => `${formatarQtd(numeroDe(i.quantidade))}${rotuloUnidade(i.unidade_medida)} ${i.nome.toLowerCase()}`)
+                .join(' · ')}
+            </p>
+          </div>
+        )}
+      </CadernetaSection>
 
-      {/* Ações */}
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={handleSalvar}
-          disabled={salvando || !isValid}
-          className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-            salvando || !isValid
-              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-              : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <Save className="h-5 w-5" strokeWidth={2.5} />
-            {salvando ? 'SALVANDO...' : 'SALVAR'}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={handleLimpar}
-          className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <Brush className="h-4 w-4" strokeWidth={2.5} />
-            LIMPAR
-          </span>
-        </button>
-      </div>
-      {!isValid && (
-        <p className="text-base text-gray-600 text-center">
-          <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-        </p>
-      )}
+      <CadernetaSection numero={2} titulo="Observações">
+        <Input
+          placeholder="Observações (opcional)"
+          value={observacao}
+          onChange={(e) => setObservacao(e.target.value)}
+          error={getError('observacao')}
+        />
+        <InfoStrip icon={<span>🕒</span>}>
+          Recebido por {usuario || '—'} às {horaRecebimento} (automático)
+        </InfoStrip>
+      </CadernetaSection>
+
+      <FormFooter
+        onSalvar={handleSalvar}
+        onLimpar={limparForm}
+        salvando={salvando}
+        disabled={!formValido}
+        formValido={formValido}
+        pendenciaTexto="Informe a quantidade de pelo menos um item"
+      />
 
       <SuccessModal
         isOpen={showSuccessModal}

@@ -274,7 +274,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       }
     case 'suplementacao': {
       // Remove espacamento_cocho_ideal from checklist if it exists (migrated field)
-      let cleanedChecklist = registro.checklist ? { ...registro.checklist } as any : null
+      const cleanedChecklist = registro.checklist ? { ...registro.checklist } as any : null
       if (cleanedChecklist && cleanedChecklist.espacamento_cocho_ideal) {
         delete cleanedChecklist.espacamento_cocho_ideal
       }
@@ -827,6 +827,8 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   problemas: 'fotos-registros',
   bebedouros: 'fotos-registros',
   'trato-confinamento': 'fotos-registros',
+  'leitura-cocho': 'fotos-registros',
+  'fabrica-confinamento': 'fotos-registros',
 }
 
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.
@@ -1264,6 +1266,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
               .update({
                 total_produzido: data.total_produzido,
                 concluido: data.concluido,
+                ...(data.foto_url ? { foto_url: data.foto_url } : {}),
               })
               .eq('id', registro.supabaseId)
             if (fcError) throw fcError

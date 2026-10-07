@@ -38,7 +38,7 @@ export async function salvarRegistro(
   const responsavelPayload = ((dataSemCamposValidacao.responsavel as string) || '').trim()
 
   // Determinar nome_usuario final
-  let nomeUsuarioFinal = usuarioPayload || responsavelPayload || usuarioConfigurado
+  const nomeUsuarioFinal = usuarioPayload || responsavelPayload || usuarioConfigurado
 
   // Se mesmo assim estiver vazio, bloquear o lançamento
   if (!nomeUsuarioFinal) {

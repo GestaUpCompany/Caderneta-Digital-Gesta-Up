@@ -27,6 +27,7 @@ const ESCALA_PASTO: Record<string, string> = { '1': 'Rapado', '2': 'Ideal p/ sai
 const ESCALA_ESCORE_CORPORAL: Record<string, string> = { '1': 'Muito magro', '2': 'Magro', '3': 'Bom', '4': 'Gordo', '5': 'Muito gordo' }
 const ESCALA_ESCORE_MATRIZ: Record<string, string> = { '1': 'Muito magra', '2': 'Magra', '3': 'Boa', '4': 'Gorda', '5': 'Muito gorda' }
 const ESCALA_DOCILIDADE: Record<string, string> = { '1': 'Calma', '2': 'Agitada', '3': 'Brava' }
+const ESCALA_NOTA_COCHO: Record<string, string> = { '-1': 'Lambido', '0': 'Limpo', '1': 'Ideal', '2': 'Sobra', '3': 'Muita sobra' }
 const ESCALA_ESCORE_FEZES: Record<string, string> = { '1': 'Líquida', '2': 'Mole', '3': 'Ideal', '4': 'Firme', '5': 'Seca' }
 
 function comRotulo(mapa: Record<string, string>, valor: unknown): string {
@@ -1215,7 +1216,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // Seção: Leitura do Cocho
     texto += `LEITURA DO COCHO\n`
     if (registro.leituraCocho !== null && registro.leituraCocho !== undefined && registro.leituraCocho !== '') {
-      texto += `Nota: *${registro.leituraCocho}*\n`
+      texto += `Nota: *${comRotulo(ESCALA_NOTA_COCHO, registro.leituraCocho)}*\n`
     }
 
     // Seção: Histórico de Consumo MS
@@ -1288,7 +1289,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     ordemBasicos.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
       }
@@ -1312,7 +1313,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     ordemIdentificacao.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
       }
@@ -1348,7 +1349,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const isSim = data && (data.valor === 'S' || data.valor === true)
         // Only show positive (problematic) responses
         if (isSim) {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           texto += `⚠️ ${label}: *Sim*\n`
           if (data.observacao && data.observacao !== '') {
             texto += `  OBS: *${data.observacao}*\n`
@@ -1384,7 +1385,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     ordemBasicos.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
       }
@@ -1401,7 +1402,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     ordemIdentificacao.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
       }
@@ -1503,7 +1504,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const isSim = data && (data.valor === 'S' || data.valor === true)
         // Only show positive (problematic) responses
         if (isSim) {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           texto += `⚠️ ${label}: *Sim*\n`
           if (data.observacao && data.observacao !== '') {
             texto += `  OBS: *${data.observacao}*\n`
@@ -1528,7 +1529,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     ordemClima.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         let valorFormatado = formatFieldValue(key, value)
         if (key === 'tempoAtual') valorFormatado = tempoAtualLabels[String(value)] || String(value)
         if (key === 'esvaziouPluviometros') valorFormatado = value === true || value === 'sim' ? 'Sim' : 'Não'
@@ -1620,15 +1621,26 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       ? registro.itensDetalhe
       : (registro.itens && Array.isArray(registro.itens) ? registro.itens : [])
 
+    if (registro.quemRecebeu) {
+      texto += `RECEBIDO POR: *${registro.quemRecebeu}*\n`
+    }
+
     if (itensEntrada.length > 0) {
-      texto += 'ITENS\n'
-      itensEntrada.forEach((item: any, index: number) => {
-        texto += `${index + 1}. *${item.nome || '—'}*\n`
-        texto += `   Quantidade: *${item.quantidade || '—'}${item.unidade_medida ? ' ' + item.unidade_medida : item.unidade ? ' ' + item.unidade : ''}*\n`
-        if (item.classificacao && item.classificacao !== '') {
-          texto += `   Classificação: *${item.classificacao}*\n`
-        }
-        texto += '\n'
+      // Agrupa por classificação: "Carnes: 20 kg Carne bovina · 10 kg Frango"
+      const grupos = new Map<string, string[]>()
+      itensEntrada.forEach((item: any) => {
+        const un = item.unidade_medida || item.unidade || ''
+        const qtd = item.quantidade ? String(item.quantidade).replace('.', ',') : '—'
+        const linha = `${qtd}${un && un !== 'Unidade' ? ' ' + un : ''} ${item.nome || '—'}`
+        const chave = item.classificacao || 'Itens'
+        grupos.set(chave, [...(grupos.get(chave) || []), linha])
+      })
+      texto += `\nCHEGOU\n`
+      grupos.forEach((linhas, classificacao) => {
+        texto += `*${classificacao}*\n`
+        linhas.forEach((l) => {
+          texto += `• ${l}\n`
+        })
       })
     }
 
@@ -1666,7 +1678,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       // Handle gadoContado field
       if (key === 'gadoContado') {
         if (value && value !== '') {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = value === 'Sim' ? 'Sim' : 'Não'
           texto += `${label}: *${valorFormatado}*\n`
         }
@@ -1684,7 +1696,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       if (['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
         // Only show categories if gadoContado is 'Sim'
         if (!usaDetalhesRodeio && registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '' && Number(value) > 0) {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = formatFieldValue(key, value)
           texto += `${label}: *${valorFormatado}*\n`
         }
@@ -1699,21 +1711,21 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           }
         } else if (registro.gadoContado === 'Sim' && value !== null && value !== undefined && value !== '') {
           // Show counted total when gado was counted
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = formatFieldValue(key, value)
           texto += `${label}: *${valorFormatado}*\n`
         }
         texto += `\n`
       } else if (key === 'escoreFezes') {
         if (value !== null && value !== undefined && value !== '') {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = comRotulo(ESCALA_ESCORE_FEZES, value)
           texto += `${label}: *${valorFormatado}*\n\n`
         }
       } else if (key === 'equipe') {
         // Show equipe number and names
         if (value !== null && value !== undefined && value !== '') {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = formatarEquipe(value)
           texto += `${label}: *${valorFormatado}*\n`
           
@@ -1728,12 +1740,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         texto += `\n`
       } else if (key === 'escoreGado') {
         if (value !== null && value !== undefined && value !== '') {
-          let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+          const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
           const valorFormatado = comRotulo(ESCALA_ESCORE_CORPORAL, value)
           texto += `${label}: *${valorFormatado}*\n\n`
         }
       } else if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
       }
@@ -1770,7 +1782,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       
       diagnosticosNegativos.forEach(key => {
         const data = (registro.diagnosticos as any)?.[key]
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
         // All displayed diagnostics are negative — add warning icon to every one
         texto += `⚠️ ${label}: *${valorFormatado}*\n`
@@ -1822,7 +1834,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     ordemEntradaInsumos.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         texto += `${label}: *${valorFormatado}*\n`
       }
@@ -1864,7 +1876,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     ordemSaidaInsumos.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = key === 'totalProduzido'
           ? formatarNumeroBR(value, String(value))
           : formatFieldValue(key, value)
@@ -2078,7 +2090,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           categorias.forEach(key => {
             const value = Number(registro[key]) || 0
             if (value > 0) {
-              let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+              const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
               texto += `${label}: *${value}*\n`
             }
           })
@@ -2292,6 +2304,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       if (registro.vagaoNome) {
         texto += `VAGÃO: *${registro.vagaoNome}*\n`
       }
+      if (registro.curraisNomes) {
+        texto += `CURRAIS: *${registro.curraisNomes}*\n`
+      }
       // Trato
       if (registro.ordemTrato !== null && registro.ordemTrato !== undefined && registro.ordemTrato !== '') {
         texto += `TRATO: *${registro.ordemTrato}*\n`
@@ -2305,10 +2320,35 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const v = Number(String(registro.totalProduzido).replace(',', '.')).toFixed(1).replace('.', ',')
         texto += `TOTAL PRODUZIDO: *${v} kg*\n`
       }
+      {
+        const prevN = Number(String(registro.totalPrevisto).replace(',', '.'))
+        const prodN = Number(String(registro.totalProduzido).replace(',', '.'))
+        if (prevN > 0 && Number.isFinite(prodN)) {
+          const difPct = ((prodN - prevN) / prevN) * 100
+          texto += `DIFERENÇA: *${difPct >= 0 ? '+' : ''}${difPct.toFixed(1).replace('.', ',')}%*\n`
+        }
+        const concluidoTrato = registro.concluido === true || registro.concluido === 'true'
+        texto += concluidoTrato
+          ? `SITUAÇÃO: *Trato encerrado*\n`
+          : `SITUAÇÃO: *Em aberto (produção parcial)*\n`
+      }
+      // Insumos: previsto x carregado, com diferença percentual
+      if (Array.isArray(registro.insumosResumo) && registro.insumosResumo.length > 0) {
+        texto += `\n` + `INSUMOS\n`
+        registro.insumosResumo.forEach((i: any, idx: number) => {
+          const prev = Number(i.previsto) || 0
+          const prod = Number(i.produzido) || 0
+          const fmt = (n: number) => n.toFixed(1).replace('.', ',')
+          const difPct = prev > 0 ? ((prod - prev) / prev) * 100 : null
+          const dif = difPct !== null ? `${difPct >= 0 ? '+' : ''}${fmt(difPct)}%` : ''
+          const marca = difPct !== null && Math.abs(difPct) > 3 ? '⚠️' : '✅'
+          texto += `${idx + 1}. ${i.nome}: *${fmt(prod)} kg* (prev. ${fmt(prev)} kg${dif ? `, ${dif}` : ''}) ${marca}\n`
+        })
+      }
     } else {
       // Para outras cadernetas, manter o fluxo normal
       camposNormais.forEach(([key, value]) => {
-        let label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
+        const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = formatFieldValue(key, value)
         
         // Para enfermaria, verificar se há observação associada
@@ -2335,7 +2375,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         // Para movimentação, adicionar campos especiais após loteOrigem
         if (caderneta === 'movimentacao' && key === 'loteOrigem' && camposMovimentacaoEspeciais.length > 0) {
           camposMovimentacaoEspeciais.forEach(([campoKey, campoValue]) => {
-            let campoLabel = LABELS_BY_CADERNETA[caderneta]?.[campoKey] || campoKey.toUpperCase()
+            const campoLabel = LABELS_BY_CADERNETA[caderneta]?.[campoKey] || campoKey.toUpperCase()
             const campoValorFormatado = formatFieldValue(campoKey, campoValue)
             texto += `${campoLabel}: *${campoValorFormatado}*\n`
           })
