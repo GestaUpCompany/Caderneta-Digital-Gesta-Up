@@ -16,6 +16,8 @@ import { RootState } from '../../store/store'
 import { getItensCantinaCached, updateItemCantinaSaldoCache } from '../../services/cadastroCache'
 import { CLASSIFICACOES_CANTINA, UNIDADES_CANTINA, UNIDADE_DESCRICOES } from '../../utils/constants'
 import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { iconeDoItem } from '../../utils/iconeItem'
+import { iniciais, corAvatar } from '../../utils/avatar'
 
 interface ItemEntrada {
   itemId: string
@@ -51,6 +53,17 @@ const numeroDe = (valor: string | undefined) => {
 }
 const formatarQtd = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
 const rotuloUnidade = (un: string) => (un === 'Unidade' ? '' : ` ${un}`)
+
+// Emoji pelo nome do item; sem correspondencia, avatar de iniciais (nunca repete o de outro item)
+function IconeItem({ nome }: { nome: string }) {
+  const emoji = iconeDoItem(nome)
+  if (emoji) return <span className="flex h-9 w-9 shrink-0 items-center justify-center text-2xl leading-none">{emoji}</span>
+  return (
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${corAvatar(nome)}`}>
+      {iniciais(nome)}
+    </span>
+  )
+}
 
 export default function EntradaCantinaPage() {
   const navigate = useNavigate()
@@ -265,8 +278,8 @@ export default function EntradaCantinaPage() {
                 const qtd = quantidades[item.id] ?? ''
                 const unidade = item.unidade_medida
                 return (
-                  <div key={item.id} className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-b-0">
-                    <span className="text-2xl leading-none">{ICONES_CLASSIFICACAO[classificacaoAtiva]}</span>
+                  <div key={item.id} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
+                    <IconeItem nome={item.nome} />
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-base font-bold leading-tight text-gray-900">{item.nome}</p>
                       <p className="text-sm text-gray-500">
@@ -278,7 +291,7 @@ export default function EntradaCantinaPage() {
                         type="button"
                         onClick={() => bump(item, -1)}
                         aria-label={`Diminuir ${item.nome}`}
-                        className="flex !min-h-0 h-10 w-10 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-gray-700 active:scale-95"
+                        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-gray-700 active:scale-95"
                       >
                         <Minus className="h-4 w-4" strokeWidth={2.5} />
                       </button>
@@ -289,13 +302,13 @@ export default function EntradaCantinaPage() {
                         placeholder="0"
                         onChange={(e) => setQuantidade({ id: item.id, unidade_medida: unidade }, e.target.value)}
                         aria-label={`Quantidade de ${item.nome}`}
-                        className="!min-h-0 h-10 w-12 min-w-0 rounded-xl border-2 border-transparent bg-transparent text-center text-xl font-extrabold text-gray-900 focus:border-gray-300 focus:outline-none"
+                        className="!min-h-0 h-10 w-10 min-w-0 rounded-xl border-2 border-transparent bg-transparent text-center text-xl font-extrabold text-gray-900 focus:border-gray-300 focus:outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => bump(item, 1)}
                         aria-label={`Aumentar ${item.nome}`}
-                        className="flex !min-h-0 h-10 w-10 items-center justify-center rounded-xl bg-brand-900 text-white active:scale-95"
+                        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl bg-brand-900 text-white active:scale-95"
                       >
                         <Plus className="h-5 w-5" strokeWidth={2.5} />
                       </button>
@@ -304,8 +317,8 @@ export default function EntradaCantinaPage() {
                 )
               })}
               {novosDaClassificacao.map((item) => (
-                <div key={item.itemId} className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-b-0">
-                  <span className="text-2xl leading-none">{ICONES_CLASSIFICACAO[classificacaoAtiva]}</span>
+                <div key={item.itemId} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
+                  <IconeItem nome={item.nome} />
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-base font-bold leading-tight text-gray-900">{item.nome}</p>
                     <p className="text-sm text-gray-500">item novo · {item.unidade_medida}</p>
