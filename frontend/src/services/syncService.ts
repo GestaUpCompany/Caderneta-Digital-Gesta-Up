@@ -619,6 +619,10 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo: 'entrada',
         quem_recebeu: registro.quemRecebeu || null,
         itens: registro.itens || [],
+        // Nota fiscal: a foto sobe como foto_url (uploadFotoRegistro); sem nota = true
+        sem_nota: registro.semNota ?? null,
+        chegou_tudo: registro.chegouTudo ?? null,
+        item_danificado: registro.itemDanificado ?? null,
         observacao: registro.observacao || null,
       }
     case 'entrada-cantina':
@@ -829,6 +833,7 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   'trato-confinamento': 'fotos-registros',
   'leitura-cocho': 'fotos-registros',
   'fabrica-confinamento': 'fotos-registros',
+  'entrada-almoxarifado': 'fotos-registros',
 }
 
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.

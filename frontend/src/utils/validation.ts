@@ -887,11 +887,23 @@ export function validateEntradaAlmoxarifado(data: Record<string, unknown>): Vali
           errors.push({ field: `itens[${index}].itemId`, message: 'Item é obrigatório' })
         if (!isPositiveNumber(item.quantidade))
           errors.push({ field: `itens[${index}].quantidade`, message: 'Quantidade deve ser maior que zero' })
+        if (item.validade && !/^(0[1-9]|1[0-2])\/\d{4}$/.test(String(item.validade)))
+          errors.push({ field: `itens[${index}].validade`, message: 'Validade deve estar no formato MM/AAAA' })
       })
     }
   } else {
     errors.push({ field: 'itens', message: 'Adicione pelo menos um item' })
   }
+
+  // Nota fiscal: foto anexada ou "chegou sem nota"
+  if (data.semNota !== true && !data.fotoBase64)
+    errors.push({ field: 'notaFiscal', message: 'Tire a foto da nota ou marque "Chegou sem nota"' })
+
+  // Conferência do recebimento
+  if (typeof data.chegouTudo !== 'boolean')
+    errors.push({ field: 'chegouTudo', message: 'Informe se chegou tudo que está na nota' })
+  if (typeof data.itemDanificado !== 'boolean')
+    errors.push({ field: 'itemDanificado', message: 'Informe se tem item danificado ou vencido' })
 
   return { isValid: errors.length === 0, errors }
 }
