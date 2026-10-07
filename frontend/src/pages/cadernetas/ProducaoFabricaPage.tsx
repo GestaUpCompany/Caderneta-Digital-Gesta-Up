@@ -159,7 +159,15 @@ export default function ProducaoFabricaPage() {
     }, {})
   }, [form.totalProduzido, insumos])
 
-  const handleTotalProduzidoChange = (valor: string) => {
+  // Todos os campos obrigatórios, inclusive o realizado de cada insumo da formulação
+  const formValido = useMemo(() => {
+    if (!form.dataProducao || !form.formulacaoId || !form.destinoProducao) return false
+    if ((normalizarNumero(form.totalProduzido) ?? 0) <= 0) return false
+    if (carregandoInsumos || insumos.length === 0) return false
+    return insumos.every((insumo) => (normalizarNumero(form.insumosQuantidades[insumo.insumo_id]) ?? 0) > 0)
+  }, [form, insumos, carregandoInsumos])
+
+  const handleTotalProduzidoChange =(valor: string) => {
     setForm((prev) => ({ ...prev, totalProduzido: valor }))
   }
 
@@ -191,6 +199,11 @@ export default function ProducaoFabricaPage() {
       // Validar
       if (!form.formulacaoId) {
         setErrors([{ field: 'formulacaoId', message: 'Selecione uma formulação' }])
+        setSalvando(false)
+        return
+      }
+      if (!formValido) {
+        setErrors([{ field: 'geral', message: 'Preencha destino, total produzido e a quantidade realizada (maior que zero) de todos os insumos' }])
         setSalvando(false)
         return
       }
@@ -339,7 +352,7 @@ export default function ProducaoFabricaPage() {
 
                 <div className="flex flex-col gap-2">
                   <label className="block text-lg font-bold text-gray-900 mb-2">
-                    TOTAL PRODUZIDO (KG)
+                    TOTAL PRODUZIDO (KG) *
                   </label>
                   <input
                     type="text"
@@ -427,9 +440,9 @@ export default function ProducaoFabricaPage() {
                 <button
                   type="button"
                   onClick={handleSalvar}
-                  disabled={salvando || !form.formulacaoId}
+                  disabled={salvando || !formValido}
                   className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-                    salvando || !form.formulacaoId
+                    salvando || !formValido
                       ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
                       : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
                   }`}
