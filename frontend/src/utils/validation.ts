@@ -212,10 +212,10 @@ export function validatePastagens(data: Record<string, unknown>): ValidationResu
   if (!isScaleValue(data.escoreFezes, 1, 5, true))
     errors.push({ field: 'escoreFezes', message: 'Escore de fezes é obrigatório (1 a 5)' })
 
-  // Número de pessoas no manejo (1 a 5)
+  // Número de pessoas no manejo (1 a 6; 6 = "6+")
   const numPessoas = Number(data.numeroPessoasManejo) || 0
-  if (numPessoas < 1 || numPessoas > 5)
-    errors.push({ field: 'numeroPessoasManejo', message: 'Número de pessoas no manejo é obrigatório (1 a 5)' })
+  if (numPessoas < 1 || numPessoas > 6)
+    errors.push({ field: 'numeroPessoasManejo', message: 'Número de pessoas no manejo é obrigatório (1 a 6+)' })
 
   // Validar nomes da equipe quando numeroPessoasManejo > 0
   if (numPessoas > 0) {

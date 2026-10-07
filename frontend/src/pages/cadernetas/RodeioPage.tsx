@@ -12,6 +12,7 @@ import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import InfoCard, { InfoCardStatus } from '../../components/cadernetas/InfoCard'
 import InfoStrip from '../../components/cadernetas/InfoStrip'
 import StepperInput from '../../components/cadernetas/StepperInput'
+import EscalaRotulada from '../../components/cadernetas/EscalaRotulada'
 import FormFooter from '../../components/cadernetas/FormFooter'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
@@ -134,43 +135,6 @@ interface MetaRodeioInfo {
 }
 
 type AlvoVoz = { tipo: 'item'; campo: string } | { tipo: 'lote' }
-
-/** Escala com bolinha de cor, número e rótulo (escore corporal e de fezes). */
-function EscalaRotulada({
-  options,
-  value,
-  onChange,
-  dataField,
-}: {
-  options: { value: string; label: string; dot: string }[]
-  value: string
-  onChange: (v: string) => void
-  dataField?: string
-}) {
-  return (
-    <div className="grid grid-cols-5 gap-1.5" data-field={dataField}>
-      {options.map((opt) => {
-        const selecionado = value === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={`flex min-h-[72px] min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1 transition-all active:scale-95 ${
-              selecionado
-                ? 'border-brand-900 bg-brand-50 text-gray-900'
-                : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
-            }`}
-          >
-            <span className={`h-3 w-3 rounded-full ${opt.dot}`} />
-            <span className="text-lg font-extrabold leading-none">{opt.value}</span>
-            <span className="text-[10px] font-semibold leading-tight text-gray-500">{opt.label}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 export default function RodeioPage() {
   const navigate = useNavigate()

@@ -207,7 +207,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         novilha: Number(registro.novilha) || 0,
         categorias_detalhes: (registro as any).categorias_detalhes || null,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
-        avaliacao_geral: {
+        avaliacao_geral: (registro as any).avaliacaoGeral ?? {
           bebedourosCochos: {
             valor: registro.bebedourosCochos || null,
             observacao: registro.bebedourosCochosObs || null,
@@ -239,7 +239,14 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         },
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
-        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,
+        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,        foto_saida_latitude: (registro as any).fotoSaidaLatitude ?? null,
+        foto_saida_longitude: (registro as any).fotoSaidaLongitude ?? null,
+        foto_saida_gps_accuracy: (registro as any).fotoSaidaGpsAccuracy ?? null,
+        foto_saida_em: (registro as any).fotoSaidaEm || null,
+        foto_entrada_latitude: (registro as any).fotoEntradaLatitude ?? null,
+        foto_entrada_longitude: (registro as any).fotoEntradaLongitude ?? null,
+        foto_entrada_gps_accuracy: (registro as any).fotoEntradaGpsAccuracy ?? null,
+        foto_entrada_em: (registro as any).fotoEntradaEm || null,
       }
     case 'rodeio':
       return {
@@ -855,6 +862,35 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
   }
 }
 
+// Pastagens: foto do pasto de saida/entrada (fotoSaidaBase64/fotoEntradaBase64 no registro local).
+async function uploadFotoPasto(registro: Registro, fazendaId: string, tipo: 'saida' | 'entrada'): Promise<string | null> {
+  const fotoBase64 = (registro as any)[tipo === 'saida' ? 'fotoSaidaBase64' : 'fotoEntradaBase64']
+  if (!fotoBase64) return null
+
+  try {
+    const { base64ToBlob, imageMimeFromBase64, imageExtFromBase64 } = await import('../utils/photoCompress')
+    const mime = imageMimeFromBase64(fotoBase64)
+    const blob = base64ToBlob(fotoBase64, mime)
+    const fotoPath = `${fazendaId}/pastagens/${registro.id}/${tipo}.${imageExtFromBase64(fotoBase64)}`
+    const client = await getSupabaseClientWithRefresh() as any
+    const { error: uploadError } = await client
+      .storage
+      .from('fotos-registros')
+      .upload(fotoPath, blob, { contentType: mime, upsert: true })
+
+    if (uploadError) {
+      console.error(`[SYNC] Erro ao fazer upload da foto do pasto de ${tipo}:`, uploadError)
+      return null
+    }
+
+    const { data: urlData } = client.storage.from('fotos-registros').getPublicUrl(fotoPath)
+    return urlData.publicUrl
+  } catch (uploadErr) {
+    console.error(`[SYNC] Excecao ao fazer upload da foto do pasto de ${tipo}:`, uploadErr)
+    return null
+  }
+}
+
 // Upload das fotos por item do checklist (o problema marcado carrega foto
 // propria). Retorna o checklist com foto_url preenchida e sem fotoBase64,
 // que nao deve ser persistido no jsonb.
@@ -952,6 +988,17 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
     const fotoUrl = await uploadFotoRegistro(store, registro, fazendaId)
     if (fotoUrl) {
       data = { ...data, foto_url: fotoUrl }
+    }
+
+    // Pastagens: foto do pasto de saída e de entrada (obrigatórias, com GPS)
+    if (store === 'pastagens') {
+      const fotoSaidaUrl = await uploadFotoPasto(registro, fazendaId, 'saida')
+      if (fotoSaidaUrl) data = { ...data, foto_saida_url: fotoSaidaUrl }
+      const fotoEntradaUrl = await uploadFotoPasto(registro, fazendaId, 'entrada')
+      if (fotoEntradaUrl) data = { ...data, foto_entrada_url: fotoEntradaUrl }
+      if (data.avaliacao_geral) {
+        data = { ...data, avaliacao_geral: await uploadFotosChecklist(data.avaliacao_geral, registro, fazendaId, store) }
+      }
     }
 
     // Fotos por item do checklist (bebedouros, suplementacao)
