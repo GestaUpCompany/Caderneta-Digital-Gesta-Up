@@ -897,7 +897,7 @@ export default function MaternidadePage() {
     return '💊'
   }
 
-  const rotulo = 'text-[13px] font-bold uppercase text-gray-900'
+  const rotulo = 'text-[15px] font-bold uppercase text-gray-900'
   const erroTexto = (field: string) =>
     getError(field) ? <p className="text-base font-semibold text-red-700">{getError(field)}</p> : null
 
