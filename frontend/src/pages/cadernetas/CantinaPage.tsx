@@ -1,16 +1,22 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, Button, NumericInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage, NumericInput } from '../../components/ui'
+import { Minus, Plus } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
-import { salvarRegistro } from '../../services/api'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import { salvarRegistro, listarRegistros } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
-import { getCachedCadastroData, getClassificacoesCantinaCached, getItensCantinaCached } from '../../services/cadastroCache'
-import { useFormValidation } from '../../hooks/useFormValidation'
+import { getFuncionarios } from '../../services/supabaseService'
+import { getCachedCadastroData,getClassificacoesCantinaCached, getItensCantinaCached } from '../../services/cadastroCache'
+import { iconeDoItem } from '../../utils/iconeItem'
+import { iniciais, corAvatar } from '../../utils/avatar'
 
 interface ItemCantina {
   itemId: string
@@ -20,26 +26,31 @@ interface ItemCantina {
   quantidade: string
 }
 
-const COZINHEIRAS_OPTIONS = [
-  { value: '1', label: '1' },
-  { value: '2', label: '2' },
-  { value: '3', label: '3' },
-  { value: '4', label: '4' },
-  { value: '5', label: '5' },
+interface ItemCatalogo {
+  id: string
+  nome: string
+  unidade_medida: string
+  classificacao: string
+}
+
+type CampoRefeicao = 'numeroCafeManha' | 'numeroLanches' | 'numeroRefeicoesAlmoco' | 'numeroRefeicoesJantar'
+
+const REFEICOES: { campo: CampoRefeicao; label: string; icone: string }[] = [
+  { campo: 'numeroCafeManha', label: 'Café da manhã', icone: '☕' },
+  { campo: 'numeroLanches', label: 'Lanche', icone: '🥪' },
+  { campo: 'numeroRefeicoesAlmoco', label: 'Almoço', icone: '🍛' },
+  { campo: 'numeroRefeicoesJantar', label: 'Jantar', icone: '🍲' },
 ]
 
 interface FormState {
   modo: 'cantina' | 'marmita'
   data: string
-  // Cantina
-  numeroCozinheiras: string
-  quemCozinhou: string
-  quemAjudou: string[]
+  // Cantina: a 1ª pessoa marcada é quem cozinhou, as demais ajudaram
+  cozinheiras: string[]
   numeroCafeManha: string
   numeroLanches: string
   numeroRefeicoesAlmoco: string
   numeroRefeicoesJantar: string
-  itens: ItemCantina[]
   // Marmita
   fornecedor: string
   quantidadeMarmitas: string
@@ -52,14 +63,11 @@ interface FormState {
 const makeInitial = (): FormState => ({
   modo: 'cantina',
   data: todayBR(),
-  numeroCozinheiras: '1',
-  quemCozinhou: '',
-  quemAjudou: [],
+  cozinheiras: [],
   numeroCafeManha: '',
   numeroLanches: '',
   numeroRefeicoesAlmoco: '',
   numeroRefeicoesJantar: '',
-  itens: [],
   fornecedor: '',
   quantidadeMarmitas: '',
   precoUnitario: '',
@@ -67,13 +75,95 @@ const makeInitial = (): FormState => ({
   observacao: '',
 })
 
-const makeInitialItem = (): ItemCantina => ({
-  itemId: '',
-  nome: '',
-  classificacao: '',
-  unidade_medida: '',
-  quantidade: '',
-})
+const UNIDADES_DECIMAIS = ['kg', 'g', 'L', 'mL']
+const unidadeInteira = (unidade?: string) => !UNIDADES_DECIMAIS.includes(unidade || '')
+const numeroDe = (valor: string | undefined) => {
+  const n = Number(String(valor ?? '').replace(',', '.'))
+  return isNaN(n) ? 0 : n
+}
+
+const ICONES_CLASSIFICACAO: Record<string, string> = {
+  'Perecíveis': '🧊',
+  'Não Perecíveis': '🍚',
+  'Bebidas': '🥤',
+  'Limpeza/Higiene': '🧼',
+  'Hortifruti': '🥬',
+  'Carnes': '🥩',
+}
+
+// Emoji pelo nome do item; sem correspondência, avatar de iniciais
+function IconeItem({ nome }: { nome: string }) {
+  const emoji = iconeDoItem(nome)
+  if (emoji) return <span className="flex h-9 w-9 shrink-0 items-center justify-center text-2xl leading-none">{emoji}</span>
+  return (
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${corAvatar(nome)}`}>
+      {iniciais(nome)}
+    </span>
+  )
+}
+
+// "27/09/2026 08:10" -> "27/09/2026"
+const soData = (d: unknown) => String(d ?? '').split(' ')[0]
+
+const diaAnteriorBR = (dataBR: string): string | null => {
+  const [dia, mes, ano] = dataBR.split('/').map(Number)
+  if (!dia || !mes || !ano) return null
+  const d = new Date(ano, mes - 1, dia - 1)
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+const totalRefeicoes = (r: Record<string, any>) =>
+  REFEICOES.reduce((soma, { campo }) => soma + numeroDe(r[campo]), 0)
+
+interface StepperProps {
+  valor: string
+  onChange: (v: string) => void
+  nome: string
+  decimal?: boolean
+}
+
+// Botões −/+ com número editável no meio (mesmo padrão da Entrada Cantina)
+function Stepper({ valor, onChange, nome, decimal = false }: StepperProps) {
+  const bump = (delta: number) => {
+    const prox = Math.max(0, Math.round((numeroDe(valor) + delta) * 1000) / 1000)
+    onChange(prox === 0 ? '' : String(prox))
+  }
+  return (
+    <div className="flex shrink-0 items-stretch gap-1">
+      <button
+        type="button"
+        onClick={() => bump(-1)}
+        aria-label={`Diminuir ${nome}`}
+        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-gray-700 active:scale-95"
+      >
+        <Minus className="h-4 w-4" strokeWidth={2.5} />
+      </button>
+      <input
+        type="text"
+        inputMode={decimal ? 'decimal' : 'numeric'}
+        value={valor}
+        placeholder="0"
+        onChange={(e) =>
+          onChange(
+            decimal
+              ? e.target.value.replace(/[^0-9,.]/g, '').replace(',', '.')
+              : e.target.value.replace(/[^0-9]/g, '')
+          )
+        }
+        aria-label={`Quantidade de ${nome}`}
+        className="!min-h-0 h-10 w-10 min-w-0 rounded-xl border-2 border-transparent bg-transparent text-center text-xl font-extrabold text-gray-900 focus:border-gray-300 focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => bump(1)}
+        aria-label={`Aumentar ${nome}`}
+        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl bg-brand-900 text-white active:scale-95"
+      >
+        <Plus className="h-5 w-5" strokeWidth={2.5} />
+      </button>
+    </div>
+  )
+}
 
 export default function CantinaPage() {
   const navigate = useNavigate()
@@ -85,120 +175,18 @@ export default function CantinaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [classificacoesDisponiveis, setClassificacoesDisponiveis] = useState<string[]>([])
-  const [itensDisponiveis, setItensDisponiveis] = useState<any[]>([])
-  const [mostrarFormularioItem, setMostrarFormularioItem] = useState(false)
-  const [itemEditando, setItemEditando] = useState<ItemCantina | null>(null)
-  const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null)
-  const [itemErrors, setItemErrors] = useState<Set<string>>(new Set())
+  const [classificacaoAtiva, setClassificacaoAtiva] = useState('')
+  const [itensDaClassificacao, setItensDaClassificacao] = useState<any[]>([])
+  // Itens já vistos (de qualquer classificação), para montar o registro
+  const [catalogo, setCatalogo] = useState<Record<string, ItemCatalogo>>({})
+  const [quantidades, setQuantidades] = useState<Record<string, string>>({})
+  const [totalOntem, setTotalOntem] = useState<number | null>(null)
 
+  const getError = (field: string) => errors.find((e) => e.field === field)?.message
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
-  const setQuemAjudou = (index: number, value: string) =>
-    setForm((prev) => {
-      const newQuemAjudou = [...prev.quemAjudou]
-      newQuemAjudou[index] = value
-      return { ...prev, quemAjudou: newQuemAjudou }
-    })
-
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
-
-  const handleAdicionarItem = () => {
-    setItemEditando(makeInitialItem())
-    setItemEditandoIndex(null)
-    setItemErrors(new Set())
-    setMostrarFormularioItem(true)
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-  }
-
-  const handleEditarItem = (index: number) => {
-    setItemEditando({ ...form.itens[index] })
-    setItemEditandoIndex(index)
-    setItemErrors(new Set())
-    setMostrarFormularioItem(true)
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-  }
-
-  const handleSalvarItem = () => {
-    if (!itemEditando) return
-
-    const errors = new Set<string>()
-    if (!itemEditando.classificacao) errors.add('classificacao')
-    if (!itemEditando.itemId) errors.add('itemId')
-    if (!itemEditando.quantidade) errors.add('quantidade')
-
-    if (errors.size > 0) {
-      setItemErrors(errors)
-      return
-    }
-
-    if (itemEditandoIndex !== null) {
-      setForm(prev => ({
-        ...prev,
-        itens: prev.itens.map((item, i) => i === itemEditandoIndex ? { ...itemEditando } : item)
-      }))
-    } else {
-      setForm(prev => ({
-        ...prev,
-        itens: [...prev.itens, { ...itemEditando }]
-      }))
-    }
-    setItemEditando(null)
-    setItemEditandoIndex(null)
-    setMostrarFormularioItem(false)
-    setItemErrors(new Set())
-  }
-
-  const handleRemoverItem = (index: number) => {
-    setForm(prev => ({
-      ...prev,
-      itens: prev.itens.filter((_, i) => i !== index)
-    }))
-  }
-
-  // Itens já adicionados (para desabilitar no seletor)
-  const itensJaAdicionados = new Set(
-    form.itens
-      .filter((_, i) => i !== itemEditandoIndex)
-      .map(item => item.itemId)
-  )
-
-  // Validation rules (dinâmico por modo)
-  const validationRules: any = useMemo(() => {
-    const base: any = { data: { required: true } }
-    if (form.modo === 'cantina') {
-      base.numeroCozinheiras = { required: true }
-      base.quemCozinhou = { required: true }
-      // At least 1 refeicao field must be filled
-      base.refeicoes = {
-        custom: (_value: any, form: any) => {
-          const hasAnyRefeicao = form.numeroCafeManha || form.numeroLanches || form.numeroRefeicoesAlmoco || form.numeroRefeicoesJantar
-          return hasAnyRefeicao ? null : 'Pelo menos uma refeição deve ser informada'
-        }
-      }
-      // At least 1 item must be added
-      base.itens = {
-        custom: (_value: any, form: any) => {
-          return form.itens && form.itens.length > 0 ? null : 'Adicione pelo menos um item'
-        }
-      }
-      // Add validation for quemAjudou fields
-      form.quemAjudou.forEach((_, index) => {
-        base[`quemAjudou.${index}`] = { required: true }
-      })
-    } else {
-      // Modo marmita
-      base.fornecedor = { required: true }
-      base.quantidadeMarmitas = { required: true }
-      base.precoUnitario = { required: true }
-      base.destinatario = { required: true }
-    }
-    return base
-  }, [form.modo, form.quemAjudou])
-
-  const { isValid } = useFormValidation(form, validationRules)
-
-  // Buscar funcionários do cache (com fallback para offline)
+  // Funcionários do cache (com fallback offline)
   useEffect(() => {
     async function carregarFuncionarios() {
       if (!fazendaId) return
@@ -206,6 +194,10 @@ export default function CantinaPage() {
         const cache = await getCachedCadastroData()
         if (cache?.funcionarios && cache.funcionarios.length > 0) {
           setFuncionariosDisponiveis(cache.funcionarios)
+        } else {
+          // Cache ainda vazio (primeiro acesso): busca direto quando online
+          const funcionariosData = await getFuncionarios(fazendaId)
+          setFuncionariosDisponiveis(funcionariosData?.map((f: any) => f.nome) || [])
         }
       } catch (error) {
         console.error('Erro ao carregar funcionários:', error)
@@ -214,7 +206,7 @@ export default function CantinaPage() {
     carregarFuncionarios()
   }, [fazendaId])
 
-  // Buscar classificações de cantina (com cache lazy para offline)
+  // Classificações de cantina (cache lazy para offline)
   useEffect(() => {
     async function carregarClassificacoes() {
       if (!fazendaId) return
@@ -222,6 +214,7 @@ export default function CantinaPage() {
         const data = await getClassificacoesCantinaCached(fazendaId)
         if (data) {
           setClassificacoesDisponiveis(data)
+          setClassificacaoAtiva((atual) => (atual && data.includes(atual) ? atual : data[0] || ''))
         }
       } catch (error) {
         console.error('Erro ao carregar classificações da cantina:', error)
@@ -230,79 +223,142 @@ export default function CantinaPage() {
     carregarClassificacoes()
   }, [fazendaId])
 
-  // Carregar itens quando classificação é selecionada no formulário de item
+  // Itens da classificação ativa
   useEffect(() => {
-    async function carregarItens() {
-      if (itemEditando?.classificacao && fazendaId) {
-        try {
-          const data = await getItensCantinaCached(fazendaId, itemEditando.classificacao)
-          if (data) {
-            setItensDisponiveis(data)
-          }
-        } catch (error) {
-          console.error('Erro ao carregar itens da cantina:', error)
-        }
-      } else {
-        setItensDisponiveis([])
-      }
+    if (!fazendaId || !classificacaoAtiva) {
+      setItensDaClassificacao([])
+      return
     }
-    carregarItens()
-  }, [itemEditando?.classificacao, fazendaId])
+    let cancelado = false
+    getItensCantinaCached(fazendaId, classificacaoAtiva)
+      .then((lista) => {
+        if (cancelado) return
+        const itens = lista || []
+        setItensDaClassificacao(itens)
+        setCatalogo((prev) => {
+          const novo = { ...prev }
+          itens.forEach((item: any) => {
+            novo[item.id] = {
+              id: item.id,
+              nome: item.nome,
+              unidade_medida: item.unidade_medida,
+              classificacao: classificacaoAtiva,
+            }
+          })
+          return novo
+        })
+      })
+      .catch((error) => console.error('Erro ao carregar itens da cantina:', error))
+    return () => {
+      cancelado = true
+    }
+  }, [classificacaoAtiva, fazendaId])
 
-  // Atualizar array de quem ajudou quando numeroCozinheiras muda
+  // Total de refeições de ontem (referência para o peão), relativo à data do formulário
   useEffect(() => {
-    const numCozinheiras = parseInt(form.numeroCozinheiras) || 0
-    const numAjudou = Math.max(0, numCozinheiras - 1)
-    
-    setForm(prev => {
-      const currentLength = prev.quemAjudou.length
-      if (currentLength < numAjudou) {
-        // Adicionar novos campos vazios
-        return {
-          ...prev,
-          quemAjudou: [...prev.quemAjudou, ...Array(numAjudou - currentLength).fill('')]
-        }
-      } else if (currentLength > numAjudou) {
-        // Remover campos extras
-        return {
-          ...prev,
-          quemAjudou: prev.quemAjudou.slice(0, numAjudou)
-        }
-      }
-      return prev
-    })
-  }, [form.numeroCozinheiras])
+    let cancelado = false
+    const ontem = diaAnteriorBR(form.data)
+    if (!ontem) {
+      setTotalOntem(null)
+      return
+    }
+    listarRegistros('cantina')
+      .then((lista) => {
+        if (cancelado) return
+        const doDia = lista.filter((r: any) => (r.modo ?? 'cantina') === 'cantina' && soData(r.data) === ontem)
+        setTotalOntem(doDia.length > 0 ? doDia.reduce((s: number, r: any) => s + totalRefeicoes(r), 0) : null)
+      })
+      .catch(() => setTotalOntem(null))
+    return () => {
+      cancelado = true
+    }
+  }, [form.data])
+
+  const alternarCozinheira = (nome: string) =>
+    setForm((prev) => ({
+      ...prev,
+      cozinheiras: prev.cozinheiras.includes(nome)
+        ? prev.cozinheiras.filter((n) => n !== nome)
+        : [...prev.cozinheiras, nome],
+    }))
+
+  const setQuantidade = (id: string, valor: string) => setQuantidades((prev) => ({ ...prev, [id]: valor }))
+
+  // Itens do registro: itens com quantidade > 0 (de qualquer classificação)
+  const itensDoRegistro: ItemCantina[] = useMemo(
+    () =>
+      Object.entries(quantidades)
+        .filter(([, q]) => numeroDe(q) > 0)
+        .map(([id, q]) => {
+          const c = catalogo[id]
+          return c
+            ? { itemId: id, nome: c.nome, classificacao: c.classificacao, unidade_medida: c.unidade_medida, quantidade: q }
+            : null
+        })
+        .filter((i): i is ItemCantina => i !== null),
+    [quantidades, catalogo]
+  )
+
+  const totalHoje = REFEICOES.reduce((soma, { campo }) => soma + numeroDe(form[campo]), 0)
+
+  const formValido = useMemo(() => {
+    if (!form.data) return false
+    if (form.modo === 'cantina') {
+      return form.cozinheiras.length > 0 && totalHoje > 0 && itensDoRegistro.length > 0
+    }
+    return !!form.fornecedor && !!form.quantidadeMarmitas && !!form.precoUnitario && !!form.destinatario
+  }, [form, totalHoje, itensDoRegistro.length])
+
+  const pendenciaTexto = useMemo(() => {
+    if (form.modo === 'marmita') return 'Preencha fornecedor, quantidade, preço e destinatário'
+    if (form.cozinheiras.length === 0) return 'Marque quem cozinhou'
+    if (totalHoje <= 0) return 'Informe pelo menos uma refeição'
+    if (itensDoRegistro.length === 0) return 'Informe a quantidade de pelo menos um item'
+    return undefined
+  }, [form.modo, form.cozinheiras.length, totalHoje, itensDoRegistro.length])
 
   const handleSalvar = async () => {
+    if (!formValido) {
+      const faltando: { field: string; message: string }[] = []
+      if (form.modo === 'cantina') {
+        if (form.cozinheiras.length === 0) faltando.push({ field: 'quemCozinhou', message: 'Marque quem cozinhou' })
+        if (totalHoje <= 0) faltando.push({ field: 'refeicoes', message: 'Pelo menos uma refeição deve ser informada' })
+        if (itensDoRegistro.length === 0) faltando.push({ field: 'itens', message: 'Adicione pelo menos um item' })
+      }
+      if (faltando.length > 0) {
+        setErrors(faltando)
+        scrollToFirstError(faltando)
+      }
+      return
+    }
     setSalvando(true)
     setErrors([])
 
-    // Converter itens do array para formato de armazenamento (nome (unidade) -> quantidade)
+    // Itens no formato de armazenamento ("nome (unidade)" -> quantidade)
     const itensStorage: Record<string, string> = {}
-    form.itens.forEach((item) => {
-      if (item.quantidade) {
-        itensStorage[`${item.nome} (${item.unidade_medida})`] = item.quantidade
-      }
+    itensDoRegistro.forEach((item) => {
+      itensStorage[`${item.nome} (${item.unidade_medida})`] = item.quantidade
     })
 
+    const cantina = form.modo === 'cantina'
     const result = await salvarRegistro('cantina', {
       data: form.data,
       modo: form.modo,
-      // Cantina
-      numeroCozinheiras: form.modo === 'cantina' ? form.numeroCozinheiras : null,
-      quemCozinhou: form.modo === 'cantina' ? form.quemCozinhou : null,
-      quemAjudou: form.modo === 'cantina' ? form.quemAjudou.join(', ') : null,
-      numeroCafeManha: form.modo === 'cantina' ? form.numeroCafeManha : null,
-      numeroLanches: form.modo === 'cantina' ? form.numeroLanches : null,
-      numeroRefeicoesAlmoco: form.modo === 'cantina' ? form.numeroRefeicoesAlmoco : null,
-      numeroRefeicoesJantar: form.modo === 'cantina' ? form.numeroRefeicoesJantar : null,
-      itens: form.modo === 'cantina' ? itensStorage : null,
-      itensDetalhe: form.modo === 'cantina' ? form.itens : null,
+      // Cantina: 1ª marcada cozinhou, as demais ajudaram
+      numeroCozinheiras: cantina ? String(form.cozinheiras.length) : null,
+      quemCozinhou: cantina ? form.cozinheiras[0] : null,
+      quemAjudou: cantina ? form.cozinheiras.slice(1).join(', ') : null,
+      numeroCafeManha: cantina ? form.numeroCafeManha : null,
+      numeroLanches: cantina ? form.numeroLanches : null,
+      numeroRefeicoesAlmoco: cantina ? form.numeroRefeicoesAlmoco : null,
+      numeroRefeicoesJantar: cantina ? form.numeroRefeicoesJantar : null,
+      itens: cantina ? itensStorage : null,
+      itensDetalhe: cantina ? itensDoRegistro : null,
       // Marmita
-      fornecedor: form.modo === 'marmita' ? form.fornecedor : null,
-      quantidadeMarmitas: form.modo === 'marmita' ? form.quantidadeMarmitas : null,
-      precoUnitario: form.modo === 'marmita' ? form.precoUnitario : null,
-      destinatario: form.modo === 'marmita' ? form.destinatario : null,
+      fornecedor: !cantina ? form.fornecedor : null,
+      quantidadeMarmitas: !cantina ? form.quantidadeMarmitas : null,
+      precoUnitario: !cantina ? form.precoUnitario : null,
+      destinatario: !cantina ? form.destinatario : null,
       // Comum
       observacao: form.observacao,
     })
@@ -317,9 +373,15 @@ export default function CantinaPage() {
     }
   }
 
+  const limparForm = () => {
+    setForm(makeInitial())
+    setQuantidades({})
+    setErrors([])
+  }
+
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    setForm(makeInitial())
+    limparForm()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -328,10 +390,10 @@ export default function CantinaPage() {
     navigate('/')
   }
 
-  const handleLimpar = () => {
-    setForm(makeInitial())
-    setErrors([])
-  }
+  const precoTotalMarmita =
+    form.quantidadeMarmitas && form.precoUnitario && !isNaN(Number(form.quantidadeMarmitas)) && !isNaN(Number(form.precoUnitario))
+      ? Number(form.quantidadeMarmitas) * Number(form.precoUnitario)
+      : null
 
   return (
     <CadernetaLayout
@@ -341,326 +403,188 @@ export default function CantinaPage() {
     >
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-      {/* Seletor de modo */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">MODO DE ALIMENTAÇÃO</h2>
-        <Radio
-          name="modo"
-          label={<span>SELECIONE O MODO <span className="text-red-500">*</span></span>}
+      <CadernetaSection titulo="Modo de alimentação" required>
+        <ChoiceGrid
           options={[
-            { value: 'cantina', label: 'CANTINA' },
-            { value: 'marmita', label: 'MARMITA' },
+            { value: 'cantina', label: 'Cantina', icon: '🍲' },
+            { value: 'marmita', label: 'Marmita', icon: '🍱' },
           ]}
           value={form.modo}
-          onChange={(val) => setForm((p) => ({ ...p, modo: val as 'cantina' | 'marmita' }))}
-          gridCols={2}
+          onChange={(v) => setForm((p) => ({ ...p, modo: v as 'cantina' | 'marmita' }))}
+          cols={2}
         />
-      </div>
+      </CadernetaSection>
 
       {form.modo === 'cantina' ? (
         <>
-      {/* Seção 1: Dados Principais */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA CANTINA</h2>
-
-        </div>
-        <Radio
-          name="numeroCozinheiras"
-          label={<span>N° COZINHEIRAS <span className="text-red-500">*</span></span>}
-          options={COZINHEIRAS_OPTIONS}
-          value={form.numeroCozinheiras}
-          onChange={(val) => setForm((p) => ({ ...p, numeroCozinheiras: val }))}
-          error={getError('numeroCozinheiras')}
-          gridCols={5}
-        />
-        <SearchableModal
-          label={<span>QUEM COZINHOU? <span className="text-red-500">*</span></span>}
-          value={form.quemCozinhou}
-          onChange={(val) => setForm((p) => ({ ...p, quemCozinhou: val }))}
-          error={getError('quemCozinhou')}
-          options={funcionariosDisponiveis}
-          placeholder="Buscar funcionário..."
-          id="quemCozinhou"
-        />
-        {form.quemAjudou.map((ajudou, index) => (
-          <SearchableModal
-            key={index}
-            label={<span>{index + 1}ª AJUDANTE <span className="text-red-500">*</span></span>}
-            value={ajudou}
-            onChange={(val) => setQuemAjudou(index, val)}
-            error={getError(`quemAjudou.${index}`)}
-            options={funcionariosDisponiveis}
-            placeholder="Buscar funcionário..."
-            id={`quemAjudou-${index}`}
-          />
-        ))}
-      </div>
-
-      {/* Seção 2: Refeições */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. REFEIÇÕES <span className="text-red-500">*</span></h2>
-        <NumericInput label="N° CAFÉ DA MANHÃ?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroCafeManha} onChange={(v) => setForm((prev) => ({ ...prev, numeroCafeManha: v }))} error={getError('numeroCafeManha')} />
-        <NumericInput label="N° LANCHES?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroLanches} onChange={(v) => setForm((prev) => ({ ...prev, numeroLanches: v }))} error={getError('numeroLanches')} />
-        <NumericInput label="N° REFEIÇÕES ALMOÇO?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroRefeicoesAlmoco} onChange={(v) => setForm((prev) => ({ ...prev, numeroRefeicoesAlmoco: v }))} error={getError('numeroRefeicoesAlmoco')} />
-        <NumericInput label="N° REFEIÇÕES JANTAR?" decimalPlaces={0} placeholder="Quantidade" value={form.numeroRefeicoesJantar} onChange={(v) => setForm((prev) => ({ ...prev, numeroRefeicoesJantar: v }))} error={getError('numeroRefeicoesJantar')} />
-      </div>
-
-      {/* Seção 3: Itens */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIFICAÇÃO DE ITENS <span className="text-red-500">*</span></h2>
-
-        {/* Lista de itens adicionados */}
-        {form.itens.length > 0 && (
-          <div className="flex flex-col gap-3">
-            {form.itens.map((item, index) => (
-              <div key={index} className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="text-lg font-bold text-gray-800 uppercase">{item.nome}</p>
-                    <p className="text-base text-gray-600">Classificação: {item.classificacao}</p>
-                    <p className="text-lg text-gray-900">Quantidade: {item.quantidade} {item.unidade_medida}</p>
-                  </div>
-                  <div className="flex gap-2 ml-2">
-                    <button
-                      onClick={() => handleEditarItem(index)}
-                      className="text-blue-500 text-2xl"
-                      title="Editar item"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      onClick={() => handleRemoverItem(index)}
-                      className="text-red-500 text-2xl"
-                      title="Remover item"
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Botão para adicionar item ou formulário inline */}
-        {!mostrarFormularioItem ? (
-          <Button
-            onClick={handleAdicionarItem}
-            variant="secondary"
-            icon="➕"
-            fullWidth
-          >
-            ADICIONAR ITEM
-          </Button>
-        ) : (
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 flex flex-col gap-4">
-            <h3 className="text-base font-bold text-gray-900">
-              {itemEditandoIndex !== null ? 'EDITAR ITEM' : 'NOVO ITEM'}
-            </h3>
-
-            {itemErrors.size > 0 && (
-              <ValidationMessage
-                errors={Array.from(itemErrors).map(field => ({
-                  field,
-                  message: 'Preencha todos os campos obrigatórios'
-                }))}
-              />
-            )}
-
-            {/* Seleção de classificação */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">CLASSIFICAÇÃO</label>
-              <div className="grid grid-cols-2 gap-2">
-                {classificacoesDisponiveis.length > 0 ? (
-                  classificacoesDisponiveis.map((classificacao) => (
-                    <button
-                      key={classificacao}
-                      type="button"
-                      onClick={() => {
-                        setItemEditando(prev => prev ? { ...prev, classificacao, itemId: '', nome: '', unidade_medida: '' } : null)
-                        setItemErrors(prev => {
-                          const newErrors = new Set(prev)
-                          newErrors.delete('classificacao')
-                          newErrors.delete('itemId')
-                          return newErrors
-                        })
-                      }}
-                      className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                        itemEditando?.classificacao === classificacao
-                          ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                          : itemErrors.has('classificacao')
-                          ? 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                      }`}
-                    >
-                      {classificacao}
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 col-span-2">Nenhuma classificação cadastrada. Cadastre itens da cantina no painel web.</p>
-                )}
-              </div>
-            </div>
-
-            {/* Seleção de item (aparece após selecionar classificação) */}
-            {itemEditando?.classificacao && (
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">ITEM</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {itensDisponiveis.length > 0 ? (
-                    itensDisponiveis.map((item) => {
-                      const jaAdicionado = itensJaAdicionados.has(item.id)
+          <CadernetaSection numero={1} titulo="Dados da cantina">
+            <div data-field="quemCozinhou" id="quemCozinhou">
+              <label className="mb-2 block text-[15px] font-bold uppercase text-gray-900">
+                Quem cozinhou? (marque todas) <span className="text-red-500">*</span>
+              </label>
+              {funcionariosDisponiveis.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-4 gap-2">
+                    {funcionariosDisponiveis.map((nome) => {
+                      const posicao = form.cozinheiras.indexOf(nome)
+                      const selecionado = posicao >= 0
                       return (
                         <button
-                          key={item.id}
+                          key={nome}
                           type="button"
-                          disabled={jaAdicionado}
-                          onClick={() => {
-                            setItemEditando(prev => prev ? {
-                              ...prev,
-                              itemId: item.id,
-                              nome: item.nome,
-                              unidade_medida: item.unidade_medida,
-                            } : null)
-                            setItemErrors(prev => {
-                              const newErrors = new Set(prev)
-                              newErrors.delete('itemId')
-                              return newErrors
-                            })
-                          }}
-                          className={`min-h-[50px] px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                            itemEditando?.itemId === item.id
-                              ? 'border-[#1a3b2c] bg-[#1a3b2c] text-white'
-                              : jaAdicionado
-                              ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
-                              : itemErrors.has('itemId')
-                              ? 'border-red-500 bg-red-50 text-red-700'
-                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                          onClick={() => alternarCozinheira(nome)}
+                          aria-pressed={selecionado}
+                          className={`relative flex !min-h-0 min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl border-2 px-1 py-2.5 transition-all active:scale-95 ${
+                            selecionado
+                              ? 'border-brand-900 bg-brand-900 text-white'
+                              : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
                           }`}
                         >
-                          {item.nome} ({item.unidade_medida})
+                          <span
+                            className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-extrabold ${
+                              selecionado ? 'border-2 border-white/80 bg-white/20 text-white' : corAvatar(nome)
+                            }`}
+                          >
+                            {iniciais(nome)}
+                          </span>
+                          <span className="w-full truncate text-center text-xs font-bold leading-tight">
+                            {nome.split(' ')[0]}
+                          </span>
+                          {selecionado && (
+                            <span
+                              className={`absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase leading-none ${
+                                posicao === 0 ? 'bg-amber-400 text-amber-950' : 'bg-white text-brand-900 ring-1 ring-brand-900'
+                              }`}
+                            >
+                              {posicao === 0 ? '👩‍🍳 Cozinhou' : 'Ajudou'}
+                            </span>
+                          )}
                         </button>
                       )
-                    })
-                  ) : (
-                    <p className="text-sm text-gray-500 col-span-2">Nenhum item encontrado para esta classificação</p>
-                  )}
+                    })}
+                  </div>
+                </>
+              ) : (
+                <Input placeholder="Carregando..." value="" onChange={() => {}} disabled />
+              )}
+              {getError('quemCozinhou') && (
+                <p className="mt-2 text-base font-semibold text-red-700">{getError('quemCozinhou')}</p>
+              )}
+            </div>
+            {form.cozinheiras.length > 0 && (
+              <InfoStrip icon={<span>👩‍🍳</span>}>
+                {form.cozinheiras.length} {form.cozinheiras.length === 1 ? 'cozinheira' : 'cozinheiras'} (conta sozinho)
+                {form.cozinheiras.length > 1 && ` · cozinhou: ${form.cozinheiras[0].split(' ')[0]}`}
+              </InfoStrip>
+            )}
+          </CadernetaSection>
+
+          <CadernetaSection numero={2} titulo="Refeições" required>
+            <div className="flex flex-col" data-field="refeicoes" id="refeicoes">
+              {REFEICOES.map(({ campo, label, icone }) => (
+                <div key={campo} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center text-2xl leading-none">{icone}</span>
+                  <p className="min-w-0 flex-1 text-base font-bold leading-tight text-gray-900">{label}</p>
+                  <Stepper
+                    valor={form[campo]}
+                    onChange={(v) => setForm((prev) => ({ ...prev, [campo]: v }))}
+                    nome={label}
+                  />
                 </div>
-              </div>
+              ))}
+            </div>
+            {getError('refeicoes') && <p className="text-base font-semibold text-red-700">{getError('refeicoes')}</p>}
+            {totalHoje > 0 && (
+              <InfoStrip tone="success">
+                Total: {totalHoje} {totalHoje === 1 ? 'refeição' : 'refeições'}
+                {totalOntem !== null && ` · ontem: ${totalOntem}`}
+              </InfoStrip>
+            )}
+          </CadernetaSection>
+
+          <CadernetaSection numero={3} titulo="Itens usados" required>
+            {classificacoesDisponiveis.length > 0 ? (
+              <ChoiceGrid
+                options={classificacoesDisponiveis.map((c) => ({
+                  value: c,
+                  label: c === 'Limpeza/Higiene' ? 'Limpeza / higiene' : c,
+                  icon: ICONES_CLASSIFICACAO[c],
+                }))}
+                value={classificacaoAtiva}
+                onChange={setClassificacaoAtiva}
+                cols={3}
+                labelSize="xs"
+              />
+            ) : (
+              <p className="text-sm text-gray-500">Nenhuma classificação cadastrada. Cadastre itens da cantina no painel web.</p>
             )}
 
-            <NumericInput
-              label={itemEditando?.unidade_medida ? `QUANTIDADE (${itemEditando.unidade_medida})` : 'QUANTIDADE'}
-              placeholder="Informe a quantidade"
-              value={itemEditando?.quantidade || ''}
-              decimalPlaces={['kg', 'g', 'L', 'mL'].includes(itemEditando?.unidade_medida || '') ? 3 : 0}
-              onChange={(value) => {
-                setItemEditando(prev => prev ? { ...prev, quantidade: value } : null)
-                setItemErrors(prev => {
-                  const newErrors = new Set(prev)
-                  newErrors.delete('quantidade')
-                  return newErrors
-                })
-              }}
-              error={itemErrors.has('quantidade') ? 'Campo obrigatório' : undefined}
-            />
-
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  setMostrarFormularioItem(false)
-                  setItemEditando(null)
-                  setItemEditandoIndex(null)
-                }}
-                variant="secondary"
-                icon="✕"
-                fullWidth
-                size="sm"
-              >
-                CANCELAR
-              </Button>
-              <Button
-                onClick={handleSalvarItem}
-                variant="success"
-                icon="✓"
-                fullWidth
-                size="sm"
-              >
-                CONFIRMAR
-              </Button>
+            <div className="flex flex-col" data-field="itens" id="itens">
+              {classificacaoAtiva && itensDaClassificacao.length === 0 ? (
+                <p className="py-2 text-sm text-gray-500">Nenhum item encontrado para esta classificação</p>
+              ) : (
+                itensDaClassificacao.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
+                    <IconeItem nome={item.nome} />
+                    <p className="min-w-0 flex-1 break-words text-base font-bold leading-tight text-gray-900">
+                      {item.nome} <span className="font-semibold text-gray-500">({item.unidade_medida})</span>
+                    </p>
+                    <Stepper
+                      valor={quantidades[item.id] ?? ''}
+                      onChange={(v) => setQuantidade(item.id, v)}
+                      nome={item.nome}
+                      decimal={!unidadeInteira(item.unidade_medida)}
+                    />
+                  </div>
+                ))
+              )}
             </div>
-          </div>
-        )}
-      </div>
+            {getError('itens') && <p className="text-base font-semibold text-red-700">{getError('itens')}</p>}
 
-      {/* Seção 4: Observações */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">4. OBSERVAÇÕES</h2>
-        <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
-      </div>
-        </>
-      ) : (
-        <>
-          {/* Modo Marmita */}
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA MARMITA</h2>
-            </div>
-            <Input label={<span>FORNECEDOR <span className="text-red-500">*</span></span>} placeholder="Nome do fornecedor" value={form.fornecedor} onChange={setInput('fornecedor')} error={getError('fornecedor')} />
-            <NumericInput label={<span>QUANTIDADE DE MARMITAS <span className="text-red-500">*</span></span>} decimalPlaces={0} placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeMarmitas: v }))} error={getError('quantidadeMarmitas')} />
-            <NumericInput label={<span>PREÇO UNITÁRIO (R$) <span className="text-red-500">*</span></span>} decimalPlaces={2} placeholder="0,00" value={form.precoUnitario} onChange={(v) => setForm((prev) => ({ ...prev, precoUnitario: v }))} error={getError('precoUnitario')} />
-            {form.quantidadeMarmitas && form.precoUnitario && !isNaN(Number(form.quantidadeMarmitas)) && !isNaN(Number(form.precoUnitario)) && (
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <p className="text-sm text-gray-600 font-semibold">PREÇO TOTAL</p>
-                <p className="text-2xl font-black text-gray-900">
-                  R$ {(Number(form.quantidadeMarmitas) * Number(form.precoUnitario)).toFixed(2).replace('.', ',')}
+            {itensDoRegistro.length > 0 && (
+              <div className="flex flex-col gap-1 rounded-xl bg-gray-100 p-3">
+                <p className="text-sm font-bold text-gray-600">Usado hoje</p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {itensDoRegistro
+                    .map((i) => `${numeroDe(i.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${i.unidade_medida} ${i.nome.toLowerCase()}`)
+                    .join(' · ')}
                 </p>
               </div>
             )}
-            <Input label={<span>DESTINATÁRIO <span className="text-red-500">*</span></span>} placeholder="Para quem são as marmitas?" value={form.destinatario} onChange={setInput('destinatario')} error={getError('destinatario')} />
-          </div>
+          </CadernetaSection>
 
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">2. OBSERVAÇÕES</h2>
-            <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
-          </div>
+          <CadernetaSection numero={4} titulo="Observações">
+            <Input placeholder="Observações (opcional)" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
+          </CadernetaSection>
+        </>
+      ) : (
+        <>
+          <CadernetaSection numero={1} titulo="Dados da marmita">
+            <Input label={<span>FORNECEDOR <span className="text-red-500">*</span></span>} placeholder="Nome do fornecedor" value={form.fornecedor} onChange={setInput('fornecedor')} error={getError('fornecedor')} />
+            <NumericInput label={<span>QUANTIDADE DE MARMITAS <span className="text-red-500">*</span></span>} decimalPlaces={0} placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeMarmitas: v }))} error={getError('quantidadeMarmitas')} />
+            <NumericInput label={<span>PREÇO UNITÁRIO (R$) <span className="text-red-500">*</span></span>} decimalPlaces={2} placeholder="0,00" value={form.precoUnitario} onChange={(v) => setForm((prev) => ({ ...prev, precoUnitario: v }))} error={getError('precoUnitario')} />
+            {precoTotalMarmita !== null && (
+              <InfoStrip tone="success" icon={<span>💰</span>}>
+                Preço total: R$ {precoTotalMarmita.toFixed(2).replace('.', ',')}
+              </InfoStrip>
+            )}
+            <Input label={<span>DESTINATÁRIO <span className="text-red-500">*</span></span>} placeholder="Para quem são as marmitas?" value={form.destinatario} onChange={setInput('destinatario')} error={getError('destinatario')} />
+          </CadernetaSection>
+
+          <CadernetaSection numero={2} titulo="Observações">
+            <Input placeholder="Observações (opcional)" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
+          </CadernetaSection>
         </>
       )}
 
-      {/* Ações */}
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={handleSalvar}
-          disabled={salvando || !isValid}
-          className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-            salvando || !isValid
-              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-              : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <Save className="h-5 w-5" strokeWidth={2.5} />
-            {salvando ? 'SALVANDO...' : 'SALVAR'}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={handleLimpar}
-          className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <Brush className="h-4 w-4" strokeWidth={2.5} />
-            LIMPAR
-          </span>
-        </button>
-      </div>
-      {!isValid && (
-        <p className="text-base text-gray-600 text-center">
-          <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-        </p>
-      )}
+      <FormFooter
+        onSalvar={handleSalvar}
+        onLimpar={limparForm}
+        salvando={salvando}
+        disabled={!formValido}
+        formValido={formValido}
+        pendenciaTexto={pendenciaTexto}
+      />
 
       <SuccessModal
         isOpen={showSuccessModal}
