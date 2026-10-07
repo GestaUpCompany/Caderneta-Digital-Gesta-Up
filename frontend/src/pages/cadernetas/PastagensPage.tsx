@@ -886,14 +886,14 @@ export default function PastagensPage() {
               title={form.pastoSaida}
               subtitle={form.numeroLote ? `Lote ${form.numeroLote}` : 'Sem lote'}
               stats={[
-                { label: 'Área útil', value: detalhesPastoSaida.areaUtil ? `${detalhesPastoSaida.areaUtil} ha` : '-' },
-                { label: 'Cabeças', value: detalhesLote?.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-' },
-                { label: 'Ocupação', value: form.tempoOcupacao || '-' },
-                { label: 'Espécie', value: detalhesPastoSaida.especie || '-' },
-                { label: 'Altura saída', value: detalhesPastoSaida.alturaSaida ? `${detalhesPastoSaida.alturaSaida} cm` : '-' },
-                ...(ocupacaoSaida?.taxaLotacao != null ? [{ label: 'Lotação', value: `${ocupacaoSaida.taxaLotacao} UA/ha` }] : []),
-                ...(ocupacaoModuloSaida?.taxaLotacao != null ? [{ label: 'Lotação módulo', value: `${ocupacaoModuloSaida.taxaLotacao} UA/ha` }] : []),
-                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 3 }] : []),
+                { label: 'Área útil', value: detalhesPastoSaida.areaUtil ? `${detalhesPastoSaida.areaUtil} ha` : '-', span: 1 },
+                { label: 'Cabeças', value: detalhesLote?.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-', span: 1 },
+                { label: 'Ocupação', value: form.tempoOcupacao || '-', span: 1 },
+                { label: 'Altura saída', value: detalhesPastoSaida.alturaSaida ? `${detalhesPastoSaida.alturaSaida} cm` : '-', span: 1 },
+                ...(ocupacaoSaida?.taxaLotacao != null ? [{ label: 'Lotação', value: `${ocupacaoSaida.taxaLotacao} UA/ha`, span: 1 }] : []),
+                ...(ocupacaoModuloSaida?.taxaLotacao != null ? [{ label: 'Lotação módulo', value: `${ocupacaoModuloSaida.taxaLotacao} UA/ha`, span: 1 }] : []),
+                { label: 'Espécie', value: detalhesPastoSaida.especie || '-', span: 2 },
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
               ]}
               progress={saidaProgress}
               status={saidaStatus}
@@ -942,10 +942,10 @@ export default function PastagensPage() {
               title={form.pastoEntrada}
               subtitle="Pasto vazio, pronto para receber"
               stats={[
-                { label: 'Área útil', value: detalhesPastoEntrada.areaUtil ? `${detalhesPastoEntrada.areaUtil} ha` : '-' },
-                { label: 'Vedação', value: form.tempoVedacao || '-' },
-                { label: 'Altura entrada', value: detalhesPastoEntrada.alturaEntrada ? `${detalhesPastoEntrada.alturaEntrada} cm` : '-' },
-                { label: 'Espécie', value: detalhesPastoEntrada.especie || '-', span: 3 },
+                { label: 'Área útil', value: detalhesPastoEntrada.areaUtil ? `${detalhesPastoEntrada.areaUtil} ha` : '-', span: 1 },
+                { label: 'Altura entrada', value: detalhesPastoEntrada.alturaEntrada ? `${detalhesPastoEntrada.alturaEntrada} cm` : '-', span: 1 },
+                { label: 'Vedação', value: form.tempoVedacao || '-', span: 2 },
+                { label: 'Espécie', value: detalhesPastoEntrada.especie || '-', span: 2 },
               ]}
             />
           )}
