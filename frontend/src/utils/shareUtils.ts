@@ -1621,15 +1621,26 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       ? registro.itensDetalhe
       : (registro.itens && Array.isArray(registro.itens) ? registro.itens : [])
 
+    if (registro.quemRecebeu) {
+      texto += `RECEBIDO POR: *${registro.quemRecebeu}*\n`
+    }
+
     if (itensEntrada.length > 0) {
-      texto += 'ITENS\n'
-      itensEntrada.forEach((item: any, index: number) => {
-        texto += `${index + 1}. *${item.nome || '—'}*\n`
-        texto += `   Quantidade: *${item.quantidade || '—'}${item.unidade_medida ? ' ' + item.unidade_medida : item.unidade ? ' ' + item.unidade : ''}*\n`
-        if (item.classificacao && item.classificacao !== '') {
-          texto += `   Classificação: *${item.classificacao}*\n`
-        }
-        texto += '\n'
+      // Agrupa por classificação: "Carnes: 20 kg Carne bovina · 10 kg Frango"
+      const grupos = new Map<string, string[]>()
+      itensEntrada.forEach((item: any) => {
+        const un = item.unidade_medida || item.unidade || ''
+        const qtd = item.quantidade ? String(item.quantidade).replace('.', ',') : '—'
+        const linha = `${qtd}${un && un !== 'Unidade' ? ' ' + un : ''} ${item.nome || '—'}`
+        const chave = item.classificacao || 'Itens'
+        grupos.set(chave, [...(grupos.get(chave) || []), linha])
+      })
+      texto += `\nCHEGOU\n`
+      grupos.forEach((linhas, classificacao) => {
+        texto += `*${classificacao}*\n`
+        linhas.forEach((l) => {
+          texto += `• ${l}\n`
+        })
       })
     }
 
