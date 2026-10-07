@@ -2,7 +2,7 @@ import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
 import { formatarNumeroBR, normalizarNumero } from './formatNumber'
 import { base64ToBlob, imageExtFromBase64, imageMimeFromBase64 } from './photoCompress'
-import { isCategoriaAoPe } from './categorias'
+import { isCategoriaAoPe, capitalizarCategoria } from './categorias'
 import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
 import { Filesystem, Directory } from '@capacitor/filesystem'
@@ -610,14 +610,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `NÚMERO CABEÇAS: *${formatarNumeroBR(totalCabecas)}*\n`
       texto += `CATEGORIAS:\n`
       categoriasEntrada.forEach(c => {
-        texto += `- ${c.categoria}: *${formatarNumeroBR(c.cabecas)}*${c.pesoAtual ? ` (${formatarNumeroBR(c.pesoAtual)} kg)` : ''}\n`
+        texto += `- ${capitalizarCategoria(c.categoria)}: *${formatarNumeroBR(c.cabecas)}*${c.pesoAtual ? ` (${formatarNumeroBR(c.pesoAtual)} kg)` : ''}\n`
       })
     } else {
       if (registro.numeroCabecas) {
         texto += `NÚMERO CABEÇAS: *${registro.numeroCabecas}*\n`
       }
       if (registro.categoria) {
-        texto += `CATEGORIA: *${registro.categoria}*\n`
+        texto += `CATEGORIA: *${capitalizarCategoria(String(registro.categoria))}*\n`
       }
     }
     texto += `\n`
