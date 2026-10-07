@@ -71,25 +71,25 @@ function iconeCategoria(nome: string): string | undefined {
 
 // Diagnóstico em dois blocos visuais; a ordem relativa dos itens é a original.
 const DIAGNOSTICOS = [
-  { campo: 'secrecaoOrificios', label: 'ALGUMA SECREÇÃO NOS ORIFÍCIOS?', grupo: 'sinais' },
-  { campo: 'sintomasPneumonia', label: 'SINTOMAS DE PNEUMONIA?', grupo: 'sinais' },
-  { campo: 'inchaco', label: 'EXISTE ALGUM SANGRAMENTO?', grupo: 'sinais' },
-  { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO / PEDALAGEM E TREMORES MUSCULARES DA MORTE?', grupo: 'sinais' },
-  { campo: 'apatiaFraqueza', label: 'APATIA OU FRAQUEZA?', grupo: 'sinais' },
-  { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS / TIMPANISMO / DIARREIA?', grupo: 'sinais' },
-  { campo: 'fraturas', label: 'ALGUMA FRATURA / DESLOCAMENTO DE MEMBROS?', grupo: 'sinais' },
-  { campo: 'decomposicao', label: 'ANIMAL EM DECOMPOSIÇÃO / PUTREFAÇÃO?', grupo: 'sinais' },
+  { campo: 'secrecaoOrificios', label: 'ALGUMA SECREÇÃO NOS ORIFÍCIOS?', grupo: 'sinais', rotulo: 'Secreção nos orifícios', icone: '🤧' },
+  { campo: 'sintomasPneumonia', label: 'SINTOMAS DE PNEUMONIA?', grupo: 'sinais', rotulo: 'Sintomas de pneumonia', icone: '🫁' },
+  { campo: 'inchaco', label: 'EXISTE ALGUM SANGRAMENTO?', grupo: 'sinais', rotulo: 'Sangramento', icone: '🩸' },
+  { campo: 'incoordenacaoTremores', label: 'INCOORDENAÇÃO / PEDALAGEM E TREMORES MUSCULARES DA MORTE?', grupo: 'sinais', rotulo: 'Incoordenação / tremores', icone: '⚡' },
+  { campo: 'apatiaFraqueza', label: 'APATIA OU FRAQUEZA?', grupo: 'sinais', rotulo: 'Apatia / fraqueza', icone: '😞' },
+  { campo: 'desordensDigestivas', label: 'DESORDENS DIGESTIVAS / TIMPANISMO / DIARREIA?', grupo: 'sinais', rotulo: 'Desordem digestiva (timpanismo / diarreia)', icone: '🤢' },
+  { campo: 'fraturas', label: 'ALGUMA FRATURA / DESLOCAMENTO DE MEMBROS?', grupo: 'sinais', rotulo: 'Fratura / deslocamento', icone: '🦴' },
+  { campo: 'decomposicao', label: 'ANIMAL EM DECOMPOSIÇÃO / PUTREFAÇÃO?', grupo: 'sinais', rotulo: 'Em decomposição', icone: '🦠' },
   { campo: 'doencasPrevias', label: 'HAVIA DOENÇAS PRÉVIAS?', grupo: 'antes' },
   { campo: 'medicamentosRecentes', label: 'RECEBEU MEDICAMENTOS RECENTEMENTE?', grupo: 'antes' },
   { campo: 'morteSubita', label: 'A MORTE FOI SÚBITA?', grupo: 'antes' },
   { campo: 'animalSozinho', label: 'ANIMAL MORREU SOZINHO?', grupo: 'antes' },
-  { campo: 'salivacaoExcessiva', label: 'SALIVAÇÃO EXCESSIVA?', grupo: 'sinais' },
-  { campo: 'sinaisIntoxicacao', label: 'EXISTEM SINAIS DE INTOXICAÇÃO?', grupo: 'sinais' },
-  { campo: 'carrapatosMoscas', label: 'PRESENÇA DE CARRAPATOS / MOSCAS?', grupo: 'sinais' },
+  { campo: 'salivacaoExcessiva', label: 'SALIVAÇÃO EXCESSIVA?', grupo: 'sinais', rotulo: 'Salivação excessiva', icone: '💧' },
+  { campo: 'sinaisIntoxicacao', label: 'EXISTEM SINAIS DE INTOXICAÇÃO?', grupo: 'sinais', rotulo: 'Sinais de intoxicação', icone: '☠️' },
+  { campo: 'carrapatosMoscas', label: 'PRESENÇA DE CARRAPATOS / MOSCAS?', grupo: 'sinais', rotulo: 'Carrapatos / moscas', icone: '🪰' },
   { campo: 'encontradoVivo', label: 'ANIMAL FOI ENCONTRADO VIVO?', grupo: 'antes' },
   { campo: 'medicado', label: 'ANIMAL CHEGOU A SER MEDICADO?', grupo: 'antes' },
-  { campo: 'animalInchado', label: 'ANIMAL ESTAVA INCHADO?', grupo: 'sinais' },
-  { campo: 'animalBicheira', label: 'ANIMAL COM BICHEIRA?', grupo: 'sinais' },
+  { campo: 'animalInchado', label: 'ANIMAL ESTAVA INCHADO?', grupo: 'sinais', rotulo: 'Inchado', icone: '🎈' },
+  { campo: 'animalBicheira', label: 'ANIMAL COM BICHEIRA?', grupo: 'sinais', rotulo: 'Bicheira', icone: '🪱' },
 ] as const
 
 // Fields where "Não" means a problem exists (observation should show on "Não")
@@ -479,6 +479,7 @@ export default function MortePage() {
     if (!form.idade) return 'Falta a idade'
     if (!form.causaMorte) return 'Falta a causa da morte'
     if (form.causaMorte === 'Outros' && !form.causaMorteOutros.trim()) return 'Falta especificar a causa'
+    if (!DIAGNOSTICOS.some((d) => d.grupo === 'sinais' && !!form.diagnosticos[d.campo]?.valor)) return "Falta marcar o que viu (ou 'Nada disso')"
     if (diagnosticoRespondido < DIAGNOSTICOS.length) return `Faltam ${DIAGNOSTICOS.length - diagnosticoRespondido} respostas em "O que você viu?"`
     return undefined
   })()
@@ -533,6 +534,52 @@ export default function MortePage() {
         capture="environment"
         onChange={h.handleFileInputChange}
         className="hidden"
+      />
+    </div>
+  )
+
+  // "Marque todos": tocar = S (sinal presente); na 1ª interação do grupo os demais viram N.
+  const SINAIS = DIAGNOSTICOS.filter((d) => d.grupo === 'sinais') as unknown as {
+    campo: string; label: string; rotulo: string; icone: string
+  }[]
+  const sinaisRespondido = SINAIS.some((d) => !!form.diagnosticos[d.campo]?.valor)
+  const sinaisMarcados = SINAIS.filter((d) => form.diagnosticos[d.campo]?.valor === 'S')
+
+  const toggleSinal = (campo: string) =>
+    setForm((p) => {
+      const atual = p.diagnosticos[campo]?.valor
+      const diag = { ...p.diagnosticos }
+      for (const d of SINAIS) {
+        if (d.campo === campo) diag[campo] = { ...diag[campo], valor: atual === 'S' ? 'N' : 'S' }
+        else if (!diag[d.campo]?.valor) diag[d.campo] = { ...diag[d.campo], valor: 'N' }
+      }
+      return { ...p, diagnosticos: diag }
+    })
+
+  const marcarNadaDisso = () =>
+    setForm((p) => {
+      const diag = { ...p.diagnosticos }
+      for (const d of SINAIS) diag[d.campo] = { ...diag[d.campo], valor: 'N', observacao: '' }
+      return { ...p, diagnosticos: diag }
+    })
+
+  const obsDoItem = (campo: string) => (
+    <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+      <button
+        type="button"
+        onClick={() => handleFalar(campo)}
+        className={`flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-white transition-colors active:scale-[0.99] ${
+          ouvindoAlvo(campo) ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'
+        }`}
+      >
+        <span className="text-lg leading-none">🎤</span>
+        <span className="text-xs font-extrabold uppercase tracking-wide">{ouvindoAlvo(campo) ? 'Ouvindo...' : 'Falar'}</span>
+      </button>
+      {vozErro && alvoVoz === campo && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+      <Input
+        placeholder="Adicionar observação (opcional)"
+        value={form.diagnosticos[campo]?.observacao || ''}
+        onChange={(e) => setDiagnosticoObsTexto(campo, e.target.value)}
       />
     </div>
   )
@@ -774,9 +821,41 @@ export default function MortePage() {
 
         {/* 3. O que você viu */}
         <CadernetaSection numero={3} titulo="O que você viu?" required>
-          <div className="flex flex-col gap-5">
-            <p className="text-sm font-extrabold uppercase text-gray-500">Sinais no animal</p>
-            {diagnosticoBloco('sinais')}
+          <div className="flex flex-col gap-3" data-field="sinais">
+            <p className="text-sm font-extrabold uppercase text-gray-500">Marque todos os sinais que viu</p>
+            <ChoiceGrid
+              mode="multi"
+              showCheck={false}
+              values={sinaisMarcados.map((d) => d.campo)}
+              onChangeMulti={(vals) => {
+                const novo = vals.find((v) => !sinaisMarcados.some((d) => d.campo === v))
+                const removido = sinaisMarcados.find((d) => !vals.includes(d.campo))
+                const alvo = novo ?? removido?.campo
+                if (alvo) toggleSinal(alvo)
+              }}
+              options={[
+                ...SINAIS.map((d) => ({ value: d.campo, label: d.rotulo, icon: d.icone, tone: 'danger-solid' as const })),
+              ]}
+              cols={3}
+              labelSize="xs"
+            />
+            <button
+              type="button"
+              onClick={marcarNadaDisso}
+              className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-bold transition-all active:scale-[0.99] ${
+                sinaisRespondido && sinaisMarcados.length === 0
+                  ? 'border-brand-900 bg-brand-900 text-white'
+                  : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+              }`}
+            >
+              <span className="text-lg leading-none">🚫</span> Nada disso
+            </button>
+            {sinaisMarcados.map((d) => (
+              <div key={d.campo} className="flex flex-col gap-2">
+                <p className="text-sm font-bold text-red-700">{d.icone} {d.rotulo}</p>
+                {obsDoItem(d.campo)}
+              </div>
+            ))}
           </div>
           <div className="flex flex-col gap-5">
             <p className="text-sm font-extrabold uppercase text-gray-500">Antes de morrer</p>
