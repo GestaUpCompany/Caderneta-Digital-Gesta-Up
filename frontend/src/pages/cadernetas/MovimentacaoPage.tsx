@@ -997,7 +997,10 @@ export default function MovimentacaoPage() {
         scrollToFirstError(falhou.errors)
       } else {
         const ultimoRegistro = resultados[resultados.length - 1]?.registro
-        setRegistroSalvo(ultimoRegistro)
+        setRegistroSalvo(ultimoRegistro ? {
+          ...ultimoRegistro,
+          categoriasMovimentadas: categoriasParaMover.map((c: any) => ({ categoria: c.categoria, cabecas: c.numeroCabecas })),
+        } : ultimoRegistro)
         setShowSuccessModal(true)
         resetarTudo()
       }

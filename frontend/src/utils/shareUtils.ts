@@ -599,9 +599,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
     // Seção: QUANTIFICAÇÃO
     texto += `QUANTIFICAÇÃO\n`
-    const categoriasEntrada = Array.isArray(registro.categoriasEntrada)
-      ? registro.categoriasEntrada as { categoria: string; cabecas: number; pesoAtual?: number }[]
-      : null
+    // Lista de categorias do salvamento: Entrada (categoriasEntrada) ou saída por categoria (categoriasMovimentadas)
+    const categoriasEntrada = Array.isArray(registro.categoriasMovimentadas)
+      ? registro.categoriasMovimentadas as { categoria: string; cabecas: number; pesoAtual?: number }[]
+      : Array.isArray(registro.categoriasEntrada)
+        ? registro.categoriasEntrada as { categoria: string; cabecas: number; pesoAtual?: number }[]
+        : null
     if (categoriasEntrada && categoriasEntrada.length > 1) {
       const totalCabecas = categoriasEntrada.reduce((t, c) => t + (Number(c.cabecas) || 0), 0)
       texto += `NÚMERO CABEÇAS: *${formatarNumeroBR(totalCabecas)}*\n`
