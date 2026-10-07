@@ -37,3 +37,17 @@ export function capitalizarCategoria(cat: string): string {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
 }
+
+// Categorias disponíveis para Entrada conforme destino do lote
+const CATEGORIAS_ABATE = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Boi Magro', 'Boi Gordo', 'Vaca']
+const CATEGORIAS_REPRODUCAO = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Tourinho', 'Touro', 'Vaca']
+const CATEGORIAS_ENFERMARIA = [...new Set([...CATEGORIAS_ABATE, ...CATEGORIAS_REPRODUCAO])]
+
+export function getCategoriasPorDestino(destino: string | null | undefined): string[] {
+  if (!destino) return []
+  const d = destino.toLowerCase()
+  if (d === 'corte') return CATEGORIAS_ABATE
+  if (d === 'reprodução' || d === 'reproducao') return CATEGORIAS_REPRODUCAO
+  if (d === 'enfermaria') return CATEGORIAS_ENFERMARIA
+  return []
+}

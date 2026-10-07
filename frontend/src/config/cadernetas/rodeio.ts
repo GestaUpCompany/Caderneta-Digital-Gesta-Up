@@ -28,5 +28,5 @@ export const rodeioConfig: CadernetaDisplayConfig = {
 
     equipe: { key: 'equipe', section: 'EQUIPE', priority: 1 },
   },
-  hiddenFields: ['n_cabecas', 'qtd_bezerros'],
+  hiddenFields: ['n_cabecas', 'qtd_bezerros', 'categorias_detalhes'],
 }

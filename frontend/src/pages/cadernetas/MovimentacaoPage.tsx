@@ -1,9 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage, SearchableModal, NumericInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage, SearchableModal, NumericInput } from '../../components/ui'
+import { MapPin } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
+import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoCard from '../../components/cadernetas/InfoCard'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import StepperInput from '../../components/cadernetas/StepperInput'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import BannerRascunho from '../../components/BannerRascunho'
+import { usePhotoGps } from '../../hooks/usePhotoGps'
+import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
+import { base64ToDataUrl } from '../../utils/photoCompress'
 import { salvarRegistro } from '../../services/api'
 import { saveRegistro as saveRegistroIDB, deleteRegistro, removeFromSyncQueueByRegistroId } from '../../services/indexedDB'
 import { enqueueRegistro } from '../../services/syncService'
@@ -11,7 +23,6 @@ import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { generateId, generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getCachedCadastroData,
   getLoteByNomeCached,
@@ -23,8 +34,7 @@ import {
 } from '../../services/cadastroCache'
 import { transferirLoteEntreFazendas, getPastos } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { isCategoriaAoPe } from '../../utils/categorias'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
+import { isCategoriaAoPe, processarCategorias, capitalizarCategoria, getCategoriasPorDestino } from '../../utils/categorias'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
 
@@ -81,32 +91,8 @@ const ESCALA_EQUIPE = [
   { value: '3', label: '3' },
   { value: '4', label: '4' },
   { value: '5', label: '5' },
+  { value: '6', label: '6+' },
 ]
-
-// Categorias disponíveis para Entrada conforme destino do lote
-const CATEGORIAS_ABATE = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Boi Magro', 'Boi Gordo', 'Vaca']
-const CATEGORIAS_REPRODUCAO = ['Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Tourinho', 'Touro', 'Vaca']
-const CATEGORIAS_ENFERMARIA = [...new Set([...CATEGORIAS_ABATE, ...CATEGORIAS_REPRODUCAO])]
-
-function getCategoriasPorDestino(destino: string | null | undefined): string[] {
-  if (!destino) return []
-  const d = destino.toLowerCase()
-  if (d === 'corte') return CATEGORIAS_ABATE
-  if (d === 'reprodução' || d === 'reproducao') return CATEGORIAS_REPRODUCAO
-  if (d === 'enfermaria') return CATEGORIAS_ENFERMARIA
-  return []
-}
-
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
-}
 
 interface FormState {
   data: string
@@ -178,7 +164,8 @@ export default function MovimentacaoPage() {
   const tipoSaidaOptions = FAZENDAS_NOVO_LOTE_HABILITADO.includes(fazendaId)
     ? TIPO_SAIDA_BASE
     : TIPO_SAIDA_BASE.filter(o => o.value !== 'Novo Lote')
-  const [form, setForm] = useState<FormState>(makeInitial)
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'movimentacao', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
@@ -192,6 +179,39 @@ export default function MovimentacaoPage() {
   const [curraisDisponiveis, setCurraisDisponiveis] = useState<{ id: string; nome: string }[]>([])
   const [racasDisponiveis, setRacasDisponiveis] = useState<{ id: string; nome: string }[]>([])
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const baseVozRef = useRef('')
+
+  const { fotoBase64, capturandoFoto, fotoErro, capturarFoto, limpar: limparFoto, fotoInputRef, handleFileInputChange } =
+    usePhotoGps({ comGps: false })
+  const { ouvindo: ouvindoVoz, erro: vozErro, toggle: toggleVoz, parar: pararVoz } = useVoiceInput()
+
+  // Ditado: o texto parcial é acrescentado ao que já existia quando a gravação começou.
+  const handleFalar = async () => {
+    if (ouvindoVoz) {
+      await pararVoz()
+      return
+    }
+    baseVozRef.current = form.observacao.trim()
+    await toggleVoz((parcial) => {
+      const texto = baseVozRef.current ? `${baseVozRef.current} ${parcial}` : parcial
+      setForm((prev) => ({ ...prev, observacao: texto }))
+    })
+  }
+
+  const resetarTudo = () => {
+    limparRascunho()
+    limparFoto()
+  }
+
+  const handleEquipe = (value: string) => {
+    const numPessoas = Number(value) || 0
+    setForm((prev) => ({
+      ...prev,
+      equipe: value,
+      equipeNomes: Array.from({ length: numPessoas }, (_, i) => prev.equipeNomes[i] || ''),
+    }))
+    if (errors.length > 0) setErrors([])
+  }
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -207,10 +227,8 @@ export default function MovimentacaoPage() {
     motivoMovimentacao: { required: true },
   }
 
-  // loteOrigem obrigatório exceto Doação
-  if (form.motivoMovimentacao !== 'Doação') {
-    validationRules.loteOrigem = { required: true }
-  }
+  // loteOrigem obrigatório (Doação também desconta cabeças do lote)
+  validationRules.loteOrigem = { required: true }
 
   // subtipo obrigatório quando motivo é Saída
   if (form.motivoMovimentacao === 'Saída') {
@@ -248,8 +266,8 @@ export default function MovimentacaoPage() {
     }
   }
 
-  // Cabeças por categoria: pelo menos uma > 0 (exceto Doação e Entrada, que tem validação própria)
-  if (form.motivoMovimentacao !== 'Doação' && form.motivoMovimentacao !== 'Entrada' && form.loteOrigem) {
+  // Cabeças por categoria: pelo menos uma > 0 (exceto Entrada, que tem validação própria)
+  if (form.motivoMovimentacao !== 'Entrada' && form.loteOrigem) {
     validationRules.cabecasPorCategoria = {
       custom: (_value: any, formState: any) => {
         const vals = Object.values(formState.cabecasPorCategoria || {})
@@ -490,8 +508,8 @@ export default function MovimentacaoPage() {
         return
       }
 
-      // Pré-validação: lote origem é obrigatório (exceto Doação)
-      if (form.motivoMovimentacao !== 'Doação' && !form.loteOrigem) {
+      // Pré-validação: lote origem é obrigatório
+      if (!form.loteOrigem) {
         setErrors([{ field: 'loteOrigem', message: 'Selecione o lote de origem' }])
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
@@ -513,46 +531,13 @@ export default function MovimentacaoPage() {
         }
       }
 
-      // Validar que destino não está vazio (exceto Transferência, Novo Lote e Entrada, que têm fluxo próprio)
-      if (!(form.motivoMovimentacao === 'Saída' && (form.subtipo === 'Transferência' || form.subtipo === 'Novo Lote')) && form.motivoMovimentacao !== 'Entrada') {
+      // Validar que destino não está vazio (exceto Transferência, Novo Lote, Entrada e Doação, que não têm seletor de destino)
+      if (!(form.motivoMovimentacao === 'Saída' && (form.subtipo === 'Transferência' || form.subtipo === 'Novo Lote')) && form.motivoMovimentacao !== 'Entrada' && form.motivoMovimentacao !== 'Doação') {
         if (!destinoFinal || destinoFinal.trim() === '') {
           setErrors([{ field: 'loteDestino', message: 'Selecione o destino da movimentação' }])
           window.scrollTo({ top: 0, behavior: 'smooth' })
           return
         }
-      }
-
-      // Caso especial: Doação não exige lote nem cabeças
-      if (form.motivoMovimentacao === 'Doação') {
-        const result = await salvarRegistro('movimentacao', {
-          data: form.data,
-          responsavel: usuario,
-          usuario: usuario,
-          loteOrigem: form.loteOrigem,
-          loteOrigemId: form.loteOrigemId,
-          loteDestino: destinoFinal,
-          loteDestinoId: form.loteDestinoId,
-          numeroCabecas: 0,
-          maxCabecasLote: null,
-          categoria: null,
-          motivoMovimentacao: form.motivoMovimentacao,
-          subtipo: form.subtipo || null,
-          brinco: form.brinco,
-          chip: form.chip,
-          observacao: form.observacao,
-          equipe: form.equipe ? Number(form.equipe) : null,
-          equipeNomes: form.equipeNomes,
-        })
-
-        if (!result.success && result.errors) {
-          setErrors(result.errors)
-          scrollToFirstError(result.errors)
-        } else {
-          setRegistroSalvo(result.registro)
-          setShowSuccessModal(true)
-          setForm(makeInitial())
-        }
-        return
       }
 
       // Caso especial: Entrada de animais (lote do topo = destino)
@@ -630,6 +615,8 @@ export default function MovimentacaoPage() {
             raca: c.existeNoLote ? null : c.raca,
             sexo: c.existeNoLote ? null : c.sexo,
             idade: c.existeNoLote ? null : c.idade,
+            // Foto só no primeiro registro (evita upload duplicado)
+            fotoBase64: salvosEntrada.length === 0 ? fotoBase64 || null : null,
           })
           resultadosEntrada.push(result)
           if (result.success && result.registro) {
@@ -659,7 +646,7 @@ export default function MovimentacaoPage() {
             })),
           } : ultimoRegistroEntrada)
           setShowSuccessModal(true)
-          setForm(makeInitial())
+          resetarTudo()
         }
         return
       }
@@ -749,7 +736,7 @@ export default function MovimentacaoPage() {
             transferenciaTotal: result.transferencia_total,
           })
           setShowSuccessModal(true)
-          setForm(makeInitial())
+          resetarTudo()
         } catch (error: any) {
           console.error('[MovimentacaoPage] Erro na transferência:', error)
           setErrors([{ field: 'general', message: error?.message || 'Erro ao transferir lote. Tente novamente.' }])
@@ -906,6 +893,7 @@ export default function MovimentacaoPage() {
           syncStatus: 'pending' as const,
           version: generateVersion(),
           lastModified: getCurrentTimestamp(),
+          fotoBase64: fotoBase64 || null,
           // Campos extras para a solicitação de novo lote
           dadosLoteProposto,
           categoriasSnapshot,
@@ -937,7 +925,7 @@ export default function MovimentacaoPage() {
           observacao: form.observacao || '',
         })
         setShowSuccessModal(true)
-        setForm(makeInitial())
+        resetarTudo()
         return
       }
 
@@ -988,6 +976,7 @@ export default function MovimentacaoPage() {
           observacao: form.observacao,
           equipe: form.equipe ? Number(form.equipe) : null,
           equipeNomes: form.equipeNomes,
+          fotoBase64: salvos.length === 0 ? fotoBase64 || null : null,
         })
         resultados.push(result)
         if (result.success && result.registro) {
@@ -1008,9 +997,12 @@ export default function MovimentacaoPage() {
         scrollToFirstError(falhou.errors)
       } else {
         const ultimoRegistro = resultados[resultados.length - 1]?.registro
-        setRegistroSalvo(ultimoRegistro)
+        setRegistroSalvo(ultimoRegistro ? {
+          ...ultimoRegistro,
+          categoriasMovimentadas: categoriasParaMover.map((c: any) => ({ categoria: c.categoria, cabecas: c.numeroCabecas })),
+        } : ultimoRegistro)
         setShowSuccessModal(true)
-        setForm(makeInitial())
+        resetarTudo()
       }
     } catch (error) {
       console.error('[MovimentacaoPage] Erro ao salvar:', error)
@@ -1031,490 +1023,457 @@ export default function MovimentacaoPage() {
     navigate('/')
   }
 
+  const disponivelTotal = ((detalhesLoteOrigem?.categorias_raw || []) as any[]).reduce(
+    (acc, c) => acc + (c.quant_atual || 0),
+    0
+  )
+  const destinoEhLote = !!form.loteDestino && lotesDisponiveis.includes(form.loteDestino)
+  const ehTransferencia = form.motivoMovimentacao === 'Saída' && form.subtipo === 'Transferência'
+  const categoriasLoteStr = detalhesLoteOrigem?.categorias
+    ? processarCategorias(detalhesLoteOrigem.categorias).map(capitalizarCategoria).join(', ')
+    : ''
+  const categoriasRawLote = (detalhesLoteOrigem?.categorias_raw || []) as any[]
+
+  const pendenciaTexto = (() => {
+    if (!form.loteOrigem) return 'Falta escolher o pasto/lote'
+    if (!form.motivoMovimentacao) return 'Falta escolher o motivo da movimentação'
+    if (form.motivoMovimentacao === 'Saída' && !form.subtipo) return 'Falta escolher para onde foi'
+    if (form.motivoMovimentacao === 'Entrada') return isValid ? undefined : 'Falta preencher as categorias da entrada'
+    if (totalCabecas === 0) return 'Falta informar quantas cabeças'
+    if (Number(form.equipe) > 0 && form.equipeNomes.some((n) => !n || !n.trim())) return 'Falta o nome de todas as pessoas da equipe'
+    return undefined
+  })()
+
+  const rotuloCampo = 'text-[13px] font-bold uppercase text-gray-900'
+
+  const lotesDestinoOpcoes = lotesDisponiveis.filter((l) => l !== form.loteOrigem)
+
+  const campoLoteDestino = (label: string, placeholder: string) =>
+    lotesDisponiveis.length > 0 ? (
+      <SearchableModal
+        label={label}
+        value={form.loteDestino}
+        onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
+        error={getError('loteDestino')}
+        options={lotesDestinoOpcoes}
+        secondaryText={(lote) => lotesPastoMap[lote] || ''}
+        placeholder={placeholder}
+        id="loteDestino"
+        name="loteDestino"
+      />
+    ) : (
+      <Input label={label} placeholder="Carregando..." value={form.loteDestino} onChange={setInput('loteDestino')} error={getError('loteDestino')} disabled id="loteDestino" />
+    )
+
+  const mensagemErroCampo = (field: string) =>
+    getError(field) ? <p className="text-base font-semibold text-red-700">{getError(field)}</p> : null
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
+    <>
+      <CadernetaLayout
         title="MOVIMENTAÇÃO"
         cadernetaId="movimentacao"
         dateContent={<DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} variant="header" compact inline />}
-      />
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+      >
+        <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
+        {/* Pasto/Lote */}
+        <CadernetaSection titulo="Pasto/Lote" required>
           {lotesDisponiveis.length > 0 ? (
             <SearchableModal
-              label="PASTO/CURRAL/LOTE"
+              label=""
               value={form.loteOrigem}
               onChange={(val) => setForm((p) => ({ ...p, loteOrigem: val }))}
               error={getError('loteOrigem')}
               options={lotesDisponiveis}
               secondaryText={(lote) => lotesPastoMap[lote] || ''}
-              placeholder="Buscar pasto, curral ou lote..."
+              placeholder="Selecione o pasto/lote..."
               id="loteOrigem"
               name="loteOrigem"
             />
           ) : (
-            <Input
-              label="PASTO/CURRAL/LOTE"
-              placeholder="Carregando..."
-              value={form.loteOrigem}
-              onChange={setInput('loteOrigem')}
-              error={getError('loteOrigem')}
-              inputMode="numeric"
-              disabled
-              id="loteOrigem"
-            />
+            <Input label="PASTO/CURRAL/LOTE" placeholder="Carregando..." value={form.loteOrigem} onChange={setInput('loteOrigem')} error={getError('loteOrigem')} disabled id="loteOrigem" />
           )}
           {detalhesLoteOrigem && (
-            <LoteDetalhesCard detalhes={detalhesLoteOrigem} processarCategorias={processarCategorias} />
+            <InfoCard
+              icon={MapPin}
+              title={form.loteOrigem}
+              subtitle={lotesPastoMap[form.loteOrigem] || detalhesLoteOrigem.pastos?.nome || 'Sem pasto associado'}
+              stats={[
+                { label: 'Cabeças', value: String(detalhesLoteOrigem.n_cabecas ?? disponivelTotal) },
+                {
+                  label: 'PV médio',
+                  value: detalhesLoteOrigem.peso_vivo_kg != null
+                    ? `${Number(detalhesLoteOrigem.peso_vivo_kg).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+                    : '-',
+                },
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
+              ]}
+            />
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 2: Motivo da Movimentação */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. MOTIVO DA MOVIMENTAÇÃO</h2>
-          <Radio
-            name="motivoMovimentacao"
-            options={MOTIVOS}
+        {/* 1. Motivo da movimentação */}
+        <CadernetaSection numero={1} titulo="Motivo da movimentação" required>
+          <ChoiceGrid
+            options={MOTIVOS.map((m) => ({ value: m.value, label: m.label, icon: m.icon }))}
             value={form.motivoMovimentacao}
             onChange={(val) => { setForm((p) => ({ ...p, motivoMovimentacao: val })); if (errors.length > 0) setErrors([]) }}
-            error={getError('motivoMovimentacao')}
-            gridCols={2}
+            cols={3}
+            dataField="motivoMovimentacao"
           />
-          {form.motivoMovimentacao ? (
+          {mensagemErroCampo('motivoMovimentacao')}
+
+          {form.motivoMovimentacao === 'Doação' && (
+            <InfoStrip tone="neutral" icon="🎁">Doação: as cabeças saem do lote, sem destino</InfoStrip>
+          )}
+
+          {form.motivoMovimentacao === 'Consumo' && (
+            <InfoStrip tone="neutral" icon="🍖">Destino: Cantina</InfoStrip>
+          )}
+
+          {form.motivoMovimentacao === 'Abate' && (
+            frigorificosDisponiveis.length > 0 ? (
+              <SearchableModal
+                label="SELECIONE O FRIGORÍFICO:"
+                value={form.loteDestino}
+                onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
+                error={getError('loteDestino')}
+                options={frigorificosDisponiveis}
+                placeholder="Buscar frigorífico..."
+                id="loteDestino"
+                name="loteDestino"
+              />
+            ) : (
+              <Input label="SELECIONE O FRIGORÍFICO:" placeholder="Carregando..." value={form.loteDestino} onChange={setInput('loteDestino')} error={getError('loteDestino')} disabled id="loteDestino" />
+            )
+          )}
+
+          {form.motivoMovimentacao === 'Saída' && (
             <>
-              {form.motivoMovimentacao === 'Consumo' ? (
+              <div className="flex flex-col gap-2">
+                <label className={rotuloCampo}>Para onde foi? <span className="text-red-500">*</span></label>
+                <ChoiceGrid
+                  options={tipoSaidaOptions.map((o) => ({ value: o.value, label: o.label }))}
+                  value={form.subtipo}
+                  onChange={(val) => { setForm((p) => ({ ...p, subtipo: val, loteDestino: '' })); if (errors.length > 0) setErrors([]) }}
+                  cols={3}
+                  dataField="subtipo"
+                />
+                {mensagemErroCampo('subtipo')}
+              </div>
+
+              {(form.subtipo === 'Apartação' || form.subtipo === 'Refugo de Cocho') &&
+                campoLoteDestino('SELECIONE O PASTO/CURRAL/LOTE:', 'Buscar pasto, curral ou lote...')}
+
+              {form.subtipo === 'Transferência' && (
                 <>
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-lg font-bold text-gray-900">DESTINO: CANTINA</p>
-                  </div>
-                </>
-              ) : form.motivoMovimentacao === 'Abate' ? (
-                <>
-                  {frigorificosDisponiveis.length > 0 ? (
+                  {fazendasDoGrupo.length > 0 ? (
                     <SearchableModal
-                      label="SELECIONE O FRIGORÍFICO:"
-                      value={form.loteDestino}
-                      onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
-                      error={getError('loteDestino')}
-                      options={frigorificosDisponiveis}
-                      placeholder="Buscar frigorífico..."
-                      id="loteDestino"
-                      name="loteDestino"
+                      label="SELECIONE A FAZENDA DE DESTINO:"
+                      value={form.fazendaDestinoNome}
+                      onChange={(val) => {
+                        const fazenda = fazendasDoGrupo.find((f) => f.nome === val)
+                        setForm((p) => ({ ...p, fazendaDestinoNome: val, fazendaDestinoId: fazenda?.id || '' }))
+                      }}
+                      error={getError('fazendaDestinoId')}
+                      options={fazendasDoGrupo.map((f) => f.nome)}
+                      placeholder="Buscar fazenda..."
+                      id="fazendaDestino"
+                      name="fazendaDestino"
                     />
                   ) : (
-                    <Input
-                      label="SELECIONE O FRIGORÍFICO:"
-                      placeholder="Carregando..."
-                      value={form.loteDestino}
-                      onChange={setInput('loteDestino')}
-                      error={getError('loteDestino')}
-                      disabled
-                      id="loteDestino"
-                    />
+                    <InfoStrip tone="warning" icon="⚠️">
+                      Esta fazenda não pertence a nenhum grupo. A transferência entre fazendas requer que a fazenda atual faça parte de um grupo.
+                    </InfoStrip>
                   )}
+                  <InfoStrip tone="neutral" icon="ℹ️">
+                    <strong>Transferência entre fazendas:</strong> o lote será criado na fazenda de destino com os mesmos dados cadastrais (peso, categoria, dados financeiros), sem plano nutricional. Se todas as cabeças forem transferidas, o lote origem será inativado.
+                  </InfoStrip>
                 </>
-              ) : form.motivoMovimentacao === 'Saída' ? (
+              )}
+
+              {form.subtipo === 'Novo Lote' && (
                 <>
-                  <Radio
-                    name="subtipo"
-                    options={tipoSaidaOptions}
-                    value={form.subtipo}
-                    onChange={(val) => { setForm((p) => ({ ...p, subtipo: val, loteDestino: '' })); if (errors.length > 0) setErrors([]) }}
-                    error={getError('subtipo')}
-                    direction="vertical"
+                  <InfoStrip tone="warning" icon="⚠️">
+                    <strong>Novo Lote:</strong> as cabeças serão movimentadas para um novo lote que será criado após aprovação do controller no Manej'Us. O lote origem será ajustado (parcial ou totalmente). A criação fica pendente até a aprovação.
+                  </InfoStrip>
+                  <Input
+                    label="NOME DO NOVO LOTE"
+                    placeholder=""
+                    value={form.nomeNovoLote}
+                    onChange={setInput('nomeNovoLote')}
+                    error={getError('nomeNovoLote')}
+                    id="nomeNovoLote"
                   />
-                  {form.subtipo === 'Apartação' || form.subtipo === 'Refugo de Cocho' ? (
-                    <>
-                      {lotesDisponiveis.length > 0 ? (
-                        <SearchableModal
-                          label="SELECIONE O PASTO/CURRAL/LOTE:"
-                          value={form.loteDestino}
-                          onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
-                          error={getError('loteDestino')}
-                          options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
-                          secondaryText={(lote) => lotesPastoMap[lote] || ''}
-                          placeholder="Buscar pasto, curral ou lote..."
-                          id="loteDestino"
-                          name="loteDestino"
-                        />
-                      ) : (
-                        <Input
-                          label="SELECIONE O LOTE:"
-                          placeholder="Carregando..."
-                          value={form.loteDestino}
-                          onChange={setInput('loteDestino')}
-                          error={getError('loteDestino')}
-                          disabled
-                          id="loteDestino"
-                        />
-                      )}
-                    </>
-                  ) : form.subtipo === 'Transferência' ? (
-                    <>
-                      {fazendasDoGrupo.length > 0 ? (
-                        <SearchableModal
-                          label="SELECIONE A FAZENDA DE DESTINO:"
-                          value={form.fazendaDestinoNome}
-                          onChange={(val) => {
-                            const fazenda = fazendasDoGrupo.find(f => f.nome === val)
-                            setForm((p) => ({ ...p, fazendaDestinoNome: val, fazendaDestinoId: fazenda?.id || '' }))
-                          }}
-                          error={getError('fazendaDestinoId')}
-                          options={fazendasDoGrupo.map(f => f.nome)}
-                          placeholder="Buscar fazenda..."
-                          id="fazendaDestino"
-                          name="fazendaDestino"
-                        />
-                      ) : (
-                        <p className="text-sm text-gray-500 italic">
-                          Esta fazenda não pertence a nenhum grupo. A transferência entre fazendas requer que a fazenda atual faça parte de um grupo.
-                        </p>
-                      )}
-                      <div className="p-4 bg-blue-50 rounded-xl">
-                        <p className="text-sm text-blue-900">
-                          <strong>Transferência entre fazendas:</strong> o lote será criado na fazenda de destino com os mesmos dados cadastrais (peso, categoria, dados financeiros), sem plano nutricional. Se todas as cabeças forem transferidas, o lote origem será inativado.
-                        </p>
-                      </div>
-                    </>
-                  ) : form.subtipo === 'Novo Lote' ? (
-                    <>
-                      <div className="p-4 bg-amber-50 rounded-xl">
-                        <p className="text-sm text-amber-900">
-                          <strong>Novo Lote:</strong> as cabeças serão movimentadas para um novo lote que será criado após aprovação do controller no Manej'Us. O lote origem será ajustado (parcial ou totalmente). A criação fica pendente até a aprovação.
-                        </p>
-                      </div>
-                      <Input
-                        label="NOME DO NOVO LOTE"
-                        placeholder=""
-                        value={form.nomeNovoLote}
-                        onChange={setInput('nomeNovoLote')}
-                        error={getError('nomeNovoLote')}
-                        id="nomeNovoLote"
+                  <div className="flex flex-col gap-2">
+                    <label className={rotuloCampo}>Sistema de produção <span className="text-red-500">*</span></label>
+                    <ChoiceGrid
+                      options={SISTEMA_PRODUCAO_OPTS}
+                      value={form.sistemaProducaoNovoLote}
+                      onChange={(val) => {
+                        setForm((p) => ({ ...p, sistemaProducaoNovoLote: val, pastoIdNovoLote: '', pastoNomeNovoLote: '', curralIdNovoLote: '', curralNomeNovoLote: '' }))
+                        if (errors.length > 0) setErrors([])
+                      }}
+                      cols={3}
+                      labelSize="xs"
+                      dataField="sistemaProducaoNovoLote"
+                    />
+                    {mensagemErroCampo('sistemaProducaoNovoLote')}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={rotuloCampo}>Destino <span className="text-red-500">*</span></label>
+                    <ChoiceGrid
+                      options={DESTINO_OPTS}
+                      value={form.destinoNovoLote}
+                      onChange={(val) => { setForm((p) => ({ ...p, destinoNovoLote: val })); if (errors.length > 0) setErrors([]) }}
+                      cols={3}
+                      labelSize="xs"
+                      dataField="destinoNovoLote"
+                    />
+                    {mensagemErroCampo('destinoNovoLote')}
+                  </div>
+                  {usaCurralSistema(form.sistemaProducaoNovoLote) ? (
+                    curraisDisponiveis.length > 0 ? (
+                      <SearchableModal
+                        label="CURRAL"
+                        value={form.curralNomeNovoLote}
+                        onChange={(val) => {
+                          const curral = curraisDisponiveis.find((c) => c.nome === val)
+                          setForm((p) => ({ ...p, curralIdNovoLote: curral?.id || '', curralNomeNovoLote: val }))
+                          if (errors.length > 0) setErrors([])
+                        }}
+                        error={getError('curralIdNovoLote')}
+                        options={curraisDisponiveis.map((c) => c.nome)}
+                        placeholder="Selecione o curral..."
+                        id="curralIdNovoLote"
+                        name="curralIdNovoLote"
                       />
-                      <div>
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
-                          SISTEMA DE PRODUÇÃO
-                        </label>
-                        <select
-                          value={form.sistemaProducaoNovoLote}
-                          onChange={(e) => { setForm((p) => ({ ...p, sistemaProducaoNovoLote: e.target.value, pastoIdNovoLote: '', pastoNomeNovoLote: '', curralIdNovoLote: '', curralNomeNovoLote: '' })); if (errors.length > 0) setErrors([]) }}
-                          className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
-                        >
-                          <option value="">Selecione</option>
-                          {SISTEMA_PRODUCAO_OPTS.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                        {getError('sistemaProducaoNovoLote') && (
-                          <p className="text-sm font-semibold text-red-700 mt-1">{getError('sistemaProducaoNovoLote')}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
-                          DESTINO
-                        </label>
-                        <select
-                          value={form.destinoNovoLote}
-                          onChange={(e) => { setForm((p) => ({ ...p, destinoNovoLote: e.target.value })); if (errors.length > 0) setErrors([]) }}
-                          className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
-                        >
-                          <option value="">Selecione</option>
-                          {DESTINO_OPTS.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                        {getError('destinoNovoLote') && (
-                          <p className="text-sm font-semibold text-red-700 mt-1">{getError('destinoNovoLote')}</p>
-                        )}
-                      </div>
-                      {usaCurralSistema(form.sistemaProducaoNovoLote) ? (
-                        <div>
-                          <label className="block text-sm font-bold text-gray-900 mb-2">
-                            CURRAL
-                          </label>
-                          {curraisDisponiveis.length > 0 ? (
-                            <select
-                              value={form.curralIdNovoLote}
-                              onChange={(e) => {
-                                const curral = curraisDisponiveis.find(c => c.id === e.target.value)
-                                setForm((p) => ({ ...p, curralIdNovoLote: e.target.value, curralNomeNovoLote: curral?.nome || '' }))
-                                if (errors.length > 0) setErrors([])
-                              }}
-                              className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
-                            >
-                              <option value="">Selecione</option>
-                              {curraisDisponiveis.map(c => (
-                                <option key={c.id} value={c.id}>{c.nome}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <p className="text-sm text-gray-500 italic">Nenhum curral disponível.</p>
-                          )}
-                          {getError('curralIdNovoLote') && (
-                            <p className="text-sm font-semibold text-red-700 mt-1">{getError('curralIdNovoLote')}</p>
-                          )}
-                        </div>
-                      ) : form.sistemaProducaoNovoLote ? (
-                        <div>
-                          <label className="block text-sm font-bold text-gray-900 mb-2">
-                            PASTO
-                          </label>
-                          {pastosDisponiveis.length > 0 ? (
-                            <select
-                              value={form.pastoIdNovoLote}
-                              onChange={(e) => {
-                                const pasto = pastosDisponiveis.find(p => p.id === e.target.value)
-                                setForm((p) => ({ ...p, pastoIdNovoLote: e.target.value, pastoNomeNovoLote: pasto?.nome || '' }))
-                                if (errors.length > 0) setErrors([])
-                              }}
-                              className="w-full px-3 py-3 min-h-[44px] border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-base"
-                            >
-                              <option value="">Selecione</option>
-                              {pastosDisponiveis.map(p => (
-                                <option key={p.id} value={p.id}>{p.nome}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <p className="text-sm text-gray-500 italic">Nenhum pasto disponível.</p>
-                          )}
-                          {getError('pastoIdNovoLote') && (
-                            <p className="text-sm font-semibold text-red-700 mt-1">{getError('pastoIdNovoLote')}</p>
-                          )}
-                        </div>
-                      ) : null}
-                    </>
+                    ) : (
+                      <InfoStrip tone="warning">Nenhum curral disponível.</InfoStrip>
+                    )
+                  ) : form.sistemaProducaoNovoLote ? (
+                    pastosDisponiveis.length > 0 ? (
+                      <SearchableModal
+                        label="PASTO"
+                        value={form.pastoNomeNovoLote}
+                        onChange={(val) => {
+                          const pasto = pastosDisponiveis.find((p) => p.nome === val)
+                          setForm((p) => ({ ...p, pastoIdNovoLote: pasto?.id || '', pastoNomeNovoLote: val }))
+                          if (errors.length > 0) setErrors([])
+                        }}
+                        error={getError('pastoIdNovoLote')}
+                        options={pastosDisponiveis.map((p) => p.nome)}
+                        placeholder="Selecione o pasto..."
+                        id="pastoIdNovoLote"
+                        name="pastoIdNovoLote"
+                      />
+                    ) : (
+                      <InfoStrip tone="warning">Nenhum pasto disponível.</InfoStrip>
+                    )
                   ) : null}
                 </>
-              ) : form.motivoMovimentacao === 'Entrada' ? (
+              )}
+            </>
+          )}
+
+          {form.motivoMovimentacao === 'Entrada' && (
+            <>
+              <InfoStrip tone="neutral" icon="ℹ️">
+                <strong>Entrada de animais:</strong> o lote selecionado no topo será o destino. Informe a data de entrada e as categorias que estão chegando.
+              </InfoStrip>
+              <DatePicker
+                label="DATA DE ENTRADA"
+                value={form.dataEntrada}
+                onChange={(val) => setForm((p) => ({ ...p, dataEntrada: val }))}
+                compact
+              />
+              {getCategoriasPorDestino(detalhesLoteOrigem?.destino).length > 0 ? (
                 <>
-                  <div className="p-4 bg-blue-50 rounded-xl">
-                    <p className="text-sm text-blue-900">
-                      <strong>Entrada de animais:</strong> o lote selecionado no topo será o destino. Informe a data de entrada e as categorias que estão chegando.
-                    </p>
-                  </div>
-                  <DatePicker
-                    label="DATA DE ENTRADA"
-                    value={form.dataEntrada}
-                    onChange={(val) => setForm((p) => ({ ...p, dataEntrada: val }))}
-                    compact
-                  />
-                  {getCategoriasPorDestino(detalhesLoteOrigem?.destino).length > 0 ? (
-                    <>
-                      {getCategoriasPorDestino(detalhesLoteOrigem?.destino).map((categoria) => {
-                        const catExistente = detalhesLoteOrigem?.categorias_raw?.find(
-                          (c: any) => c.categoria.toLowerCase() === categoria.toLowerCase()
-                        )
-                        const catState = form.categoriasEntrada[categoria] || {
-                          selecionada: false, cabecas: '', pesoAtual: '', raca: '', sexo: '', idade: ''
-                        }
-                        const setCatState = (patch: Partial<typeof catState>) => {
-                          setForm((p) => ({
-                            ...p,
-                            categoriasEntrada: {
-                              ...p.categoriasEntrada,
-                              [categoria]: { ...catState, ...patch },
-                            },
-                          }))
-                          if (errors.length > 0) setErrors([])
-                        }
-                        return (
-                          <div key={categoria} className="flex flex-col gap-2 border border-gray-200 rounded-xl p-4">
-                            <label className="flex items-center gap-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={catState.selecionada}
-                                onChange={(e) => setCatState({ selecionada: e.target.checked })}
-                                className="w-5 h-5 accent-green-600"
+                  {mensagemErroCampo('categoriasEntrada')}
+                  {getCategoriasPorDestino(detalhesLoteOrigem?.destino).map((categoria) => {
+                    const catExistente = categoriasRawLote.find((c: any) => c.categoria.toLowerCase() === categoria.toLowerCase())
+                    const catState = form.categoriasEntrada[categoria] || {
+                      selecionada: false, cabecas: '', pesoAtual: '', raca: '', sexo: '', idade: ''
+                    }
+                    const setCatState = (patch: Partial<typeof catState>) => {
+                      setForm((p) => ({
+                        ...p,
+                        categoriasEntrada: { ...p.categoriasEntrada, [categoria]: { ...catState, ...patch } },
+                      }))
+                      if (errors.length > 0) setErrors([])
+                    }
+                    return (
+                      <div
+                        key={categoria}
+                        className={`flex flex-col gap-3 rounded-xl border-2 p-3 transition-colors ${catState.selecionada ? 'border-brand-900 bg-brand-50/40' : 'border-gray-300 bg-white'}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setCatState({ selecionada: !catState.selecionada })}
+                          className="flex !min-h-0 w-full cursor-pointer items-center justify-between gap-3 text-left"
+                        >
+                          <span className="flex flex-col">
+                            <span className="text-[15px] font-extrabold text-gray-900">{categoria.toUpperCase()}</span>
+                            {catExistente && (
+                              <span className="text-xs font-semibold text-gray-500">
+                                já existe: {catExistente.quant_atual || 0} cab, {catExistente.peso_vivo_atual_kg_cab || 0} kg
+                              </span>
+                            )}
+                          </span>
+                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-sm font-black ${catState.selecionada ? 'border-brand-900 bg-brand-900 text-white' : 'border-gray-300 bg-white text-transparent'}`}>
+                            ✓
+                          </span>
+                        </button>
+                        {catState.selecionada && (
+                          <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-2">
+                              <label className={rotuloCampo}>Quantidade de cabeças</label>
+                              <StepperInput
+                                value={catState.cabecas}
+                                onChange={(val) => setCatState({ cabecas: val })}
+                                min={0}
+                                allowDecimals={false}
+                                suffix="cabeças"
+                                error={getError(`entrada_cabecas_${categoria}`)}
                               />
-                              <span className="text-base font-bold text-gray-900">{categoria.toUpperCase()}</span>
-                              {catExistente && (
-                                <span className="text-sm text-gray-500">
-                                  (já existe: {catExistente.quant_atual || 0} cab, {catExistente.peso_vivo_atual_kg_cab || 0} kg)
-                                </span>
-                              )}
-                            </label>
-                            {catState.selecionada && (
-                              <div className="flex flex-col gap-3 pl-8">
+                            </div>
+                            <NumericInput
+                              label="PESO MÉDIO ATUAL (kg)"
+                              placeholder="Ex: 440"
+                              value={catState.pesoAtual}
+                              onChange={(v) => setCatState({ pesoAtual: v })}
+                              error={getError(`entrada_peso_${categoria}`)}
+                              decimalPlaces={1}
+                            />
+                            {!catExistente && (
+                              <>
+                                {racasDisponiveis.length > 0 ? (
+                                  <SearchableModal
+                                    label="RAÇA"
+                                    value={catState.raca}
+                                    onChange={(val) => setCatState({ raca: val })}
+                                    error={getError(`entrada_raca_${categoria}`)}
+                                    options={racasDisponiveis.map((r) => r.nome)}
+                                    placeholder="Selecione a raça..."
+                                    id={`entrada_raca_${categoria}`}
+                                    name={`entrada_raca_${categoria}`}
+                                  />
+                                ) : (
+                                  <InfoStrip tone="warning">Nenhuma raça cadastrada.</InfoStrip>
+                                )}
+                                <div className="flex flex-col gap-2" data-field={`entrada_sexo_${categoria}`}>
+                                  <label className={rotuloCampo}>Sexo</label>
+                                  <ChoiceGrid
+                                    options={[{ value: 'macho', label: 'Macho' }, { value: 'fêmea', label: 'Fêmea' }]}
+                                    value={catState.sexo}
+                                    onChange={(val) => setCatState({ sexo: val })}
+                                    cols={2}
+                                    size="sm"
+                                  />
+                                  {mensagemErroCampo(`entrada_sexo_${categoria}`)}
+                                </div>
                                 <NumericInput
-                                  label="QUANTIDADE DE CABEÇAS"
-                                  placeholder="Ex: 30"
-                                  value={catState.cabecas}
-                                  onChange={(v) => setCatState({ cabecas: v })}
-                                  error={getError(`entrada_cabecas_${categoria}`)}
+                                  label="IDADE (meses)"
+                                  placeholder="Ex: 24"
+                                  value={catState.idade}
+                                  onChange={(v) => setCatState({ idade: v })}
+                                  error={getError(`entrada_idade_${categoria}`)}
                                   decimalPlaces={0}
                                 />
-                                <NumericInput
-                                  label="PESO MÉDIO ATUAL (kg)"
-                                  placeholder="Ex: 440"
-                                  value={catState.pesoAtual}
-                                  onChange={(v) => setCatState({ pesoAtual: v })}
-                                  error={getError(`entrada_peso_${categoria}`)}
-                                  decimalPlaces={1}
-                                />
-                                {!catExistente && (
-                                  <>
-                                    <div>
-                                      <label className="block text-lg font-bold text-gray-900 mb-2">RAÇA</label>
-                                      <select
-                                        value={catState.raca}
-                                        onChange={(e) => setCatState({ raca: e.target.value })}
-                                        className={`w-full px-3 py-3 min-h-[44px] border rounded-xl focus:outline-none focus:border-accent text-base ${getError(`entrada_raca_${categoria}`) ? 'border-red-500' : 'border-gray-200'}`}
-                                      >
-                                        <option value="">Selecione</option>
-                                        {racasDisponiveis.map((r) => (
-                                          <option key={r.id} value={r.nome}>{r.nome}</option>
-                                        ))}
-                                      </select>
-                                      {getError(`entrada_raca_${categoria}`) && (
-                                        <p className="mt-1 text-sm font-semibold text-red-600">{getError(`entrada_raca_${categoria}`)}</p>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <label className="block text-lg font-bold text-gray-900 mb-2">SEXO</label>
-                                      <select
-                                        value={catState.sexo}
-                                        onChange={(e) => setCatState({ sexo: e.target.value })}
-                                        className={`w-full px-3 py-3 min-h-[44px] border rounded-xl focus:outline-none focus:border-accent text-base ${getError(`entrada_sexo_${categoria}`) ? 'border-red-500' : 'border-gray-200'}`}
-                                      >
-                                        <option value="">Selecione</option>
-                                        <option value="macho">Macho</option>
-                                        <option value="fêmea">Fêmea</option>
-                                      </select>
-                                      {getError(`entrada_sexo_${categoria}`) && (
-                                        <p className="mt-1 text-sm font-semibold text-red-600">{getError(`entrada_sexo_${categoria}`)}</p>
-                                      )}
-                                    </div>
-                                    <NumericInput
-                                      label="IDADE (meses)"
-                                      placeholder="Ex: 24"
-                                      value={catState.idade}
-                                      onChange={(v) => setCatState({ idade: v })}
-                                      error={getError(`entrada_idade_${categoria}`)}
-                                      decimalPlaces={0}
-                                    />
-                                  </>
-                                )}
-                              </div>
+                              </>
                             )}
                           </div>
-                        )
-                      })}
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500 italic">
-                      {form.loteOrigem
-                        ? 'Este lote não tem destino definido (corte, reprodução ou enfermaria). Defina o destino do lote no painel web para habilitar a entrada.'
-                        : 'Selecione um lote para ver as categorias disponíveis.'}
-                    </p>
-                  )}
+                        )}
+                      </div>
+                    )
+                  })}
                 </>
-              ) : form.motivoMovimentacao === 'Entrevero' ? (
-                <>
-                  {lotesDisponiveis.length > 0 ? (
-                    <SearchableModal
-                      label="SELECIONE UM DESTINO:"
-                      value={form.loteDestino}
-                      onChange={(val) => setForm((p) => ({ ...p, loteDestino: val }))}
-                      error={getError('loteDestino')}
-                      options={lotesDisponiveis.filter(l => l !== form.loteOrigem)}
-                      secondaryText={(lote) => lotesPastoMap[lote] || ''}
-                      placeholder="Buscar destino..."
-                    />
-                  ) : (
-                    <Input
-                      label="SELECIONE UM DESTINO:"
-                      placeholder="Carregando..."
-                      value={form.loteDestino}
-                      onChange={setInput('loteDestino')}
-                      error={getError('loteDestino')}
-                      disabled
-                    />
-                  )}
-                </>
-              ) : form.motivoMovimentacao === 'Doação' ? (
-                <>
-                </>
-              ) : null}
+              ) : (
+                <InfoStrip tone="warning" icon="⚠️">
+                  {form.loteOrigem
+                    ? 'Este lote não tem destino definido (corte, reprodução ou enfermaria). Defina o destino do lote no painel web para habilitar a entrada.'
+                    : 'Selecione um lote para ver as categorias disponíveis.'}
+                </InfoStrip>
+              )}
             </>
-          ) : (
-            <div>
-              <p className="text-lg font-bold text-gray-900 mb-2">SELECIONE UM DESTINO:</p>
-              <p className="text-sm text-gray-500 italic">Escolha uma das opções acima primeiro...</p>
-            </div>
           )}
-        </div>
 
-        {/* Seção 3: Quantificação (oculta para Entrada, que tem formulário próprio) */}
+          {form.motivoMovimentacao === 'Entrevero' && campoLoteDestino('SELECIONE UM DESTINO:', 'Buscar destino...')}
+        </CadernetaSection>
+
+        {/* 2. Quantificação (Entrada tem formulário próprio) */}
         {form.motivoMovimentacao !== 'Entrada' && (
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. QUANTIFICAÇÃO</h2>
-          {detalhesLoteOrigem?.categorias_raw && detalhesLoteOrigem.categorias_raw.length > 0 ? (
-            <>
-              {getError('cabecasPorCategoria') && (
-                <p className="text-base font-semibold text-red-700">⚠️ {getError('cabecasPorCategoria')}</p>
-              )}
-              {detalhesLoteOrigem.categorias_raw.map((cat: any) => (
-                <div key={cat.categoria} className="flex flex-col gap-1">
-                  <NumericInput
-                    label={`${cat.categoria.toUpperCase()} (Disp.: ${cat.quant_atual || 0})`}
-                    placeholder="Ex: 25"
-                    value={form.cabecasPorCategoria[cat.categoria] || ''}
-                    onChange={(v) => setCabecasCategoria(cat.categoria, v)}
-                    error={getError(`cabecas_${cat.categoria}`)}
-                    decimalPlaces={0}
-                  />
-                </div>
-              ))}
-              {totalCabecas > 0 && (
-                <p className="text-sm text-gray-500">
-                  Total a movimentar: {totalCabecas} cabeças
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-gray-500 italic">
-              {form.loteOrigem ? 'Nenhuma categoria encontrada neste lote.' : 'Selecione um lote para ver as categorias disponíveis.'}
-            </p>
-          )}
-        </div>
+          <CadernetaSection numero={2} titulo="Quantificação">
+            {categoriasRawLote.length > 0 ? (
+              <>
+                {mensagemErroCampo('cabecasPorCategoria')}
+                {categoriasRawLote.map((cat: any) => (
+                  <div key={cat.categoria} className="flex flex-col gap-2" data-field={`cabecas_${cat.categoria}`}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <label className={rotuloCampo}>
+                        {categoriasRawLote.length > 1 ? cat.categoria : 'Quantos saíram?'} <span className="text-red-500">*</span>
+                      </label>
+                      <span className="text-sm font-semibold text-gray-500">disp.: {cat.quant_atual || 0} cab.</span>
+                    </div>
+                    <StepperInput
+                      value={form.cabecasPorCategoria[cat.categoria] || ''}
+                      onChange={(val) => setCabecasCategoria(cat.categoria, val)}
+                      min={0}
+                      max={cat.quant_atual || 0}
+                      allowDecimals={false}
+                      suffix="cabeças"
+                      error={getError(`cabecas_${cat.categoria}`)}
+                    />
+                  </div>
+                ))}
+                {categoriasRawLote.length > 1 && totalCabecas > 0 && (
+                  <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                    <span className="text-sm font-bold text-gray-600">TOTAL A MOVIMENTAR</span>
+                    <span className="text-xl font-extrabold text-gray-900">{totalCabecas} cabeças</span>
+                  </div>
+                )}
+                {totalCabecas > 0 && (
+                  <InfoStrip tone="success" icon="✅">
+                    {form.loteOrigem} fica com {Math.max(0, disponivelTotal - totalCabecas)}
+                    {destinoEhLote
+                      ? ` · ${form.loteDestino} recebe +${totalCabecas}`
+                      : ` · saem ${totalCabecas}`}
+                  </InfoStrip>
+                )}
+              </>
+            ) : (
+              <InfoStrip tone="neutral">
+                {form.loteOrigem ? 'Nenhuma categoria encontrada neste lote.' : 'Selecione um lote para ver as categorias disponíveis.'}
+              </InfoStrip>
+            )}
+          </CadernetaSection>
         )}
 
-        {/* Seção 4: Equipe (opcional) */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">EQUIPE NO MANEJO</h2>
-          <Radio
-            name="equipe"
-            label="N° PESSOAS NO MANEJO (OPCIONAL)"
-            options={ESCALA_EQUIPE}
-            value={form.equipe}
-            onChange={(value) => {
-              setForm((p) => ({ ...p, equipe: value }))
-              const numPessoas = Number(value) || 0
-              setForm((prev) => ({ ...prev, equipeNomes: Array(numPessoas).fill('') }))
-              if (errors.length > 0) setErrors([])
-            }}
-            gridCols={5}
-          />
-          {form.equipe && Number(form.equipe) > 0 && (
+        {/* Equipe e registro */}
+        <CadernetaSection numero={form.motivoMovimentacao === 'Entrada' ? 2 : 3} titulo="Equipe e registro">
+          <div className="flex flex-col gap-2">
+            <label className={rotuloCampo}>Nº pessoas no manejo (opcional)</label>
+            <ChoiceGrid options={ESCALA_EQUIPE} value={form.equipe} onChange={handleEquipe} cols={6} size="sm" dataField="equipe" />
+          </div>
+
+          {Number(form.equipe) > 0 && (
             <div className="flex flex-col gap-3">
-              {getError('equipeNomes') && (
-                <p className="text-sm text-red-600 font-semibold">{getError('equipeNomes')}</p>
-              )}
-              {Array.from({ length: Number(form.equipe) }).map((_, index) => (
+              {mensagemErroCampo('equipeNomes')}
+              {Array.from({ length: Number(form.equipe) }).map((_, index) =>
                 funcionariosDisponiveis.length > 0 ? (
                   <SearchableModal
                     key={index}
-                    label={<span>Nome da {index + 1}ª pessoa</span>}
+                    label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
                     value={form.equipeNomes[index] || ''}
-                    onChange={(val) => {
-                      const newNomes = [...form.equipeNomes]
-                      newNomes[index] = val
-                      setForm((prev) => ({ ...prev, equipeNomes: newNomes }))
-                    }}
+                    onChange={(val) =>
+                      setForm((prev) => {
+                        const nomes = [...prev.equipeNomes]
+                        nomes[index] = val
+                        return { ...prev, equipeNomes: nomes }
+                      })
+                    }
                     options={funcionariosDisponiveis}
                     placeholder="Buscar funcionário..."
                     id={`equipeNome-${index}`}
@@ -1526,57 +1485,83 @@ export default function MovimentacaoPage() {
                     label={`Nome da ${index + 1}ª pessoa`}
                     placeholder="Nome"
                     value={form.equipeNomes[index] || ''}
-                    onChange={(e) => {
-                      const newNomes = [...form.equipeNomes]
-                      newNomes[index] = e.target.value
-                      setForm((prev) => ({ ...prev, equipeNomes: newNomes }))
-                    }}
+                    onChange={(e) =>
+                      setForm((prev) => {
+                        const nomes = [...prev.equipeNomes]
+                        nomes[index] = e.target.value
+                        return { ...prev, equipeNomes: nomes }
+                      })
+                    }
                   />
                 )
-              ))}
+              )}
             </div>
           )}
-          <Input
-            label="OBSERVAÇÃO (OPCIONAL)"
-            placeholder="Descreva detalhes do manejo (opcional)"
-            value={form.observacao}
-            onChange={setInput('observacao')}
-          />
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleSalvar}
-            disabled={salvando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setForm(makeInitial())}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-          {!isValid && (
-            <p className="text-base text-gray-600 text-center">
-              <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-            </p>
-          )}
-        </div>
-      </main>
+          <div className="flex flex-col gap-2">
+            <label className={rotuloCampo}>{ehTransferencia ? 'Recado (opcional)' : 'Foto ou recado (opcional)'}</label>
+            {!ehTransferencia && fotoBase64 && (
+              <div className="flex flex-col gap-3">
+                <img src={base64ToDataUrl(fotoBase64)} alt="Foto da movimentação" className="mx-auto w-full max-w-sm rounded-xl border border-gray-200" />
+                <button
+                  type="button"
+                  onClick={limparFoto}
+                  className="w-full rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+                >
+                  🗑️ REMOVER FOTO
+                </button>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              {!ehTransferencia && !fotoBase64 && (
+                <button
+                  type="button"
+                  onClick={capturarFoto}
+                  disabled={capturandoFoto}
+                  className="flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+                >
+                  <span className="text-lg leading-none">📷</span>
+                  <span className="text-sm font-extrabold uppercase tracking-wide">{capturandoFoto ? 'Capturando...' : 'Tirar foto'}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleFalar}
+                className={`flex min-h-[56px] items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                  ehTransferencia || fotoBase64 ? 'col-span-2' : ''
+                } ${ouvindoVoz ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+              >
+                <span className="text-lg leading-none">🎤</span>
+                <span className="text-sm font-extrabold uppercase tracking-wide">{ouvindoVoz ? 'Ouvindo...' : 'Gravar áudio'}</span>
+              </button>
+            </div>
+            {fotoErro && <InfoStrip tone="danger">{fotoErro}</InfoStrip>}
+            {vozErro && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+            <Input
+              placeholder="Observação (opcional)"
+              value={form.observacao}
+              onChange={setInput('observacao')}
+            />
+            <input
+              ref={fotoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
+          </div>
+        </CadernetaSection>
+
+        <FormFooter
+          onSalvar={handleSalvar}
+          onLimpar={resetarTudo}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+          pendenciaTexto={pendenciaTexto}
+        />
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -1587,6 +1572,6 @@ export default function MovimentacaoPage() {
         registro={registroSalvo}
         caderneta={registroSalvo?.tipo === 'transferencia' ? undefined : registroSalvo?.tipo === 'novo_lote' ? 'novo_lote' : 'movimentacao'}
       />
-    </div>
+    </>
   )
 }

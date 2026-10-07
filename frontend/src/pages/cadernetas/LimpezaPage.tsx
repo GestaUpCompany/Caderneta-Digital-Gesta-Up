@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, ValidationMessage, CheckboxGroup, TextArea, SearchableModal, TimeInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage, SearchableModal, TimeInput } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import FormFooter from '../../components/cadernetas/FormFooter'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -17,17 +20,22 @@ import { RootState } from '../../store/store'
 import { getSetoresCached, getLocaisCached } from '../../services/cadastroCache'
 
 const LIMPEZA_OPTIONS = [
-  { value: 'capina', label: 'Capina' },
-  { value: 'grama', label: 'Grama' },
-  { value: 'herbicida', label: 'Herbicida' },
-  { value: 'aceiros', label: 'Aceiros' },
-  { value: 'poda_arvores', label: 'Poda Árvores' },
-  { value: 'lixo_recolhido', label: 'Lixo Recolhido' },
-  { value: 'rocada', label: 'Roçada' },
-  { value: 'lavagem', label: 'Lavagem' },
-  { value: 'organizacao', label: 'Organização' },
-  { value: 'polimento', label: 'Polimento' },
+  { value: 'capina', label: 'Capina', icon: '⛏️' },
+  { value: 'grama', label: 'Grama', icon: '🌱' },
+  { value: 'herbicida', label: 'Herbicida', icon: '💉' },
+  { value: 'aceiros', label: 'Aceiros', icon: '🔥' },
+  { value: 'poda_arvores', label: 'Poda Árvores', icon: '🌳' },
+  { value: 'lixo_recolhido', label: 'Lixo Recolhido', icon: '🗑️' },
+  { value: 'rocada', label: 'Roçada', icon: '🌾' },
+  { value: 'lavagem', label: 'Lavagem', icon: '🚿' },
+  { value: 'organizacao', label: 'Organização', icon: '📦' },
+  { value: 'polimento', label: 'Polimento', icon: '✨' },
 ]
+
+const PESSOAS_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8+'].map((n) => ({
+  value: n,
+  label: n,
+}))
 
 interface FormState {
   data: string
@@ -37,7 +45,6 @@ interface FormState {
   horaInicio: string
   horaFinal: string
   limpezaRealizada: string[]
-  tarefas: { [key: string]: string }
   observacao: string
 }
 
@@ -49,9 +56,21 @@ const makeInitial = (): FormState => ({
   horaInicio: '',
   horaFinal: '',
   limpezaRealizada: [],
-  tarefas: {},
   observacao: '',
 })
+
+const horaAgora = () => {
+  const d = new Date()
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+const tempoDecorrido = (inicio: string, fim: string) => {
+  const [h1, m1] = inicio.split(':').map(Number)
+  const [h2, m2] = fim.split(':').map(Number)
+  const diff = h2 * 60 + m2 - (h1 * 60 + m1)
+  if (diff < 0) return null
+  return `${Math.floor(diff / 60)}h ${String(diff % 60).padStart(2, '0')} min`
+}
 
 export default function LimpezaPage() {
   const navigate = useNavigate()
@@ -64,6 +83,8 @@ export default function LimpezaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
   const [locaisDisponiveis, setLocaisDisponiveis] = useState<string[]>([])
+  const [horarioManual, setHorarioManual] = useState(false)
+  const [, setTick] = useState(0)
 
   // Hook reutilizavel de foto (sem GPS nesta caderneta)
   const {
@@ -95,6 +116,13 @@ export default function LimpezaPage() {
     loadData()
   }, [fazendaId])
 
+  // Atualiza o tempo decorrido enquanto a atividade esta em andamento
+  useEffect(() => {
+    if (!form.horaInicio || form.horaFinal) return
+    const t = setInterval(() => setTick((v) => v + 1), 30000)
+    return () => clearInterval(t)
+  }, [form.horaInicio, form.horaFinal])
+
   // Validation rules
   const validationRules: any = {
     data: { required: true },
@@ -112,17 +140,6 @@ export default function LimpezaPage() {
     }
   }
 
-  // Add dynamic validation for tarefas based on selected limpeza
-  form.limpezaRealizada.forEach((limpeza) => {
-    validationRules[`tarefa_${limpeza}`] = {
-      required: true,
-      custom: (value: string) => {
-        if (!value || value.trim() === '') return 'Especifique a tarefa realizada'
-        return null
-      }
-    }
-  })
-
   const { isValid } = useFormValidation(form, validationRules)
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -131,31 +148,11 @@ export default function LimpezaPage() {
   const setTimeInput = (field: keyof FormState) => (value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }))
 
-  const setTarefa = (optionValue: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((prev) => ({
-      ...prev,
-      tarefas: { ...prev.tarefas, [optionValue]: e.target.value }
-    }))
-
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const handleSalvar = async () => {
     setSalvando(true)
     setErrors([])
-
-    // Validate that each selected limpeza has a tarefa filled
-    const tarefaErrors: { field: string; message: string }[] = []
-    form.limpezaRealizada.forEach((limpeza) => {
-      if (!form.tarefas[limpeza] || form.tarefas[limpeza].trim() === '') {
-        tarefaErrors.push({ field: `tarefa_${limpeza}`, message: `Especifique a tarefa para ${LIMPEZA_OPTIONS.find(o => o.value === limpeza)?.label}` })
-      }
-    })
-
-    if (tarefaErrors.length > 0) {
-      setErrors(tarefaErrors)
-      setSalvando(false)
-      return
-    }
 
     const result = await salvarRegistro('limpeza', {
       data: form.data,
@@ -165,7 +162,7 @@ export default function LimpezaPage() {
       horaInicio: form.horaInicio,
       horaFinal: form.horaFinal,
       limpezaRealizada: form.limpezaRealizada,
-      tarefas: form.tarefas,
+      tarefas: {},
       observacao: form.observacao,
       usuario: usuario,
       fotoBase64: fotoBase64 || null,
@@ -186,6 +183,7 @@ export default function LimpezaPage() {
     setShowSuccessModal(false)
     limparRascunho()
     limparFoto()
+    setHorarioManual(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -198,7 +196,12 @@ export default function LimpezaPage() {
     limparRascunho()
     limparFoto()
     setErrors([])
+    setHorarioManual(false)
   }
+
+  const duracao = form.horaInicio
+    ? tempoDecorrido(form.horaInicio, form.horaFinal || horaAgora())
+    : null
 
   return (
     <CadernetaLayout
@@ -213,28 +216,21 @@ export default function LimpezaPage() {
       />
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-      {/* Seção 1: Dados Principais */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. DADOS DA LIMPEZA</h2>
-
-        </div>
+      <CadernetaSection numero={1} titulo="Dados da limpeza">
         <div>
-          <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">N° EQUIPE <span className="text-red-500">*</span></label>
-          <div className="grid grid-cols-5 gap-2">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-              <label key={num} className={`
-                cursor-pointer rounded-xl border-2
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.numeroEquipe === String(num) ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="numeroEquipe" className="sr-only" value={num} checked={form.numeroEquipe === String(num)} onChange={(e) => setInput('numeroEquipe')(e)} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">{num}</span>
-              </label>
-            ))}
-          </div>
+          <label className="block text-[15px] font-bold text-gray-900 mb-2">
+            QUANTAS PESSOAS? <span className="text-red-500">*</span>
+          </label>
+          <ChoiceGrid
+            options={PESSOAS_OPTIONS}
+            value={form.numeroEquipe}
+            onChange={(v) => setForm((prev) => ({ ...prev, numeroEquipe: v }))}
+            cols={8}
+            size="sm"
+            showCheck={false}
+            className="max-w-[300px]"
+            dataField="numeroEquipe"
+          />
         </div>
         {setoresDisponiveis.length > 0 ? (
           <SearchableModal
@@ -264,64 +260,75 @@ export default function LimpezaPage() {
         ) : (
           <Input label={<span>QUAL LOCAL? <span className="text-red-500">*</span></span>} placeholder="Carregando..." value={form.local} onChange={setInput('local')} error={getError('local')} disabled />
         )}
-        <TimeInput label={<span>HORA DE INÍCIO? <span className="text-red-500">*</span></span>} value={form.horaInicio} onChange={setTimeInput('horaInicio')} error={getError('horaInicio')} />
-        <TimeInput label={<span>HORA FINAL? <span className="text-red-500">*</span></span>} value={form.horaFinal} onChange={setTimeInput('horaFinal')} error={getError('horaFinal')} />
-        {form.horaInicio && form.horaFinal && (
-          <Input
-            label="TEMPO TOTAL"
-            value={(() => {
-              const [startH, startM] = form.horaInicio.split(':').map(Number)
-              const [endH, endM] = form.horaFinal.split(':').map(Number)
-              const startMinutes = startH * 60 + startM
-              const endMinutes = endH * 60 + endM
-              const diffMinutes = endMinutes - startMinutes
-              if (diffMinutes < 0) return 'Horas inválidas'
-              const hours = Math.floor(diffMinutes / 60)
-              const minutes = diffMinutes % 60
-              return `${hours}h${minutes.toString().padStart(2, '0')}`
-            })()}
-            readOnly
-          />
-        )}
-      </div>
-
-      {/* Seção 2: Limpeza Realizada */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">2. ESPECIFICAÇÕES DA LIMPEZA</h2>
-        <CheckboxGroup
-          label={<span>Selecione os tipos de limpeza realizados: <span className="text-red-500">*</span></span>}
-          options={LIMPEZA_OPTIONS}
-          selectedValues={form.limpezaRealizada}
-          onChange={(selected) => setForm((prev) => ({ ...prev, limpezaRealizada: selected }))}
-          error={getError('limpezaRealizada')}
-        />
-        {form.limpezaRealizada.map((limpeza) => {
-          const option = LIMPEZA_OPTIONS.find(o => o.value === limpeza)
-          return (
-            <div key={limpeza} className="mt-2">
-              <TextArea
-                label={<span>Tarefa Realizada - {option?.label} <span className="text-red-500">*</span></span>}
-                placeholder="Especifique a(s) tarefa(s) realizada(s)"
-                value={form.tarefas[limpeza] ?? ''}
-                onChange={setTarefa(limpeza)}
-                error={getError(`tarefa_${limpeza}`)}
-                rows={5}
-              />
+        <div>
+          <label className="block text-[15px] font-bold text-gray-900 mb-2">
+            HORÁRIO <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, horaInicio: horaAgora() }))}
+              className={`rounded-xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.98] ${
+                form.horaInicio
+                  ? 'border-green-600 bg-green-50 text-green-800'
+                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+              }`}
+            >
+              ▶ {form.horaInicio ? `Começou ${form.horaInicio}` : 'COMEÇAR AGORA'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, horaFinal: horaAgora() }))}
+              className={`rounded-xl border-2 px-3 py-3 text-sm font-bold transition-colors active:scale-[0.98] ${
+                form.horaFinal
+                  ? 'border-green-600 bg-green-50 text-green-800'
+                  : 'border-brand-900 bg-brand-900 text-white'
+              }`}
+            >
+              ⏹ {form.horaFinal ? `Terminou ${form.horaFinal}` : 'TERMINEI AGORA'}
+            </button>
+          </div>
+          {duracao && (
+            <InfoStrip icon="🕐" className="mt-2">
+              {form.horaFinal ? 'Tempo total' : 'Tempo até agora'}: {duracao}
+            </InfoStrip>
+          )}
+          <button
+            type="button"
+            onClick={() => setHorarioManual((v) => !v)}
+            className="mt-2 text-sm font-semibold text-gray-500 underline underline-offset-2"
+          >
+            {horarioManual ? 'Ocultar horário manual' : 'Definir horário manualmente'}
+          </button>
+          {horarioManual && (
+            <div className="mt-3 flex flex-col gap-4">
+              <TimeInput label={<span>HORA DE INÍCIO? <span className="text-red-500">*</span></span>} value={form.horaInicio} onChange={setTimeInput('horaInicio')} error={getError('horaInicio')} />
+              <TimeInput label={<span>HORA FINAL? <span className="text-red-500">*</span></span>} value={form.horaFinal} onChange={setTimeInput('horaFinal')} error={getError('horaFinal')} />
             </div>
-          )
-        })}
-      </div>
+          )}
+        </div>
+      </CadernetaSection>
 
-      {/* Seção 3: Observações */}
-      <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">3. OBSERVAÇÕES</h2>
-        <Input placeholder="Observações adicionais" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
-      </div>
+      <CadernetaSection numero={2} titulo="O que foi feito? (marque todos)" required>
+        <ChoiceGrid
+          options={LIMPEZA_OPTIONS}
+          mode="multi"
+          values={form.limpezaRealizada}
+          onChangeMulti={(selected) => setForm((prev) => ({ ...prev, limpezaRealizada: selected }))}
+          cols={3}
+          dataField="limpezaRealizada"
+        />
+        {getError('limpezaRealizada') && (
+          <p className="text-sm font-semibold text-red-700">{getError('limpezaRealizada')}</p>
+        )}
+      </CadernetaSection>
 
-      {/* Seção 4: Foto */}
+      <CadernetaSection numero={3} titulo="Observação">
+        <Input placeholder="Detalhes adicionais (opcional)" value={form.observacao} onChange={setInput('observacao')} error={getError('observacao')} />
+      </CadernetaSection>
+
       <FotoSection
         titulo="4. FOTO"
-        descricao="Tire uma foto do local ou do trabalho realizado para anexar ao registro."
         fotoBase64={fotoBase64}
         capturando={capturandoFoto}
         erro={fotoErro}
@@ -331,39 +338,13 @@ export default function LimpezaPage() {
         onFileChange={handleFileInputChange}
       />
 
-      {/* Ações */}
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={handleSalvar}
-          disabled={salvando || !isValid}
-          className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-            salvando || !isValid
-              ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-              : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-          }`}
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <Save className="h-5 w-5" strokeWidth={2.5} />
-            {salvando ? 'SALVANDO...' : 'SALVAR'}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={handleLimpar}
-          className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <Brush className="h-4 w-4" strokeWidth={2.5} />
-            LIMPAR
-          </span>
-        </button>
-      </div>
-      {!isValid && (
-        <p className="text-base text-gray-600 text-center">
-          <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-        </p>
-      )}
+      <FormFooter
+        onSalvar={handleSalvar}
+        onLimpar={handleLimpar}
+        salvando={salvando}
+        disabled={!isValid}
+        formValido={isValid}
+      />
 
       <SuccessModal
         isOpen={showSuccessModal}

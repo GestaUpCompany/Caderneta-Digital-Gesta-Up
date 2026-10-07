@@ -207,7 +207,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         novilha: Number(registro.novilha) || 0,
         categorias_detalhes: (registro as any).categorias_detalhes || null,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
-        avaliacao_geral: {
+        avaliacao_geral: (registro as any).avaliacaoGeral ?? {
           bebedourosCochos: {
             valor: registro.bebedourosCochos || null,
             observacao: registro.bebedourosCochosObs || null,
@@ -239,7 +239,14 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         },
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
-        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,
+        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,        foto_saida_latitude: (registro as any).fotoSaidaLatitude ?? null,
+        foto_saida_longitude: (registro as any).fotoSaidaLongitude ?? null,
+        foto_saida_gps_accuracy: (registro as any).fotoSaidaGpsAccuracy ?? null,
+        foto_saida_em: (registro as any).fotoSaidaEm || null,
+        foto_entrada_latitude: (registro as any).fotoEntradaLatitude ?? null,
+        foto_entrada_longitude: (registro as any).fotoEntradaLongitude ?? null,
+        foto_entrada_gps_accuracy: (registro as any).fotoEntradaGpsAccuracy ?? null,
+        foto_entrada_em: (registro as any).fotoEntradaEm || null,
       }
     case 'rodeio':
       return {
@@ -262,6 +269,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         equipe: registro.equipe ? Number(registro.equipe) : null,
         equipe_nomes: registro.equipeNomes || null,
         escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
+        categorias_detalhes: (registro as any).categorias_detalhes || null,
+        observacao: (registro as any).observacao || null,
       }
     case 'suplementacao': {
       // Remove espacamento_cocho_ideal from checklist if it exists (migrated field)
@@ -362,6 +371,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo_saida: registro.tipoSaida || null,
         tipo_entrada: registro.tipoEntrada || null,
         fazenda_destino_id: registro.fazendaDestinoId || null,
+        foto_url: (registro as any).foto_url || null,
       }
     }
     case 'enfermaria':
@@ -597,6 +607,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo: registro.tipo || 'retirada',
         quem_entregou: registro.quemEntregou || null,
         quem_pegou: registro.quemPegou || null,
+        // Setor unico por registro; registros antigos so tem o setor dentro dos itens
+        setor: registro.setor || (Array.isArray(registro.itens) ? registro.itens.find((i: any) => i?.setor)?.setor : null) || null,
         itens: registro.itens || [],
         observacao: registro.observacao || null,
       }
@@ -809,6 +821,7 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   enfermaria: 'fotos-registros',
   maternidade: 'fotos-registros',
   rodeio: 'fotos-registros',
+  movimentacao: 'fotos-registros',
   'manutencao-maquinas': 'fotos-registros',
   limpeza: 'fotos-registros',
   problemas: 'fotos-registros',
@@ -849,6 +862,59 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
     console.error(`[SYNC] Exceção ao fazer upload da foto (${store}):`, uploadErr)
     return null
   }
+}
+
+// Foto adicional de um registro (campo base64 proprio): pastagens (saida/entrada) e morte (brinco/cabeca).
+async function uploadFotoNomeada(
+  registro: Registro,
+  fazendaId: string,
+  opts: { campoBase64: string; bucket: string; pasta: string; nome: string }
+): Promise<string | null> {
+  const fotoBase64 = (registro as any)[opts.campoBase64]
+  if (!fotoBase64) return null
+
+  try {
+    const { base64ToBlob, imageMimeFromBase64, imageExtFromBase64 } = await import('../utils/photoCompress')
+    const mime = imageMimeFromBase64(fotoBase64)
+    const blob = base64ToBlob(fotoBase64, mime)
+    const fotoPath = `${fazendaId}/${opts.pasta}${registro.id}/${opts.nome}.${imageExtFromBase64(fotoBase64)}`
+    const client = await getSupabaseClientWithRefresh() as any
+    const { error: uploadError } = await client
+      .storage
+      .from(opts.bucket)
+      .upload(fotoPath, blob, { contentType: mime, upsert: true })
+
+    if (uploadError) {
+      console.error(`[SYNC] Erro ao fazer upload da foto ${opts.nome}:`, uploadError)
+      return null
+    }
+
+    const { data: urlData } = client.storage.from(opts.bucket).getPublicUrl(fotoPath)
+    return urlData.publicUrl
+  } catch (uploadErr) {
+    console.error(`[SYNC] Excecao ao fazer upload da foto ${opts.nome}:`, uploadErr)
+    return null
+  }
+}
+
+// Pastagens: foto do pasto de saida/entrada.
+function uploadFotoPasto(registro: Registro, fazendaId: string, tipo: 'saida' | 'entrada') {
+  return uploadFotoNomeada(registro, fazendaId, {
+    campoBase64: tipo === 'saida' ? 'fotoSaidaBase64' : 'fotoEntradaBase64',
+    bucket: 'fotos-registros',
+    pasta: 'pastagens/',
+    nome: tipo,
+  })
+}
+
+// Morte: fotos extras do brinco e da cabeca (a foto do animal segue em foto_url).
+function uploadFotoMorte(registro: Registro, fazendaId: string, tipo: 'brinco' | 'cabeca') {
+  return uploadFotoNomeada(registro, fazendaId, {
+    campoBase64: tipo === 'brinco' ? 'fotoBrincoBase64' : 'fotoCabecaBase64',
+    bucket: 'fotos-morte',
+    pasta: '',
+    nome: tipo,
+  })
 }
 
 // Upload das fotos por item do checklist (o problema marcado carrega foto
@@ -950,9 +1016,54 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       data = { ...data, foto_url: fotoUrl }
     }
 
-    // Fotos por item do checklist (bebedouros, suplementacao)
-    if ((store === 'bebedouros' || store === 'suplementacao') && data.checklist) {
+    // Maternidade: foto do brinco da mãe (a foto da cria/mãe segue em foto_url)
+    if (store === 'maternidade') {
+      const fotoBrincoMaeUrl = await uploadFotoNomeada(registro, fazendaId, {
+        campoBase64: 'fotoBrincoMaeBase64',
+        bucket: 'fotos-registros',
+        pasta: 'maternidade/',
+        nome: 'brinco-mae',
+      })
+      if (fotoBrincoMaeUrl) data = { ...data, foto_brinco_mae_url: fotoBrincoMaeUrl }
+    }
+
+    // Enfermaria: foto do brinco (a foto do animal segue em foto_url)
+    if (store === 'enfermaria') {
+      const fotoBrincoUrl = await uploadFotoNomeada(registro, fazendaId, {
+        campoBase64: 'fotoBrincoBase64',
+        bucket: 'fotos-registros',
+        pasta: 'enfermaria/',
+        nome: 'brinco',
+      })
+      if (fotoBrincoUrl) data = { ...data, foto_brinco_url: fotoBrincoUrl }
+    }
+
+    // Morte: fotos extras do brinco e da cabeça
+    if (store === 'morte') {
+      const fotoBrincoUrl = await uploadFotoMorte(registro, fazendaId, 'brinco')
+      if (fotoBrincoUrl) data = { ...data, foto_brinco_url: fotoBrincoUrl }
+      const fotoCabecaUrl = await uploadFotoMorte(registro, fazendaId, 'cabeca')
+      if (fotoCabecaUrl) data = { ...data, foto_cabeca_url: fotoCabecaUrl }
+    }
+
+    // Pastagens: foto do pasto de saída e de entrada (obrigatórias, com GPS)
+    if (store === 'pastagens') {
+      const fotoSaidaUrl = await uploadFotoPasto(registro, fazendaId, 'saida')
+      if (fotoSaidaUrl) data = { ...data, foto_saida_url: fotoSaidaUrl }
+      const fotoEntradaUrl = await uploadFotoPasto(registro, fazendaId, 'entrada')
+      if (fotoEntradaUrl) data = { ...data, foto_entrada_url: fotoEntradaUrl }
+      if (data.avaliacao_geral) {
+        data = { ...data, avaliacao_geral: await uploadFotosChecklist(data.avaliacao_geral, registro, fazendaId, store) }
+      }
+    }
+
+    // Fotos por item do checklist (bebedouros, suplementacao, manutencao-maquinas)
+    if ((store === 'bebedouros' || store === 'suplementacao' || store === 'manutencao-maquinas') && data.checklist) {
       data = { ...data, checklist: await uploadFotosChecklist(data.checklist, registro, fazendaId, store) }
+    }
+    // Rodeio: foto por item do diagnostico (animal doente/machucado etc.)
+    if (store === 'rodeio' && data.diagnosticos) {
+      data = { ...data, diagnosticos: await uploadFotosChecklist(data.diagnosticos, registro, fazendaId, store) }
     }
 
     if (operation === 'create') {

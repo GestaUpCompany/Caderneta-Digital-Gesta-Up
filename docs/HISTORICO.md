@@ -1113,6 +1113,61 @@ Rascunho de suplementacao agora escopado por fazenda (`suplementacao:{fazendaId}
 ## Trato Confinamento na linguagem nova + vagão e foto da balança (06/10/2026)
 
 A `TratoConfinamentoPage` migrou para o layout do mockup: card do curral com dieta/cabeças/peso médio, tiles de trato com `horario_sugerido` e estado (feito/atual/futuro — trato já lançado é revisitável em leitura), caixas PREVISTO vs REALIZADO, `InfoStrip` de tolerância (desvio em kg e % contra `TOLERANCIA_DESVIO_PERCENT = 5` do app), seletores de linha e curral na barra inferior com progresso "Nº TRATO · i de N currais · %", tile tracejado de currais vazios e botão progressivo "SALVAR E IR PARA {próximo}". Toda a lógica de cálculo foi preservada (kg_mn_dia dia 1, total do dia anterior × ajuste da leitura, compensação do último trato, rascunho de kg por curral, último trato exige kg > 0).
+## Redesign visual das cadernetas: primitivos + Limpeza + Clima (28/09/2026)
+
+Começo da modernização das cadernetas a partir das referências em `layouts/` (análise aprovada pelo usuário). Sistema novo em `frontend/src/components/cadernetas/`: `CadernetaSection` (card numerado `.app-card`), `ChoiceGrid` (tiles single/multi com tom neutro/veredito e badge de check), `InfoStrip` (faixas de feedback verde/âmbar/cinza), `FormFooter` (SALVAR/LIMPAR/status) e `StepperInput` (− número +). `FotoSection` ganhou slot tracejado; labels dos `ui/` caíram para 15px; `SearchableModal` com texto de 16px; `Input` ganhou `suffix`. Limpeza migrou primeiro (QUANTAS PESSOAS, atalhos de horário, grade com emojis) e Clima depois (stepper de mm, umidade com %, tempo médio em faixa).
+
+**Exceção de processo registrada pelo usuário**: a migration `20260928120000_clima_campos_condicoes.sql` (colunas `choveu`, `esvaziou_pluviometros`, `tempo_atual` em `registros_clima`) foi criada neste repo (PWA) e aplicada via MCP, com a versão já inserida em `supabase_migrations.schema_migrations`. Diferente da regra normal em que o schema é do Painel Web — ficou decidido que as migrations criadas aqui serão **copiadas depois para o repo `GestaUp-Cadernetas-Gestao`**, e o registro em `schema_migrations` evita que o `db push` de lá tente reaplicar.
+
+**Bug pré-existente corrigido**: `useFormValidation` pulava `custom` de campos virtuais `_` (`_responsavel`, `_medicoes_min`), deixando SALVAR habilitado indevidamente; agora regras de campos `_` sempre rodam.
+
+Pendente do redesign: demais cadernetas migram uma a uma; campos que exigem mídia (áudio, foto antes/depois, multi-foto) ficam para uma fase própria de infraestrutura.
+
+## Problemas simplificado para aviso rápido + evidência foto/GPS (28/09/2026)
+
+A `ProblemasPage` seguiu a simplificação da referência `layouts/11 - Problemas.png`, aprovada pelo usuário com a condição de manter descrição e local. O formulário de análise de causa (~10 campos: causa identificada, causa raiz, gravidade, tipo de problema, setor que resolve e observações) virou um aviso de 4 seções: setor em tiles + local (mantido), descrição + foto + faixa de GPS, urgência (prioridade), e situação (ocorrência + já resolveu). A análise passa a ser responsabilidade do gerente no Painel; campos removidos da UI seguem indo `null` e os booleanos (`causa_identificada`, `causa_raiz_identificada`) foram ajustados no `syncService` para enviar `null` quando ausentes, não `false`.
+
+**Segunda migration no repo do PWA** (mesma exceção acima): `20260928140000_problemas_evidencia.sql` adiciona `foto_url`, `latitude`, `longitude`, `gps_accuracy` em `registros_problemas`, aplicada via MCP com versão registrada em `schema_migrations`. `problemas` entrou no `FOTO_BUCKET_BY_STORE` (`fotos-registros`).
+
+Detalhes funcionais: o tile de setor usa emoji por palavra-chave do nome do setor cadastrado (`setorIcon`); a faixa "Local marcado pelo GPS" resolve o nome do pasto offline via `loadMapaFazenda` + `pontoDentroPoligono` (mapaRouting), caindo para coordenadas quando fora de qualquer pasto; `ListaRegistros` já filtra campos vazios, então registros antigos continuam exibindo os campos legados e os novos exibem só os preenchidos. Áudio segue fora de escopo (fase de mídia).
+
+## Abastecimento na linguagem nova com auto-preenchimentos (28/09/2026)
+
+A `AbastecimentoPage` migrou para `CadernetaSection`/`ChoiceGrid`/`InfoStrip`/`StepperInput`/`FormFooter` sem mudança de contrato. Auto-preenchimentos adotados da referência: `quemAbasteceu` vem do login (`config.usuario`, exibido como faixa "Abastecido por"), combustível vem do `tipo_combustivel` da máquina cadastrada, e `operador_padrao` da máquina pré-seleciona o operador. Máquinas viram tiles com emoji por tipo (`maquinaIcon`); operadores viram tiles de avatar com iniciais e cores rotativas (`AVATAR_CORES`); os 16 serviços continuam todos disponíveis como tiles com emoji em 4 colunas.
+
+Novo dado derivado, sem migration: o bloco "RELÓGIO DA BOMBA" mostra ANTES lido do último `totalBomba` salvo no IndexedDB (`getAllRegistros('abastecimento')`) e AGORA digitável; a faixa confere se a diferença bate com o total abastecido (aviso, não bloqueia). A página continua sem `useRascunhoForm` (estado original) e sem foto: `FOTO DA BOMBA`/`FOTO DO PAINEL` da referência exigem duas colunas de imagem e upload duplo, adiados para a fase de mídia.
+
+## Inputs padronizados no estilo do redesign (28/09/2026)
+
+Aprovado pelo usuário: o box do relógio da bomba (`rounded-xl border-2 border-gray-400`, fundo branco, `py-2.5`, texto `text-base font-bold`, foco `border-brand-700`) virou o padrão de todos os campos compartilhados em `components/ui/`: `Input`, `Select`, `TimeInput`, `TextArea`, `SearchableModal` (trigger) e `DatePicker` (variante compacta de formulário). Saiu o mix anterior de `rounded-2xl`, borda simples, `shadow-sm` e `focus:border-black`. Lembrar que `text-base` equivale a 18px neste projeto (escala remapeada no `tailwind.config.js`). `ChoiceGrid` ganhou `labelSize="xs"` para tiles densos (combustível, serviços).
+
+## Enfermaria na linguagem nova + MedicamentosSection redesenhada (28/09/2026)
+
+A `EnfermariaPage` migrou para `CadernetaSection`/`ChoiceGrid`/`FormFooter` sem mudança de contrato (mesmos campos, mesmas colunas). Diagnósticos viraram tiles 3 colunas com emoji e seleção **vermelho sólido** (`tone="danger-solid"` no `ChoiceGrid`, semântica de problema); os rótulos de exibição seguem a referência (`PICADA DE COBRA`, `TREMENDO`, `ANDANDO TORTO`) mas os **valores persistidos continuam os nomes originais** (`Cobra`, `Tremores Musculares`, `Incoordenação Motora`). Tipo vira tiles 🩹 CURATIVO / 🛡️ PREVENTIVO.
+
+`MedicamentosSection` (compartilhada com `MaternidadePage`) foi reescrita na linguagem nova: tipo do medicamento vira tiles com emoji por palavra-chave (`tipoIcon`), botão "adicionar" vira slot tracejado, princípio ativo/dose recomendada viram `InfoStrip`, e os cards de item ficaram compactos. Props e `MedicamentoItem` inalterados. Dose continua `Input` texto livre (unidade varia: ml, doses, comprimidos).
+
+Divergências da referência mantidas por decisão: `FOTO DO BRINCO`/`SEM BRINCO` não substituem o `AnimalIdentifier` (a foto não identifica o animal no banco e tiraria o auto-fill de sexo/raça/idade/lote); `GRAVAR ÁUDIO` adiado para a fase de mídia; "estoque: 8 frascos" não existe em `medicamentos` (sem coluna de estoque).
+
+**Disparador**: quando mencionar redesign de cadernetas, `ChoiceGrid`/`StepperInput`/`InfoStrip`/`FormFooter`/`CadernetaSection`, `MedicamentosSection`, `danger-solid`, migration criada no repo do PWA, ou "copiar migrations para o painel", ler esta seção.
+
+## Suplementação na linguagem nova + histórico de consumo do lote (06/10/2026)
+
+A `SuplementacaoPage` migrou para `CadernetaSection`/`InfoCard`/`InfoStrip`/`FormFooter`/`ChecklistSection` sem mudança de contrato: mesmas colunas, mesmos `local_id` (incl. `creep_*` no fan-out), mesma regra "pelo menos adulto ou creep com kg". `kgDeposito` finalmente entrou no `form` — e a página ganhou `useRascunhoForm`, que não tinha.
+
+Checklist segue o padrão de bebedouros: `limpeza_cocho` fica SIM/NÃO (ação), as afirmações de condição (`espacamento_cocho_adequado`, `cochos_condicoes`, `aterro_acesso_ideal`, `deposito_condicoes` — o último só em pasto com depósito) viram itens negativos clicáveis com foto/voz/obs por item; chaves positivas do jsonb preservadas. `FOTO DO COCHO` vai no checklist como `foto_cocho` (a tabela não tem coluna de foto) e sobe pelo `uploadFotosChecklist`, estendido para `suplementacao`/`fotos-suplementacao`.
+
+Consumo do lote: reutiliza `calcularIntervalosTratos` + novo `calcularMediaPorDiasCobertos` (exportados de `supplementMetrics`); `calcularSerieConsumoDiaria` na página constrói kg/cab por dia para o lote adulto, cobrindo também o **intervalo aberto do último trato** (rateia o kg pelos dias decorridos — sem isso o trato mais recente nunca aparecia na série). Card "Consumo do lote" mostra média 7 dias em kg/cab e %PV + barras diárias ancoradas na data do registro; `HistoricoSuplementacaoModal` lista os tratos dos últimos 30 dias (ambos os escopos, com etiqueta CREEP) a partir de `getRegistrosSuplementacaoByLoteCached`, funcionando offline.
+
+Correções no caminho: `rascunhoKey` agora é escopada por fazenda (`suplementacao:{fazendaId}`) — rascunho de outra fazenda não contamina o formulário; `loteNaoEncontrado` exibe faixa vermelha + erro de validação quando o lote não resolve na fazenda atual (antes o SALVAR ficava bloqueado em silêncio). **As demais cadernetas ainda usam `useRascunhoForm` sem escopo de fazenda** — vale a mesma correção ou escopo centralizado no hook.
+
+`InfoCard`/`InfoCardStat` ganharam `span` (stat ocupa N colunas do grid, sem truncate) para exibir CATEGORIAS em faixa inteira com nomes longos; `capitalizarCategoria` exposta em `utils/categorias.ts`. Share de suplementação reescrito no vocabulário negativo + álbum de fotos (texto com marcadores "foto N" + `fotos[]`/`fotosUrls` anexadas numa mensagem só); `ListaRegistros` chama o formatter com o registro inteiro para ter acesso às fotos. Banner de rascunho compactado para faixa única.
+
+**Colunas mortas**: `consumo_medio_*`/`custo_medio_*` de `registros_suplementacao` não são mais escritas por nenhum caminho (primário, fan-out creep, update) — decisão do usuário; as colunas seguem no banco sem uso e o payload local também não as carrega.
+
+## Trato Confinamento na linguagem nova + vagão e foto da balança (06/10/2026)
+
+A `TratoConfinamentoPage` migrou para o layout do mockup: card do curral com dieta/cabeças/peso médio, tiles de trato com `horario_sugerido` e estado (feito/atual/futuro — trato já lançado é revisitável em leitura), caixas PREVISTO vs REALIZADO, `InfoStrip` de tolerância (desvio em kg e % contra `TOLERANCIA_DESVIO_PERCENT = 5` do app), seletores de linha e curral na barra inferior com progresso "Nº TRATO · i de N currais · %", tile tracejado de currais vazios e botão progressivo "SALVAR E IR PARA {próximo}". Toda a lógica de cálculo foi preservada (kg_mn_dia dia 1, total do dia anterior × ajuste da leitura, compensação do último trato, rascunho de kg por curral).
 
 Vagão por trato (novo): `getRegistrosFabricaByData`/`Cached` trazem as produções do dia de `registros_fabrica_confinamento` (com `vagoes(nome)`/`formulacoes(nome)`) e mesclam produções locais do IndexedDB ainda não sincronizadas. As produções são agregadas por vagão: com 2+ no mesmo trato aparece seletor de tiles (obrigatório quando há opção, com auto-seleção pela formulação do curral ou primeiro com saldo); o card mostra CARREGADO / AINDA NO VAGÃO e "dá para os próximos N currais". O consumo é deduplicado por `local_id` (linha do servidor coberta por registro local não conta em dobro — o local conhece `vagaoId` mesmo antes da migration); consumo sem vagão identificado só é atribuído quando há um único vagão no trato.
 
@@ -1121,3 +1176,6 @@ Foto da balança: botão BALANÇA usa `usePhotoGps` (câmera nativa no celular, 
 Payload/sync: `vagaoId`, `vagaoNome` e `fabricaConfinamentoId` (só quando a produção já tem id do Supabase — id local do IndexedDB quebraria a FK) seguem no registro local e são mapeados para `vagao_id`/`fabrica_confinamento_id`. **Sequenciamento deploy → migration**: como as colunas novas só existem após `supabase/migrations/20261006120000_oferta_trato_vagao_e_foto.sql` (repo do Painel), `createRegistroOfertaTrato`/`updateRegistroOfertaTrato` retentam sem as 3 colunas quando o PostgREST responde PGRST204 — o sync não derruba no intervalo e passa a gravar vagão/foto assim que a coluna existir. Registros lançados antes da migration guardam `vagaoId` localmente e o saldo já os conta.
 
 Migration aplicada no Painel: `20261006120000_oferta_trato_vagao_e_foto.sql` adiciona `fabrica_confinamento_id`, `vagao_id` e `foto_url` a `registros_oferta_trato` + índices parciais.
+Payload/sync: `vagaoId`, `vagaoNome` e `fabricaConfinamentoId` (só quando a produção já tem id do Supabase — id local do IndexedDB quebraria a FK) seguem no registro local e são mapeados para `vagao_id`/`fabrica_confinamento_id`. **Sequenciamento deploy → migration**: como as colunas novas só existem após `supabase/migrations/20261006120000_oferta_trato_vagao_e_foto.sql` (repo do Painel, propositalmente não aplicada até depois do deploy do PWA), `createRegistroOfertaTrato`/`updateRegistroOfertaTrato` retentam sem as 3 colunas quando o PostgREST responde PGRST204 — o sync não derruba no intervalo e passa a gravar vagão/foto assim que a coluna existir. Registros lançados antes da migration guardam `vagaoId` localmente e o saldo já os conta.
+
+Migration pendente (Painel): adiciona `fabrica_confinamento_id`, `vagao_id` e `foto_url` a `registros_oferta_trato` + índices parciais; aplicar com `supabase db push` depois do deploy do PWA.

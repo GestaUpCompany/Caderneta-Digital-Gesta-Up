@@ -1,15 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
-import { Brush, Save } from 'lucide-react'
+import { Input, DatePicker, ValidationMessage } from '../../components/ui'
+import { FileText, MapPin } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
+import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
+import InfoCard, { InfoCardStatus } from '../../components/cadernetas/InfoCard'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import StepperInput from '../../components/cadernetas/StepperInput'
+import EscalaRotulada from '../../components/cadernetas/EscalaRotulada'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import CadernetaHeader from '../../components/CadernetaHeader'
 import {
   getCachedCadastroData,
   getLoteByNomeCached,
@@ -18,85 +26,68 @@ import {
 } from '../../services/cadastroCache'
 import { getLastRodeioDate } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import LoteDetalhesCard from '../../components/LoteDetalhesCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
+import { base64ToDataUrl } from '../../utils/photoCompress'
+import { CAMPOS_CATEGORIA_FIXA, normalizeCategoriaToField } from '../../utils/categoriasRebanho'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
 import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
-import { useExecucaoRotina } from '../../hooks/useExecucaoRotina'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
-import FotoSection from '../../components/cadernetas/FotoSection'
+import { useVoiceInput } from '../../hooks/useVoiceInput'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 
 const BASE = import.meta.env.BASE_URL
 
+// Checklist de problemas: tocar no item = a afirmação negativa se aplica; não tocar = conforme.
+// O payload mantém o formato histórico: itens "invertidos" guardam S = problema; os demais guardam N = problema.
 const DIAGNOSTICOS = [
-  { campo: 'bebedourosCochos', label: 'BEBEDOUROS / COCHOS OK?' },
-  { campo: 'pastagensTaxaLotacao', label: 'PASTAGENS / TAXA DE LOTAÇÃO ADEQUADA?' },
-  { campo: 'animaisMachucadosDoentesBichados', label: 'ANIMAIS MACHUCADOS / DOENTES / BICHADOS?' },
-  { campo: 'cercasCochosPorteiras', label: 'CERCAS / COCHOS / PORTEIRAS OK?' },
-  { campo: 'carrapatosMoscas', label: 'CARRAPATOS / MOSCAS?' },
-  { campo: 'animaisEntreverados', label: 'ANIMAIS ENTREVERADOS?' },
-  { campo: 'animalMorto', label: 'ANIMAL MORTO?' },
+  { campo: 'bebedourosCochos', label: 'BEBEDOUROS / COCHOS COM PROBLEMA', invertido: false, aviso: 'Bebedouros/cochos com problema: mostre e conte' },
+  { campo: 'pastagensTaxaLotacao', label: 'PASTAGEM / LOTAÇÃO INADEQUADA', invertido: false, aviso: 'Pastagem/lotação inadequada: mostre e conte' },
+  { campo: 'cercasCochosPorteiras', label: 'CERCAS / PORTEIRAS COM PROBLEMA', invertido: false, aviso: 'Cercas/porteiras com problema: mostre e conte' },
+  { campo: 'animaisMachucadosDoentesBichados', label: 'ANIMAL MACHUCADO / DOENTE / BICHADO', invertido: true, aviso: 'Animal com problema: foto do animal e do brinco' },
+  { campo: 'carrapatosMoscas', label: 'CARRAPATO / MOSCA', invertido: true, aviso: 'Carrapato/mosca: mostre e conte' },
+  { campo: 'animaisEntreverados', label: 'ANIMAL ENTREVERADO', invertido: true, aviso: 'Animal entreverado: mostre e conte' },
+  { campo: 'animalMorto', label: 'ANIMAL MORTO', invertido: true, aviso: 'Animal morto: foto do animal e do brinco' },
+] as const
+
+const CONTADO_OPTIONS = [
+  { value: 'Sim', label: 'SIM' },
+  { value: 'Não', label: 'NÃO' },
 ]
 
-// Fields where "Sim" means a problem exists (observation should show on "Sim")
-const INVERTED_DIAGNOSTICOS = [
-  'animaisMachucadosDoentesBichados',
-  'carrapatosMoscas',
-  'animaisEntreverados',
-  'animalMorto',
+const ESCORES_CORPORAIS = [
+  { value: '1', label: 'Muito magro', dot: 'bg-red-500' },
+  { value: '2', label: 'Magro', dot: 'bg-yellow-400' },
+  { value: '3', label: 'Bom', dot: 'bg-green-500' },
+  { value: '4', label: 'Gordo', dot: 'bg-yellow-400' },
+  { value: '5', label: 'Muito gordo', dot: 'bg-red-500' },
 ]
 
-const ESCALA_5 = [
-  { value: '1', label: '1', icon: '🔴' },
-  { value: '2', label: '2', icon: '🟡' },
-  { value: '3', label: '3', icon: '🟢' },
-  { value: '4', label: '4', icon: '🟡' },
-  { value: '5', label: '5', icon: '🔴' },
+const ESCORES_FEZES = [
+  { value: '1', label: 'Líquida', dot: 'bg-red-500' },
+  { value: '2', label: 'Mole', dot: 'bg-yellow-400' },
+  { value: '3', label: 'Ideal', dot: 'bg-green-500' },
+  { value: '4', label: 'Firme', dot: 'bg-yellow-400' },
+  { value: '5', label: 'Seca', dot: 'bg-red-500' },
 ]
 
-const ESCALA_EQUIPE = [
+const EQUIPE_OPTIONS = [
   { value: '1', label: '1' },
   { value: '2', label: '2' },
   { value: '3', label: '3' },
   { value: '4', label: '4' },
   { value: '5', label: '5' },
+  { value: '6', label: '6+' },
 ]
 
-const ESCORES = [
-  { value: '1', label: '1', color: 'bg-red-500' },
-  { value: '1.5', label: '1.5', color: 'bg-red-500' },
-  { value: '2', label: '2', color: 'bg-yellow-400' },
-  { value: '2.5', label: '2.5', color: 'bg-yellow-400' },
-  { value: '3', label: '3', color: 'bg-green-500' },
-  { value: '3.5', label: '3.5', color: 'bg-green-500' },
-  { value: '4', label: '4', color: 'bg-yellow-400' },
-  { value: '4.5', label: '4.5', color: 'bg-yellow-400' },
-  { value: '5', label: '5', color: 'bg-red-500' },
-]
+// Chave usada em categoriasQuantidades quando o lote não tem categorias cadastradas.
+const CHAVE_TOTAL = '__total__'
 
-const CATEGORIAS_ANIMAIS: { campo: string; label: string }[] = [
-  { campo: 'vaca', label: 'VACAS' },
-  { campo: 'touro', label: 'TOUROS' },
-  { campo: 'boiGordo', label: 'BOIS GORDOS' },
-  { campo: 'boiMagro', label: 'BOIS MAGROS' },
-  { campo: 'garrote', label: 'GARROTES' },
-  { campo: 'bezerro', label: 'BEZERROS(AS)' },
-  { campo: 'novilha', label: 'NOVILHAS' },
-  { campo: 'tropa', label: 'TROPAS' },
-  { campo: 'outros', label: 'OUTROS' },
-]
-
-// Função para processar categorias com diferentes delimitadores
-function processarCategorias(categorias: string): string[] {
-  if (!categorias) return []
-  // Separar por: vírgula+espaço, vírgula, ponto+espaço, ponto, ponto e vírgula+espaço, ponto e vírgula
-  const regex = /[,.;]+\s*/
-  return categorias
-    .split(regex)
-    .map(c => c.trim())
-    .filter(c => c.length > 0)
+interface DiagnosticoItem {
+  valor: string | null
+  observacao: string
+  fotoBase64?: string
 }
 
 interface FormState {
@@ -106,25 +97,13 @@ interface FormState {
   numeroLote: string
   loteId: string
   gadoContado: string
-  vaca: string
-  touro: string
-  boiGordo: string
-  boiMagro: string
-  garrote: string
-  bezerro: string
-  novilha: string
-  tropa: string
-  outros: string
+  categoriasQuantidades: Record<string, string>
   escoreFezes: string
   equipe: string
   equipeNomes: string[]
   escoreGado: string
-  diagnosticos: {
-    [key: string]: {
-      valor: string | null
-      observacao: string
-    }
-  }
+  observacao: string
+  diagnosticos: Record<string, DiagnosticoItem>
 }
 
 const makeInitial = (): FormState => ({
@@ -134,27 +113,33 @@ const makeInitial = (): FormState => ({
   numeroLote: '',
   loteId: '',
   gadoContado: '',
-  vaca: '', touro: '', boiGordo: '', boiMagro: '', garrote: '', bezerro: '', novilha: '', tropa: '', outros: '',
+  categoriasQuantidades: {},
   escoreFezes: '',
   equipe: '',
   equipeNomes: [],
   escoreGado: '',
+  observacao: '',
   diagnosticos: DIAGNOSTICOS.reduce((acc, { campo }) => {
     acc[campo] = { valor: '', observacao: '' }
     return acc
-  }, {} as FormState['diagnosticos']),
+  }, {} as Record<string, DiagnosticoItem>),
 })
 
-const SN_OPTIONS = [
-  { value: 'S', label: 'SIM', icon: '✅' },
-  { value: 'N', label: 'NÃO', icon: '❌' },
-]
+interface MetaRodeioInfo {
+  metaDias: number
+  diasDesdeUltimo: number
+  diasAteProximo: number
+  isDentroMeta: boolean
+  hasRecord: boolean
+  ultimoRodeio: string | null
+}
+
+type AlvoVoz = { tipo: 'item'; campo: string } | { tipo: 'lote' }
 
 export default function RodeioPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('rodeio')
-  const { garantirExecucao } = useExecucaoRotina()
   const {
     salvando,
     salvar,
@@ -163,12 +148,9 @@ export default function RodeioPage() {
     onConfirmarObservacao,
     onCancelarObservacao,
   } = useSalvarRegistro('rodeio')
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
+    useRascunhoForm<FormState>({ rascunhoKey: 'rodeio', makeInitial })
 
-  useEffect(() => {
-    garantirExecucao('rodeio')
-  }, [garantirExecucao])
-
-  const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
@@ -177,10 +159,13 @@ export default function RodeioPage() {
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
-  const [metaRodeioInfo, setMetaRodeioInfo] = useState<{ metaDias: number; diasDesdeUltimo: number; diasAteProximo: number; isDentroMeta: boolean; hasRecord: boolean } | null>(null)
+  const [metaRodeioInfo, setMetaRodeioInfo] = useState<MetaRodeioInfo | null>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
+  const [campoFotoAtual, setCampoFotoAtual] = useState<string | null>(null)
+  const [alvoVoz, setAlvoVoz] = useState<AlvoVoz | null>(null)
+  const baseVozRef = useRef('')
 
-  // Hook reutilizavel de foto (sem GPS nesta caderneta)
+  // Foto do lote (seção 4)
   const {
     fotoBase64,
     capturandoFoto,
@@ -190,6 +175,17 @@ export default function RodeioPage() {
     fotoInputRef,
     handleFileInputChange,
   } = usePhotoGps({ comGps: false })
+
+  // Foto por item do diagnóstico (animal doente, morto etc.)
+  const {
+    capturandoFoto: capturandoFotoItem,
+    fotoErro: fotoErroItem,
+    capturarFoto: capturarFotoItem,
+    fotoInputRef: fotoItemInputRef,
+    handleFileInputChange: handleFileInputItem,
+  } = usePhotoGps({ comGps: false })
+
+  const { ouvindo: ouvindoVoz, erro: vozErro, toggle: toggleVoz, parar: pararVoz } = useVoiceInput()
 
   // Carregar lotes ativos e funcionários do Supabase (online) ou cache (offline)
   useEffect(() => {
@@ -226,6 +222,7 @@ export default function RodeioPage() {
     async function carregarDetalhesLote() {
       if (!form.numeroLote || !fazendaId) {
         setDetalhesLote(null)
+        setMetaRodeioInfo(null)
         setForm(prev => ({ ...prev, loteId: '', pastoId: '', pasto: '' }))
         return
       }
@@ -241,6 +238,7 @@ export default function RodeioPage() {
           const metaDias = lote.meta_intervalo_rodeio_dias || 0
           const hasRecord = !!lastRodeioDate
           let diasDesdeUltimo = 0
+          let ultimoRodeio: string | null = null
           if (lastRodeioDate) {
             // Normalize both dates to midnight to avoid timezone issues
             const hoje = new Date()
@@ -249,6 +247,7 @@ export default function RodeioPage() {
             ultimo.setHours(0, 0, 0, 0)
             const diffMs = hoje.getTime() - ultimo.getTime()
             diasDesdeUltimo = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+            ultimoRodeio = ultimo.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
           }
           const diasAteProximo = metaDias - diasDesdeUltimo
           setMetaRodeioInfo({
@@ -256,13 +255,15 @@ export default function RodeioPage() {
             diasDesdeUltimo,
             diasAteProximo,
             isDentroMeta: metaDias > 0 ? diasDesdeUltimo <= metaDias : true,
-            hasRecord
+            hasRecord,
+            ultimoRodeio,
           })
 
           // Combinar dados do lote com dados de categorias
           setDetalhesLote({
             ...lote,
             categorias: categoriasDetalhes.categorias,
+            categorias_raw: categoriasDetalhes.categorias_raw,
             n_cabecas: categoriasDetalhes.quant_atual,
             peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
             qtd_bezerros: categoriasDetalhes.qtd_bezerros
@@ -282,38 +283,86 @@ export default function RodeioPage() {
     carregarDetalhesLote()
   }, [form.numeroLote, fazendaId])
 
+  // Categorias reais do lote selecionado (um stepper por categoria)
+  const categoriasDoLote = useMemo(() => {
+    if (!detalhesLote?.categorias_raw || !Array.isArray(detalhesLote.categorias_raw)) return null
+    const cats = detalhesLote.categorias_raw
+      .map((cat: any) => ({ nome: cat.categoria as string, cadastro: (cat.quant_atual as number) || 0 }))
+      .filter((c: { nome: string }) => c.nome)
+    return cats.length > 0 ? (cats as { nome: string; cadastro: number }[]) : null
+  }, [detalhesLote])
+
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
 
-  const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
+  const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  const setDiagnosticoValor = (campo: string) => (val: string) =>
-    setForm((p) => ({
-      ...p,
-      diagnosticos: {
-        ...p.diagnosticos,
-        [campo]: { ...p.diagnosticos[campo], valor: val }
-      }
+  // Troca de lote zera a contagem: as categorias mudam
+  const handleSelecionarLote = (lote: string) =>
+    setForm((prev) => (prev.numeroLote === lote ? prev : { ...prev, numeroLote: lote, categoriasQuantidades: {} }))
+
+  const setCategoriaQtd = (chave: string) => (val: string) =>
+    setForm((prev) => ({ ...prev, categoriasQuantidades: { ...prev.categoriasQuantidades, [chave]: val } }))
+
+  const setDiagnostico = (campo: string, patch: Partial<DiagnosticoItem>) =>
+    setForm((prev) => ({
+      ...prev,
+      diagnosticos: { ...prev.diagnosticos, [campo]: { ...prev.diagnosticos[campo], ...patch } },
     }))
 
-  const setDiagnosticoObs = (campo: string) => (val: string) =>
-    setForm((p) => ({
-      ...p,
-      diagnosticos: {
-        ...p.diagnosticos,
-        [campo]: { ...p.diagnosticos[campo], observacao: val }
-      }
-    }))
+  // Valor gravado quando o problema está marcado / quando está conforme (padrão, sem toque)
+  const valorProblema = (invertido: boolean) => (invertido ? 'S' : 'N')
+  const valorConforme = (invertido: boolean) => (invertido ? 'N' : 'S')
+
+  const temProblema = (campo: string, invertido: boolean) =>
+    form.diagnosticos[campo]?.valor === valorProblema(invertido)
+
+  const toggleProblema = (campo: string, invertido: boolean) =>
+    setDiagnostico(campo, { valor: temProblema(campo, invertido) ? '' : valorProblema(invertido) })
+
+  const handleTirarFotoItem = async (campo: string) => {
+    setCampoFotoAtual(campo)
+    const base64 = await capturarFotoItem()
+    // Nativo retorna a foto aqui; no web o retorno vem pelo input file hidden
+    if (base64) setDiagnostico(campo, { fotoBase64: base64 })
+  }
+
+  const handleFotoInputItem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const result = await handleFileInputItem(e)
+    if (result?.fotoBase64 && campoFotoAtual) setDiagnostico(campoFotoAtual, { fotoBase64: result.fotoBase64 })
+  }
+
+  // Ditado: o texto parcial é acrescentado ao que já existia quando a gravação começou.
+  const handleFalar = async (alvo: AlvoVoz) => {
+    const mesmoAlvo = (a: AlvoVoz | null) =>
+      !!a && a.tipo === alvo.tipo && (a.tipo === 'lote' || (alvo.tipo === 'item' && a.campo === alvo.campo))
+    if (ouvindoVoz) {
+      await pararVoz()
+      if (mesmoAlvo(alvoVoz)) return
+    }
+    setAlvoVoz(alvo)
+    baseVozRef.current = (alvo.tipo === 'lote' ? form.observacao : form.diagnosticos[alvo.campo]?.observacao || '').trim()
+    await toggleVoz((parcial) => {
+      const texto = baseVozRef.current ? `${baseVozRef.current} ${parcial}` : parcial
+      if (alvo.tipo === 'lote') setForm((prev) => ({ ...prev, observacao: texto }))
+      else setDiagnostico(alvo.campo, { observacao: texto })
+    })
+  }
+
+  const ouvindoAlvo = (alvo: AlvoVoz) =>
+    ouvindoVoz && !!alvoVoz && alvoVoz.tipo === alvo.tipo && (alvo.tipo === 'lote' || (alvoVoz.tipo === 'item' && alvoVoz.campo === alvo.campo))
+
+  const total = Object.values(form.categoriasQuantidades).reduce((acc, v) => acc + (Number(v) || 0), 0)
+  const chavesContagem = categoriasDoLote ? categoriasDoLote.map((c) => c.nome) : [CHAVE_TOTAL]
+  const contagemCompleta = chavesContagem.every((k) => (form.categoriasQuantidades[k] ?? '') !== '')
 
   const validationRules = {
     data: { required: true },
     numeroLote: { required: true },
     gadoContado: { required: true },
-    ...(checklistAtivo ? DIAGNOSTICOS.reduce((acc, { campo }) => {
-      acc[campo] = { required: true }
-      return acc
-    }, {} as Record<string, { required: boolean }>) : {}),
+    categoriasQuantidades: {
+      custom: () => (form.gadoContado === 'Sim' && !contagemCompleta ? 'Informe a quantidade de cada categoria' : null),
+    },
     escoreFezes: { required: true },
     equipe: { required: true },
     equipeNomes: {
@@ -330,30 +379,53 @@ export default function RodeioPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  const getError = (field: string) => errors.find((e) => e.field === field)?.message
-
-  const total = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].reduce(
-    (acc, c) => acc + (Number(form[c as keyof FormState]) || 0), 0
-  )
-
   const executarSalvamento = async () => {
     setErrors([])
 
-    // Validate form using the validation hook
     if (!isValid) {
       return
     }
 
-    // Calcular total de animais baseado na resposta de gadoContado
+    // Contagem: por categoria real do lote; campos fixos do schema agregados por compatibilidade
     let totalAnimais = 0
+    let categoriasDetalhes: { nome: string; quant_atual: number; quant_informada: number }[] = []
+    const camposFixos = CAMPOS_CATEGORIA_FIXA.reduce((acc, c) => {
+      acc[c] = 0
+      return acc
+    }, {} as Record<string, number>)
+
     if (form.gadoContado === 'Sim') {
-      totalAnimais = (Number(form.vaca) || 0) + (Number(form.touro) || 0) + (Number(form.bezerro) || 0) +
-                      (Number(form.boiGordo) || 0) + (Number(form.boiMagro) || 0) + (Number(form.garrote) || 0) +
-                      (Number(form.novilha) || 0) + (Number(form.tropa) || 0) + (Number(form.outros) || 0)
+      if (categoriasDoLote) {
+        categoriasDetalhes = categoriasDoLote.map(({ nome, cadastro }) => ({
+          nome,
+          quant_atual: cadastro,
+          quant_informada: Number(form.categoriasQuantidades[nome]) || 0,
+        }))
+        totalAnimais = categoriasDetalhes.reduce((acc, c) => acc + c.quant_informada, 0)
+        for (const c of categoriasDetalhes) {
+          const field = normalizeCategoriaToField(c.nome)
+          if (field) camposFixos[field] += c.quant_informada
+        }
+      } else {
+        totalAnimais = Number(form.categoriasQuantidades[CHAVE_TOTAL]) || 0
+      }
     } else if (form.gadoContado === 'Não' && detalhesLote) {
       // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
       totalAnimais = detalhesLote.n_cabecas || 0
     }
+
+    const diagnosticosPayload = checklistAtivo
+      ? Object.fromEntries(
+          Object.entries(form.diagnosticos).map(([campo, d]) => {
+            const { fotoBase64: foto, ...resto } = d
+            const invertido = DIAGNOSTICOS.find((x) => x.campo === campo)?.invertido ?? false
+            // Sem toque = conforme. Observação/foto só fazem sentido com o problema marcado.
+            const problema = d.valor === valorProblema(invertido)
+            const item = { valor: problema ? d.valor : valorConforme(invertido), observacao: problema ? resto.observacao : '' }
+            return [campo, problema && foto ? { ...item, fotoBase64: foto } : item]
+          })
+        )
+      : null
 
     const result = await salvarRegistro('rodeio', {
       data: form.data,
@@ -364,21 +436,15 @@ export default function RodeioPage() {
       numeroLote: form.numeroLote,
       loteId: form.loteId,
       gadoContado: form.gadoContado,
-      vaca: form.vaca ? Number(form.vaca) : 0,
-      touro: form.touro ? Number(form.touro) : 0,
-      boiGordo: form.boiGordo ? Number(form.boiGordo) : 0,
-      boiMagro: form.boiMagro ? Number(form.boiMagro) : 0,
-      garrote: form.garrote ? Number(form.garrote) : 0,
-      bezerro: form.bezerro ? Number(form.bezerro) : 0,
-      novilha: form.novilha ? Number(form.novilha) : 0,
-      tropa: form.tropa ? Number(form.tropa) : 0,
-      outros: form.outros ? Number(form.outros) : 0,
+      ...camposFixos,
+      categorias_detalhes: categoriasDetalhes.length > 0 ? categoriasDetalhes : null,
       totalCabecas: totalAnimais,
-      diagnosticos: checklistAtivo ? form.diagnosticos : null,
+      diagnosticos: diagnosticosPayload,
       escoreFezes: form.escoreFezes || null,
       equipe: form.equipe ? Number(form.equipe) : null,
       equipeNomes: form.equipeNomes,
       escoreGado: form.escoreGado ? Number(form.escoreGado) : null,
+      observacao: form.observacao.trim() || null,
       // Campos de divergência
       n_cabecas: detalhesLote?.n_cabecas || 0,
       qtd_bezerros: detalhesLote?.qtd_bezerros || 0,
@@ -405,22 +471,19 @@ export default function RodeioPage() {
         : metaRodeioInfo
       setRegistroSalvo({ ...result.registro, metaRodeio: metaRodeioAtualizado })
       setShowSuccessModal(true)
-      setForm(makeInitial())
+      limparRascunho()
       limparFoto()
     }
   }
 
   const handleLimpar = () => {
-    setForm(makeInitial())
+    limparRascunho()
     setErrors([])
     limparFoto()
   }
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
-    setForm(makeInitial())
-    setErrors([])
-    limparFoto()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -429,231 +492,294 @@ export default function RodeioPage() {
     navigate('/')
   }
 
+  const handleEquipe = (value: string) => {
+    const numPessoas = Number(value) || 0
+    setForm((prev) => ({
+      ...prev,
+      equipe: value,
+      equipeNomes: Array.from({ length: numPessoas }, (_, i) => prev.equipeNomes[i] || ''),
+    }))
+  }
+
+  // Status do rodeio em relação à meta do lote
+  const rodeioStatus: InfoCardStatus | undefined = (() => {
+    if (!metaRodeioInfo) return undefined
+    if (!metaRodeioInfo.hasRecord) return { tone: 'neutral', text: 'Nenhum rodeio registrado neste lote' }
+    if (metaRodeioInfo.metaDias <= 0) return { tone: 'neutral', text: 'Meta de rodeio não definida' }
+    const atraso = metaRodeioInfo.diasDesdeUltimo - metaRodeioInfo.metaDias
+    if (atraso > 0) return { tone: 'danger', text: `Rodeio atrasado há ${atraso} ${atraso === 1 ? 'dia' : 'dias'}` }
+    const restam = metaRodeioInfo.diasAteProximo
+    return { tone: 'success', text: restam === 0 ? 'Rodeio vence hoje' : `No prazo: próximo rodeio em ${restam} ${restam === 1 ? 'dia' : 'dias'}` }
+  })()
+
+  const rodeioProgress =
+    metaRodeioInfo && metaRodeioInfo.hasRecord && metaRodeioInfo.metaDias > 0
+      ? metaRodeioInfo.diasDesdeUltimo / metaRodeioInfo.metaDias
+      : null
+
+  const totalLote = detalhesLote?.n_cabecas || 0
+  const diferenca = total - totalLote
+  const mostrarDivergencia = form.gadoContado === 'Sim' && !!detalhesLote && Object.values(form.categoriasQuantidades).some((v) => v !== '')
+
+  const pendenciaTexto = (() => {
+    if (!form.numeroLote) return 'Falta escolher o pasto/lote'
+    if (!form.gadoContado) return 'Falta informar se o gado foi contado'
+    if (form.gadoContado === 'Sim' && !contagemCompleta) return 'Falta informar a quantidade de cada categoria'
+    if (!form.escoreFezes) return 'Falta o escore de fezes'
+    if (!form.equipe) return 'Falta o número de pessoas no manejo'
+    if (Number(form.equipe) > 0 && form.equipeNomes.some((n) => !n || !n.trim())) return 'Falta o nome de todas as pessoas da equipe'
+    return undefined
+  })()
+
+  const chipPop = (onClick: () => void, texto: string) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex !min-h-0 shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-black transition-colors hover:bg-yellow-300 active:scale-[0.98]"
+    >
+      <FileText className="h-3.5 w-3.5" strokeWidth={2.5} />
+      {texto}
+    </button>
+  )
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <CadernetaHeader
+    <>
+      <CadernetaLayout
         title="RODEIO GADO"
         cadernetaId="rodeio"
         dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
-      />
-
-      <main className="flex-1 p-4 flex flex-col gap-5 pb-8 desktop-form-container">
+      >
+        <BannerRascunho
+          visible={rascunhoRestaurado}
+          onConfirmar={confirmarRascunho}
+          onDescartar={descartarRascunho}
+        />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        {/* Seção 1: Dados Principais */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-3">
-            {lotesDisponiveis.length > 0 ? (
-              <SearchableModal
-                label="PASTO/LOTE"
-                value={form.numeroLote}
-                onChange={set('numeroLote')}
-                error={getError('numeroLote')}
-                options={lotesDisponiveis}
-                secondaryText={(lote) => lotesPastoMap[lote] || ''}
-                placeholder="Buscar pasto ou lote..."
-                id="numeroLote"
-                name="numeroLote"
-              />
-            ) : (
-              <Input
-                label="NÚMERO LOTE"
-                placeholder="Carregando..."
-                value={form.numeroLote}
-                onChange={setInput('numeroLote')}
-                error={getError('numeroLote')}
-                inputMode="numeric"
-                disabled
-              />
+        {/* Pasto/Lote */}
+        <CadernetaSection titulo="Pasto/Lote" required>
+          {lotesDisponiveis.length > 0 ? (
+            <SearchableModal
+              label=""
+              value={form.numeroLote}
+              onChange={handleSelecionarLote}
+              error={getError('numeroLote')}
+              options={lotesDisponiveis}
+              secondaryText={(lote) => lotesPastoMap[lote] || ''}
+              placeholder="Selecione o pasto/lote..."
+              id="numeroLote"
+              name="numeroLote"
+            />
+          ) : (
+            <Input label="NÚMERO LOTE" placeholder="Carregando..." value={form.numeroLote} onChange={() => {}} error={getError('numeroLote')} disabled />
+          )}
+          {detalhesLote && (
+            <InfoCard
+              icon={MapPin}
+              title={form.numeroLote}
+              subtitle={form.pasto || 'Sem pasto associado'}
+              stats={[
+                { label: 'Categoria', value: detalhesLote.categorias || '-' },
+                { label: 'Cabeças', value: String(totalLote) },
+                { label: 'Último rodeio', value: metaRodeioInfo?.ultimoRodeio || '-' },
+              ]}
+              progress={rodeioProgress}
+              status={rodeioStatus}
+            />
+          )}
+        </CadernetaSection>
+
+        {/* 1. Quantidade de animais */}
+        <CadernetaSection numero={1} titulo="Quantidade de animais">
+          <div>
+            <label className="mb-2 block text-[15px] font-bold text-gray-900">
+              QUANTOS FORAM CONTADOS? <span className="text-red-500">*</span>
+            </label>
+            <ChoiceGrid
+              options={CONTADO_OPTIONS}
+              value={form.gadoContado}
+              onChange={set('gadoContado')}
+              cols={2}
+              dataField="gadoContado"
+            />
+            {getError('gadoContado') && (
+              <p className="mt-2 text-base font-semibold text-red-700">{getError('gadoContado')}</p>
             )}
           </div>
-          {detalhesLote && (
-            <LoteDetalhesCard detalhes={detalhesLote} processarCategorias={processarCategorias} metaRodeio={metaRodeioInfo} />
-          )}
-        </div>
 
-        {/* Seção 2: Quantidade por Categoria */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. QUANTIDADE DE ANIMAIS</h2>
-          <div>
-            <label className="block text-lg font-bold text-gray-900 mb-3 whitespace-pre-wrap">O GADO FOI CONTADO?</label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className={`
-                cursor-pointer rounded-xl border-2
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.gadoContado === 'Sim' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="gadoContado" className="sr-only" value="Sim" checked={form.gadoContado === 'Sim'} onChange={() => set('gadoContado')('Sim')} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">SIM</span>
-              </label>
-              <label className={`
-                cursor-pointer rounded-xl border-2
-                transition-all active:scale-95
-                flex flex-col items-center justify-center gap-1
-                p-2 min-h-[70px]
-                ${form.gadoContado === 'Não' ? 'bg-[#1a3a2a] text-white border-[#1a3a2a]' : 'bg-white text-gray-900 border-gray-300 hover:border-gray-400'}
-              `}>
-                <input type="radio" name="gadoContado" className="sr-only" value="Não" checked={form.gadoContado === 'Não'} onChange={() => set('gadoContado')('Não')} />
-                <span className="text-base sm:text-lg font-bold text-center leading-tight">NÃO</span>
-              </label>
-            </div>
-          </div>
           {form.gadoContado === 'Sim' && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                {CATEGORIAS_ANIMAIS.map(({ campo, label }) => (
-                  <NumericInput
-                    key={campo}
-                    label={label}
-                    placeholder="0"
-                    value={form[campo as keyof FormState] as string}
-                    onChange={set(campo as keyof FormState)}
-                    decimalPlaces={0}
-                  />
-                ))}
-              </div>
-              {total > 0 && (
-                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 flex items-center justify-between">
-                  <span className="text-lg font-bold text-gray-700">TOTAL</span>
-                  <span className="text-2xl font-bold text-black">{total} cabeças</span>
+              {!form.numeroLote && <InfoStrip tone="warning" icon="⚠️">Escolha o pasto/lote para ver as categorias</InfoStrip>}
+              {(categoriasDoLote || [{ nome: 'Total de cabeças', cadastro: totalLote, chave: CHAVE_TOTAL }]).map((cat: any) => {
+                const chave = cat.chave || cat.nome
+                return (
+                  <div key={chave} className="flex flex-col gap-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[15px] font-bold capitalize text-gray-900">{cat.nome}</span>
+                      {detalhesLote && <span className="text-sm font-semibold text-gray-500">cadastro: {cat.cadastro} cab.</span>}
+                    </div>
+                    <StepperInput
+                      value={form.categoriasQuantidades[chave] ?? ''}
+                      onChange={setCategoriaQtd(chave)}
+                      min={0}
+                      allowDecimals={false}
+                      suffix="cabeças"
+                    />
+                  </div>
+                )
+              })}
+              {categoriasDoLote && categoriasDoLote.length > 1 && total > 0 && (
+                <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                  <span className="text-sm font-bold text-gray-600">TOTAL CONTADO</span>
+                  <span className="text-xl font-extrabold text-gray-900">{total} cabeças</span>
                 </div>
+              )}
+              {mostrarDivergencia && (
+                diferenca === 0 ? (
+                  <InfoStrip tone="success" icon="✅">Contagem confere com o cadastro ({totalLote})</InfoStrip>
+                ) : (
+                  <InfoStrip tone="danger" icon="⚠️">
+                    {diferenca < 0
+                      ? `Faltam ${Math.abs(diferenca)} cabeças (cadastro: ${totalLote})`
+                      : `Excedeu ${diferenca} cabeças (cadastro: ${totalLote})`}
+                  </InfoStrip>
+                )
               )}
             </>
           )}
-          {form.gadoContado === 'Não' && detalhesLote && (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <p className="text-gray-500 font-semibold mb-2">CABEÇAS MANEJADAS</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {detalhesLote.n_cabecas || 0} animais
-              </p>
-            </div>
-          )}
-          {form.gadoContado === 'Sim' && total > 0 && detalhesLote && (
-            (() => {
-              const totalLote = detalhesLote.n_cabecas || 0
-              const diferenca = total - totalLote
-              if (diferenca !== 0) {
-                return (
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-                    <p className="text-base font-semibold text-orange-800 text-justify">
-                      ⚠️ O total informado ({total} animais) não coincide com o total do lote ({totalLote} animais)
-                    </p>
-                    <p className="text-base text-orange-700 mt-1">
-                      {diferenca > 0 
-                        ? `Excedeu ${diferenca} animais do total do lote` 
-                        : `Faltam ${Math.abs(diferenca)} animais para completar o lote`
-                      }
-                    </p>
-                  </div>
-                )
-              }
-              return null
-            })()
-          )}
-        </div>
 
-        {/* Seção 3: Avaliação Geral S/N */}
+          {form.gadoContado === 'Não' && detalhesLote && (
+            <InfoStrip tone="neutral">Será registrado o cadastro do lote: {totalLote} cabeças manejadas</InfoStrip>
+          )}
+        </CadernetaSection>
+
+        {/* 2. Avaliação geral */}
         {loadingChecklistRegras ? (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">2. AVALIAÇÃO GERAL</h2>
-            <p className="text-gray-500 text-center py-4">Carregando regras do checklist...</p>
-          </div>
+          <CadernetaSection numero={2} titulo="Avaliação geral">
+            <p className="py-4 text-center text-sm text-gray-500">Carregando regras do checklist...</p>
+          </CadernetaSection>
         ) : checklistAtivo ? (
-          <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">2. AVALIAÇÃO GERAL</h2>
-            {DIAGNOSTICOS.map(({ campo, label }) => (
-              <div key={campo}>
-                <Radio
-                  name={campo}
-                  label={label}
-                  options={SN_OPTIONS}
-                  value={form.diagnosticos[campo]?.valor || ''}
-                  onChange={setDiagnosticoValor(campo)}
-                  error={getError(campo)}
-                  gridCols={2}
-                />
-                {((form.diagnosticos[campo]?.valor === 'N' && !INVERTED_DIAGNOSTICOS.includes(campo)) ||
-                  (form.diagnosticos[campo]?.valor === 'S' && INVERTED_DIAGNOSTICOS.includes(campo))) && (
-                  <Input
-                    placeholder="Adicionar observação (opcional)"
-                    value={form.diagnosticos[campo]?.observacao || ''}
-                    onChange={(e) => setDiagnosticoObs(campo)(e.target.value)}
-                    className="mt-2"
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          <CadernetaSection numero={2} titulo="Avaliação geral">
+            <p className="-mt-2 text-sm text-gray-500">
+              Toque em um item se encontrar o problema. Não tocar significa que está tudo certo.
+            </p>
+            {DIAGNOSTICOS.map(({ campo, label, invertido, aviso }) => {
+              const item = form.diagnosticos[campo]
+              const problema = temProblema(campo, invertido)
+              const alvo: AlvoVoz = { tipo: 'item', campo }
+              return (
+                <div key={campo} className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleProblema(campo, invertido)}
+                    data-field={campo}
+                    className={`flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                      problema
+                        ? 'border-red-500 bg-red-50 text-red-800'
+                        : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="text-sm font-bold leading-tight">{label}</span>
+                    {problema && <span className="text-lg leading-none">⚠️</span>}
+                  </button>
+
+                  {problema && (
+                    <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+                      <InfoStrip tone="danger" icon="⚠️">{aviso}</InfoStrip>
+
+                      {item?.fotoBase64 && (
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={base64ToDataUrl(item.fotoBase64)}
+                            alt={`Foto: ${label}`}
+                            className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDiagnostico(campo, { fotoBase64: '' })}
+                            className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+                          >
+                            🗑️ REMOVER FOTO
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {!item?.fotoBase64 && (
+                          <button
+                            type="button"
+                            onClick={() => handleTirarFotoItem(campo)}
+                            disabled={capturandoFotoItem}
+                            className="flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+                          >
+                            <span className="text-lg leading-none">📷</span>
+                            <span className="text-xs font-extrabold uppercase tracking-wide">
+                              {capturandoFotoItem && campoFotoAtual === campo ? 'Capturando...' : 'Foto'}
+                            </span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleFalar(alvo)}
+                          className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                            item?.fotoBase64 ? 'col-span-2' : ''
+                          } ${ouvindoAlvo(alvo) ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+                        >
+                          <span className="text-lg leading-none">🎤</span>
+                          <span className="text-xs font-extrabold uppercase tracking-wide">
+                            {ouvindoAlvo(alvo) ? 'Ouvindo...' : 'Falar'}
+                          </span>
+                        </button>
+                      </div>
+                      {fotoErroItem && campoFotoAtual === campo && <InfoStrip tone="danger">{fotoErroItem}</InfoStrip>}
+                      {vozErro && alvoVoz?.tipo === 'item' && alvoVoz.campo === campo && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+
+                      <Input
+                        placeholder="Adicionar observação (opcional)"
+                        value={item?.observacao || ''}
+                        onChange={(e) => setDiagnostico(campo, { observacao: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </CadernetaSection>
         ) : null}
 
-        {/* Seção 4: Avaliação do Gado e Equipe */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. AVALIAÇÃO DO GADO E EQUIPE</h2>
-          
-          {/* Escore do Gado - moved from Seção 5 */}
-          <button
-            onClick={() => setShowEscoreModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP ESCORE CORPORAL</span>
-          </button>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-            {ESCORES.map((escore) => (
-              <button
-                key={escore.value}
-                onClick={() => set('escoreGado')(escore.value)}
-                className={`py-3 px-4 rounded-xl font-bold transition-all transform hover:scale-105 ${
-                  form.escoreGado === escore.value ? `${escore.color} text-black` : 'bg-gray-200 text-gray-700'
-                }`}
-              >
-                {escore.label}
-              </button>
-            ))}
+        {/* 3. Avaliação do gado e equipe */}
+        <CadernetaSection numero={3} titulo="Avaliação do gado e equipe">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[13px] font-bold uppercase text-gray-900">Escore corporal</label>
+              {chipPop(() => setShowEscoreModal(true), 'POP Escore')}
+            </div>
+            <EscalaRotulada options={ESCORES_CORPORAIS} value={form.escoreGado} onChange={set('escoreGado')} dataField="escoreGado" />
           </div>
 
-          {/* Escore de Fezes */}
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="w-full bg-yellow-400 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-300 transition-colors"
-          >
-            <span className="text-xl">📄</span>
-            <span>POP ESCORE DE FEZES</span>
-          </button>
-          <Radio
-            name="escoreFezes"
-            label="ESCORE DE FEZES"
-            options={ESCALA_5}
-            value={form.escoreFezes}
-            onChange={set('escoreFezes')}
-            error={getError('escoreFezes')}
-            gridCols={5}
-          />
-          
-          {/* Equipe */}
-          <Radio
-            name="equipe"
-            label="N° PESSOAS NO MANEJO"
-            options={ESCALA_EQUIPE}
-            value={form.equipe}
-            onChange={(value) => {
-              set('equipe')(value)
-              // Reset equipeNomes when number changes
-              const numPessoas = Number(value) || 0
-              setForm(prev => ({
-                ...prev,
-                equipeNomes: Array(numPessoas).fill('')
-              }))
-            }}
-            error={getError('equipe')}
-            gridCols={5}
-          />
-          {form.equipe && Number(form.equipe) > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[13px] font-bold uppercase text-gray-900">
+                Escore de fezes <span className="text-red-500">*</span>
+              </label>
+              {chipPop(() => setShowPdfModal(true), 'POP Fezes')}
+            </div>
+            <EscalaRotulada options={ESCORES_FEZES} value={form.escoreFezes} onChange={set('escoreFezes')} dataField="escoreFezes" />
+            {getError('escoreFezes') && <p className="text-base font-semibold text-red-700">{getError('escoreFezes')}</p>}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-bold uppercase text-gray-900">
+              Nº pessoas no manejo <span className="text-red-500">*</span>
+            </label>
+            <ChoiceGrid options={EQUIPE_OPTIONS} value={form.equipe} onChange={handleEquipe} cols={6} size="sm" dataField="equipe" />
+            {getError('equipe') && <p className="text-base font-semibold text-red-700">{getError('equipe')}</p>}
+          </div>
+
+          {Number(form.equipe) > 0 && (
             <div className="flex flex-col gap-3">
               {getError('equipeNomes') && (
-                <p className="text-sm text-red-600 font-semibold">{getError('equipeNomes')}</p>
+                <p className="text-sm font-semibold text-red-600">{getError('equipeNomes')}</p>
               )}
               {Array.from({ length: Number(form.equipe) }).map((_, index) => (
                 funcionariosDisponiveis.length > 0 ? (
@@ -661,11 +787,13 @@ export default function RodeioPage() {
                     key={index}
                     label={<span>Nome da {index + 1}ª pessoa <span className="text-red-500">*</span></span>}
                     value={form.equipeNomes[index] || ''}
-                    onChange={(val) => {
-                      const newNomes = [...form.equipeNomes]
-                      newNomes[index] = val
-                      setForm(prev => ({ ...prev, equipeNomes: newNomes }))
-                    }}
+                    onChange={(val) =>
+                      setForm((prev) => {
+                        const nomes = [...prev.equipeNomes]
+                        nomes[index] = val
+                        return { ...prev, equipeNomes: nomes }
+                      })
+                    }
                     options={funcionariosDisponiveis}
                     placeholder="Buscar funcionário..."
                     id={`equipeNome-${index}`}
@@ -677,142 +805,100 @@ export default function RodeioPage() {
                     label={`Nome da ${index + 1}ª pessoa`}
                     placeholder="Nome"
                     value={form.equipeNomes[index] || ''}
-                    onChange={(e) => {
-                      const newNomes = [...form.equipeNomes]
-                      newNomes[index] = e.target.value
-                      setForm(prev => ({ ...prev, equipeNomes: newNomes }))
-                    }}
+                    onChange={(e) =>
+                      setForm((prev) => {
+                        const nomes = [...prev.equipeNomes]
+                        nomes[index] = e.target.value
+                        return { ...prev, equipeNomes: nomes }
+                      })
+                    }
                   />
                 )
               ))}
             </div>
           )}
-        </div>
+        </CadernetaSection>
 
-        {/* Seção 5: Procedimentos - OCULTO (PODERÁ SER REUTILIZADO NA ENFERMARIA) */}
-        {/*<div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200 flex flex-col gap-4">
-          <h2 className="section-title">4. PROCEDIMENTOS REALIZADOS</h2>
-          <Input
-            label="ANIMAIS TRATADOS"
-            placeholder="0"
-            value={form.animaisTratados}
-            onChange={setInput('animaisTratados')}
-            inputMode="numeric"
-            type="number"
-            min="0"
-            max="20"
-          />
-          {form.animaisTratados && Number(form.animaisTratados) > 0 && (
-            <p className="text-base text-gray-600">
-              Registre o ID e os tratamentos para cada animal. Os quadrados vermelhos significam que faltam dados. Quando o quadrado ficar verde, significa que dados suficientes foram preenchidos.
-            </p>
-          )}
-          
-          {/* Cards de animais tratados *\/}
-          {form.animaisTratadosDetalhes.map((animal, index) => (
-            <div
-              key={index}
-              className={`rounded-xl p-4 border-2 ${
-                isAnimalCompleto(index)
-                  ? 'bg-green-100 border-green-300'
-                  : 'bg-red-50 border-red-200'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <h3 className="text-lg font-bold text-gray-900">
-                  ANIMAL {index + 1}
-                </h3>
-              </div>
-              
-              <Input
-                label="Identificação"
-                placeholder="Ex: Vaca 1, B123, Touro 1..."
-                value={animal.id}
-                onChange={(e) => updateAnimalId(index, e.target.value)}
-                className="mb-3"
+        {/* 4. Foto do lote */}
+        <CadernetaSection numero={4} titulo="Foto do lote">
+          {fotoBase64 && (
+            <div className="flex flex-col gap-3">
+              <img
+                src={base64ToDataUrl(fotoBase64)}
+                alt="Foto do lote"
+                className="mx-auto w-full max-w-sm rounded-xl border border-gray-200"
               />
-              
-              <p className="text-sm font-bold text-gray-900 mb-2">Tratamentos:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {PROCEDIMENTOS_OPCOES.map((proc) => (
-                  <Checkbox
-                    key={proc}
-                    label={proc}
-                    checked={animal.tratamentos.includes(proc)}
-                    onChange={() => toggleAnimalTratamento(index, proc)}
-                  />
-                ))}
-              </div>
-              
-              {animal.tratamentos.includes('Outros') && (
-                <Input
-                  label="Descreva outros tratamentos"
-                  placeholder="Ex: Aplicação de vitaminas, limpeza de feridas..."
-                  value={animal.tratamentos.find(t => t.startsWith('Outros:'))?.replace('Outros: ', '') || ''}
-                  onChange={(e) => {
-                    setForm((prev) => {
-                      const detalhes = [...prev.animaisTratadosDetalhes]
-                      const outrosTratamentos = detalhes[index].tratamentos.filter(t => !t.startsWith('Outros:'))
-                      if (e.target.value) {
-                        outrosTratamentos.push(`Outros: ${e.target.value}`)
-                      }
-                      detalhes[index] = { ...detalhes[index], tratamentos: outrosTratamentos }
-                      return { ...prev, animaisTratadosDetalhes: detalhes }
-                    })
-                  }}
-                  className="mt-2"
-                />
-              )}
+              <button
+                type="button"
+                onClick={limparFoto}
+                className="w-full rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+              >
+                🗑️ REMOVER FOTO
+              </button>
             </div>
-          ))}
-        </div>*/}
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {!fotoBase64 && (
+              <button
+                type="button"
+                onClick={capturarFoto}
+                disabled={capturandoFoto}
+                className="flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+              >
+                <span className="text-lg leading-none">📷</span>
+                <span className="text-sm font-extrabold uppercase tracking-wide">
+                  {capturandoFoto ? 'Capturando...' : 'Tirar foto'}
+                </span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => handleFalar({ tipo: 'lote' })}
+              className={`flex min-h-[56px] items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                fotoBase64 ? 'col-span-2' : ''
+              } ${ouvindoAlvo({ tipo: 'lote' }) ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'}`}
+            >
+              <span className="text-lg leading-none">🎤</span>
+              <span className="text-sm font-extrabold uppercase tracking-wide">
+                {ouvindoAlvo({ tipo: 'lote' }) ? 'Ouvindo...' : 'Gravar áudio'}
+              </span>
+            </button>
+          </div>
+          {fotoErro && <InfoStrip tone="danger">{fotoErro}</InfoStrip>}
+          {vozErro && alvoVoz?.tipo === 'lote' && <InfoStrip tone="danger">{vozErro}</InfoStrip>}
+          <Input
+            placeholder="Observação do lote (opcional)"
+            value={form.observacao}
+            onChange={(e) => setForm((prev) => ({ ...prev, observacao: e.target.value }))}
+          />
+          <input
+            ref={fotoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
+        </CadernetaSection>
 
-        {/* Seção 6: Foto */}
-        <FotoSection
-          titulo="4. FOTO"
-          descricao="Tire uma foto do lote ou da ocorrência para anexar ao registro."
-          fotoBase64={fotoBase64}
-          capturando={capturandoFoto}
-          erro={fotoErro}
-          onTirar={capturarFoto}
-          onRemover={limparFoto}
-          fotoInputRef={fotoInputRef}
-          onFileChange={handleFileInputChange}
+        <FormFooter
+          onSalvar={() => salvar(executarSalvamento)}
+          onLimpar={handleLimpar}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+          pendenciaTexto={pendenciaTexto}
         />
 
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => salvar(executarSalvamento)}
-            disabled={salvando || !isValid}
-            className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
-              salvando || !isValid
-                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Save className="h-5 w-5" strokeWidth={2.5} />
-              {salvando ? 'SALVANDO...' : 'SALVAR'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={handleLimpar}
-            className="w-full !min-h-0 rounded-2xl border-2 border-gray-300 bg-gray-200 px-3 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-300 active:scale-95"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <Brush className="h-4 w-4" strokeWidth={2.5} />
-              LIMPAR
-            </span>
-          </button>
-        </div>
-        {!isValid && (
-          <p className="text-base text-gray-600 text-center">
-            <span className="text-red-500">*</span> Preencha todos os campos obrigatórios para salvar
-          </p>
-        )}
-      </main>
+        <input
+          ref={fotoItemInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFotoInputItem}
+          className="hidden"
+        />
+      </CadernetaLayout>
 
       <SuccessModal
         isOpen={showSuccessModal}
@@ -840,18 +926,14 @@ export default function RodeioPage() {
       <PdfModal
         isOpen={showPdfModal}
         onClose={() => setShowPdfModal(false)}
-        images={[
-          `${BASE}docs/fezes/POP_Fezes_01.jpg`
-        ]}
+        images={[`${BASE}docs/fezes/POP_Fezes_01.jpg`]}
       />
 
       <PdfModal
         isOpen={showEscoreModal}
         onClose={() => setShowEscoreModal(false)}
-        images={[
-          `${BASE}docs/ECC/POP_ECC.jpeg`
-        ]}
+        images={[`${BASE}docs/ECC/POP_ECC.jpeg`]}
       />
-    </div>
+    </>
   )
 }
