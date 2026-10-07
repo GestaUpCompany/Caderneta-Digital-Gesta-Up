@@ -2,6 +2,136 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Auditoria de segurança — Fase B / Lote 1: atividades (07/10/2026)
+
+Migrations `20261007270000_fase_b1a_rpc_relatorio_publico_atividades` (aditiva) e `20261007271000_fase_b1b_isolamento_tenant_atividades` (Painel; rollbacks em `supabase/rollbacks/`).
+- Passo 1: o relatório público de atividades (link por token, 6 fazendas) lia atividades/atividade_funcionarios/atividade_imprevistos/funcionarios/setores direto como anon. Nova RPC `get_dados_relatorio_atividades(p_token, datas, período anterior)` (valida tipo/ativo/expira, fazenda do TOKEN, mesmo formato aninhado) e `RelatorioAtividadesPublico.tsx` passou a usá-la; deploy do front validado pelo usuário antes do passo 2. Intervalo de imprevistos agora em America/Cuiaba (antes UTC).
+- Passo 2: policies `true` das 8 tabelas (`atividades`, `atividade_funcionarios`, `atividade_sessoes`, `atividade_imprevistos`, `atividade_templates`, `atividade_template_funcionarios`, `atividade_imprevisto_categorias`, `prioridades_atividades`) substituídas por uma policy ALL por tabela para authenticated: `is_admin_user() OR caller_has_fazenda_access(fazenda do objeto)`; filhas sobem por helpers `fazenda_da_atividade`, `fazenda_do_atividade_funcionario`, `fazenda_do_atividade_template`. REVOKE ALL de anon; REVOKE TRUNCATE/REFERENCES/TRIGGER de authenticated.
+- Testes pré-push (d649; fixtures sintéticas em a239 dentro de transação revertida): 70 cenários (peão só vê a própria, intruso só a dele, admin tudo, anon 42501, UPDATE/DELETE alheio 0 linhas, INSERT alheio 42501, escrita própria ok). Pós-push: 8 tabelas com 1 policy, anon sem SELECT/INSERT, authenticated sem TRUNCATE, helpers sem anon, 0 erros em `logs_sync_errors`. Telas: link público da d649 (anon, RPC 200), PWA do peão (lista `get_atividades_funcionario`; "Atividade não prevista" gravou `atividades` e `atividade_funcionarios` por sync, 201 — atividade de teste "TESTE Fase B1 isolamento" na d649), Painel (monitoramento: tabelas e RPCs 200, vê a atividade nova).
+- Limites: escrita cruzada em `atividade_sessoes` sem fixture (mesma policy de imprevistos); sync de sessões/imprevistos (cronômetro) não exercitado na tela; a página pública ainda lê `relatorios_publicos` e `fazendas` direto como anon (lotes seguintes).
+
+## Auditoria de segurança — Fase 5.4: contexto de auditoria e impersonação (07/10/2026)
+
+Migration `20261007266000_fase5_4_auditoria_impersonacao_authz` (Painel; rollback em `supabase/rollbacks/`). **Encerra a Fase 5 (RPCs SECURITY DEFINER).**
+- `set_audit_context` (9 args): em chamada de cliente, identidade vem de `usuarios` pelo `auth.uid()` (id/e-mail/nome), nunca do parâmetro; `p_user_id` nulo limpa; impersonação só vale com sessão ativa e não expirada em `impersonation_sessions` (super_admin_id = p_impersonated_by, alvo = chamador); anon não faz nada; chamadas internas mantêm o comportamento antigo. Overload de 5 args delega ao de 9.
+- `end_impersonation_session`: cliente só encerra se for o usuário-alvo, o super_admin da sessão ou qualquer super_admin.
+- REVOKE de PUBLIC/anon nas 3. Verificado sem alteração: `get_fazenda_por_acesso`/`autenticar_peao_app` seguem anon (boot do PWA; decisão de manter), relatórios públicos por token validam tipo/ativo/expira e usam a fazenda do token, as 7 variantes `*_fazenda` já exigem acesso e não são anon.
+- Testes pré-push (d649): 21 cenários (identidade forjada gravada como a real, impersonação falsa descartada, válida mantida, clear, anon e intruso 42501, alvo/super_admin encerram, chamada interna sem JWT mantém parâmetros). Pós-push: anon 0 / authenticated e service_role ok nas 3; Painel como controller navega com `set_audit_context` 204; update em `lotes` com identidade forjada no parâmetro grava `audit_log` com `usuario_id`/e-mail/nome reais do controller e origem informada; 0 erros em `logs_sync_errors`.
+- Limites: overload de 5 args não testado direto (chamada isolada é ambígua com a de 9, desde antes); se `impersonate-user` falhar ao gravar a sessão, a ação fica sem "impersonado por"; tokens de `relatorios_publicos` têm `expira_em` nulo em todas as linhas (decisão de produto, BACKLOG).
+
+## Auditoria de segurança — Fase 5.3c: funções de gatilho sem EXECUTE para anon/authenticated (07/10/2026)
+
+Migration `20261007265000_fase5_3c_funcoes_de_gatilho_revoke` (Painel; rollback em `supabase/rollbacks/`).
+- 125 funções `public` com retorno `trigger` (96 DEFINER) estavam com EXECUTE para PUBLIC. REVOKE de PUBLIC/anon/authenticated; dono (postgres) mantém. O EXECUTE de função de gatilho só é checado na criação do trigger, não ao disparar. Nenhuma é chamada diretamente por outra função/cron/cliente. 2 não estavam ligadas a trigger (`trg_registros_pastagens_mover_lote`, `propagar_peso_meta_para_individuos`).
+- Testes pré-push (d649, gatilhos disparados): corrigir peso, transferência, aprovar solicitação e updates em lotes/lote_categorias/clima/suplementação/pastagens/movimentação = ok; chamada direta por anon/authenticated = 42501. Pós-push: 125 funções anon 0 / authenticated 0 / postgres 125; 0 erros em `logs_sync_errors`; updates reais (rollback) em suplementação, movimentação e lote_categorias como peão disparam os gatilhos sem erro.
+- Limite: gatilhos de cantina/almoxarifado e insert em `registros_pastagens` não exercitados.
+
+## Auditoria de segurança — Fase 5.3b: RPCs que já checam acesso fechadas para anon (07/10/2026)
+
+Migration `20261007264000_fase5_3b_rpcs_com_checagem_revoke_anon` (Painel; rollback em `supabase/rollbacks/`).
+- Revisão do corpo das 51 RPCs (mapa `salvar_/remover_/get_*_geometria`, `editar_/excluir_registro_{clima,leitura_cocho,oferta_trato,suplementacao}`, OS `cancelar/conferir/estornar/fechar/alocar`, `criar_item_*_pwa`, `vision_*`): todas autorizam pelo OBJETO ou por `auth.uid()`; nenhuma confia em `p_usuario_id` para autorizar. Nenhum corpo alterado.
+- Ação: REVOKE de PUBLIC/anon, mantendo authenticated/service_role. `get_relatorio_consumo` (relatório público por token, 2 overloads) segue anon (Fase 5.4). Sem dependências em policies/views/triggers/cron/funções.
+- Testes pré-push (d649): anon negado em amostra (42501); peão acessa geometrias da própria fazenda; fazenda alheia retorna vazio/erro pelo corpo. Pós-push: 51 funções anon 0 / authenticated 51 / service_role 51; `get_relatorio_consumo` anon 2; 0 erros em `logs_sync_errors`. Não exercitado na tela: página de mapa do PWA não chegou a chamar as RPCs de geometria na captura.
+- Achado: ~85 funções de gatilho (`trg_*`, `fn_*`, `sync_*`, `notify_*`, `seed_*`, `update_estoque_*`) ainda com EXECUTE para anon (chamada direta falha por falta de contexto de gatilho); tratadas na 5.3c.
+
+## Auditoria de segurança — Fase 5.3: RPCs de escrita/exclusão com checagem de tenant e identidade (07/10/2026)
+
+Migration `20261007263000_fase5_3_rpcs_escrita_authz` (Painel; rollback com os 18 corpos originais em `supabase/rollbacks/`).
+- Helpers `guard_w_is_client`, `guard_w_fazenda`, `guard_w_lote`, `guard_w_lote_categoria`, `guard_w_solicitacao`, `guard_w_usuario`. Só impõem para chamada de cliente (JWT anon/authenticated e `pg_trigger_depth() = 0`); cron, service_role e gatilhos passam. Tenant sempre pelo OBJETO alvo; `p_usuario_id` tem de ser a identidade do chamador (auth.uid() ou usuarios.id com auth_id = auth.uid()).
+- 18 RPCs (aprovar/rejeitar solicitação, transferir lote, corrigir peso, recategorizar, planos, snapshot, excluir_registro_*, notificações, push, update_quant_atual_with_data) com guarda no topo; REVOKE de PUBLIC/anon. `transferir_lote_entre_fazendas` exige acesso à origem; `registrar_push_subscription` exige funcionário da mesma fazenda; `remover_push_subscription` só apaga linhas de fazendas acessíveis.
+- Testes pré-push (d649, transação revertida): 45 cenários de negação (peão d649 -> objetos da a239, anon, identidade forjada, funcionário alheio) = 42501; caminhos legítimos do peão e do controller passam a guarda, inclusive transferência de 1 cabeça d649 -> a239 com gatilhos aninhados. Pós-push: 18 funções anon 0 / authenticated 18 / service_role 18, todas com guarda; 6 guards sem anon; 0 erros em `logs_sync_errors`. Telas: Painel (notificações: `gerar_notificacoes_recategorizacao` 200) e PWA carregam sem erro de RPC.
+- Limites: funções de plano não executadas com plano real (a fazenda de testes não tem plano nos lotes usados); papel de peão e gestor é o mesmo ('controller') em `usuario_fazenda`, então "apenas controller+" não separa os dois (item no BACKLOG); `p_usuario_email`/`p_nome_usuario` seguem como texto informado.
+
+## Auditoria de segurança — Fase 5.2: RPCs de leitura/estatística com checagem de tenant (07/10/2026)
+
+Migration `20261007262000_fase5_2_rpcs_leitura_authz` (Painel; rollback com os 20 corpos originais em `supabase/rollbacks/`).
+- Helpers `guard_fazenda(uuid)`, `guard_admin()`, `guard_super_admin()` (levantam 42501; usáveis em WHERE de funções SQL). Guarda injetada no topo das 20 RPCs; `REVOKE` de PUBLIC/anon.
+- Regras: super_admin em `get_system_health`/`get_ia_monitoramento`/`get_farm_usage_metrics`; admin em `get_admin_evolution` e `get_audit_log` sem fazenda; acesso à fazenda nas demais; `get_relatorio_lote_ciclo_vida` exige fazenda e lote; `get_controller_email_fazenda_grupo` exige a origem; `get_registros_atividades` filtra por fazendas acessíveis (admin vê tudo).
+- Testes pré-push (d649, transação revertida): 55 cenários de negação (peão em fazenda alheia, intruso, anon, admin não super) = 42501; 23 caminhos legítimos ok. Pós-push: 20 funções anon 0 / authenticated 20 / service_role 20, todas com guarda; guards sem anon; 0 erros em `logs_sync_errors`.
+- Teste de telas pós-push (07/10, fazenda d649, devtools): Painel como controller (dashboard: `get_dashboard_stats`/`get_gado_stats`/`get_recent_activities`; auditoria de rotinas: `obter_execucoes_rotina`; monitoramento de atividades: `get_sessoes_abertas_by_fazenda`/`get_imprevistos_recentes_by_fazenda`) e PWA como peão Victor Hugo (atividades: `get_atividades_funcionario`; relatório de lote: `get_lotes_para_relatorio` com 19 lotes e `get_relatorio_lote_ciclo_vida`): todas as RPCs 200, sem erro no console. Não exercitadas na UI: `resumo_execucoes_rotina` (pendente no momento da captura), rastreio, `get_controller_email_fazenda_grupo`.
+- Limites: `get_system_health`/`get_farm_usage_metrics` não exercitadas com super_admin; `get_audit_log.tabelasAuditadas` segue agregando contagem global por tabela.
+
+## Auditoria de segurança — Fase 5.1/5.1b: RPCs internas fechadas e funções novas nascem fechadas (07/10/2026)
+
+Migrations `20261007260000_fase5_1_rpcs_internas` e `20261007261000_fase5_1b_funcoes_novas_nascem_fechadas` (Painel; rollbacks em `supabase/rollbacks/`).
+- 34 RPCs SECURITY DEFINER (9 cron, 14 internas, 11 sem chamador, incluindo `soft_delete_record`) sem EXECUTE para PUBLIC/anon/authenticated; só postgres e service_role.
+- `calcular_peso_medio_lote` ficou interna; as views `v_lote_pasto_ocupacao_atual` e `v_lote_modulo_ocupacao_atual` (security_invoker mantido) usam `calcular_peso_medio_lote_visivel` (DEFINER + checagem de acesso ao lote, NULL se não tem acesso). Checagem dentro da função original foi descartada: gatilhos legítimos a chamam para lotes que o ator não enxerga.
+- 5.1b: `ALTER DEFAULT PRIVILEGES FOR ROLE postgres` global revoga EXECUTE de PUBLIC e concede ao service_role. Antes, funções novas nasciam abertas (ACL nula). **Convenção:** toda RPC nova chamada pelo cliente precisa de `GRANT EXECUTE ... TO authenticated` na própria migration + checagem de tenant no corpo.
+- Validação pós-push (07/10): 34 funções anon 0 / authenticated 0 / service_role 34 / postgres 34; views com security_invoker=true e usando `_visivel`; peão d649 vê 5 (pasto) e 8 (módulo) linhas como antes; default ACL `{postgres, service_role}`; 0 erros em `logs_sync_errors` nos últimos 30 min.
+- Limite: jobs de cron pesados não foram executados (só `sample_system_health`).
+
+## Auditoria de segurança — Fase 4: audit_log, impersonation_sessions, system_health_samples (07/10/2026)
+
+**Problema real**: `audit_log` tinha `rls_audit_log_select` (`true`) e a policy `Users can manage farm audit_log records` (ALL). Um peão lia as 48.956 linhas de auditoria (24.637 de outras fazendas; `valor_anterior`/`valor_novo` de qualquer tabela) e podia alterar, apagar e inserir linhas da própria fazenda (adulterar a trilha). **Correção de afirmação anterior**: `impersonation_sessions` e `system_health_samples` NÃO estavam expostas (`authenticated` não tem privilégio de SELECT/INSERT/UPDATE nelas; as policies `true` eram letra morta).
+
+**O que mudou** (migration do Painel `20261007250000_fase4_audit_impersonation_health.sql`, aplicada via `db push`; rollback em `supabase/rollbacks/`): `audit_log` fica só com SELECT da própria fazenda (`Users can view farm audit_log records`); `anon` sem privilégio; `authenticated` só SELECT. As duas outras tabelas: policies de SELECT por `is_super_admin()` / `is_admin_user()` (sem GRANT, defesa em profundidade) e sem escrita. O Painel só lê por RPCs (`get_audit_log`, `get_system_health`, `end_impersonation_session`, `set_audit_context`), tratadas na Fase 5; PWA não usa estas tabelas.
+
+**Evidências** (fazenda `d649c65e`, transações revertidas, antes -> depois): peão lê `audit_log` 48.956 -> 3.308 (só a própria), linhas de outra fazenda 24.637 -> 0; adulterar/apagar/forjar 1 linha -> `42501`; usuário da outra fazenda de teste vê auditoria de `d649` 3.308 -> 0; `anon` 0 linhas -> `permission denied`; `service_role` mantém acesso; a trilha continua sendo gravada pelo trigger `fn_audit_trigger` (UPDATE auditado por peão gera +1 linha). Pós-push, estado real: apenas a policy de SELECT por fazenda em `audit_log`, GRANT só `SELECT` para `authenticated`, mesmos resultados, migration registrada, 0 erros novos em `logs_sync_errors`, auditoria nova sendo gravada.
+
+**Observação**: o Painel lê auditoria pela RPC DEFINER `get_audit_log(p_fazenda_id, ...)`, que hoje não valida o chamador (Fase 5): é por ela que a leitura cruzada ainda é possível. Linhas de `audit_log` sem `fazenda_id` (21.011, ex.: tabelas sem coluna de fazenda, como `usuarios`) deixam de ser legíveis por acesso direto.
+
+**Disparador**: quando mencionar `audit_log`, trilha de auditoria adulterada, `get_audit_log` ou leitura cruzada de auditoria, ler esta seção.
+
+## Auditoria de segurança — Fase 3: S4 `usuarios` sem autopromoção (07/10/2026)
+
+**Problema**: policies `Allow authenticated insert` (check `true`) e `Allow authenticated update` (qual `true`) e "own profile" sem `WITH CHECK` permitiam a qualquer usuário logado `UPDATE usuarios SET papel='super_admin'` na própria linha (comprovado em transação revertida: `is_admin_user()` virou `true` e os insumos visíveis foram de 15 para 200). Como `is_admin_user()`/`is_super_admin()`/`impersonate-user`/`change-user-password` confiam em `usuarios.papel`, isso anulava todo o isolamento de tenant.
+
+**O que mudou** (migration do Painel `20261007240000_fase3_usuarios_s4.sql`, aplicada via `db push`; rollback em `supabase/rollbacks/`): policies abertas removidas; INSERT/UPDATE de terceiros só para admin (`is_admin_user()`); "own profile" com `WITH CHECK`; trigger `trg_usuarios_protege_colunas` (INVOKER) para clientes da API (`authenticated`/`anon`): super_admin sem restrição; admin só cria `controller` e só ativa/desativa `controller`, sem alterar papel, id, auth_id, email, created_at; demais só nome, telefone e `ultimo_acesso` da própria linha. `service_role`, `postgres` e funções DEFINER passam. `anon` perde todos os privilégios em `usuarios`; `authenticated` perde DELETE/TRUNCATE/REFERENCES/TRIGGER. UI: select de papel em `EditarUsuario.tsx` desabilitado para quem não é super_admin.
+
+**Evidências** (transações revertidas na fazenda de testes, 24 cenários, antes -> depois): peão altera o próprio papel para `super_admin` 1 linha (virava admin) -> `42501`; admin altera o próprio papel -> `42501`; peão insere `super_admin`/`controller` permitido -> `42501`; peão altera `ativo`/`acesso_vision`/email -> `42501`; admin cria `admin`, promove controller, desativa outro admin, muda e-mail -> `42501`; `anon` update/insert -> `permission denied`. Preservados: peão (`ultimo_acesso`, nome), admin (ativar controller, nome, criar controller como o `createFazendaWithController`), super_admin (promover, desativar admin), `service_role`. Pós-push repetido com o estado real: mesmos resultados; policies, trigger, grants e migration conferidos; sem erros novos em `logs_sync_errors`.
+
+**Login real** (contas `victorhugo.admin@gestaup.com` e peão `peao_gestaup`, via REST como o Painel/PWA): login OK, SELECT da própria linha 200, PATCH `ultimo_acesso` 204, PATCH `papel=super_admin` 403 nas duas. Única escrita real: `ultimo_acesso` dessas duas contas de teste.
+
+**Efeito esperado**: um admin não altera mais status de outro admin nem o papel de ninguém; só super_admin. Uso fora desse fluxo aparece como erro 42501 no Painel.
+
+**Não exercitado em navegador**: select de papel desabilitado em `EditarUsuario.tsx` e a tela de gerenciamento de usuários.
+
+**Disparador**: quando mencionar `trg_usuarios_protege_colunas`, autopromoção a super_admin, S4 ou erro 42501 ao editar usuário no Painel, ler esta seção.
+
+## Auditoria de segurança — Fase 2: Edge Functions de usuário (07/10/2026)
+
+**Problema**: `create-user-without-confirmation`, `create-auth-user-only` e `rollback-user-creation` (service role) só checavam a presença do header `Authorization`; `change-user-password` dependia de `usuarios.papel` (forjável antes da Fase 3). Qualquer usuário logado, inclusive peão, podia criar conta `super_admin` com senha própria, apagar usuário do Auth e apagar qualquer fazenda (cascata).
+
+**O que mudou** (repo do Painel, `supabase/functions/`, implantadas com `supabase functions deploy`): `_shared/requireCaller.ts` valida o JWT no servidor de Auth e exige usuário ativo em `usuarios`; `_shared/authz.ts` concentra as regras puras (testadas com `node --test`, 7 testes). `create-user-without-confirmation`: chamador admin/super_admin, só super_admin cria `admin`/`super_admin`, papel validado por lista. `create-auth-user-only`: admin/super_admin. `rollback-user-creation`: admin/super_admin, alvo nunca admin, conta e fazenda criadas há <= 30 min, fazenda sem lotes, não remove a si mesmo, tudo checado antes de qualquer exclusão. `change-user-password`: super_admin passa a poder usar; admin troca a própria e a de controller; só super_admin troca senha de admin/super_admin. Ids do corpo da requisição validados como UUID (evita injeção em filtro PostgREST). UI: `NovoUsuario.tsx` esconde a opção Admin de quem não é super_admin. As fontes passam a ficar versionadas no git (antes só existiam no Supabase).
+
+**Evidências** (JWT de peão da fazenda de testes `d649c65e`, obtido via `login-peao`): as 5 chamadas (create-user com papel `super_admin` e `controller`, create-auth-user-only, rollback, change-password) retornaram 403; sem header e com token inválido, 401. Conferido no banco: 0 contas/usuários `smoke.fase2.*`, 0 contas novas no Auth, fazenda de testes intacta. Fonte implantada confere com o repositório.
+
+**Caminho positivo e negações como admin** (conta `victorhugo.admin@gestaup.com`, papel `admin`, login por senha e chamada das funções como o Painel faz): cria usuário controller 200 e conta só-Auth 200; troca a senha do controller 200 (senha antiga passa a dar 400 e a nova 200); `rollback-user-creation` de conta recente 200 (limpeza). Negações: admin cria `admin`/`super_admin`/papel inválido 403; troca senha de outro admin e do super_admin 403; rollback de outro admin 403 e de si mesmo 403; `userId` com injeção de filtro 400. Limpeza confirmada: 0 contas e 0 linhas `teste.fase2.*`, `usuarios` de volta a 122.
+
+**Observações**: (1) o primeiro roteiro de teste cometeu um erro: trocar a própria senha do admin invalida a sessão (o Supabase derruba as sessões), então as chamadas seguintes deram 401 por token e tiveram de ser refeitas com novo login; a senha da conta não mudou de valor. (2) `rollback-user-creation` apaga só a conta do Auth e deixa a linha de `public.usuarios` órfã (comportamento anterior à Fase 2, não alterado); a linha de teste foi removida manualmente. (3) A UI (`NovoUsuario.tsx` sem a opção Admin) e o fluxo "criar fazenda com controller/peão" não foram exercitados em navegador.
+
+**Disparador**: quando mencionar `requireCaller`, `authz.ts`, funções `create-user-*`, `rollback-user-creation`, `change-user-password` ou criação de usuário pelo Painel, ler esta seção.
+
+## Auditoria de segurança — Fase 1: views, backup_* e storage logos (07/10/2026)
+
+Primeira fase do plano em fases (ver `docs/BACKLOG.md`). Migration do Painel `20261007230000_fase1_views_backups_logos.sql` (aplicada via `db push`); rollback em `supabase/rollbacks/20261007230000_fase1_views_backups_logos_rollback.sql` (repo do Painel, fora de `migrations/`).
+
+**O que mudou**: as 9 views passam a `security_invoker = true`, sem privilégio para `anon` e só `SELECT` para `authenticated` (antes executavam como `postgres`, 5 delas lidas por `anon` e com `INSERT/UPDATE/DELETE` para `authenticated`; `v_notificacoes_pendentes_ocupacao` permitia alterar notificações de qualquer fazenda; `itens_cantina_pwa` não filtrava tenant). As 16 tabelas `backup_*` ganham RLS + `REVOKE ALL` (já não tinham privilégio para anon/authenticated, então é defesa em profundidade; afirmação anterior de que estavam expostas pela API estava errada). Storage `logos`: INSERT/UPDATE/DELETE só `authenticated` (antes `public`); leitura pública mantida.
+
+**Evidências** (fazenda de testes `d649c65e`, transações revertidas; antes -> depois): peão de `d649` nas views, pasto 194 -> 5, módulo 19 -> 8, funcionários 242 -> 13, cantina 24 -> 4, notificações 1.517 -> 319; usuário da fazenda `a239` 242/24/... -> 0; `anon` lia as 5 views `v_*` -> `42501`; escrita em notificação de outra fazenda pela view 1 linha -> `42501`; `anon` INSERT/UPDATE em logo permitido -> `42501`/0 linhas; autenticado continua inserindo logo; `backup_*` com RLS 0 -> 16. Pós-push (estado real, sem ajustes de teste): mesmas contagens do "depois", `reloptions` `security_invoker=true` nas 9 views, ACLs corretas, policies de `logos` conferidas, migration registrada, nenhum erro novo em `logs_sync_errors`, advisor `security_definer_view` (ERROR) removido.
+
+**Limites**: DELETE de logo não é testável por SQL (o Storage bloqueia delete direto), validado por inspeção da policy; PWA/Painel reais não abertos. Admin global (`is_admin_user()`) passa a ver nas views só o que as policies das tabelas-base permitem (o `e4124426` está vinculado a `d649`).
+
+**Não resolvido nesta fase**: qualquer `authenticated` ainda sobrescreve/apaga logo de outra fazenda (Painel grava sem prefixo de fazenda; ver BACKLOG).
+
+**Disparador**: quando mencionar `security_invoker`, views `v_lote_*_ocupacao_atual`, `itens_cantina_pwa`, tabelas `backup_*` ou policies do bucket `logos`, ler esta seção.
+
+## Isolamento de tenant em insumos, formulacoes e receitas (07/10/2026)
+
+Item S3 do BACKLOG (parcial). `insumos` e `formulacoes` tinham as quatro operações com `qual/check = true` para `authenticated`: qualquer usuário logado lia, alterava e apagava estoque, custo e receitas de qualquer fazenda. `formulacao_insumos` (receitas, sem `fazenda_id`) tinha o mesmo problema, e `formulacoes_historico` usava `(select fazenda_id ... limit 1)`, válido só para a primeira fazenda do usuário.
+
+**Migration do Painel** `20261007220000_isolamento_tenant_insumos_formulacoes.sql` (aplicada via `db push`):
+- `insumos` e `formulacoes`: policies por `is_admin_user() OR caller_has_fazenda_access(fazenda_id)` em SELECT/INSERT/UPDATE/DELETE (padrão de `lotes`/`pastos` + admin global como em `fazendas`).
+- `formulacao_insumos`: escopo pela fórmula-pai; INSERT/UPDATE exigem também que o insumo seja da MESMA fazenda da fórmula (impede receita misturando tenants).
+- `formulacoes_historico`: `authenticated` com escopo pela fórmula-pai (o snapshot continua gravado pelo trigger `fn_snapshot_formulacao`, DEFINER).
+- Hardening: `anon` perde todos os privilégios nas quatro tabelas; `authenticated` perde `TRUNCATE`, `REFERENCES`, `TRIGGER` (TRUNCATE ignora RLS). Reversível com `GRANT`.
+
+**Verificado** (transações revertidas na fazenda de testes, antes e depois do push): peão de `d649` vê só os próprios 15 insumos/10 fórmulas, 0 de outra fazenda; UPDATE/DELETE cross-tenant = 0 linhas; INSERT de insumo em outra fazenda e receita com insumo de outra fazenda barrados (42501); admin vê os 200 insumos; `anon` barrado. Pós-push: cascata de estoque segue gerando as movimentações (2 itens -> 4 movs, `estoque_atual` = soma) e as leituras do PWA (formulações, insumos, insumos da formulação) retornam normal. O único usuário ativo sem `usuario_fazenda` é admin, coberto por `is_admin_user()`. Sem erros novos em `logs_sync_errors`.
+
+**Atenção**: se um usuário do Painel (não admin) sem vínculo ativo em `usuario_fazenda` aparecer com lista de insumos/fórmulas vazia, é o efeito esperado desta migration; corrigir o vínculo, não a policy.
+
+**Disparador**: quando mencionar "policy qual=true em insumos/formulacoes", S3, `formulacao_insumos`, `formulacoes_historico`, isolamento de tenant em cadastro de estoque ou lista vazia de insumos/fórmulas no Painel, ler esta seção.
+
 ## Itens de Produção Fábrica perdidos: estoque sem crédito (07/10/2026)
 
 **Sintoma**: registros de Produção Fábrica chegavam ao Supabase, mas o estoque dos produtos finais (ex.: E/A Engorda TIP 1,8%) não era creditado; histórico do Painel parava em 30/09. Fazenda `d3965505-74d5-4af7-9858-f773d2e8aab3`.

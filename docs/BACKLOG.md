@@ -88,6 +88,24 @@ Criar rota `/admin/erros-sync` com:
 
 ---
 
+## Auditoria de segurança de 07/10/2026: plano em fases (S4 + S3 + RPCs + Edge Functions)
+
+Auditoria feita só com leitura/simulações revertidas na fazenda de testes `d649c65e`. Cada fase só avança depois de testada, aplicada (`db push`/`functions deploy` pelo usuário) e validada. Trilha em `docs/HISTORICO.md` ("Auditoria de segurança — Fase N") e rollbacks em `supabase/rollbacks/` (repo do Painel).
+
+| Fase | Escopo | Status |
+|---|---|---|
+| 1 | Views `security_invoker` + sem anon/escrita; `backup_*` com RLS; escrita pública de storage `logos` | **CONCLUÍDA e validada em 07/10/2026** (ver docs/HISTORICO.md) |
+| 2 | Edge Functions `create-user-without-confirmation`, `create-auth-user-only`, `rollback-user-creation`, `change-user-password`: exigir admin/super_admin (hoje só checam header `Authorization`: qualquer logado cria `super_admin` ou apaga fazenda/usuário) | **CONCLUÍDA e validada em 07/10/2026** (negativo com peão e positivo/negações com admin; ver docs/HISTORICO.md) |
+| 3 | S4 `usuarios`: policies `Allow authenticated insert/update` abertas permitem autopromoção a `super_admin` (comprovado em transação revertida); trigger de proteção de colunas | **CONCLUÍDA e validada em 07/10/2026** (24 cenários + login real; ver docs/HISTORICO.md) |
+| 4 | `audit_log` (SELECT `true` + policy ALL: leitura cruzada e adulteração da trilha). `impersonation_sessions`/`system_health_samples`: policies `true` mortas (authenticated nem tem privilégio), alinhadas por defesa em profundidade | **CONCLUÍDA e validada em 07/10/2026** (ver docs/HISTORICO.md) |
+| 5 | 118 RPCs `SECURITY DEFINER` com EXECUTE para `anon`/`authenticated`, a maioria sem checagem de autorização (inclui `soft_delete_record(p_schema,p_table,p_id)` com SQL dinâmico, `transferir_lote_entre_fazendas`, `get_audit_log`, `cleanup_audit_log`, `set_audit_context`, `autenticar_peao_app` que devolve a senha do peão) | **5.0 concluído**; **5.1** (34 funções cron/internas/sem chamador fechadas + `calcular_peso_medio_lote_visivel` nas views) e **5.1b** (default global: funções novas nascem fechadas) concluídas e validadas em produção (ver HISTORICO); Fase 5 (RPCs) CONCLUÍDA: 5.0 a 5.4 validadas. Próximo: Fase B (S3) em lotes e varredura final |
+| 6–10 | S3 em lotes: atividades, catálogos, estrutura da fazenda, pessoas, fábrica/históricos (+ S6/S7, leituras públicas `ativo = true`) | pendente |
+| 11 | Varredura final + `get_advisors(security)` sem ERROR | pendente |
+
+**Correção de afirmação anterior**: as 16 tabelas `backup_*` NÃO estavam acessíveis pela API (não têm privilégio para `anon`/`authenticated`); a Fase 1 só adiciona RLS como defesa em profundidade.
+
+**Pendências derivadas (fora das fases)**: (a) logos: qualquer `authenticated` ainda sobrescreve/apaga logo de outra fazenda; exige o Painel gravar em `{fazenda_id}/...` (hoje usa nomes por timestamp, 78 objetos) antes de escopar por prefixo; mesmo para `fotos-atividades`/`fotos-morte`/`fotos-registros`. (b) Ligar `auth_leaked_password_protection` no painel do Supabase. (c) Admin global (`is_admin_user()`) sem vínculo em `usuario_fazenda` enxerga só o que as policies das tabelas-base permitem (as views antes mostravam tudo). (d) ~~Edge Functions de usuário não versionadas~~ resolvido na Fase 2 (as 4 funções agora vivem em `supabase/functions/` do Painel). (e) `rollback-user-creation` apaga só a conta do Auth e deixa linha órfã em `public.usuarios` (e vínculos em `usuario_fazenda`, se houver); o fluxo `createFazendaWithController` em caso de falha herda isso. (f) Em um navegador, validar `NovoUsuario.tsx` (sem opção Admin para admin) e o fluxo criar fazenda + controller + peão; a Fase 3 deve cobrir também a opção de papel em `EditarUsuario.tsx`.
+
 ## Estoque de suplementação: pendências após o incidente de itens perdidos (07/10/2026)
 
 Incidente: itens de Produção Fábrica (`saida_insumos_itens`) estouravam `57014` e o estoque dos produtos finais não era creditado (fazenda `d3965505-74d5-4af7-9858-f773d2e8aab3`). Backfill de 28 itens feito via MCP; correção no PWA (cabeçalho passa a enviar os itens e vira `error` se algum falhar); correção estrutural no Painel (trigger-cascata `SECURITY DEFINER`). Ver `docs/HISTORICO.md`. Ficam pendentes:
@@ -106,7 +124,7 @@ Incidente: itens de Produção Fábrica (`saida_insumos_itens`) estouravam `5701
 - Replay incremental: `recalcular_custo_medio_item` percorre o histórico inteiro do item a cada movimentação (125 linhas só no E/A Engorda). Recalcular a partir da movimentação alterada.
 - Cada produção com 6 insumos dispara 6 replays da MESMA formulação (linha quente). Avaliar crédito da formulação agregado por cabeçalho em vez de por item.
 
-**Segurança (S3 — evidência nova)**: `insumos` e `formulacoes` seguem com policies `qual=true` para `authenticated`. Qualquer usuário autenticado lê e altera insumos e fórmulas de qualquer fazenda. Já listado em S3 abaixo; ao escopar essas duas tabelas por `caller_has_fazenda_access(fazenda_id)` conferir que a cascata de estoque (agora `SECURITY DEFINER`) continua escrevendo normalmente e que o escopo por `fazenda_id` dentro dela foi mantido.
+**Segurança (S3)**: `insumos`/`formulacoes` (e as tabelas filhas) foram isoladas por tenant em 07/10/2026; ver S3 abaixo e `docs/HISTORICO.md`. Hardening de privilégios (`TRUNCATE`, `REFERENCES`, `TRIGGER` para `anon`/`authenticated`) aplicado só nessas quatro tabelas; as demais tabelas de cadastro ainda têm esses grants e entram no mesmo tratamento quando forem escopadas.
 
 **Disparador**: quando mencionar `saida_insumos_itens`, itens perdidos de produção, estoque de formulação sem crédito, `trg_saida_insumos_itens_mov` ou timeout 57014 em insumos-por-saida, ler esta seção.
 
@@ -149,7 +167,7 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 |---|---|---|---|
 | ~~S1~~ | fazendas | ~~Policies Auth delete/insert/update com qual=true~~ **RESOLVIDO** (06/10/2026, migration Painel `20261006180000_isolamento_tenant`): INSERT/DELETE só `is_admin_user()`; UPDATE admin/controller da própria fazenda | — |
 | ~~S2~~ | fazendas | ~~Policy Enable public read access (role public)~~ **RESOLVIDO** (06/10/2026, mesma migration): SELECT restrito a vínculo direto ou mesmo `grupo_id` (preserva transferências) | — |
-| S3 | checklist_regras, funcionarios, formulacoes, frigorificos, insumos, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, ~~lotes, pastos~~, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas. **PARCIAL** (06/10/2026): `lotes`, `pastos`, `fazendas`, `usuario_fazenda` e `peoes` isoladas via `caller_has_fazenda_access`/`user_has_fazenda_role`; RPC `sincronizar_historico_pasto_lote_edit` hardenada | Substituir nas tabelas restantes por `caller_has_fazenda_access(fazenda_id)` (cobre painel via usuario_fazenda e peão PWA via email JWT). **Prioridade alta para `insumos` e `formulacoes`** (07/10/2026): qualquer autenticado altera estoque e custo de outra fazenda; ver seção "Estoque de suplementação: pendências"; auditar RPCs definer restantes (`transferir_lote_entre_fazendas`, `aprovar_solicitacao_novo_lote`) |
+| S3 | checklist_regras, funcionarios, ~~formulacoes~~, frigorificos, ~~insumos~~, itens_almoxarifado, locais, implementos, medicamentos, mineral, proteinado, racao, tratamentos, setores, maquinas_veiculos, currais, ~~lotes, pastos~~, racas, fornecedores, causas_morte, bebedouros | Todas com policies qual=true (SELECT/INSERT/UPDATE/DELETE), qualquer usuário autenticado acessa dados de todas as fazendas. **PARCIAL** (06/10/2026): `lotes`, `pastos`, `fazendas`, `usuario_fazenda` e `peoes` isoladas via `caller_has_fazenda_access`/`user_has_fazenda_role`; RPC `sincronizar_historico_pasto_lote_edit` hardenada | Substituir nas tabelas restantes por `caller_has_fazenda_access(fazenda_id)` (cobre painel via usuario_fazenda e peão PWA via email JWT). **`insumos`, `formulacoes`, `formulacao_insumos` e `formulacoes_historico` RESOLVIDOS em 07/10/2026** (ver docs/HISTORICO.md); restam as demais tabelas da lista; auditar RPCs definer restantes (`transferir_lote_entre_fazendas`, `aprovar_solicitacao_novo_lote`) |
 | S4 | usuarios | Policies Allow authenticated insert/update com qual=true, qualquer usuário pode criar/alterar qualquer usuário | Restringir INSERT/UPDATE a id = auth.uid() ou role admin |
 | S5 | peoes (coluna password) | Senhas dos peões em texto plano; usadas em authController.ts:42 para signInWithPassword | **Aceito como está** (decisão do usuário, 2026-09-10): peão é perfil de acesso limitado a dados da fazenda, não tem acesso a dados sensíveis. Hashing é melhoria opcional de defesa-em-profundidade, sem urgência. Se implementar no futuro: migration que hashea as existentes + ajustar authController.ts. |
 
@@ -274,3 +292,27 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 | 8 | ~~C9-C10, C13~~ | Consistência | ~~Fuso horário não aplicado no PWA~~ (RESOLVIDO) | NEUTRO |
 | 9 | N4 | Negócio | currentFazendaId global | NEUTRO |
 | 10 | Log erro visível | Negócio | Erro de sync não visível + retries automáticos causam duplicatas | NEUTRO |
+
+
+- **(07/10/2026, achados da Fase 5.3)** (a) `update_quant_atual_with_data` falha com 42P10 (`ON CONFLICT (lote_id, categoria)` sem constraint única correspondente; já era assim, usada em `IndividuoNovo.tsx`). (b) Peão e gestor têm papel `controller` em `usuario_fazenda`; checagens "apenas controller+" (ex.: `excluir_registro_*`) não os separam. Definir separação (ex.: e-mail `@gestaup.internal`) antes de usar papel como autorização. (c) Confirmar que o PWA envia `funcionario_id` válido em `registrar_push_subscription` (FK rejeitou id de teste). (d) Funções de plano (`iniciar/encerrar/migrar_plano_*`) validar em tela com plano real.
+- **(07/10/2026, Fase 5.4)** Tokens de `relatorios_publicos` nunca expiram (`expira_em` nulo em 100% das linhas): decidir validade padrão/rotação. Tornar obrigatória a gravação da sessão em `impersonate-user` (hoje falha silenciosa deixa a ação sem "impersonado por").
+- **(07/10/2026, Fase B)** Lote 1 (atividades) CONCLUÍDO. Próximos: Lote 2a catálogos, 2b estrutura da fazenda, 2c pessoas, Lote 3 fábrica/históricos, Lote 4 varredura final. Dependência anon a tratar nos lotes seguintes: a página pública de relatórios (`RelatorioPublico.tsx`, `RelatorioAtividadesPublico.tsx`) lê `relatorios_publicos` e `fazendas` direto como anon; migrar para RPC por token antes de fechar essas tabelas.
+
+## Segurança S3/S4 — o que falta (consolidado em 07/10/2026)
+
+Concluído: Fases 1–4, Fase 5 inteira (RPCs SECURITY DEFINER, 5.0 a 5.4) e Fase B Lote 1 (atividades). Detalhes em `docs/HISTORICO.md` ("Auditoria de segurança"). Rollbacks em `supabase/rollbacks/` do repo do Painel.
+
+**Fase B (S3) — policies abertas por lote** (levantamento aproximado por `pg_policies` com `true`/`public`/`anon`; confirmar uma a uma antes de cada lote; sempre levantar quem lê como `anon` e criar RPC por token antes de fechar):
+- **Lote 2a catálogos:** `causas_morte`, `faixas_categorias`, `frigorificos`, `medicamentos`, `mineral`, `proteinado`, `racao`, `tratamentos`, `fornecedores`, `racas`, `implementos`, `maquinas_veiculos`, `locais`, `setores` (e remover leituras públicas `ativo = true`).
+- **Lote 2b estrutura da fazenda:** `bebedouros`, `pasto_bebedouros`, `pluviometros`, `currais` (escrita anon), `linhas_confinamento`, `vagoes`, `rotinas` (escrita anon), `checklist_regras`, `categorias`.
+- **Lote 2c pessoas:** `funcionarios`, `funcionario_setores` (preservar leitura do peão por PIN).
+- **Lote 3 fábrica e históricos:** `registros_fabrica_confinamento` (+ `_insumos`), `lote_categorias_transicoes`, `lote_modulo_historico`, `lote_pasto_historico`, `lote_curral_historico` (anon), `plano_categoria_personalizacao`, `lote_historico`, `grupos_fazenda`, `formulacao_categorias_gmd`, `planos_nutricionais`, `planos_nutricionais_snapshots`.
+- **Outras que apareceram na varredura:** `ia_fazenda_config`, `ia_config_global`, `notificacoes_config`, `notas_leitura_cocho_config`, `chat_ia_logs`, `execucoes_rotina`, `execucoes_rotina_historico`, `lote_categorias`, `relatorios_publicos`, `precos_categorias`.
+- **Dependência anon conhecida:** `RelatorioPublico.tsx` e `RelatorioAtividadesPublico.tsx` leem `relatorios_publicos` e `fazendas` direto como anon; `setores`, `funcionarios`, `bebedouros`, `pluviometros`, `medicamentos` aparecem em relatórios públicos e no boot do PWA. Migrar para RPC por token antes de fechar.
+- **Lote 4 varredura final:** provar 0 policies `true`/`anon`/`public` não intencionais e 0 tabelas sem RLS; rodar `get_advisors(security)` sem ERROR; documentar exceções (`logs_sync_errors` INSERT anon, `precos_categorias` leitura anon).
+- **Storage (A7):** prefixo de fazenda nos buckets `fotos-*` e nas escritas de `logos` (só o INSERT público de `logos` foi tratado).
+
+**Ações do usuário:** commit/push dos repos (PWA tem commit local 889f37d sem push); ligar `auth_leaked_password_protection` no dashboard do Supabase; trocar a senha do admin exposta no chat e a do controller de testes; testar o cronômetro de atividades no campo (sync de `atividade_sessoes`/`atividade_imprevistos` não foi exercitado na tela); apagar a atividade de teste "TESTE Fase B1 isolamento" da d649 se quiser.
+
+**Pendências de produto/qualidade registradas na Fase 5:** tokens de `relatorios_publicos` sem validade (`expira_em` nulo em 100%); gravação garantida da sessão em `impersonate-user`; peão e gestor com o mesmo papel (`controller`) em `usuario_fazenda`; `update_quant_atual_with_data` com 42P10; `get_audit_log.tabelasAuditadas` agrega contagem global; validar funções de plano (`iniciar/encerrar/migrar_plano_*`) em tela com plano real; confirmar `funcionario_id` válido em `registrar_push_subscription` (FK).
+
