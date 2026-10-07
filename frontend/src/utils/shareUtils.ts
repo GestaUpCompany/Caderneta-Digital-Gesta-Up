@@ -445,7 +445,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   }
   // Almoxarifado/cantina de saída vs entrada: deixar explícito no compartilhamento
   if (caderneta === 'almoxarifado') {
-    cadernetaNome = 'SAÍDA DE ESTOQUE - ALMOXARIFADO'
+    cadernetaNome = registro.tipo === 'devolucao' ? 'DEVOLUÇÃO DE ESTOQUE - ALMOXARIFADO' : 'SAÍDA DE ESTOQUE - ALMOXARIFADO'
   }
   if (caderneta === 'entrada-almoxarifado') {
     cadernetaNome = 'ENTRADA DE ESTOQUE - ALMOXARIFADO'
@@ -755,20 +755,23 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `\nCAPACIDADE: *${registro.capacidadeLitros} Litros*\n`
     }
   } else if (caderneta === 'abastecimento') {
-    // Seção: Dados do Abastecimento6
+    // Seção: Dados do Abastecimento
     texto += `DADOS DO ABASTECIMENTO\n`
     texto += `QUEM ABASTECEU: *${registro.quemAbasteceu || '—'}*\n`
     texto += `OPERADOR MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
     texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
     texto += `PLACA: *${registro.placa || '—'}*\n`
-    texto += `TOTAL ABASTECIDO: *${registro.totalAbastecido || '—'} L*\n`
+    texto += `TOTAL ABASTECIDO: *${formatarNumeroBR(registro.totalAbastecido, '—')} L*\n`
     if (registro.totalBomba) {
-      texto += `TOTAL DA BOMBA: *${registro.totalBomba} L*\n`
+      texto += `TOTAL DA BOMBA: *${formatarNumeroBR(registro.totalBomba, String(registro.totalBomba))} L*\n`
     }
     texto += `\n`
-    
+
     texto += `COMBUSTÍVEL: *${registro.combustivel || '—'}*\n`
-    texto += `ODÔMETRO/HORÍMETRO: *${formatarNumeroBR(registro.odometro, '—')} km*\n`
+    if (registro.tanqueNome) {
+      texto += `TANQUE: *${registro.tanqueNome}*\n`
+    }
+    texto += `ODÔMETRO/HORÍMETRO: *${registro.semHorimetro || !registro.odometro ? 'Sem horímetro' : formatarNumeroBR(registro.odometro, '—')}*\n`
     texto += `TIPO DE OPERAÇÃO: *${registro.tipoOperacao || '—'}*\n`
     if (registro.tipoOperacao === 'Outros' && registro.tipoOperacaoOutros) {
       texto += `ESPECIFICAR: *${registro.tipoOperacaoOutros}*\n`
@@ -1568,38 +1571,42 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
     }
   } else if (caderneta === 'almoxarifado') {
-    // Para almoxarifado, exibir quem entregou e quem pegou
-    texto += `QUEM ENTREGOU: *${registro.quemEntregou || '—'}*\n`
-    texto += `QUEM PEGOU: *${registro.quemPegou || '—'}*\n\n`
+    const ehDevolucao = registro.tipo === 'devolucao'
+    texto += `${ehDevolucao ? 'QUEM RECEBEU' : 'QUEM ENTREGOU'}: *${registro.quemEntregou || '—'}*\n`
+    texto += `${ehDevolucao ? 'QUEM DEVOLVEU' : 'QUEM PEGOU'}: *${registro.quemPegou || '—'}*\n`
+
+    // Setor e unico por registro (gravado igual em todos os itens)
+    const itensAlmox: any[] = Array.isArray(registro.itens) ? registro.itens : []
+    const setorRegistro = itensAlmox.find((item) => item?.setor)?.setor
+    if (setorRegistro) {
+      texto += `SETOR: *${setorRegistro}*\n`
+    }
+    texto += `\n`
 
     // Exibir itens
-    if (registro.itens && Array.isArray(registro.itens) && registro.itens.length > 0) {
-      texto += 'ITENS\n'
-      registro.itens.forEach((item: any, index: number) => {
+    if (itensAlmox.length > 0) {
+      texto += `${ehDevolucao ? 'ITENS DEVOLVIDOS' : 'ITENS RETIRADOS'}\n`
+      itensAlmox.forEach((item: any, index: number) => {
+        const unidade = item.unidade && item.unidade !== 'un' ? ` ${item.unidade}` : ''
         texto += `${index + 1}. *${item.nome || '—'}*\n`
+        texto += `   Quantidade: *${formatarNumeroBR(item.quantidade, '—')}${unidade}*\n`
 
-        // Quantidade
-        texto += `   Quantidade: *${item.quantidade || '—'}*\n`
-
-        // Classificação (se preenchida)
-        if (item.classificacao && item.classificacao !== '') {
+        if (item.classificacao && item.classificacao !== '' && item.classificacao !== 'Pendentes') {
           texto += `   Classificação: *${item.classificacao}*\n`
         }
 
-        // Setor
-        if (item.setor && item.setor !== '') {
-          texto += `   Setor: *${item.setor}*\n`
+        // Devolução (só na retirada): VOLTA com prazo ou FICA
+        if (!ehDevolucao) {
+          if (item.necessitaDevolucao === 'S') {
+            texto += `   Devolução: Volta (*${item.prazoDevolucao || '—'}*)\n`
+          } else {
+            texto += `   Devolução: Fica\n`
+          }
         }
 
-        // Devolução
-        if (item.necessitaDevolucao === 'S') {
-          const prazoLabel = item.prazoDevolucao || '—'
-          texto += `   Devolução: Sim (*${prazoLabel}*)\n`
-        } else {
-          texto += `   Devolução: Não\n`
+        if (item.observacao) {
+          texto += `   Obs: *${item.observacao}*\n`
         }
-
-        // Quebra de linha após cada item
         texto += '\n'
       })
     }
@@ -1892,36 +1899,35 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
     texto += `ODÔMETRO/HORÍMETRO: *${formatarNumeroBR(registro.odometro, '—')}*\n\n`
 
-    // Seção: Checklist
-    const checklistPerguntas = [
-      { campo: 'abastecimentoRealizado', label: 'ABASTECIMENTO REALIZADO?' },
-      { campo: 'lavagemRealizada', label: 'LAVAGEM REALIZADA?' },
-      { campo: 'vidrosPerfeitos', label: 'VIDROS ESTÃO PERFEITOS?' },
-      { campo: 'freiosBons', label: 'FREIOS ESTÃO BONS?' },
-      { campo: 'bateriaBoa', label: 'BATERIA ESTÁ BOA?' },
-      { campo: 'conferiuEletrica', label: 'CONFERIU ELÉTRICA?' },
-      { campo: 'maquinaEngraxada', label: 'MÁQUINA ENGRAXADA?' },
-      { campo: 'nivelAguaIdeal', label: 'NÍVEL DE ÁGUA IDEAL?' },
-      { campo: 'conferiuNivelOleo', label: 'CONFERIU NÍVEL DO ÓLEO?' },
-      { campo: 'calibrouPneus', label: 'CALIBROU OS PNEUS?' },
-      { campo: 'limpouRadiador', label: 'LIMPOU O RADIADOR?' },
-      { campo: 'tapetesBons', label: 'TAPETES ESTÃO BONS?' },
-      { campo: 'assentoBom', label: 'ASSENTO ESTÁ BOM?' },
+    // Seção: Checklist (só os problemas marcados, valor 'N')
+    const checklistProblemas = [
+      { campo: 'abastecimentoRealizado', label: 'NÃO ABASTECEU' },
+      { campo: 'lavagemRealizada', label: 'NÃO LAVOU' },
+      { campo: 'vidrosPerfeitos', label: 'VIDROS COM PROBLEMA' },
+      { campo: 'freiosBons', label: 'FREIOS COM PROBLEMA' },
+      { campo: 'bateriaBoa', label: 'BATERIA COM PROBLEMA' },
+      { campo: 'conferiuEletrica', label: 'NÃO CONFERIU A ELÉTRICA' },
+      { campo: 'maquinaEngraxada', label: 'NÃO ENGRAXOU' },
+      { campo: 'nivelAguaIdeal', label: 'NÍVEL DE ÁGUA FORA DO IDEAL' },
+      { campo: 'conferiuNivelOleo', label: 'NÃO CONFERIU O ÓLEO' },
+      { campo: 'calibrouPneus', label: 'NÃO CALIBROU OS PNEUS' },
+      { campo: 'limpouRadiador', label: 'NÃO LIMPOU O RADIADOR' },
+      { campo: 'tapetesBons', label: 'TAPETES COM PROBLEMA' },
+      { campo: 'assentoBom', label: 'ASSENTO COM PROBLEMA' },
     ]
 
+    const problemas = checklistProblemas.filter(({ campo }) => (registro.checklist as any)?.[campo]?.valor === 'N')
     texto += `CHECKLIST\n`
-    checklistPerguntas.forEach(({ campo, label }) => {
-      const valor = (registro.checklist as any)?.[campo]?.valor
-      const observacao = (registro.checklist as any)?.[campo]?.observacao
-      // Only show negative responses (N)
-      if (valor === 'N') {
-        const valorFormatado = 'Não'
-        texto += `${label}: *${valorFormatado}* ⚠️\n`
-        if (observacao && observacao !== '') {
-          texto += `OBSERVAÇÃO: *${observacao}*\n`
-        }
-      }
-    })
+    if (problemas.length === 0) {
+      texto += `Nenhum problema encontrado ✅\n`
+    } else {
+      problemas.forEach(({ campo, label }) => {
+        const item = (registro.checklist as any)?.[campo]
+        texto += `${label} ⚠️\n`
+        if (item?.observacao) texto += `   OBSERVAÇÃO: *${item.observacao}*\n`
+        if (item?.foto_url || item?.fotoBase64) texto += `   FOTO: *anexada*\n`
+      })
+    }
 
     if (registro.observacao && registro.observacao !== '') {
       texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`

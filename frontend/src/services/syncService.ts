@@ -607,6 +607,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         tipo: registro.tipo || 'retirada',
         quem_entregou: registro.quemEntregou || null,
         quem_pegou: registro.quemPegou || null,
+        // Setor unico por registro; registros antigos so tem o setor dentro dos itens
+        setor: registro.setor || (Array.isArray(registro.itens) ? registro.itens.find((i: any) => i?.setor)?.setor : null) || null,
         itens: registro.itens || [],
         observacao: registro.observacao || null,
       }
@@ -1055,8 +1057,8 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       }
     }
 
-    // Fotos por item do checklist (bebedouros, suplementacao)
-    if ((store === 'bebedouros' || store === 'suplementacao') && data.checklist) {
+    // Fotos por item do checklist (bebedouros, suplementacao, manutencao-maquinas)
+    if ((store === 'bebedouros' || store === 'suplementacao' || store === 'manutencao-maquinas') && data.checklist) {
       data = { ...data, checklist: await uploadFotosChecklist(data.checklist, registro, fazendaId, store) }
     }
     // Rodeio: foto por item do diagnostico (animal doente/machucado etc.)
