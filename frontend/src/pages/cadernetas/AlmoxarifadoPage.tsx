@@ -155,6 +155,13 @@ export default function AlmoxarifadoPage() {
     }
   }, [form.quemEntregou, usuario])
 
+  // Devolução: quem devolve é sempre o usuário logado (cada um só vê e devolve o que pegou)
+  useEffect(() => {
+    if (devolucao && form.quemPegou !== (usuario || '')) {
+      setForm(prev => ({ ...prev, quemPegou: usuario || '', itens: prev.quemPegou ? [] : prev.itens }))
+    }
+  }, [devolucao, usuario, form.quemPegou])
+
   // Carregar funcionários, classificações e setores (com cache lazy para offline)
   useEffect(() => {
     const loadData = async () => {
@@ -206,7 +213,8 @@ export default function AlmoxarifadoPage() {
       }
       try {
         if (devolucao && classificacaoAtiva === 'Pendentes') {
-          const pendentes = await getItensPendentesDevolucaoCached(fazendaId, form.quemPegou || undefined)
+          // Sem usuário identificado não há como filtrar: nunca listar pendências de terceiros
+          const pendentes = usuario ? await getItensPendentesDevolucaoCached(fazendaId, usuario) : []
           if (cancelado) return
           setDevolucaoSemPendencias(!pendentes || pendentes.length === 0)
           setItensDisponiveis((pendentes || []).map((item: any) => ({
@@ -232,7 +240,7 @@ export default function AlmoxarifadoPage() {
     }
     loadItens()
     return () => { cancelado = true }
-  }, [classificacaoAtiva, fazendaId, form.tipo, form.quemPegou])
+  }, [classificacaoAtiva, fazendaId, form.tipo, usuario])
 
   const itemDoCarrinho = (item: any): ItemAlmoxarifado | undefined => {
     const chave = chaveItem({
@@ -297,7 +305,12 @@ export default function AlmoxarifadoPage() {
 
   const trocarTipo = (tipo: string) => {
     if (tipo === form.tipo) return
-    setForm((prev) => ({ ...prev, tipo: tipo as FormState['tipo'], itens: [] }))
+    setForm((prev) => ({
+      ...prev,
+      tipo: tipo as FormState['tipo'],
+      itens: [],
+      quemPegou: tipo === 'devolucao' ? (usuario || '') : '',
+    }))
     setDevolucaoSemPendencias(false)
     // Devolução abre em Pendentes; retirada na primeira classificação
     setClassificacaoAtiva(tipo === 'devolucao' ? 'Pendentes' : classificacoesDisponiveis.find((c) => c !== 'Pendentes') || '')
@@ -402,7 +415,11 @@ export default function AlmoxarifadoPage() {
             <p className="text-[15px] font-bold text-gray-900">
               {labelPegou} <span className="text-red-500">*</span>
             </p>
-            {funcionariosDisponiveis.length > 0 ? (
+            {devolucao ? (
+              <InfoStrip tone="neutral" icon="👤">
+                {usuario ? `${usuario}: você só vê os itens que você mesmo pegou` : 'Usuário não identificado. Faça login novamente para devolver itens.'}
+              </InfoStrip>
+            ) : funcionariosDisponiveis.length > 0 ? (
               <div className="grid grid-cols-4 gap-2">
                 {funcionariosDisponiveis.map((nome) => {
                   const selecionado = form.quemPegou === nome
