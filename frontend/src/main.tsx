@@ -29,7 +29,7 @@ window.addEventListener('beforeinstallprompt', (e: Event) => {
 
 // Detectar instalação concluída
 window.addEventListener('appinstalled', () => {
-  ;(window as any).__deferredInstallPrompt = null
+  (window as any).__deferredInstallPrompt = null
   window.dispatchEvent(new CustomEvent('app-installed'))
 })
 
