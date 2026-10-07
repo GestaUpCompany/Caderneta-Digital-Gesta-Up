@@ -1014,6 +1014,17 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       data = { ...data, foto_url: fotoUrl }
     }
 
+    // Enfermaria: foto do brinco (a foto do animal segue em foto_url)
+    if (store === 'enfermaria') {
+      const fotoBrincoUrl = await uploadFotoNomeada(registro, fazendaId, {
+        campoBase64: 'fotoBrincoBase64',
+        bucket: 'fotos-registros',
+        pasta: 'enfermaria/',
+        nome: 'brinco',
+      })
+      if (fotoBrincoUrl) data = { ...data, foto_brinco_url: fotoBrincoUrl }
+    }
+
     // Morte: fotos extras do brinco e da cabeça
     if (store === 'morte') {
       const fotoBrincoUrl = await uploadFotoMorte(registro, fazendaId, 'brinco')

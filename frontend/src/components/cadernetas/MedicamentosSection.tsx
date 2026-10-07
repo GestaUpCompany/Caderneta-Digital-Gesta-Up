@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Input, SearchableModal } from '../ui'
+import { SearchableModal } from '../ui'
 import ChoiceGrid from './ChoiceGrid'
+import StepperInput from './StepperInput'
 import InfoStrip from './InfoStrip'
 import { Plus } from 'lucide-react'
 
@@ -21,6 +22,19 @@ interface MedicamentosSectionProps {
 
 const normalizar = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+type UnidadeDose = 'ml' | 'mg'
+
+// "20 ml" / "1,5 mg" / "15" -> número (com ponto) + unidade; texto livre antigo ("15ml IV") não parseia
+const parseDose = (str: string): { num: string; un: UnidadeDose } | null => {
+  const m = /^\s*(\d+(?:[.,]\d+)?)\s*(ml|mg)?\s*$/i.exec(str || '')
+  return m ? { num: m[1].replace(',', '.'), un: ((m[2] || 'ml').toLowerCase() as UnidadeDose) } : null
+}
+
+const formatarDose = (num: string, un: UnidadeDose): string => {
+  const n = Number(num)
+  return num !== '' && !isNaN(n) && n > 0 ? `${num.replace('.', ',')} ${un}` : ''
+}
 
 const tipoIcon = (tipo: string): string => {
   const n = normalizar(tipo)
@@ -43,6 +57,9 @@ export default function MedicamentosSection({
   const [medicamentoEditando, setMedicamentoEditando] = useState<MedicamentoItem | null>(null)
   const [medicamentoEditandoIndex, setMedicamentoEditandoIndex] = useState<number | null>(null)
   const [tipoFiltro, setTipoFiltro] = useState<string>('')
+  const [doseNum, setDoseNum] = useState('')
+  const [doseUn, setDoseUn] = useState<UnidadeDose>('ml')
+  const [doseLegada, setDoseLegada] = useState('')
 
   const tiposDisponiveis = [...new Set(medicamentosDisponiveis.map(m => m.tipo))] as string[]
 
@@ -50,6 +67,9 @@ export default function MedicamentosSection({
     setMostrarFormularioMedicamento(true)
     setMedicamentoEditando(null)
     setMedicamentoEditandoIndex(null)
+    setDoseNum('')
+    setDoseUn('ml')
+    setDoseLegada('')
     setTipoFiltro(tiposDisponiveis.length === 1 ? tiposDisponiveis[0] : '')
   }
 
@@ -57,6 +77,10 @@ export default function MedicamentosSection({
     setMostrarFormularioMedicamento(true)
     setMedicamentoEditando(items[index])
     setMedicamentoEditandoIndex(index)
+    const dose = parseDose(items[index].doseAplicada)
+    setDoseNum(dose?.num || '')
+    setDoseUn(dose?.un || 'ml')
+    setDoseLegada(dose ? '' : items[index].doseAplicada)
     setTipoFiltro(items[index].tipo)
   }
 
@@ -88,6 +112,15 @@ export default function MedicamentosSection({
     setMedicamentoEditando(null)
     setMedicamentoEditandoIndex(null)
     setTipoFiltro('')
+  }
+
+  const atualizarDose = (num: string, un: UnidadeDose) => {
+    setDoseNum(num)
+    setDoseUn(un)
+    if (num !== '') setDoseLegada('')
+    setMedicamentoEditando((prev) =>
+      prev ? { ...prev, doseAplicada: num === '' && doseLegada ? prev.doseAplicada : formatarDose(num, un) } : prev
+    )
   }
 
   const handleSelecionarMedicamento = (medicamento: any) => {
@@ -200,12 +233,37 @@ export default function MedicamentosSection({
             </InfoStrip>
           )}
 
-          <Input
-            label={<span>DOSE APLICADA <span className="text-red-500">*</span></span>}
-            placeholder="Ex: 20 ml"
-            value={medicamentoEditando?.doseAplicada || ''}
-            onChange={(e) => setMedicamentoEditando(prev => prev ? { ...prev, doseAplicada: e.target.value } : null)}
-          />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[15px] font-bold text-gray-900">
+                DOSE APLICADA <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-1.5">
+                {(['ml', 'mg'] as UnidadeDose[]).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => atualizarDose(doseNum, u)}
+                    className={`!min-h-0 rounded-lg border-2 px-3 py-1 text-xs font-extrabold uppercase transition-colors ${
+                      doseUn === u ? 'border-brand-900 bg-brand-900 text-white' : 'border-gray-300 bg-white text-gray-700'
+                    }`}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <StepperInput
+              value={doseNum}
+              onChange={(v) => atualizarDose(v, doseUn)}
+              min={0}
+              step={0.5}
+              suffix={doseUn}
+            />
+            {doseLegada && (
+              <InfoStrip tone="warning">Dose registrada antes: "{doseLegada}". Informe novamente no seletor para alterar.</InfoStrip>
+            )}
+          </div>
 
           <div className="flex gap-2">
             <button
