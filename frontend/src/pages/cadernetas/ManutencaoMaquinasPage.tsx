@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Truck } from 'lucide-react'
-import { Input, DatePicker, ValidationMessage } from '../../components/ui'
+import { Input, DatePicker, ValidationMessage, NumericInput } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -482,18 +482,12 @@ export default function ManutencaoMaquinasPage() {
               Odômetro/Horímetro <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-2 gap-2" data-field="odometro">
-              <Input
+              <NumericInput
                 placeholder="Informe a quilometragem/horímetro"
                 value={form.odometro}
-                onChange={(e) => {
-                  // Só dígitos e uma única vírgula como separador decimal
-                  const limpo = e.target.value.replace(/[^\d,]/g, '')
-                  const i = limpo.indexOf(',')
-                  const valor = i === -1 ? limpo : limpo.slice(0, i + 1) + limpo.slice(i + 1).replace(/,/g, '')
-                  set('odometro')(valor)
-                }}
+                onChange={(v) => setForm((prev) => ({ ...prev, odometro: v }))}
                 error={getError('odometro')}
-                inputMode="decimal"
+                decimalPlaces={2}
               />
               {fotoBase64 ? (
                 <button
