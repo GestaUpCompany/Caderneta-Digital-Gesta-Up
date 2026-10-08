@@ -30,6 +30,16 @@ interface DatePickerProps {
   compact?: boolean
   inline?: boolean
   variant?: 'default' | 'header'
+  /** Última data selecionável (dd/mm/aaaa). Dias posteriores ficam desabilitados. */
+  maxDate?: string
+}
+
+// Converte "dd/mm/aaaa" em Date local à meia-noite; null se inválida
+const parseBR = (value?: string): Date | null => {
+  if (!value) return null
+  const [day, month, year] = value.split('/').map(Number)
+  const parsed = new Date(year, (month || 1) - 1, day || 1)
+  return isNaN(parsed.getTime()) ? null : parsed
 }
 
 const formatToBR = (date: Date) =>
@@ -54,6 +64,7 @@ export default function DatePicker({
   compact = false,
   inline = false,
   variant = 'default',
+  maxDate,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -73,7 +84,7 @@ export default function DatePicker({
       }
     }
 
-    const today = new Date()
+    const today = parseBR(todayBR()) ?? new Date()
     setSelectedDate(today)
     setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1))
     setInputValue(todayBR())
@@ -109,7 +120,11 @@ export default function DatePicker({
     return days
   }
 
+  const maxDateParsed = parseBR(maxDate)
+  const isAfterMax = (date: Date) => maxDateParsed !== null && date.getTime() > maxDateParsed.getTime()
+
   const handleDateSelection = (date: Date) => {
+    if (isAfterMax(date)) return
     setSelectedDate(date)
     const formatted = formatToBR(date)
     setInputValue(formatted)
@@ -118,8 +133,8 @@ export default function DatePicker({
   }
 
   const handleToday = () => {
-    const today = new Date()
-    handleDateSelection(today)
+    // "Hoje" no fuso da fazenda, não no relógio do aparelho
+    handleDateSelection(parseBR(todayBR()) ?? new Date())
   }
 
   const changeMonth = (increment: number) => {
@@ -127,7 +142,11 @@ export default function DatePicker({
   }
 
   const calendarDays = generateCalendarDays()
-  const today = new Date()
+  const today = parseBR(todayBR()) ?? new Date()
+  // Mês seguinte inteiro posterior ao limite: bloqueia a seta de avanço
+  const proximoMesBloqueado =
+    maxDateParsed !== null &&
+    new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1).getTime() > maxDateParsed.getTime()
   const containerWidth = inline ? 'inline-block' : (fullWidth ? 'w-full' : 'inline-block')
 
   const buttonClassName = inline
@@ -251,7 +270,8 @@ export default function DatePicker({
                     type="button"
                     aria-label="Próximo mês"
                     onClick={() => changeMonth(1)}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 text-gray-700 transition-colors hover:border-gray-900"
+                    disabled={proximoMesBloqueado}
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 text-gray-700 transition-colors hover:border-gray-900 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-gray-200"
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M9 6l6 6-6 6" />
@@ -275,17 +295,21 @@ export default function DatePicker({
 
                     const selected = selectedDate && isSameDay(day, selectedDate)
                     const isCurrentDay = isSameDay(day, today)
+                    const bloqueado = isAfterMax(day)
 
                     const baseClasses = 'min-h-[48px] rounded-2xl text-sm font-semibold flex flex-col items-center justify-center transition-all duration-150'
-                    const stateClasses = selected
-                      ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/20 scale-[1.02]'
-                      : 'bg-slate-50 text-gray-900 hover:bg-slate-100 active:scale-95'
+                    const stateClasses = bloqueado
+                      ? 'bg-slate-50 text-gray-300 cursor-not-allowed'
+                      : selected
+                        ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/20 scale-[1.02]'
+                        : 'bg-slate-50 text-gray-900 hover:bg-slate-100 active:scale-95'
                     const todayClasses = !selected && isCurrentDay ? 'ring-2 ring-yellow-300' : ''
 
                     return (
                       <button
                         key={day.toISOString()}
                         type="button"
+                        disabled={bloqueado}
                         onClick={() => handleDateSelection(day)}
                         className={`${baseClasses} ${stateClasses} ${todayClasses}`}
                       >

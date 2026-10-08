@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/Caderneta-Digital-Gesta-Up/manejus360.png" />
+    <link rel="icon" type="image/png" href="%BASE_URL%manejus360.png" />
     <link rel="preload" as="image" href="/cadernetas/maternidade.png" />
     <link rel="preload" as="image" href="/cadernetas/pastagens.png" />
     <link rel="preload" as="image" href="/cadernetas/rodeio.png" />
@@ -59,7 +59,7 @@
     <script>
       // Definir BASE_URL dinamicamente para funcionar em desenvolvimento e produção
       const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const BASE_URL = isDev ? '/' : '/Caderneta-Digital-Gesta-Up/';
+      const BASE_URL = isDev ? '/' : '%BASE_URL%';
       document.getElementById('splash-logo').src = BASE_URL + 'manejus360.png';
     </script>
     <div id="root"></div>

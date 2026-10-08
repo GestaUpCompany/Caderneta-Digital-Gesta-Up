@@ -1,56 +1,60 @@
-name: Deploy PWA to GitHub Pages
+name: Deploy PWA Staging to GitHub Pages
 
+# Roda apenas no repo de staging (VictorHSM24/Manejus-PWA-Staging).
+# A branch `staging` deste repo é publicada lá como `main`.
 on:
   push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
-    if: github.repository == 'GestaUpCompany/Caderneta-Digital-Gesta-Up'
+  build:
+    if: github.repository == 'VictorHSM24/Manejus-PWA-Staging'
     runs-on: ubuntu-latest
-    
+    env:
+      VITE_BASE_PATH: /Manejus-PWA-Staging/
+      VITE_APP_NAME: Gesta'Up STAGING
+      VITE_APP_SHORT_NAME: Gesta'Up STG
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-          
+
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
-        
+
       - name: Build PWA
         working-directory: ./frontend
         run: npm run build
-        
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
-        
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./frontend/dist
-          
+
   deploy:
-    needs: build-and-deploy
+    needs: build
     runs-on: ubuntu-latest
-    
+
     permissions:
       pages: write
       id-token: write
-      
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-      
+
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

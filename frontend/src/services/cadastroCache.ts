@@ -8,7 +8,7 @@ import { fetchRotinas } from './rotinasService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 import { setCadastroSyncState } from './cadastroSyncState'
 import { isCategoriaAoPe } from '../utils/categorias'
-import { getDateTimePartsInTimezone } from '../utils/formatDate'
+import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
@@ -1655,9 +1655,37 @@ export async function getTiposProgramacaoTratosCached(fazendaId: string): Promis
 /**
  * Programação de tratos completa (programacao + percentuais + currais) por tipo.
  * Crítico para funcionamento offline da TratoConfinamentoPage.
+ *
+ * `dataISO` pedida para um dia que não é hoje (lançamento retroativo) usa chave de cache própria,
+ * para não sobrescrever a programação de hoje. A chave de hoje não muda. Sem programação vigente
+ * naquele dia (ou sem cache offline dela), devolve a programação de hoje marcada com
+ * `programacaoAtualComoFallback: true`, para a tela avisar que o previsto pode divergir.
  */
-export async function getProgramacaoTratosCompletaCached(fazendaId: string, tipo: string): Promise<any> {
-  const key = buildKey('programacao-tratos', fazendaId, tipo)
+export async function getProgramacaoTratosCompletaCached(
+  fazendaId: string,
+  tipo: string,
+  dataISO?: string
+): Promise<any> {
+  const hojeISO = getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)
+  const retroativa = !!dataISO && dataISO !== hojeISO
+
+  if (!retroativa) return getProgramacaoTratosDoDiaCached(fazendaId, tipo)
+
+  const daData = await getProgramacaoTratosDoDiaCached(fazendaId, tipo, dataISO)
+  if (daData?.programacao) return daData
+
+  const atual = await getProgramacaoTratosDoDiaCached(fazendaId, tipo)
+  return atual?.programacao ? { ...atual, programacaoAtualComoFallback: true } : daData ?? atual
+}
+
+async function getProgramacaoTratosDoDiaCached(
+  fazendaId: string,
+  tipo: string,
+  dataISO?: string
+): Promise<any> {
+  const key = dataISO
+    ? buildKey('programacao-tratos', fazendaId, tipo, dataISO)
+    : buildKey('programacao-tratos', fazendaId, tipo)
   const cached = getCachedQuery(key)
 
   if (!navigator.onLine) {
@@ -1666,7 +1694,7 @@ export async function getProgramacaoTratosCompletaCached(fazendaId: string, tipo
   }
 
   try {
-    const data = await withTimeout(supabaseService.getProgramacaoTratosCompleta(fazendaId, tipo), 3000)
+    const data = await withTimeout(supabaseService.getProgramacaoTratosCompleta(fazendaId, tipo, dataISO), 3000)
     if (data && data.programacao) setCachedQuery(key, data)
     return data
   } catch {
