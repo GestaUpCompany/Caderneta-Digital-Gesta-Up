@@ -124,6 +124,9 @@ export function toFarmDateISO(
   const texto = String(valor).trim()
   if (/^\d{2}\/\d{2}\/\d{4}/.test(texto)) return brToIso(texto.split(' ')[0])
   if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return texto
+  // Sem indicador de fuso (Z ou +hh[:mm]) a hora já é da fazenda: interpretá-la no fuso do aparelho
+  // e converter de novo deslocaria o dia. Fica só a parte da data.
+  if (!/(Z|[+-]\d{2}(:?\d{2})?)$/i.test(texto.replace(/^\d{4}-\d{2}-\d{2}/, ''))) return texto.slice(0, 10)
   // Formato Postgres "2026-08-06 18:24:00+00" -> ISO 8601
   const iso = texto.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00')
   const instante = new Date(iso)

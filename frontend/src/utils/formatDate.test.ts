@@ -12,6 +12,16 @@ describe('toFarmDateISO', () => {
     expect(toFarmDateISO('2026-10-09 01:00:00+00', 'America/Cuiaba')).toBe('2026-10-08')
   })
 
+  it('aceita Z e fração de segundos longa do Postgres', () => {
+    expect(toFarmDateISO('2026-10-09T01:00:00Z', 'America/Cuiaba')).toBe('2026-10-08')
+    expect(toFarmDateISO('2026-10-09T01:00:00.123456+00:00', 'America/Cuiaba')).toBe('2026-10-08')
+  })
+
+  it('hora sem fuso já é da fazenda: não desloca o dia', () => {
+    expect(toFarmDateISO('2026-10-08 00:30:00', 'America/Cuiaba')).toBe('2026-10-08')
+    expect(toFarmDateISO('2026-10-08T23:30:00', 'America/Cuiaba')).toBe('2026-10-08')
+  })
+
   it('mantém datas sem hora e converte BR', () => {
     expect(toFarmDateISO('2026-10-08')).toBe('2026-10-08')
     expect(toFarmDateISO('08/10/2026 21:30')).toBe('2026-10-08')
