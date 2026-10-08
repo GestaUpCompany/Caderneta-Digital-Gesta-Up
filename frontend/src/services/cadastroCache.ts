@@ -897,7 +897,7 @@ function setCachedQuery(key: string, data: any): void {
  * em `ms` milissegundos, rejeita com erro de timeout. Usado para
  * acelerar o fallback para o cache quando a rede está instável/bloqueada.
  */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>

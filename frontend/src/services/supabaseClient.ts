@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../types/supabase'
+import { criarFetchComTimeout } from '../utils/fetchComTimeout'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -8,13 +9,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórios')
 }
 
+// Toda requisição ao Supabase tem tempo máximo (ver utils/fetchComTimeout.ts)
+const fetchComTimeout = criarFetchComTimeout()
+
 // Criar cliente Supabase com anon key
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: fetchComTimeout },
+})
 
 // Criar cliente Supabase com token JWT (para operações autenticadas)
 export function createSupabaseClientWithToken(token: string) {
   return createClient<Database>(supabaseUrl, supabaseAnonKey, {
     global: {
+      fetch: fetchComTimeout,
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -32,7 +39,7 @@ async function refreshAccessToken(): Promise<string | null> {
     const refreshToken = localStorage.getItem('supabase_refresh_token')
     if (!refreshToken) return null
 
-    const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+    const response = await fetchComTimeout(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

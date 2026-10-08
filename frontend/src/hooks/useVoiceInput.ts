@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import type { PluginListenerHandle } from '@capacitor/core'
 
@@ -20,7 +20,14 @@ export interface UseVoiceInputReturn {
  * no navegador cai para a Web Speech API (Chrome).
  */
 export function useVoiceInput(): UseVoiceInputReturn {
-  const [ouvindo, setOuvindo] = useState(false)
+  const [ouvindo, setOuvindoState] = useState(false)
+  // Espelho síncrono do estado: quem chama parar() e logo depois toggle() no mesmo render (troca de campo
+  // durante o ditado) enxergaria o valor antigo de `ouvindo` e só pararia, sem iniciar o novo ditado.
+  const ouvindoRef = useRef(false)
+  const setOuvindo = useCallback((valor: boolean) => {
+    ouvindoRef.current = valor
+    setOuvindoState(valor)
+  }, [])
   const [erro, setErro] = useState<string | null>(null)
   const recognitionRef = useRef<any>(null)
   const listenerRef = useRef<PluginListenerHandle | null>(null)
@@ -40,7 +47,14 @@ export function useVoiceInput(): UseVoiceInputReturn {
     } finally {
       setOuvindo(false)
     }
-  }, [])
+  }, [setOuvindo])
+
+  // Sair da tela com o microfone ligado não pode deixar o reconhecimento rodando em segundo plano
+  useEffect(() => {
+    return () => {
+      if (ouvindoRef.current) void parar()
+    }
+  }, [parar])
 
   const iniciarNativo = useCallback(async (): Promise<boolean> => {
     const { SpeechRecognition } = await import('@capacitor-community/speech-recognition')
@@ -72,7 +86,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
       maxResults: 1,
     })
     return true
-  }, [])
+  }, [setOuvindo])
 
   const iniciarWeb = useCallback((): boolean => {
     const Rec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -87,25 +101,37 @@ export function useVoiceInput(): UseVoiceInputReturn {
     rec.continuous = false
     rec.maxAlternatives = 1
 
+    // Ao trocar de campo, a sessão antiga ainda dispara onend/onresult depois de parada: ignorar,
+    // senão ela apagaria o indicador da sessão nova ou jogaria texto no campo errado.
+    const sessaoAtual = () => recognitionRef.current === rec || recognitionRef.current === null
+
     rec.onresult = (e: any) => {
+      if (recognitionRef.current !== rec) return
       const texto = e.results[e.results.length - 1]?.[0]?.transcript
       if (texto) onTextoRef.current(texto)
     }
-    rec.onend = () => setOuvindo(false)
+    rec.onend = () => {
+      if (sessaoAtual()) setOuvindo(false)
+    }
     rec.onerror = (e: any) => {
+      if (!sessaoAtual()) return
       setOuvindo(false)
-      setErro(e.error === 'not-allowed'
-        ? 'Permissão de microfone negada.'
-        : 'Erro no reconhecimento de voz. Tente novamente.')
+      setErro(
+        e.error === 'not-allowed'
+          ? 'Permissão de microfone negada.'
+          : e.error === 'network'
+            ? 'Sem internet: o ditado por voz precisa de conexão neste navegador. Digite a observação.'
+            : 'Erro no reconhecimento de voz. Tente novamente.'
+      )
     }
 
-    rec.start()
     recognitionRef.current = rec
+    rec.start()
     return true
-  }, [])
+  }, [setOuvindo])
 
   const toggle = useCallback(async (onTexto: (texto: string) => void) => {
-    if (ouvindo) {
+    if (ouvindoRef.current) {
       await parar()
       return
     }
@@ -121,7 +147,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
       setErro('Erro ao iniciar o reconhecimento de voz.')
       await parar()
     }
-  }, [ouvindo, parar, iniciarNativo, iniciarWeb])
+  }, [parar, iniciarNativo, iniciarWeb, setOuvindo])
 
   return { ouvindo, erro, toggle, parar }
 }

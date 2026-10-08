@@ -1,4 +1,5 @@
 import { SyncError } from '../types/cadernetas'
+import { isNetworkError, isTransientServerError } from './syncErrors'
 
 /**
  * Tradução amigável de códigos de erro do Supabase/Postgres/rede
@@ -21,7 +22,16 @@ const ERROR_MESSAGES: Record<string, string> = {
   'ERR_INTERNET_DISCONNECTED': 'Sem conexão com a internet. Verifique o sinal e tente novamente.',
   'ERR_NETWORK': 'Sem conexão com a internet. Verifique o sinal e tente novamente.',
   'ERR_TIMED_OUT': 'Tempo de conexão esgotado. Tente novamente em local com melhor sinal.',
+  // Servidor momentaneamente indisponível (o app já tentou várias vezes sozinho)
+  transient: 'Servidor indisponível no momento. Tente reenviar em alguns minutos.',
+  '408': 'Servidor indisponível no momento. Tente reenviar em alguns minutos.',
+  '429': 'Servidor indisponível no momento. Tente reenviar em alguns minutos.',
+  '502': 'Servidor indisponível no momento. Tente reenviar em alguns minutos.',
+  '503': 'Servidor indisponível no momento. Tente reenviar em alguns minutos.',
+  '504': 'Servidor indisponível no momento. Tente reenviar em alguns minutos.',
+  '57014': 'O servidor demorou demais para responder. Tente reenviar em alguns minutos.',
   // Supabase Auth
+  PGRST301: 'Sessão expirada. Saia do app e entre novamente.',
   '401': 'Sessão expirada. Saia do app e entre novamente.',
   '403': 'Sem permissão para esta operação. Contate o administrador.',
   // Trigger de categoria
@@ -52,7 +62,12 @@ export function translateSyncError(error: SyncError | null | undefined): string 
     }
     return ERROR_MESSAGES['23505']
   }
-  if (code && ERROR_MESSAGES[code]) return ERROR_MESSAGES[code]
+  if (code && ERROR_MESSAGES[code]) {
+    // Registros antigos de falha de rede foram gravados com code 'unknown'; a mensagem original revela a causa.
+    if (code === 'unknown' && isNetworkError(error, true)) return ERROR_MESSAGES.network
+    if (code === 'unknown' && isTransientServerError(error)) return ERROR_MESSAGES.transient
+    return ERROR_MESSAGES[code]
+  }
   // Fallback: se a mensagem original é legível, usa ela
   if (error.message && error.message.length < 120) return error.message
   return ERROR_MESSAGES.unknown

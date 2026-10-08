@@ -21,8 +21,11 @@ import { RootState } from '../../store/store'
 import {
   getCachedCadastroData,
   getLoteByNomeCached,
+  getLoteByNomeFromCacheOnly,
   getLoteDetalhesComCategoriasCached,
+  getLoteDetalhesFromCacheOnly,
   getLotesAtivosCached,
+  withTimeout,
 } from '../../services/cadastroCache'
 import { getLastRodeioDate } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -78,11 +81,13 @@ const EQUIPE_OPTIONS = [
   { value: '3', label: '3' },
   { value: '4', label: '4' },
   { value: '5', label: '5' },
-  { value: '6', label: '6+' },
 ]
 
 // Chave usada em categoriasQuantidades quando o lote não tem categorias cadastradas.
 const CHAVE_TOTAL = '__total__'
+
+// Chave de uma categoria em categoriasQuantidades: nome sem caixa e sem espaços nas pontas
+const chaveCategoria = (nome: string) => nome.toLowerCase().trim()
 
 interface DiagnosticoItem {
   valor: string | null
@@ -160,6 +165,9 @@ export default function RodeioPage() {
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [metaRodeioInfo, setMetaRodeioInfo] = useState<MetaRodeioInfo | null>(null)
+  // Enquanto o lote não é resolvido (rede lenta: até 2 timeouts antes do cache), salvar gravaria sem loteId/categorias
+  const [carregandoLote, setCarregandoLote] = useState(false)
+  const [lotesCarregados, setLotesCarregados] = useState(false)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [campoFotoAtual, setCampoFotoAtual] = useState<string | null>(null)
   const [alvoVoz, setAlvoVoz] = useState<AlvoVoz | null>(null)
@@ -187,109 +195,216 @@ export default function RodeioPage() {
 
   const { ouvindo: ouvindoVoz, erro: vozErro, toggle: toggleVoz, parar: pararVoz } = useVoiceInput()
 
-  // Carregar lotes ativos e funcionários do Supabase (online) ou cache (offline)
+  // Lotes e funcionários: cache local primeiro (a lista aparece na hora, mesmo com rede ruim),
+  // depois revalida no Supabase com timeout sem apagar o que já está na tela.
   useEffect(() => {
+    let cancelado = false
     const loadData = async () => {
-      if (fazendaId) {
-        const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
-        setLotesDisponiveis(lotes)
-        setLotesPastoMap(mapa)
-      }
-      const cache = await getCachedCadastroData()
-      if (cache) {
-        setFuncionariosDisponiveis(cache.funcionarios || [])
+      try {
+        const cache = await getCachedCadastroData()
+        if (cancelado) return
+        if (cache) {
+          if (cache.lotes?.length) {
+            setLotesDisponiveis(cache.lotes)
+            setLotesPastoMap(cache.lotesPastoMap || {})
+          }
+          setFuncionariosDisponiveis(cache.funcionarios || [])
+        }
+
+        if (fazendaId) {
+          try {
+            const { lotes, lotesPastoMap: mapa } = await withTimeout(getLotesAtivosCached(fazendaId), 3000)
+            if (cancelado) return
+            setLotesDisponiveis(lotes)
+            setLotesPastoMap(mapa)
+          } catch (error) {
+            console.warn('[RodeioPage] Lotes online indisponíveis, mantendo o cache local:', error)
+          }
+        }
+      } catch (error) {
+        console.error('[RodeioPage] Erro ao carregar lotes e funcionários:', error)
+      } finally {
+        if (!cancelado) setLotesCarregados(true)
       }
     }
     loadData()
+    return () => {
+      cancelado = true
+    }
   }, [fazendaId])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
       console.log('[RodeioPage] Cache atualizado, recarregando dados')
-      if (data) {
-        setLotesDisponiveis(data.lotes || [])
+      // Só aplica o que veio no evento: um payload parcial não pode zerar as listas da tela.
+      if (!data) return
+      if (Array.isArray(data.lotes)) {
+        setLotesDisponiveis(data.lotes)
         setLotesPastoMap(data.lotesPastoMap || {})
-        setFuncionariosDisponiveis(data.funcionarios || [])
       }
+      if (Array.isArray(data.funcionarios)) setFuncionariosDisponiveis(data.funcionarios)
     })
 
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado
+  // Detalhes do lote ao selecioná-lo. Cache local primeiro (libera o formulário na hora, mesmo com
+  // rede travada ou aparelho offline) e revalidação online em segundo plano.
   useEffect(() => {
-    async function carregarDetalhesLote() {
-      if (!form.numeroLote || !fazendaId) {
-        setDetalhesLote(null)
-        setMetaRodeioInfo(null)
-        setForm(prev => ({ ...prev, loteId: '', pastoId: '', pasto: '' }))
-        return
-      }
+    let cancelado = false
 
-      try {
-        const lote = await getLoteByNomeCached(fazendaId, form.numeroLote)
-        if (lote) {
-          // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
+    // Sempre começa limpo: nada do lote anterior pode vazar para o registro (loteId, categorias, cabeças).
+    setDetalhesLote(null)
+    setMetaRodeioInfo(null)
+    setForm((prev) => (prev.loteId || prev.pastoId || prev.pasto ? { ...prev, loteId: '', pastoId: '', pasto: '' } : prev))
 
-          // Buscar último rodeio e calcular meta
-          const lastRodeioDate = await getLastRodeioDate(lote.id)
-          const metaDias = lote.meta_intervalo_rodeio_dias || 0
-          const hasRecord = !!lastRodeioDate
-          let diasDesdeUltimo = 0
-          let ultimoRodeio: string | null = null
-          if (lastRodeioDate) {
-            // Normalize both dates to midnight to avoid timezone issues
-            const hoje = new Date()
-            hoje.setHours(0, 0, 0, 0)
-            const ultimo = new Date(lastRodeioDate)
-            ultimo.setHours(0, 0, 0, 0)
-            const diffMs = hoje.getTime() - ultimo.getTime()
-            diasDesdeUltimo = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
-            ultimoRodeio = ultimo.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-          }
-          const diasAteProximo = metaDias - diasDesdeUltimo
-          setMetaRodeioInfo({
-            metaDias,
-            diasDesdeUltimo,
-            diasAteProximo,
-            isDentroMeta: metaDias > 0 ? diasDesdeUltimo <= metaDias : true,
-            hasRecord,
-            ultimoRodeio,
-          })
+    const nomeLote = form.numeroLote
+    if (!nomeLote || !fazendaId) {
+      setCarregandoLote(false)
+      return
+    }
+    setCarregandoLote(true)
 
-          // Combinar dados do lote com dados de categorias
-          setDetalhesLote({
-            ...lote,
-            categorias: categoriasDetalhes.categorias,
-            categorias_raw: categoriasDetalhes.categorias_raw,
-            n_cabecas: categoriasDetalhes.quant_atual,
-            peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-            qtd_bezerros: categoriasDetalhes.qtd_bezerros
-          })
-          // Armazenar o ID do lote, pasto_id e nome do pasto
-          const pastoNome = (lote.pastos as any)?.nome || ''
-          setForm(prev => ({ ...prev, loteId: lote.id, pastoId: lote.pasto_id || '', pasto: pastoNome }))
+    const aplicarLote = (lote: any, det: any) => {
+      setDetalhesLote({
+        ...lote,
+        categorias: det.categorias,
+        categorias_raw: det.categorias_raw,
+        n_cabecas: det.quant_atual,
+        peso_vivo_kg: det.peso_vivo_kg,
+        qtd_bezerros: det.qtd_bezerros,
+      })
+      const pastoNome = (lote.pastos as any)?.nome || ''
+      // Mesma regra de categoriasDoLote: sem categorias cadastradas, a contagem usa o campo único de total.
+      const nomes: string[] = Array.isArray(det.categorias_raw)
+        ? det.categorias_raw.map((c: any) => c?.categoria).filter(Boolean)
+        : []
+      const chavesValidas = new Set<string>(nomes.length > 0 ? nomes.map(chaveCategoria) : [CHAVE_TOTAL])
+      setForm((prev) => {
+        // A revalidação pode trazer outro conjunto de categorias: descarta valores de categorias que não existem mais
+        const atuais = Object.entries(prev.categoriasQuantidades)
+        const mantidas = atuais.filter(([chave]) => chavesValidas.has(chave))
+        return {
+          ...prev,
+          loteId: lote.id,
+          pastoId: lote.pasto_id || '',
+          pasto: pastoNome,
+          categoriasQuantidades: mantidas.length === atuais.length ? prev.categoriasQuantidades : Object.fromEntries(mantidas),
         }
+      })
+    }
+
+    async function carregarDetalhesLote() {
+      try {
+        // 1) Cache local: instantâneo
+        const loteCache = await getLoteByNomeFromCacheOnly(fazendaId!, nomeLote)
+        const detCache = loteCache ? await getLoteDetalhesFromCacheOnly(loteCache.id) : null
+        if (cancelado) return
+        const temCache = !!loteCache && !!detCache
+        let loteAtual: any = temCache ? loteCache : null
+        if (temCache) {
+          aplicarLote(loteCache, detCache)
+          setCarregandoLote(false)
+        }
+
+        // 2) Online: com cache só revalida (as duas leituras em paralelo); sem cache é o único caminho
+        try {
+          if (temCache) {
+            const [loteOn, detOn] = await Promise.all([
+              getLoteByNomeCached(fazendaId!, nomeLote),
+              getLoteDetalhesComCategoriasCached(loteCache.id),
+            ])
+            if (cancelado) return
+            if (loteOn && detOn) {
+              loteAtual = loteOn
+              aplicarLote(loteOn, detOn)
+            }
+          } else {
+            const loteOn = await getLoteByNomeCached(fazendaId!, nomeLote)
+            if (cancelado) return
+            const detOn = loteOn ? await getLoteDetalhesComCategoriasCached(loteOn.id) : null
+            if (cancelado) return
+            if (loteOn && detOn) {
+              loteAtual = loteOn
+              aplicarLote(loteOn, detOn)
+            }
+          }
+        } catch (error) {
+          console.warn('[RodeioPage] Revalidação do lote falhou, usando o que está no aparelho:', error)
+        }
+        if (cancelado) return
+        setCarregandoLote(false)
+        // Sem cache e sem rede: detalhesLote fica nulo e o SALVAR mostra "Lote sem dados neste aparelho"
+        if (!loteAtual) return
+
+        // 3) Último rodeio e meta dependem do Supabase: com timeout, e a falha não derruba o restante
+        let lastRodeioDate: string | null = null
+        let ultimoRodeioIndisponivel = false
+        try {
+          lastRodeioDate = await withTimeout(getLastRodeioDate(loteAtual.id), 3000)
+        } catch (error) {
+          console.warn('Último rodeio indisponível (offline?):', error)
+          ultimoRodeioIndisponivel = true
+        }
+        if (cancelado) return
+
+        if (ultimoRodeioIndisponivel) {
+          setMetaRodeioInfo(null)
+          return
+        }
+        const metaDias = loteAtual.meta_intervalo_rodeio_dias || 0
+        const hasRecord = !!lastRodeioDate
+        let diasDesdeUltimo = 0
+        let ultimoRodeio: string | null = null
+        if (lastRodeioDate) {
+          // Normalize both dates to midnight to avoid timezone issues
+          const hoje = new Date()
+          hoje.setHours(0, 0, 0, 0)
+          const ultimo = new Date(lastRodeioDate)
+          ultimo.setHours(0, 0, 0, 0)
+          const diffMs = hoje.getTime() - ultimo.getTime()
+          diasDesdeUltimo = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+          ultimoRodeio = ultimo.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        }
+        const diasAteProximo = metaDias - diasDesdeUltimo
+        setMetaRodeioInfo({
+          metaDias,
+          diasDesdeUltimo,
+          diasAteProximo,
+          isDentroMeta: metaDias > 0 ? diasDesdeUltimo <= metaDias : true,
+          hasRecord,
+          ultimoRodeio,
+        })
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar detalhes do lote:', error)
-        setDetalhesLote(null)
-        setMetaRodeioInfo(null)
-        setForm(prev => ({ ...prev, loteId: '', pastoId: '', pasto: '' }))
+        setCarregandoLote(false)
       }
     }
 
     carregarDetalhesLote()
+    return () => {
+      cancelado = true
+    }
   }, [form.numeroLote, fazendaId])
 
   // Categorias reais do lote selecionado (um stepper por categoria)
   const categoriasDoLote = useMemo(() => {
     if (!detalhesLote?.categorias_raw || !Array.isArray(detalhesLote.categorias_raw)) return null
-    const cats = detalhesLote.categorias_raw
-      .map((cat: any) => ({ nome: cat.categoria as string, cadastro: (cat.quant_atual as number) || 0 }))
-      .filter((c: { nome: string }) => c.nome)
-    return cats.length > 0 ? (cats as { nome: string; cadastro: number }[]) : null
+    // Agrupa pelo nome normalizado: duas linhas com o mesmo nome (ou só caixa diferente) viram um stepper só,
+    // com o cadastro somado. Sem isso o mesmo valor digitado seria contado duas vezes no total.
+    const porChave = new Map<string, { nome: string; chave: string; cadastro: number }>()
+    for (const cat of detalhesLote.categorias_raw) {
+      if (!cat?.categoria) continue
+      const chave = chaveCategoria(cat.categoria as string)
+      const atual = porChave.get(chave)
+      const cadastro = (cat.quant_atual as number) || 0
+      if (atual) atual.cadastro += cadastro
+      else porChave.set(chave, { nome: cat.categoria as string, chave, cadastro })
+    }
+    const cats = [...porChave.values()]
+    return cats.length > 0 ? cats : null
   }, [detalhesLote])
 
   const set = (field: keyof FormState) => (val: string) =>
@@ -353,7 +468,7 @@ export default function RodeioPage() {
     ouvindoVoz && !!alvoVoz && alvoVoz.tipo === alvo.tipo && (alvo.tipo === 'lote' || (alvoVoz.tipo === 'item' && alvoVoz.campo === alvo.campo))
 
   const total = Object.values(form.categoriasQuantidades).reduce((acc, v) => acc + (Number(v) || 0), 0)
-  const chavesContagem = categoriasDoLote ? categoriasDoLote.map((c) => c.nome) : [CHAVE_TOTAL]
+  const chavesContagem = categoriasDoLote ? categoriasDoLote.map((c) => c.chave) : [CHAVE_TOTAL]
   const contagemCompleta = chavesContagem.every((k) => (form.categoriasQuantidades[k] ?? '') !== '')
 
   const validationRules = {
@@ -361,8 +476,14 @@ export default function RodeioPage() {
     numeroLote: { required: true },
     gadoContado: { required: true },
     categoriasQuantidades: {
-      custom: () => (form.gadoContado === 'Sim' && !contagemCompleta ? 'Informe a quantidade de cada categoria' : null),
+      custom: () => {
+        if (form.gadoContado !== 'Sim') return null
+        if (!contagemCompleta) return 'Informe a quantidade de cada categoria'
+        if (total <= 0) return 'Informe ao menos um animal contado'
+        return null
+      },
     },
+    escoreGado: { required: true },
     escoreFezes: { required: true },
     equipe: { required: true },
     equipeNomes: {
@@ -379,10 +500,14 @@ export default function RodeioPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
+  // Salvar antes dos dados chegarem gravaria registro incompleto: lote sem loteId/categorias
+  // (carregando, ou ausente do cache offline) ou sem checklist (regras ainda carregando)
+  const loteBloqueado = carregandoLote || (!!form.numeroLote && !detalhesLote) || loadingChecklistRegras
+
   const executarSalvamento = async () => {
     setErrors([])
 
-    if (!isValid) {
+    if (!isValid || loteBloqueado) {
       return
     }
 
@@ -396,10 +521,10 @@ export default function RodeioPage() {
 
     if (form.gadoContado === 'Sim') {
       if (categoriasDoLote) {
-        categoriasDetalhes = categoriasDoLote.map(({ nome, cadastro }) => ({
+        categoriasDetalhes = categoriasDoLote.map(({ nome, chave, cadastro }) => ({
           nome,
           quant_atual: cadastro,
-          quant_informada: Number(form.categoriasQuantidades[nome]) || 0,
+          quant_informada: Number(form.categoriasQuantidades[chave]) || 0,
         }))
         totalAnimais = categoriasDetalhes.reduce((acc, c) => acc + c.quant_informada, 0)
         for (const c of categoriasDetalhes) {
@@ -523,8 +648,13 @@ export default function RodeioPage() {
 
   const pendenciaTexto = (() => {
     if (!form.numeroLote) return 'Falta escolher o pasto/lote'
+    if (carregandoLote) return 'Carregando dados do lote...'
+    if (loadingChecklistRegras) return 'Carregando regras do checklist...'
+    if (!detalhesLote) return 'Lote sem dados neste aparelho: conecte à internet e atualize os dados'
     if (!form.gadoContado) return 'Falta informar se o gado foi contado'
     if (form.gadoContado === 'Sim' && !contagemCompleta) return 'Falta informar a quantidade de cada categoria'
+    if (form.gadoContado === 'Sim' && total <= 0) return 'Falta contar ao menos um animal (ou marque NÃO)'
+    if (!form.escoreGado) return 'Falta o escore corporal'
     if (!form.escoreFezes) return 'Falta o escore de fezes'
     if (!form.equipe) return 'Falta o número de pessoas no manejo'
     if (Number(form.equipe) > 0 && form.equipeNomes.some((n) => !n || !n.trim())) return 'Falta o nome de todas as pessoas da equipe'
@@ -547,7 +677,7 @@ export default function RodeioPage() {
       <CadernetaLayout
         title="RODEIO GADO"
         cadernetaId="rodeio"
-        dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
+        dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline maxDate={todayBR()} />}
       >
         <BannerRascunho
           visible={rascunhoRestaurado}
@@ -571,7 +701,14 @@ export default function RodeioPage() {
               name="numeroLote"
             />
           ) : (
-            <Input label="NÚMERO LOTE" placeholder="Carregando..." value={form.numeroLote} onChange={() => {}} error={getError('numeroLote')} disabled />
+            <Input
+              label="NÚMERO LOTE"
+              placeholder={lotesCarregados ? 'Nenhum lote neste aparelho. Conecte à internet e atualize os dados' : 'Carregando...'}
+              value={form.numeroLote}
+              onChange={() => {}}
+              error={getError('numeroLote')}
+              disabled
+            />
           )}
           {detalhesLote && (
             <InfoCard
@@ -751,10 +888,13 @@ export default function RodeioPage() {
         <CadernetaSection numero={3} titulo="Avaliação do gado e equipe">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
-              <label className="text-[13px] font-bold uppercase text-gray-900">Escore corporal</label>
+              <label className="text-[13px] font-bold uppercase text-gray-900">
+                Escore corporal <span className="text-red-500">*</span>
+              </label>
               {chipPop(() => setShowEscoreModal(true), 'POP Escore')}
             </div>
             <EscalaRotulada options={ESCORES_CORPORAIS} value={form.escoreGado} onChange={set('escoreGado')} dataField="escoreGado" />
+            {getError('escoreGado') && <p className="text-base font-semibold text-red-700">{getError('escoreGado')}</p>}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -772,7 +912,7 @@ export default function RodeioPage() {
             <label className="text-[13px] font-bold uppercase text-gray-900">
               Nº pessoas no manejo <span className="text-red-500">*</span>
             </label>
-            <ChoiceGrid options={EQUIPE_OPTIONS} value={form.equipe} onChange={handleEquipe} cols={6} size="sm" dataField="equipe" />
+            <ChoiceGrid options={EQUIPE_OPTIONS} value={form.equipe} onChange={handleEquipe} cols={5} size="sm" dataField="equipe" />
             {getError('equipe') && <p className="text-base font-semibold text-red-700">{getError('equipe')}</p>}
           </div>
 
@@ -885,8 +1025,8 @@ export default function RodeioPage() {
           onSalvar={() => salvar(executarSalvamento)}
           onLimpar={handleLimpar}
           salvando={salvando}
-          disabled={!isValid}
-          formValido={isValid}
+          disabled={!isValid || loteBloqueado}
+          formValido={isValid && !loteBloqueado}
           pendenciaTexto={pendenciaTexto}
         />
 

@@ -8,6 +8,8 @@ export interface FarmStatusResult {
   offline?: boolean
 }
 
+const FARM_STATUS_TIMEOUT_MS = 3000
+
 /**
  * Verifica se a fazenda configurada ainda está ativa no Supabase.
  * Diferente de getFazendaByAcessoId, esta função NÃO filtra por ativo=true,
@@ -29,9 +31,22 @@ export async function checkFarmActiveStatus(acessoId: string): Promise<FarmStatu
     // get_fazenda_por_acesso é SECURITY DEFINER com campos operacionais mínimos:
     // funciona tanto anon (boot sem token do peão) quanto autenticado. O acesso
     // direto à tabela fazendas exige vínculo desde o isolamento de tenant.
-    const { data: rows, error } = await (supabase as any).rpc('get_fazenda_por_acesso', {
-      p_acesso_id: acessoIdNormalizado,
+    // Esta verificação segura o app inteiro em PageLoader (App.tsx). Com rede travada (Wi-Fi sem internet,
+    // sinal fraco) a requisição pode não terminar nunca: depois do timeout segue permissivo, como offline.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), FARM_STATUS_TIMEOUT_MS)
     })
+    const resposta = await Promise.race([
+      (supabase as any).rpc('get_fazenda_por_acesso', { p_acesso_id: acessoIdNormalizado }),
+      timeout,
+    ])
+    clearTimeout(timer)
+    if (resposta === 'timeout') {
+      console.warn('[FarmStatusService] Verificação demorou demais; seguindo sem confirmar o status da fazenda.')
+      return { active: true, exists: true, offline: true }
+    }
+    const { data: rows, error } = resposta
 
     if (error) {
       console.error('[FarmStatusService] Erro ao verificar status da fazenda:', error)
