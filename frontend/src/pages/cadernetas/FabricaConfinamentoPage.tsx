@@ -5,10 +5,11 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import CadernetaSection from '../../components/cadernetas/CadernetaSection'
 import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import InfoStrip from '../../components/cadernetas/InfoStrip'
+import DatePicker from '../../components/ui/DatePicker'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
 import { base64ToDataUrl } from '../../utils/photoCompress'
 import { salvarRegistro } from '../../services/api'
-import { todayBR } from '../../utils/formatDate'
+import { todayBR, isFutureBR, getDayRangeIso, toFarmDateISO } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { generateId } from '../../utils/generateId'
 import { saveRegistro as saveRegistroIDB, getRegistro, updateRegistro, getAllRegistros, salvarRascunho, lerRascunho, limparRascunho } from '../../services/indexedDB'
@@ -132,9 +133,8 @@ async function getRegistrosFabricaDoDia(
   formulacaoId: string
 ): Promise<RegistroFabricaExistente[]> {
   const client = await getSupabaseClientWithRefresh() as any
-  const dataFim = new Date(dataISO + 'T00:00:00')
-  dataFim.setDate(dataFim.getDate() + 1)
-  const dataFimISO = dataFim.toISOString().slice(0, 10)
+  // Dia da fazenda com offset: data nua seria lida como meia-noite UTC e perderia lançamentos noturnos
+  const { inicio, fim } = getDayRangeIso(dataISO)
 
   const { data, error } = await client
     .from('registros_fabrica_confinamento')
@@ -142,8 +142,8 @@ async function getRegistrosFabricaDoDia(
     .eq('fazenda_id', fazendaId)
     .eq('tipo', tipo)
     .eq('formulacao_id', formulacaoId)
-    .gte('data', dataISO)
-    .lt('data', dataFimISO)
+    .gte('data', inicio)
+    .lt('data', fim)
     .is('deleted_at', null)
     .order('ordem_trato', { ascending: true })
   if (error) throw error
@@ -159,7 +159,7 @@ async function getRegistrosFabricaDoDia(
 export default function FabricaConfinamentoPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
-  const [data] = useState<string>(todayBR())
+  const [data, setData] = useState<string>(todayBR())
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -181,6 +181,8 @@ export default function FabricaConfinamentoPage() {
   const [registroFabricaNaoConcluidoId, setRegistroFabricaNaoConcluidoId] = useState<string | null>(null)
   const [todosTratosConcluidos, setTodosTratosConcluidos] = useState<boolean>(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
+  // Total realizado do carregamento (kg digitado, vírgula decimal): base do previsto de cada insumo
+  const [totalRealizado, setTotalRealizado] = useState('')
   // kg real carregado de cada insumo (valor digitado, vírgula decimal)
   const [leituraPorInsumo, setLeituraPorInsumo] = useState<Record<string, string>>({})
   const [leituraDigitada, setLeituraDigitada] = useState('')
@@ -201,9 +203,11 @@ export default function FabricaConfinamentoPage() {
   const [rascunhoSalvo, setRascunhoSalvo] = useState(false)
   const [confirmarEncerrar, setConfirmarEncerrar] = useState(false)
   const [registrosFabricaDia, setRegistrosFabricaDia] = useState<RegistroFabricaExistente[]>([])
+  const [programacaoAtualComoFallback, setProgramacaoAtualComoFallback] = useState(false)
 
   // Espelho para flush síncrono no cleanup
   const leituraRef = useRef<Record<string, string>>({})
+  const totalRealizadoRef = useRef('')
   const debounceRascunhoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Carregamento inicial: tipos, vagoes
@@ -347,12 +351,15 @@ export default function FabricaConfinamentoPage() {
 
       // Buscar programação (cronograma), currais, ocupações, registros do dia, notas config
       const [progCompleta, curraisData, registrosDoDia, notasConfigData, ocupacoesData] = await Promise.all([
-        getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
+        getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado, dataISO),
         getCurraisCached(fazendaId),
         getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
         getNotasLeituraCochoConfigCached(fazendaId),
         getOcupacoesCurralNaDataCached(fazendaId, dataISO),
       ])
+
+      // Dia passado sem programação vigente naquela data: o cache devolve a atual com esta marca
+      setProgramacaoAtualComoFallback(Boolean(progCompleta?.programacaoAtualComoFallback))
 
       if (!progCompleta || !progCompleta.programacao) {
         setCurraisFiltrados([])
@@ -469,8 +476,9 @@ export default function FabricaConfinamentoPage() {
           dataISO
         )
         const dataInicialOcupacao = String(ocupacao.data_inicial || '').slice(0, 10)
+        // Dia do registro no fuso da fazenda (não o dia UTC do timestamptz)
         const registrosAnteriores = (registrosAnterioresRaw || []).filter(
-          (r: any) => !dataInicialOcupacao || (r.data || '').slice(0, 10) >= dataInicialOcupacao
+          (r: any) => !dataInicialOcupacao || toFarmDateISO(r.data) >= dataInicialOcupacao
         )
         const isDia1 = registrosAnteriores.length === 0
 
@@ -478,9 +486,9 @@ export default function FabricaConfinamentoPage() {
         let totalRealDiaAnterior: number | null = null
         if (!isDia1 && registrosAnteriores.length > 0) {
           // Agrupar por data (dia), pegar o dia mais recente
-          const dataAnteriorMaisRecente = (registrosAnteriores[0].data || '').slice(0, 10)
+          const dataAnteriorMaisRecente = toFarmDateISO(registrosAnteriores[0].data)
           const tratosDiaAnterior = registrosAnteriores.filter(
-            (r: any) => (r.data || '').slice(0, 10) === dataAnteriorMaisRecente
+            (r: any) => toFarmDateISO(r.data) === dataAnteriorMaisRecente
           )
           totalRealDiaAnterior = tratosDiaAnterior.reduce(
             (sum: number, r: any) => sum + (Number(r.kg_ofertado_real) || 0),
@@ -695,11 +703,15 @@ export default function FabricaConfinamentoPage() {
 
       // Restaurar rascunho salvo (se houver)
       const rascunhoKey = `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
-      const rascunho = await lerRascunho<{ kgPorInsumo?: Record<string, string> }>(rascunhoKey)
-      if (rascunho?.kgPorInsumo && Object.values(rascunho.kgPorInsumo).some((v) => v !== '')) {
-        setLeituraPorInsumo(rascunho.kgPorInsumo)
+      const rascunho = await lerRascunho<{ totalRealizado?: string; kgPorInsumo?: Record<string, string> }>(rascunhoKey)
+      const rascunhoTotal = rascunho?.totalRealizado ?? ''
+      const rascunhoKg = rascunho?.kgPorInsumo ?? {}
+      if (rascunhoTotal !== '' || Object.values(rascunhoKg).some((v) => v !== '')) {
+        setTotalRealizado(rascunhoTotal)
+        setLeituraPorInsumo(rascunhoKg)
         setRascunhoSalvo(true)
       } else {
+        setTotalRealizado('')
         setLeituraPorInsumo({})
         setRascunhoSalvo(false)
       }
@@ -741,26 +753,30 @@ export default function FabricaConfinamentoPage() {
     [totalPrevisto, jaProduzidoNoTrato, tratoNaoConcluidoJaIniciado]
   )
 
-  // kg previsto por insumo (percentual MN da dieta sobre o total a carregar)
+  // Total realizado informado pelo peão: é o total produzido desta carga
+  const totalRealizadoNum = useMemo(() => normalizarNumero(totalRealizado) ?? 0, [totalRealizado])
+  const totalProduzidoNum = totalRealizadoNum
+
+  // kg previsto por insumo: percentual MN da dieta aplicado sobre o TOTAL REALIZADO
   const kgPrevistoPorInsumo = useMemo(() => {
     const result: Record<string, number> = {}
     for (const insumo of insumos) {
-      result[insumo.insumo_id] = (insumo.formula_mn_percent / 100) * totalAlvo
+      result[insumo.insumo_id] = (insumo.formula_mn_percent / 100) * totalRealizadoNum
     }
     return result
-  }, [insumos, totalAlvo])
+  }, [insumos, totalRealizadoNum])
 
-  // kg real carregado de cada insumo (confirmado pelo peão); o total produzido é a soma
-  const { kgRealPorInsumo, totalProduzidoNum } = useMemo(() => {
-    let total = 0
+  // kg real carregado de cada insumo (confirmado pelo peão, obrigatório para salvar)
+  const { kgRealPorInsumo, somaInsumosNum } = useMemo(() => {
+    let soma = 0
     const real: Record<string, number> = {}
     for (const insumo of insumos) {
       const kg = normalizarNumero(leituraPorInsumo[insumo.insumo_id])
       if (kg === null) continue
       real[insumo.insumo_id] = kg
-      total += kg
+      soma += kg
     }
-    return { kgRealPorInsumo: real, totalProduzidoNum: total }
+    return { kgRealPorInsumo: real, somaInsumosNum: soma }
   }, [insumos, leituraPorInsumo])
 
   const insumosPendentes = useMemo(
@@ -789,14 +805,15 @@ export default function FabricaConfinamentoPage() {
     return totalProduzidoNum > vagaoSelecionado.capacidade_kg
   }, [vagaoSelecionado, totalProduzidoNum])
 
-  // Pode salvar?
+  // Pode salvar? Exige o total realizado e o kg real de TODOS os insumos
   const podeSalvar = useMemo(() => {
     if (carregando || salvando) return false
     if (!dietaSelecionadaId || !vagaoSelecionadoId) return false
     if (totalProduzidoNum <= 0) return false
+    if (insumosPendentes.length > 0) return false
     if (todosTratosConcluidos) return false
     return true
-  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, todosTratosConcluidos])
+  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, insumosPendentes, todosTratosConcluidos])
 
   // Pode encerrar o trato atual (mesmo com déficit ou sem produção) e avançar?
   const podeEncerrar = useMemo(() => {
@@ -818,19 +835,19 @@ export default function FabricaConfinamentoPage() {
     [registrosFabricaDia]
   )
 
-  // Rascunho: persiste os kg reais digitados por insumo no IndexedDB
+  // Rascunho: persiste o total realizado e os kg reais digitados por insumo no IndexedDB
   const getRascunhoKey = useCallback(() => {
     const dataISO = brToDateISO(data)
     return `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
   }, [fazendaId, data, tipoSelecionado, dietaSelecionadaId])
 
   const salvarRascunhoFabrica = useCallback(
-    async (leituras: Record<string, string>) => {
+    async (total: string, leituras: Record<string, string>) => {
       if (!fazendaId) return
       const key = getRascunhoKey()
       try {
-        await salvarRascunho(key, { kgPorInsumo: leituras })
-        setRascunhoSalvo(Object.values(leituras).some((v) => v !== ''))
+        await salvarRascunho(key, { totalRealizado: total, kgPorInsumo: leituras })
+        setRascunhoSalvo(total !== '' || Object.values(leituras).some((v) => v !== ''))
       } catch (error) {
         console.error('Erro ao salvar rascunho da fábrica:', error)
       }
@@ -844,23 +861,56 @@ export default function FabricaConfinamentoPage() {
       if (debounceRascunhoRef.current) {
         clearTimeout(debounceRascunhoRef.current)
       }
+      const total = totalRealizadoRef.current
       const leituras = leituraRef.current
-      if (Object.values(leituras).some((v) => v !== '')) {
-        void salvarRascunhoFabrica(leituras)
+      if (total !== '' || Object.values(leituras).some((v) => v !== '')) {
+        void salvarRascunhoFabrica(total, leituras)
       }
     }
   }, [data, tipoSelecionado, dietaSelecionadaId, fazendaId, salvarRascunhoFabrica])
 
-  // Autosave debounced a cada leitura confirmada
+  // Autosave debounced a cada total digitado ou leitura confirmada
   useEffect(() => {
     leituraRef.current = leituraPorInsumo
-    if (carregando || !Object.values(leituraPorInsumo).some((v) => v !== '')) return
+    totalRealizadoRef.current = totalRealizado
+    const temConteudo = totalRealizado !== '' || Object.values(leituraPorInsumo).some((v) => v !== '')
+    if (carregando || !temConteudo) return
     if (debounceRascunhoRef.current) clearTimeout(debounceRascunhoRef.current)
     debounceRascunhoRef.current = setTimeout(() => {
       debounceRascunhoRef.current = null
-      void salvarRascunhoFabrica(leituraPorInsumo)
+      void salvarRascunhoFabrica(totalRealizado, leituraPorInsumo)
     }, 500)
-  }, [leituraPorInsumo, carregando, salvarRascunhoFabrica])
+  }, [totalRealizado, leituraPorInsumo, carregando, salvarRascunhoFabrica])
+
+  const handleTotalRealizadoChange = (valor: string) => {
+    setTotalRealizado(sanitizarDecimalComVirgula(valor))
+    setRascunhoSalvo(false)
+  }
+
+  // Troca a data do lançamento (retroativo). Nunca aceita data futura.
+  const handleDataChange = (nova: string) => {
+    if (!nova || nova === data || isFutureBR(nova)) return
+    // Cancela o autosave pendente e guarda o rascunho do dia que está saindo (chave do dia atual),
+    // para o autosave não gravar valores deste dia na chave do novo dia.
+    if (debounceRascunhoRef.current) {
+      clearTimeout(debounceRascunhoRef.current)
+      debounceRascunhoRef.current = null
+    }
+    if (totalRealizadoRef.current !== '' || Object.values(leituraRef.current).some((v) => v !== '')) {
+      void salvarRascunhoFabrica(totalRealizadoRef.current, leituraRef.current)
+    }
+    leituraRef.current = {}
+    totalRealizadoRef.current = ''
+    setTotalRealizado('')
+    setLeituraPorInsumo({})
+    setLeituraDigitada('')
+    setAtivoId(null)
+    setErroLeitura(null)
+    setSucesso(false)
+    setConfirmarEncerrar(false)
+    limparFoto()
+    setData(nova)
+  }
 
   const handleLeituraDigitada = (valor: string) => {
     setLeituraDigitada(sanitizarDecimalComVirgula(valor))
@@ -897,6 +947,11 @@ export default function FabricaConfinamentoPage() {
   const handleSalvar = useCallback(async (encerrarTrato = false) => {
     if (!fazendaId || salvando || carregando) return
     if (encerrarTrato ? !podeEncerrar : !podeSalvar) return
+    // Defesa além do DatePicker: nunca grava produção com data futura (fuso da fazenda)
+    if (isFutureBR(data)) {
+      setErro('Não é possível lançar produção com data futura.')
+      return
+    }
     setSalvando(true)
     setSucesso(false)
     setConfirmarEncerrar(false)
@@ -1019,6 +1074,8 @@ export default function FabricaConfinamentoPage() {
           ? `Trato ${ordemTratoAtual} encerrado. Ficaram faltando ${formatarKg(totalPrevisto - novoTotalProduzido, 1)} kg do previsto.`
           : 'Produção salva com sucesso!'
       )
+      setTotalRealizado('')
+      totalRealizadoRef.current = ''
       setLeituraPorInsumo({})
       leituraRef.current = {}
       setLeituraDigitada('')
@@ -1080,6 +1137,8 @@ export default function FabricaConfinamentoPage() {
   }, [fazendaId, podeSalvar, podeEncerrar, salvando, carregando, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, vagaoSelecionado, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgRealPorInsumo, fotoBalanca, limparFoto, curraisFiltrados, getRascunhoKey, dietasDisponiveis])
 
   const handleLimpar = useCallback(() => {
+    setTotalRealizado('')
+    totalRealizadoRef.current = ''
     setLeituraPorInsumo({})
     leituraRef.current = {}
     setLeituraDigitada('')
@@ -1101,11 +1160,15 @@ export default function FabricaConfinamentoPage() {
   const nomesCurrais = curraisFiltrados.map((c) => c.curralNome).join(' + ')
   const todosPesados = insumos.length > 0 && insumosPendentes.length === 0
   const nomeCurto = (nome: string) => capitalizarIniciais(nome)
+  const retroativo = data !== todayBR()
+  // Soma dos kg por insumo difere do total realizado (>1%): aviso informativo, não bloqueia
+  const somaDivergente =
+    todosPesados && totalRealizadoNum > 0 && Math.abs(somaInsumosNum - totalRealizadoNum) / totalRealizadoNum > 0.01
   const pendenciaTexto =
-    insumosPendentes.length > 0 && totalProduzidoNum <= 0
-      ? 'Falta pesar o primeiro insumo'
+    totalProduzidoNum <= 0
+      ? 'Falta informar o total realizado'
       : insumosPendentes.length > 0
-        ? `Falta pesar ${insumosPendentes.map((i) => nomeCurto(i.nome).toLowerCase()).join(' e ')}`
+        ? `Falta informar ${insumosPendentes.map((i) => nomeCurto(i.nome).toLowerCase()).join(' e ')}`
         : undefined
 
   const bottomContent = (
@@ -1181,6 +1244,8 @@ export default function FabricaConfinamentoPage() {
     const feito = real !== undefined
     const ativo = id === ativoEfetivoId
     const prev = kgPrevistoPorInsumo[id] || 0
+    // Sem total realizado ainda não há previsto por insumo
+    const temPrevisto = totalRealizadoNum > 0
     const dif = feito && prev > 0 ? ((real - prev) / prev) * 100 : null
     const difOk = dif !== null && Math.abs(dif) <= 3
 
@@ -1207,7 +1272,8 @@ export default function FabricaConfinamentoPage() {
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-extrabold leading-tight text-gray-900">{nomeCurto(insumo.nome)}</span>
           <span className="block text-xs font-semibold text-gray-500">
-            {insumo.formula_mn_percent.toFixed(1).replace('.', ',')}% · {formatarKg(prev, 1)} kg previsto
+            {insumo.formula_mn_percent.toFixed(1).replace('.', ',')}%
+            {temPrevisto ? ` · ${formatarKg(prev, 1)} kg previsto` : ''}
           </span>
           {feito && dif !== null && todosPesados && (
             <span className={`block text-xs font-bold ${difOk ? 'text-green-700' : 'text-amber-700'}`}>
@@ -1221,7 +1287,9 @@ export default function FabricaConfinamentoPage() {
             {feito ? 'carregado' : 'previsto'}
           </span>
           <span className="block text-2xl font-extrabold leading-tight text-gray-900">
-            {formatarKg(feito ? real : prev, Number.isInteger(feito ? real : prev) ? 0 : 1)}
+            {feito || temPrevisto
+              ? formatarKg(feito ? real : prev, Number.isInteger(feito ? real : prev) ? 0 : 1)
+              : '—'}
           </span>
         </span>
       </button>
@@ -1241,20 +1309,43 @@ export default function FabricaConfinamentoPage() {
           className="h-11 w-11 shrink-0 rounded-xl object-contain shadow-lg shadow-black/10"
         />
       }
-      titleRowRightContent={
-        <button
-          onClick={() => carregarDados()}
-          disabled={carregando}
-          className="flex h-10 !min-h-0 !min-w-0 items-center gap-1.5 rounded-full bg-white/10 px-3 text-sm font-semibold transition-colors hover:bg-white/20 active:bg-white/25 disabled:opacity-50"
-          aria-label="Atualizar"
-        >
-          <RefreshCw className={`h-5 w-5 ${carregando ? 'animate-spin' : ''}`} strokeWidth={2.3} />
-        </button>
+      // Data e atualizar na mesma linha: titleRowRightContent é absoluto no canto direito e
+      // ficaria sobreposto ao seletor de data
+      dateContent={
+        <div className="flex items-center gap-2">
+          <DatePicker
+            value={data}
+            onChange={handleDataChange}
+            maxDate={todayBR()}
+            compact
+            inline
+            variant="header"
+          />
+          <button
+            onClick={() => carregarDados()}
+            disabled={carregando}
+            className="flex h-10 !min-h-0 !min-w-0 items-center gap-1.5 rounded-full bg-white/10 px-3 text-sm font-semibold transition-colors hover:bg-white/20 active:bg-white/25 disabled:opacity-50"
+            aria-label="Atualizar"
+          >
+            <RefreshCw className={`h-5 w-5 ${carregando ? 'animate-spin' : ''}`} strokeWidth={2.3} />
+          </button>
+        </div>
       }
       bottomContent={bottomContent}
       bottomPaddingClass="pb-60"
     >
       <CadernetaSection numero={1} titulo="Dados do carregamento">
+        {retroativo && (
+          <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+            Lançamento retroativo: este carregamento será registrado em {data}.
+          </InfoStrip>
+        )}
+        {!carregando && !erro && programacaoAtualComoFallback && (
+          <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+            Não há programação de tratos vigente em {data}. O previsto usa a programação atual e pode divergir do que
+            valia neste dia.
+          </InfoStrip>
+        )}
         {tiposVisiveis.length > 1 && (
           <div>
             <span className="mb-2 block text-[15px] font-bold uppercase text-gray-900">Sistema de produção</span>
@@ -1330,7 +1421,7 @@ export default function FabricaConfinamentoPage() {
                 <span className="block break-words text-sm font-extrabold leading-tight text-gray-900">{nomesCurrais}</span>
               </div>
               <div className="rounded-xl bg-gray-100 px-3 py-2">
-                <span className="block text-xs font-semibold text-gray-500">Total</span>
+                <span className="block text-xs font-semibold text-gray-500">Total previsto</span>
                 <span className="block text-sm font-extrabold text-gray-900">{formatarKg(totalAlvo, 0)} kg</span>
               </div>
             </div>
@@ -1367,9 +1458,42 @@ export default function FabricaConfinamentoPage() {
 
       {!carregando && !erro && curraisFiltrados.length > 0 && insumos.length > 0 && (
         <CadernetaSection numero={2} titulo="Insumos na ordem de carregar" required>
+          <div className="rounded-2xl border-2 border-gray-200 bg-white p-3">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <span className="block text-[11px] font-extrabold uppercase leading-tight tracking-wide text-gray-600">
+                  Total realizado <span className="text-red-500">*</span>
+                </span>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={totalRealizado}
+                    onChange={(e) => handleTotalRealizadoChange(e.target.value)}
+                    placeholder="0"
+                    disabled={todosTratosConcluidos}
+                    data-field="total-realizado"
+                    className="w-32 min-w-0 border-0 border-b-4 border-green-500 bg-transparent !px-0 !py-0 text-3xl font-extrabold leading-tight text-gray-900 placeholder-gray-300 focus:outline-none disabled:opacity-50"
+                  />
+                  <span className="text-base font-semibold text-gray-600">kg</span>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className="block text-[11px] font-semibold leading-tight text-gray-500">Total previsto</span>
+                <span className="block text-2xl font-extrabold leading-tight text-gray-900">{formatarKg(totalAlvo, 0)} kg</span>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-2">{insumos.map((insumo, idx) => renderInsumo(insumo, idx))}</div>
 
-          {insumoAtivo && !todosTratosConcluidos && (
+          {insumoAtivo && !todosTratosConcluidos && totalRealizadoNum <= 0 && (
+            <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+              Informe o total realizado para ver o previsto de cada insumo e lançar os kg carregados.
+            </InfoStrip>
+          )}
+
+          {insumoAtivo && !todosTratosConcluidos && totalRealizadoNum > 0 && (
             <div className="rounded-2xl bg-brand-900 p-4 text-white">
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -1413,8 +1537,15 @@ export default function FabricaConfinamentoPage() {
           )}
 
           <InfoStrip>
-            Digite os kg reais carregados de cada insumo. Com tudo preenchido, aparece a diferença para o previsto.
+            Informe o total realizado; o previsto de cada insumo é calculado sobre ele. Depois digite os kg reais
+            carregados de cada insumo (todos são obrigatórios).
           </InfoStrip>
+          {somaDivergente && (
+            <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
+              A soma dos insumos ({formatarKg(somaInsumosNum, 1)} kg) difere do total realizado (
+              {formatarKg(totalRealizadoNum, 1)} kg). Confira antes de salvar.
+            </InfoStrip>
+          )}
           {rascunhoSalvo && (
             <InfoStrip tone="success" icon={<CheckCircle2 className="h-5 w-5" />}>Rascunho salvo</InfoStrip>
           )}

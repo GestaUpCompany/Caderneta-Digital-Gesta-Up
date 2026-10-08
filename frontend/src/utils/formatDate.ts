@@ -95,6 +95,68 @@ export function getTimezoneOffsetIso(
   return offsetName.replace('GMT', '')
 }
 
+/**
+ * Indica se uma data BR ("dd/mm/aaaa", com ou sem " HH:mm") é posterior a hoje no fuso da fazenda.
+ * Não usa o relógio do aparelho: à noite o dia da fazenda pode diferir do dia do dispositivo.
+ */
+export function isFutureBR(
+  dataBR: string,
+  timezone: string = DEFAULT_FARM_TIMEZONE
+): boolean {
+  const chave = (br: string) => {
+    const [dia, mes, ano] = br.split(' ')[0].split('/')
+    return `${ano}${(mes || '').padStart(2, '0')}${(dia || '').padStart(2, '0')}`
+  }
+  return chave(dataBR) > chave(todayBR(timezone))
+}
+
+/**
+ * Dia ("yyyy-mm-dd") da fazenda em que ocorreu um timestamp vindo do banco.
+ * O Supabase devolve `timestamptz` em UTC ("2026-10-09T01:00:00+00:00"); fatiar os 10 primeiros
+ * caracteres daria o dia UTC e jogaria lançamentos noturnos (hora local) no dia seguinte.
+ * Datas já sem hora ("yyyy-mm-dd") e BR ("dd/mm/aaaa ...") passam direto.
+ */
+export function toFarmDateISO(
+  valor: string | null | undefined,
+  timezone: string = DEFAULT_FARM_TIMEZONE
+): string {
+  if (!valor) return ''
+  const texto = String(valor).trim()
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(texto)) return brToIso(texto.split(' ')[0])
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return texto
+  // Formato Postgres "2026-08-06 18:24:00+00" -> ISO 8601
+  const iso = texto.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00')
+  const instante = new Date(iso)
+  if (isNaN(instante.getTime())) return texto.slice(0, 10)
+  const { year, month, day } = getDateTimePartsInTimezone(instante, timezone)
+  return `${year}-${month}-${day}`
+}
+
+/** Soma dias a uma data ISO "yyyy-mm-dd" por aritmética de calendário (sem fuso). */
+export function addDaysISO(dataISO: string, dias: number): string {
+  const [ano, mes, dia] = dataISO.split('-').map(Number)
+  const d = new Date(Date.UTC(ano, mes - 1, dia + dias))
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Limites [inicio, fim) de um dia da fazenda como timestamptz com offset do fuso.
+ * Evita comparar a coluna `data` (timestamptz) com "yyyy-mm-dd" nu, que o banco lê como
+ * meia-noite UTC e faz lançamentos feitos à noite (hora local) caírem no dia seguinte.
+ */
+export function getDayRangeIso(
+  dataISO: string,
+  timezone: string = DEFAULT_FARM_TIMEZONE
+): { inicio: string; fim: string } {
+  const proximoDia = addDaysISO(dataISO, 1)
+  const offsetInicio = getTimezoneOffsetIso(new Date(`${dataISO}T00:00:00Z`), timezone)
+  const offsetFim = getTimezoneOffsetIso(new Date(`${proximoDia}T00:00:00Z`), timezone)
+  return {
+    inicio: `${dataISO}T00:00:00${offsetInicio}`,
+    fim: `${proximoDia}T00:00:00${offsetFim}`,
+  }
+}
+
 export function brWithTimeToIso(
   br: string,
   timezone: string = DEFAULT_FARM_TIMEZONE

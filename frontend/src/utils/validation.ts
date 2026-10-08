@@ -1,4 +1,5 @@
 import { normalizarNumero } from './formatNumber'
+import { isFutureBR } from './formatDate'
 
 export interface ValidationError {
   field: string
@@ -20,7 +21,7 @@ function isValidDate(value: string): boolean {
     date.getFullYear() === year &&
     date.getMonth() === month - 1 &&
     date.getDate() === day &&
-    date <= new Date()
+    !isFutureBR(value)
   )
 }
 
@@ -35,7 +36,7 @@ function isValidDateWithTime(value: string): boolean {
     date.getFullYear() === year &&
     date.getMonth() === month - 1 &&
     date.getDate() === day &&
-    date <= new Date()
+    !isFutureBR(value)
   )
 }
 

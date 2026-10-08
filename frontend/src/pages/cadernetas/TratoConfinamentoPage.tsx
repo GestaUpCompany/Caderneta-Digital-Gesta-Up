@@ -6,7 +6,7 @@ import CadernetaLayout from '../../components/CadernetaLayout'
 import CadernetaSection from '../../components/cadernetas/CadernetaSection'
 import InfoStrip from '../../components/cadernetas/InfoStrip'
 import { salvarRegistro } from '../../services/api'
-import { todayBR } from '../../utils/formatDate'
+import { todayBR, toFarmDateISO } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import { salvarRascunho, lerRascunho, getAllRegistros } from '../../services/indexedDB'
 import {
@@ -255,7 +255,7 @@ export default function TratoConfinamentoPage() {
 
       const [progCompleta, curraisData, registrosData, linhasData, ocupacoesData, fabricaData, fabricaLocal, ofertasLocalData] =
         await Promise.all([
-          getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado),
+          getProgramacaoTratosCompletaCached(fazendaId, tipoSelecionado, dataISO),
           getCurraisCached(fazendaId),
           getRegistrosOfertaTratoByFazendaDataCached(fazendaId, dataISO),
           getLinhasConfinamentoCached(fazendaId),
@@ -458,11 +458,9 @@ export default function TratoConfinamentoPage() {
             dataISO
           )
           const dataInicialOcupacao = String(ocupacao.data_inicial || '').slice(0, 10)
+          // Dia do registro no fuso da fazenda (não o dia UTC do timestamptz)
           const registrosAnteriores = (registrosAnterioresRaw || []).filter((r: any) => {
-            const dataRegistro = String(r.data || '')
-            const diaRegistro = dataRegistro.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
-              || dataRegistro.split(' ')[0]
-            return !dataInicialOcupacao || diaRegistro >= dataInicialOcupacao
+            return !dataInicialOcupacao || toFarmDateISO(r.data) >= dataInicialOcupacao
           })
           const isDia1 = registrosAnteriores.length === 0
 
@@ -497,15 +495,10 @@ export default function TratoConfinamentoPage() {
 
           let totalRealDiaAnterior: number | null = null
           if (!isDia1 && registrosAnteriores.length > 0) {
-            const dataAnteriorMaisRecente = String(registrosAnteriores[0].data || '')
-            const diaAnterior = dataAnteriorMaisRecente.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
-              || dataAnteriorMaisRecente.split(' ')[0]
-            const tratosDiaAnterior = registrosAnteriores.filter((r: any) => {
-              const dataRegistro = String(r.data || '')
-              const diaRegistro = dataRegistro.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
-                || dataRegistro.split(' ')[0]
-              return diaRegistro === diaAnterior
-            })
+            const diaAnterior = toFarmDateISO(registrosAnteriores[0].data)
+            const tratosDiaAnterior = registrosAnteriores.filter(
+              (r: any) => toFarmDateISO(r.data) === diaAnterior
+            )
             totalRealDiaAnterior = tratosDiaAnterior.reduce(
               (sum: number, r: any) => sum + (Number(r.kg_ofertado_real) || 0),
               0

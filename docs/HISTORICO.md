@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Carregamento Vagão: lançamento retroativo, total realizado e janelas por fuso (08/10/2026)
+
+Branch `staging` (PWA de staging em `VictorHSM24/Manejus-PWA-Staging`, base `/Manejus-PWA-Staging/`, banco compartilhado só com a fazenda de testes). Sem migration.
+- **Retroativo**: `FabricaConfinamentoPage` ganhou `DatePicker` no cabeçalho (`dateContent`, como a Trato) com `maxDate = todayBR()`. `DatePicker` aceita `maxDate` (dias futuros desabilitados, seta de próximo mês bloqueada, "Hoje" no fuso da fazenda). Troca de data cancela o autosave, guarda o rascunho do dia que sai e zera total/insumos. Faixa "Lançamento retroativo" quando a data não é hoje. Hora do registro segue a hora atual (`api.ts`), decisão do usuário.
+- **Nunca data futura**: `isFutureBR` (fuso da fazenda) substitui `date <= new Date()` em `isValidDate`/`isValidDateWithTime` (vale para todas as cadernetas) e é guarda em `handleSalvar`.
+- **Total realizado (lógica do layout antigo, `f5b1300`)**: o peão informa o total realizado; previsto por insumo = % da fórmula × total realizado; `total_produzido` do master = total realizado; kg real por insumo continua nos tiles, começa vazio e é obrigatório para salvar. Rascunho passou a guardar `{ totalRealizado, kgPorInsumo }` (lê rascunhos antigos só com `kgPorInsumo`). Aviso não bloqueante se a soma dos insumos divergir >1% do total.
+- **Programação por data**: `getProgramacaoTratosCompleta`/`getTiposProgramacaoTratos` aceitam `dataISO`; `getProgramacaoTratosCompletaCached` usa chave de cache própria para dia que não é hoje e cai na programação atual marcada `programacaoAtualComoFallback` (a tela avisa que o previsto pode divergir). Trato passa a data também.
+- **Fuso (bug existente, agora exercitado pelo retroativo)**: `getDayRangeIso` (limites do dia com offset da fazenda) nas consultas `getRegistrosFabricaDoDia`, `getRegistrosFabricaByData`, `getRegistrosOfertaTratoByFazendaData`, `...ByCurralData` e `...Anteriores`; antes `'yyyy-mm-dd'` nu era lido como meia-noite UTC e lançamentos das 20h às 23h59 (Cuiabá) saíam do dia. `toFarmDateISO` agrupa "dia anterior" pelo dia da fazenda (Fábrica e Trato) em vez de `slice(0, 10)` do timestamp UTC.
+- **Pendências registradas (Painel/banco, fora do PWA)**: o trigger `trg_fabrica_confinamento_insumos_mov` converte `r.data` (timestamptz) para `date` no fuso da sessão (UTC), então a baixa de estoque de lançamento noturno cai no dia seguinte (já ocorria); correção seria `(r.data AT TIME ZONE <tz da fazenda>)::date` em migration no repo do Painel. O replay de custo médio ordena por `created_at`: saldo final correto, `saldo_anterior/posterior` seguem a ordem de inserção.
+
 ## Auditoria de segurança — Fase B / Lote 1: atividades (07/10/2026)
 
 Migrations `20261007270000_fase_b1a_rpc_relatorio_publico_atividades` (aditiva) e `20261007271000_fase_b1b_isolamento_tenant_atividades` (Painel; rollbacks em `supabase/rollbacks/`).

@@ -1,7 +1,7 @@
 import { supabase, getSupabaseClientWithRefresh } from './supabaseClient'
 import type { TablesInsert, TablesUpdate } from '../types/supabase'
 import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/relatorioLote'
-import { getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
+import { getCurrentDateTimeInTimezone, getDayRangeIso, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 import { isCategoriaAoPe } from '../utils/categorias'
 
 // Função para fazer upload de logo de fazenda
@@ -3092,10 +3092,12 @@ export async function getUltimoTratoTotalByLote(
 /**
  * Busca a programação de tratos ativa de um tipo (confinamento/sequestro) para a fazenda,
  * incluindo percentuais por trato e kg MN/dia por curral.
+ * `dataISO` (yyyy-mm-dd) consulta a programação vigente naquele dia (lançamento retroativo);
+ * sem ele, usa o dia de hoje da fazenda.
  */
-export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: string) {
+export async function getProgramacaoTratosCompleta(fazendaId: string, tipo: string, dataISO?: string) {
   const client = await getSupabaseClientWithRefresh() as any
-  const dataReferencia = getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)
+  const dataReferencia = dataISO || getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)
   const { data: prog, error: progError } = await client
     .from('programacao_tratos')
     .select('*')
@@ -3171,9 +3173,9 @@ export async function getOcupacoesCurralNaData(fazendaId: string, data: string) 
 /**
  * Busca quais tipos de programação (confinamento/sequestro) já existem ativos para a fazenda.
  */
-export async function getTiposProgramacaoTratos(fazendaId: string): Promise<string[]> {
+export async function getTiposProgramacaoTratos(fazendaId: string, dataISO?: string): Promise<string[]> {
   const client = await getSupabaseClientWithRefresh() as any
-  const dataReferencia = getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)
+  const dataReferencia = dataISO || getCurrentDateTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 10)
   const { data, error } = await client
     .from('programacao_tratos')
     .select('tipo')
@@ -3195,18 +3197,16 @@ export async function getRegistrosOfertaTratoByCurralData(
   data: string
 ) {
   const client = await getSupabaseClientWithRefresh() as any
-  // Coluna 'data' é timestamptz com hora; .eq não match. Usar range do dia.
-  const dataFim = new Date(data + 'T00:00:00')
-  dataFim.setDate(dataFim.getDate() + 1)
-  const dataFimISO = dataFim.toISOString().slice(0, 10)
+  // Coluna 'data' é timestamptz com hora; .eq não match. Usar range do dia da fazenda (com offset).
+  const { inicio, fim } = getDayRangeIso(data)
 
   const { data: result, error } = await client
     .from('registros_oferta_trato')
     .select('*')
     .eq('fazenda_id', fazendaId)
     .eq('curral_id', curralId)
-    .gte('data', data)
-    .lt('data', dataFimISO)
+    .gte('data', inicio)
+    .lt('data', fim)
     .is('deleted_at', null)
     .order('ordem_trato', { ascending: true })
 
@@ -3225,17 +3225,16 @@ export async function getRegistrosOfertaTratoByFazendaData(
   const client = await getSupabaseClientWithRefresh() as any
   // A coluna 'data' é timestamptz e os registros incluem hora (ex: 2026-08-06 18:24:00+00).
   // .eq('data', '2026-08-06') não encontra nada porque compara com 00:00:00.
-  // Usar range gte(data) + lt(data+1dia) para pegar todos os registros do dia.
-  const dataFim = new Date(data + 'T00:00:00')
-  dataFim.setDate(dataFim.getDate() + 1)
-  const dataFimISO = dataFim.toISOString().slice(0, 10)
+  // Usar range [00:00, 24:00) do dia NO FUSO DA FAZENDA: datas nuas ('yyyy-mm-dd') são lidas pelo
+  // banco como meia-noite UTC e fariam lançamentos das 20h às 23h59 (Cuiabá) caírem no dia seguinte.
+  const { inicio, fim } = getDayRangeIso(data)
 
   const { data: result, error } = await client
     .from('registros_oferta_trato')
     .select('*')
     .eq('fazenda_id', fazendaId)
-    .gte('data', data)
-    .lt('data', dataFimISO)
+    .gte('data', inicio)
+    .lt('data', fim)
     .is('deleted_at', null)
     .order('curral_id', { ascending: true })
     .order('ordem_trato', { ascending: true })
@@ -3259,7 +3258,7 @@ export async function getRegistrosOfertaTratoAnteriores(
     .select('data, ordem_trato, kg_ofertado_real')
     .eq('fazenda_id', fazendaId)
     .eq('curral_id', curralId)
-    .lt('data', dataReferencia)
+    .lt('data', getDayRangeIso(dataReferencia).inicio)
     .is('deleted_at', null)
     .order('data', { ascending: false })
     .order('ordem_trato', { ascending: true })
@@ -3278,16 +3277,14 @@ export async function getRegistrosFabricaByData(
   data: string
 ) {
   const client = await getSupabaseClientWithRefresh() as any
-  const dataFim = new Date(data + 'T00:00:00')
-  dataFim.setDate(dataFim.getDate() + 1)
-  const dataFimISO = dataFim.toISOString().slice(0, 10)
+  const { inicio, fim } = getDayRangeIso(data)
 
   const { data: result, error } = await client
     .from('registros_fabrica_confinamento')
     .select('id, data, ordem_trato, tipo, formulacao_id, vagao_id, total_previsto, total_produzido, concluido, formulacoes(nome), vagoes(nome)')
     .eq('fazenda_id', fazendaId)
-    .gte('data', data)
-    .lt('data', dataFimISO)
+    .gte('data', inicio)
+    .lt('data', fim)
     .is('deleted_at', null)
     .order('ordem_trato', { ascending: true })
 
