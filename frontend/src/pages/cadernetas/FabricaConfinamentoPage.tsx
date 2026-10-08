@@ -179,7 +179,8 @@ export default function FabricaConfinamentoPage() {
   const [totalPrevisto, setTotalPrevisto] = useState<number>(0)
   const [jaProduzidoNoTrato, setJaProduzidoNoTrato] = useState<number>(0)
   const [registroFabricaNaoConcluidoId, setRegistroFabricaNaoConcluidoId] = useState<string | null>(null)
-  const [todosTratosConcluidos, setTodosTratosConcluidos] = useState<boolean>(false)
+  // Todos os tratos do dia encerrados: novas cargas entram como adicional no último trato
+  const [tratoExtra, setTratoExtra] = useState<boolean>(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
   // Total realizado do carregamento (kg digitado, vírgula decimal): base do previsto de cada insumo
   const [totalRealizado, setTotalRealizado] = useState('')
@@ -590,13 +591,19 @@ export default function FabricaConfinamentoPage() {
 
       // A ordem da Fábrica depende somente da produção desta dieta.
       // A distribuição pode ocorrer depois, inclusive em outro dispositivo.
-      const tratoNaoConcluido = registrosFabrica.find((r) => !r.concluido)
+      const tratoAberto = registrosFabrica.find((r) => !r.concluido)
       const maxOrdemProduzida = registrosFabrica
         .filter((r) => r.concluido)
         .reduce((max, r) => Math.max(max, Number(r.ordem_trato) || 0), 0)
-      const ordemAtual = tratoNaoConcluido
-        ? tratoNaoConcluido.ordem_trato
+      const ordemAtual = tratoAberto
+        ? tratoAberto.ordem_trato
         : Math.min(maxOrdemProduzida + 1, qtdTratos)
+      // Com todos os tratos encerrados, o último continua recebendo cargas (complemento ou excesso)
+      const todosConcluidos = maxOrdemProduzida >= qtdTratos && !tratoAberto
+      const tratoNaoConcluido = tratoAberto
+        ?? (todosConcluidos
+          ? [...registrosFabrica].reverse().find((r) => r.concluido && r.ordem_trato === maxOrdemProduzida)
+          : undefined)
 
       setRegistrosFabricaDia(registrosFabrica)
 
@@ -621,7 +628,7 @@ export default function FabricaConfinamentoPage() {
             ordemTrato: String(tratoNaoConcluido.ordem_trato),
             totalPrevisto: tratoNaoConcluido.total_previsto,
             totalProduzido: tratoNaoConcluido.total_produzido,
-            concluido: 'false',
+            concluido: tratoAberto ? 'false' : 'true',
             syncStatus: 'synced',
             version: 1,
             lastModified: new Date().toISOString(),
@@ -645,8 +652,7 @@ export default function FabricaConfinamentoPage() {
         setRegistroFabricaNaoConcluidoId(null)
       }
 
-      const todosConcluidos = maxOrdemProduzida >= qtdTratos && !tratoNaoConcluido
-      setTodosTratosConcluidos(todosConcluidos)
+      setTratoExtra(todosConcluidos && !!tratoNaoConcluido)
       setOrdemTratoAtual(ordemAtual)
       setConfirmarEncerrar(false)
 
@@ -811,22 +817,21 @@ export default function FabricaConfinamentoPage() {
     if (!dietaSelecionadaId || !vagaoSelecionadoId) return false
     if (totalProduzidoNum <= 0) return false
     if (insumosPendentes.length > 0) return false
-    if (todosTratosConcluidos) return false
     return true
-  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, insumosPendentes, todosTratosConcluidos])
+  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, totalProduzidoNum, insumosPendentes])
 
   // Pode encerrar o trato atual (mesmo com déficit ou sem produção) e avançar?
   const podeEncerrar = useMemo(() => {
     if (carregando || salvando) return false
     if (!dietaSelecionadaId || !vagaoSelecionadoId) return false
-    if (todosTratosConcluidos || quantidadeTratos <= 0) return false
+    if (tratoExtra || quantidadeTratos <= 0) return false
     if (ordemTratoAtual > quantidadeTratos) return false
     // Sem previsto não há registro válido para gravar (validação exige previsto > 0)
     if (totalPrevisto <= 0 && !registroFabricaNaoConcluidoId) return false
     return true
-  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, todosTratosConcluidos, quantidadeTratos, ordemTratoAtual, totalPrevisto, registroFabricaNaoConcluidoId])
+  }, [carregando, salvando, dietaSelecionadaId, vagaoSelecionadoId, tratoExtra, quantidadeTratos, ordemTratoAtual, totalPrevisto, registroFabricaNaoConcluidoId])
 
-  // Tratos encerrados com produção abaixo do previsto (trava informativa)
+  // Tratos encerrados com produção abaixo do previsto (apenas informativo)
   const deficitsTratos = useMemo(
     () =>
       registrosFabricaDia.filter(
@@ -970,7 +975,7 @@ export default function FabricaConfinamentoPage() {
       }))
       // SALVAR acumula no trato aberto; o trato encerra quando atinge o previsto
       // ou quando o usuário confirma o encerramento com déficit via ENCERRAR TRATO.
-      const concluido = encerrarTrato || novoTotalProduzido >= (totalPrevisto - 0.5)
+      const concluido = encerrarTrato || tratoExtra || novoTotalProduzido >= (totalPrevisto - 0.5)
 
       let registroId: string
 
@@ -1070,7 +1075,9 @@ export default function FabricaConfinamentoPage() {
 
       setSucesso(true)
       setSucessoMsg(
-        encerrarTrato && novoTotalProduzido < totalPrevisto - 0.5
+        tratoExtra
+          ? `Carga adicional salva no trato ${ordemTratoAtual}.`
+          : encerrarTrato && novoTotalProduzido < totalPrevisto - 0.5
           ? `Trato ${ordemTratoAtual} encerrado. Ficaram faltando ${formatarKg(totalPrevisto - novoTotalProduzido, 1)} kg do previsto.`
           : 'Produção salva com sucesso!'
       )
@@ -1085,7 +1092,7 @@ export default function FabricaConfinamentoPage() {
 
       // Manter o resumo de déficits atualizado sem depender de refresh do Supabase
       setRegistrosFabricaDia((prev) => {
-        const idx = prev.findIndex((r) => r.ordem_trato === ordemTratoAtual && !r.concluido)
+        const idx = prev.findIndex((r) => r.ordem_trato === ordemTratoAtual && (tratoExtra || !r.concluido))
         const atualizado: RegistroFabricaExistente = {
           id: idx >= 0 ? prev[idx].id : registroId,
           ordem_trato: ordemTratoAtual,
@@ -1101,25 +1108,29 @@ export default function FabricaConfinamentoPage() {
         return [...prev, atualizado]
       })
       // Atualizar a ordem imediatamente, sem depender do refresh do Supabase.
-      if (concluido) {
+      if (concluido && tratoExtra) {
+        // Carga adicional: segue no mesmo registro do último trato, sem avançar ordem
+        setRegistroFabricaNaoConcluidoId(registroId)
+        setJaProduzidoNoTrato(novoTotalProduzido)
+      } else if (concluido && ordemTratoAtual >= quantidadeTratos) {
+        // Último trato encerrado: próximas cargas entram como adicional no mesmo registro
+        setTratoExtra(true)
+        setRegistroFabricaNaoConcluidoId(registroId)
+        setJaProduzidoNoTrato(novoTotalProduzido)
+      } else if (concluido) {
         const proximaOrdem = ordemTratoAtual + 1
         setRegistroFabricaNaoConcluidoId(null)
         setJaProduzidoNoTrato(0)
-        setOrdemTratoAtual(Math.min(proximaOrdem, quantidadeTratos))
-        if (proximaOrdem > quantidadeTratos) {
-          setTodosTratosConcluidos(true)
-          setTotalPrevisto(0)
-        } else {
-          const proximoPercentual = percentuaisTratos.find(
-            (p) => p.ordem_trato === proximaOrdem
-          )?.percentual || 0
-          setTotalPrevisto(
-            curraisFiltrados.reduce(
-              (sum, curral) => sum + (curral.kgBaseDia || 0) * (proximoPercentual / 100),
-              0
-            )
+        setOrdemTratoAtual(proximaOrdem)
+        const proximoPercentual = percentuaisTratos.find(
+          (p) => p.ordem_trato === proximaOrdem
+        )?.percentual || 0
+        setTotalPrevisto(
+          curraisFiltrados.reduce(
+            (sum, curral) => sum + (curral.kgBaseDia || 0) * (proximoPercentual / 100),
+            0
           )
-        }
+        )
       } else {
         setRegistroFabricaNaoConcluidoId(registroId)
         setJaProduzidoNoTrato(novoTotalProduzido)
@@ -1134,7 +1145,7 @@ export default function FabricaConfinamentoPage() {
     } finally {
       setSalvando(false)
     }
-  }, [fazendaId, podeSalvar, podeEncerrar, salvando, carregando, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, vagaoSelecionado, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgRealPorInsumo, fotoBalanca, limparFoto, curraisFiltrados, getRascunhoKey, dietasDisponiveis])
+  }, [fazendaId, podeSalvar, podeEncerrar, salvando, carregando, data, usuario, tipoSelecionado, dietaSelecionadaId, vagaoSelecionadoId, vagaoSelecionado, ordemTratoAtual, quantidadeTratos, percentuaisTratos, totalPrevisto, totalProduzidoNum, jaProduzidoNoTrato, registroFabricaNaoConcluidoId, insumos, kgPrevistoPorInsumo, kgRealPorInsumo, fotoBalanca, limparFoto, curraisFiltrados, getRascunhoKey, dietasDisponiveis, tratoExtra])
 
   const handleLimpar = useCallback(() => {
     setTotalRealizado('')
@@ -1428,12 +1439,12 @@ export default function FabricaConfinamentoPage() {
           </div>
         )}
 
-        {!carregando && !erro && todosTratosConcluidos && (
+        {!carregando && !erro && tratoExtra && (
           <InfoStrip tone="success" icon={<CheckCircle2 className="h-5 w-5" />}>
-            Todos os {quantidadeTratos} tratos do dia foram encerrados.
+            Todos os {quantidadeTratos} tratos do dia foram encerrados. Novos lançamentos entram como carga adicional no último trato.
           </InfoStrip>
         )}
-        {!carregando && !erro && tratoNaoConcluidoJaIniciado && faltamKg > 0 && (
+        {!carregando && !erro && !tratoExtra && tratoNaoConcluidoJaIniciado && faltamKg > 0 && (
           <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
             Trato {ordemTratoAtual} em aberto: já produzido {formatarKg(jaProduzidoNoTrato, 0)} kg, faltam{' '}
             {formatarKg(faltamKg, 0)} kg. Para seguir sem completar, use ENCERRAR TRATO.
@@ -1471,7 +1482,6 @@ export default function FabricaConfinamentoPage() {
                     value={totalRealizado}
                     onChange={(e) => handleTotalRealizadoChange(e.target.value)}
                     placeholder="0"
-                    disabled={todosTratosConcluidos}
                     data-field="total-realizado"
                     className="w-32 min-w-0 border-0 border-b-4 border-green-500 bg-transparent !px-0 !py-0 text-3xl font-extrabold leading-tight text-gray-900 placeholder-gray-300 focus:outline-none disabled:opacity-50"
                   />
@@ -1487,13 +1497,13 @@ export default function FabricaConfinamentoPage() {
 
           <div className="flex flex-col gap-2">{insumos.map((insumo, idx) => renderInsumo(insumo, idx))}</div>
 
-          {insumoAtivo && !todosTratosConcluidos && totalRealizadoNum <= 0 && (
+          {insumoAtivo && totalRealizadoNum <= 0 && (
             <InfoStrip tone="warning" icon={<AlertCircle className="h-5 w-5" />}>
               Informe o total realizado para ver o previsto de cada insumo e lançar os kg carregados.
             </InfoStrip>
           )}
 
-          {insumoAtivo && !todosTratosConcluidos && totalRealizadoNum > 0 && (
+          {insumoAtivo && totalRealizadoNum > 0 && (
             <div className="rounded-2xl bg-brand-900 p-4 text-white">
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0 flex-1">
