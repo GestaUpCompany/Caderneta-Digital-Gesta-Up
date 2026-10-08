@@ -105,7 +105,7 @@ export default function Page() {
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
           <div className="w-32 h-32 bg-white rounded-[1.5rem] flex items-center justify-center mb-8 shadow-2xl">
             <img
-              src="/Caderneta-Digital-Gesta-Up/manejus360.png"
+              src={`${import.meta.env.BASE_URL}manejus360.png`}
               alt="Logo Gesta'Up"
               className="w-24 h-24 rounded-2xl"
               onError={(e) => {
@@ -140,7 +140,7 @@ export default function Page() {
         {/* Logo */}
         <div className="w-28 h-28 bg-white rounded-[1.5rem] flex items-center justify-center mb-6 shadow-2xl">
           <img
-            src="/Caderneta-Digital-Gesta-Up/manejus360.png"
+            src={`${import.meta.env.BASE_URL}manejus360.png`}
             alt="Logo Gesta'Up"
             className="w-20 h-20 rounded-2xl"
             onError={(e) => {

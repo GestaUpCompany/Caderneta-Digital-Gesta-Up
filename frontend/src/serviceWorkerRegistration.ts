@@ -3,7 +3,7 @@
 export function registerServiceWorker() {
   if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/Caderneta-Digital-Gesta-Up/sw.js')
+      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
         .then(async (registration) => {
           console.log('SW registered: ', registration)
 

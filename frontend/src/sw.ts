@@ -340,7 +340,7 @@ async function servePrecachedIndex(): Promise<Response> {
   // matchPrecache() resolve o cache name corretamente (workbox-precache-v2-<scope>),
   // independentemente do scope/origin. Antes o cache name era hardcoded e nunca
   // batia com o nome real gerado pelo workbox, fazendo o fallback sempre falhar.
-  const cached = await matchPrecache('/Caderneta-Digital-Gesta-Up/index.html')
+  const cached = await matchPrecache(`${import.meta.env.BASE_URL}index.html`)
   if (!cached) throw new Error('No cached navigation response available')
   const contentType = cached.headers.get('Content-Type')
   if (!contentType || !contentType.includes('text/html')) {
