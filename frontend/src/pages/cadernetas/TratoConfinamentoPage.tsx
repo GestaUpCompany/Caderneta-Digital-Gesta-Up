@@ -883,7 +883,6 @@ export default function TratoConfinamentoPage() {
 
   // Validade do lançamento atual
   const kgRealNum = curralAtual ? parseKgReal(curralAtual.kgReal) : NaN
-  const vagaoObrigatorio = opcoesVagaoAtual.length > 0
   // Regra herdada da versão em produção: o último trato não pode ser 0
   const ultimoTratoZerado = Boolean(
     curralAtual &&
@@ -898,7 +897,6 @@ export default function TratoConfinamentoPage() {
     curralAtual.kgReal !== '' &&
     isFinite(kgRealNum) &&
     !ultimoTratoZerado &&
-    (!vagaoObrigatorio || vagaoAtual) &&
     !curralAtual.salvando &&
     !salvandoFim
   )
@@ -1474,7 +1472,7 @@ export default function TratoConfinamentoPage() {
 
             {/* Seção 2: vagão (só aparece quando há produção para o trato) */}
             {opcoesVagaoAtual.length > 0 && (
-              <CadernetaSection numero={2} titulo="Vagão" required={vagaoObrigatorio}>
+              <CadernetaSection numero={2} titulo="Vagão">
                 <div className="flex flex-col gap-3">
                   {opcoesVagaoAtual.length > 1 && (
                     <div className={`grid gap-2 ${opcoesVagaoAtual.length === 2 ? 'grid-cols-2' : opcoesVagaoAtual.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
@@ -1528,28 +1526,17 @@ export default function TratoConfinamentoPage() {
                         </div>
                         <div className="rounded-xl bg-gray-50 px-3 py-2">
                           <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Ainda no vagão</p>
-                          <p className={`mt-0.5 text-sm font-extrabold ${vagaoAtual.saldo <= 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                          <p className={`mt-0.5 text-sm font-extrabold text-gray-900`}>
                             {formatarKg(vagaoAtual.saldo, 0)} kg
                           </p>
                         </div>
                       </div>
-
-                      {tratoEditavel && isFinite(kgRealNum) && kgRealNum > vagaoAtual.saldo && (
-                        <InfoStrip tone="warning">
-                          Realizado acima do saldo do vagão ({formatarKg(vagaoAtual.saldo, 0)} kg).
-                        </InfoStrip>
-                      )}
 
                       {coberturaVagao && vagaoAtual.saldo > 0 && (
                         <InfoStrip tone="neutral">
                           {coberturaVagao.cobertos.length > 0
                             ? `Dá para os próximos ${coberturaVagao.cobertos.length} ${coberturaVagao.cobertos.length === 1 ? 'curral' : 'currais'} (${coberturaVagao.cobertos.slice(0, 4).join(', ')}${coberturaVagao.cobertos.length > 4 ? '…' : ''})`
                             : 'Não cobre o próximo curral previsto.'}
-                        </InfoStrip>
-                      )}
-                      {vagaoAtual.saldo <= 0 && (
-                        <InfoStrip tone="danger">
-                          Saldo do vagão esgotado para este trato.
                         </InfoStrip>
                       )}
                     </>

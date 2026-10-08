@@ -181,7 +181,7 @@ export default function FabricaConfinamentoPage() {
   const [registroFabricaNaoConcluidoId, setRegistroFabricaNaoConcluidoId] = useState<string | null>(null)
   const [todosTratosConcluidos, setTodosTratosConcluidos] = useState<boolean>(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
-  // Leitura acumulada da balança do vagão depois de cada insumo (valor digitado, vírgula decimal)
+  // kg real carregado de cada insumo (valor digitado, vírgula decimal)
   const [leituraPorInsumo, setLeituraPorInsumo] = useState<Record<string, string>>({})
   const [leituraDigitada, setLeituraDigitada] = useState('')
   const [ativoId, setAtivoId] = useState<string | null>(null)
@@ -695,9 +695,9 @@ export default function FabricaConfinamentoPage() {
 
       // Restaurar rascunho salvo (se houver)
       const rascunhoKey = `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
-      const rascunho = await lerRascunho<{ leituraPorInsumo?: Record<string, string> }>(rascunhoKey)
-      if (rascunho?.leituraPorInsumo && Object.values(rascunho.leituraPorInsumo).some((v) => v !== '')) {
-        setLeituraPorInsumo(rascunho.leituraPorInsumo)
+      const rascunho = await lerRascunho<{ kgPorInsumo?: Record<string, string> }>(rascunhoKey)
+      if (rascunho?.kgPorInsumo && Object.values(rascunho.kgPorInsumo).some((v) => v !== '')) {
+        setLeituraPorInsumo(rascunho.kgPorInsumo)
         setRascunhoSalvo(true)
       } else {
         setLeituraPorInsumo({})
@@ -750,29 +750,17 @@ export default function FabricaConfinamentoPage() {
     return result
   }, [insumos, totalAlvo])
 
-  // Leitura acumulada que a balança deve marcar após cada insumo
-  const alvoAcumulado = useMemo(() => {
-    let acc = 0
-    const result: Record<string, number> = {}
-    for (const insumo of insumos) {
-      acc += kgPrevistoPorInsumo[insumo.insumo_id] || 0
-      result[insumo.insumo_id] = acc
-    }
-    return result
-  }, [insumos, kgPrevistoPorInsumo])
-
-  // kg que entrou de cada insumo = leitura atual da balança − leitura anterior.
-  // A pesagem é sequencial: para na primeira lacuna.
+  // kg real carregado de cada insumo (confirmado pelo peão); o total produzido é a soma
   const { kgRealPorInsumo, totalProduzidoNum } = useMemo(() => {
-    let anterior = 0
+    let total = 0
     const real: Record<string, number> = {}
     for (const insumo of insumos) {
-      const leitura = normalizarNumero(leituraPorInsumo[insumo.insumo_id])
-      if (leitura === null) break
-      real[insumo.insumo_id] = leitura - anterior
-      anterior = leitura
+      const kg = normalizarNumero(leituraPorInsumo[insumo.insumo_id])
+      if (kg === null) continue
+      real[insumo.insumo_id] = kg
+      total += kg
     }
-    return { kgRealPorInsumo: real, totalProduzidoNum: anterior }
+    return { kgRealPorInsumo: real, totalProduzidoNum: total }
   }, [insumos, leituraPorInsumo])
 
   const insumosPendentes = useMemo(
@@ -784,13 +772,10 @@ export default function FabricaConfinamentoPage() {
       ? ativoId
       : insumosPendentes[0]?.insumo_id ?? null
   const insumoAtivo = insumos.find((i) => i.insumo_id === ativoEfetivoId) || null
-  const idxAtivo = insumoAtivo ? insumos.findIndex((i) => i.insumo_id === insumoAtivo.insumo_id) : -1
-  const leituraAnteriorAtivo =
-    idxAtivo > 0 ? normalizarNumero(leituraPorInsumo[insumos[idxAtivo - 1].insumo_id]) ?? 0 : 0
   const leituraDigitadaNum = normalizarNumero(leituraDigitada)
-  const alvoAtivo = insumoAtivo ? alvoAcumulado[insumoAtivo.insumo_id] : 0
-  // Quanto falta (positivo) ou passou (negativo) para o alvo da balança
-  const faltaAtivo = leituraDigitadaNum !== null ? alvoAtivo - leituraDigitadaNum : alvoAtivo - leituraAnteriorAtivo
+  const alvoAtivo = insumoAtivo ? kgPrevistoPorInsumo[insumoAtivo.insumo_id] || 0 : 0
+  // Quanto falta (positivo) ou passou (negativo) para o previsto do insumo
+  const faltaAtivo = alvoAtivo - (leituraDigitadaNum ?? 0)
 
   // Faltam kg para completar o trato
   const faltamKg = useMemo(
@@ -833,7 +818,7 @@ export default function FabricaConfinamentoPage() {
     [registrosFabricaDia]
   )
 
-  // Rascunho: persiste as leituras acumuladas da balança no IndexedDB
+  // Rascunho: persiste os kg reais digitados por insumo no IndexedDB
   const getRascunhoKey = useCallback(() => {
     const dataISO = brToDateISO(data)
     return `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
@@ -844,7 +829,7 @@ export default function FabricaConfinamentoPage() {
       if (!fazendaId) return
       const key = getRascunhoKey()
       try {
-        await salvarRascunho(key, { leituraPorInsumo: leituras })
+        await salvarRascunho(key, { kgPorInsumo: leituras })
         setRascunhoSalvo(Object.values(leituras).some((v) => v !== ''))
       } catch (error) {
         console.error('Erro ao salvar rascunho da fábrica:', error)
@@ -885,11 +870,11 @@ export default function FabricaConfinamentoPage() {
   const confirmarLeitura = () => {
     if (!insumoAtivo) return
     if (leituraDigitadaNum === null) {
-      setErroLeitura('Digite o número que a balança marcou.')
+      setErroLeitura('Digite quantos kg entraram.')
       return
     }
-    if (leituraDigitadaNum < leituraAnteriorAtivo) {
-      setErroLeitura(`A balança não pode marcar menos que no insumo anterior (${formatarKg(leituraAnteriorAtivo, 1)} kg).`)
+    if (leituraDigitadaNum < 0) {
+      setErroLeitura('A quantidade não pode ser negativa.')
       return
     }
     setLeituraPorInsumo((prev) => ({ ...prev, [insumoAtivo.insumo_id]: leituraDigitada }))
@@ -1198,7 +1183,6 @@ export default function FabricaConfinamentoPage() {
     const prev = kgPrevistoPorInsumo[id] || 0
     const dif = feito && prev > 0 ? ((real - prev) / prev) * 100 : null
     const difOk = dif !== null && Math.abs(dif) <= 3
-    const leituraMarcada = feito ? normalizarNumero(leituraPorInsumo[id]) : null
 
     return (
       <button
@@ -1223,7 +1207,7 @@ export default function FabricaConfinamentoPage() {
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-extrabold leading-tight text-gray-900">{nomeCurto(insumo.nome)}</span>
           <span className="block text-xs font-semibold text-gray-500">
-            {insumo.formula_mn_percent.toFixed(1).replace('.', ',')}% · {formatarKg(prev, 1)} kg
+            {insumo.formula_mn_percent.toFixed(1).replace('.', ',')}% · {formatarKg(prev, 1)} kg previsto
           </span>
           {feito && dif !== null && todosPesados && (
             <span className={`block text-xs font-bold ${difOk ? 'text-green-700' : 'text-amber-700'}`}>
@@ -1231,16 +1215,13 @@ export default function FabricaConfinamentoPage() {
               {formatarKg(real, 1)} kg ({dif > 0 ? '+' : ''}{formatarKg(dif, 1)}%)
             </span>
           )}
-          {feito && real < 0 && (
-            <span className="block text-xs font-bold text-red-600">Leitura menor que a anterior, confira</span>
-          )}
         </span>
         <span className="shrink-0 text-right">
           <span className="block text-[11px] font-semibold leading-tight text-gray-500">
-            {feito ? 'pesou' : 'balança deve marcar'}
+            {feito ? 'carregado' : 'previsto'}
           </span>
           <span className="block text-2xl font-extrabold leading-tight text-gray-900">
-            {feito ? formatarKg(leituraMarcada, Number.isInteger(leituraMarcada) ? 0 : 1) : formatarKg(alvoAcumulado[id] ?? 0, 0)}
+            {formatarKg(feito ? real : prev, Number.isInteger(feito ? real : prev) ? 0 : 1)}
           </span>
         </span>
       </button>
@@ -1393,7 +1374,7 @@ export default function FabricaConfinamentoPage() {
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <span className="block text-[11px] font-extrabold uppercase leading-tight tracking-wide opacity-90">
-                    Quanto a balança marcou?
+                    Quantos kg de {nomeCurto(insumoAtivo.nome)} entraram?
                   </span>
                   <div className="mt-1 flex items-baseline gap-1.5">
                     <input
@@ -1405,7 +1386,7 @@ export default function FabricaConfinamentoPage() {
                         if (e.key === 'Enter') confirmarLeitura()
                       }}
                       placeholder="0"
-                      data-field="leitura-balanca"
+                      data-field="kg-real-insumo"
                       className="w-28 min-w-0 border-0 border-b-4 border-green-500 bg-transparent !px-0 !py-0 text-4xl font-extrabold leading-tight text-white placeholder-white/40 focus:outline-none"
                     />
                     <span className="text-base font-semibold">kg</span>
@@ -1432,8 +1413,7 @@ export default function FabricaConfinamentoPage() {
           )}
 
           <InfoStrip>
-            Digite o número da balança do vagão depois de cada insumo. A caderneta calcula quanto entrou de cada um e
-            avisa quanto falta.
+            Digite os kg reais carregados de cada insumo. Com tudo preenchido, aparece a diferença para o previsto.
           </InfoStrip>
           {rascunhoSalvo && (
             <InfoStrip tone="success" icon={<CheckCircle2 className="h-5 w-5" />}>Rascunho salvo</InfoStrip>
