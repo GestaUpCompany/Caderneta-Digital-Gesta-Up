@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { requestSyncNow } from '../../store/slices/syncSlice'
@@ -192,13 +192,28 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
   
 
+  // Texto e fotos são montados ao abrir o modal (consultas e download das fotos levam
+  // segundos). Se isso rodasse depois do clique em COMPARTILHAR, a ativação do toque
+  // expiraria e o navegador recusaria o navigator.share com arquivos: só o texto sairia.
+  const preparoCompartilhamentoRef = useRef<Promise<{ textoFinal: string; fotos: string[] }> | null>(null)
+
   const handleCompartilhar = (registro: Registro) => {
+    preparoCompartilhamentoRef.current = prepararCompartilhamento(registro)
+    preparoCompartilhamentoRef.current.catch(() => {})
     setRegistroParaCompartilhar(registro)
     setMostrarModalCompartilhar(true)
   }
 
   const handleCompartilharTexto = async () => {
     if (!registroParaCompartilhar) return
+    const preparo = preparoCompartilhamentoRef.current ?? prepararCompartilhamento(registroParaCompartilhar)
+    const { textoFinal, fotos } = await preparo
+    await compartilharWhatsApp(textoFinal, fotos)
+    setMostrarModalCompartilhar(false)
+    setRegistroParaCompartilhar(null)
+  }
+
+  const prepararCompartilhamento = async (registroParaCompartilhar: Registro) => {
     let registroParaShare = registroParaCompartilhar
 
     if (caderneta === 'suplementacao' && registroParaCompartilhar.loteId && registroParaCompartilhar.formulacao && fazendaId) {
@@ -325,15 +340,15 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
         ? extrairProblemasComFotoBebedouros(registroParaShare)
         : extrairFotosSuplementacao(registroParaShare)
       const linksPendentes: string[] = []
-      for (let i = 0; i < problemas.length; i++) {
-        const p = problemas[i]
-        let base64 = p.fotoBase64
-        if (!base64 && p.fotoUrl) {
-          base64 = (await fotoUrlParaBase64(p.fotoUrl)) ?? undefined
-        }
+      // Downloads em paralelo; a ordem das fotos segue a dos marcadores "(foto N)"
+      const base64s = await Promise.all(
+        problemas.map(async (p) => p.fotoBase64 ?? (p.fotoUrl ? (await fotoUrlParaBase64(p.fotoUrl)) ?? undefined : undefined))
+      )
+      problemas.forEach((p, i) => {
+        const base64 = base64s[i]
         if (base64) fotos.push(base64)
         else if (p.fotoUrl) linksPendentes.push(`FOTO ${i + 1}: ${p.fotoUrl}`)
-      }
+      })
       if (linksPendentes.length > 0) {
         textoFinal = `${texto}\n${linksPendentes.join('\n')}\n`
       }
@@ -342,9 +357,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
       if (foto) fotos.push(foto)
     }
 
-    await compartilharWhatsApp(textoFinal, fotos)
-    setMostrarModalCompartilhar(false)
-    setRegistroParaCompartilhar(null)
+    return { textoFinal, fotos }
   }
 
   const handleReenviar = async (registro: Registro) => {

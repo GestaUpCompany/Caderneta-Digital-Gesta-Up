@@ -2,6 +2,11 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Compartilhar com várias fotos: preparo antes do clique (08/10/2026)
+
+- Bebedouros e Suplementação montavam texto, consultas e download das fotos (`foto_url`, em sequência) **depois** do clique em COMPARTILHAR. Com 2+ fotos o tempo passava da ativação do toque e o `navigator.share` com arquivos era recusado, saindo só o texto (e o aviso de foto omitida).
+- Agora `ListaRegistros` prepara tudo ao abrir o modal (`prepararCompartilhamento`, downloads em paralelo) e o clique só chama o share. Não testado em aparelho real; se ainda sair só o texto, a causa provável é o WhatsApp descartar o texto quando recebe vários arquivos.
+
 ## Número de versão visível no app (08/10/2026)
 
 - Antes: `APP_VERSION` fixo em `1.0.0` (inclusive no `app_version` dos logs de erro de sync) e nenhuma tela mostrava versão.

@@ -2564,7 +2564,8 @@ export const extrairFotosSuplementacao = (registro: Registro): ProblemaComFoto[]
 // quando o registro sincronizado so tem foto_url.
 export const fotoUrlParaBase64 = async (url: string): Promise<string | null> => {
   try {
-    const res = await fetch(url)
+    // Sem sinal a requisição pode ficar pendurada: limita para o share não travar
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     if (!res.ok) return null
     const blob = await res.blob()
     return await new Promise((resolve) => {
