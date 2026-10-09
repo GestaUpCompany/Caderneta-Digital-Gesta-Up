@@ -2582,6 +2582,49 @@ export const fotoUrlParaBase64 = async (url: string): Promise<string | null> => 
   }
 }
 
+/**
+ * Compartilha so as fotos (album), sem texto. O WhatsApp costuma descartar as
+ * imagens quando recebe texto + varias fotos na mesma share sheet; por isso, com
+ * 2+ fotos, o texto sai em um compartilhamento e as fotos em outro.
+ */
+export const compartilharFotos = async (fotos: string[]) => {
+  if (fotos.length === 0) return
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const uris: string[] = []
+      for (let i = 0; i < fotos.length; i++) {
+        const resultado = await Filesystem.writeFile({
+          path: `share/foto_${i + 1}.${imageExtFromBase64(fotos[i])}`,
+          data: fotos[i],
+          directory: Directory.Cache,
+          recursive: true,
+        })
+        uris.push(resultado.uri)
+      }
+      await Share.share({ title: 'Compartilhar fotos', files: uris, dialogTitle: 'Compartilhar fotos' })
+      return
+    } catch (err) {
+      if (isAbort(err) || /cancel/i.test((err as Error)?.message || '')) return
+      console.error('[share] Falha ao compartilhar fotos no nativo:', err)
+    }
+  }
+  const files = fotos.map((b64, i) => {
+    const mime = imageMimeFromBase64(b64)
+    return new File([base64ToBlob(b64, mime)], `foto_${i + 1}.${imageExtFromBase64(b64)}`, { type: mime })
+  })
+  const nav = navigator as any
+  if (typeof nav.canShare === 'function' && nav.canShare({ files })) {
+    try {
+      await nav.share({ files })
+      return
+    } catch (err) {
+      if (isAbort(err)) return
+      console.error('[share] Erro ao compartilhar fotos:', err)
+    }
+  }
+  alert('Este dispositivo não conseguiu anexar as fotos no compartilhamento.')
+}
+
 export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | string[] | null) => {
   const textoCodificado = encodeURIComponent(texto)
   const url = `https://wa.me/?text=${textoCodificado}`

@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react'
 import AppHeader from '../AppHeader'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
-import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza, extrairProblemasComFotoBebedouros, extrairFotosSuplementacao, fotoUrlParaBase64 } from '../../utils/shareUtils'
+import { formatarRegistroComoTexto, compartilharWhatsApp, compartilharFotos, formatarTempoDesdeLimpeza, extrairProblemasComFotoBebedouros, extrairFotosSuplementacao, fotoUrlParaBase64 } from '../../utils/shareUtils'
 import { translateSyncError, formatSyncErrorForSupport } from '../../utils/syncErrorMessages'
 import { formatarNumeroBR, normalizarNumero } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -195,11 +195,14 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   // Texto e fotos são montados ao abrir o modal (consultas e download das fotos levam
   // segundos). Se isso rodasse depois do clique em COMPARTILHAR, a ativação do toque
   // expiraria e o navegador recusaria o navigator.share com arquivos: só o texto sairia.
+  // Com 2+ fotos o texto sai primeiro e as fotos ficam aguardando o segundo toque
+  const [fotosPendentes, setFotosPendentes] = useState<string[] | null>(null)
   const preparoCompartilhamentoRef = useRef<Promise<{ textoFinal: string; fotos: string[] }> | null>(null)
 
   const handleCompartilhar = (registro: Registro) => {
     preparoCompartilhamentoRef.current = prepararCompartilhamento(registro)
     preparoCompartilhamentoRef.current.catch(() => {})
+    setFotosPendentes(null)
     setRegistroParaCompartilhar(registro)
     setMostrarModalCompartilhar(true)
   }
@@ -208,7 +211,20 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     if (!registroParaCompartilhar) return
     const preparo = preparoCompartilhamentoRef.current ?? prepararCompartilhamento(registroParaCompartilhar)
     const { textoFinal, fotos } = await preparo
+    if (fotos.length > 1) {
+      await compartilharWhatsApp(textoFinal, [])
+      setFotosPendentes(fotos)
+      return
+    }
     await compartilharWhatsApp(textoFinal, fotos)
+    setMostrarModalCompartilhar(false)
+    setRegistroParaCompartilhar(null)
+  }
+
+  const handleCompartilharFotos = async () => {
+    if (!fotosPendentes) return
+    await compartilharFotos(fotosPendentes)
+    setFotosPendentes(null)
     setMostrarModalCompartilhar(false)
     setRegistroParaCompartilhar(null)
   }
@@ -1174,13 +1190,28 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
               </p>
 
               <div className="mt-4 flex flex-col gap-2">
-                <button
-                  onClick={handleCompartilharTexto}
-                  className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
-                >
-                  <Share2 className="h-5 w-5" />
-                  COMPARTILHAR
-                </button>
+                {fotosPendentes ? (
+                  <>
+                    <p className="text-sm text-gray-700">
+                      Texto enviado. Agora envie as {fotosPendentes.length} fotos na mesma conversa.
+                    </p>
+                    <button
+                      onClick={handleCompartilharFotos}
+                      className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
+                    >
+                      <Share2 className="h-5 w-5" />
+                      ENVIAR {fotosPendentes.length} FOTOS
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleCompartilharTexto}
+                    className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
+                  >
+                    <Share2 className="h-5 w-5" />
+                    COMPARTILHAR
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setMostrarModalCompartilhar(false)
@@ -1188,7 +1219,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                   }}
                   className="w-full font-bold px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 active:bg-gray-200"
                 >
-                  CANCELAR
+                  {fotosPendentes ? 'FECHAR' : 'CANCELAR'}
                 </button>
               </div>
             </div>

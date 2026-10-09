@@ -5,7 +5,7 @@ Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não prec
 ## Compartilhar com várias fotos: preparo antes do clique (08/10/2026)
 
 - Bebedouros e Suplementação montavam texto, consultas e download das fotos (`foto_url`, em sequência) **depois** do clique em COMPARTILHAR. Com 2+ fotos o tempo passava da ativação do toque e o `navigator.share` com arquivos era recusado, saindo só o texto (e o aviso de foto omitida).
-- Agora `ListaRegistros` prepara tudo ao abrir o modal (`prepararCompartilhamento`, downloads em paralelo) e o clique só chama o share. Não testado em aparelho real; se ainda sair só o texto, a causa provável é o WhatsApp descartar o texto quando recebe vários arquivos.
+- Agora `ListaRegistros` prepara tudo ao abrir o modal (`prepararCompartilhamento`, downloads em paralelo) e o clique só chama o share. Teste no Android (PWA) mostrou que o texto saía sem as fotos mesmo assim (sem aviso), então com 2+ fotos o compartilhamento agora é em duas etapas: COMPARTILHAR envia o texto e o botão ENVIAR N FOTOS envia o álbum (`compartilharFotos`). Antes: se ainda sair só o texto, a causa provável é o WhatsApp descartar o texto quando recebe vários arquivos.
 
 ## Número de versão visível no app (08/10/2026)
 
