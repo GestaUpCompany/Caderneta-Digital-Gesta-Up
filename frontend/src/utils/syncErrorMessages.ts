@@ -62,6 +62,9 @@ export function translateSyncError(error: SyncError | null | undefined): string 
     }
     return ERROR_MESSAGES['23505']
   }
+  if (code === 'P0001' && /tanque .* nao encontrado/i.test(error.message || '')) {
+    return 'O tanque deste abastecimento foi removido do cadastro. Avise o administrador para conferir o registro.'
+  }
   if (code && ERROR_MESSAGES[code]) {
     // Registros antigos de falha de rede foram gravados com code 'unknown'; a mensagem original revela a causa.
     if (code === 'unknown' && isNetworkError(error, true)) return ERROR_MESSAGES.network

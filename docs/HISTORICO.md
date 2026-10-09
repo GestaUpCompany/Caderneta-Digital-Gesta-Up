@@ -2,6 +2,33 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Abastecimento: offline, sinal ruim e validação alinhada (09/10/2026)
+
+- **Cache primeiro** para máquinas/veículos e tanques (`getMaquinasVeiculosFromCacheOnly`, `getTanquesCombustivelFromCacheOnly`): leitura do IndexedDB além da memória, revalidação online com timeout de 3 s. Antes, após recarregar offline a memória vinha vazia e a lista sumia. `updateTanqueSaldoCache` também lê do IndexedDB (a baixa otimista do saldo sobrevive ao reload).
+- **Tanque indisponível ≠ sem tanque:** falha de rede sem cache vira "Tanques indisponíveis neste aparelho" e o SALVAR fica bloqueado (antes gravava sem tanque e sem baixa de estoque). Fazenda realmente sem tanques continua registrando sem controle de estoque.
+- **Recuperação automática:** evento `online` (limpa o sinal `redeInstavelRecentemente`) e nova tentativa a cada 25 s enquanto indisponível. Wi-Fi sem internet que volta não dispara `online`, e o DevTools em modo Offline também não. O mesmo ajuste foi aplicado em Suplementação e Bebedouros.
+- **Detalhes da máquina** vêm da lista já carregada, sem nova ida à rede; a revalidação da lista não reaplica combustível/operador padrão.
+- **UI:** `maxDate` no seletor de data, erro de salvamento limpo ao trocar data/máquina, LIMPAR zera erros, motivo do bloqueio no rodapé (`pendenciaTexto`), litros zerados bloqueiam.
+- **`validateAbastecimento`:** total > 0, odômetro numérico, "Outros" exige especificar.
+- **Segunda rodada (cenários prováveis):**
+  - Tanque de outro combustível não fica mais selecionado ao trocar de combustível com a mesma quantidade de tanques (o efeito agora depende dos ids e do combustível).
+  - Máquina que sumiu da lista (cadastro removido) sai da seleção, em vez de salvar com nome órfão.
+  - Toque duplo no SALVAR: trava por ref (1 registro e 1 baixa) e falha inesperada do `salvarRegistro` vira mensagem, sem deixar o botão preso.
+  - Relógio da bomba: "Antes" = pendente local > última do servidor (`getUltimaLeituraBomba`, vale para outros aparelhos e Painel) > último local. Antes só olhava o aparelho.
+  - Sync resolve `maquina_veiculo_id` (e placa) pelo nome quando o registro foi feito sem a lista de máquinas.
+  - Lista de registros: mostra tanque e relógio da bomba; odômetro/horímetro sem unidade fixa (antes "km" para o que no formulário é "h").
+  - Erro "Tanque … não encontrado" (P0001, tanque removido do cadastro) ganhou mensagem própria.
+  - Edição/exclusão: o PWA não edita abastecimento (só o Painel); o trigger `sync_baixa_abastecimento` trata total, tanque e soft-delete no servidor. Exercitado na fazenda de testes: editar 900→100 L moveu o saldo de −75 para 725 e a baixa para 100 L; o soft-delete dos 5 registros de teste estornou as baixas e devolveu os saldos aos valores iniciais (850 / 1915 / 1150 / 1500).
+- **Testes:** `validation.abastecimento.test.ts`, `shareUtils.abastecimento.test.ts` e caso novo em `syncErrorMessages.test.ts` (92 testes no total).
+- **Verificado na fazenda de testes:** online (registro + baixa 850→840 no Diesel Comum), offline com `navigator.onLine` verdadeiro (salva em ~3 s, fila 1, saldo local 1915→1895 e persistido, sync correto e saldo do servidor 1895), tanques sem cache (bloqueio + recuperação em 35 s).
+
+## "Fazenda desativada" em aparelho com versão antiga do app (09/10/2026)
+
+- **Sintoma:** fazenda ativa (conferida no banco) aparece como "Fazenda desativada" no app. Em teste local, o navegador mostrava também "Nova versão disponível".
+- **Causa:** efeito colateral da auditoria de segurança. Bundles antigos checavam a fazenda lendo a tabela `fazendas` direto; sem vínculo de tenant a RLS devolve vazio (HTTP 406 no `.single()`) e o app tratava "não achou" como fazenda desativada. O código atual usa a RPC `get_fazenda_por_acesso` (`farmStatusService.ts`), que não tem esse problema.
+- **Correção:** aplicar a atualização do app (botão "Atualizar" do banner). Não exige mudança de código. Salvar em Configurações não resolve, porque o service worker antigo continua servindo o bundle antigo.
+- **Atenção em campo:** peão que não atualizou o app depois da auditoria pode cair nessa tela. Orientar a abrir o app com internet e tocar em "Atualizar".
+
 ## Bebedouros: offline, sinal ruim e histórico de limpeza no sync (08/10/2026)
 
 Mesma bateria do Rodeio e da Suplementação na `BebedourosPage`, em build de produção no navegador (online, offline com `navigator.onLine` ainda true).

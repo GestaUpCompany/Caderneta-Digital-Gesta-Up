@@ -144,6 +144,8 @@ const ABASTECIMENTO_LABELS = {
   hidrometroFinal: 'HIDRÔMETRO FINAL',
   totalAbastecido: 'TOTAL ABASTECIDO',
   combustivel: 'COMBUSTÍVEL',
+  tanqueNome: 'TANQUE',
+  totalBomba: 'RELÓGIO DA BOMBA',
   odometro: 'ODÔMETRO/HORÍMETRO',
   tipoOperacao: 'TIPO DE OPERAÇÃO',
   tipoOperacaoOutros: 'ESPECIFICAR',

@@ -9,7 +9,7 @@ import PdfModal from '../../components/PdfModal'
 import { salvarRegistro, listarRegistros } from '../../services/api'
 import { getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
 import { getFarmTimezoneAsync } from '../../services/checklistRegrasService'
-import { redeInstavelRecentemente } from '../../utils/fetchComTimeout'
+import { redeInstavelRecentemente, registrarRespostaDeRede } from '../../utils/fetchComTimeout'
 import { todayBR, brToIso, getDateTimePartsInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -1028,10 +1028,21 @@ export default function SuplementacaoPage() {
 
   useEffect(() => {
     const aoVoltarInternet = () => {
-      if (dadosIndisponiveisRef.current) setRecarga((n) => n + 1)
+      if (dadosIndisponiveisRef.current) {
+        // O sistema avisou que a internet voltou: o sinal de rede instável não vale mais
+        registrarRespostaDeRede()
+        setRecarga((n) => n + 1)
+      }
     }
     window.addEventListener('online', aoVoltarInternet)
-    return () => window.removeEventListener('online', aoVoltarInternet)
+    // Wi-Fi sem internet que volta não dispara 'online': tenta de novo de tempos em tempos enquanto indisponível
+    const tentativa = setInterval(() => {
+      if (dadosIndisponiveisRef.current) setRecarga((n) => n + 1)
+    }, 25_000)
+    return () => {
+      window.removeEventListener('online', aoVoltarInternet)
+      clearInterval(tentativa)
+    }
   }, [])
 
   const verificarTratoDuplicado = async (): Promise<any | null> => {
