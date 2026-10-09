@@ -821,7 +821,10 @@ export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
     .is('data_fim', null)
     .single()
 
-  if (planoError || !plano) return null
+  // PGRST116 = nenhuma linha (lote sem plano ativo). Qualquer outro erro (rede, timeout) não pode
+  // virar "sem plano": propaga para o cache decidir.
+  if (planoError && planoError.code !== 'PGRST116') throw planoError
+  if (!plano) return null
 
   // 2. Buscar nome da formulação do plano
   let formulacaoNome: string | null = null

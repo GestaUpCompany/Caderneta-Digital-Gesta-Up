@@ -334,7 +334,7 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
   if (suplementarAdulto) {
     if (!isNonEmptyString(data.formulacao))
       errors.push({ field: 'formulacao', message: 'Formulação é obrigatória' })
-    if (!isScaleValue(data.leituraCocho, -1, 3))
+    if (!isScaleValue(data.leituraCocho, -1, 3, true))
       errors.push({ field: 'leituraCocho', message: 'Leitura deve ser entre -1 e 3' })
     if (!isPositiveNumber(data.kgCocho) || Number(data.kgCocho) === 0)
       errors.push({ field: 'kgCocho', message: 'KG no cocho é obrigatório e deve ser maior que zero' })
@@ -342,7 +342,7 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
   if (suplementarCreep) {
     if (!isNonEmptyString(data.creepFormulacao))
       errors.push({ field: 'creepFormulacao', message: 'Formulação creep é obrigatória (vincule no cadastro do lote)' })
-    if (!isScaleValue(data.creepLeitura, -1, 3))
+    if (!isScaleValue(data.creepLeitura, -1, 3, true))
       errors.push({ field: 'creepLeitura', message: 'Leitura do cocho creep deve ser entre -1 e 3' })
     if (!isPositiveNumber(data.creepKgCocho) || Number(data.creepKgCocho) === 0)
       errors.push({ field: 'creepKgCocho', message: 'KG no cocho creep é obrigatório e deve ser maior que zero' })

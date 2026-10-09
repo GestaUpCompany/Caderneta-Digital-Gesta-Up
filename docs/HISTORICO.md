@@ -2,10 +2,23 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Suplementação: offline, sinal ruim e validação alinhada (08/10/2026)
+
+Mesma bateria aplicada ao Rodeio, agora na `SuplementacaoPage`, testada em build de produção no navegador (online, offline com `navigator.onLine` ainda true, rede travada) na fazenda de testes.
+
+- **Falso "sem plano nutricional"**: `getPlanoNutricionalAtivoByLoteId` engolia o erro de rede e devolvia `null`, que a tela lia como "lote sem plano" e bloqueava o salvamento. Agora só `PGRST116` (nenhuma linha) é "sem plano"; erro de rede propaga. Novo `getPlanoNutricionalAtivoStatus` (cache primeiro, timeout de 3 s, indica se a resposta é confiável) e a tela mostra "Plano nutricional indisponível neste aparelho" quando não há cache.
+- **Cache primeiro** em lotes, lote, plano, pasto, formulação e formulação creep (`...FromCacheOnly`); revalidação online em segundo plano com timeout, sem apagar o que já está na tela. Antes: lista de lotes sem timeout (ficava em "Carregando..."), pasto e plano só em memória, `CADASTRO_CACHE_UPDATED` com payload parcial zerava a lista.
+- **SALVAR bloqueado** enquanto lote, plano, pasto ou formulação carregam ou não chegaram (antes salvava com `loteId`/categorias/peso vazios, sem saber se o pasto tem depósito ou se a dieta é em sacos), com `pendenciaTexto` no rodapé. Troca de lote limpa o estado do anterior e ignora respostas atrasadas (flag `cancelado`). Volta da internet com dados indisponíveis refaz a leitura sozinha.
+- **Bug antigo**: em lote com creep (bezerro ao pé com dieta) os campos do grupo "lote" ficavam ocultos e era impossível suplementar os adultos; agora sempre visíveis.
+- **Salvar mais rápido sem sinal**: `fetchComTimeout` passou a registrar falha/resposta de rede (`redeInstavelRecentemente`); o salvar deixa de esperar consultas online (fuso da fazenda, tolerância de rotina, conferência de trato duplicado) quando a rede acabou de falhar, e o peso projetado usa o plano em cache. Salvar offline: de ~14 s para ~3 s; online: de ~4 s para ~0,8 s.
+- **Validação**: serviço agora exige a leitura do cocho (lote e creep), como a tela; pasto obrigatório na tela; data sem futuro (`maxDate`); erro de trato duplicado some ao trocar data/lote; LIMPAR limpa os erros.
+- Testes novos: `validation.suplementacao.test.ts`, `redeInstavel.test.ts`.
+- **Texto compartilhável de Suplementação** conferido no navegador (9 registros: lote, creep, lote+creep, sacaria, com e sem problemas de checklist; texto do card e Resumo diário), online e offline: textos idênticos e sem valores quebrados. Com Wi-Fi sem internet cada compartilhamento levava ~5 s (cada leitura de cadastro esperava o próprio timeout); agora `cadastroCache` trata "rede falhou há pouco" (`redeInstavelRecentemente`) como offline e usa o cache direto: ~60 ms. Teste novo: `shareUtils.suplementacao.test.ts`.
+
 ## Compartilhar: só a foto principal do registro (08/10/2026)
 
 - Decisão: o texto compartilhável **não envia fotos de itens de checklist** (Bebedouros e Suplementação) e não traz mais os marcadores "(foto N)" nem a linha "FOTO DO COCHO". Duas tentativas de enviar o álbum no Android (PWA) não funcionaram no aparelho (o WhatsApp só recebia o texto e o modal de segunda etapa não apareceu); o assunto foi encerrado por enquanto.
-- Vai anexada apenas a foto principal do registro, quando a tela tem. Registro já sincronizado só tem `foto_url`: o app baixa a foto (timeout de 8 s) para anexar; offline, o texto sai sem a foto.
+- Vai anexada apenas a foto principal do registro, quando a tela tem. Na Suplementação a foto principal é a do cocho (`checklist.foto_cocho`). Registro já sincronizado só tem `foto_url`: o app baixa a foto (timeout de 8 s) para anexar; offline, o texto sai sem a foto.
 - Texto e foto são preparados ao abrir o modal (`ListaRegistros.prepararCompartilhamento`), para o `navigator.share` com arquivo não perder a ativação do toque. `compartilharWhatsApp` continua aceitando N fotos (uso futuro).
 - Removidos: `extrairProblemasComFotoBebedouros`, `extrairFotosSuplementacao`, `compartilharFotos`.
 
