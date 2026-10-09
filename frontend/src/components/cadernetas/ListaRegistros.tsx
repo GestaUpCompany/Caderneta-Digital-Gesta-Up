@@ -201,8 +201,13 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
   const handleCompartilhar = (registro: Registro) => {
     preparoCompartilhamentoRef.current = prepararCompartilhamento(registro)
-    preparoCompartilhamentoRef.current.catch(() => {})
     setFotosPendentes(null)
+    // Com 2+ fotos o modal já mostra os dois botões (texto e fotos) assim que o preparo termina
+    preparoCompartilhamentoRef.current
+      .then(({ fotos }) => {
+        if (fotos.length > 1) setFotosPendentes(fotos)
+      })
+      .catch(() => {})
     setRegistroParaCompartilhar(registro)
     setMostrarModalCompartilhar(true)
   }
@@ -212,8 +217,8 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     const preparo = preparoCompartilhamentoRef.current ?? prepararCompartilhamento(registroParaCompartilhar)
     const { textoFinal, fotos } = await preparo
     if (fotos.length > 1) {
+      // Texto e fotos são envios separados e independentes: o modal continua aberto
       await compartilharWhatsApp(textoFinal, [])
-      setFotosPendentes(fotos)
       return
     }
     await compartilharWhatsApp(textoFinal, fotos)
@@ -224,9 +229,6 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   const handleCompartilharFotos = async () => {
     if (!fotosPendentes) return
     await compartilharFotos(fotosPendentes)
-    setFotosPendentes(null)
-    setMostrarModalCompartilhar(false)
-    setRegistroParaCompartilhar(null)
   }
 
   const prepararCompartilhamento = async (registroParaCompartilhar: Registro) => {
@@ -358,7 +360,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
       const linksPendentes: string[] = []
       // Downloads em paralelo; a ordem das fotos segue a dos marcadores "(foto N)"
       const base64s = await Promise.all(
-        problemas.map(async (p) => p.fotoBase64 ?? (p.fotoUrl ? (await fotoUrlParaBase64(p.fotoUrl)) ?? undefined : undefined))
+        problemas.map(async (p) => p.fotoBase64 || (p.fotoUrl ? (await fotoUrlParaBase64(p.fotoUrl)) ?? undefined : undefined))
       )
       problemas.forEach((p, i) => {
         const base64 = base64s[i]
@@ -1190,26 +1192,20 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
               </p>
 
               <div className="mt-4 flex flex-col gap-2">
-                {fotosPendentes ? (
-                  <>
-                    <p className="text-sm text-gray-700">
-                      Texto enviado. Agora envie as {fotosPendentes.length} fotos na mesma conversa.
-                    </p>
-                    <button
-                      onClick={handleCompartilharFotos}
-                      className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
-                    >
-                      <Share2 className="h-5 w-5" />
-                      ENVIAR {fotosPendentes.length} FOTOS
-                    </button>
-                  </>
-                ) : (
+                <button
+                  onClick={handleCompartilharTexto}
+                  className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
+                >
+                  <Share2 className="h-5 w-5" />
+                  {fotosPendentes ? '1. ENVIAR TEXTO' : 'COMPARTILHAR'}
+                </button>
+                {fotosPendentes && (
                   <button
-                    onClick={handleCompartilharTexto}
+                    onClick={handleCompartilharFotos}
                     className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
                   >
                     <Share2 className="h-5 w-5" />
-                    COMPARTILHAR
+                    2. ENVIAR {fotosPendentes.length} FOTOS
                   </button>
                 )}
                 <button
