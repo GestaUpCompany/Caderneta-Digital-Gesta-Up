@@ -2,12 +2,27 @@ import React from 'react'
 import { CadernetaStore } from '../../services/indexedDB'
 import { Registro } from '../../config/registroDisplayConfig'
 import { formatarNumeroBR, formatarMoedaBR } from '../../utils/formatNumber'
+import { rotuloDiagnosticoEnfermaria } from '../../utils/shareUtils'
 
 type SpecialComponentFn = (registro: Registro) => React.ReactNode
 
 export const SPECIAL_COMPONENTS: Partial<Record<CadernetaStore, Record<string, SpecialComponentFn>>> = {
   enfermaria: {
     diagnosticos: (registro) => {
+      // Formato atual: lista de nomes marcados na tela; o objeto SIM/NÃO por sintoma é o formato antigo
+      if (Array.isArray(registro.diagnosticos)) {
+        if (registro.diagnosticos.length === 0) return null
+        return (
+          <div className="col-span-2 mt-2">
+            <p className="text-xs font-bold text-gray-700 mb-1">🩺 DIAGNÓSTICOS</p>
+            {registro.diagnosticos.map((d: unknown) => (
+              <div key={String(d)} className="text-sm font-semibold text-gray-900">
+                ⚠️ {rotuloDiagnosticoEnfermaria(String(d))}
+              </div>
+            ))}
+          </div>
+        )
+      }
       const diag = registro.diagnosticos as Record<string, { valor: unknown; observacao?: string }> | undefined
       if (!diag || typeof diag !== 'object') return null
       const entries = Object.entries(diag).filter(([, d]) => d?.valor !== null && d?.valor !== undefined && d?.valor !== '')

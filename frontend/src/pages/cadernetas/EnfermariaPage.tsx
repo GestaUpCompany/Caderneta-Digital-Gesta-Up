@@ -16,11 +16,14 @@ import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import FormFooter from '../../components/cadernetas/FormFooter'
 import {
   getLoteByNomeCached,
+  getLoteByNomeFromCacheOnly,
+  getLoteByIdCached,
   getLoteDetalhesComCategoriasCached,
+  getLoteDetalhesFromCacheOnly,
   getMedicamentosCached,
+  getMedicamentosFromCacheOnly,
   getLotesAtivosCached,
 } from '../../services/cadastroCache'
-import { getLoteById } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -123,6 +126,12 @@ export default function EnfermariaPage() {
   const [medicamentosDisponiveis, setMedicamentosDisponiveis] = useState<any[]>([])
   const [loteAutoIdentificado, setLoteAutoIdentificado] = useState<boolean>(false)
   const [mensagemLote, setMensagemLote] = useState<string>('')
+  const [carregandoLote, setCarregandoLote] = useState(false)
+  const [loteIndisponivel, setLoteIndisponivel] = useState(false)
+  const [recarga, setRecarga] = useState(0)
+  const [medicamentosKey, setMedicamentosKey] = useState(0)
+  const salvandoRef = useRef(false)
+  const identificacaoSeqRef = useRef(0)
 
   // Hook reutilizavel de foto (sem GPS nesta caderneta)
   const {
@@ -159,12 +168,23 @@ export default function EnfermariaPage() {
   const validationRules: any = {
     data: { required: true },
     lote: { required: true },
-    idManejo: {
-      custom: (value: string) => {
-        const hasManejo = value && value.trim() !== ''
+    // Chave com "_": o useFormValidation só roda regra custom com campo vazio nesse caso
+    _idAnimal: {
+      custom: () => {
+        const hasManejo = form.idManejo && form.idManejo.trim() !== ''
         const hasBrinco = form.brinco && form.brinco.trim() !== ''
         const hasChip = form.chip && form.chip.trim() !== ''
         if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip'
+        return null
+      }
+    },
+    // O serviço exige o pasto, que vem do lote: sem os dados do lote neste aparelho o registro seria recusado
+    _dadosLote: {
+      custom: () => {
+        if (!form.lote) return null
+        if (carregandoLote) return 'Carregando os dados do lote...'
+        if (loteIndisponivel) return 'Dados do lote indisponíveis neste aparelho. Conecte à internet e atualize os dados, ou escolha outro lote.'
+        if (!form.pasto) return 'Este lote não possui pasto vinculado. Vincule um pasto ao lote antes de lançar.'
         return null
       }
     },
@@ -185,31 +205,50 @@ export default function EnfermariaPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  // Carregar lotes ativos do Supabase (online) ou cache (offline)
+  // Lotes e medicamentos: cache do aparelho primeiro (a tela abre na hora com sinal ruim) e conferência com o servidor em seguida
   useEffect(() => {
+    if (!fazendaId) return
+    let cancelado = false
     const loadData = async () => {
-      if (!fazendaId) return
-      const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
-      setLotesDisponiveis(lotes)
-      setLotesPastoMap(mapa)
-    }
-    loadData()
-  }, [fazendaId])
-
-  // Carregar medicamentos (com cache lazy para offline)
-  useEffect(() => {
-    const loadMedicamentos = async () => {
-      if (fazendaId) {
-        try {
-          const medicamentos = await getMedicamentosCached(fazendaId)
-          setMedicamentosDisponiveis(medicamentos || [])
-        } catch (error) {
-          console.error('Erro ao carregar medicamentos:', error)
+      try {
+        const cacheMed = await getMedicamentosFromCacheOnly(fazendaId)
+        if (!cancelado && cacheMed?.length) setMedicamentosDisponiveis(cacheMed)
+      } catch {
+        // sem cache: segue para a consulta normal
+      }
+      try {
+        const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
+        if (!cancelado && lotes.length > 0) {
+          setLotesDisponiveis(lotes)
+          setLotesPastoMap(mapa)
         }
+      } catch (error) {
+        console.error('Erro ao carregar lotes:', error)
+      }
+      try {
+        const medicamentos = await getMedicamentosCached(fazendaId)
+        if (!cancelado && medicamentos?.length) setMedicamentosDisponiveis(medicamentos)
+      } catch (error) {
+        console.error('Erro ao carregar medicamentos:', error)
       }
     }
-    loadMedicamentos()
-  }, [fazendaId])
+    loadData()
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, recarga])
+
+  // Sem lotes (ou sem os dados do lote escolhido) neste aparelho: tenta de novo quando a rede volta e a cada 25 s (o evento "online" nem sempre dispara)
+  useEffect(() => {
+    if (lotesDisponiveis.length > 0 && !loteIndisponivel) return
+    const recarregar = () => setRecarga((r) => r + 1)
+    window.addEventListener('online', recarregar)
+    const timer = setInterval(recarregar, 25000)
+    return () => {
+      window.removeEventListener('online', recarregar)
+      clearInterval(timer)
+    }
+  }, [lotesDisponiveis.length, loteIndisponivel])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
@@ -224,48 +263,74 @@ export default function EnfermariaPage() {
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado e auto-derivar pasto
+  // Detalhes do lote: cache do aparelho primeiro, depois conferência com o servidor (limite de 3 s); auto-deriva o pasto
   useEffect(() => {
+    let cancelado = false
     async function carregarDetalhesLote() {
       if (!form.lote || !fazendaId) {
         setDetalhesLote(null)
-        setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
+        setCarregandoLote(false)
+        setLoteIndisponivel(false)
+        setForm(prev => (prev.pasto || prev.loteId || prev.pastoId ? { ...prev, pasto: '', loteId: '', pastoId: '' } : prev))
         return
+      }
+
+      setCarregandoLote(true)
+      setLoteIndisponivel(false)
+
+      const aplicar = (lote: any, categoriasDetalhes: any) => {
+        if (cancelado) return
+        setDetalhesLote({
+          ...lote,
+          categorias: categoriasDetalhes?.categorias,
+          n_cabecas: categoriasDetalhes?.quant_atual,
+          peso_vivo_kg: categoriasDetalhes?.peso_vivo_kg,
+          qtd_bezerros: categoriasDetalhes?.qtd_bezerros,
+        })
+        setForm(prev => ({
+          ...prev,
+          pasto: (lote as any).pastos?.nome || '',
+          loteId: lote.id,
+          pastoId: (lote as any).pasto_id || '',
+        }))
+        setCarregandoLote(false)
+        setLoteIndisponivel(false)
+      }
+
+      let achou = false
+      try {
+        const loteCache = await getLoteByNomeFromCacheOnly(fazendaId, form.lote)
+        if (loteCache) {
+          aplicar(loteCache, await getLoteDetalhesFromCacheOnly(loteCache.id))
+          achou = true
+        }
+      } catch {
+        // segue para o servidor
       }
 
       try {
         const lote = await getLoteByNomeCached(fazendaId, form.lote)
         if (lote) {
-          // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
-          
-          // Combinar dados do lote com dados de categorias
-          setDetalhesLote({
-            ...lote,
-            categorias: categoriasDetalhes.categorias,
-            n_cabecas: categoriasDetalhes.quant_atual,
-            peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-            qtd_bezerros: categoriasDetalhes.qtd_bezerros
-          })
-
-          // Auto-derivar pasto do lote
-          const pastoNome = (lote as any).pastos?.nome || ''
-          setForm(prev => ({
-            ...prev,
-            pasto: pastoNome,
-            loteId: lote.id,
-            pastoId: (lote as any).pasto_id || ''
-          }))
+          aplicar(lote, await getLoteDetalhesComCategoriasCached(lote.id))
+          achou = true
         }
       } catch (error) {
         console.error('Erro ao carregar detalhes do lote:', error)
+      }
+
+      if (!cancelado && !achou) {
         setDetalhesLote(null)
+        setLoteIndisponivel(true)
+        setCarregandoLote(false)
         setForm(prev => ({ ...prev, pasto: '', loteId: '', pastoId: '' }))
       }
     }
 
     carregarDetalhesLote()
-  }, [form.lote, fazendaId])
+    return () => {
+      cancelado = true
+    }
+  }, [form.lote, fazendaId, recarga])
 
   const handleLimpar = () => {
     limparRascunho()
@@ -274,13 +339,18 @@ export default function EnfermariaPage() {
     setLoteAutoIdentificado(false)
     setMensagemLote('')
     setDetalhesLote(null)
+    setMedicamentosKey((k) => k + 1)
   }
 
   const handleSalvar = async () => {
+    if (salvandoRef.current) return
+    salvandoRef.current = true
     setSalvando(true)
     setErrors([])
 
-    const result = await salvarRegistro('enfermaria', {
+    let result: Awaited<ReturnType<typeof salvarRegistro>>
+    try {
+      result = await salvarRegistro('enfermaria', {
       data: form.data,
       responsavel: usuario,
       usuario: usuario,
@@ -302,9 +372,12 @@ export default function EnfermariaPage() {
       tipoRegistro: form.tipoRegistro,
       fotoBase64: fotoBase64 || null,
       fotoBrincoBase64: fotoBrinco.fotoBase64 || null,
-    })
+      })
+    } finally {
+      salvandoRef.current = false
+      setSalvando(false)
+    }
 
-    setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
@@ -332,6 +405,9 @@ export default function EnfermariaPage() {
   const pendenciaTexto = (() => {
     if (!form.idManejo.trim() && !form.brinco.trim() && !form.chip.trim()) return 'Falta o ID manejo, brinco ou chip'
     if (!form.lote) return 'Falta escolher o pasto/lote'
+    if (carregandoLote) return 'Carregando os dados do lote...'
+    if (loteIndisponivel) return 'Dados do lote indisponíveis neste aparelho. Conecte à internet e atualize os dados.'
+    if (!form.pasto) return 'Este lote não possui pasto vinculado'
     if (form.diagnosticos.length === 0) return 'Falta marcar o que o animal tem'
     if (!form.tipoRegistro) return 'Falta escolher curativo ou preventivo'
     if (form.medicamentos.length === 0) return 'Falta adicionar um medicamento'
@@ -343,7 +419,7 @@ export default function EnfermariaPage() {
       <CadernetaLayout
         title="ENFERMARIA"
         cadernetaId="enfermaria"
-        dateContent={<DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} variant="header" compact inline />}
+        dateContent={<DatePicker value={form.data} onChange={(val) => setForm((p) => ({ ...p, data: val }))} maxDate={todayBR()} variant="header" compact inline />}
       >
         <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
@@ -360,15 +436,9 @@ export default function EnfermariaPage() {
             <SearchableModal
               label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
               value={form.lote}
-              onChange={async (val) => {
-                let loteId = ''
-                try {
-                  const lote = await getLoteByNomeCached(fazendaId, val)
-                  loteId = lote?.id || ''
-                } catch {
-                  loteId = ''
-                }
-                setForm((p) => ({ ...p, lote: val, loteId }))
+              onChange={(val) => {
+                // o efeito dos detalhes do lote preenche loteId e pasto (cache primeiro)
+                setForm((p) => ({ ...p, lote: val, loteId: '', pasto: '', pastoId: '' }))
               }}
               error={getError('lote')}
               options={lotesDisponiveis}
@@ -414,32 +484,12 @@ export default function EnfermariaPage() {
             valueBrinco={form.brinco}
             valueChip={form.chip}
             required
-            onChange={async ({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
+            mensagemNovoAnimal="ID novo: o registro guarda só o ID digitado, o animal não entra no cadastro."
+            onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
               const loteAtual = animalData?.lote_atual
-              let novoLote = ''
-              let novoLoteId = ''
-              let autoIdentificado = false
-              let msg = ''
+              const seq = ++identificacaoSeqRef.current
 
-              if (loteAtual) {
-                try {
-                  const lote = await getLoteById(loteAtual)
-                  if (lote) {
-                    novoLote = lote.nome || ''
-                    novoLoteId = lote.id || ''
-                    autoIdentificado = true
-                  } else {
-                    msg = 'Lote do animal não encontrado. Informe o lote manualmente.'
-                  }
-                } catch {
-                  msg = 'Não foi possível identificar o lote do animal. Informe o lote manualmente.'
-                }
-              } else {
-                msg = 'Animal sem lote vinculado. Informe o lote manualmente.'
-              }
-
-              setLoteAutoIdentificado(autoIdentificado)
-              setMensagemLote(msg)
+              // Dados do animal entram na hora; o lote é resolvido em seguida (cache primeiro, 3 s de limite)
               setForm(prev => ({
                 ...prev,
                 idManejo: idManejo,
@@ -450,9 +500,32 @@ export default function EnfermariaPage() {
                 raca: animalData?.raca || prev.raca,
                 idade: calcularIdade(animalData?.data_nascimento) || prev.idade,
                 categoria: animalData?.categoria || prev.categoria,
-                lote: autoIdentificado ? novoLote : prev.lote,
-                loteId: autoIdentificado ? novoLoteId : prev.loteId,
               }))
+
+              if (!loteAtual) {
+                setLoteAutoIdentificado(false)
+                setMensagemLote('Animal sem lote vinculado. Informe o lote manualmente.')
+                return
+              }
+
+              setMensagemLote('')
+              void (async () => {
+                let lote: any = null
+                try {
+                  lote = await getLoteByIdCached(fazendaId, loteAtual)
+                } catch {
+                  lote = null
+                }
+                if (seq !== identificacaoSeqRef.current) return
+                if (lote) {
+                  setLoteAutoIdentificado(true)
+                  setMensagemLote('')
+                  setForm(prev => ({ ...prev, lote: lote.nome || '', loteId: lote.id || '' }))
+                } else {
+                  setLoteAutoIdentificado(false)
+                  setMensagemLote('Não foi possível identificar o lote do animal. Informe o lote manualmente.')
+                }
+              })()
             }}
           />
 
@@ -548,6 +621,7 @@ export default function EnfermariaPage() {
               MEDICAMENTO <span className="text-red-500">*</span>
             </p>
             <MedicamentosSection
+              key={medicamentosKey}
               items={form.medicamentos}
               onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
               medicamentosDisponiveis={medicamentosDisponiveis}

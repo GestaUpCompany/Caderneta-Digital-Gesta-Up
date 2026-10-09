@@ -7805,6 +7805,7 @@ export type Database = {
           fazenda_id: string
           foto_url: string | null
           id: string
+          id_manejo: string | null
           idade: string | null
           local_id: string | null
           lote: string | null
@@ -7834,6 +7835,7 @@ export type Database = {
           fazenda_id: string
           foto_url?: string | null
           id?: string
+          id_manejo?: string | null
           idade?: string | null
           local_id?: string | null
           lote?: string | null
@@ -7863,6 +7865,7 @@ export type Database = {
           fazenda_id?: string
           foto_url?: string | null
           id?: string
+          id_manejo?: string | null
           idade?: string | null
           local_id?: string | null
           lote?: string | null

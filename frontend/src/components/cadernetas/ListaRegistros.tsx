@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react'
 import AppHeader from '../AppHeader'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
-import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza, fotoUrlParaBase64 } from '../../utils/shareUtils'
+import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza, fotoUrlParaBase64, rotuloDiagnosticoEnfermaria } from '../../utils/shareUtils'
 import { translateSyncError, formatSyncErrorForSupport } from '../../utils/syncErrorMessages'
 import { formatarNumeroBR, normalizarNumero } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -76,6 +76,9 @@ const formatFieldValue = (key: string, value: unknown): string => {
   if (valueStr === 'N') return 'Não'
   if (key === 'categorias' && Array.isArray(value)) {
     return value.join(', ')
+  }
+  if (key === 'diagnosticos' && Array.isArray(value)) {
+    return value.map((d) => rotuloDiagnosticoEnfermaria(String(d))).join(', ')
   }
   if (key === 'limpezaRealizada' && Array.isArray(value)) {
     // Mapear valores para labels legíveis
@@ -871,6 +874,13 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                       const ordemEnfermaria = [
                         'pasto',
                         'lote',
+                        'tipoRegistro',
+                        'idManejo',
+                        'brinco',
+                        'chip',
+                        'sexo',
+                        'raca',
+                        'idade',
                         'brincoChip',
                         'categoria',
                         'tratamento',
@@ -881,7 +891,9 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                         'febreAlta',
                         'presencaSangue',
                         'fraturas',
-                        'desordensDigestivas'
+                        'desordensDigestivas',
+                        'diagnosticos',
+                        'observacaoTratamento'
                       ]
                       
                       ordemEnfermaria.forEach(key => {

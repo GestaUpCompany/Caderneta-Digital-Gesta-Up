@@ -58,6 +58,8 @@ interface AnimalIdentifierProps {
   required?: boolean
   showAnimalCard?: boolean
   disabled?: boolean
+  /** Texto do aviso de ID novo; cada tela diz o que de fato acontece com ele (padrão: vira cadastro ao salvar) */
+  mensagemNovoAnimal?: string
 }
 
 export default function AnimalIdentifier({
@@ -71,6 +73,7 @@ export default function AnimalIdentifier({
   required = false,
   showAnimalCard = true,
   disabled = false,
+  mensagemNovoAnimal = 'Novo animal. Será cadastrado na base ao salvar o registro.',
 }: AnimalIdentifierProps) {
   const [individuos, setIndividuos] = useState<AnimalData[]>([])
   const [loading, setLoading] = useState(false)
@@ -480,7 +483,7 @@ export default function AnimalIdentifier({
       )}
       {isNewlyCreated && (valueManejo || valueBrinco || valueChip) && (
         <p className="text-xs text-green-600 mt-2 font-medium">
-          ✅ Novo animal. Será cadastrado na base ao salvar o registro.
+          ✅ {mensagemNovoAnimal}
         </p>
       )}
     </div>

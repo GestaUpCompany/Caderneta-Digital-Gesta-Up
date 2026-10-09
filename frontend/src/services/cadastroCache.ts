@@ -52,7 +52,7 @@ export interface CadastroCacheData {
   lotesDetalhes?: Record<string, LoteDetalhes>
   /** Mapa nome do lote -> divisão onde o lote está (nome do pasto ou do curral). Usado para exibir a divisão ao lado do lote nos seletores. */
   lotesPastoMap?: Record<string, string>
-  individuos?: { id: string; id_manejo: string | null; id_brinco: string | null; id_chip: string | null; id_provisorio_cria: string | null; sexo: string; raca: string; categoria: string; classificacao_matriz: string | null; numero_partos: number | null; status: string }[]
+  individuos?: { id: string; id_manejo: string | null; id_brinco: string | null; id_chip: string | null; id_provisorio_cria: string | null; sexo: string; raca: string; categoria: string; classificacao_matriz: string | null; numero_partos: number | null; status: string; data_nascimento?: string | null; lote_atual?: string | null; idade_era?: string | null }[]
 }
 
 let cacheData: CadastroCacheData | null = null
@@ -1006,6 +1006,47 @@ export async function getLoteByNomeFromCacheOnly(fazendaId: string, nome: string
   const cached = getCachedQuery(key)
   if (cached) return cached
   return await getCachedQueryFromIDB<any>(key)
+}
+
+/**
+ * Lê lote por ID só do cache: chave por ID ou qualquer lote por nome já guardado (memória ou IDB).
+ */
+export async function getLoteByIdFromCacheOnly(fazendaId: string, loteId: string): Promise<any | null> {
+  const keyById = buildKey('lote-id', fazendaId, loteId)
+  const cachedById = getCachedQuery<any>(keyById) || (await getCachedQueryFromIDB<any>(keyById))
+  if (cachedById) return cachedById
+
+  const prefix = buildKey('lote', fazendaId, '')
+  for (const k of Object.keys(queryCache)) {
+    if (k.startsWith(prefix) && queryCache[k]?.data?.id === loteId) return queryCache[k].data
+  }
+  try {
+    const idbCached = await getCadastroData(QUERY_CACHE_KEY)
+    for (const k of Object.keys(idbCached?.queryCache || {})) {
+      if (k.startsWith(prefix) && idbCached.queryCache[k]?.data?.id === loteId) {
+        queryCache[k] = idbCached.queryCache[k]
+        return idbCached.queryCache[k].data
+      }
+    }
+  } catch {
+    // ignorar
+  }
+  return null
+}
+
+/**
+ * Busca lote por ID com timeout de 3 s e cache por ID. Sem rede (ou rede instável) usa só o cache.
+ * Usado para achar o lote atual do animal escolhido sem prender o formulário.
+ */
+export async function getLoteByIdCached(fazendaId: string, loteId: string): Promise<any | null> {
+  if (!navigator.onLine || redeInstavelRecentemente()) return getLoteByIdFromCacheOnly(fazendaId, loteId)
+  try {
+    const data = await withTimeout(supabaseService.getLoteById(loteId), 3000)
+    if (data) setCachedQuery(buildKey('lote-id', fazendaId, loteId), data)
+    return data
+  } catch {
+    return getLoteByIdFromCacheOnly(fazendaId, loteId)
+  }
 }
 
 /**
@@ -3333,6 +3374,9 @@ export async function syncAllCadastroData(
             classificacao_matriz: i.classificacao_matriz,
             numero_partos: i.numero_partos,
             status: i.status,
+            data_nascimento: i.data_nascimento,
+            lote_atual: i.lote_atual,
+            idade_era: i.idade_era,
           }))
           break
         case 'Bebedouros':
