@@ -3,11 +3,21 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import {
   ChecklistRegra,
+  getChecklistRegrasFromCacheOnly,
   getChecklistRegrasOnlineFirst,
   isRegraAtivaParaCaderneta,
   getHojeIso,
   getFarmTimezoneAsync,
 } from '../services/checklistRegrasService'
+
+const REVALIDACAO_TIMEOUT_MS = 3000
+
+function comTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
 
 export interface UseChecklistAtivoReturn {
   ativo: boolean
@@ -28,20 +38,36 @@ export function useChecklistAtivo(cadernetaId: string): UseChecklistAtivoReturn 
       setLoading(false)
       return
     }
-    setLoading(true)
+
+    // Cache local primeiro: a tela libera na hora (sem esperar rede) e a revalidação roda em segundo plano.
+    let temCache = false
+    try {
+      const cached = await getChecklistRegrasFromCacheOnly(fazendaId)
+      if (cached) {
+        setRegras(cached)
+        setLoading(false)
+        temCache = true
+      }
+    } catch (err) {
+      console.warn('[useChecklistAtivo] Falha ao ler o cache de regras:', err)
+    }
+    if (!temCache) setLoading(true)
+
     try {
       const [regrasData, tz] = await Promise.all([
-        getChecklistRegrasOnlineFirst(fazendaId).catch((err) => {
-          console.error('[useChecklistAtivo] Erro ao carregar regras:', err)
-          return []
+        comTimeout(getChecklistRegrasOnlineFirst(fazendaId), REVALIDACAO_TIMEOUT_MS).catch((err) => {
+          console.warn('[useChecklistAtivo] Regras online indisponíveis:', err)
+          return null
         }),
-        getFarmTimezoneAsync(),
+        comTimeout(getFarmTimezoneAsync(), REVALIDACAO_TIMEOUT_MS).catch(() => null),
       ])
-      setRegras(regrasData || [])
-      setTimezone(tz)
+      // Se a revalidação falhou e já há regras do cache, mantém; sem cache, segue sem regras (checklist visível)
+      if (regrasData) setRegras(regrasData)
+      else if (!temCache) setRegras([])
+      if (tz) setTimezone(tz)
     } catch (err) {
       console.error('[useChecklistAtivo] Erro ao carregar dados:', err)
-      setRegras([])
+      if (!temCache) setRegras([])
     } finally {
       setLoading(false)
     }

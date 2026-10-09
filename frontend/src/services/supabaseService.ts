@@ -821,7 +821,10 @@ export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
     .is('data_fim', null)
     .single()
 
-  if (planoError || !plano) return null
+  // PGRST116 = nenhuma linha (lote sem plano ativo). Qualquer outro erro (rede, timeout) não pode
+  // virar "sem plano": propaga para o cache decidir.
+  if (planoError && planoError.code !== 'PGRST116') throw planoError
+  if (!plano) return null
 
   // 2. Buscar nome da formulação do plano
   let formulacaoNome: string | null = null
@@ -1899,6 +1902,25 @@ export async function createHistoricoLimpeza(
 
   if (error) throw error
   return data
+}
+
+/**
+ * Grava o histórico de limpeza com id definido pelo chamador (upsert por id): reenviar o mesmo registro
+ * de bebedouro no sync regrava a mesma linha, sem duplicar.
+ */
+export async function upsertHistoricoLimpeza(linha: {
+  id: string
+  fazenda_id: string
+  bebedouro_id: string
+  data_limpeza: string
+  responsavel?: string | null
+  observacao?: string | null
+}) {
+  const client = await getSupabaseClientWithRefresh()
+  const { error } = await client
+    .from('historico_limpezas_bebedouros')
+    .upsert(linha, { onConflict: 'id' })
+  if (error) throw error
 }
 
 // ==================== REGISTROS MATERNIDADE ====================

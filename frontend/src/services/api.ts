@@ -7,6 +7,7 @@ import { validate, CadernetaType } from '../utils/validation'
 import { store } from '../store/store'
 import { setTestMode } from '../store/slices/configSlice'
 import { getFazendaByAcessoId } from './supabaseService'
+import { redeInstavelRecentemente } from '../utils/fetchComTimeout'
 import { getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 
 export interface SaveResult {
@@ -229,9 +230,13 @@ export async function aguardarSyncConcluido(
 async function getFarmTimezone(): Promise<string> {
   const state = store.getState()
   const acessoId = state.config.acessoId
-  if (!acessoId || !navigator.onLine) return DEFAULT_FARM_TIMEZONE
+  if (!acessoId || !navigator.onLine || redeInstavelRecentemente()) return DEFAULT_FARM_TIMEZONE
   try {
-    const fazenda = await getFazendaByAcessoId(acessoId)
+    // Com Wi-Fi sem internet (onLine true) a consulta demora segundos: o salvar não pode esperar por ela
+    const fazenda = await Promise.race([
+      getFazendaByAcessoId(acessoId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ])
     return fazenda?.timezone ?? DEFAULT_FARM_TIMEZONE
   } catch (err) {
     console.error('[api] Erro ao buscar timezone da fazenda:', err)

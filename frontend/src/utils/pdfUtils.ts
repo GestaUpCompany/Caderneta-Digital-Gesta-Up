@@ -1282,11 +1282,11 @@ export async function gerarPdfResumoRodeio(
         // Label
         doc.text(labelLines, margin + 4, y + innerPadding + 3)
 
-        // Sim
+        // Resposta que caracteriza o problema: Sim nos itens invertidos, Não nos itens "...OK?"
         const simY = y + innerPadding + labelH + 3.5
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(9)
-        doc.text('Sim', margin + 6, simY)
+        doc.text(d.inverted ? 'Sim' : 'Não', margin + 6, simY)
 
         // Observação
         if (observacao) {

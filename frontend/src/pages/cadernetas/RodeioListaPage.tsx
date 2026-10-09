@@ -66,8 +66,10 @@ function formatarHorarioRegistro(dataRegistro: unknown): string {
  * Retorna a lista de diagnósticos problemáticos de um registro.
  * Diagnóstico é problemático quando: "N" para campos normais, "S" para invertidos.
  */
-function diagnosticosProblematicos(registro: Registro): { key: string; label: string; observacao: string }[] {
-  const result: { key: string; label: string; observacao: string }[] = []
+function diagnosticosProblematicos(
+  registro: Registro
+): { key: string; label: string; observacao: string; resposta: 'Sim' | 'Não' }[] {
+  const result: { key: string; label: string; observacao: string; resposta: 'Sim' | 'Não' }[] = []
   for (const key of DIAGNOSTICOS_ORDEM) {
     const data = (registro.diagnosticos as any)?.[key]
     if (!data || data.valor === null || data.valor === undefined || data.valor === '') continue
@@ -79,6 +81,8 @@ function diagnosticosProblematicos(registro: Registro): { key: string; label: st
         key,
         label: DIAGNOSTICO_LABELS[key] || key,
         observacao: data.observacao || '',
+        // Itens "...OK?" têm problema quando a resposta é Não; os invertidos (animal morto etc.), quando é Sim
+        resposta: isInverted ? 'Sim' : 'Não',
       })
     }
   }
@@ -214,7 +218,7 @@ export default function RodeioListaPage() {
       if (problemas.length > 0) {
         partes.push('')
         for (const p of problemas) {
-          partes.push(`⚠️ ${p.label}: *Sim*`)
+          partes.push(`⚠️ ${p.label}: *${p.resposta}*`)
           if (p.observacao) {
             partes.push(`OBSERVAÇÃO: *${p.observacao}*`)
           }

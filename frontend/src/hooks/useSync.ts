@@ -8,7 +8,12 @@ import {
   setSyncProgress,
   setError,
 } from '../store/slices/syncSlice'
-import { processQueue, pollSolicitacoesNovoLote, reconcileOrphanPending } from '../services/syncService'
+import {
+  processQueue,
+  pollSolicitacoesNovoLote,
+  reconcileOrphanPending,
+  reenfileirarErrosRecuperaveis,
+} from '../services/syncService'
 import { sincronizarExecucoesPendentes } from '../services/execucaoRotinaService'
 import { getSyncQueue } from '../services/indexedDB'
 import { reauthenticateFarm, isTokenValid } from '../services/authService'
@@ -77,12 +82,14 @@ export function useSync() {
       dispatch(setStatus('syncing'))
       dispatch(setSyncProgress(0))
 
-      const { synced, failed } = await processQueue(fazendaId, (remaining) => {
+      const { synced, failed, networkFailure } = await processQueue(fazendaId, (remaining) => {
         dispatch(setPendingCount(remaining))
       })
 
+      // Falhas de erro do servidor ficam em 'error' (com REENVIAR). Falha de rede mantém os
+      // registros pendentes na fila: são reenviados sozinhos no próximo ciclo ou ao voltar a conexão.
       if (failed > 0) {
-        dispatch(setError(`${failed} registro(s) não sincronizados. Tentando novamente...`))
+        dispatch(setError(`${failed} registro(s) com erro. Abra a lista da caderneta para reenviar.`))
       }
 
       if (synced > 0) {
@@ -98,7 +105,7 @@ export function useSync() {
 
       await updatePendingCount()
       dispatch(setSyncProgress(100))
-      dispatch(setStatus(failed > 0 ? 'error' : 'online'))
+      dispatch(setStatus(failed > 0 ? 'error' : networkFailure ? 'offline' : 'online'))
     } catch {
       dispatch(setStatus('error'))
       dispatch(setError('Erro ao sincronizar. Verifique a conexão.'))
@@ -168,8 +175,8 @@ export function useSync() {
   // para sempre via countPending.
   useEffect(() => {
     if (!configurado || !fazendaId || testModeAtivo) return
-    reconcileOrphanPending().then((reenqueued) => {
-      if (reenqueued > 0) runSync()
+    Promise.all([reconcileOrphanPending(), reenfileirarErrosRecuperaveis()]).then(([orfaos, recuperaveis]) => {
+      if (orfaos + recuperaveis > 0) runSync()
     })
   }, [configurado, fazendaId, testModeAtivo, runSync])
 

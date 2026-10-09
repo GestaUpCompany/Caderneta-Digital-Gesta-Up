@@ -9,6 +9,7 @@ import {
   updateRegistro,
   getAllRegistros,
   getRegistrosPendentes,
+  getRegistrosComErro,
   STORES,
   SyncQueueItem,
   CadernetaStore,
@@ -19,6 +20,13 @@ import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { brWithTimeToIso, brToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
+import {
+  classificarErroDeSync,
+  esperaTransitoriaMs,
+  isNetworkError,
+  isTransientServerError,
+  MAX_TENTATIVAS_TRANSITORIAS,
+} from '../utils/syncErrors'
 import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
 
 export async function enqueueRegistro(
@@ -261,7 +269,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         vaca: Number(registro.vaca) || 0,
         touro: Number(registro.touro) || 0,
         bezerro: Number(registro.bezerro) || 0,
-        boi: Number(registro.boiGordo) || 0,
+        // A tabela só tem a coluna `boi` (o Painel a exibe como "Boi"): boi gordo e boi magro somam nela.
+        // Antes só o boi gordo entrava e o boi magro sumia do detalhamento (ficava só em categorias_detalhes).
+        boi: (Number(registro.boiGordo) || 0) + (Number(registro.boiMagro) || 0),
         garrote: Number(registro.garrote) || 0,
         novilha: Number(registro.novilha) || 0,
         total_cabecas: Number(registro.totalCabecas) || 0,
@@ -837,6 +847,28 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   'entrada-almoxarifado': 'fotos-registros',
 }
 
+// Limpeza do bebedouro: quando o registro confirma que limpou (ou a fazenda não usa checklist, onde todo
+// registro conta como limpeza), grava o histórico no sync. Vive aqui, e não na tela, para funcionar com o
+// registro feito offline. O id é derivado do registro: reenviar não duplica a linha.
+async function registrarLimpezaDoRegistroBebedouro(registro: Registro, fazendaId: string): Promise<void> {
+  const checklist = (registro as any).checklist as Record<string, any> | null | undefined
+  const limpou = !checklist || checklist.limpou_hoje?.valor === true
+  if (!limpou || !registro.numeroBebedouro || !registro.data) return
+
+  const bebedouro = await supabaseService.getBebedouroByNome(fazendaId, String(registro.numeroBebedouro))
+  if (!bebedouro) return // bebedouro renomeado ou removido: não há a quem atribuir a limpeza
+
+  const { uuidDeterministico } = await import('../utils/idDeterministico')
+  await supabaseService.upsertHistoricoLimpeza({
+    id: await uuidDeterministico(`limpeza-bebedouro:${registro.id}`),
+    fazenda_id: fazendaId,
+    bebedouro_id: bebedouro.id,
+    data_limpeza: brToIso(String(registro.data).split(' ')[0]),
+    responsavel: (registro as any).responsavel || (registro as any).usuario || null,
+    observacao: (registro as any).observacao || 'Registro de inspeção',
+  })
+}
+
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.
 async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, fazendaId: string): Promise<string | null> {
   const bucket = FOTO_BUCKET_BY_STORE[store]
@@ -1159,6 +1191,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           }
           case 'registros_bebedouros':
             result = await supabaseService.createRegistroBebedouros(data)
+            await registrarLimpezaDoRegistroBebedouro(registro, fazendaId)
             break
           case 'registros_movimentacao':
             result = await supabaseService.createRegistroMovimentacao(data)
@@ -1595,7 +1628,11 @@ interface LogSyncErrorData {
  */
 function extractErrorInfo(error: unknown): { code: string; message: string; details?: string } {
   const err = error as any
-  const code = err?.code || err?.error?.code || String(err?.status || '') || 'unknown'
+  const code =
+    err?.code ||
+    err?.error?.code ||
+    String(err?.status || '') ||
+    (isNetworkError(err) ? 'network' : isTransientServerError(err) ? 'transient' : 'unknown')
   const message = err?.message || err?.error?.message || String(err || 'Erro desconhecido')
   const details = err?.details || err?.error?.details || JSON.stringify(err).slice(0, 2000)
   return { code: String(code), message: String(message), details: details ? String(details) : undefined }
@@ -1753,14 +1790,53 @@ export async function reconcileOrphanPending(): Promise<number> {
   }
 }
 
+/**
+ * Reenfileira registros em `error` cuja causa foi falha momentânea (sem rede, rede travada, servidor
+ * indisponível, JWT vencido), para o peão não precisar apertar REENVIAR. Cobre registros que já estavam
+ * em `error` antes do retry automático existir e os que esgotaram as tentativas transitórias. Erros
+ * definitivos (RLS, duplicata, valor inválido...) ficam como estão, com a mensagem e o REENVIAR.
+ * Só considera falhas das últimas 24 h: um erro antigo que ninguém resolveu não vira laço a cada abertura.
+ */
+export async function reenfileirarErrosRecuperaveis(): Promise<number> {
+  try {
+    const queue = await getSyncQueue()
+    const naFila = new Set(queue.map((i) => i.registroId))
+    const limite = Date.now() - 24 * 60 * 60 * 1000
+    let reenfileirados = 0
+    for (const store of STORES) {
+      const comErro = await getRegistrosComErro(store)
+      for (const registro of comErro) {
+        const erro = registro.syncError
+        if (!erro || registro.isTestRecord || naFila.has(registro.id)) continue
+        const falhouEm = erro.failedAt ? new Date(erro.failedAt).getTime() : 0
+        if (falhouEm < limite) continue
+        if (!isNetworkError(erro, true) && !isTransientServerError(erro)) continue
+        await updateSyncStatus(store, registro.id, 'pending')
+        await enqueueRegistro(store, registro.id, registro.supabaseId ? 'update' : 'create')
+        naFila.add(registro.id)
+        reenfileirados++
+      }
+    }
+    if (reenfileirados > 0) {
+      console.log(`[SYNC] ${reenfileirados} registro(s) com erro recuperável reenfileirados automaticamente`)
+    }
+    return reenfileirados
+  } catch (err) {
+    console.warn('[SYNC] Reenfileiramento de erros recuperáveis falhou:', err)
+    return 0
+  }
+}
+
 export async function processQueue(
   fazendaId?: string,
   onProgress?: (remaining: number) => void
-): Promise<{ synced: number; failed: number; skipped: number }> {
+): Promise<{ synced: number; failed: number; skipped: number; networkFailure: boolean; transientAdiados: number }> {
   const queue = await getSyncQueue()
   let synced = 0
   let failed = 0
   let skipped = 0
+  let networkFailure = false
+  let transientAdiados = 0
   const now = Date.now()
   let remaining = queue.length
 
@@ -1808,6 +1884,36 @@ export async function processQueue(
       remaining--
       onProgress?.(remaining)
     } catch (err) {
+      // Falha de conectividade não é erro do registro: ele segue na fila (pending) e o próximo ciclo
+      // (10 s, evento online ou REENVIAR) tenta de novo. Reenviar não duplica: as tabelas de registro
+      // usam upsert por local_id e as fotos usam upsert. Os demais itens falhariam igual, então para aqui.
+      const classe = classificarErroDeSync(err)
+      if (classe === 'network') {
+        console.warn(`[SYNC] Sem conexão ao sincronizar ${item.store}/${item.registroId}; mantido na fila.`, err)
+        networkFailure = true
+        break
+      }
+
+      // Falha momentânea do servidor (timeout de banco, deadlock, gateway fora do ar, JWT vencido): o item
+      // volta para a fila com espera crescente e o peão não vê nada. Só vira `error` se as tentativas acabarem.
+      // Segue para os demais itens: o problema pode ser só deste.
+      if (classe === 'transient' && item.retryCount < MAX_TENTATIVAS_TRANSITORIAS) {
+        const espera = esperaTransitoriaMs(item.retryCount)
+        console.warn(
+          `[SYNC] Falha momentânea em ${item.store}/${item.registroId} (tentativa ${item.retryCount + 1}/${MAX_TENTATIVAS_TRANSITORIAS}); nova tentativa em ${Math.round(espera / 1000)}s.`,
+          err
+        )
+        try {
+          await addToSyncQueue({ ...item, retryCount: item.retryCount + 1, nextRetryAt: Date.now() + espera })
+          transientAdiados++
+          continue
+        } catch (requeueErr) {
+          // Sem conseguir reagendar, o item continua na fila como está e segue para o próximo ciclo
+          console.error('[SYNC] Falha ao reagendar item:', requeueErr)
+          continue
+        }
+      }
+
       console.error(`[SYNC] Erro ao sincronizar ${item.store}/${item.registroId}:`, err)
 
       const { code, message, details } = extractErrorInfo(err)
@@ -1886,5 +1992,5 @@ export async function processQueue(
     }
   }
 
-  return { synced, failed, skipped }
+  return { synced, failed, skipped, networkFailure, transientAdiados }
 }

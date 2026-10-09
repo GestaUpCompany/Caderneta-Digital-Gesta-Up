@@ -14,8 +14,17 @@ import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { RootState } from '../../store/store'
-import { getCachedCadastroData, getBebedourosCached, getBebedouroByNomeCached, getUltimaDataLimpezaBebedouroAntesDeCached, getIntervaloMedioLimpezasCached, getPastosByBebedouroCached } from '../../services/cadastroCache'
-import { createHistoricoLimpeza } from '../../services/supabaseService'
+import {
+  getCachedCadastroData,
+  getBebedourosCached,
+  getBebedouroByNomeCached,
+  getBebedouroByNomeFromCacheOnly,
+  getUltimaDataLimpezaBebedouroAntesDeCached,
+  getIntervaloMedioLimpezasCached,
+  getPastosByBebedouroCached,
+  getPastosByBebedouroFromCacheOnly,
+  withTimeout,
+} from '../../services/cadastroCache'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
@@ -106,7 +115,7 @@ const makeInitial = (): FormState => ({
 
 export default function BebedourosPage() {
   const navigate = useNavigate()
-  const { usuario, fazendaId, testModeAtivo } = useSelector((state: RootState) => state.config)
+  const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('bebedouros')
   const {
     salvando,
@@ -125,6 +134,13 @@ export default function BebedourosPage() {
   const [bebedourosDisponiveis, setBebedourosDisponiveis] = useState<string[]>([])
   const [pastosBebedouro, setPastosBebedouro] = useState<{ id: string; nome: string }[] | null>(null)
   const [loadingPastosBebedouro, setLoadingPastosBebedouro] = useState(false)
+  // Salvar antes dos dados do bebedouro chegarem gravaria o registro sem pasto e sem o resumo de limpeza.
+  const [carregandoBebedouro, setCarregandoBebedouro] = useState(false)
+  const [bebedouroIndisponivel, setBebedouroIndisponivel] = useState(false)
+  const [bebedourosCarregados, setBebedourosCarregados] = useState(false)
+  // Incrementa quando a internet volta com dados do bebedouro indisponíveis: refaz a leitura sozinho
+  const [recarga, setRecarga] = useState(0)
+  const bebedouroIndisponivelRef = useRef(false)
   const [campoFotoAtual, setCampoFotoAtual] = useState<CampoChecklist | null>(null)
   const [campoVozAtual, setCampoVozAtual] = useState<CampoChecklist | null>(null)
   const baseVozRef = useRef('')
@@ -191,123 +207,133 @@ export default function BebedourosPage() {
     })
   }
 
-  // Carregar bebedouros (com cache lazy para offline)
+  // Lista de bebedouros: cache local primeiro (aparece na hora, mesmo com rede ruim) e revalida com timeout
+  // sem apagar o que já está na tela.
   useEffect(() => {
+    if (!fazendaId) return
+    let cancelado = false
     const loadData = async () => {
-      if (!fazendaId) return
       try {
-        const bebedourosData = await getBebedourosCached(fazendaId)
-        if (bebedourosData && bebedourosData.length > 0) {
-          setBebedourosDisponiveis(bebedourosData.map((b: any) => b.nome))
-        } else {
-          const cache = await getCachedCadastroData()
-          setBebedourosDisponiveis(cache?.bebedouros || [])
+        const cache = await getCachedCadastroData()
+        if (cancelado) return
+        if (cache?.bebedouros?.length) setBebedourosDisponiveis(cache.bebedouros)
+        try {
+          const bebedourosData = await getBebedourosCached(fazendaId)
+          if (cancelado) return
+          if (bebedourosData && bebedourosData.length > 0) {
+            setBebedourosDisponiveis(bebedourosData.map((b: any) => b.nome))
+          }
+        } catch (error) {
+          console.warn('[BebedourosPage] Bebedouros online indisponíveis, mantendo o cache local:', error)
         }
       } catch (error) {
         console.error('Erro ao carregar bebedouros:', error)
+      } finally {
+        if (!cancelado) setBebedourosCarregados(true)
       }
     }
     loadData()
+    return () => {
+      cancelado = true
+    }
   }, [fazendaId])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
-      console.log('[BebedourosPage] Cache atualizado, recarregando dados')
-      if (data) {
-        setBebedourosDisponiveis(data.bebedouros || [])
-      }
+      // Só aplica o que veio no evento: um payload parcial não pode zerar a lista da tela.
+      if (data && Array.isArray(data.bebedouros)) setBebedourosDisponiveis(data.bebedouros)
     })
 
     return unsubscribe
   }, [])
 
-  // Calcular dados de limpeza quando bebedouro for selecionado
+  // Dados do bebedouro selecionado (resumo de limpeza e pastos vinculados). Cache primeiro e revalidação
+  // com timeout. Os pastos entram no registro: sem eles o SALVAR fica bloqueado.
   useEffect(() => {
-    async function carregarDadosLimpeza() {
-      if (!form.numeroBebedouro || !fazendaId) {
-        setForm((prev) => ({
-          ...prev,
-          tempoDesdeLimpeza: '',
-          intervaloMedioLimpezas: '',
-          metaIntervaloLimpeza: '',
-        }))
-        return
-      }
+    let cancelado = false
+    const limpo = { tempoDesdeLimpeza: '', intervaloMedioLimpezas: '', metaIntervaloLimpeza: '' }
 
-      try {
-        const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
-        if (!bebedouro) {
-          setForm((prev) => ({
-            ...prev,
-            tempoDesdeLimpeza: '',
-            intervaloMedioLimpezas: '',
-            metaIntervaloLimpeza: '',
-          }))
-          return
-        }
+    // Sempre começa limpo: nada do bebedouro anterior pode vazar para o registro
+    setPastosBebedouro(null)
+    setBebedouroIndisponivel(false)
+    setForm((prev) => (prev.tempoDesdeLimpeza || prev.intervaloMedioLimpezas || prev.metaIntervaloLimpeza ? { ...prev, ...limpo } : prev))
 
-        // Calcular tempo desde última limpeza (anterior à data do registro)
-        const dataSemHora = form.data.split(' ')[0]
-        const [dia, mes, ano] = dataSemHora.split('/')
-        const dataRef = `${ano}-${mes}-${dia}`
-        const ultimaDataLimpeza = await getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId, bebedouro.id, dataRef)
-        const tempoDesdeLimpeza = formatarTempoDesdeLimpeza(ultimaDataLimpeza)
+    const nome = form.numeroBebedouro
+    if (!nome || !fazendaId) {
+      setCarregandoBebedouro(false)
+      setLoadingPastosBebedouro(false)
+      return
+    }
+    setCarregandoBebedouro(true)
+    setLoadingPastosBebedouro(true)
 
-        // Calcular intervalo médio de limpezas
-        const intervaloMedio = await getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id)
-        const intervaloMedioStr = intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes'
+    const dataSemHora = form.data.split(' ')[0]
+    const [dia, mes, ano] = dataSemHora.split('/')
+    const dataRef = `${ano}-${mes}-${dia}`
 
-        // Meta de intervalo
-        const metaIntervalo = bebedouro.meta_intervalo_limpeza ? `${bebedouro.meta_intervalo_limpeza} dias` : 'Não definida'
-
-        setForm((prev) => ({
-          ...prev,
-          tempoDesdeLimpeza,
-          intervaloMedioLimpezas: intervaloMedioStr,
-          metaIntervaloLimpeza: metaIntervalo,
-        }))
-      } catch (error) {
-        console.error('Erro ao carregar dados de limpeza:', error)
-        setForm((prev) => ({
-          ...prev,
-          tempoDesdeLimpeza: '',
-          intervaloMedioLimpezas: '',
-          metaIntervaloLimpeza: '',
-        }))
-      }
+    const aplicarPastos = (pastos: { id: string; nome: string }[] | null) => {
+      setPastosBebedouro(pastos)
+      setLoadingPastosBebedouro(false)
     }
 
-    carregarDadosLimpeza()
-  }, [form.numeroBebedouro, fazendaId])
+    const aplicarResumo = async (bebedouro: any, comRede: boolean) => {
+      // Sem rede (cache): as leituras caem direto no que está no aparelho
+      const [ultima, intervaloMedio] = await Promise.all([
+        getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId!, bebedouro.id, dataRef),
+        getIntervaloMedioLimpezasCached(fazendaId!, bebedouro.id),
+      ])
+      if (cancelado) return
+      void comRede
+      setForm((prev) => ({
+        ...prev,
+        tempoDesdeLimpeza: formatarTempoDesdeLimpeza(ultima),
+        intervaloMedioLimpezas: intervaloMedio > 0 ? `${intervaloMedio} dias` : 'Sem dados suficientes',
+        metaIntervaloLimpeza: bebedouro.meta_intervalo_limpeza ? `${bebedouro.meta_intervalo_limpeza} dias` : 'Não definida',
+      }))
+    }
 
-  // Buscar pastos vinculados ao bebedouro selecionado (via junction pasto_bebedouros)
-  useEffect(() => {
-    async function carregarPastosBebedouro() {
-      if (!form.numeroBebedouro || !fazendaId) {
-        setPastosBebedouro(null)
-        return
-      }
-
-      setLoadingPastosBebedouro(true)
+    async function carregar() {
       try {
-        const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
+        // 1) Cache local: instantâneo
+        const bebedouroCache = await getBebedouroByNomeFromCacheOnly(fazendaId!, nome)
+        const pastosCache = bebedouroCache ? await getPastosByBebedouroFromCacheOnly(fazendaId!, bebedouroCache.id) : null
+        if (cancelado) return
+        if (bebedouroCache && pastosCache) {
+          aplicarPastos(pastosCache)
+          setCarregandoBebedouro(false)
+        }
+
+        // 2) Online (ou cache, quando a rede falhou): com cache só revalida
+        const bebedouro = await getBebedouroByNomeCached(fazendaId!, nome)
+        if (cancelado) return
         if (!bebedouro) {
-          setPastosBebedouro(null)
+          if (!(bebedouroCache && pastosCache)) setBebedouroIndisponivel(true)
           return
         }
-        const pastos = await getPastosByBebedouroCached(fazendaId, bebedouro.id)
-        setPastosBebedouro(pastos)
+        const pastos = await getPastosByBebedouroCached(fazendaId!, bebedouro.id)
+        if (cancelado) return
+        if (pastos) aplicarPastos(pastos)
+        else if (!pastosCache) setBebedouroIndisponivel(true) // não foi possível saber os pastos
+
+        await withTimeout(aplicarResumo(bebedouro, true), 6000).catch(() => {})
       } catch (error) {
-        console.error('[BebedourosPage] Erro ao carregar pastos do bebedouro:', error)
-        setPastosBebedouro(null)
+        if (cancelado) return
+        console.error('[BebedourosPage] Erro ao carregar dados do bebedouro:', error)
+        setBebedouroIndisponivel(true)
       } finally {
-        setLoadingPastosBebedouro(false)
+        if (!cancelado) {
+          setCarregandoBebedouro(false)
+          setLoadingPastosBebedouro(false)
+        }
       }
     }
 
-    carregarPastosBebedouro()
-  }, [form.numeroBebedouro, fazendaId])
+    carregar()
+    return () => {
+      cancelado = true
+    }
+  }, [form.numeroBebedouro, form.data, fazendaId, recarga])
 
   // Validation rules: itens do checklist nao sao obrigatorios porque
   // "nao marcado" ja significa "condicao adequada" no modelo novo.
@@ -322,11 +348,27 @@ export default function BebedourosPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
+  const bebedouroBloqueado = carregandoBebedouro || bebedouroIndisponivel || loadingChecklistRegras
+  bebedouroIndisponivelRef.current = bebedouroIndisponivel && !carregandoBebedouro
+
+  useEffect(() => {
+    const aoVoltarInternet = () => {
+      if (bebedouroIndisponivelRef.current) setRecarga((n) => n + 1)
+    }
+    window.addEventListener('online', aoVoltarInternet)
+    return () => window.removeEventListener('online', aoVoltarInternet)
+  }, [])
+
+  // Erro de salvamento anterior não vale para outra data/bebedouro
+  useEffect(() => {
+    setErrors([])
+  }, [form.data, form.numeroBebedouro])
+
   const executarSalvamento = async () => {
     setErrors([])
 
     // Validate form using the validation hook
-    if (!isValid) {
+    if (!isValid || bebedouroBloqueado) {
       return
     }
 
@@ -364,32 +406,7 @@ export default function BebedourosPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Registrar limpeza no histórico quando o usuário confirmou que limpou.
-      // Fazendas sem checklist ativo mantêm o comportamento anterior
-      // (sempre registra ao selecionar um bebedouro).
-      const registraLimpeza = !checklistAtivo || form.limpouHoje === 'Sim'
-      if (form.numeroBebedouro && fazendaId && !testModeAtivo && registraLimpeza) {
-        try {
-          const bebedouro = await getBebedouroByNomeCached(fazendaId, form.numeroBebedouro)
-          if (bebedouro) {
-            // Converter data do formato DD/MM/YYYY para YYYY-MM-DD
-            const [dia, mes, ano] = form.data.split('/')
-            const dataLimpeza = `${ano}-${mes}-${dia}`
-
-            await createHistoricoLimpeza(
-              fazendaId,
-              bebedouro.id,
-              dataLimpeza,
-              usuario,
-              form.observacao || 'Registro de inspeção'
-            )
-            console.log('[BebedourosPage] Limpeza registrada no histórico')
-          }
-        } catch (error) {
-          console.error('[BebedourosPage] Erro ao registrar limpeza:', error)
-          // Não impedir o sucesso do salvamento se o registro de limpeza falhar
-        }
-      }
+      // O histórico de limpeza é gravado pelo sync junto com o registro (funciona offline e sem duplicar).
 
       // Enriquecer registro com histórico de limpeza para o texto compartilhado
       let registroParaShare = result.registro as any
@@ -465,6 +482,16 @@ export default function BebedourosPage() {
     }
   })()
 
+  const pendenciaTexto = (() => {
+    if (!form.numeroBebedouro) return 'Falta escolher o bebedouro'
+    if (carregandoBebedouro) return 'Carregando dados do bebedouro...'
+    if (bebedouroIndisponivel) return 'Dados do bebedouro indisponíveis neste aparelho: conecte à internet e atualize os dados'
+    if (loadingChecklistRegras) return 'Carregando regras do checklist...'
+    if (!form.leituraBebedouro) return 'Falta a leitura do bebedouro'
+    if (checklistAtivo && !form.limpouHoje) return 'Falta informar se limpou o bebedouro hoje'
+    return undefined
+  })()
+
   const bebedouroProgress = temMeta && temHistorico ? tempoDiasLimpeza / metaDiasLimpeza : null
 
   return (
@@ -473,7 +500,7 @@ export default function BebedourosPage() {
         title="BEBEDOUROS"
         cadernetaId="bebedouros"
         dateContent={
-          <DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />
+          <DatePicker value={form.data} onChange={set('data')} variant="header" compact inline maxDate={todayBR()} />
         }
       >
         <BannerRascunho
@@ -499,10 +526,12 @@ export default function BebedourosPage() {
           ) : (
             <Input
               label="BEBEDOURO"
+              placeholder={bebedourosCarregados ? 'Nenhum bebedouro neste aparelho. Conecte à internet e atualize os dados' : 'Carregando...'}
               value={form.numeroBebedouro}
-              onChange={setInput('numeroBebedouro')}
+              onChange={() => {}}
               error={getError('numeroBebedouro')}
               id="numeroBebedouro"
+              disabled
             />
           )}
           {form.numeroBebedouro && (
@@ -720,10 +749,14 @@ export default function BebedourosPage() {
 
         <FormFooter
           onSalvar={() => salvar(executarSalvamento)}
-          onLimpar={limparRascunho}
+          onLimpar={() => {
+            limparRascunho()
+            setErrors([])
+          }}
           salvando={salvando}
-          disabled={!isValid}
-          formValido={isValid}
+          disabled={!isValid || bebedouroBloqueado}
+          formValido={isValid && !bebedouroBloqueado}
+          pendenciaTexto={pendenciaTexto}
         />
 
         <input

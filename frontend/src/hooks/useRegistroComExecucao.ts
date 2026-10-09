@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { useExecucaoRotina } from './useExecucaoRotina'
 import { getFazendaByAcessoId } from '../services/supabaseService'
+import { redeInstavelRecentemente } from '../utils/fetchComTimeout'
 import {
   isAtrasoSignificativo,
   getHorarioAtualHHMMSS,
@@ -93,11 +94,15 @@ interface FazendaConfig {
 }
 
 async function getFazendaConfig(acessoId: string | undefined): Promise<FazendaConfig> {
-  if (!acessoId || !navigator.onLine) {
+  if (!acessoId || !navigator.onLine || redeInstavelRecentemente()) {
     return { tolerancia: 30, timezone: DEFAULT_FARM_TIMEZONE }
   }
   try {
-    const fazenda = await getFazendaByAcessoId(acessoId)
+    // Com Wi-Fi sem internet (onLine true) a consulta demora segundos: o salvar não pode esperar por ela
+    const fazenda = await Promise.race([
+      getFazendaByAcessoId(acessoId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ])
     return {
       tolerancia: fazenda?.tolerancia_rotina_minutos ?? 30,
       timezone: fazenda?.timezone ?? DEFAULT_FARM_TIMEZONE,

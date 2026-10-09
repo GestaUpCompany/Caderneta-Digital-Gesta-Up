@@ -1,5 +1,5 @@
 import { getDeviceId } from './deviceId'
-import { APP_VERSION } from './version'
+import { getVersaoCompleta } from './version'
 
 /**
  * Detecta a plataforma a partir do userAgent.
@@ -42,7 +42,7 @@ export interface AuditContext {
 export function getAuditContext(): AuditContext {
   return {
     dispositivo_uuid: getDeviceId(),
-    app_version: APP_VERSION,
+    app_version: getVersaoCompleta(),
     platform: detectPlatform(),
     network_status: detectNetworkStatus(),
   }

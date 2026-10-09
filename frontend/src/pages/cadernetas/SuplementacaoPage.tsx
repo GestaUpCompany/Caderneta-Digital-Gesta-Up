@@ -9,6 +9,7 @@ import PdfModal from '../../components/PdfModal'
 import { salvarRegistro, listarRegistros } from '../../services/api'
 import { getRegistrosSuplementacaoByLote } from '../../services/supabaseService'
 import { getFarmTimezoneAsync } from '../../services/checklistRegrasService'
+import { redeInstavelRecentemente } from '../../utils/fetchComTimeout'
 import { todayBR, brToIso, getDateTimePartsInTimezone, DEFAULT_FARM_TIMEZONE } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -20,14 +21,23 @@ import HistoricoSuplementacaoModal from '../../components/cadernetas/HistoricoSu
 import BannerRascunho from '../../components/BannerRascunho'
 import {
   getPastoByNomeCached,
+  getPastoByNomeFromCacheOnly,
   getLoteByNomeCached,
+  getLoteByNomeFromCacheOnly,
   getLoteDetalhesComCategoriasCached,
+  getLoteDetalhesFromCacheOnly,
   getFormulacaoByNomeCached,
+  getFormulacaoByNomeFromCacheOnly,
   getFormulacaoByIdCached,
+  getFormulacaoByIdFromCacheOnly,
   getRegistrosSuplementacaoByLoteCached,
   getPlanoNutricionalAtivoByLoteIdCached,
+  getPlanoNutricionalAtivoFromCacheOnly,
+  getPlanoNutricionalAtivoStatus,
   getNotasLeituraCochoConfigCached,
   getLotesAtivosCached,
+  getCachedCadastroData,
+  withTimeout,
 } from '../../services/cadastroCache'
 import {
   calcularMetricasSuplementacao,
@@ -176,6 +186,18 @@ export default function SuplementacaoPage() {
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [loteSemPasto, setLoteSemPasto] = useState<boolean>(false)
   const [loteNaoEncontrado, setLoteNaoEncontrado] = useState<boolean>(false)
+  // Salvar antes dos dados chegarem gravaria registro incompleto (sem loteId, plano, pasto ou formulação):
+  // cada leitura abaixo bloqueia o SALVAR enquanto não resolve.
+  const [carregandoLote, setCarregandoLote] = useState(false)
+  const [carregandoPlano, setCarregandoPlano] = useState(false)
+  const [planoIndisponivel, setPlanoIndisponivel] = useState(false)
+  const [carregandoPasto, setCarregandoPasto] = useState(false)
+  const [pastoIndisponivel, setPastoIndisponivel] = useState(false)
+  const [lotesCarregados, setLotesCarregados] = useState(false)
+  // Incrementa quando a internet volta com dados do lote indisponíveis: refaz a leitura sozinho
+  const [recarga, setRecarga] = useState(0)
+  const dadosIndisponiveisRef = useRef(false)
+  const lotesPastoMapRef = useRef<Record<string, string>>({})
   const [possuiDeposito, setPossuiDeposito] = useState<boolean>(false)
   const [dadosPasto, setDadosPasto] = useState<any>(null)
   const [espacamentoCochoDetalhes, setEspacamentoCochoDetalhes] = useState<any>(null)
@@ -185,6 +207,7 @@ export default function SuplementacaoPage() {
   const [notasConfig, setNotasConfig] = useState<any[]>([])
   const [creepFormulacaoDetalhes, setCreepFormulacaoDetalhes] = useState<{ id: string | null; nome: string; teorMs: number | null; metaConsumo: number | null; custoDietaReaisCabDia: number | null; custoMnTonelada: number | null; formaFornecimento: string | null; kgPorSaco: number | null } | null>(null)
   const [creepFormulacaoCarregada, setCreepFormulacaoCarregada] = useState(false)
+  const [formulacaoCarregada, setFormulacaoCarregada] = useState(true)
   const [campoFotoAtual, setCampoFotoAtual] = useState<string | null>(null)
   const [campoVozAtual, setCampoVozAtual] = useState<string | null>(null)
   const baseVozRef = useRef('')
@@ -227,40 +250,54 @@ export default function SuplementacaoPage() {
     return quantTotal > 0 ? pesoTotal / quantTotal : null
   }, [categoriasAoPe])
 
-  // Buscar detalhes da formulação quando selecionada (usa cache para offline)
+  // Buscar detalhes da formulação quando selecionada (cache primeiro; falha não derruba o restante)
   useEffect(() => {
+    let cancelado = false
+    setFormulacaoDetalhes(null)
+    setFormulacaoCarregada(!form.formulacao)
+    if (!form.formulacao || !fazendaId) return
+
+    const aplicarFormulacao = (formulacao: any) =>
+      setFormulacaoDetalhes({
+        id: formulacao.id ?? null,
+        nome: formulacao.nome,
+        teorMs: formulacao.teor_ms_dieta ?? null,
+        metaConsumo: formulacao.consumo_ms_percent_pv ?? null,
+        custoDietaReaisCabDia: formulacao.custo_dieta_reais_cab_dia ?? null,
+        custoMnTonelada: formulacao.custo_mn_tonelada ?? null,
+        formaFornecimento: formulacao.forma_fornecimento ?? 'granel',
+        kgPorSaco: formulacao.kg_por_saco != null ? Number(formulacao.kg_por_saco) : null,
+      })
+
     async function carregarDetalhesFormulacao() {
-      if (!form.formulacao || !fazendaId) {
-        setFormulacaoDetalhes(null)
-        return
-      }
       try {
-        const formulacao = await getFormulacaoByNomeCached(fazendaId, form.formulacao)
-        if (formulacao) {
-          setFormulacaoDetalhes({
-            id: formulacao.id ?? null,
-            nome: formulacao.nome,
-            teorMs: formulacao.teor_ms_dieta ?? null,
-            metaConsumo: formulacao.consumo_ms_percent_pv ?? null,
-            custoDietaReaisCabDia: formulacao.custo_dieta_reais_cab_dia ?? null,
-            custoMnTonelada: formulacao.custo_mn_tonelada ?? null,
-            formaFornecimento: formulacao.forma_fornecimento ?? 'granel',
-            kgPorSaco: formulacao.kg_por_saco != null ? Number(formulacao.kg_por_saco) : null,
-          })
-        } else {
-          setFormulacaoDetalhes(null)
+        // Cache primeiro: libera o formulário na hora; a revalidação online roda depois
+        const cache = await getFormulacaoByNomeFromCacheOnly(fazendaId!, form.formulacao)
+        if (cancelado) return
+        if (cache) {
+          aplicarFormulacao(cache)
+          setFormulacaoCarregada(true)
         }
+        const formulacao = await getFormulacaoByNomeCached(fazendaId!, form.formulacao)
+        if (cancelado) return
+        if (formulacao) aplicarFormulacao(formulacao)
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar detalhes da formulação:', error)
-        setFormulacaoDetalhes(null)
+      } finally {
+        if (!cancelado) setFormulacaoCarregada(true)
       }
     }
     carregarDetalhesFormulacao()
+    return () => {
+      cancelado = true
+    }
   }, [form.formulacao, fazendaId])
 
   // Buscar formulação creep vinculada à categoria bezerro(a) ao pé do lote.
   // A dieta creep mora em lote_categorias.formulacao_id (independente do plano do lote).
   useEffect(() => {
+    let cancelado = false
     async function carregarFormulacaoCreep() {
       if (!temCreepDisponivel || !fazendaId) {
         setCreepFormulacaoDetalhes(null)
@@ -277,8 +314,7 @@ export default function SuplementacaoPage() {
         setCreepFormulacaoCarregada(true)
         return
       }
-      try {
-        const formulacao = await getFormulacaoByIdCached(fazendaId, formId)
+      const aplicar = (formulacao: any) => {
         if (formulacao && formulacao.e_creep) {
           setCreepFormulacaoDetalhes({
             id: formulacao.id ?? null,
@@ -290,35 +326,75 @@ export default function SuplementacaoPage() {
             formaFornecimento: formulacao.forma_fornecimento ?? 'granel',
             kgPorSaco: formulacao.kg_por_saco != null ? Number(formulacao.kg_por_saco) : null,
           })
-        } else {
-          setCreepFormulacaoDetalhes(null)
+          return true
+        }
+        return false
+      }
+      try {
+        // Cache primeiro (libera na hora); depois revalida online
+        const cache = await getFormulacaoByIdFromCacheOnly(fazendaId, formId)
+        if (cancelado) return
+        if (cache && aplicar(cache)) setCreepFormulacaoCarregada(true)
+        else setCreepFormulacaoDetalhes(null)
+        const formulacao = await getFormulacaoByIdCached(fazendaId, formId)
+        if (cancelado) return
+        if (formulacao) {
+          if (!aplicar(formulacao)) setCreepFormulacaoDetalhes(null)
         }
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar formulação creep:', error)
-        setCreepFormulacaoDetalhes(null)
       }
+      if (cancelado) return
       setCreepFormulacaoCarregada(true)
     }
     carregarFormulacaoCreep()
+    return () => {
+      cancelado = true
+    }
   }, [categoriasAoPe, fazendaId, temCreepDisponivel])
 
-  // Carregar lotes ativos do Supabase (online) ou cache (offline)
+  lotesPastoMapRef.current = lotesPastoMap
+
+  // Lotes: cache local primeiro (a lista aparece na hora, mesmo com rede ruim), depois revalida
+  // no Supabase com timeout sem apagar o que já está na tela.
   useEffect(() => {
+    if (!fazendaId) return
+    let cancelado = false
     const loadData = async () => {
-      if (!fazendaId) return
-      const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
-      setLotesDisponiveis(lotes)
-      setLotesPastoMap(mapa)
+      try {
+        const cache = await getCachedCadastroData()
+        if (cancelado) return
+        if (cache?.lotes?.length) {
+          setLotesDisponiveis(cache.lotes)
+          setLotesPastoMap(cache.lotesPastoMap || {})
+        }
+        try {
+          const { lotes, lotesPastoMap: mapa } = await withTimeout(getLotesAtivosCached(fazendaId), 3000)
+          if (cancelado) return
+          setLotesDisponiveis(lotes)
+          setLotesPastoMap(mapa)
+        } catch (error) {
+          console.warn('[SuplementacaoPage] Lotes online indisponíveis, mantendo o cache local:', error)
+        }
+      } catch (error) {
+        console.error('[SuplementacaoPage] Erro ao carregar lotes:', error)
+      } finally {
+        if (!cancelado) setLotesCarregados(true)
+      }
     }
     loadData()
+    return () => {
+      cancelado = true
+    }
   }, [fazendaId])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
-      console.log('[SuplementacaoPage] Cache atualizado, recarregando dados')
-      if (data) {
-        setLotesDisponiveis(data.lotes || [])
+      // Só aplica o que veio no evento: um payload parcial não pode zerar a lista da tela.
+      if (data && Array.isArray(data.lotes)) {
+        setLotesDisponiveis(data.lotes)
         setLotesPastoMap(data.lotesPastoMap || {})
       }
     })
@@ -326,110 +402,197 @@ export default function SuplementacaoPage() {
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote e derivar o pasto quando o lote é selecionado
+  // Detalhes do lote e pasto derivado. Cache local primeiro (libera o formulário na hora, mesmo com
+  // rede travada ou aparelho offline) e revalidação online em segundo plano.
   useEffect(() => {
-    async function carregarDetalhesLoteEPasto() {
-      if (!form.numeroLote || !fazendaId) {
-        setDetalhesLote(null)
-        setLoteSemPasto(false)
-        setLoteNaoEncontrado(false)
-        setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
-        return
-      }
+    let cancelado = false
 
+    // Sempre começa limpo: nada do lote anterior pode vazar para o registro (loteId, pasto, categorias).
+    setDetalhesLote(null)
+    setLoteSemPasto(false)
+    setLoteNaoEncontrado(false)
+    setForm((prev) => (prev.loteId || prev.pastoId || prev.pasto ? { ...prev, pasto: '', pastoId: '', loteId: '' } : prev))
+
+    const nomeLote = form.numeroLote
+    if (!nomeLote || !fazendaId) {
+      setCarregandoLote(false)
+      return
+    }
+    setCarregandoLote(true)
+
+    const aplicarLote = (lote: any, det: any) => {
+      setLoteNaoEncontrado(false)
+      const pastoNome = lote.pastos?.nome || lotesPastoMapRef.current[nomeLote] || ''
+      setLoteSemPasto(!lote.pasto_id)
+      setForm((prev) => ({ ...prev, pasto: pastoNome, pastoId: lote.pasto_id || '', loteId: lote.id }))
+      setDetalhesLote({
+        ...lote,
+        categorias: det.categorias,
+        n_cabecas: det.quant_atual,
+        peso_vivo_kg: det.peso_vivo_kg,
+        qtd_bezerros: det.qtd_bezerros,
+        categorias_raw: det.categorias_raw,
+      })
+    }
+
+    async function carregarDetalhesLoteEPasto() {
       try {
-        const lote = await getLoteByNomeCached(fazendaId, form.numeroLote)
-        if (!lote) {
-          setDetalhesLote(null)
-          setLoteSemPasto(false)
-          setLoteNaoEncontrado(true)
-          setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
-          return
+        // 1) Cache local: instantâneo
+        const loteCache = await getLoteByNomeFromCacheOnly(fazendaId!, nomeLote)
+        const detCache = loteCache ? await getLoteDetalhesFromCacheOnly(loteCache.id) : null
+        if (cancelado) return
+        let resolvido = false
+        if (loteCache && detCache) {
+          aplicarLote(loteCache, detCache)
+          setCarregandoLote(false)
+          resolvido = true
         }
 
-        setLoteNaoEncontrado(false)
-        const pastoNome = lote.pastos?.nome || lotesPastoMap[form.numeroLote] || ''
-        setLoteSemPasto(!lote.pasto_id)
-        setForm(prev => ({ ...prev, pasto: pastoNome, pastoId: lote.pasto_id || '', loteId: lote.id }))
-
-        // Buscar detalhes de categorias do lote
-        const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
-
-        // Combinar dados do lote com dados de categorias
-        setDetalhesLote({
-          ...lote,
-          categorias: categoriasDetalhes.categorias,
-          n_cabecas: categoriasDetalhes.quant_atual,
-          peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-          qtd_bezerros: categoriasDetalhes.qtd_bezerros,
-          categorias_raw: categoriasDetalhes.categorias_raw
-        })
+        // 2) Online: com cache só revalida (leituras em paralelo); sem cache é o único caminho
+        try {
+          if (resolvido) {
+            const [loteOn, detOn] = await Promise.all([
+              getLoteByNomeCached(fazendaId!, nomeLote),
+              getLoteDetalhesComCategoriasCached(loteCache.id),
+            ])
+            if (cancelado) return
+            if (loteOn && detOn) aplicarLote(loteOn, detOn)
+          } else {
+            const loteOn = await getLoteByNomeCached(fazendaId!, nomeLote)
+            if (cancelado) return
+            const detOn = loteOn ? await getLoteDetalhesComCategoriasCached(loteOn.id) : null
+            if (cancelado) return
+            if (loteOn && detOn) {
+              aplicarLote(loteOn, detOn)
+              resolvido = true
+            }
+          }
+        } catch (error) {
+          console.warn('[SuplementacaoPage] Revalidação do lote falhou, usando o que está no aparelho:', error)
+        }
+        if (cancelado) return
+        setCarregandoLote(false)
+        // Sem cache e sem rede (ou lote removido): o SALVAR fica bloqueado com a mensagem do lote
+        if (!resolvido) setLoteNaoEncontrado(true)
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar detalhes do lote:', error)
-        setDetalhesLote(null)
-        setLoteSemPasto(false)
+        setCarregandoLote(false)
         setLoteNaoEncontrado(true)
-        setForm(prev => ({ ...prev, pasto: '', pastoId: '', loteId: '' }))
       }
     }
 
     carregarDetalhesLoteEPasto()
-  }, [form.numeroLote, fazendaId])
+    return () => {
+      cancelado = true
+    }
+  }, [form.numeroLote, fazendaId, recarga])
 
-  // Carregar formulação do plano nutricional ativo do lote
+  // Plano nutricional ativo do lote (define a formulação). Cache primeiro e revalidação com timeout.
+  // Falha de rede sem cache NÃO é "sem plano": vira "plano indisponível neste aparelho".
   useEffect(() => {
-    async function carregarFormulacaoDoPlanoAtivo() {
-      if (!form.loteId) {
-        setSemPlanoAtivo(false)
-        setForm(prev => ({ ...prev, formulacao: '' }))
-        return
-      }
+    let cancelado = false
+    setSemPlanoAtivo(false)
+    setPlanoIndisponivel(false)
 
+    if (!form.loteId) {
+      setCarregandoPlano(false)
+      setForm((prev) => (prev.formulacao ? { ...prev, formulacao: '' } : prev))
+      return
+    }
+    setCarregandoPlano(true)
+    const loteId = form.loteId
+
+    const aplicarPlano = (plano: any) => {
+      if (plano && plano.formulacaoNome) {
+        setSemPlanoAtivo(false)
+        setForm((prev) => ({ ...prev, formulacao: plano.formulacaoNome }))
+      } else {
+        setSemPlanoAtivo(true)
+        setForm((prev) => ({ ...prev, formulacao: '' }))
+      }
+    }
+
+    async function carregarFormulacaoDoPlanoAtivo() {
       try {
-        const plano = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
-        if (plano && plano.formulacaoNome) {
-          setSemPlanoAtivo(false)
-          setForm(prev => ({ ...prev, formulacao: plano.formulacaoNome }))
-        } else {
-          setSemPlanoAtivo(true)
-          setForm(prev => ({ ...prev, formulacao: '' }))
+        const cache = await getPlanoNutricionalAtivoFromCacheOnly(loteId)
+        if (cancelado) return
+        const temCache = !!cache?.formulacaoNome
+        if (temCache) {
+          aplicarPlano(cache)
+          setCarregandoPlano(false)
+        }
+        const { plano, confiavel } = await getPlanoNutricionalAtivoStatus(loteId)
+        if (cancelado) return
+        if (confiavel) aplicarPlano(plano)
+        else if (!temCache) {
+          setPlanoIndisponivel(true)
+          setForm((prev) => ({ ...prev, formulacao: '' }))
         }
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar formulação do plano ativo:', error)
-        setSemPlanoAtivo(true)
-        setForm(prev => ({ ...prev, formulacao: '' }))
+        setPlanoIndisponivel(true)
+        setForm((prev) => ({ ...prev, formulacao: '' }))
+      } finally {
+        if (!cancelado) setCarregandoPlano(false)
       }
     }
 
     carregarFormulacaoDoPlanoAtivo()
+    return () => {
+      cancelado = true
+    }
   }, [form.loteId])
 
-  // Buscar dados do pasto quando selecionado para verificar possui_deposito
+  // Dados do pasto (possui_deposito define se o KG do depósito é obrigatório). Sem eles o registro
+  // sairia sem o depósito, então o SALVAR fica bloqueado enquanto não resolve.
   useEffect(() => {
-    async function carregarDadosPasto() {
-      if (!form.pasto || !fazendaId) {
-        setPossuiDeposito(false)
-        setDadosPasto(null)
-        return
-      }
+    let cancelado = false
+    setPastoIndisponivel(false)
 
+    if (!form.pasto || !fazendaId) {
+      setCarregandoPasto(false)
+      setPossuiDeposito(false)
+      setDadosPasto(null)
+      return
+    }
+    setCarregandoPasto(true)
+    const nomePasto = form.pasto
+
+    const aplicarPasto = (pasto: any) => {
+      setPossuiDeposito(pasto.possui_deposito || false)
+      setDadosPasto(pasto)
+    }
+
+    async function carregarDadosPasto() {
       try {
-        const pasto = await getPastoByNomeCached(fazendaId, form.pasto)
-        if (pasto) {
-          setPossuiDeposito(pasto.possui_deposito || false)
-          setDadosPasto(pasto)
+        const cache = await getPastoByNomeFromCacheOnly(fazendaId!, nomePasto)
+        if (cancelado) return
+        if (cache) {
+          aplicarPasto(cache)
+          setCarregandoPasto(false)
         } else {
           setPossuiDeposito(false)
           setDadosPasto(null)
         }
+        const pasto = await getPastoByNomeCached(fazendaId!, nomePasto)
+        if (cancelado) return
+        if (pasto) aplicarPasto(pasto)
+        else if (!cache) setPastoIndisponivel(true)
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar dados do pasto:', error)
-        setPossuiDeposito(false)
-        setDadosPasto(null)
+        setPastoIndisponivel(true)
+      } finally {
+        if (!cancelado) setCarregandoPasto(false)
       }
     }
 
     carregarDadosPasto()
+    return () => {
+      cancelado = true
+    }
   }, [form.pasto, fazendaId])
 
   // Calcular espacamento do cocho quando dados mudarem
@@ -771,15 +934,18 @@ export default function SuplementacaoPage() {
       numeroLote: {
         required: true,
         custom: () => {
-          if (loteNaoEncontrado) return 'Lote não encontrado nesta fazenda. Selecione outro lote ou limpe o formulário.'
+          if (loteNaoEncontrado) return 'Lote sem dados neste aparelho ou não encontrado nesta fazenda. Conecte à internet e atualize os dados, ou selecione outro lote.'
           if (loteSemPasto) return 'Este lote não possui pasto vinculado. Vincule um pasto ao lote antes de lançar suplementação.'
           return null
         },
       },
+      // O serviço exige o pasto: lote sem nome de pasto resolvido neste aparelho não pode ser salvo
+      pasto: { required: true },
       formulacao: {
         required: adultoAtivo,
         custom: () => {
           if (adultoAtivo && semPlanoAtivo) return 'Não há plano nutricional ativo para este lote. Vincule um plano no Painel Web antes de lançar suplementação.'
+          if (adultoAtivo && planoIndisponivel) return 'Plano nutricional indisponível neste aparelho. Conecte à internet e atualize os dados.'
           return null
         },
       },
@@ -839,15 +1005,41 @@ export default function SuplementacaoPage() {
       base.limpezaCocho = { required: true }
     }
     return base
-  }, [possuiDeposito, checklistAtivo, form.kgDeposito, loteSemPasto, loteNaoEncontrado, semPlanoAtivo, isSacaria, adultoAtivo, creepAtivo, adultoPreenchido, creepPreenchido, temCreepDisponivel, creepFormulacaoDetalhes, isSacariaCreep])
+  }, [possuiDeposito, checklistAtivo, form.kgDeposito, loteSemPasto, loteNaoEncontrado, semPlanoAtivo, planoIndisponivel, isSacaria, adultoAtivo, creepAtivo, adultoPreenchido, creepPreenchido, temCreepDisponivel, creepFormulacaoDetalhes, isSacariaCreep])
 
   const { isValid } = useFormValidation(form, validationRules)
+
+  // Erro de salvamento anterior (ex.: trato duplicado) não vale para outra data/lote
+  useEffect(() => {
+    setErrors([])
+  }, [form.data, form.numeroLote])
   const verificandoTravaRef = useRef(false)
+
+  // Dados do lote em carga, ou que não chegaram: salvar gravaria registro incompleto
+  // (sem loteId/categorias/peso, sem formulação, sem saber se o pasto tem depósito ou se a dieta é em sacos)
+  const formulacaoIndisponivel = adultoAtivo && !!form.formulacao && formulacaoCarregada && !formulacaoDetalhes
+  const dadosCarregando =
+    carregandoLote || carregandoPlano || carregandoPasto || loadingChecklistRegras || (!formulacaoCarregada && adultoAtivo) ||
+    (temCreepDisponivel && !creepFormulacaoCarregada)
+  const dadosIndisponiveis =
+    (!!form.numeroLote && !detalhesLote) || pastoIndisponivel || formulacaoIndisponivel || (adultoAtivo && planoIndisponivel)
+  const loteBloqueado = dadosCarregando || dadosIndisponiveis
+  dadosIndisponiveisRef.current = dadosIndisponiveis && !dadosCarregando
+
+  useEffect(() => {
+    const aoVoltarInternet = () => {
+      if (dadosIndisponiveisRef.current) setRecarga((n) => n + 1)
+    }
+    window.addEventListener('online', aoVoltarInternet)
+    return () => window.removeEventListener('online', aoVoltarInternet)
+  }, [])
 
   const verificarTratoDuplicado = async (): Promise<any | null> => {
     if (!travaSuplementacao || !fazendaId || !form.loteId || !form.data) return null
     const diaBR = form.data
-    const tz = await getFarmTimezoneAsync().catch(() => DEFAULT_FARM_TIMEZONE)
+    const tz = redeInstavelRecentemente()
+      ? DEFAULT_FARM_TIMEZONE
+      : await withTimeout(getFarmTimezoneAsync(), 3000).catch(() => DEFAULT_FARM_TIMEZONE)
     const mesmoDia = (iso: unknown): boolean => {
       const d = new Date(String(iso))
       if (isNaN(d.getTime())) return false
@@ -870,11 +1062,11 @@ export default function SuplementacaoPage() {
     )
     if (dupPuxado) return dupPuxado
 
-    if (navigator.onLine) {
+    if (navigator.onLine && !redeInstavelRecentemente()) {
       try {
         const frescos = await Promise.race([
           getRegistrosSuplementacaoByLote(fazendaId, form.loteId),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000)),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
         ])
         const dupOnline = (frescos || []).find((r: any) => !r.deleted_at && mesmoDia(r.data))
         if (dupOnline) return dupOnline
@@ -886,7 +1078,7 @@ export default function SuplementacaoPage() {
   }
 
   const handleSalvarClick = async () => {
-    if (verificandoTravaRef.current) return
+    if (loteBloqueado || verificandoTravaRef.current) return
     verificandoTravaRef.current = true
     try {
       const dup = await verificarTratoDuplicado()
@@ -910,7 +1102,7 @@ export default function SuplementacaoPage() {
     setErrors([])
 
     // Validate form using the validation hook
-    if (!isValid) {
+    if (!isValid || loteBloqueado) {
       return
     }
 
@@ -925,7 +1117,9 @@ export default function SuplementacaoPage() {
     let pesoVivoKgLote = detalhesLote?.peso_vivo_kg ?? null
     if (form.loteId && form.data) {
       try {
-        const planoParams = await getPlanoNutricionalAtivoByLoteIdCached(form.loteId)
+        // O plano acabou de ser lido/revalidado ao escolher o lote: usa o cache e evita ~5 idas ao servidor no SALVAR
+        const planoParams =
+          (await getPlanoNutricionalAtivoFromCacheOnly(form.loteId)) ?? (await getPlanoNutricionalAtivoByLoteIdCached(form.loteId))
         if (planoParams) {
           const pesoProjetado = calcularPesoProjetado(form.data, planoParams)
           if (pesoProjetado != null) {
@@ -1086,6 +1280,31 @@ export default function SuplementacaoPage() {
     navigate('/')
   }
 
+  const pendenciaTexto = (() => {
+    if (!form.numeroLote) return 'Falta escolher o pasto/lote'
+    if (carregandoLote) return 'Carregando dados do lote...'
+    if (!detalhesLote) return 'Lote sem dados neste aparelho: conecte à internet e atualize os dados'
+    if (loteSemPasto) return 'Este lote não tem pasto vinculado'
+    if (!form.pasto) return 'Pasto do lote não identificado neste aparelho: conecte à internet e atualize os dados'
+    if (carregandoPlano) return 'Carregando plano nutricional...'
+    if (carregandoPasto) return 'Carregando dados do pasto...'
+    if (loadingChecklistRegras) return 'Carregando regras do checklist...'
+    if (pastoIndisponivel) return 'Dados do pasto indisponíveis neste aparelho: conecte à internet e atualize os dados'
+    if (adultoAtivo && planoIndisponivel) return 'Plano nutricional indisponível neste aparelho: conecte à internet e atualize os dados'
+    if (adultoAtivo && semPlanoAtivo) return 'Lote sem plano nutricional ativo'
+    if ((adultoAtivo && !formulacaoCarregada) || (temCreepDisponivel && !creepFormulacaoCarregada)) return 'Carregando formulação...'
+    if (formulacaoIndisponivel) return 'Formulação indisponível neste aparelho: conecte à internet e atualize os dados'
+    if (temCreepDisponivel && !adultoPreenchido && !creepPreenchido) return 'Preencha a suplementação do lote e/ou do creep'
+    if (adultoAtivo && !form.leitura) return 'Falta a leitura do cocho'
+    if (adultoAtivo && !(Number(form.kgCocho) > 0)) return isSacaria ? 'Falta o número de sacos no cocho' : 'Falta o total suplementado no cocho'
+    if (creepAtivo && !creepFormulacaoDetalhes) return 'Bezerro(a) ao pé sem formulação creep vinculada'
+    if (creepAtivo && !form.creepLeitura) return 'Falta a leitura do cocho do creep'
+    if (creepAtivo && !(Number(form.creepKgCocho) > 0)) return 'Falta o total suplementado do creep'
+    if (possuiDeposito && !(Number(form.kgDeposito) > 0)) return isSacaria ? 'Falta o número de sacos no depósito' : 'Falta o total no depósito'
+    if (checklistAtivo && !form.limpezaCocho) return 'Falta informar se a limpeza do cocho foi realizada'
+    return undefined
+  })()
+
   const categoriasLoteStr = detalhesLote?.categorias
     ? processarCategorias(detalhesLote.categorias).map(capitalizarCategoria).join(', ')
     : ''
@@ -1221,7 +1440,7 @@ export default function SuplementacaoPage() {
         title="SUPLEMENTAÇÃO"
         cadernetaId="suplementacao"
         dateContent={
-          <DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />
+          <DatePicker value={form.data} onChange={set('data')} variant="header" compact inline maxDate={todayBR()} />
         }
       >
         <BannerRascunho
@@ -1247,7 +1466,7 @@ export default function SuplementacaoPage() {
           ) : (
             <Input
               label="PASTO/LOTE"
-              placeholder="Carregando..."
+              placeholder={lotesCarregados ? 'Nenhum lote neste aparelho. Conecte à internet e atualize os dados' : 'Carregando...'}
               value={form.numeroLote}
               onChange={setInput('numeroLote')}
               error={getError('numeroLote')}
@@ -1257,7 +1476,7 @@ export default function SuplementacaoPage() {
 
           {loteNaoEncontrado && (
             <InfoStrip tone="danger">
-              Lote "{form.numeroLote}" não encontrado nesta fazenda. Selecione outro lote ou use LIMPAR para descartar o formulário.
+              Lote "{form.numeroLote}" sem dados neste aparelho ou não encontrado nesta fazenda. Conecte à internet e atualize os dados, ou selecione outro lote.
             </InfoStrip>
           )}
 
@@ -1301,19 +1520,26 @@ export default function SuplementacaoPage() {
             <InfoStrip tone="danger">{getError('_alvos')}</InfoStrip>
           )}
 
+          {planoIndisponivel && form.loteId && adultoAtivo && (
+            <InfoStrip tone="danger" icon="⚠️">
+              Plano nutricional indisponível neste aparelho. Conecte à internet e atualize os dados.
+            </InfoStrip>
+          )}
+
           {semPlanoAtivo && form.loteId && adultoAtivo && (
             <InfoStrip tone="danger" icon="⚠️">
               Sem plano nutricional ativo. Vincule um plano no Painel Web antes de lançar suplementação.
             </InfoStrip>
           )}
 
-          {adultoAtivo && blocoLeituraQuantidade('leitura', 'kgCocho', isSacaria, kgPorSaco, true)}
-
           {!adultoAtivo && (
             <InfoStrip tone="neutral">
               Lote em creep feeding: preencha só se houver trato para as categorias adultas.
             </InfoStrip>
           )}
+
+          {/* Sempre visível: em lote com creep o grupo adulto só "ativa" ao preencher estes campos */}
+          {blocoLeituraQuantidade('leitura', 'kgCocho', isSacaria, kgPorSaco, true)}
 
           {/* Foto do cocho: evidencia da leitura, opcional */}
           <div>
@@ -1632,10 +1858,14 @@ export default function SuplementacaoPage() {
 
         <FormFooter
           onSalvar={handleSalvarClick}
-          onLimpar={limparRascunho}
+          onLimpar={() => {
+            limparRascunho()
+            setErrors([])
+          }}
           salvando={salvando}
-          disabled={!isValid}
-          formValido={isValid}
+          disabled={!isValid || loteBloqueado}
+          formValido={isValid && !loteBloqueado}
+          pendenciaTexto={pendenciaTexto}
         />
 
         <input

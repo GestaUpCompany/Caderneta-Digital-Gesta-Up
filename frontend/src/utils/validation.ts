@@ -261,15 +261,20 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
   if (!isNonEmptyString(data.gadoContado))
     errors.push({ field: 'gadoContado', message: 'Responda se o gado foi contado' })
 
-  // Only validate categorias if gado was counted
+  // Só valida a contagem se o gado foi contado. A tela monta totalCabecas e categorias_detalhes
+  // (categorias reais do lote, ou o campo único de total); os campos fixos são o formato antigo.
   if (data.gadoContado === 'Sim') {
-    const categoriasError = validateCategoriasNumericas(
+    const detalhes = Array.isArray(data.categorias_detalhes) ? data.categorias_detalhes : []
+    const contouPorTotal = Number(data.totalCabecas) > 0
+    const contouPorCategoria = detalhes.some((c: any) => Number(c?.quant_informada) > 0)
+    const contouPorCampoFixo = validateCategoriasNumericas(
       data,
       ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'],
-      'categorias',
-      'Preencha ao menos uma categoria de animal'
-    )
-    if (categoriasError) errors.push(categoriasError)
+      'categorias'
+    ) === null
+    if (!contouPorTotal && !contouPorCategoria && !contouPorCampoFixo) {
+      errors.push({ field: 'categorias', message: 'Preencha ao menos uma categoria de animal' })
+    }
   }
 
   const avaliacoesSN: Record<string, string> = {
@@ -290,10 +295,12 @@ export function validateRodeio(data: Record<string, unknown>): ValidationResult 
     })
   }
 
+  if (!isScaleValue(data.escoreGado, 1, 5, true))
+    errors.push({ field: 'escoreGado', message: 'Escore corporal é obrigatório (1 a 5)' })
   if (!isScaleValue(data.escoreFezes, 1, 5, true))
     errors.push({ field: 'escoreFezes', message: 'Escore de fezes é obrigatório (1 a 5)' })
   if (!isScaleValue(data.equipe, 1, 5, true))
-    errors.push({ field: 'equipe', message: 'Avaliação da equipe é obrigatória (1 a 5)' })
+    errors.push({ field: 'equipe', message: 'Número de pessoas no manejo é obrigatório (1 a 5)' })
 
   // Validar nomes da equipe quando equipe > 0
   const numEquipe = Number(data.equipe) || 0
@@ -327,7 +334,7 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
   if (suplementarAdulto) {
     if (!isNonEmptyString(data.formulacao))
       errors.push({ field: 'formulacao', message: 'Formulação é obrigatória' })
-    if (!isScaleValue(data.leituraCocho, -1, 3))
+    if (!isScaleValue(data.leituraCocho, -1, 3, true))
       errors.push({ field: 'leituraCocho', message: 'Leitura deve ser entre -1 e 3' })
     if (!isPositiveNumber(data.kgCocho) || Number(data.kgCocho) === 0)
       errors.push({ field: 'kgCocho', message: 'KG no cocho é obrigatório e deve ser maior que zero' })
@@ -335,7 +342,7 @@ export function validateSuplementacao(data: Record<string, unknown>): Validation
   if (suplementarCreep) {
     if (!isNonEmptyString(data.creepFormulacao))
       errors.push({ field: 'creepFormulacao', message: 'Formulação creep é obrigatória (vincule no cadastro do lote)' })
-    if (!isScaleValue(data.creepLeitura, -1, 3))
+    if (!isScaleValue(data.creepLeitura, -1, 3, true))
       errors.push({ field: 'creepLeitura', message: 'Leitura do cocho creep deve ser entre -1 e 3' })
     if (!isPositiveNumber(data.creepKgCocho) || Number(data.creepKgCocho) === 0)
       errors.push({ field: 'creepKgCocho', message: 'KG no cocho creep é obrigatório e deve ser maior que zero' })

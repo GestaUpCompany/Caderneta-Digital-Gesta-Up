@@ -1,4 +1,5 @@
 import { BACKEND_URL } from '../utils/constants'
+import { redeInstavelRecentemente } from '../utils/fetchComTimeout'
 import { saveCadastroData, getAllCadastroData, getCadastroData, deleteCadastroData, clearCadastroData } from './indexedDB'
 import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
@@ -897,7 +898,7 @@ function setCachedQuery(key: string, data: any): void {
  * em `ms` milissegundos, rejeita com erro de timeout. Usado para
  * acelerar o fallback para o cache quando a rede está instável/bloqueada.
  */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
@@ -944,18 +945,28 @@ export function buildCacheKey(base: string, ...segments: string[]): string {
 export async function getPastoByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
   const key = buildKey('pasto', fazendaId, nome)
 
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
-    return cached || null
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    return getPastoByNomeFromCacheOnly(fazendaId, nome)
   }
 
   try {
-    const data = await supabaseService.getPastoByNome(fazendaId, nome)
+    const data = await withTimeout(supabaseService.getPastoByNome(fazendaId, nome), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    // Rede ruim: usa o que já está no aparelho (memória ou IndexedDB)
+    return getPastoByNomeFromCacheOnly(fazendaId, nome)
   }
+}
+
+/**
+ * Lê pasto por nome diretamente do cache (memória ou IDB), sem tentar online.
+ */
+export async function getPastoByNomeFromCacheOnly(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('pasto', fazendaId, nome)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+  return await getCachedQueryFromIDB<any>(key)
 }
 
 /**
@@ -966,7 +977,7 @@ export async function getPastoByNomeCached(fazendaId: string, nome: string): Pro
 export async function getLoteByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
   const key = buildKey('lote', fazendaId, nome)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     if (cached) return cached
     return await getCachedQueryFromIDB<any>(key)
@@ -1033,7 +1044,7 @@ export async function getFormulacaoByIdFromCacheOnly(fazendaId: string, formId: 
 export async function getLoteDetalhesComCategoriasCached(loteId: string): Promise<any | null> {
   const key = buildKey('lote-detalhes', loteId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     if (cached) return cached
     return await getCachedQueryFromIDB<any>(key)
@@ -1059,7 +1070,7 @@ export async function getLoteDetalhesComCategoriasCached(loteId: string): Promis
 export async function getOrdensServicoAbertasCached(fazendaId: string, tipo: string = 'venda'): Promise<any[]> {
   const key = buildKey('os-abertas', fazendaId, tipo)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery<any[]>(key)
     if (cached) return cached
     return (await getCachedQueryFromIDB<any[]>(key)) || []
@@ -1084,7 +1095,7 @@ export async function getOrdensServicoAbertasCached(fazendaId: string, tipo: str
 export async function getOrdensServicoTransferenciaEntradaCached(fazendaId: string): Promise<any[]> {
   const key = buildKey('os-entrada', fazendaId, 'transferencia')
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery<any[]>(key)
     if (cached) return cached
     return (await getCachedQueryFromIDB<any[]>(key)) || []
@@ -1109,19 +1120,43 @@ export async function getOrdensServicoTransferenciaEntradaCached(fazendaId: stri
  * Quando offline, usa o cache.
  */
 export async function getPlanoNutricionalAtivoByLoteIdCached(loteId: string): Promise<any | null> {
-  const key = buildKey('plano-nutricional-ativo', loteId)
+  return (await getPlanoNutricionalAtivoStatus(loteId)).plano
+}
 
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
-    return cached || null
+/**
+ * Lê o plano nutricional ativo do lote diretamente do cache (memória ou IDB), sem tentar online.
+ */
+export async function getPlanoNutricionalAtivoFromCacheOnly(loteId: string): Promise<any | null> {
+  const key = buildKey('plano-nutricional-ativo', loteId)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+  return await getCachedQueryFromIDB<any>(key)
+}
+
+/**
+ * Plano nutricional ativo com indicação de confiabilidade.
+ * `confiavel: true` quando a resposta é definitiva (consulta online concluída, inclusive
+ * "sem plano ativo") ou veio do cache do aparelho. `confiavel: false` quando a rede falhou e
+ * não há cache: nesse caso "sem plano" NÃO significa que o lote não tem plano.
+ */
+export async function getPlanoNutricionalAtivoStatus(
+  loteId: string
+): Promise<{ plano: any | null; confiavel: boolean }> {
+  const key = buildKey('plano-nutricional-ativo', loteId)
+  const doCache = async () => {
+    const cached = await getPlanoNutricionalAtivoFromCacheOnly(loteId)
+    return { plano: cached, confiavel: !!cached }
   }
 
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
   try {
-    const data = await supabaseService.getPlanoNutricionalAtivoByLoteId(loteId)
+    const data = await withTimeout(supabaseService.getPlanoNutricionalAtivoByLoteId(loteId), 3000)
     if (data) setCachedQuery(key, data)
-    return data
+    else clearCachedQuery(key) // plano encerrado no servidor: não manter o antigo
+    return { plano: data, confiavel: true }
   } catch {
-    return null
+    return doCache()
   }
 }
 
@@ -1133,7 +1168,7 @@ export async function getPlanoNutricionalAtivoByLoteIdCached(loteId: string): Pr
 export async function getLotesByPastoIdCached(fazendaId: string, pastoId: string): Promise<any[] | null> {
   const key = buildKey('lotes-pasto', fazendaId, pastoId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -1155,7 +1190,7 @@ export async function getLotesByPastoIdCached(fazendaId: string, pastoId: string
 export async function getUltimaDataPastoEntradaCached(fazendaId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ultima-entrada', fazendaId, pastoId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return cached || null
   }
@@ -1177,7 +1212,7 @@ export async function getUltimaDataPastoEntradaCached(fazendaId: string, pastoId
 export async function getUltimaDataPastoSaidaCached(fazendaId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ultima-saida', fazendaId, pastoId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return cached || null
   }
@@ -1199,7 +1234,7 @@ export async function getUltimaDataPastoSaidaCached(fazendaId: string, pastoId: 
 export async function getUltimoStatusPastoCached(fazendaId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ultimo-status', fazendaId, pastoId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return cached || null
   }
@@ -1221,7 +1256,7 @@ export async function getUltimoStatusPastoCached(fazendaId: string, pastoId: str
 export async function getOcupacaoAtualPorLotePastoCached(loteId: string, pastoId: string): Promise<any | null> {
   const key = buildKey('ocupacao', loteId, pastoId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return cached || null
   }
@@ -1243,7 +1278,7 @@ export async function getOcupacaoAtualPorLotePastoCached(loteId: string, pastoId
 export async function getOcupacaoAtualPorLoteModuloCached(loteId: string, moduloId: string): Promise<any | null> {
   const key = buildKey('ocupacao-modulo', loteId, moduloId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return cached || null
   }
@@ -1265,7 +1300,7 @@ export async function getOcupacaoAtualPorLoteModuloCached(loteId: string, modulo
 export async function getFormulacaoByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
   const key = buildKey('formulacao', fazendaId, nome)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     if (cached) return cached
     return await getCachedQueryFromIDB<any>(key)
@@ -1280,6 +1315,16 @@ export async function getFormulacaoByNomeCached(fazendaId: string, nome: string)
     if (cached) return cached
     return await getCachedQueryFromIDB<any>(key)
   }
+}
+
+/**
+ * Lê formulação por nome diretamente do cache (memória ou IDB), sem tentar online.
+ */
+export async function getFormulacaoByNomeFromCacheOnly(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('formulacao', fazendaId, nome)
+  const cached = getCachedQuery(key)
+  if (cached) return cached
+  return await getCachedQueryFromIDB<any>(key)
 }
 
 /**
@@ -1322,7 +1367,7 @@ export async function getFormulacaoByIdCached(fazendaId: string, formId: string)
     return null
   }
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     return await findInCache()
   }
 
@@ -1356,7 +1401,7 @@ export async function getFormulacaoByIdCached(fazendaId: string, formId: string)
 export async function getInsumosByFormulacaoCached(formulacaoId: string): Promise<any[]> {
   const key = buildKey('formulacao-insumos', formulacaoId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery<any[]>(key)
     if (cached) return cached
     return await getCachedQueryFromIDB<any[]>(key) || []
@@ -1425,16 +1470,17 @@ export async function getInsumosByFormulacaoFromCacheOnly(formulacaoId: string):
  */
 export async function getRegistrosSuplementacaoByLoteCached(fazendaId: string, loteId: string): Promise<any | null> {
   const key = buildKey('suplementacao-lote', fazendaId, loteId)
-  const cached = getCachedQuery(key)
 
-  if (!navigator.onLine) return cached || null
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    return getCachedQuery(key) || (await getCachedQueryFromIDB<any>(key))
+  }
 
   try {
-    const data = await supabaseService.getRegistrosSuplementacaoByLote(fazendaId, loteId)
+    const data = await withTimeout(supabaseService.getRegistrosSuplementacaoByLote(fazendaId, loteId), 5000)
     if (data && Array.isArray(data) && data.length > 0) setCachedQuery(key, data)
     return data
   } catch {
-    return cached || null
+    return getCachedQuery(key) || (await getCachedQueryFromIDB<any>(key))
   }
 }
 
@@ -1447,7 +1493,7 @@ export async function getRegistrosOfertaTratoByLoteCached(fazendaId: string, lot
   const key = buildKey('oferta-trato-lote', fazendaId, loteId)
   const cached = getCachedQuery(key)
 
-  if (!navigator.onLine) return cached || null
+  if (!navigator.onLine || redeInstavelRecentemente()) return cached || null
 
   try {
     const data = await supabaseService.getRegistrosOfertaTratoByLote(fazendaId, loteId)
@@ -1466,7 +1512,7 @@ export async function getNotasLeituraCochoConfigCached(fazendaId: string): Promi
   const key = buildKey('notas-leitura-cocho-config', fazendaId)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     return await getCachedQueryFromIDB<any[]>(key)
   }
@@ -1495,7 +1541,7 @@ export async function getRegistrosLeituraCochoByLoteCached(
   const key = buildKey('leitura-cocho-lote', fazendaId, loteId, dataInicio || '', dataFim || '')
   const cached = getCachedQuery(key)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     return await getCachedQueryFromIDB<any>(key)
   }
@@ -1519,7 +1565,7 @@ export async function getLoteCategoriasBatchCached(fazendaId: string): Promise<R
   const key = buildKey('lote-categorias-batch', fazendaId)
   const cached = getCachedQuery<Record<string, any[]>>(key)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     return await getCachedQueryFromIDB<Record<string, any[]>>(key)
   }
@@ -1543,7 +1589,7 @@ export async function getRegistrosOfertaTratoBatchCached(fazendaId: string): Pro
   const key = buildKey('oferta-trato-batch', fazendaId)
   const cached = getCachedQuery<Record<string, any[]>>(key)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     return await getCachedQueryFromIDB<Record<string, any[]>>(key)
   }
@@ -1567,7 +1613,7 @@ export async function getRegistrosLeituraCochoBatchCached(fazendaId: string): Pr
   const key = buildKey('leitura-cocho-batch', fazendaId)
   const cached = getCachedQuery<Record<string, any[]>>(key)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     return await getCachedQueryFromIDB<Record<string, any[]>>(key)
   }
@@ -1591,7 +1637,7 @@ export async function getFormulacoesBatchCached(fazendaId: string): Promise<any[
   const key = buildKey('formulacoes-batch', fazendaId)
   const cached = getCachedQuery<any[]>(key)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     return await getCachedQueryFromIDB<any[]>(key)
   }
@@ -1617,7 +1663,7 @@ export async function getUltimoTratoTotalByLoteCached(
   const key = buildKey('ultimo-trato-lote', fazendaId, loteId)
   const cached = getCachedQuery(key) as { data: string; total_kg: number } | null
 
-  if (!navigator.onLine) return cached || null
+  if (!navigator.onLine || redeInstavelRecentemente()) return cached || null
 
   try {
     const data = await supabaseService.getUltimoTratoTotalByLote(fazendaId, loteId)
@@ -1635,7 +1681,7 @@ export async function getTiposProgramacaoTratosCached(fazendaId: string): Promis
   const key = buildKey('tipos-programacao-tratos', fazendaId)
   const cached = getCachedQuery(key) as string[] | null
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     const idbCached = await getCachedQueryFromIDB<string[]>(key)
     return idbCached || []
@@ -1688,7 +1734,7 @@ async function getProgramacaoTratosDoDiaCached(
     : buildKey('programacao-tratos', fazendaId, tipo)
   const cached = getCachedQuery(key)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     return await getCachedQueryFromIDB<any>(key)
   }
@@ -1714,7 +1760,7 @@ export async function getOcupacoesCurralNaDataCached(
   const key = buildKey('ocupacoes-curral-data', fazendaId, data)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     const idbCached = await getCachedQueryFromIDB<any[]>(key)
     return idbCached || []
@@ -1742,7 +1788,7 @@ export async function getRegistrosOfertaTratoByFazendaDataCached(
   const key = buildKey('registros-trato-fazenda-data', fazendaId, data)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     const idbCached = await getCachedQueryFromIDB<any[]>(key)
     return idbCached || []
@@ -1770,7 +1816,7 @@ export async function getRegistrosFabricaByDataCached(
   const key = buildKey('registros-fabrica-data', fazendaId, data)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     const idbCached = await getCachedQueryFromIDB<any[]>(key)
     return idbCached || []
@@ -1799,7 +1845,7 @@ export async function getRegistrosOfertaTratoAnterioresCached(
   const key = buildKey('registros-trato-anteriores', fazendaId, curralId, dataReferencia)
   const cached = getCachedQuery(key) as any[] | null
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     if (cached) return cached
     const idbCached = await getCachedQueryFromIDB<any[]>(key)
     return idbCached || []
@@ -1824,7 +1870,7 @@ export async function getRegistrosOfertaTratoAnterioresCached(
 export async function getLastRodeioDateCached(fazendaId: string, loteId: string): Promise<any | null> {
   const key = buildKey('ultimo-rodeio', fazendaId, loteId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return cached || null
   }
@@ -1846,7 +1892,7 @@ export async function getLastRodeioDateCached(fazendaId: string, loteId: string)
 export async function getContagemPartosVacaCached(fazendaId: string, idVaca: string): Promise<any | null> {
   const key = buildKey('partos-vaca', fazendaId, idVaca)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return cached || null
   }
@@ -1868,7 +1914,7 @@ export async function getContagemPartosVacaCached(fazendaId: string, idVaca: str
 export async function getMedicamentosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('medicamentos', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -1890,7 +1936,7 @@ export async function getMedicamentosCached(fazendaId: string): Promise<any[] | 
 export async function getTratamentosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('tratamentos', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -1912,7 +1958,7 @@ export async function getTratamentosCached(fazendaId: string): Promise<any[] | n
 export async function getRacasCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('racas', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -1934,7 +1980,7 @@ export async function getRacasCached(fazendaId: string): Promise<any[] | null> {
 export async function getCausasMorteCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('causas-morte', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -1956,7 +2002,7 @@ export async function getCausasMorteCached(fazendaId: string): Promise<any[] | n
 export async function getPluviometrosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('pluviometros', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -1978,7 +2024,7 @@ export async function getPluviometrosCached(fazendaId: string): Promise<any[] | 
 export async function getMaquinasVeiculosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('maquinas-veiculos', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2000,7 +2046,7 @@ export async function getMaquinasVeiculosCached(fazendaId: string): Promise<any[
 export async function getImplementosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('implementos', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2022,7 +2068,7 @@ export async function getImplementosCached(fazendaId: string): Promise<any[] | n
 export async function getTanquesCombustivelCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('tanques-combustivel', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2067,7 +2113,7 @@ export async function updateTanqueSaldoCache(fazendaId: string, tanqueId: string
 export async function getClassificacoesCantinaCached(fazendaId: string): Promise<string[] | null> {
   const key = buildKey('classificacoes-cantina', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached as string[] : null
   }
@@ -2089,7 +2135,7 @@ export async function getClassificacoesCantinaCached(fazendaId: string): Promise
 export async function getItensCantinaCached(fazendaId: string, classificacao: string): Promise<any[] | null> {
   const key = buildKey('itens-cantina', fazendaId, classificacao)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2111,7 +2157,7 @@ export async function getItensCantinaCached(fazendaId: string, classificacao: st
 export async function getSetoresCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('setores', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2133,7 +2179,7 @@ export async function getSetoresCached(fazendaId: string): Promise<any[] | null>
 export async function getLocaisCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('locais', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2154,7 +2200,7 @@ export async function getLocaisCached(fazendaId: string): Promise<any[] | null> 
  */
 export async function getItensPendentesDevolucaoCached(fazendaId: string, quemPegou?: string): Promise<any[] | null> {
   const key = buildKey('pendencias-devolucao-almoxarifado', fazendaId, quemPegou || 'todos')
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return Array.isArray(cached) ? cached : null
   }
@@ -2170,7 +2216,7 @@ export async function getItensPendentesDevolucaoCached(fazendaId: string, quemPe
 export async function getClassificacoesAlmoxarifadoCached(fazendaId: string): Promise<string[] | null> {
   const key = buildKey('classificacoes-almoxarifado', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached as string[] : null
   }
@@ -2218,7 +2264,7 @@ export async function updateItemCantinaSaldoCache(fazendaId: string, itemId: str
 export async function getItensAlmoxarifadoCached(fazendaId: string, classificacao: string): Promise<any[] | null> {
   const key = buildKey('itens-almoxarifado', fazendaId, classificacao)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2240,7 +2286,7 @@ export async function getItensAlmoxarifadoCached(fazendaId: string, classificaca
 export async function getVagoesCached(fazendaId: string): Promise<any[]> {
   const key = buildKey('vagoes', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     if (cached && Array.isArray(cached)) return cached
     const idbCached = await getCachedQueryFromIDB<any[]>(key)
@@ -2280,7 +2326,7 @@ export async function getVagoesCached(fazendaId: string): Promise<any[]> {
 export async function getCurraisCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('currais', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     if (cached && Array.isArray(cached)) return cached
     return await getCachedQueryFromIDB<any[]>(key)
@@ -2311,7 +2357,7 @@ export async function getFazendasDoMesmoGrupoCached(fazendaId: string): Promise<
     return (cached && Array.isArray(cached)) ? cached : null
   }
 
-  if (!navigator.onLine) return fromCache()
+  if (!navigator.onLine || redeInstavelRecentemente()) return fromCache()
 
   try {
     const data = await withTimeout(supabaseService.getFazendasDoMesmoGrupo(fazendaId), 3000)
@@ -2330,7 +2376,7 @@ export async function getFazendasDoMesmoGrupoCached(fazendaId: string): Promise<
 export async function getLinhasConfinamentoCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('linhas-confinamento', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached && Array.isArray(cached)) ? cached : null
   }
@@ -2351,18 +2397,19 @@ export async function getLinhasConfinamentoCached(fazendaId: string): Promise<an
  */
 export async function getBebedourosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('bebedouros', fazendaId)
-
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
+  const doCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+    return cached && Array.isArray(cached) ? cached : null
   }
 
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
   try {
-    const data = await supabaseService.getBebedouros(fazendaId)
+    const data = await withTimeout(supabaseService.getBebedouros(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return doCache()
   }
 }
 
@@ -2372,20 +2419,29 @@ export async function getBebedourosCached(fazendaId: string): Promise<any[] | nu
  * Quando offline, usa o cache.
  */
 export async function getBebedouroByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
+  if (!navigator.onLine || redeInstavelRecentemente()) return getBebedouroByNomeFromCacheOnly(fazendaId, nome)
+
   const key = buildKey('bebedouro', fazendaId, nome)
-
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
-    return cached || null
-  }
-
   try {
-    const data = await supabaseService.getBebedouroByNome(fazendaId, nome)
+    const data = await withTimeout(supabaseService.getBebedouroByNome(fazendaId, nome), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return getBebedouroByNomeFromCacheOnly(fazendaId, nome)
   }
+}
+
+/**
+ * Lê bebedouro por nome diretamente do cache (memória ou IDB), sem tentar online.
+ */
+export async function getBebedouroByNomeFromCacheOnly(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('bebedouro', fazendaId, nome)
+  const direto = getCachedQuery<any>(key) ?? (await getCachedQueryFromIDB<any>(key))
+  if (direto) return direto
+  // O aquecimento do cache guarda a lista de bebedouros (não um registro por nome): procura nela
+  const listaKey = buildKey('bebedouros', fazendaId)
+  const lista = getCachedQuery<any[]>(listaKey) ?? (await getCachedQueryFromIDB<any[]>(listaKey))
+  return (Array.isArray(lista) ? lista.find((b) => b?.nome === nome) : null) ?? null
 }
 
 /**
@@ -2397,7 +2453,7 @@ export async function getBebedouroByNomeCached(fazendaId: string, nome: string):
 export async function getUltimaDataLimpezaBebedouroCached(fazendaId: string, bebedouroId: string): Promise<string | null> {
   const key = buildKey('ultima-limpeza-bebedouro', fazendaId, bebedouroId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery(key)
     return (cached !== undefined && cached !== null) ? cached as string : null
   }
@@ -2421,18 +2477,26 @@ export async function getUltimaDataLimpezaBebedouroAntesDeCached(
   dataReferencia: string
 ): Promise<string | null> {
   const key = buildKey('ultima-limpeza-bebedouro-antes', fazendaId, bebedouroId, dataReferencia)
-
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
-    return (cached !== undefined && cached !== null) ? cached as string : null
+  const doCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<string>(key))
+    if (cached !== undefined && cached !== null) return cached !== '' ? (cached as string) : null
+    // Data diferente da aquecida (ex.: registro retroativo): a última limpeza geral vale se for anterior à data
+    const geralKey = buildKey('ultima-limpeza-bebedouro', fazendaId, bebedouroId)
+    const geral = getCachedQuery<string>(geralKey) ?? (await getCachedQueryFromIDB<string>(geralKey))
+    return geral && geral < dataReferencia ? geral : null
   }
 
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
   try {
-    const data = await supabaseService.getUltimaDataLimpezaBebedouroAntesDe(fazendaId, bebedouroId, dataReferencia)
+    const data = await withTimeout(
+      supabaseService.getUltimaDataLimpezaBebedouroAntesDe(fazendaId, bebedouroId, dataReferencia),
+      3000
+    )
     setCachedQuery(key, data ?? '')
     return data
   } catch {
-    return null
+    return doCache()
   }
 }
 
@@ -2443,18 +2507,19 @@ export async function getUltimaDataLimpezaBebedouroAntesDeCached(
  */
 export async function getIntervaloMedioLimpezasCached(fazendaId: string, bebedouroId: string): Promise<number> {
   const key = buildKey('intervalo-limpeza-bebedouro', fazendaId, bebedouroId)
-
-  if (!navigator.onLine) {
-    const cached = getCachedQuery(key)
-    return (cached !== undefined && cached !== null) ? cached as number : 0
+  const doCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<number>(key))
+    return cached !== undefined && cached !== null ? (cached as number) : 0
   }
 
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
   try {
-    const data = await supabaseService.getIntervaloMedioLimpezas(fazendaId, bebedouroId)
+    const data = await withTimeout(supabaseService.getIntervaloMedioLimpezas(fazendaId, bebedouroId), 3000)
     setCachedQuery(key, data)
     return data
   } catch {
-    return 0
+    return doCache()
   }
 }
 
@@ -3305,19 +3370,30 @@ export async function getPastosByBebedouroCached(
   bebedouroId: string
 ): Promise<{ id: string; nome: string }[] | null> {
   const key = buildKey('pastos-by-bebedouro', fazendaId, bebedouroId)
+  const doCache = async () =>
+    getCachedQuery<{ id: string; nome: string }[]>(key) ?? (await getCachedQueryFromIDB<{ id: string; nome: string }[]>(key)) ?? null
 
-  if (!navigator.onLine) {
-    const cached = getCachedQuery<{ id: string; nome: string }[]>(key)
-    return cached ?? null
-  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
 
   try {
-    const data = await supabaseService.getPastosByBebedouro(fazendaId, bebedouroId)
+    const data = await withTimeout(supabaseService.getPastosByBebedouro(fazendaId, bebedouroId), 3000)
     setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    // null = não foi possível saber (diferente de lista vazia, que é "bebedouro sem pasto")
+    return doCache()
   }
+}
+
+/**
+ * Pastos do bebedouro direto do cache (memória ou IDB), sem tentar online.
+ */
+export async function getPastosByBebedouroFromCacheOnly(
+  fazendaId: string,
+  bebedouroId: string
+): Promise<{ id: string; nome: string }[] | null> {
+  const key = buildKey('pastos-by-bebedouro', fazendaId, bebedouroId)
+  return getCachedQuery<{ id: string; nome: string }[]>(key) ?? (await getCachedQueryFromIDB<{ id: string; nome: string }[]>(key)) ?? null
 }
 
 // ==================== CACHE DE ESTOQUE DE SUPLEMENTOS ====================
@@ -3341,7 +3417,7 @@ export interface SaldoEstoqueItem {
 export async function getSaldoInsumosCached(fazendaId: string): Promise<SaldoEstoqueItem[] | null> {
   const key = buildKey('estoque-insumos', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery<SaldoEstoqueItem[]>(key)
     return cached ?? null
   }
@@ -3375,7 +3451,7 @@ export async function getSaldoInsumosCached(fazendaId: string): Promise<SaldoEst
 export async function getSaldoFormulacoesCached(fazendaId: string): Promise<SaldoEstoqueItem[] | null> {
   const key = buildKey('estoque-formulacoes', fazendaId)
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || redeInstavelRecentemente()) {
     const cached = getCachedQuery<SaldoEstoqueItem[]>(key)
     return cached ?? null
   }

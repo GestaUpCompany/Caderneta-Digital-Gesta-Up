@@ -50,6 +50,18 @@ export async function getCachedChecklistRegras(fazendaId: string): Promise<Check
   return fetchChecklistRegras(fazendaId)
 }
 
+/**
+ * Lê as regras só do cache local, sem rede e sem considerar validade (o cache é revalidado em
+ * segundo plano). Retorna null quando este aparelho ainda não baixou as regras da fazenda.
+ */
+export async function getChecklistRegrasFromCacheOnly(fazendaId: string): Promise<ChecklistRegra[] | null> {
+  const cached = await getCadastroData(CACHE_KEY)
+  if (cached && cached.fazendaId === fazendaId && Array.isArray(cached.regras)) {
+    return cached.regras as ChecklistRegra[]
+  }
+  return null
+}
+
 export async function getChecklistRegrasOnlineFirst(fazendaId: string): Promise<ChecklistRegra[]> {
   try {
     return await fetchChecklistRegras(fazendaId)
