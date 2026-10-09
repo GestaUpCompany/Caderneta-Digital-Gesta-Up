@@ -425,6 +425,24 @@ const formatarRecebimentoComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+// Nomes gravados em `diagnosticos` pela Enfermaria e como aparecem na tela
+const ROTULOS_DIAGNOSTICO_ENFERMARIA: Record<string, string> = {
+  Pneumonia: 'PNEUMONIA',
+  Cobra: 'PICADA DE COBRA',
+  'Tremores Musculares': 'TREMENDO',
+  'Incoordenação Motora': 'ANDANDO TORTO',
+  Febre: 'FEBRE',
+  Sangramento: 'SANGRAMENTO',
+  Fratura: 'FRATURA',
+  Diarreia: 'DIARREIA',
+  Empanzinado: 'EMPANZINADO',
+  Cegueira: 'CEGUEIRA',
+  Bicheira: 'BICHEIRA',
+  Inchaço: 'INCHAÇO',
+}
+
+export const rotuloDiagnosticoEnfermaria = (nome: string): string => ROTULOS_DIAGNOSTICO_ENFERMARIA[nome] || nome.toUpperCase()
+
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   if (caderneta === 'pesagem') {
     return formatarPesagemComoTexto(registro, todosRegistros)
@@ -1280,6 +1298,8 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
 
     // Seção: IDENTIFICAÇÃO DO ANIMAL
     texto += '\nIDENTIFICAÇÃO DO ANIMAL\n'
+    // O ID manejo não tem coluna no banco (o registro guarda brinco/chip), mas o aparelho tem e vai na mensagem
+    if (registro.idManejo) texto += `ID. MANEJO: *${registro.idManejo}*\n`
     const ordemIdentificacao = [
       'brinco',
       'chip',
@@ -1297,7 +1317,16 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       }
     })
 
-    // Seção: DIAGNÓSTICOS
+    // Seção: DIAGNÓSTICOS (formato atual: lista de nomes marcados na tela)
+    if (Array.isArray(registro.diagnosticos) && registro.diagnosticos.length > 0) {
+      texto += '\nDIAGNÓSTICOS\n'
+      registro.diagnosticos.forEach((d: unknown) => {
+        const nome = String(d)
+        texto += `⚠️ ${ROTULOS_DIAGNOSTICO_ENFERMARIA[nome] || nome.toUpperCase()}\n`
+      })
+    }
+
+    // Formato antigo: objeto com SIM/NÃO por sintoma
     const ordemDiagnosticos = [
       'feridaCascos',
       'sintomasPneumonia',

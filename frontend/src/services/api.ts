@@ -227,17 +227,45 @@ export async function aguardarSyncConcluido(
   return 'pending'
 }
 
+// Último fuso conhecido da fazenda: o salvar usa na hora e a consulta ao servidor só atualiza em segundo plano
+const chaveFusoFazenda = (acessoId: string) => `fazenda-timezone:${acessoId}`
+
+function lerFusoSalvo(acessoId: string): string | null {
+  try {
+    return localStorage.getItem(chaveFusoFazenda(acessoId))
+  } catch {
+    return null
+  }
+}
+
 async function getFarmTimezone(): Promise<string> {
   const state = store.getState()
   const acessoId = state.config.acessoId
-  if (!acessoId || !navigator.onLine || redeInstavelRecentemente()) return DEFAULT_FARM_TIMEZONE
-  try {
+  if (!acessoId) return DEFAULT_FARM_TIMEZONE
+
+  const salvo = lerFusoSalvo(acessoId)
+  const consultar = async (): Promise<string> => {
     // Com Wi-Fi sem internet (onLine true) a consulta demora segundos: o salvar não pode esperar por ela
     const fazenda = await Promise.race([
       getFazendaByAcessoId(acessoId),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
     ])
-    return fazenda?.timezone ?? DEFAULT_FARM_TIMEZONE
+    const tz = fazenda?.timezone ?? DEFAULT_FARM_TIMEZONE
+    try {
+      localStorage.setItem(chaveFusoFazenda(acessoId), tz)
+    } catch {
+      // sem storage: só não guarda
+    }
+    return tz
+  }
+
+  if (salvo) {
+    if (navigator.onLine && !redeInstavelRecentemente()) consultar().catch(() => {})
+    return salvo
+  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return DEFAULT_FARM_TIMEZONE
+  try {
+    return await consultar()
   } catch (err) {
     console.error('[api] Erro ao buscar timezone da fazenda:', err)
     return DEFAULT_FARM_TIMEZONE
