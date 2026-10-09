@@ -332,10 +332,14 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     // Só a foto principal do registro (quando a tela tem). Registro já sincronizado só
     // tem a foto_url: baixa para anexar; se falhar (offline), o texto sai sem a foto.
     const fotos: string[] = []
-    // Suplementação: a foto principal é a do cocho (evidência da leitura), guardada no checklist
-    const fotoCocho = caderneta === 'suplementacao' ? (registroParaShare as any).checklist?.foto_cocho : null
-    const fotoLocal = (fotoCocho ? fotoCocho.fotoBase64 : (registroParaShare as any).fotoBase64) as string | null | undefined
-    const fotoUrl = (fotoCocho ? fotoCocho.foto_url : (registroParaShare as any).foto_url) as string | null | undefined
+    // Suplementação (foto do cocho) e Bebedouros (foto do bebedouro): a foto principal fica no checklist
+    const checklistShare = (registroParaShare as any).checklist
+    const fotoNoChecklist =
+      caderneta === 'suplementacao' ? checklistShare?.foto_cocho
+      : caderneta === 'bebedouros' ? checklistShare?.foto_bebedouro
+      : null
+    const fotoLocal = (fotoNoChecklist ? fotoNoChecklist.fotoBase64 : (registroParaShare as any).fotoBase64) as string | null | undefined
+    const fotoUrl = (fotoNoChecklist ? fotoNoChecklist.foto_url : (registroParaShare as any).foto_url) as string | null | undefined
     const foto = fotoLocal || (fotoUrl ? await fotoUrlParaBase64(fotoUrl) : null)
     if (foto) fotos.push(foto)
     const textoFinal = texto

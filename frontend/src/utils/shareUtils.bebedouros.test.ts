@@ -51,6 +51,20 @@ describe('formatarRegistroComoTexto (bebedouros)', () => {
     expect(t).not.toMatch(/\(foto|undefined|NaN|\[object|\bnull\b/)
   })
 
+  it('a foto principal do bebedouro no checklist não vira item nem linha do texto', () => {
+    const comFoto = texto({
+      checklist: { ...base().checklist, foto_bebedouro: { valor: true, observacao: '', foto_url: 'https://x/foto_bebedouro.webp' } },
+    })
+    expect(comFoto).toBe(texto())
+    expect(comFoto).not.toMatch(/foto|https?:/i)
+  })
+
+  it('checklist só com a foto (fazenda sem checklist) não inventa "limpou hoje"', () => {
+    const t = texto({ checklist: { foto_bebedouro: { valor: true, observacao: '', foto_url: 'https://x/f.webp' } } })
+    expect(t).not.toContain('LIMPOU O BEBEDOURO HOJE?')
+    expect(t).not.toContain('PROBLEMAS ENCONTRADOS')
+  })
+
   it('limpeza: Não', () => {
     expect(texto({ checklist: { ...base().checklist, limpou_hoje: { valor: false, observacao: '' } } })).toContain(
       'LIMPOU O BEBEDOURO HOJE?: *Não*'

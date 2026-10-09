@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Bebedouros: foto do bebedouro (09/10/2026)
+
+- **Botão "Foto do bebedouro"** na seção 1 da tela, opcional, no mesmo layout do "Foto do cocho" da Suplementação (botão pontilhado; com foto: miniatura + REMOVER FOTO). Usa `usePhotoGps({ comGps: false })` e a mesma captura (nativa ou input file no web).
+- **Onde a foto fica:** `checklist.foto_bebedouro` (`{ valor: true, observacao: '', fotoBase64 }`), padrão do `foto_cocho`. Não dá para usar `fotoBase64` no nível do registro: `registros_bebedouros` não tem coluna `foto_url`, e o sync tentaria gravá-la. O sync sobe a imagem para `fotos-registros/<fazenda>/bebedouros/<id>/foto_bebedouro.webp` e o checklist guarda só o `foto_url`.
+- **Sem checklist ativo na fazenda:** o checklist passa a existir só com a foto (antes era `null`). `registrarLimpezaDoRegistroBebedouro` agora trata checklist sem `limpou_hoje` como "sem checklist" (todo registro conta como limpeza), senão a foto sozinha apagaria o histórico de limpeza.
+- **Compartilhar:** `ListaRegistros` usa `checklist.foto_bebedouro` como foto principal (baixa pelo `foto_url` quando o registro já sincronizou). O texto não ganha linha nem marcador de foto (teste novo em `shareUtils.bebedouros.test.ts`).
+- **Painel Web NÃO ignora a chave nova (pendente, repo `GestaUp-Cadernetas-Gestao`):**
+  - `features/relatorioBebedouros/calculos.ts` (`calcularChecklist`): `comChecklist` filtra `checklist` com qualquer chave, então um registro só com `foto_bebedouro` (fazenda sem checklist) conta como "registro com checklist" sem nenhum problema. Infla "Registros com checklist" e dilui os percentuais do ranking e do KPI de negativos (também usado em `relatorioGeral/loaders.ts` e no relatório público). Correção: exigir ao menos uma chave de `CHECKLIST_ITEMS`.
+  - `pages/controller/BebedourosDetalhes.tsx`: "Fotos dos problemas" lista todo item com `foto_url`; `foto_bebedouro` aparece lá com a legenda crua "foto_bebedouro" (não está em `CHECKLIST_FOTO_LABELS`). Correção: tirar a chave dessa seção e mostrar como "Foto do bebedouro".
+- **Verificado (fazenda de testes, build de produção, com a regra de checklist de bebedouros desligada e depois restaurada):** online, offline (regras e dados vindos do cache), rascunho com foto restaurado após reload, upload no Storage (URL abre, `image/webp`), checklist gravado só com `foto_bebedouro`, histórico de limpeza gravado nos dois casos, compartilhar anexa `foto_1.webp`. Com checklist ativo: `limpou_hoje` preservado.
+- **Detalhe de UI:** sem checklist, a seção de observação aparecia como "3." logo após a "1."; agora é "2.".
+
 ## Abastecimento: offline, sinal ruim e validação alinhada (09/10/2026)
 
 - **Cache primeiro** para máquinas/veículos e tanques (`getMaquinasVeiculosFromCacheOnly`, `getTanquesCombustivelFromCacheOnly`): leitura do IndexedDB além da memória, revalidação online com timeout de 3 s. Antes, após recarregar offline a memória vinha vazia e a lista sumia. `updateTanqueSaldoCache` também lê do IndexedDB (a baixa otimista do saldo sobrevive ao reload).
