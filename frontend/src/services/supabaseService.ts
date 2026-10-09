@@ -1904,6 +1904,25 @@ export async function createHistoricoLimpeza(
   return data
 }
 
+/**
+ * Grava o histórico de limpeza com id definido pelo chamador (upsert por id): reenviar o mesmo registro
+ * de bebedouro no sync regrava a mesma linha, sem duplicar.
+ */
+export async function upsertHistoricoLimpeza(linha: {
+  id: string
+  fazenda_id: string
+  bebedouro_id: string
+  data_limpeza: string
+  responsavel?: string | null
+  observacao?: string | null
+}) {
+  const client = await getSupabaseClientWithRefresh()
+  const { error } = await client
+    .from('historico_limpezas_bebedouros')
+    .upsert(linha, { onConflict: 'id' })
+  if (error) throw error
+}
+
 // ==================== REGISTROS MATERNIDADE ====================
 
 export async function getRegistrosMaternidade(fazendaId: string, dataInicio?: string, dataFim?: string) {

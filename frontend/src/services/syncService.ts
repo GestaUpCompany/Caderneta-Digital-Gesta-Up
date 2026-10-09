@@ -847,6 +847,28 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
   'entrada-almoxarifado': 'fotos-registros',
 }
 
+// Limpeza do bebedouro: quando o registro confirma que limpou (ou a fazenda não usa checklist, onde todo
+// registro conta como limpeza), grava o histórico no sync. Vive aqui, e não na tela, para funcionar com o
+// registro feito offline. O id é derivado do registro: reenviar não duplica a linha.
+async function registrarLimpezaDoRegistroBebedouro(registro: Registro, fazendaId: string): Promise<void> {
+  const checklist = (registro as any).checklist as Record<string, any> | null | undefined
+  const limpou = !checklist || checklist.limpou_hoje?.valor === true
+  if (!limpou || !registro.numeroBebedouro || !registro.data) return
+
+  const bebedouro = await supabaseService.getBebedouroByNome(fazendaId, String(registro.numeroBebedouro))
+  if (!bebedouro) return // bebedouro renomeado ou removido: não há a quem atribuir a limpeza
+
+  const { uuidDeterministico } = await import('../utils/idDeterministico')
+  await supabaseService.upsertHistoricoLimpeza({
+    id: await uuidDeterministico(`limpeza-bebedouro:${registro.id}`),
+    fazenda_id: fazendaId,
+    bebedouro_id: bebedouro.id,
+    data_limpeza: brToIso(String(registro.data).split(' ')[0]),
+    responsavel: (registro as any).responsavel || (registro as any).usuario || null,
+    observacao: (registro as any).observacao || 'Registro de inspeção',
+  })
+}
+
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.
 async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, fazendaId: string): Promise<string | null> {
   const bucket = FOTO_BUCKET_BY_STORE[store]
@@ -1169,6 +1191,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           }
           case 'registros_bebedouros':
             result = await supabaseService.createRegistroBebedouros(data)
+            await registrarLimpezaDoRegistroBebedouro(registro, fazendaId)
             break
           case 'registros_movimentacao':
             result = await supabaseService.createRegistroMovimentacao(data)

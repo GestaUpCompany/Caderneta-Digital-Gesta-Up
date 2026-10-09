@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Bebedouros: offline, sinal ruim e histórico de limpeza no sync (08/10/2026)
+
+Mesma bateria do Rodeio e da Suplementação na `BebedourosPage`, em build de produção no navegador (online, offline com `navigator.onLine` ainda true).
+
+- **Histórico de limpeza perdido offline**: a tela gravava `historico_limpezas_bebedouros` direto no Supabase depois de salvar; sem internet (ou com falha) a limpeza nunca entrava no histórico, e o "última limpeza" ficava errado. Agora o `syncService` grava a limpeza junto com o registro (`registrarLimpezaDoRegistroBebedouro`): só quando limpou (ou a fazenda não usa checklist), com id derivado do registro (`uuidDeterministico`, upsert por id), então reenviar não duplica. A tabela não tem chave única por registro, por isso o id determinístico em vez de migration. A tela não escreve mais direto.
+- **Cache**: as funções de bebedouro (`...Cached`) esperavam a rede sem timeout e, ao falhar, devolviam `null` em vez do cache; agora têm timeout de 3 s e caem no cache (memória/IndexedDB). O bebedouro por nome também é achado na lista aquecida (antes só existia o cache por id), e "última limpeza" de data retroativa usa a última limpeza geral aquecida.
+- **Tela**: lista de bebedouros cache-first (sem campo de texto livre quando não há lista: não dá para digitar um nome qualquer); dados do bebedouro e pastos cache-first, com limpeza do estado ao trocar e respostas atrasadas ignoradas. SALVAR bloqueado enquanto os dados do bebedouro carregam ou não chegaram (antes salvava sem pasto e sem o resumo de limpeza), com `pendenciaTexto`; volta da internet refaz a leitura sozinha. Data sem futuro; erro some ao trocar data/bebedouro; LIMPAR limpa erros.
+- Testes novos: `validation.bebedouros.test.ts`, `shareUtils.bebedouros.test.ts`, `idDeterministico.test.ts`.
+- Texto compartilhável conferido no navegador, online e offline: igual (a única diferença foi o "intervalo médio", que offline usa o dado aquecido e online já inclui a limpeza recém-sincronizada), sem valores quebrados nem marcadores de foto.
+
 ## Suplementação: offline, sinal ruim e validação alinhada (08/10/2026)
 
 Mesma bateria aplicada ao Rodeio, agora na `SuplementacaoPage`, testada em build de produção no navegador (online, offline com `navigator.onLine` ainda true, rede travada) na fazenda de testes.

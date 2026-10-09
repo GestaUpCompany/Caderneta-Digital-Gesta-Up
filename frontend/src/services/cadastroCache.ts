@@ -2397,18 +2397,19 @@ export async function getLinhasConfinamentoCached(fazendaId: string): Promise<an
  */
 export async function getBebedourosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('bebedouros', fazendaId)
-
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
+  const doCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+    return cached && Array.isArray(cached) ? cached : null
   }
 
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
   try {
-    const data = await supabaseService.getBebedouros(fazendaId)
+    const data = await withTimeout(supabaseService.getBebedouros(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return doCache()
   }
 }
 
@@ -2418,20 +2419,29 @@ export async function getBebedourosCached(fazendaId: string): Promise<any[] | nu
  * Quando offline, usa o cache.
  */
 export async function getBebedouroByNomeCached(fazendaId: string, nome: string): Promise<any | null> {
+  if (!navigator.onLine || redeInstavelRecentemente()) return getBebedouroByNomeFromCacheOnly(fazendaId, nome)
+
   const key = buildKey('bebedouro', fazendaId, nome)
-
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return cached || null
-  }
-
   try {
-    const data = await supabaseService.getBebedouroByNome(fazendaId, nome)
+    const data = await withTimeout(supabaseService.getBebedouroByNome(fazendaId, nome), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return getBebedouroByNomeFromCacheOnly(fazendaId, nome)
   }
+}
+
+/**
+ * Lê bebedouro por nome diretamente do cache (memória ou IDB), sem tentar online.
+ */
+export async function getBebedouroByNomeFromCacheOnly(fazendaId: string, nome: string): Promise<any | null> {
+  const key = buildKey('bebedouro', fazendaId, nome)
+  const direto = getCachedQuery<any>(key) ?? (await getCachedQueryFromIDB<any>(key))
+  if (direto) return direto
+  // O aquecimento do cache guarda a lista de bebedouros (não um registro por nome): procura nela
+  const listaKey = buildKey('bebedouros', fazendaId)
+  const lista = getCachedQuery<any[]>(listaKey) ?? (await getCachedQueryFromIDB<any[]>(listaKey))
+  return (Array.isArray(lista) ? lista.find((b) => b?.nome === nome) : null) ?? null
 }
 
 /**
@@ -2467,18 +2477,26 @@ export async function getUltimaDataLimpezaBebedouroAntesDeCached(
   dataReferencia: string
 ): Promise<string | null> {
   const key = buildKey('ultima-limpeza-bebedouro-antes', fazendaId, bebedouroId, dataReferencia)
-
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached !== undefined && cached !== null) ? cached as string : null
+  const doCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<string>(key))
+    if (cached !== undefined && cached !== null) return cached !== '' ? (cached as string) : null
+    // Data diferente da aquecida (ex.: registro retroativo): a última limpeza geral vale se for anterior à data
+    const geralKey = buildKey('ultima-limpeza-bebedouro', fazendaId, bebedouroId)
+    const geral = getCachedQuery<string>(geralKey) ?? (await getCachedQueryFromIDB<string>(geralKey))
+    return geral && geral < dataReferencia ? geral : null
   }
 
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
   try {
-    const data = await supabaseService.getUltimaDataLimpezaBebedouroAntesDe(fazendaId, bebedouroId, dataReferencia)
+    const data = await withTimeout(
+      supabaseService.getUltimaDataLimpezaBebedouroAntesDe(fazendaId, bebedouroId, dataReferencia),
+      3000
+    )
     setCachedQuery(key, data ?? '')
     return data
   } catch {
-    return null
+    return doCache()
   }
 }
 
@@ -2489,18 +2507,19 @@ export async function getUltimaDataLimpezaBebedouroAntesDeCached(
  */
 export async function getIntervaloMedioLimpezasCached(fazendaId: string, bebedouroId: string): Promise<number> {
   const key = buildKey('intervalo-limpeza-bebedouro', fazendaId, bebedouroId)
-
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached !== undefined && cached !== null) ? cached as number : 0
+  const doCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<number>(key))
+    return cached !== undefined && cached !== null ? (cached as number) : 0
   }
 
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
   try {
-    const data = await supabaseService.getIntervaloMedioLimpezas(fazendaId, bebedouroId)
+    const data = await withTimeout(supabaseService.getIntervaloMedioLimpezas(fazendaId, bebedouroId), 3000)
     setCachedQuery(key, data)
     return data
   } catch {
-    return 0
+    return doCache()
   }
 }
 
@@ -3351,19 +3370,30 @@ export async function getPastosByBebedouroCached(
   bebedouroId: string
 ): Promise<{ id: string; nome: string }[] | null> {
   const key = buildKey('pastos-by-bebedouro', fazendaId, bebedouroId)
+  const doCache = async () =>
+    getCachedQuery<{ id: string; nome: string }[]>(key) ?? (await getCachedQueryFromIDB<{ id: string; nome: string }[]>(key)) ?? null
 
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery<{ id: string; nome: string }[]>(key)
-    return cached ?? null
-  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
 
   try {
-    const data = await supabaseService.getPastosByBebedouro(fazendaId, bebedouroId)
+    const data = await withTimeout(supabaseService.getPastosByBebedouro(fazendaId, bebedouroId), 3000)
     setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    // null = não foi possível saber (diferente de lista vazia, que é "bebedouro sem pasto")
+    return doCache()
   }
+}
+
+/**
+ * Pastos do bebedouro direto do cache (memória ou IDB), sem tentar online.
+ */
+export async function getPastosByBebedouroFromCacheOnly(
+  fazendaId: string,
+  bebedouroId: string
+): Promise<{ id: string; nome: string }[] | null> {
+  const key = buildKey('pastos-by-bebedouro', fazendaId, bebedouroId)
+  return getCachedQuery<{ id: string; nome: string }[]>(key) ?? (await getCachedQueryFromIDB<{ id: string; nome: string }[]>(key)) ?? null
 }
 
 // ==================== CACHE DE ESTOQUE DE SUPLEMENTOS ====================
