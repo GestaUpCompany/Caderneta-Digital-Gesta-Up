@@ -59,12 +59,15 @@ const CHECKLIST_PROBLEMAS = [
 ] as const
 
 type CampoChecklist = typeof CHECKLIST_PROBLEMAS[number]['campo']
+// 'fotoBebedouro' é a foto principal do registro (evidência do bebedouro), fora do checklist de problemas
+type CampoFoto = CampoChecklist | 'fotoBebedouro'
 
 interface FormState {
   data: string
   leituraBebedouro: string
   numeroBebedouro: string
   observacao: string
+  fotoBebedouro: string
   limpouHoje: string
   // Itens do checklist: '' = adequado (padrao), 'Não' = problema marcado.
   aguaSuficiente: string
@@ -93,6 +96,7 @@ const makeInitial = (): FormState => ({
   leituraBebedouro: '',
   numeroBebedouro: '',
   observacao: '',
+  fotoBebedouro: '',
   limpouHoje: '',
   aguaSuficiente: '',
   aguaSuficienteObs: '',
@@ -142,7 +146,7 @@ export default function BebedourosPage() {
   // Incrementa quando a internet volta com dados do bebedouro indisponíveis: refaz a leitura sozinho
   const [recarga, setRecarga] = useState(0)
   const bebedouroIndisponivelRef = useRef(false)
-  const [campoFotoAtual, setCampoFotoAtual] = useState<CampoChecklist | null>(null)
+  const [campoFotoAtual, setCampoFotoAtual] = useState<CampoFoto | null>(null)
   const [campoVozAtual, setCampoVozAtual] = useState<CampoChecklist | null>(null)
   const baseVozRef = useRef('')
 
@@ -172,24 +176,27 @@ export default function BebedourosPage() {
   const toggleProblema = (campo: CampoChecklist) =>
     setForm((prev) => ({ ...prev, [campo]: prev[campo] === 'Não' ? '' : 'Não' }))
 
-  const handleTirarFotoItem = async (campo: CampoChecklist) => {
+  // Foto: 'fotoBebedouro' (evidência do registro) ou item do checklist.
+  const campoFotoDestino = (campo: CampoFoto) => (campo === 'fotoBebedouro' ? 'fotoBebedouro' : `${campo}Foto`)
+
+  const handleTirarFotoItem = async (campo: CampoFoto) => {
     setCampoFotoAtual(campo)
     const base64 = await capturarFoto()
     // Nativo retorna a foto aqui; no web o retorno vem pelo input file hidden
     if (base64) {
-      setForm((prev) => ({ ...prev, [`${campo}Foto`]: base64 }))
+      setForm((prev) => ({ ...prev, [campoFotoDestino(campo)]: base64 }))
     }
   }
 
   const handleFotoInputItem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const result = await handleFileInputChange(e)
     if (result?.fotoBase64 && campoFotoAtual) {
-      setForm((prev) => ({ ...prev, [`${campoFotoAtual}Foto`]: result.fotoBase64 }))
+      setForm((prev) => ({ ...prev, [campoFotoDestino(campoFotoAtual)]: result.fotoBase64 }))
     }
   }
 
-  const removerFotoItem = (campo: CampoChecklist) =>
-    setForm((prev) => ({ ...prev, [`${campo}Foto`]: '' }))
+  const removerFotoItem = (campo: CampoFoto) =>
+    setForm((prev) => ({ ...prev, [campoFotoDestino(campo)]: '' }))
 
   // Ditado para a observacao do item: o texto parcial e acrescentado ao que
   // ja existia quando a gravacao comecou (da para falar mais de uma vez).
@@ -398,19 +405,30 @@ export default function BebedourosPage() {
       metaIntervaloLimpeza: form.metaIntervaloLimpeza,
       // valor = "a condicao esta adequada" (true) ou "problema marcado" (false).
       // A afirmacao negativa existe so na UI; a chave e a proposicao positiva.
-      checklist: checklistAtivo ? {
-        ...Object.fromEntries(CHECKLIST_PROBLEMAS.map(({ campo, checklistKey }) => [
-          checklistKey,
-          {
-            valor: form[campo] !== 'Não',
-            observacao: (form as any)[`${campo}Obs`] || '',
-            fotoBase64: (form as any)[`${campo}Foto`] || undefined,
+      // foto_bebedouro carrega a evidencia do registro e independe do checklist
+      // estar ativo para a fazenda.
+      checklist: (checklistAtivo || form.fotoBebedouro) ? {
+        ...(checklistAtivo ? {
+          ...Object.fromEntries(CHECKLIST_PROBLEMAS.map(({ campo, checklistKey }) => [
+            checklistKey,
+            {
+              valor: form[campo] !== 'Não',
+              observacao: (form as any)[`${campo}Obs`] || '',
+              fotoBase64: (form as any)[`${campo}Foto`] || undefined,
+            },
+          ])),
+          limpou_hoje: {
+            valor: form.limpouHoje === 'Sim',
+            observacao: '',
           },
-        ])),
-        limpou_hoje: {
-          valor: form.limpouHoje === 'Sim',
-          observacao: '',
-        },
+        } : {}),
+        ...(form.fotoBebedouro ? {
+          foto_bebedouro: {
+            valor: true,
+            observacao: '',
+            fotoBase64: form.fotoBebedouro,
+          },
+        } : {}),
       } : null,
     })
 
@@ -619,6 +637,42 @@ export default function BebedourosPage() {
               <p className="mt-2 text-base font-semibold text-red-700">{getError('leituraBebedouro')}</p>
             )}
           </div>
+
+          {/* Foto do bebedouro: evidencia do registro, opcional */}
+          <div>
+            <label className="mb-2 block text-[15px] font-bold text-gray-900">FOTO DO BEBEDOURO</label>
+            {form.fotoBebedouro ? (
+              <div className="flex items-start gap-3">
+                <img
+                  src={base64ToDataUrl(form.fotoBebedouro)}
+                  alt="Foto do bebedouro"
+                  className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removerFotoItem('fotoBebedouro')}
+                  className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+                >
+                  🗑️ REMOVER FOTO
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleTirarFotoItem('fotoBebedouro')}
+                disabled={capturandoFoto}
+                className="flex w-full min-h-[56px] items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 px-3 py-2.5 text-gray-700 transition-colors hover:border-gray-400 active:scale-[0.99] disabled:opacity-60"
+              >
+                <span className="text-lg leading-none">📷</span>
+                <span className="text-xs font-extrabold uppercase tracking-wide">
+                  {capturandoFoto && campoFotoAtual === 'fotoBebedouro' ? 'Capturando...' : 'Foto do bebedouro'}
+                </span>
+              </button>
+            )}
+            {fotoErro && campoFotoAtual === 'fotoBebedouro' && (
+              <InfoStrip tone="danger" className="mt-2">{fotoErro}</InfoStrip>
+            )}
+          </div>
         </CadernetaSection>
 
         {loadingChecklistRegras ? (
@@ -751,7 +805,7 @@ export default function BebedourosPage() {
           </CadernetaSection>
         ) : null}
 
-        <CadernetaSection numero={3} titulo="Observação">
+        <CadernetaSection numero={checklistAtivo || loadingChecklistRegras ? 3 : 2} titulo="Observação">
           <Input
             placeholder="Detalhes adicionais (opcional)"
             value={form.observacao}

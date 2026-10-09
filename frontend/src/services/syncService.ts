@@ -852,7 +852,8 @@ const FOTO_BUCKET_BY_STORE: Partial<Record<CadernetaStore, string>> = {
 // registro feito offline. O id é derivado do registro: reenviar não duplica a linha.
 async function registrarLimpezaDoRegistroBebedouro(registro: Registro, fazendaId: string): Promise<void> {
   const checklist = (registro as any).checklist as Record<string, any> | null | undefined
-  const limpou = !checklist || checklist.limpou_hoje?.valor === true
+  // Sem checklist da fazenda (ou checklist só com a foto principal): todo registro conta como limpeza
+  const limpou = !checklist || !('limpou_hoje' in checklist) || checklist.limpou_hoje?.valor === true
   if (!limpou || !registro.numeroBebedouro || !registro.data) return
 
   const bebedouro = await supabaseService.getBebedouroByNome(fazendaId, String(registro.numeroBebedouro))
