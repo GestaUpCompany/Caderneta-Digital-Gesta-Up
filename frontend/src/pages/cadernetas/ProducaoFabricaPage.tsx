@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -12,14 +12,15 @@ import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { normalizarNumero } from '../../utils/formatNumber'
 import {
   loadQueryCacheFromIndexedDB,
-  getCachedCadastroData,
   getInsumosByFormulacaoCached,
-  getFormulacaoByNomeCached,
+  getFormulacoesListaFromCacheOnly,
+  getFormulacoesListaCached,
 } from '../../services/cadastroCache'
-import { getFormulacoes } from '../../services/supabaseService'
+import { registrarRespostaDeRede } from '../../utils/fetchComTimeout'
 import { Brush, Save, AlertCircle, Loader2 } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
-import { DatePicker } from '../../components/ui'
+import { DatePicker, ValidationMessage } from '../../components/ui'
+import { scrollToFirstError } from '../../utils/scrollToError'
 
 interface InsumoFormulacao {
   insumo_id: string
@@ -57,10 +58,17 @@ export default function ProducaoFabricaPage() {
   const [form, setForm] = useState<FormState>(makeInitial())
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
+  const salvandoRef = useRef(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [carregando, setCarregando] = useState(true)
   const [dietasDisponiveis, setDietasDisponiveis] = useState<{ id: string; nome: string }[]>([])
+  // Lista que veio só do aparelho (não deu para conferir com o servidor) e lista sem nada no aparelho nem na rede
+  const [listaDoAparelho, setListaDoAparelho] = useState(false)
+  const [listaIndisponivel, setListaIndisponivel] = useState(false)
+  // Incrementa quando a internet volta (ou de tempos em tempos) com a lista sem conferir: refaz a leitura sozinho
+  const [recarga, setRecarga] = useState(0)
+  const listaPendenteRef = useRef(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
   const [carregandoInsumos, setCarregandoInsumos] = useState(false)
   const [estoqueInsuficiente] = useState<string[]>([])
@@ -70,62 +78,80 @@ export default function ProducaoFabricaPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Carregar dietas disponíveis (formulações ativas)
-  const carregarDietas = useCallback(async () => {
+  // O erro aparece no topo da página; quem está no botão SALVAR (fim da tela) precisa ser levado até ele,
+  // senão parece que o botão "não faz nada".
+  const mostrarErros = (lista: { field: string; message: string }[]) => {
+    setErrors(lista)
+    setTimeout(() => scrollToFirstError(lista), 50)
+  }
+
+  // Formulações ativas: lista do aparelho primeiro (aparece na hora, mesmo com sinal ruim) e confere com o
+  // servidor em segundo plano, com tempo limite. Falha de rede nunca apaga a lista que já está na tela.
+  useEffect(() => {
     if (!fazendaId) {
       setDietasDisponiveis([])
       setCarregando(false)
       return
     }
-    setCarregando(true)
-    try {
-      await loadQueryCacheFromIndexedDB()
+    let cancelado = false
+    async function carregarDietas() {
+      let temLista = false
+      try {
+        await loadQueryCacheFromIndexedDB()
+        const doAparelho = await getFormulacoesListaFromCacheOnly(fazendaId!)
+        if (cancelado) return
+        if (doAparelho) {
+          setDietasDisponiveis(doAparelho)
+          setListaDoAparelho(true)
+          setListaIndisponivel(false)
+          setCarregando(false)
+          temLista = true
+        }
 
-      let dietas: { id: string; nome: string }[] = []
-
-      // Tentar Supabase primeiro (online)
-      if (navigator.onLine) {
-        try {
-          const formulacoes = await getFormulacoes(fazendaId)
-          dietas = formulacoes.map((f: any) => ({ id: f.id, nome: f.nome }))
-        } catch {
-          // erro de rede, usar cache
+        const doServidor = await getFormulacoesListaCached(fazendaId!)
+        if (cancelado) return
+        if (doServidor) {
+          setDietasDisponiveis(doServidor)
+          setListaDoAparelho(false)
+          setListaIndisponivel(false)
+          temLista = true
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dietas:', error)
+      } finally {
+        if (!cancelado) {
+          // Sem nada no aparelho e sem resposta do servidor: "não sei", diferente de "não há formulações"
+          if (!temLista) setListaIndisponivel(true)
+          setCarregando(false)
         }
       }
-
-      // Fallback: cache offline (nomes -> buscar IDs por nome)
-      if (dietas.length === 0) {
-        try {
-          const cache = await getCachedCadastroData()
-          if (cache?.formulacoes) {
-            for (const nome of cache.formulacoes) {
-              try {
-                const form = await getFormulacaoByNomeCached(fazendaId, nome)
-                if (form?.id) {
-                  dietas.push({ id: form.id, nome })
-                }
-              } catch {
-                // ignorar
-              }
-            }
-          }
-        } catch {
-          // ignorar
-        }
-      }
-
-      setDietasDisponiveis(dietas)
-    } catch (error) {
-      console.error('Erro ao carregar dietas:', error)
-      setDietasDisponiveis([])
-    } finally {
-      setCarregando(false)
     }
-  }, [fazendaId])
+    carregarDietas()
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, recarga])
+
+  listaPendenteRef.current = listaDoAparelho || listaIndisponivel
 
   useEffect(() => {
-    carregarDietas()
-  }, [carregarDietas])
+    const aoVoltarInternet = () => {
+      if (listaPendenteRef.current) {
+        // O sistema avisou que a internet voltou: o sinal de rede instável não vale mais
+        registrarRespostaDeRede()
+        setRecarga((n) => n + 1)
+      }
+    }
+    window.addEventListener('online', aoVoltarInternet)
+    // Wi-Fi sem internet que volta não dispara 'online': tenta de novo de tempos em tempos
+    const tentativa = setInterval(() => {
+      if (listaPendenteRef.current) setRecarga((n) => n + 1)
+    }, 25_000)
+    return () => {
+      window.removeEventListener('online', aoVoltarInternet)
+      clearInterval(tentativa)
+    }
+  }, [])
 
   // Carregar insumos da formulação selecionada
   const carregarInsumos = useCallback(async () => {
@@ -192,19 +218,19 @@ export default function ProducaoFabricaPage() {
   }
 
   const handleSalvar = async () => {
+    if (salvandoRef.current) return
+    salvandoRef.current = true
     setSalvando(true)
     setErrors([])
 
     try {
       // Validar
       if (!form.formulacaoId) {
-        setErrors([{ field: 'formulacaoId', message: 'Selecione uma formulação' }])
-        setSalvando(false)
+        mostrarErros([{ field: 'formulacaoId', message: 'Selecione uma formulação' }])
         return
       }
       if (!formValido) {
-        setErrors([{ field: 'geral', message: 'Preencha destino, total produzido e a quantidade realizada (maior que zero) de todos os insumos' }])
-        setSalvando(false)
+        mostrarErros([{ field: 'geral', message: 'Preencha destino, total produzido e a quantidade realizada (maior que zero) de todos os insumos' }])
         return
       }
 
@@ -230,9 +256,8 @@ export default function ProducaoFabricaPage() {
         usuario: usuario,
       })
 
-      if (!result.success && result.errors) {
-        setErrors(result.errors)
-        setSalvando(false)
+      if (!result.success) {
+        mostrarErros(result.errors ?? [{ field: 'geral', message: 'Não foi possível salvar. Tente novamente.' }])
         return
       }
 
@@ -268,8 +293,9 @@ export default function ProducaoFabricaPage() {
       setForm(makeInitial())
     } catch (err) {
       console.error('Erro ao salvar saída de insumos:', err)
-      setErrors([{ field: 'geral', message: 'Erro ao salvar saída de insumos' }])
+      mostrarErros([{ field: 'geral', message: 'Erro ao salvar saída de insumos' }])
     } finally {
+      salvandoRef.current = false
       setSalvando(false)
     }
   }
@@ -293,13 +319,7 @@ export default function ProducaoFabricaPage() {
         }
       >
         <>
-          {errors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              {errors.map((e, i) => (
-                <p key={i} className="text-sm text-red-700">{e.message}</p>
-              ))}
-            </div>
-          )}
+          {errors.length > 0 && <ValidationMessage errors={errors} />}
 
           {carregando ? (
             <div className="flex items-center justify-center h-full">
@@ -318,7 +338,9 @@ export default function ProducaoFabricaPage() {
                   </label>
                   {dietasDisponiveis.length === 0 ? (
                     <p className="text-sm text-gray-400">
-                      Nenhuma formulação ativa cadastrada. Cadastre formulações no Painel Web.
+                      {listaIndisponivel
+                        ? 'Formulações indisponíveis neste aparelho. Conecte à internet e atualize os dados.'
+                        : 'Nenhuma formulação ativa cadastrada. Cadastre formulações no Painel Web.'}
                     </p>
                   ) : (
                     <select
@@ -331,6 +353,11 @@ export default function ProducaoFabricaPage() {
                         <option key={d.id} value={d.id}>{d.nome}</option>
                       ))}
                     </select>
+                  )}
+                  {listaDoAparelho && dietasDisponiveis.length > 0 && (
+                    <p className="text-xs text-amber-700">
+                      Lista salva neste aparelho. Com internet, confere sozinha se há formulações novas.
+                    </p>
                   )}
                   {getError('formulacaoId') && (
                     <p className="text-xs text-red-500">{getError('formulacaoId')}</p>

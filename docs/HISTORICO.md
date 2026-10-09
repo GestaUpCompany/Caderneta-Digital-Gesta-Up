@@ -2,6 +2,15 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Produção Fábrica: sinal ruim sem espera de 20 s e erro de salvar visível (09/10/2026)
+
+- **Espera de 20 s:** `carregarDietas` consultava o servidor primeiro, sem tempo limite próprio, com spinner de tela cheia até o wrapper abortar a requisição (~20 s). Agora a lista de formulações sai do aparelho na hora e é conferida com o servidor em segundo plano (limite de 3 s), no mesmo padrão de Suplementação e Bebedouros.
+- **Cache:** `getFormulacoesListaFromCacheOnly` (lista completa gravada pelo "Atualizar dados" em `formulacoes-batch`; sem ela, monta pelos nomes aquecidos e o detalhe por nome) e `getFormulacoesListaCached` (servidor com 3 s; demora marca a rede como instável para as próximas leituras irem ao cache). O warm passou a gravar `formulacoes-batch`. Antes o fallback só listava formulações com detalhe guardado por nome, e podia aparecer incompleto.
+- **Mensagens:** lista só do aparelho mostra o aviso "Lista salva neste aparelho"; sem nada no aparelho e sem rede diz "Formulações indisponíveis neste aparelho" (antes dizia "Nenhuma formulação ativa cadastrada", o que enganava). Recuperação automática pelo evento `online` e nova tentativa a cada 25 s.
+- **Salvar:** o erro agora usa o banner padrão (`ValidationMessage`) e a tela rola até ele; antes ficava numa caixa no topo e quem estava no botão não via nada. Trava de toque duplo e falha sem lista de erros tratada.
+- **Verificado (fazenda de testes, build de produção):** online (lista em 0 ms, sem aviso depois da conferência), rede travada (lista em 0,1 s, insumos 0,1 s, salvar 0,2 s, aviso some 0,5 s depois que a rede volta), offline com recarregamento (salva e sincroniza), sem a lista completa (7 formulações pelo cache antigo), sem nada no aparelho (mensagem de indisponível e recuperação sozinha). Nome do usuário vazio mostra o erro e rola até ele.
+- **Não reproduzido:** o relato "preenche tudo, libera o botão e não salva" de um aparelho em campo. O fluxo normal salva e sincroniza; o provável é o erro escondido no topo ou app antigo no aparelho (conferir a versão no rodapé da Home).
+
 ## Bebedouros: foto do bebedouro (09/10/2026)
 
 - **Botão "Foto do bebedouro"** na seção 1 da tela, opcional, no mesmo layout do "Foto do cocho" da Suplementação (botão pontilhado; com foto: miniatura + REMOVER FOTO). Usa `usePhotoGps({ comGps: false })` e a mesma captura (nativa ou input file no web).
