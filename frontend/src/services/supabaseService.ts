@@ -2440,6 +2440,25 @@ export async function updateRegistroProblemas(id: string, registro: TablesUpdate
 
 // ==================== REGISTROS ABASTECIMENTO ====================
 
+/** Última leitura do relógio da bomba lançada na fazenda (qualquer aparelho ou o Painel). */
+export async function getUltimaLeituraBomba(fazendaId: string): Promise<number | null> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_abastecimento')
+    .select('total_bomba')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .not('total_bomba', 'is', null)
+    .order('data', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  const valor = data?.total_bomba
+  return valor === null || valor === undefined ? null : Number(valor)
+}
+
 export async function createRegistroAbastecimento(registro: TablesInsert<'registros_abastecimento'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client

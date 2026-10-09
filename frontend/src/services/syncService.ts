@@ -1205,9 +1205,19 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           case 'registros_clima':
             result = await supabaseService.createRegistroClima(data)
             break
-          case 'registros_abastecimento':
+          case 'registros_abastecimento': {
+            // Registro feito sem a lista de máquinas no aparelho: resolve o id pelo nome na hora do sync
+            if (!data.maquina_veiculo_id && data.maquina_veiculo) {
+              try {
+                const maquina = await supabaseService.getMaquinaVeiculoByNome(fazendaId, data.maquina_veiculo)
+                if (maquina?.id) data = { ...data, maquina_veiculo_id: maquina.id, placa: data.placa || maquina.placa || null }
+              } catch {
+                // sem o id o registro ainda sincroniza; só perde o vínculo com o cadastro da máquina
+              }
+            }
             result = await supabaseService.createRegistroAbastecimento(data)
             break
+          }
           case 'registros_alimentacao':
             result = await supabaseService.createRegistroCantina(data)
             break

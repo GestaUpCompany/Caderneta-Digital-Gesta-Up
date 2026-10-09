@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, ValidationMessage } from '../../components/ui'
@@ -11,11 +11,20 @@ import StepperInput from '../../components/cadernetas/StepperInput'
 import FormFooter from '../../components/cadernetas/FormFooter'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { redeInstavelRecentemente, registrarRespostaDeRede } from '../../utils/fetchComTimeout'
 import { normalizarNumeroString } from '../../utils/formatNumber'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getCachedCadastroData, getMaquinasVeiculosCached, getTanquesCombustivelCached, updateTanqueSaldoCache } from '../../services/cadastroCache'
+import {
+  getCachedCadastroData,
+  getMaquinasVeiculosCached,
+  getMaquinasVeiculosFromCacheOnly,
+  getTanquesCombustivelCached,
+  getTanquesCombustivelFromCacheOnly,
+  updateTanqueSaldoCache,
+  withTimeout,
+} from '../../services/cadastroCache'
 import { getAllRegistros } from '../../services/indexedDB'
-import { getFuncionarios } from '../../services/supabaseService'
+import { getFuncionarios, getUltimaLeituraBomba } from '../../services/supabaseService'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { User } from 'lucide-react'
@@ -115,6 +124,7 @@ export default function AbastecimentoPage() {
   const [form, setForm] = useState<FormState>(makeInitial)
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
+  const salvandoRef = useRef(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
@@ -124,6 +134,13 @@ export default function AbastecimentoPage() {
   const [tanquesDisponiveis, setTanquesDisponiveis] = useState<any[]>([])
   const [semHorimetro, setSemHorimetro] = useState(false)
   const [bombaAnterior, setBombaAnterior] = useState<number | null>(null)
+  // Salvar antes de máquinas e tanques chegarem gravaria o registro sem id da máquina e sem baixa no tanque.
+  const [maquinasCarregadas, setMaquinasCarregadas] = useState(false)
+  const [tanquesCarregados, setTanquesCarregados] = useState(false)
+  const [tanquesIndisponivel, setTanquesIndisponivel] = useState(false)
+  // Incrementa quando a internet volta com tanques indisponíveis: refaz a leitura sozinho
+  const [recarga, setRecarga] = useState(0)
+  const tanquesIndisponivelRef = useRef(false)
 
   // Quem abasteceu vem do login (padrao da referencia)
   useEffect(() => {
@@ -146,7 +163,7 @@ export default function AbastecimentoPage() {
       }
       setLoadingFuncionarios(true)
       try {
-        const funcionarios = await getFuncionarios(fazendaId)
+        const funcionarios = await withTimeout(getFuncionarios(fazendaId), 3000)
         setFuncionariosDisponiveis(funcionarios.map(f => f.nome))
       } catch (error) {
         console.error('Erro ao carregar funcionários:', error)
@@ -158,57 +175,102 @@ export default function AbastecimentoPage() {
     loadFuncionarios()
   }, [fazendaId])
 
-  // Carregar máquinas/veículos (com cache lazy para offline)
+  // Máquinas/veículos: cache local primeiro (aparece na hora, mesmo com rede ruim) e revalida com timeout
   useEffect(() => {
+    if (!fazendaId) return
+    let cancelado = false
     async function carregarMaquinasVeiculos() {
-      if (!fazendaId) return
       try {
-        const maquinas = await getMaquinasVeiculosCached(fazendaId)
-        setMaquinasVeiculosDisponiveis(maquinas || [])
+        const cache = await getMaquinasVeiculosFromCacheOnly(fazendaId!)
+        if (cancelado) return
+        if (cache) setMaquinasVeiculosDisponiveis(cache)
+        const maquinas = await getMaquinasVeiculosCached(fazendaId!)
+        if (cancelado) return
+        if (maquinas) setMaquinasVeiculosDisponiveis(maquinas)
       } catch (error) {
         console.error('Erro ao carregar máquinas/veículos:', error)
+      } finally {
+        if (!cancelado) setMaquinasCarregadas(true)
       }
     }
     carregarMaquinasVeiculos()
+    return () => {
+      cancelado = true
+    }
   }, [fazendaId])
 
-  // Carregar tanques de combustivel do cache
+  // Tanques de combustível: cache primeiro. Sem cache e sem rede é "indisponível", não "sem tanques":
+  // salvar assim gravaria o abastecimento sem tanque e sem a baixa de estoque.
   useEffect(() => {
+    if (!fazendaId) return
+    let cancelado = false
     async function carregarTanques() {
-      if (!fazendaId) return
       try {
-        const tanques = await getTanquesCombustivelCached(fazendaId)
-        if (tanques) setTanquesDisponiveis(tanques)
+        const cache = await getTanquesCombustivelFromCacheOnly(fazendaId!)
+        if (cancelado) return
+        if (cache) {
+          setTanquesDisponiveis(cache)
+          setTanquesIndisponivel(false)
+        }
+        const tanques = await getTanquesCombustivelCached(fazendaId!)
+        if (cancelado) return
+        if (tanques) {
+          setTanquesDisponiveis(tanques)
+          setTanquesIndisponivel(false)
+        } else if (!cache) {
+          setTanquesIndisponivel(true)
+        }
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar tanques:', error)
+        setTanquesIndisponivel(true)
+      } finally {
+        if (!cancelado) setTanquesCarregados(true)
       }
     }
     carregarTanques()
-  }, [fazendaId])
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, recarga])
 
-  // Leitura anterior da bomba: ultimo total_bomba registrado localmente
+  // Leitura anterior da bomba. Prioridade: o que está pendente neste aparelho (é mais novo que qualquer
+  // coisa do servidor), depois a última do servidor (outros aparelhos e Painel), por fim o último registro local.
   useEffect(() => {
+    let cancelado = false
+    const paraNumero = (v: unknown): number | null => {
+      const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.'))
+      return Number.isNaN(n) ? null : n
+    }
     async function carregarBombaAnterior() {
       try {
         const registros = await getAllRegistros('abastecimento')
         const comBomba = (registros || [])
           .filter((r: any) => r.totalBomba !== undefined && r.totalBomba !== null && String(r.totalBomba).trim() !== '')
           .sort((a: any, b: any) => String(b.lastModified || '').localeCompare(String(a.lastModified || '')))
-        if (comBomba.length > 0) {
-          const n = parseFloat(String(comBomba[0].totalBomba).replace('.', '').replace(',', '.'))
-          if (!isNaN(n)) setBombaAnterior(n)
-        }
+        const pendente = comBomba.find((r: any) => r.syncStatus === 'pending')
+        const local = paraNumero((pendente || comBomba[0])?.totalBomba)
+        if (cancelado) return
+        if (local !== null) setBombaAnterior(local)
+        if (pendente || !fazendaId || !navigator.onLine || redeInstavelRecentemente()) return
+        const servidor = await withTimeout(getUltimaLeituraBomba(fazendaId), 3000)
+        if (!cancelado && servidor !== null) setBombaAnterior(servidor)
       } catch (error) {
         console.error('Erro ao buscar leitura anterior da bomba:', error)
       }
     }
     carregarBombaAnterior()
-  }, [])
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, recarga])
 
   // Filtrar tanques pelo combustivel selecionado
   const tanquesFiltrados = tanquesDisponiveis.filter(
     (t) => t.tipo_combustivel === form.combustivel && t.ativo
   )
+
+  const idsTanquesFiltrados = tanquesFiltrados.map((t) => t.id).join(',')
 
   // Auto-selecionar tanque quando houver apenas um para o combustivel selecionado
   useEffect(() => {
@@ -218,38 +280,28 @@ export default function AbastecimentoPage() {
       // Limpar tanque se o selecionado nao esta mais na lista filtrada
       setForm((prev) => ({ ...prev, tanqueId: '', tanqueNome: '' }))
     }
-  }, [tanquesFiltrados.length])
+  }, [idsTanquesFiltrados, form.combustivel])
 
-  // Buscar detalhes da máquina/veículo quando selecionada
+  // Detalhes da máquina/veículo selecionada, a partir da lista já carregada (sem nova ida à rede)
   useEffect(() => {
-    async function carregarDetalhesMaquinaVeiculo() {
-      if (!form.maquinaVeiculo || !fazendaId) {
-        setMaquinaVeiculoSelecionada(null)
-        setForm(prev => ({ ...prev, maquinaVeiculoId: '', placa: '' }))
-        return
-      }
-      try {
-        const lista = await getMaquinasVeiculosCached(fazendaId)
-        if (!lista || lista.length === 0) {
-          // Cache ainda nao carregou: manter valores existentes (rascunho pode ter restaurado)
-          return
-        }
-        const maquina = lista.find((m: any) => m.nome === form.maquinaVeiculo) || null
-        if (maquina) {
-          setMaquinaVeiculoSelecionada(maquina)
-          setForm(prev => ({ ...prev, maquinaVeiculoId: maquina.id, placa: maquina.placa || '' }))
-        } else {
-          setMaquinaVeiculoSelecionada(null)
-          setForm(prev => ({ ...prev, maquinaVeiculoId: '', placa: '' }))
-        }
-      } catch (error) {
-        console.error('Erro ao carregar detalhes da máquina/veículo:', error)
-        setMaquinaVeiculoSelecionada(null)
-        setForm(prev => ({ ...prev, maquinaVeiculoId: '', placa: '' }))
-      }
+    if (!form.maquinaVeiculo || !fazendaId) {
+      setMaquinaVeiculoSelecionada(null)
+      setForm((prev) => (prev.maquinaVeiculoId || prev.placa ? { ...prev, maquinaVeiculoId: '', placa: '' } : prev))
+      return
     }
-    carregarDetalhesMaquinaVeiculo()
-  }, [form.maquinaVeiculo, fazendaId])
+    // Lista ainda não carregou: manter valores existentes (rascunho pode ter restaurado)
+    if (maquinasVeiculosDisponiveis.length === 0) return
+    const maquina = maquinasVeiculosDisponiveis.find((m: any) => m.nome === form.maquinaVeiculo) || null
+    if (maquina) {
+      // Mesmo objeto de antes: não reaplica combustível/operador padrão quando a lista só revalida
+      setMaquinaVeiculoSelecionada((prev: any) => (prev?.id === maquina.id ? prev : maquina))
+      setForm((prev) => ({ ...prev, maquinaVeiculoId: maquina.id, placa: maquina.placa || '' }))
+    } else {
+      // Máquina que não existe mais na lista (rascunho antigo, cadastro removido): sai da seleção
+      setMaquinaVeiculoSelecionada(null)
+      setForm((prev) => ({ ...prev, maquinaVeiculo: '', maquinaVeiculoId: '', placa: '' }))
+    }
+  }, [form.maquinaVeiculo, fazendaId, maquinasVeiculosDisponiveis])
 
   // Auto-preencher combustível e operador padrão da máquina (padrao da referencia)
   useEffect(() => {
@@ -307,6 +359,35 @@ export default function AbastecimentoPage() {
 
   const { isValid } = useFormValidation(form, validationRules)
 
+  const dadosBloqueados =
+    (!!form.maquinaVeiculo && !maquinasCarregadas) ||
+    (!!form.combustivel && (!tanquesCarregados || tanquesIndisponivel))
+  tanquesIndisponivelRef.current = tanquesIndisponivel && tanquesCarregados
+
+  useEffect(() => {
+    const aoVoltarInternet = () => {
+      if (tanquesIndisponivelRef.current) {
+        // O sistema avisou que a internet voltou: o sinal de rede instável não vale mais
+        registrarRespostaDeRede()
+        setRecarga((n) => n + 1)
+      }
+    }
+    window.addEventListener('online', aoVoltarInternet)
+    // Wi-Fi sem internet que volta não dispara 'online': tenta de novo de tempos em tempos enquanto indisponível
+    const tentativa = setInterval(() => {
+      if (tanquesIndisponivelRef.current) setRecarga((n) => n + 1)
+    }, 25_000)
+    return () => {
+      window.removeEventListener('online', aoVoltarInternet)
+      clearInterval(tentativa)
+    }
+  }, [])
+
+  // Erro de salvamento anterior não vale para outra data/máquina
+  useEffect(() => {
+    setErrors([])
+  }, [form.data, form.maquinaVeiculo])
+
   // Tanque selecionado (para trava de saldo)
   const tanqueSelecionado = tanquesFiltrados.find((t) => t.id === form.tanqueId)
   const totalAbastecidoNum = form.totalAbastecido ? parseFloat(String(form.totalAbastecido).replace(',', '.')) : 0
@@ -318,14 +399,31 @@ export default function AbastecimentoPage() {
   const bombaBateu = bombaDiff != null && Math.abs(bombaDiff - totalAbastecidoNum) < 0.5
   const bombaDiverge = bombaDiff != null && totalAbastecidoNum > 0 && !bombaBateu
 
+  const pendenciaTexto = (() => {
+    if (!form.maquinaVeiculo) return 'Falta escolher a máquina/veículo'
+    if (!maquinasCarregadas) return 'Carregando máquinas...'
+    if (!form.operadorMotorista) return 'Falta escolher o operador/motorista'
+    if (!form.combustivel) return 'Falta escolher o combustível'
+    if (!tanquesCarregados) return 'Carregando tanques...'
+    if (tanquesIndisponivel) return 'Tanques indisponíveis neste aparelho: conecte à internet e atualize os dados'
+    if (tanquesFiltrados.length > 0 && !form.tanqueId) return 'Falta escolher o tanque de origem'
+    if (!(totalAbastecidoNum > 0)) return 'Falta o total abastecido'
+    if (!semHorimetro && !form.odometro) return 'Falta o odômetro/horímetro (ou marque que a máquina não tem)'
+    if (!form.tipoOperacao) return 'Falta escolher o serviço'
+    if (form.tipoOperacao === 'Outros' && !form.tipoOperacaoOutros) return 'Falta especificar o serviço'
+    return undefined
+  })()
+
   const handleSalvar = async () => {
+    if (salvandoRef.current || dadosBloqueados || !isValid || !(totalAbastecidoNum > 0)) return
+    salvandoRef.current = true
     setSalvando(true)
     setErrors([])
 
     // Saldo negativo permitido: o aviso de saldo insuficiente e informativo, nao bloqueia o save.
     // A trigger do banco registra a baixa e o saldo fica negativo, sinalizando necessidade de entrada.
 
-    const result = await salvarRegistro('abastecimento', {
+    const resultado = await salvarRegistro('abastecimento', {
       data: form.data,
       quemAbasteceu: form.quemAbasteceu,
       operadorMotorista: form.operadorMotorista,
@@ -342,8 +440,13 @@ export default function AbastecimentoPage() {
       tipoOperacao: form.tipoOperacao,
       tipoOperacaoOutros: form.tipoOperacaoOutros,
       observacao: form.observacao,
-    })
+    }).catch(() => null)
+    const result: { success: boolean; errors?: { field: string; message: string }[]; registro?: unknown } = resultado ?? {
+      success: false,
+      errors: [{ field: 'geral', message: 'Não foi possível salvar agora. Tente novamente.' }],
+    }
 
+    salvandoRef.current = false
     setSalvando(false)
     if (!result.success && result.errors) {
       setErrors(result.errors)
@@ -400,7 +503,7 @@ export default function AbastecimentoPage() {
     <CadernetaLayout
       title="ABASTECIMENTO"
       cadernetaId="abastecimento"
-      dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
+      dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline maxDate={todayBR()} />}
     >
       {errors.length > 0 && <ValidationMessage errors={errors} />}
 
@@ -525,6 +628,10 @@ export default function AbastecimentoPage() {
                   })}
                 </div>
               </div>
+            ) : tanquesIndisponivel ? (
+              <InfoStrip tone="danger" icon="⚠️">
+                Tanques indisponíveis neste aparelho. Conecte à internet e atualize os dados para registrar o abastecimento.
+              </InfoStrip>
             ) : (
               <InfoStrip tone="warning">
                 Nenhum tanque de {form.combustivel} cadastrado. O abastecimento será registrado sem controle de estoque. Cadastre um tanque no Painel Web para habilitar o controle automático.
@@ -657,8 +764,9 @@ export default function AbastecimentoPage() {
           setErrors([])
         }}
         salvando={salvando}
-        disabled={!isValid}
-        formValido={isValid}
+        disabled={!isValid || dadosBloqueados || !(totalAbastecidoNum > 0)}
+        formValido={isValid && !dadosBloqueados && totalAbastecidoNum > 0}
+        pendenciaTexto={pendenciaTexto}
       />
 
       <SuccessModal

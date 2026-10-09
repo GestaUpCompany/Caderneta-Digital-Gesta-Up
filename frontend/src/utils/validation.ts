@@ -586,14 +586,21 @@ export function validateAbastecimento(data: Record<string, unknown>): Validation
     errors.push({ field: 'operadorMotorista', message: 'Operador motorista é obrigatório' })
   if (!isNonEmptyString(data.maquinaVeiculo))
     errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
+  const totalAbastecido = Number(String(data.totalAbastecido ?? '').replace(',', '.'))
   if (!isNonEmptyString(data.totalAbastecido))
     errors.push({ field: 'totalAbastecido', message: 'Total abastecido é obrigatório' })
+  else if (!Number.isFinite(totalAbastecido) || totalAbastecido <= 0)
+    errors.push({ field: 'totalAbastecido', message: 'Total abastecido deve ser maior que zero' })
   if (!isNonEmptyString(data.combustivel))
     errors.push({ field: 'combustivel', message: 'Combustível é obrigatório' })
   if (!isNonEmptyString(data.odometro) && !data.semHorimetro)
     errors.push({ field: 'odometro', message: 'Odômetro/horímetro é obrigatório' })
+  else if (isNonEmptyString(data.odometro) && !(Number(String(data.odometro).replace(',', '.')) >= 0))
+    errors.push({ field: 'odometro', message: 'Odômetro/horímetro deve ser um número válido' })
   if (!isNonEmptyString(data.tipoOperacao))
     errors.push({ field: 'tipoOperacao', message: 'Tipo de operação é obrigatório' })
+  else if (data.tipoOperacao === 'Outros' && !isNonEmptyString(data.tipoOperacaoOutros))
+    errors.push({ field: 'tipoOperacaoOutros', message: 'Especifique o tipo de operação' })
 
   return { isValid: errors.length === 0, errors }
 }

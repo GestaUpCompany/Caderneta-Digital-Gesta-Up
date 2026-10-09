@@ -12,6 +12,7 @@ import FormFooter from '../../components/cadernetas/FormFooter'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
+import { registrarRespostaDeRede } from '../../utils/fetchComTimeout'
 import { formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { RootState } from '../../store/store'
 import {
@@ -353,10 +354,21 @@ export default function BebedourosPage() {
 
   useEffect(() => {
     const aoVoltarInternet = () => {
-      if (bebedouroIndisponivelRef.current) setRecarga((n) => n + 1)
+      if (bebedouroIndisponivelRef.current) {
+        // O sistema avisou que a internet voltou: o sinal de rede instável não vale mais
+        registrarRespostaDeRede()
+        setRecarga((n) => n + 1)
+      }
     }
     window.addEventListener('online', aoVoltarInternet)
-    return () => window.removeEventListener('online', aoVoltarInternet)
+    // Wi-Fi sem internet que volta não dispara 'online': tenta de novo de tempos em tempos enquanto indisponível
+    const tentativa = setInterval(() => {
+      if (bebedouroIndisponivelRef.current) setRecarga((n) => n + 1)
+    }, 25_000)
+    return () => {
+      window.removeEventListener('online', aoVoltarInternet)
+      clearInterval(tentativa)
+    }
   }, [])
 
   // Erro de salvamento anterior não vale para outra data/bebedouro

@@ -2024,18 +2024,22 @@ export async function getPluviometrosCached(fazendaId: string): Promise<any[] | 
 export async function getMaquinasVeiculosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('maquinas-veiculos', fazendaId)
 
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
-  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return getMaquinasVeiculosFromCacheOnly(fazendaId)
 
   try {
-    const data = await supabaseService.getMaquinasVeiculos(fazendaId)
+    const data = await withTimeout(supabaseService.getMaquinasVeiculos(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return getMaquinasVeiculosFromCacheOnly(fazendaId)
   }
+}
+
+/** Máquinas/veículos direto do cache (memória ou IDB), sem tentar online. */
+export async function getMaquinasVeiculosFromCacheOnly(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('maquinas-veiculos', fazendaId)
+  const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  return cached && Array.isArray(cached) ? cached : null
 }
 
 /**
@@ -2068,18 +2072,23 @@ export async function getImplementosCached(fazendaId: string): Promise<any[] | n
 export async function getTanquesCombustivelCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('tanques-combustivel', fazendaId)
 
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
-  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return getTanquesCombustivelFromCacheOnly(fazendaId)
 
   try {
-    const data = await supabaseService.getTanquesCombustivel(fazendaId)
+    const data = await withTimeout(supabaseService.getTanquesCombustivel(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    // null = não foi possível saber (diferente de lista vazia, que é "fazenda sem tanques")
+    return getTanquesCombustivelFromCacheOnly(fazendaId)
   }
+}
+
+/** Tanques de combustível direto do cache (memória ou IDB), sem tentar online. */
+export async function getTanquesCombustivelFromCacheOnly(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('tanques-combustivel', fazendaId)
+  const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  return cached && Array.isArray(cached) ? cached : null
 }
 
 /**
@@ -2090,7 +2099,7 @@ export async function getTanquesCombustivelCached(fazendaId: string): Promise<an
  */
 export async function updateTanqueSaldoCache(fazendaId: string, tanqueId: string, delta: number): Promise<void> {
   const key = buildKey('tanques-combustivel', fazendaId)
-  const cached = getCachedQuery<any[]>(key)
+  const cached = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
   if (!cached || !Array.isArray(cached)) return
   const updated = cached.map((t) =>
     t.id === tanqueId

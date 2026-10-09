@@ -29,6 +29,12 @@ describe('translateSyncError', () => {
     expect(translateSyncError(erro({ message: 'Cannot read properties of undefined' }))).toMatch(/Erro desconhecido/)
   })
 
+  it('explica quando o tanque do abastecimento foi removido', () => {
+    const msg = translateSyncError(erro({ code: 'P0001', message: 'Tanque 2939ecb2-af8e-477e-b6e3-dfa0c1d94708 nao encontrado' }))
+    expect(msg).toMatch(/tanque deste abastecimento foi removido/)
+    expect(translateSyncError(erro({ code: 'P0001', message: 'outra regra' }))).toMatch(/regra de negócio/)
+  })
+
   it('mantém as traduções do servidor', () => {
     expect(translateSyncError(erro({ code: '42501' }))).toMatch(/Sem permissão/)
   })
