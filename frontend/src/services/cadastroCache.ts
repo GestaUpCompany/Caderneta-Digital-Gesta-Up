@@ -1,5 +1,5 @@
 import { BACKEND_URL } from '../utils/constants'
-import { redeInstavelRecentemente } from '../utils/fetchComTimeout'
+import { redeInstavelRecentemente, registrarFalhaDeRede } from '../utils/fetchComTimeout'
 import { saveCadastroData, getAllCadastroData, getCadastroData, deleteCadastroData, clearCadastroData } from './indexedDB'
 import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
@@ -1652,6 +1652,51 @@ export async function getFormulacoesBatchCached(fazendaId: string): Promise<any[
   }
 }
 
+export interface FormulacaoLista {
+  id: string
+  nome: string
+}
+
+/**
+ * Lista de formulações ativas guardada neste aparelho, sem tentar a rede. Usa a lista completa gravada pelo
+ * "Atualizar dados"; se ela não existir (aparelho aquecido por versão antiga), monta a partir dos nomes
+ * aquecidos e do detalhe de cada formulação. Retorna null quando não há nada no aparelho.
+ */
+export async function getFormulacoesListaFromCacheOnly(fazendaId: string): Promise<FormulacaoLista[] | null> {
+  const key = buildKey('formulacoes-batch', fazendaId)
+  const batch = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  if (batch && Array.isArray(batch) && batch.length > 0) {
+    return batch.filter((f) => f?.id && f?.nome).map((f) => ({ id: f.id, nome: f.nome }))
+  }
+
+  const cache = await getCachedCadastroData()
+  const lista: FormulacaoLista[] = []
+  for (const nome of cache?.formulacoes ?? []) {
+    const detalhe = await getFormulacaoByNomeFromCacheOnly(fazendaId, nome)
+    if (detalhe?.id) lista.push({ id: detalhe.id, nome: detalhe.nome || nome })
+  }
+  return lista.length > 0 ? lista : null
+}
+
+/**
+ * Lista de formulações ativas direto do servidor, com tempo limite de 3 s. Retorna null quando não deu para
+ * saber (sem rede, rede instável ou demora): quem chama mantém a lista do aparelho. Lista vazia é resposta
+ * válida ("fazenda sem formulações ativas"). Uma demora marca a rede como instável para as próximas leituras
+ * irem direto ao cache.
+ */
+export async function getFormulacoesListaCached(fazendaId: string): Promise<FormulacaoLista[] | null> {
+  if (!navigator.onLine || redeInstavelRecentemente()) return null
+  try {
+    const data = await withTimeout(supabaseService.getFormulacoes(fazendaId), 3000)
+    if (!Array.isArray(data)) return null
+    setCachedQuery(buildKey('formulacoes-batch', fazendaId), data)
+    return data.filter((f) => f?.id && f?.nome).map((f) => ({ id: f.id, nome: f.nome }))
+  } catch (error) {
+    if (error instanceof Error && error.message === 'timeout') registrarFalhaDeRede()
+    return null
+  }
+}
+
 /**
  * Busca o total de kg do último dia de tratos para um lote (sistema de confinamento).
  * Retorna { data, total_kg } ou null.
@@ -2607,6 +2652,9 @@ export async function warmAllCadastroCache(
       formulacoes = []
     }
   }
+
+  // Lista completa de formulações para telas que a mostram em dropdown (ex.: Produção Fábrica) sem depender da rede
+  if (formulacoes.length > 0) setCachedQuery(buildKey('formulacoes-batch', fazendaId), formulacoes)
 
   const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 19
   let warmedPastos = 0
