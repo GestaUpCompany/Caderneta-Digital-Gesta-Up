@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Beef, FileText, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -18,16 +18,22 @@ import StepperInput from '../../components/cadernetas/StepperInput'
 import FormFooter from '../../components/cadernetas/FormFooter'
 import BannerRascunho from '../../components/BannerRascunho'
 import {
+  getCachedCadastroData,
   getLoteByNomeCached,
+  getLoteByNomeFromCacheOnly,
   getLoteDetalhesComCategoriasCached,
+  getLoteDetalhesFromCacheOnly,
   getTratamentosCached,
+  getTratamentosFromCacheOnly,
   getRacasCached,
+  getRacasFromCacheOnly,
   getMedicamentosCached,
+  getMedicamentosFromCacheOnly,
   clearCachedQuery,
   buildCacheKey,
   getLotesAtivosCached,
+  withTimeout,
 } from '../../services/cadastroCache'
-import { createIndividuo } from '../../services/supabaseService'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
 import MedicamentosSection, { MedicamentoItem } from '../../components/cadernetas/MedicamentosSection'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -37,6 +43,8 @@ import { usePhotoGps } from '../../hooks/usePhotoGps'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { base64ToDataUrl } from '../../utils/photoCompress'
 import { capitalizarCategoria, processarCategorias } from '../../utils/categorias'
+import { conflitosComRebanho, conflitosDeIdentificacao } from '../../utils/maternidadeIds'
+import { registrarRespostaDeRede } from '../../utils/fetchComTimeout'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -228,6 +236,16 @@ export default function MaternidadePage() {
   const [tratamentosDisponiveis, setTratamentosDisponiveis] = useState<any[]>([])
   const [racasDisponiveis, setRacasDisponiveis] = useState<any[]>([])
   const [medicamentosDisponiveis, setMedicamentosDisponiveis] = useState<any[]>([])
+  // Salvar antes dos dados do lote chegarem gravaria o parto sem lote_id/pasto_id
+  const [carregandoLote, setCarregandoLote] = useState(false)
+  const [loteIndisponivel, setLoteIndisponivel] = useState(false)
+  const [listasCarregadas, setListasCarregadas] = useState(false)
+  // Animais já conhecidos neste aparelho: avisa brinco/chip da cria que já existe antes de o servidor recusar
+  const [individuosCache, setIndividuosCache] = useState<any[]>([])
+  // Incrementa quando a internet volta (ou de tempos em tempos) com dados faltando: refaz a leitura sozinho
+  const [recarga, setRecarga] = useState(0)
+  const pendenteRef = useRef(false)
+  const salvandoRef = useRef(false)
 
   // Fotos (sem GPS nesta caderneta): da cria/mãe (foto_url) e do brinco da mãe (opcional)
   const fotoCria = usePhotoGps({ comGps: false })
@@ -245,10 +263,10 @@ export default function MaternidadePage() {
     data: { required: true },
     lote: { required: true },
     
-    // Form 2: Identificação da Mãe (at least one ID required)
-    idManejoMae: { 
-      custom: (value: string) => {
-        const hasManejo = value && value.trim() !== ''
+    // Form 2: Identificação da Mãe (at least one ID required). Chaves com "_" rodam mesmo com o campo vazio.
+    _maeIdentificada: {
+      custom: () => {
+        const hasManejo = form.idManejoMae && form.idManejoMae.trim() !== ''
         const hasBrinco = form.idBrincoMae && form.idBrincoMae.trim() !== ''
         const hasChip = form.idChipMae && form.idChipMae.trim() !== ''
         if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip'
@@ -293,20 +311,20 @@ export default function MaternidadePage() {
     categoriaMae: { required: true },
     escoreMatriz: { required: true },
     docilidadeMatriz: { required: true },
-    racaMae: {
-      custom: (value: string) => {
+    _racaMae: {
+      custom: () => {
         if (!form.individuoIdMae && (form.idManejoMae || form.idBrincoMae || form.idChipMae)) {
-          if (!value || value.trim() === '') return 'Raça da nova mãe é obrigatória'
+          if (!form.racaMae || form.racaMae.trim() === '') return 'Raça da nova mãe é obrigatória'
         }
         return null
       }
     },
 
     // Mãe adotiva (guacho 1ª cria)
-    idManejoMaeAdotiva: {
-      custom: (value: string) => {
+    _maeAdotivaIdentificada: {
+      custom: () => {
         if (form.guachoCria && !cria1Morta) {
-          const hasManejo = value && value.trim() !== ''
+          const hasManejo = form.idManejoMaeAdotiva && form.idManejoMaeAdotiva.trim() !== ''
           const hasBrinco = form.idBrincoMaeAdotiva && form.idBrincoMaeAdotiva.trim() !== ''
           const hasChip = form.idChipMaeAdotiva && form.idChipMaeAdotiva.trim() !== ''
           if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip da mãe adotiva'
@@ -314,28 +332,28 @@ export default function MaternidadePage() {
         return null
       }
     },
-    racaMaeAdotiva: {
-      custom: (value: string) => {
+    _racaMaeAdotiva: {
+      custom: () => {
         if (form.guachoCria && !cria1Morta && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
-          if (!value || value.trim() === '') return 'Raça da mãe adotiva é obrigatória'
+          if (!form.racaMaeAdotiva || form.racaMaeAdotiva.trim() === '') return 'Raça da mãe adotiva é obrigatória'
         }
         return null
       }
     },
-    categoriaMaeAdotiva: {
-      custom: (value: string) => {
+    _categoriaMaeAdotiva: {
+      custom: () => {
         if (form.guachoCria && !cria1Morta && !form.individuoIdMaeAdotiva && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
-          if (!value || value.trim() === '') return 'Classificação da matriz adotiva é obrigatória'
+          if (!form.categoriaMaeAdotiva || form.categoriaMaeAdotiva.trim() === '') return 'Classificação da matriz adotiva é obrigatória'
         }
         return null
       }
     },
 
     // Mãe adotiva (guacho 2ª cria)
-    idManejoMaeAdotiva2: {
-      custom: (value: string) => {
+    _maeAdotiva2Identificada: {
+      custom: () => {
         if (form.guachoCria2 && !isAborto) {
-          const hasManejo = value && value.trim() !== ''
+          const hasManejo = form.idManejoMaeAdotiva2 && form.idManejoMaeAdotiva2.trim() !== ''
           const hasBrinco = form.idBrincoMaeAdotiva2 && form.idBrincoMaeAdotiva2.trim() !== ''
           const hasChip = form.idChipMaeAdotiva2 && form.idChipMaeAdotiva2.trim() !== ''
           if (!hasManejo && !hasBrinco && !hasChip) return 'Preencha o ID Manejo, Brinco ou Chip da mãe adotiva da 2ª cria'
@@ -343,18 +361,18 @@ export default function MaternidadePage() {
         return null
       }
     },
-    racaMaeAdotiva2: {
-      custom: (value: string) => {
+    _racaMaeAdotiva2: {
+      custom: () => {
         if (form.guachoCria2 && !isAborto && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
-          if (!value || value.trim() === '') return 'Raça da mãe adotiva da 2ª cria é obrigatória'
+          if (!form.racaMaeAdotiva2 || form.racaMaeAdotiva2.trim() === '') return 'Raça da mãe adotiva da 2ª cria é obrigatória'
         }
         return null
       }
     },
-    categoriaMaeAdotiva2: {
-      custom: (value: string) => {
+    _categoriaMaeAdotiva2: {
+      custom: () => {
         if (form.guachoCria2 && !isAborto && !form.individuoIdMaeAdotiva2 && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
-          if (!value || value.trim() === '') return 'Classificação da matriz adotiva da 2ª cria é obrigatória'
+          if (!form.categoriaMaeAdotiva2 || form.categoriaMaeAdotiva2.trim() === '') return 'Classificação da matriz adotiva da 2ª cria é obrigatória'
         }
         return null
       }
@@ -425,54 +443,57 @@ export default function MaternidadePage() {
     return errors.find((e) => e.field === field)?.message
   }
 
-  // Carregar lotes ativos do Supabase (online) ou cache (offline)
+  // Listas (lotes, tratamentos, raças, medicamentos): cache local primeiro, aparecem na hora mesmo com rede ruim,
+  // e cada uma revalida online com tempo limite sem apagar o que já está na tela.
   useEffect(() => {
-    const loadData = async () => {
-      if (fazendaId) {
-        const { lotes, lotesPastoMap: mapa } = await getLotesAtivosCached(fazendaId)
-        setLotesDisponiveis(lotes)
-        setLotesPastoMap(mapa)
-      }
-
-      // Carregar tratamentos (com cache lazy para offline)
-      if (fazendaId) {
-        try {
-          const tratamentosData = await getTratamentosCached(fazendaId)
-          setTratamentosDisponiveis(tratamentosData || [])
-        } catch (error) {
-          console.error('Erro ao carregar tratamentos:', error)
+    if (!fazendaId) return
+    let cancelado = false
+    async function carregar() {
+      try {
+        const cache = await getCachedCadastroData()
+        if (cancelado) return
+        if (cache?.lotes?.length) {
+          setLotesDisponiveis(cache.lotes)
+          setLotesPastoMap(cache.lotesPastoMap || {})
         }
+        if (cache?.individuos?.length) setIndividuosCache(cache.individuos)
+      } catch (error) {
+        console.warn('[MaternidadePage] Falha ao ler o cache de cadastros:', error)
       }
+      const [tr, ra, me] = await Promise.all([
+        getTratamentosFromCacheOnly(fazendaId!),
+        getRacasFromCacheOnly(fazendaId!),
+        getMedicamentosFromCacheOnly(fazendaId!),
+      ])
+      if (cancelado) return
+      if (tr) setTratamentosDisponiveis(tr)
+      if (ra) setRacasDisponiveis(ra)
+      if (me) setMedicamentosDisponiveis(me)
 
-      // Carregar raças (com cache lazy para offline)
-      if (fazendaId) {
-        try {
-          const racasData = await getRacasCached(fazendaId)
-          setRacasDisponiveis(racasData || [])
-        } catch (error) {
-          console.error('Erro ao carregar raças:', error)
-        }
-      }
-
-      // Carregar medicamentos (com cache lazy para offline)
-      if (fazendaId) {
-        try {
-          const medicamentosData = await getMedicamentosCached(fazendaId)
-          setMedicamentosDisponiveis(medicamentosData || [])
-        } catch (error) {
-          console.error('Erro ao carregar medicamentos:', error)
-        }
-      }
+      await Promise.allSettled([
+        withTimeout(getLotesAtivosCached(fazendaId!), 3500).then(({ lotes, lotesPastoMap: mapa }) => {
+          if (cancelado) return
+          setLotesDisponiveis(lotes)
+          setLotesPastoMap(mapa)
+        }),
+        getTratamentosCached(fazendaId!).then((d) => { if (!cancelado && d) setTratamentosDisponiveis(d) }),
+        getRacasCached(fazendaId!).then((d) => { if (!cancelado && d) setRacasDisponiveis(d) }),
+        getMedicamentosCached(fazendaId!).then((d) => { if (!cancelado && d) setMedicamentosDisponiveis(d) }),
+      ])
+      if (!cancelado) setListasCarregadas(true)
     }
-    loadData()
-  }, [fazendaId])
+    carregar()
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, recarga])
 
   // Escutar atualizações do cache de cadastro
   useEffect(() => {
     const unsubscribe = eventBus.on(CADASTRO_CACHE_UPDATED, (data: any) => {
-      console.log('[MaternidadePage] Cache atualizado, recarregando dados')
-      if (data) {
-        setLotesDisponiveis(data.lotes || [])
+      // Só aplica o que veio no evento: um payload parcial não pode zerar a lista da tela
+      if (data && Array.isArray(data.lotes)) {
+        setLotesDisponiveis(data.lotes)
         setLotesPastoMap(data.lotesPastoMap || {})
       }
     })
@@ -480,44 +501,114 @@ export default function MaternidadePage() {
     return unsubscribe
   }, [])
 
-  // Buscar detalhes do lote quando selecionado
+  // Detalhes do lote (cabeças, categorias, pasto). Cache local primeiro (libera o formulário na hora, mesmo com
+  // rede ruim) e revalidação online com tempo limite. Sem os dados o SALVAR fica bloqueado: salvar assim gravaria
+  // o parto sem lote_id/pasto_id (e, ao trocar de lote sem achar o novo, ficaria o id do lote anterior).
   useEffect(() => {
-    async function carregarDetalhesLote() {
-      if (!form.lote || !fazendaId) {
-        setDetalhesLote(null)
-        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
-        return
-      }
+    let cancelado = false
+    setDetalhesLote(null)
+    setLoteIndisponivel(false)
+    setForm((prev) => (prev.loteId || prev.pastoId ? { ...prev, loteId: '', pastoId: '' } : prev))
 
+    const nome = form.lote
+    if (!nome || !fazendaId) {
+      setCarregandoLote(false)
+      return
+    }
+    setCarregandoLote(true)
+
+    const aplicar = (lote: any, det: any) => {
+      setDetalhesLote({
+        ...lote,
+        categorias: det.categorias,
+        n_cabecas: det.quant_atual,
+        peso_vivo_kg: det.peso_vivo_kg,
+        qtd_bezerros: det.qtd_bezerros,
+      })
+      setForm((prev) => ({ ...prev, loteId: lote.id, pastoId: lote.pasto_id || '' }))
+    }
+
+    async function carregarDetalhesLote() {
       try {
-        const lote = await getLoteByNomeCached(fazendaId, form.lote)
-        if (lote) {
-          // Buscar detalhes de categorias do lote
-          const categoriasDetalhes = await getLoteDetalhesComCategoriasCached(lote.id)
-          
-          // Combinar dados do lote com dados de categorias
-          setDetalhesLote({
-            ...lote,
-            categorias: categoriasDetalhes.categorias,
-            n_cabecas: categoriasDetalhes.quant_atual,
-            peso_vivo_kg: categoriasDetalhes.peso_vivo_kg,
-            qtd_bezerros: categoriasDetalhes.qtd_bezerros
-          })
-          // Armazenar o ID do lote e o pasto_id
-          setForm(prev => ({ ...prev, loteId: lote.id, pastoId: lote.pasto_id || '' }))
+        const loteCache = await getLoteByNomeFromCacheOnly(fazendaId!, nome)
+        const detCache = loteCache ? await getLoteDetalhesFromCacheOnly(loteCache.id) : null
+        if (cancelado) return
+        let resolvido = false
+        if (loteCache && detCache) {
+          aplicar(loteCache, detCache)
+          setCarregandoLote(false)
+          resolvido = true
         }
+        try {
+          const lote = await getLoteByNomeCached(fazendaId!, nome)
+          if (cancelado) return
+          const det = lote ? await getLoteDetalhesComCategoriasCached(lote.id) : null
+          if (cancelado) return
+          if (lote && det) {
+            aplicar(lote, det)
+            resolvido = true
+          }
+        } catch (error) {
+          console.warn('[MaternidadePage] Revalidação do lote falhou, usando o que está no aparelho:', error)
+        }
+        if (cancelado) return
+        if (!resolvido) setLoteIndisponivel(true)
       } catch (error) {
+        if (cancelado) return
         console.error('Erro ao carregar detalhes do lote:', error)
-        setDetalhesLote(null)
-        setForm(prev => ({ ...prev, loteId: '', pastoId: '' }))
+        setLoteIndisponivel(true)
+      } finally {
+        if (!cancelado) setCarregandoLote(false)
       }
     }
 
     carregarDetalhesLote()
-  }, [form.lote, fazendaId])
+    return () => {
+      cancelado = true
+    }
+  }, [form.lote, fazendaId, recarga])
 
-  const handleSalvar = async () => {
-    setSalvando(true)
+  const loteBloqueado = carregandoLote || loteIndisponivel
+  pendenteRef.current = (loteIndisponivel && !carregandoLote) || (listasCarregadas && lotesDisponiveis.length === 0)
+
+  useEffect(() => {
+    const aoVoltarInternet = () => {
+      if (pendenteRef.current) {
+        // O sistema avisou que a internet voltou: o sinal de rede instável não vale mais
+        registrarRespostaDeRede()
+        setRecarga((n) => n + 1)
+      }
+    }
+    window.addEventListener('online', aoVoltarInternet)
+    // Wi-Fi sem internet que volta não dispara 'online': tenta de novo de tempos em tempos enquanto faltar dado
+    const tentativa = setInterval(() => {
+      if (pendenteRef.current) setRecarga((n) => n + 1)
+    }, 25_000)
+    return () => {
+      window.removeEventListener('online', aoVoltarInternet)
+      clearInterval(tentativa)
+    }
+  }, [])
+
+  // Erro de salvamento anterior não vale para outra data/lote
+  useEffect(() => {
+    setErrors([])
+  }, [form.data, form.lote])
+
+  // Brinco/chip repetido (entre mãe, adotivas e crias, ou já existente no aparelho): o servidor recusaria o parto
+  const opConflito = {
+    cria1Viva: !cria1Morta,
+    cria2Viva: form.gemelos && !cria2Morta,
+    guacho1: form.guachoCria && !cria1Morta,
+    guacho2: form.guachoCria2 && !isAborto,
+  }
+  const conflitosDentro = conflitosDeIdentificacao(form as unknown as Record<string, unknown>, opConflito)
+  const conflitosRebanho = conflitosComRebanho(form as unknown as Record<string, unknown>, opConflito, individuosCache).filter(
+    (c) => !conflitosDentro.some((d) => d.field === c.field)
+  )
+  const conflitosIds = [...conflitosDentro, ...conflitosRebanho]
+
+  const executarSalvamento = async () => {
     setErrors([])
 
     // Validate form using the validation hook
@@ -527,8 +618,12 @@ export default function MaternidadePage() {
         message
       }))
       setErrors(errorArray)
-      setSalvando(false)
       scrollToFirstError(errorArray)
+      return
+    }
+    if (conflitosIds.length > 0) {
+      setErrors(conflitosIds)
+      scrollToFirstError(conflitosIds)
       return
     }
 
@@ -567,96 +662,82 @@ export default function MaternidadePage() {
       ...(isNatimorto ? ['Natimorto'] : []),
     ]
 
-    // Criar indivíduo da mãe se ela não existir na base (nova mãe via modal NOVO)
+    // Animais novos (mãe, mães adotivas e crias) NÃO são mais gravados direto no Supabase daqui: viajam no registro,
+    // com id gerado agora, e o sync os cria de forma idempotente antes do registro. Assim o SALVAR não depende da
+    // rede (antes cada gravação esperava até 20 s com sinal ruim) e reenviar não duplica o animal nem estoura o
+    // índice único de brinco. Em modo teste nada vai ao servidor.
+    const gravaAnimais = !testModeAtivo
+    const novoId = () => crypto.randomUUID()
+
     let individuoIdMaeFinal = form.individuoIdMae
-    if (!individuoIdMaeFinal && (form.idManejoMae || form.idBrincoMae || form.idChipMae)) {
-      if (testModeAtivo) {
-        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe no Supabase')
-      } else {
-      try {
-        const novaMae = await createIndividuo({
-          fazenda_id: fazendaId,
-          id_manejo: form.idManejoMae || null,
-          id_brinco: form.idBrincoMae || null,
-          id_chip: form.idChipMae || null,
-          sexo: 'Fêmea',
-          raca: form.racaMae || null,
-          categoria: 'Vaca Parida',
-          classificacao_matriz: form.categoriaMae || null,
-          status: 'Vivo',
-          data_nascimento: null,
-          lote_atual: form.loteId || null,
-          pasto_atual: form.pastoId || null,
-          origem: 'Cadastro Manual',
-        })
-        individuoIdMaeFinal = novaMae?.id || ''
-      } catch (err) {
-        console.error('Erro ao criar indivíduo da mãe:', err)
-      }
-      }
+    const novosMae: Record<string, unknown>[] = []
+    if (gravaAnimais && !individuoIdMaeFinal && (form.idManejoMae || form.idBrincoMae || form.idChipMae)) {
+      individuoIdMaeFinal = novoId()
+      novosMae.push({
+        id: individuoIdMaeFinal,
+        fazenda_id: fazendaId,
+        id_manejo: form.idManejoMae || null,
+        id_brinco: form.idBrincoMae || null,
+        id_chip: form.idChipMae || null,
+        sexo: 'Fêmea',
+        raca: form.racaMae || null,
+        categoria: 'Vaca Parida',
+        classificacao_matriz: form.categoriaMae || null,
+        status: 'Vivo',
+        data_nascimento: null,
+        lote_atual: form.loteId || null,
+        pasto_atual: form.pastoId || null,
+        origem: 'Cadastro Manual',
+      })
     }
 
-    // Criar indivíduo da mãe adotiva (guacho 1ª cria) se não existir na base
-    // A categoria deriva da classificação: Nulípara → Vaca Vazia, demais → Vaca Parida
+    // Mãe adotiva (guacho): a categoria deriva da classificação (Nulípara → Vaca Vazia, demais → Vaca Parida)
     const categoriaAdotiva = (cat: string) => cat === 'Nulípara' ? 'Vaca Vazia' : 'Vaca Parida'
     let individuoIdMaeAdotivaFinal = form.individuoIdMaeAdotiva
-    if (guacho1 && !individuoIdMaeAdotivaFinal && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
-      if (testModeAtivo) {
-        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe adotiva no Supabase')
-      } else {
-        try {
-          const novaAdotiva = await createIndividuo({
-            fazenda_id: fazendaId,
-            id_manejo: form.idManejoMaeAdotiva || null,
-            id_brinco: form.idBrincoMaeAdotiva || null,
-            id_chip: form.idChipMaeAdotiva || null,
-            sexo: 'Fêmea',
-            raca: form.racaMaeAdotiva || null,
-            categoria: categoriaAdotiva(form.categoriaMaeAdotiva),
-            classificacao_matriz: form.categoriaMaeAdotiva || null,
-            status: 'Vivo',
-            data_nascimento: null,
-            lote_atual: form.loteId || null,
-            pasto_atual: form.pastoId || null,
-            origem: 'Cadastro Manual',
-          })
-          individuoIdMaeAdotivaFinal = novaAdotiva?.id || ''
-        } catch (err) {
-          console.error('Erro ao criar indivíduo da mãe adotiva:', err)
-        }
-      }
+    const novosAdotiva1: Record<string, unknown>[] = []
+    if (gravaAnimais && guacho1 && !individuoIdMaeAdotivaFinal && (form.idManejoMaeAdotiva || form.idBrincoMaeAdotiva || form.idChipMaeAdotiva)) {
+      individuoIdMaeAdotivaFinal = novoId()
+      novosAdotiva1.push({
+        id: individuoIdMaeAdotivaFinal,
+        fazenda_id: fazendaId,
+        id_manejo: form.idManejoMaeAdotiva || null,
+        id_brinco: form.idBrincoMaeAdotiva || null,
+        id_chip: form.idChipMaeAdotiva || null,
+        sexo: 'Fêmea',
+        raca: form.racaMaeAdotiva || null,
+        categoria: categoriaAdotiva(form.categoriaMaeAdotiva),
+        classificacao_matriz: form.categoriaMaeAdotiva || null,
+        status: 'Vivo',
+        data_nascimento: null,
+        lote_atual: form.loteId || null,
+        pasto_atual: form.pastoId || null,
+        origem: 'Cadastro Manual',
+      })
     }
 
-    // Criar indivíduo da mãe adotiva (guacho 2ª cria) se não existir na base
     let individuoIdMaeAdotiva2Final = form.individuoIdMaeAdotiva2
-    if (guacho2 && !individuoIdMaeAdotiva2Final && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
-      if (testModeAtivo) {
-        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da mãe adotiva 2 no Supabase')
-      } else {
-        try {
-          const novaAdotiva2 = await createIndividuo({
-            fazenda_id: fazendaId,
-            id_manejo: form.idManejoMaeAdotiva2 || null,
-            id_brinco: form.idBrincoMaeAdotiva2 || null,
-            id_chip: form.idChipMaeAdotiva2 || null,
-            sexo: 'Fêmea',
-            raca: form.racaMaeAdotiva2 || null,
-            categoria: categoriaAdotiva(form.categoriaMaeAdotiva2),
-            classificacao_matriz: form.categoriaMaeAdotiva2 || null,
-            data_nascimento: null,
-            lote_atual: form.loteId || null,
-            pasto_atual: form.pastoId || null,
-            origem: 'Cadastro Manual',
-          })
-          individuoIdMaeAdotiva2Final = novaAdotiva2?.id || ''
-        } catch (err) {
-          console.error('Erro ao criar indivíduo da mãe adotiva 2:', err)
-        }
-      }
+    const novosAdotiva2: Record<string, unknown>[] = []
+    if (gravaAnimais && guacho2 && !individuoIdMaeAdotiva2Final && (form.idManejoMaeAdotiva2 || form.idBrincoMaeAdotiva2 || form.idChipMaeAdotiva2)) {
+      individuoIdMaeAdotiva2Final = novoId()
+      novosAdotiva2.push({
+        id: individuoIdMaeAdotiva2Final,
+        fazenda_id: fazendaId,
+        id_manejo: form.idManejoMaeAdotiva2 || null,
+        id_brinco: form.idBrincoMaeAdotiva2 || null,
+        id_chip: form.idChipMaeAdotiva2 || null,
+        sexo: 'Fêmea',
+        raca: form.racaMaeAdotiva2 || null,
+        categoria: categoriaAdotiva(form.categoriaMaeAdotiva2),
+        classificacao_matriz: form.categoriaMaeAdotiva2 || null,
+        data_nascimento: null,
+        lote_atual: form.loteId || null,
+        pasto_atual: form.pastoId || null,
+        origem: 'Cadastro Manual',
+      })
     }
 
-    // Função auxiliar para criar indivíduo de uma cria
-    const criarIndividuoCria = async (dadosCria: {
+    // Animal da cria (id gerado aqui; o sync grava)
+    const montarCria = (dadosCria: {
       idProvisorio: string
       idBrinco: string
       idChip: string
@@ -664,46 +745,37 @@ export default function MaternidadePage() {
       raca: string
       peso: string
       maeAdotivaId?: string
-    }): Promise<string> => {
-      if (testModeAtivo) {
-        console.log('[MaternidadePage] Modo teste ativo: pulando criação de indivíduo da cria no Supabase')
-        return ''
-      }
-      try {
-        const categoriaCria = dadosCria.sexo === 'Macho' ? 'Bezerro ao Pé' : 'Bezerra ao Pé'
-        const dataNascimentoIso = brToIso(form.data)
-        const novoIndividuo = await createIndividuo({
-          fazenda_id: fazendaId,
-          id_provisorio_cria: dadosCria.idProvisorio || null,
-          id_brinco: dadosCria.idBrinco || null,
-          id_chip: dadosCria.idChip || null,
-          sexo: dadosCria.sexo,
-          raca: dadosCria.raca,
-          categoria: categoriaCria,
-          data_nascimento: dataNascimentoIso || null,
-          peso_nascimento_kg: dadosCria.peso ? Number(dadosCria.peso) : null,
-          parto: tipoPartoFinal,
-          origem: 'Nascimento',
-          data_entrada_fazenda: dataNascimentoIso || null,
-          mae: individuoIdMaeFinal || null,
-          mae_adotiva_id: dadosCria.maeAdotivaId || null,
-          id_brinco_mae: form.idBrincoMae || null,
-          id_chip_mae: form.idChipMae || null,
-          lote_atual: form.loteId || null,
-          pasto_atual: form.pastoId || null,
-          status: 'Vivo',
-          idade_atual_dias: 0,
-          idade_atual_meses: 0,
-        })
-        return novoIndividuo?.id || ''
-      } catch (err) {
-        console.error('Erro ao criar individuo do bezerro:', err)
-        return ''
+    }): Record<string, unknown> => {
+      const categoriaCria = dadosCria.sexo === 'Macho' ? 'Bezerro ao Pé' : 'Bezerra ao Pé'
+      const dataNascimentoIso = brToIso(form.data)
+      return {
+        id: novoId(),
+        fazenda_id: fazendaId,
+        id_provisorio_cria: dadosCria.idProvisorio || null,
+        id_brinco: dadosCria.idBrinco || null,
+        id_chip: dadosCria.idChip || null,
+        sexo: dadosCria.sexo,
+        raca: dadosCria.raca,
+        categoria: categoriaCria,
+        data_nascimento: dataNascimentoIso || null,
+        peso_nascimento_kg: dadosCria.peso ? Number(dadosCria.peso) : null,
+        parto: tipoPartoFinal,
+        origem: 'Nascimento',
+        data_entrada_fazenda: dataNascimentoIso || null,
+        mae: individuoIdMaeFinal || null,
+        mae_adotiva_id: dadosCria.maeAdotivaId || null,
+        id_brinco_mae: form.idBrincoMae || null,
+        id_chip_mae: form.idChipMae || null,
+        lote_atual: form.loteId || null,
+        pasto_atual: form.pastoId || null,
+        status: 'Vivo',
+        idade_atual_dias: 0,
+        idade_atual_meses: 0,
       }
     }
 
-    // Criar indivíduo da 1ª cria (cria morta não entra no rebanho)
-    const individuoIdCria = cria1Morta ? '' : await criarIndividuoCria({
+    // 1ª cria (cria morta não entra no rebanho)
+    const novaCria1 = !gravaAnimais || cria1Morta ? null : montarCria({
       idProvisorio: form.idProvisorioCria,
       idBrinco: form.idBrincoCria,
       idChip: form.idChipCria,
@@ -712,20 +784,23 @@ export default function MaternidadePage() {
       peso: form.pesoCria,
       maeAdotivaId: guacho1 ? (individuoIdMaeAdotivaFinal || undefined) : undefined,
     })
+    const individuoIdCria = novaCria1 ? String(novaCria1.id) : ''
 
-    // Criar indivíduo da 2ª cria (se gêmeos e 2ª cria viva — aborto não entra no rebanho)
-    let individuoIdCria2 = ''
-    if (form.gemelos && !cria2Morta) {
-      individuoIdCria2 = await criarIndividuoCria({
-        idProvisorio: form.idProvisorioCria2,
-        idBrinco: form.idBrincoCria2,
-        idChip: form.idChipCria2,
-        sexo: form.sexo2,
-        raca: form.raca2,
-        peso: form.pesoCria2,
-        maeAdotivaId: guacho2 ? (individuoIdMaeAdotiva2Final || undefined) : undefined,
-      })
-    }
+    // 2ª cria (gêmeos e 2ª cria viva; aborto não entra no rebanho)
+    const novaCria2 = !gravaAnimais || !(form.gemelos && !cria2Morta) ? null : montarCria({
+      idProvisorio: form.idProvisorioCria2,
+      idBrinco: form.idBrincoCria2,
+      idChip: form.idChipCria2,
+      sexo: form.sexo2,
+      raca: form.raca2,
+      peso: form.pesoCria2,
+      maeAdotivaId: guacho2 ? (individuoIdMaeAdotiva2Final || undefined) : undefined,
+    })
+    const individuoIdCria2 = novaCria2 ? String(novaCria2.id) : ''
+
+    // Cada registro leva os animais que referencia (mãe repetida no 2º registro: o sync ignora id que já existe)
+    const novosIndividuos1 = [...novosMae, ...novosAdotiva1, ...(novaCria1 ? [novaCria1] : [])]
+    const novosIndividuos2 = [...novosMae, ...novosAdotiva2, ...(novaCria2 ? [novaCria2] : [])]
 
     // Construir strings finais de tratamentos
     const tratamentoFinal = form.tratamentos.join(', ')
@@ -757,11 +832,13 @@ export default function MaternidadePage() {
       idChipMae: form.idChipMae,
       individuoIdMae: individuoIdMaeFinal,
       individuoIdCria,
+      novosIndividuos: novosIndividuos1,
       categoriaMae: form.categoriaMae,
       escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
       docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
       partoVinculoId,
       // Mãe adotiva (guacho)
+      guachoCria: guacho1,
       individuoIdMaeAdotiva: guacho1 ? (individuoIdMaeAdotivaFinal || null) : null,
       idManejoMaeAdotiva: guacho1 ? form.idManejoMaeAdotiva : null,
       idBrincoMaeAdotiva: guacho1 ? form.idBrincoMaeAdotiva : null,
@@ -805,11 +882,13 @@ export default function MaternidadePage() {
           idChipMae: form.idChipMae,
           individuoIdMae: individuoIdMaeFinal,
           individuoIdCria: individuoIdCria2,
+          novosIndividuos: novosIndividuos2,
           categoriaMae: form.categoriaMae,
           escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
           docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
           partoVinculoId,
           // Mãe adotiva (guacho 2ª cria)
+          guachoCria: guacho2,
           individuoIdMaeAdotiva: guacho2 ? (individuoIdMaeAdotiva2Final || null) : null,
           idManejoMaeAdotiva: guacho2 ? form.idManejoMaeAdotiva2 : null,
           idBrincoMaeAdotiva: guacho2 ? form.idBrincoMaeAdotiva2 : null,
@@ -823,10 +902,10 @@ export default function MaternidadePage() {
       }
     }
 
-    setSalvando(false)
-    if (!result.success && result.errors) {
-      setErrors(result.errors)
-      scrollToFirstError(result.errors)
+    if (!result.success) {
+      const errosSalvar = result.errors ?? [{ field: 'geral', message: 'Não foi possível salvar. Tente novamente.' }]
+      setErrors(errosSalvar)
+      scrollToFirstError(errosSalvar)
     } else {
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
@@ -838,6 +917,24 @@ export default function MaternidadePage() {
       if (form.loteId) {
         clearCachedQuery(buildCacheKey('lote-detalhes', form.loteId))
       }
+    }
+  }
+
+  // Trava de toque duplo e sem salvar enquanto faltam os dados do lote
+  const handleSalvar = async () => {
+    if (salvandoRef.current || loteBloqueado) return
+    salvandoRef.current = true
+    setSalvando(true)
+    try {
+      await executarSalvamento()
+    } catch (error) {
+      console.error('Erro ao salvar maternidade:', error)
+      const erro = [{ field: 'geral', message: 'Erro ao salvar o parto. Tente novamente.' }]
+      setErrors(erro)
+      scrollToFirstError(erro)
+    } finally {
+      salvandoRef.current = false
+      setSalvando(false)
     }
   }
 
@@ -1137,11 +1234,18 @@ export default function MaternidadePage() {
 
   const pendenciaTexto = (() => {
     if (!form.lote) return 'Falta escolher o pasto/lote'
+    if (carregandoLote) return 'Carregando dados do lote...'
+    if (loteIndisponivel) return 'Dados do lote indisponíveis neste aparelho: conecte à internet e atualize os dados'
     if (!form.idManejoMae.trim() && !form.idBrincoMae.trim() && !form.idChipMae.trim()) return 'Falta identificar a mãe (manejo, brinco ou chip)'
     if (!form.categoriaMae) return 'Falta a classificação da matriz'
     if (!form.escoreMatriz) return 'Falta o escore da matriz'
     if (!form.docilidadeMatriz) return 'Falta a docilidade da matriz'
     if (form.tipoParto.length === 0) return 'Falta informar como foi o parto'
+    if (validationErrors._maeIdentificada) return validationErrors._maeIdentificada
+    if (validationErrors._racaMae) return validationErrors._racaMae
+    const faltaAdotiva = Object.keys(validationErrors).find((k) => /^_(mae|raca|categoria)MaeAdotiva|^_maeAdotiva/.test(k))
+    if (faltaAdotiva) return validationErrors[faltaAdotiva]
+    if (conflitosIds.length > 0) return conflitosIds[0].message
     return validationErrors && Object.keys(validationErrors).length > 0 ? 'Falta preencher os dados da cria' : undefined
   })()
 
@@ -1152,7 +1256,7 @@ export default function MaternidadePage() {
       <CadernetaLayout
         title="MATERNIDADE"
         cadernetaId="maternidade"
-        dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
+        dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline maxDate={todayBR()} />}
       >
         <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
@@ -1435,8 +1539,8 @@ export default function MaternidadePage() {
           onSalvar={handleSalvar}
           onLimpar={handleLimpar}
           salvando={salvando}
-          disabled={!isValid}
-          formValido={isValid}
+          disabled={!isValid || loteBloqueado || conflitosIds.length > 0}
+          formValido={isValid && !loteBloqueado && conflitosIds.length === 0}
           pendenciaTexto={pendenciaTexto}
         />
       </CadernetaLayout>

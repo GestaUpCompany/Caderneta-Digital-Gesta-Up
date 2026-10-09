@@ -1058,6 +1058,57 @@ export async function buscarIndividuoPorIdGenerico(fazendaId: string, idDigitado
   return data?.[0] || null
 }
 
+/**
+ * Cria animais com id definido pelo chamador, na ordem recebida (mãe, mães adotivas, crias). Idempotente: se o id
+ * já existe (reenvio do registro, tentativa anterior que chegou ao servidor), não faz nada. Só exige permissão de
+ * INSERT (ignoreDuplicates usa ON CONFLICT DO NOTHING).
+ *
+ * Mãe e mãe adotiva ("Cadastro Manual") que já existem na fazenda com o mesmo brinco, chip ou manejo (o aparelho
+ * estava com a lista de animais desatualizada e o peão cadastrou como "novo") são reaproveitadas em vez de
+ * recriadas, como o trigger do servidor já fazia. Retorna o mapa id enviado → id efetivo para o chamador acertar
+ * as referências do registro; as crias seguintes também têm `mae`/`mae_adotiva_id` remapeados.
+ */
+export async function criarIndividuosIdempotente(individuos: any[]): Promise<Record<string, string>> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const idEfetivo: Record<string, string> = {}
+  const aspas = (v: string) => `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+
+  for (const original of individuos) {
+    const individuo = { ...original }
+    if (individuo.mae && idEfetivo[individuo.mae]) individuo.mae = idEfetivo[individuo.mae]
+    if (individuo.mae_adotiva_id && idEfetivo[individuo.mae_adotiva_id]) individuo.mae_adotiva_id = idEfetivo[individuo.mae_adotiva_id]
+
+    if (individuo.origem === 'Cadastro Manual') {
+      const filtros = [
+        individuo.id_brinco ? `id_brinco.eq.${aspas(String(individuo.id_brinco))}` : null,
+        individuo.id_chip ? `id_chip.eq.${aspas(String(individuo.id_chip))}` : null,
+        individuo.id_manejo ? `id_manejo.eq.${aspas(String(individuo.id_manejo))}` : null,
+      ].filter(Boolean) as string[]
+      if (filtros.length > 0) {
+        const { data: existentes, error: erroBusca } = await client
+          .from('individuos')
+          .select('id')
+          .eq('fazenda_id', individuo.fazenda_id)
+          .is('deleted_at', null)
+          .or(filtros.join(','))
+          .limit(1)
+        if (erroBusca) throw erroBusca
+        const existente = existentes?.[0]
+        if (existente && existente.id !== individuo.id) {
+          idEfetivo[individuo.id] = existente.id
+          continue
+        }
+      }
+    }
+
+    const { error } = await client
+      .from('individuos')
+      .upsert(individuo, { onConflict: 'id', ignoreDuplicates: true })
+    if (error) throw error
+  }
+  return idEfetivo
+}
+
 export async function createIndividuo(individuo: any) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
