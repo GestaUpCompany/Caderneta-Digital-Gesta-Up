@@ -203,7 +203,7 @@ export default function PastagensPage() {
   const [alvoVoz, setAlvoVoz] = useState<AlvoVoz | null>(null)
   const baseVozRef = useRef('')
 
-  // Fotos obrigatórias dos pastos (com GPS, não obrigatório): saída e entrada
+  // Fotos opcionais dos pastos (com GPS, não obrigatório): saída e entrada
   const fotoSaida = usePhotoGps({ comGps: true })
   const fotoEntrada = usePhotoGps({ comGps: true })
 
@@ -551,12 +551,6 @@ export default function PastagensPage() {
     escoreGado: { required: true },
     escoreFezes: { required: true },
     numeroPessoasManejo: { required: true },
-    fotoSaida: {
-      custom: () => (form.pastoSaida && !fotoSaida.fotoBase64 ? 'Tire a foto do pasto de saída' : null),
-    },
-    fotoEntrada: {
-      custom: () => (form.pastoEntrada && !fotoEntrada.fotoBase64 ? 'Tire a foto do pasto de entrada' : null),
-    },
   }
 
   // Add dynamic validation for animal categories when gadoContado is 'Sim'
@@ -753,10 +747,8 @@ export default function PastagensPage() {
   const pendenciaTexto = (() => {
     if (!form.pastoSaida) return 'Falta escolher o pasto de saída'
     if (!form.avaliacaoSaida) return 'Falta a avaliação do pasto de saída'
-    if (!fotoSaida.fotoBase64) return 'Falta a foto do pasto de saída'
     if (!form.pastoEntrada) return 'Falta escolher o pasto de entrada'
     if (!form.avaliacaoEntrada) return 'Falta a avaliação do pasto de entrada'
-    if (!fotoEntrada.fotoBase64) return 'Falta a foto do pasto de entrada'
     if (!form.gadoContado) return 'Falta informar se o gado foi contado'
     if (form.gadoContado === 'Sim' && !Object.values(form.categoriasQuantidades).some((v) => Number(v) > 0)) return 'Falta informar a quantidade de animais'
     if (!form.escoreGado) return 'Falta o escore corporal'
@@ -779,7 +771,7 @@ export default function PastagensPage() {
 
   const rotulo = 'text-[13px] font-bold uppercase text-gray-900'
 
-  /** Bloco de foto obrigatória do pasto (com GPS e hora). */
+  /** Bloco de foto opcional do pasto (com GPS e hora). */
   const blocoFotoPasto = (tipo: 'saida' | 'entrada') => {
     const h = tipo === 'saida' ? fotoSaida : fotoEntrada
     const nomePasto = tipo === 'saida' ? form.pastoSaida : form.pastoEntrada
@@ -787,7 +779,7 @@ export default function PastagensPage() {
     return (
       <div className="flex flex-col gap-2" data-field={campo}>
         <label className={rotulo}>
-          Foto do pasto de {tipo === 'saida' ? 'saída' : 'entrada'} <span className="text-red-500">*</span>
+          Foto do pasto de {tipo === 'saida' ? 'saída' : 'entrada'} (opcional)
         </label>
         {h.fotoBase64 ? (
           <div className="flex items-stretch gap-2">
