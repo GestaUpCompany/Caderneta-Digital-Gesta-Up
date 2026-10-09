@@ -2,10 +2,12 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
-## Compartilhar com várias fotos: preparo antes do clique (08/10/2026)
+## Compartilhar: só a foto principal do registro (08/10/2026)
 
-- Bebedouros e Suplementação montavam texto, consultas e download das fotos (`foto_url`, em sequência) **depois** do clique em COMPARTILHAR. Com 2+ fotos o tempo passava da ativação do toque e o `navigator.share` com arquivos era recusado, saindo só o texto (e o aviso de foto omitida).
-- Agora `ListaRegistros` prepara tudo ao abrir o modal (`prepararCompartilhamento`, downloads em paralelo) e o clique só chama o share. Teste no Android (PWA) mostrou que o texto saía sem as fotos mesmo assim (sem aviso), então com 2+ fotos o compartilhamento agora é em duas etapas: COMPARTILHAR envia o texto e o botão ENVIAR N FOTOS envia o álbum (`compartilharFotos`). Antes: se ainda sair só o texto, a causa provável é o WhatsApp descartar o texto quando recebe vários arquivos.
+- Decisão: o texto compartilhável **não envia fotos de itens de checklist** (Bebedouros e Suplementação) e não traz mais os marcadores "(foto N)" nem a linha "FOTO DO COCHO". Duas tentativas de enviar o álbum no Android (PWA) não funcionaram no aparelho (o WhatsApp só recebia o texto e o modal de segunda etapa não apareceu); o assunto foi encerrado por enquanto.
+- Vai anexada apenas a foto principal do registro, quando a tela tem. Registro já sincronizado só tem `foto_url`: o app baixa a foto (timeout de 8 s) para anexar; offline, o texto sai sem a foto.
+- Texto e foto são preparados ao abrir o modal (`ListaRegistros.prepararCompartilhamento`), para o `navigator.share` com arquivo não perder a ativação do toque. `compartilharWhatsApp` continua aceitando N fotos (uso futuro).
+- Removidos: `extrairProblemasComFotoBebedouros`, `extrairFotosSuplementacao`, `compartilharFotos`.
 
 ## Número de versão visível no app (08/10/2026)
 

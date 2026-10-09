@@ -697,32 +697,26 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // valor=true significa "condicao adequada". So imprime itens marcados.
     const checklistBebedouros = CHECKLIST_BEBEDOUROS_PROBLEMAS
 
-    // Filter only problematic answers (valor === false). Item com foto ganha
-    // marcador "(foto N)": a imagem vai anexada na MESMA mensagem, na ordem,
-    // formando um album (ver ListaRegistros + compartilharWhatsApp).
+    // Filter only problematic answers (valor === false)
     const problematicos = checklistBebedouros.map(({ campo, label }) => {
       let valor = null
       let observacao = null
-      let temFoto = false
       if (registro.checklist && (registro.checklist as any)[campo]) {
         const item = (registro.checklist as any)[campo]
         valor = item.valor
         observacao = item.observacao
-        temFoto = !!(item.fotoBase64 || item.foto_url)
       } else {
         const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      return { label, valor, observacao, temFoto }
+      return { label, valor, observacao }
     }).filter(item => item.valor === false)
 
     if (problematicos.length > 0) {
       texto += `\nPROBLEMAS ENCONTRADOS\n`
-      let numeroFoto = 0
-      problematicos.forEach(({ label, observacao, temFoto }) => {
-        const marcador = temFoto ? ` (foto ${++numeroFoto})` : ''
-        texto += `⚠️ *${label}*${marcador}\n`
+      problematicos.forEach(({ label, observacao }) => {
+        texto += `⚠️ *${label}*\n`
         if (observacao && observacao !== '') {
           texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
@@ -1158,40 +1152,28 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
     */
     
-    // Seção: Problemas encontrados — checklist negativo, mesmo padrao de
-    // bebedouros. Item com foto ganha marcador "(foto N)" apontando para o
-    // album anexado na mesma mensagem (ver ListaRegistros).
+    // Seção: Problemas encontrados — checklist negativo, mesmo padrao de bebedouros
     const checklistSuplementacao = registro.checklist as any
-    const fotoCochoItem = checklistSuplementacao?.foto_cocho
-    const temFotoCocho = !!(fotoCochoItem?.fotoBase64 || fotoCochoItem?.foto_url)
-    let numeroFotoSup = 0
-    if (temFotoCocho) {
-      numeroFotoSup++
-      texto += `\nFOTO DO COCHO: *(foto ${numeroFotoSup})*\n`
-    }
 
     const problematicosCochos = CHECKLIST_SUPLEMENTACAO_PROBLEMAS.map(({ campo, label }) => {
       let valor = null
       let observacao = null
-      let temFoto = false
       if (checklistSuplementacao && checklistSuplementacao[campo]) {
         const item = checklistSuplementacao[campo]
         valor = item.valor
         observacao = item.observacao
-        temFoto = !!(item.fotoBase64 || item.foto_url)
       } else {
         const flatCampo = campo.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase())
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      return { label, valor, observacao, temFoto }
+      return { label, valor, observacao }
     }).filter(item => item.valor === false)
 
     if (problematicosCochos.length > 0) {
       texto += `\nPROBLEMAS ENCONTRADOS\n`
-      problematicosCochos.forEach(({ label, observacao, temFoto }) => {
-        const marcador = temFoto ? ` (foto ${++numeroFotoSup})` : ''
-        texto += `⚠️ *${label}*${marcador}\n`
+      problematicosCochos.forEach(({ label, observacao }) => {
+        texto += `⚠️ *${label}*\n`
         if (observacao && observacao !== '') {
           texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
@@ -2503,63 +2485,6 @@ const CHECKLIST_SUPLEMENTACAO_PROBLEMAS = [
   { campo: 'deposito_condicoes', label: 'DEPÓSITO EM MÁS CONDIÇÕES' },
 ]
 
-export interface ProblemaComFoto {
-  label: string
-  observacao?: string
-  fotoBase64?: string
-  fotoUrl?: string
-}
-
-/**
- * Itens do checklist de bebedouros marcados como problema E com foto
- * (base64 local antes do sync ou foto_url depois). Cada um vira uma
- * mensagem separada no compartilhamento, com a imagem anexada.
- */
-export const extrairProblemasComFotoBebedouros = (registro: Registro): ProblemaComFoto[] => {
-  const checklist = (registro as any).checklist
-  if (!checklist || typeof checklist !== 'object') return []
-
-  return CHECKLIST_BEBEDOUROS_PROBLEMAS.flatMap(({ campo, label }) => {
-    const item = checklist[campo]
-    if (!item || item.valor !== false) return []
-    const fotoBase64 = item.fotoBase64 as string | undefined
-    const fotoUrl = item.foto_url as string | undefined
-    if (!fotoBase64 && !fotoUrl) return []
-    return [{ label, observacao: item.observacao || undefined, fotoBase64, fotoUrl }]
-  })
-}
-
-/**
- * Fotos do checklist de suplementacao no share: a foto do cocho (evidencia da
- * leitura) sai primeiro, depois os problemas marcados com foto, na mesma
- * ordem dos marcadores "(foto N)" do texto.
- */
-export const extrairFotosSuplementacao = (registro: Registro): ProblemaComFoto[] => {
-  const checklist = (registro as any).checklist
-  if (!checklist || typeof checklist !== 'object') return []
-
-  const fotos: ProblemaComFoto[] = []
-  const cocho = checklist.foto_cocho
-  if (cocho && (cocho.fotoBase64 || cocho.foto_url)) {
-    fotos.push({
-      label: 'FOTO DO COCHO',
-      fotoBase64: cocho.fotoBase64 as string | undefined,
-      fotoUrl: cocho.foto_url as string | undefined,
-    })
-  }
-
-  CHECKLIST_SUPLEMENTACAO_PROBLEMAS.forEach(({ campo, label }) => {
-    const item = checklist[campo]
-    if (!item || item.valor !== false) return
-    const fotoBase64 = item.fotoBase64 as string | undefined
-    const fotoUrl = item.foto_url as string | undefined
-    if (!fotoBase64 && !fotoUrl) return
-    fotos.push({ label, observacao: item.observacao || undefined, fotoBase64, fotoUrl })
-  })
-
-  return fotos
-}
-
 // Baixa uma foto do Storage e converte para base64, para anexar no share
 // quando o registro sincronizado so tem foto_url.
 export const fotoUrlParaBase64 = async (url: string): Promise<string | null> => {
@@ -2582,56 +2507,12 @@ export const fotoUrlParaBase64 = async (url: string): Promise<string | null> => 
   }
 }
 
-/**
- * Compartilha so as fotos (album), sem texto. O WhatsApp costuma descartar as
- * imagens quando recebe texto + varias fotos na mesma share sheet; por isso, com
- * 2+ fotos, o texto sai em um compartilhamento e as fotos em outro.
- */
-export const compartilharFotos = async (fotos: string[]) => {
-  if (fotos.length === 0) return
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const uris: string[] = []
-      for (let i = 0; i < fotos.length; i++) {
-        const resultado = await Filesystem.writeFile({
-          path: `share/foto_${i + 1}.${imageExtFromBase64(fotos[i])}`,
-          data: fotos[i],
-          directory: Directory.Cache,
-          recursive: true,
-        })
-        uris.push(resultado.uri)
-      }
-      await Share.share({ title: 'Compartilhar fotos', files: uris, dialogTitle: 'Compartilhar fotos' })
-      return
-    } catch (err) {
-      if (isAbort(err) || /cancel/i.test((err as Error)?.message || '')) return
-      console.error('[share] Falha ao compartilhar fotos no nativo:', err)
-    }
-  }
-  const files = fotos.map((b64, i) => {
-    const mime = imageMimeFromBase64(b64)
-    return new File([base64ToBlob(b64, mime)], `foto_${i + 1}.${imageExtFromBase64(b64)}`, { type: mime })
-  })
-  const nav = navigator as any
-  if (typeof nav.canShare === 'function' && nav.canShare({ files })) {
-    try {
-      await nav.share({ files })
-      return
-    } catch (err) {
-      if (isAbort(err)) return
-      console.error('[share] Erro ao compartilhar fotos:', err)
-    }
-  }
-  alert('Este dispositivo não conseguiu anexar as fotos no compartilhamento.')
-}
-
 export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | string[] | null) => {
   const textoCodificado = encodeURIComponent(texto)
   const url = `https://wa.me/?text=${textoCodificado}`
   const mobile = isMobileShare()
 
-  // Aceita 1 ou N fotos: multiplas viram um album na mesma mensagem (ordem
-  // preservada — os marcadores "(foto N)" do texto apontam para ela).
+  // Aceita 1 ou N fotos: multiplas viram um album na mesma mensagem (ordem preservada).
   const fotos = (Array.isArray(fotoBase64) ? fotoBase64 : fotoBase64 ? [fotoBase64] : []).filter(Boolean)
 
   // App nativo (APK): o WebView do Android nao tem Web Share API, entao o

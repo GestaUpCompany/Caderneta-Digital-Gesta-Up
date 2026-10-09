@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react'
 import AppHeader from '../AppHeader'
 import { RootState } from '../../store/store'
 import { LABELS_BY_CADERNETA } from '../../config/labelConfig'
-import { formatarRegistroComoTexto, compartilharWhatsApp, compartilharFotos, formatarTempoDesdeLimpeza, extrairProblemasComFotoBebedouros, extrairFotosSuplementacao, fotoUrlParaBase64 } from '../../utils/shareUtils'
+import { formatarRegistroComoTexto, compartilharWhatsApp, formatarTempoDesdeLimpeza, fotoUrlParaBase64 } from '../../utils/shareUtils'
 import { translateSyncError, formatSyncErrorForSupport } from '../../utils/syncErrorMessages'
 import { formatarNumeroBR, normalizarNumero } from '../../utils/formatNumber'
 import { calcularMetricasSuplementacao } from '../../utils/supplementMetrics'
@@ -195,19 +195,11 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   // Texto e fotos são montados ao abrir o modal (consultas e download das fotos levam
   // segundos). Se isso rodasse depois do clique em COMPARTILHAR, a ativação do toque
   // expiraria e o navegador recusaria o navigator.share com arquivos: só o texto sairia.
-  // Com 2+ fotos o texto sai primeiro e as fotos ficam aguardando o segundo toque
-  const [fotosPendentes, setFotosPendentes] = useState<string[] | null>(null)
   const preparoCompartilhamentoRef = useRef<Promise<{ textoFinal: string; fotos: string[] }> | null>(null)
 
   const handleCompartilhar = (registro: Registro) => {
     preparoCompartilhamentoRef.current = prepararCompartilhamento(registro)
-    setFotosPendentes(null)
-    // Com 2+ fotos o modal já mostra os dois botões (texto e fotos) assim que o preparo termina
-    preparoCompartilhamentoRef.current
-      .then(({ fotos }) => {
-        if (fotos.length > 1) setFotosPendentes(fotos)
-      })
-      .catch(() => {})
+    preparoCompartilhamentoRef.current.catch(() => {})
     setRegistroParaCompartilhar(registro)
     setMostrarModalCompartilhar(true)
   }
@@ -216,19 +208,9 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     if (!registroParaCompartilhar) return
     const preparo = preparoCompartilhamentoRef.current ?? prepararCompartilhamento(registroParaCompartilhar)
     const { textoFinal, fotos } = await preparo
-    if (fotos.length > 1) {
-      // Texto e fotos são envios separados e independentes: o modal continua aberto
-      await compartilharWhatsApp(textoFinal, [])
-      return
-    }
     await compartilharWhatsApp(textoFinal, fotos)
     setMostrarModalCompartilhar(false)
     setRegistroParaCompartilhar(null)
-  }
-
-  const handleCompartilharFotos = async () => {
-    if (!fotosPendentes) return
-    await compartilharFotos(fotosPendentes)
   }
 
   const prepararCompartilhamento = async (registroParaCompartilhar: Registro) => {
@@ -347,33 +329,14 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
     }
 
     const texto = formatarRegistroComoTexto(registroParaShare, caderneta, registros)
+    // Só a foto principal do registro (quando a tela tem). Registro já sincronizado só
+    // tem a foto_url: baixa para anexar; se falhar (offline), o texto sai sem a foto.
     const fotos: string[] = []
-    let textoFinal = texto
-
-    if (caderneta === 'bebedouros' || caderneta === 'suplementacao') {
-      // Cada problema com foto vai como imagem do album, na ordem dos
-      // marcadores "(foto N)" do texto. Item sem base64 e sem download
-      // possivel vira link no texto.
-      const problemas = caderneta === 'bebedouros'
-        ? extrairProblemasComFotoBebedouros(registroParaShare)
-        : extrairFotosSuplementacao(registroParaShare)
-      const linksPendentes: string[] = []
-      // Downloads em paralelo; a ordem das fotos segue a dos marcadores "(foto N)"
-      const base64s = await Promise.all(
-        problemas.map(async (p) => p.fotoBase64 || (p.fotoUrl ? (await fotoUrlParaBase64(p.fotoUrl)) ?? undefined : undefined))
-      )
-      problemas.forEach((p, i) => {
-        const base64 = base64s[i]
-        if (base64) fotos.push(base64)
-        else if (p.fotoUrl) linksPendentes.push(`FOTO ${i + 1}: ${p.fotoUrl}`)
-      })
-      if (linksPendentes.length > 0) {
-        textoFinal = `${texto}\n${linksPendentes.join('\n')}\n`
-      }
-    } else {
-      const foto = (registroParaShare as any).fotoBase64 as string | null | undefined
-      if (foto) fotos.push(foto)
-    }
+    const fotoLocal = (registroParaShare as any).fotoBase64 as string | null | undefined
+    const fotoUrl = (registroParaShare as any).foto_url as string | null | undefined
+    const foto = fotoLocal || (fotoUrl ? await fotoUrlParaBase64(fotoUrl) : null)
+    if (foto) fotos.push(foto)
+    const textoFinal = texto
 
     return { textoFinal, fotos }
   }
@@ -1197,17 +1160,8 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                   className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
                 >
                   <Share2 className="h-5 w-5" />
-                  {fotosPendentes ? '1. ENVIAR TEXTO' : 'COMPARTILHAR'}
+                  COMPARTILHAR
                 </button>
-                {fotosPendentes && (
-                  <button
-                    onClick={handleCompartilharFotos}
-                    className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
-                  >
-                    <Share2 className="h-5 w-5" />
-                    2. ENVIAR {fotosPendentes.length} FOTOS
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     setMostrarModalCompartilhar(false)
@@ -1215,7 +1169,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                   }}
                   className="w-full font-bold px-4 py-3 rounded-2xl border-2 border-gray-300 text-gray-700 bg-gray-100 active:bg-gray-200"
                 >
-                  {fotosPendentes ? 'FECHAR' : 'CANCELAR'}
+                  CANCELAR
                 </button>
               </div>
             </div>
