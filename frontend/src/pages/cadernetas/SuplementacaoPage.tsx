@@ -987,7 +987,9 @@ export default function SuplementacaoPage() {
       }
     }
     if (possuiDeposito) {
+      // required: sem isso o hook pula a regra com o campo vazio e o botão liberava sem o depósito
       base.kgDeposito = {
+        required: true,
         custom: () => {
           if (!form.kgDeposito || form.kgDeposito.trim() === '' || Number(form.kgDeposito) <= 0) {
             return isSacaria

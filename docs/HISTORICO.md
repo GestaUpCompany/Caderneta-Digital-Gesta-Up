@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Varredura de validação nas telas já testadas (09/10/2026)
+
+Rodeio, Suplementação, Bebedouros, Abastecimento, Produção Fábrica e Maternidade, para garantir que o SALVAR não libera com obrigatório faltando e que a mensagem aponta o campo certo.
+
+- **Testes (`validation.varredura.test.ts`, 136 casos):** para cada `validate*` (Maternidade, Rodeio, Suplementação, Bebedouros, Abastecimento), payload completo é válido, e esvaziar cada obrigatório sozinho (`''`, espaços, `undefined`, `null`) gera erro só naquele campo. Também valores inválidos (datas impossíveis, leituras fora da escala, kg zero/negativo/texto), creep, depósito, "Outros" sem descrição, gado não contado, checklist do Rodeio (valores `S`/`N`), aborto/natimorto e guacho.
+- **Navegador (build de produção, fazenda de testes):** preenchimento completo e depois cada obrigatório faltando, olhando o botão e a mensagem do rodapé. Maternidade (lote, mãe, classificação da mãe nova, escore, docilidade, como foi, ID provisório, peso, sexo, cuidados, raça), Bebedouros (bebedouro, leitura, limpeza), Abastecimento (máquina, operador, tanque, total, odômetro, serviço; "Outros" com descrição; máquina sem horímetro), Suplementação (lote, leitura, sacos, depósito, limpeza), Rodeio (lote, contado, categorias, escore, fezes, equipe, nomes) e Produção Fábrica (formulação, destino, total, cada insumo): todos bloquearam com a mensagem do campo.
+- **Bug achado e corrigido:** na Suplementação o SALVAR liberava com o depósito vazio (campo marcado como obrigatório na tela). A regra `kgDeposito` não era `required` e a chave não começa com `_`, então o `useFormValidation` a pulava com o campo vazio (mesma causa do guacho da Maternidade). Agora `required: true`.
+- **Observações:** a classificação da matriz não bloqueia com mãe existente porque é preenchida com a do cadastro (comportamento esperado); com mãe nova bloqueia. O botão da Produção Fábrica usa `formValido` próprio, sem teste unitário.
+- **Suspeitos fora do escopo, não verificados:** `EnfermariaPage` (`idManejo`), `MortePage` (`observacaoIdentificacao`) e `ComunicadoVendaPage` (`dataPrevistaAbate`, `corretora`) têm regra `custom` sem `required` e sem prefixo `_`, que podem ser puladas com o campo vazio.
+
 ## Maternidade: animais criados no sync, brinco duplicado barrado, sinal ruim e guacho validado (09/10/2026)
 
 Diagnóstico a partir de `logs_sync_errors` (maternidade): **43 partos nunca chegaram ao servidor** e seguem sem resolução — Chibiu 32 e Brilhante 7 (23505 `idx_individuos_fazenda_brinco_unico`, desde 25/08), Boiadeiro 3 e Chibata 2 (42601 e 23505). Nenhum dos `local_id` falhos existe em `registros_maternidade`. Os 42601 (06/10) pararam sozinhos às 21:55 do mesmo dia (erro transitório do servidor durante a migração de isolamento de tenant).
