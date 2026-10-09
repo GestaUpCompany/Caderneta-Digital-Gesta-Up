@@ -739,13 +739,16 @@ export async function getCachedCadastroData(): Promise<CadastroCacheData | null>
 export async function getLotesAtivosCached(
   fazendaId: string
 ): Promise<{ lotes: string[]; lotesPastoMap: Record<string, string> }> {
-  if (navigator.onLine) {
+  if (navigator.onLine && !redeInstavelRecentemente()) {
     try {
-      const [lotesData, pastosData, ocupacoesCurralData] = await Promise.all([
-        supabaseService.getLotes(fazendaId),
-        supabaseService.getPastos(fazendaId),
-        supabaseService.getOcupacoesCurralAtivas(fazendaId).catch(() => []),
-      ])
+      const [lotesData, pastosData, ocupacoesCurralData] = await withTimeout(
+        Promise.all([
+          supabaseService.getLotes(fazendaId),
+          supabaseService.getPastos(fazendaId),
+          supabaseService.getOcupacoesCurralAtivas(fazendaId).catch(() => []),
+        ]),
+        3000
+      )
       const lotes = Array.from(new Set(lotesData?.map((l: any) => l.nome) || []))
       const lotesPastoMap = buildLotesLocalMap(lotesData, pastosData, ocupacoesCurralData)
       return { lotes, lotesPastoMap }
@@ -1959,18 +1962,22 @@ export async function getContagemPartosVacaCached(fazendaId: string, idVaca: str
 export async function getMedicamentosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('medicamentos', fazendaId)
 
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
-  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return getMedicamentosFromCacheOnly(fazendaId)
 
   try {
-    const data = await supabaseService.getMedicamentos(fazendaId)
+    const data = await withTimeout(supabaseService.getMedicamentos(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return getMedicamentosFromCacheOnly(fazendaId)
   }
+}
+
+/** Lê do cache (memória ou IDB), sem tentar online. */
+export async function getMedicamentosFromCacheOnly(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('medicamentos', fazendaId)
+  const cached = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  return cached && Array.isArray(cached) ? cached : null
 }
 
 /**
@@ -1981,18 +1988,22 @@ export async function getMedicamentosCached(fazendaId: string): Promise<any[] | 
 export async function getTratamentosCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('tratamentos', fazendaId)
 
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
-  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return getTratamentosFromCacheOnly(fazendaId)
 
   try {
-    const data = await supabaseService.getTratamentos(fazendaId)
+    const data = await withTimeout(supabaseService.getTratamentos(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return getTratamentosFromCacheOnly(fazendaId)
   }
+}
+
+/** Lê do cache (memória ou IDB), sem tentar online. */
+export async function getTratamentosFromCacheOnly(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('tratamentos', fazendaId)
+  const cached = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  return cached && Array.isArray(cached) ? cached : null
 }
 
 /**
@@ -2003,18 +2014,22 @@ export async function getTratamentosCached(fazendaId: string): Promise<any[] | n
 export async function getRacasCached(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('racas', fazendaId)
 
-  if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
-    return (cached && Array.isArray(cached)) ? cached : null
-  }
+  if (!navigator.onLine || redeInstavelRecentemente()) return getRacasFromCacheOnly(fazendaId)
 
   try {
-    const data = await supabaseService.getRacas(fazendaId)
+    const data = await withTimeout(supabaseService.getRacas(fazendaId), 3000)
     if (data) setCachedQuery(key, data)
     return data
   } catch {
-    return null
+    return getRacasFromCacheOnly(fazendaId)
   }
+}
+
+/** Lê do cache (memória ou IDB), sem tentar online. */
+export async function getRacasFromCacheOnly(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('racas', fazendaId)
+  const cached = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  return cached && Array.isArray(cached) ? cached : null
 }
 
 /**

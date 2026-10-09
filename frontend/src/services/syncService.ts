@@ -1153,9 +1153,25 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       if (upsertTables.has(tableNameStr)) {
         let result: any
         switch (tableNameStr) {
-          case 'registros_maternidade':
+          case 'registros_maternidade': {
+            // Animais novos do parto (mãe, mães adotivas, crias) viajam no registro com id próprio e são criados aqui,
+            // antes do registro: funciona offline e reenviar não duplica (o id já existe). O trigger do servidor
+            // não recria a cria nem a mãe porque o registro já traz individuo_id_cria/individuo_id_mae.
+            const novosIndividuos = (registro as any).novosIndividuos as Record<string, unknown>[] | undefined
+            if (novosIndividuos && novosIndividuos.length > 0) {
+              const idEfetivo = await supabaseService.criarIndividuosIdempotente(
+                novosIndividuos.map((n) => ({ ...n, fazenda_id: fazendaId }))
+              )
+              // Mãe/adotiva que já existia: o registro passa a apontar para o animal existente
+              data = {
+                ...data,
+                individuo_id_mae: idEfetivo[data.individuo_id_mae] ?? data.individuo_id_mae,
+                individuo_id_mae_adotiva: idEfetivo[data.individuo_id_mae_adotiva] ?? data.individuo_id_mae_adotiva,
+              }
+            }
             result = await supabaseService.createRegistroMaternidade(data)
             break
+          }
           case 'registros_pastagens':
             result = await supabaseService.createRegistroPastagens(data)
             break

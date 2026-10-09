@@ -47,6 +47,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 const UNIQUE_CONSTRAINT_MESSAGES: Record<string, string> = {
   registros_leitura_cocho_curral_dia_uk: 'Já existe uma leitura de cocho para este curral nesta data.',
   registros_oferta_trato_dia_operacional_uk: 'Já existe um trato para este curral nesta data e ordem.',
+  idx_individuos_fazenda_brinco_unico: 'Já existe um animal com este brinco nesta fazenda. Avise o administrador para corrigir o brinco da cria ou da mãe.',
+  idx_individuos_fazenda_chip_unico: 'Já existe um animal com este chip nesta fazenda. Avise o administrador para corrigir o chip da cria ou da mãe.',
+  idx_individuos_fazenda_manejo_unico: 'Já existe um animal com este ID de manejo nesta fazenda. Avise o administrador para corrigir o ID.',
 }
 
 /**

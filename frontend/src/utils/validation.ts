@@ -1,4 +1,5 @@
 import { normalizarNumero } from './formatNumber'
+import { conflitosDeIdentificacao } from './maternidadeIds'
 import { isFutureBR } from './formatDate'
 
 export interface ValidationError {
@@ -159,6 +160,11 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
     const hasChipAdotiva = isNonEmptyString(data.idChipMaeAdotiva)
     if (!hasManejoAdotiva && !hasBrincoAdotiva && !hasChipAdotiva)
       errors.push({ field: 'idManejoMaeAdotiva', message: 'Preencha o ID Manejo, Brinco ou Chip da mãe adotiva' })
+  }
+
+  // Cria com o mesmo brinco/chip da mãe (ou da mãe adotiva): o servidor recusa pelo índice único e o parto nunca sincroniza
+  if (!isNatimorto && !isAborto) {
+    errors.push(...conflitosDeIdentificacao(data, { cria1Viva: true, cria2Viva: false, guacho1: true, guacho2: false }))
   }
 
   return { isValid: errors.length === 0, errors }

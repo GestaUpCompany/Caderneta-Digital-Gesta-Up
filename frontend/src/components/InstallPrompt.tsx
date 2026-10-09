@@ -11,6 +11,14 @@ export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
+  const [dispensado, setDispensado] = useState(() => {
+    try { return localStorage.getItem('install-prompt-dispensado') === '1' } catch { return false }
+  })
+
+  const dispensar = () => {
+    setDispensado(true)
+    try { localStorage.setItem('install-prompt-dispensado', '1') } catch { /* sem storage: some só nesta sessão */ }
+  }
 
   useEffect(() => {
     // Verifica se já está instalado
@@ -66,7 +74,7 @@ export default function InstallPrompt() {
     ;(window as any).__deferredInstallPrompt = null
   }
 
-  if (!showPrompt || isInstalled) return null
+  if (!showPrompt || isInstalled || dispensado) return null
 
   return (
     <div className="fixed bottom-4 left-4 right-4 bg-black border-2 border-yellow-400 rounded-2xl p-4 shadow-2xl z-50">
@@ -87,6 +95,13 @@ export default function InstallPrompt() {
       <Button onClick={handleInstall} variant="primary" fullWidth icon="" className="mt-3">
         INSTALAR APP
       </Button>
+      <button
+        type="button"
+        onClick={dispensar}
+        className="mt-2 w-full py-2 text-gray-300 text-sm font-medium"
+      >
+        Agora não
+      </button>
     </div>
   )
 }
