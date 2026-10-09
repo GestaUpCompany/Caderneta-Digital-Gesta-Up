@@ -26,6 +26,7 @@ import { useFuncionarioAuth } from '../hooks/useFuncionarioAuth'
 import { useAppLock } from '../hooks/useAppLock'
 import { useExpediente } from '../hooks/useExpediente'
 import { useCadastroSyncState } from '../hooks/useCadastroSyncState'
+import { getVersaoCompleta, isStaging } from '../utils/version'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -671,6 +672,11 @@ export default function Home() {
           </div>
         </footer>
       )}
+
+      <p className="text-center text-[10px] text-gray-400 pb-3 select-text">
+        {isStaging && <span className="font-bold text-amber-600">STAGING · </span>}
+        {getVersaoCompleta()}
+      </p>
     </div>
   )
 }

@@ -15,6 +15,7 @@ jobs:
       VITE_BASE_PATH: /Manejus-PWA-Staging/
       VITE_APP_NAME: Gesta'Up STAGING
       VITE_APP_SHORT_NAME: Gesta'Up STG
+      VITE_APP_ENV: staging
 
     steps:
       - name: Checkout
@@ -33,7 +34,9 @@ jobs:
 
       - name: Build PWA
         working-directory: ./frontend
-        run: npm run build
+        run: |
+          export VITE_APP_BUILD="$(TZ=America/Cuiaba date +%Y.%m.%d)-${GITHUB_SHA::7}"
+          npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

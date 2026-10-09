@@ -29,7 +29,11 @@ jobs:
         
       - name: Build PWA
         working-directory: ./frontend
-        run: npm run build
+        env:
+          VITE_APP_ENV: producao
+        run: |
+          export VITE_APP_BUILD="$(TZ=America/Cuiaba date +%Y.%m.%d)-${GITHUB_SHA::7}"
+          npm run build
         
       - name: Setup Pages
         uses: actions/configure-pages@v4

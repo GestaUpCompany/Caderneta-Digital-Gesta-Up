@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 // Base path e nome do app vêm do ambiente para permitir o deploy de staging em outro repo do Pages.
 // Sem as variáveis, o build é idêntico ao de produção.
@@ -8,13 +10,44 @@ const BASE = process.env.VITE_BASE_PATH || '/Caderneta-Digital-Gesta-Up/'
 const APP_NAME = process.env.VITE_APP_NAME || "Gesta'Up Cadernetas Digitais"
 const APP_SHORT_NAME = process.env.VITE_APP_SHORT_NAME || "Gesta'Up"
 
+// Versão: package.json (marcos) + identificador de build automático (data em Cuiabá + commit).
+// No CI vem de VITE_APP_BUILD; local calcula pelo git.
+const APP_VERSION = JSON.parse(readFileSync('./package.json', 'utf-8')).version as string
+const APP_ENV = process.env.VITE_APP_ENV || 'producao'
+function calcularBuild(): string {
+  if (process.env.VITE_APP_BUILD) return process.env.VITE_APP_BUILD
+  const data = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Cuiaba' }).format(new Date()).replace(/-/g, '.')
+  try {
+    return `${data}-${execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()}`
+  } catch {
+    return `${data}-local`
+  }
+}
+const APP_BUILD = calcularBuild()
+
 export default defineConfig({
   base: BASE,
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+    __APP_BUILD__: JSON.stringify(APP_BUILD),
+    __APP_ENV__: JSON.stringify(APP_ENV),
+  },
   server: {
     allowedHosts: true,
   },
   plugins: [
     react(),
+    // Publica /version.json para conferir a versão no ar sem abrir o app
+    {
+      name: 'version-json',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'version.json',
+          source: JSON.stringify({ versao: APP_VERSION, build: APP_BUILD, env: APP_ENV }),
+        })
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,

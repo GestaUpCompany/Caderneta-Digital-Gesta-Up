@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Número de versão visível no app (08/10/2026)
+
+- Antes: `APP_VERSION` fixo em `1.0.0` (inclusive no `app_version` dos logs de erro de sync) e nenhuma tela mostrava versão.
+- Agora o build injeta `__APP_VERSION__` (package.json, marcos manuais), `__APP_BUILD__` (`AAAA.MM.DD-<commit>`, data em Cuiabá) e `__APP_ENV__` (`staging`/`producao`) via `define` em `vite.config.ts`. Nos workflows (`deploy.yml`, `deploy-staging.yml`) o build vem de `VITE_APP_BUILD` e o ambiente de `VITE_APP_ENV`.
+- Exibição: seção "Sobre o app" em Configurações (com "Verificar atualização"), linha discreta no rodapé da Home (com "STAGING" no app de staging) e `/version.json` publicado em cada deploy para conferir a versão no ar.
+- `auditContext.ts` passa a gravar a versão completa em `app_version` (texto livre, sem migration).
+- `useVersionCheck`/`UpdateDialog` (consulta `/api/version` do backend legado, fixo em 1.0.0) seguem inertes; a atualização real vem do Service Worker.
+
 ## Rodeio offline e sinal ruim: sync de rede, cache primeiro e validação alinhada (08/10/2026)
 
 Testado no navegador (build + `vite preview`, emulação Offline e `fetch` travado) na fazenda de testes `d649c65e`. Sem migration.

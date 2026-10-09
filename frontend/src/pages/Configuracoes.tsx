@@ -10,6 +10,7 @@ import { getFazendaByAcessoId } from '../services/supabaseService'
 import { clearCadastroCache } from '../services/cadastroCache'
 import { desativarModoTeste } from '../services/api'
 import PushNotificationCard from '../components/PushNotificationCard'
+import { getVersaoCompleta } from '../utils/version'
 
 export default function Configuracoes() {
   const navigate = useNavigate()
@@ -25,6 +26,25 @@ export default function Configuracoes() {
   const [showValidationModal, setShowValidationModal] = useState(false)
   const [validationStatus, setValidationStatus] = useState<'validating' | 'success'>('validating')
   const [confirmarAtivarTeste, setConfirmarAtivarTeste] = useState(false)
+  const [msgAtualizacao, setMsgAtualizacao] = useState('')
+
+  // O aviso/aplicação da atualização é do banner global (useServiceWorkerUpdate); aqui só força a busca
+  const verificarAtualizacao = async () => {
+    if (!('serviceWorker' in navigator)) {
+      setMsgAtualizacao('Este navegador não suporta atualização automática.')
+      return
+    }
+    setMsgAtualizacao('Verificando...')
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map((r) => r.update()))
+      setMsgAtualizacao(regs.some((r) => r.waiting || r.installing)
+        ? 'Nova versão encontrada. Use o aviso de atualização no topo do app.'
+        : 'Você está na versão mais recente.')
+    } catch {
+      setMsgAtualizacao('Não foi possível verificar agora. Confira a conexão com a internet.')
+    }
+  }
   const [desativandoTeste, setDesativandoTeste] = useState(false)
 
   const validate = (): boolean => {
@@ -401,6 +421,20 @@ export default function Configuracoes() {
         >
           {validandoFazenda ? 'VALIDANDO...' : 'SALVAR CONFIGURAÇÕES'}
         </Button>
+
+        {/* Sobre o app */}
+        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-600 mb-2">SOBRE O APP</h3>
+          <p className="text-xs text-gray-600">Versão</p>
+          <p className="text-sm font-mono text-gray-800 break-all">{getVersaoCompleta()}</p>
+          <button
+            onClick={verificarAtualizacao}
+            className="mt-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded-full px-4 py-2"
+          >
+            VERIFICAR ATUALIZAÇÃO
+          </button>
+          {msgAtualizacao && <p className="text-xs text-gray-600 mt-2">{msgAtualizacao}</p>}
+        </div>
       </main>
 
       <ValidationModal
