@@ -197,9 +197,15 @@ export default function PastagensCurralForm({ seletor }: PastagensCurralFormProp
       try {
         const lote = await getLoteByIdCached(fazendaId, curral.lote_id)
         if (cancelado) return
-        if (lote?.sistema_producao && !SISTEMAS_COM_CURRAL.includes(lote.sistema_producao)) {
+        if (!lote) {
           limpar()
-          setErrors([{ field: 'curralSaida', message: `O lote ${lote.nome} (${lote.sistema_producao}) não usa curral. Selecione outro curral.` }])
+          setErrors([{ field: 'curralSaida', message: 'Não foi possível carregar o lote deste curral (inativo ou sem dados no aparelho). Selecione outro curral.' }])
+          set('curralSaida')('')
+          return
+        }
+        if (!lote.sistema_producao || !SISTEMAS_COM_CURRAL.includes(lote.sistema_producao)) {
+          limpar()
+          setErrors([{ field: 'curralSaida', message: `O lote ${lote.nome} (${lote.sistema_producao || 'sem sistema de produção'}) não usa curral. Selecione outro curral.` }])
           set('curralSaida')('')
           return
         }
