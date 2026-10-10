@@ -32,6 +32,7 @@ import { usePhotoGps } from '../../hooks/usePhotoGps'
 import { base64ToDataUrl } from '../../utils/photoCompress'
 import { Brush, Camera, Check, ChevronRight, Save } from 'lucide-react'
 import { LOGO_URL } from '../../utils/constants'
+import { ocupacaoVigentePorCurral } from '../../utils/ocupacaoCurral'
 
 interface NotaConfig {
   id: string
@@ -353,14 +354,7 @@ export default function TratoConfinamentoPage() {
       }
 
       const sistemaEsperado = SISTEMA_POR_TIPO[tipoSelecionado]
-      const ocupacaoPorCurral = new Map<string, any>()
-      for (const o of ocupacoesData || []) {
-        const atual = ocupacaoPorCurral.get(o.curral_id)
-        if (!atual || o.data_inicial > atual.data_inicial) {
-          ocupacaoPorCurral.set(o.curral_id, o)
-        }
-      }
-      const ocupacoesDoTipo = [...ocupacaoPorCurral.values()].filter((o) => {
+      const ocupacoesDoTipo = ocupacaoVigentePorCurral<any>(ocupacoesData).filter((o) => {
         const sistema = o.lotes?.sistema_producao ?? lotesPorId.get(o.lote_id)?.sistema_producao
         return sistema === sistemaEsperado
       })

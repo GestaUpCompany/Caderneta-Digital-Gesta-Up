@@ -1,6 +1,7 @@
 import { CadernetaDisplayConfig } from '../registroDisplayConfig'
 import { CadernetaStore } from '../../services/indexedDB'
 import { pastagensConfig } from './pastagens'
+import { curralConfig } from './curral'
 import { maternidadeConfig } from './maternidade'
 import { rodeioConfig } from './rodeio'
 import { suplementacaoConfig } from './suplementacao'
@@ -28,6 +29,7 @@ import { tratoConfinamentoConfig } from './tratoConfinamento'
 
 export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaDisplayConfig>> = {
   pastagens: pastagensConfig,
+  curral: curralConfig,
   maternidade: maternidadeConfig,
   rodeio: rodeioConfig,
   suplementacao: suplementacaoConfig,

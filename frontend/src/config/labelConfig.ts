@@ -448,10 +448,25 @@ const OS_RECEBIMENTOS_LABELS = {
   observacao: 'OBSERVAÇÃO',
 }
 
+const CURRAL_LABELS = {
+  ...COMMON_LABELS,
+  manejador: 'MANEJADOR',
+  numeroLote: 'LOTE',
+  curralSaida: 'CURRAL SAÍDA',
+  tempoOcupacao: 'TEMPO NO CURRAL',
+  curralEntrada: 'CURRAL ENTRADA',
+  gadoContado: 'GADO CONTADO?',
+  totalAnimais: 'TOTAL DE ANIMAIS',
+  escoreGado: 'ESCORE CORPORAL',
+  escoreFezes: 'ESCORE DE FEZES',
+  numeroPessoasManejo: 'Nº PESSOAS NO MANEJO',
+}
+
 // Exportar objeto principal
 export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   maternidade: MATERNIDADE_LABELS,
   pastagens: PASTAGENS_LABELS,
+  curral: CURRAL_LABELS,
   rodeio: RODEIO_LABELS,
   suplementacao: SUPLEMENTACAO_LABELS,
   bebedouros: BEBEDOUROS_LABELS,

@@ -9086,6 +9086,108 @@ export type Database = {
           },
         ]
       }
+      registros_curral: {
+        Row: {
+          avaliacao_geral: Json | null
+          categorias_detalhes: Json | null
+          created_at: string | null
+          curral_entrada: string | null
+          curral_entrada_id: string | null
+          curral_saida: string | null
+          curral_saida_id: string | null
+          data: string
+          deleted_at: string | null
+          dispositivo_id: string | null
+          equipe_nomes: Json | null
+          escore_fezes: number | null
+          escore_gado: number | null
+          fazenda_id: string
+          gado_contado: string | null
+          horario_manejo: string | null
+          id: string
+          local_id: string | null
+          lote: string | null
+          lote_id: string | null
+          manejador: string | null
+          movimentacao_erro: string | null
+          movimentacao_status: string | null
+          nome_usuario: string | null
+          numero_pessoas_manejo: number | null
+          observacao: string | null
+          sync_status: string | null
+          tempo_ocupacao: string | null
+          total_animais: number | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          avaliacao_geral?: Json | null
+          categorias_detalhes?: Json | null
+          created_at?: string | null
+          curral_entrada?: string | null
+          curral_entrada_id?: string | null
+          curral_saida?: string | null
+          curral_saida_id?: string | null
+          data: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          equipe_nomes?: Json | null
+          escore_fezes?: number | null
+          escore_gado?: number | null
+          fazenda_id: string
+          gado_contado?: string | null
+          horario_manejo?: string | null
+          id?: string
+          local_id?: string | null
+          lote?: string | null
+          lote_id?: string | null
+          manejador?: string | null
+          movimentacao_erro?: string | null
+          movimentacao_status?: string | null
+          nome_usuario?: string | null
+          numero_pessoas_manejo?: number | null
+          observacao?: string | null
+          sync_status?: string | null
+          tempo_ocupacao?: string | null
+          total_animais?: number | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          avaliacao_geral?: Json | null
+          categorias_detalhes?: Json | null
+          created_at?: string | null
+          curral_entrada?: string | null
+          curral_entrada_id?: string | null
+          curral_saida?: string | null
+          curral_saida_id?: string | null
+          data?: string
+          deleted_at?: string | null
+          dispositivo_id?: string | null
+          equipe_nomes?: Json | null
+          escore_fezes?: number | null
+          escore_gado?: number | null
+          fazenda_id?: string
+          gado_contado?: string | null
+          horario_manejo?: string | null
+          id?: string
+          local_id?: string | null
+          lote?: string | null
+          lote_id?: string | null
+          manejador?: string | null
+          movimentacao_erro?: string | null
+          movimentacao_status?: string | null
+          nome_usuario?: string | null
+          numero_pessoas_manejo?: number | null
+          observacao?: string | null
+          sync_status?: string | null
+          tempo_ocupacao?: string | null
+          total_animais?: number | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       registros_pastagens: {
         Row: {
           avaliacao_entrada: number | null

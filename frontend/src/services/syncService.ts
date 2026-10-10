@@ -51,6 +51,7 @@ export async function enqueueRegistro(
 const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   maternidade: 'registros_maternidade',
   pastagens: 'registros_pastagens',
+  curral: 'registros_curral',
   rodeio: 'registros_rodeio',
   suplementacao: 'registros_suplementacao',
   bebedouros: 'registros_bebedouros',
@@ -248,7 +249,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         },
         escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
         numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
-        equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,        foto_saida_latitude: (registro as any).fotoSaidaLatitude ?? null,
+        equipe_nomes: (() => { const n = ((registro as any).equipe_nomes ?? registro.equipeNomes) as string[] | undefined; return n && n.length > 0 ? n : null })(),        foto_saida_latitude: (registro as any).fotoSaidaLatitude ?? null,
         foto_saida_longitude: (registro as any).fotoSaidaLongitude ?? null,
         foto_saida_gps_accuracy: (registro as any).fotoSaidaGpsAccuracy ?? null,
         foto_saida_em: (registro as any).fotoSaidaEm || null,
@@ -256,6 +257,28 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         foto_entrada_longitude: (registro as any).fotoEntradaLongitude ?? null,
         foto_entrada_gps_accuracy: (registro as any).fotoEntradaGpsAccuracy ?? null,
         foto_entrada_em: (registro as any).fotoEntradaEm || null,
+      }
+    case 'curral':
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        horario_manejo: (registro as any).horarioManejo || null,
+        manejador: registro.manejador || null,
+        lote: registro.numeroLote || null,
+        lote_id: registro.loteId || null,
+        curral_saida: (registro as any).curralSaida || null,
+        curral_saida_id: (registro as any).curralSaidaId || null,
+        curral_entrada: (registro as any).curralEntrada || null,
+        curral_entrada_id: (registro as any).curralEntradaId || null,
+        tempo_ocupacao: registro.tempoOcupacao || null,
+        gado_contado: registro.gadoContado || null,
+        total_animais: registro.totalAnimais || 0,
+        categorias_detalhes: (registro as any).categorias_detalhes || null,
+        escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
+        escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
+        numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
+        equipe_nomes: (() => { const n = ((registro as any).equipe_nomes ?? registro.equipeNomes) as string[] | undefined; return n && n.length > 0 ? n : null })(),
+        observacao: (registro as any).observacao || null,
       }
     case 'rodeio':
       return {
@@ -1142,7 +1165,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
     if (operation === 'create') {
       // Tabelas com local_id: upsert idempotente + captura de supabaseId
       const upsertTables = new Set([
-        'registros_maternidade', 'registros_pastagens', 'registros_rodeio',
+        'registros_maternidade', 'registros_pastagens', 'registros_curral', 'registros_rodeio',
         'registros_suplementacao', 'registros_bebedouros', 'registros_movimentacao',
         'registros_enfermaria', 'registros_morte', 'registros_clima',
         'registros_abastecimento', 'registros_alimentacao', 'registros_limpeza',
@@ -1176,6 +1199,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           }
           case 'registros_pastagens':
             result = await supabaseService.createRegistroPastagens(data)
+            break
+          case 'registros_curral':
+            result = await supabaseService.createRegistroCurral(data)
             break
           case 'registros_rodeio':
             result = await supabaseService.createRegistroRodeio(data)
@@ -1295,6 +1321,8 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             supabaseId: result.id,
             // OS: numero_os é gerado no servidor (trigger), persistir para exibição
             ...(result.numero_os ? { numeroOs: result.numero_os } : {}),
+            // Curral: o servidor aplica (ou recusa) a troca de curral e devolve o resultado
+            ...(result.movimentacao_status ? { movimentacaoStatus: result.movimentacao_status, movimentacaoErro: result.movimentacao_erro || null } : {}),
             syncStatus: 'synced'
           })
         }
@@ -1465,6 +1493,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_pastagens':
           await supabaseService.updateRegistroPastagens(supabaseId, data)
+          break
+        case 'registros_curral':
+          await supabaseService.updateRegistroCurral(supabaseId, data)
           break
         case 'registros_rodeio':
           await supabaseService.updateRegistroRodeio(supabaseId, data)

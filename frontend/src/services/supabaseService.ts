@@ -2077,6 +2077,33 @@ export async function getRegistrosPastagens(fazendaId: string, dataInicio?: stri
   return data
 }
 
+export async function createRegistroCurral(registro: TablesInsert<'registros_curral'>) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_curral')
+    .upsert(registro, { onConflict: 'local_id' })
+    .select()
+    .single()
+
+  if (error) throw error
+  // O trigger AFTER INSERT grava movimentacao_status/erro na própria linha: relê para devolver o resultado da troca.
+  const { data: atualizado } = await client.from('registros_curral').select('*').eq('id', data.id).maybeSingle()
+  return atualizado || data
+}
+
+export async function updateRegistroCurral(id: string, registro: TablesUpdate<'registros_curral'>) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_curral')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 export async function createRegistroPastagens(registro: TablesInsert<'registros_pastagens'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
@@ -3245,8 +3272,10 @@ export async function getOcupacoesCurralAtivas(fazendaId: string) {
 
 /**
  * Ocupações de curral (lote_curral_historico) que cobrem uma data.
- * Para cada curral pode haver mais de uma ocupação cobrindo o mesmo dia
- * (troca de lote): o consumidor resolve pela maior data_inicial.
+ * Curral x lote é 1:1 (constraints lch_sem_sobreposicao_*): o servidor devolve no
+ * máximo uma ocupação por curral por dia, e o dia da troca é do lote que entra.
+ * Consumidores usam ocupacaoVigentePorCurral (utils/ocupacaoCurral), que também
+ * tolera cache offline antigo com duas ocupações no mesmo curral.
  * É a fonte de verdade de "quais currais estão em trato" — substitui a
  * whitelist de programacao_tratos_currais.
  */

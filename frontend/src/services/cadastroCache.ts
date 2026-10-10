@@ -655,8 +655,9 @@ function dedupSorted(list: string[] | undefined): string[] {
  * Constrói o mapa nome do lote -> divisão onde ele está (pasto ou curral).
  * Lotes com pasto_id resolvem pelo nome do pasto; lotes de confinamento
  * (pasto_id nulo) resolvem pelo curral da ocupação ativa em
- * lote_curral_historico (data_final IS NULL). Se houver mais de uma ocupação
- * ativa para o mesmo lote, vale a de data_inicial mais recente.
+ * lote_curral_historico (data_final IS NULL). Curral x lote é 1:1 no banco: um lote
+ * tem no máximo uma ocupação aberta. A ordenação por data_inicial abaixo é só
+ * tolerância a cache offline anterior à limpeza do histórico (vale a mais recente).
  */
 function buildLotesLocalMap(
   lotesData: any[] | null | undefined,

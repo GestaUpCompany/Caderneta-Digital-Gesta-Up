@@ -95,6 +95,7 @@ const MaternidadePage = lazy(() => import('./pages/cadernetas/MaternidadePage'))
 const MaternidadeListaPage = lazy(() => import('./pages/cadernetas/MaternidadeListaPage'))
 const PastagensPage = lazy(() => import('./pages/cadernetas/PastagensPage'))
 const PastagensListaPage = lazy(() => import('./pages/cadernetas/PastagensListaPage'))
+const CurralListaPage = lazy(() => import('./pages/cadernetas/CurralListaPage'))
 const RodeioPage = lazy(() => import('./pages/cadernetas/RodeioPage'))
 const RodeioListaPage = lazy(() => import('./pages/cadernetas/RodeioListaPage'))
 const SuplementacaoPage = lazy(() => import('./pages/cadernetas/SuplementacaoPage'))
@@ -558,6 +559,7 @@ function AppInner() {
             {/* Troca de Pastos */}
             <Route path="/caderneta/pastagens" element={<PastagensPage />} />
             <Route path="/caderneta/pastagens/lista" element={<PastagensListaPage />} />
+            <Route path="/caderneta/curral/lista" element={<CurralListaPage />} />
 
             {/* Rodeio Gado */}
             <Route path="/caderneta/rodeio" element={<RodeioPage />} />

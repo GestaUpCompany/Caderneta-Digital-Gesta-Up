@@ -176,7 +176,7 @@ export default function MovimentacaoPage() {
   const [detalhesLoteOrigem, setDetalhesLoteOrigem] = useState<any>(null)
   const [fazendasDoGrupo, setFazendasDoGrupo] = useState<{ id: string; nome: string }[]>([])
   const [pastosDisponiveis, setPastosDisponiveis] = useState<{ id: string; nome: string }[]>([])
-  const [curraisDisponiveis, setCurraisDisponiveis] = useState<{ id: string; nome: string }[]>([])
+  const [curraisDisponiveis, setCurraisDisponiveis] = useState<{ id: string; nome: string; ocupado: boolean }[]>([])
   const [racasDisponiveis, setRacasDisponiveis] = useState<{ id: string; nome: string }[]>([])
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const baseVozRef = useRef('')
@@ -398,7 +398,9 @@ export default function MovimentacaoPage() {
         }
         try {
           const curraisData = await getCurraisCached(fazendaId)
-          setCurraisDisponiveis((curraisData || []).map((c: any) => ({ id: c.id, nome: c.nome })))
+          // Curral x lote é 1:1: um curral com lote_id está ocupado. Só informativo (o cache offline
+          // pode estar defasado); quem recusa curral ocupado é o servidor, na aprovação do Novo Lote.
+          setCurraisDisponiveis((curraisData || []).map((c: any) => ({ id: c.id, nome: c.nome, ocupado: Boolean(c.lote_id) })))
         } catch (error) {
           setCurraisDisponiveis([])
         }
@@ -1240,12 +1242,12 @@ export default function MovimentacaoPage() {
                         label="CURRAL"
                         value={form.curralNomeNovoLote}
                         onChange={(val) => {
-                          const curral = curraisDisponiveis.find((c) => c.nome === val)
-                          setForm((p) => ({ ...p, curralIdNovoLote: curral?.id || '', curralNomeNovoLote: val }))
+                          const curral = curraisDisponiveis.find((c) => c.nome === val || `${c.nome} (ocupado)` === val)
+                          setForm((p) => ({ ...p, curralIdNovoLote: curral?.id || '', curralNomeNovoLote: curral?.nome ?? val }))
                           if (errors.length > 0) setErrors([])
                         }}
                         error={getError('curralIdNovoLote')}
-                        options={curraisDisponiveis.map((c) => c.nome)}
+                        options={curraisDisponiveis.map((c) => (c.ocupado ? `${c.nome} (ocupado)` : c.nome))}
                         placeholder="Selecione o curral..."
                         id="curralIdNovoLote"
                         name="curralIdNovoLote"

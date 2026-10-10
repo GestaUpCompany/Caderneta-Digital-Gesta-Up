@@ -40,6 +40,7 @@ import { getLotes } from '../../services/supabaseService'
 import { getSupabaseClientWithRefresh } from '../../services/supabaseClient'
 import { Brush, Save, AlertCircle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
 import { LOGO_URL } from '../../utils/constants'
+import { ocupacaoVigentePorCurral } from '../../utils/ocupacaoCurral'
 
 interface Vagao {
   id: string
@@ -379,17 +380,10 @@ export default function FabricaConfinamentoPage() {
         }))
       )
 
-      // Ocupação vigente de cada curral na data (maior data_inicial <= data).
-      // A participação na fábrica vem da ocupação, não do snapshot da programação.
+      // Ocupação vigente de cada curral na data (curral x lote é 1:1; o helper tolera cache
+      // offline antigo). A participação na fábrica vem da ocupação, não do snapshot da programação.
       const sistemaEsperado = SISTEMA_POR_TIPO[tipoSelecionado]
-      const ocupacaoPorCurral = new Map<string, any>()
-      for (const o of ocupacoesData || []) {
-        const atual = ocupacaoPorCurral.get(o.curral_id)
-        if (!atual || o.data_inicial > atual.data_inicial) {
-          ocupacaoPorCurral.set(o.curral_id, o)
-        }
-      }
-      const ocupacoesDoTipo = [...ocupacaoPorCurral.values()].filter(
+      const ocupacoesDoTipo = ocupacaoVigentePorCurral<any>(ocupacoesData).filter(
         (o) => (o.lotes?.sistema_producao ?? null) === sistemaEsperado
       )
 

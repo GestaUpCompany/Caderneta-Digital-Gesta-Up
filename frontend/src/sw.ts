@@ -148,6 +148,8 @@ async function fetchAndCacheCadastroData(): Promise<void> {
     // Transformar em CadastroCacheData (mesmo formato do fetchCadastroData no app)
     const pastoNomeById: Record<string, string> = {}
     pastos.forEach((p: any) => { pastoNomeById[p.id] = p.nome })
+    // Curral x lote é 1:1 no banco; a ordenação por data_inicial é tolerância a cache
+    // anterior à limpeza do histórico. Mesma regra de buildLotesLocalMap (cadastroCache.ts).
     const curralNomeByLoteId: Record<string, string> = {}
     ocupacoesCurral
       .slice()

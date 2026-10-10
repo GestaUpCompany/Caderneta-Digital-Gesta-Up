@@ -32,6 +32,7 @@ import {
 import { getLotes, getNotasLeituraCochoConfig, buildLoteDetalhesFromCategorias } from '../../services/supabaseService'
 import { salvarRascunho, lerRascunho, limparRascunho, getAllRegistros } from '../../services/indexedDB'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
+import { ocupacaoVigentePorCurral } from '../../utils/ocupacaoCurral'
 import { Brush, FileText, LayoutGrid, Save } from 'lucide-react'
 
 const BASE = import.meta.env.BASE_URL
@@ -433,8 +434,7 @@ export default function LeituraCochoPage() {
       .then((lista) => {
         if (cancelado) return
         const mapa: Record<string, number> = {}
-        ;(lista || []).forEach((o: any) => {
-          if (!o?.curral_id || !o?.data_inicial) return
+        ocupacaoVigentePorCurral<any>((lista || []).filter((o: any) => o?.curral_id && o?.data_inicial)).forEach((o: any) => {
           const inicio = String(o.data_inicial).slice(0, 10)
           const dias = Math.floor((Date.parse(dataISO) - Date.parse(inicio)) / 86400000) + 1
           if (dias >= 1) mapa[o.curral_id] = dias

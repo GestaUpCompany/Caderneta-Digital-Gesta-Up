@@ -170,6 +170,49 @@ export function validateMaternidade(data: Record<string, unknown>): ValidationRe
   return { isValid: errors.length === 0, errors }
 }
 
+export function validateCurral(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.numeroLote))
+    errors.push({ field: 'numeroLote', message: 'Número do lote é obrigatório' })
+  if (!isNonEmptyString(data.curralSaida))
+    errors.push({ field: 'curralSaida', message: 'Curral de saída é obrigatório' })
+  if (!isNonEmptyString(data.curralEntrada))
+    errors.push({ field: 'curralEntrada', message: 'Curral de entrada é obrigatório' })
+  if (data.curralSaida && data.curralSaida === data.curralEntrada)
+    errors.push({ field: 'curralEntrada', message: 'O curral de entrada não pode ser igual ao de saída' })
+  if (!isNonEmptyString(data.gadoContado))
+    errors.push({ field: 'gadoContado', message: 'Responda se o gado foi contado' })
+
+  if (data.gadoContado === 'Sim') {
+    const categoriasDetalhes = data.categorias_detalhes
+    const informou = Array.isArray(categoriasDetalhes)
+      ? categoriasDetalhes.some((c: any) => Number(c.quant_informada) > 0)
+      : Number(data.totalAnimais) > 0
+    if (!informou)
+      errors.push({ field: 'categorias', message: 'Preencha ao menos uma categoria de animal' })
+  }
+
+  if (!isScaleValue(data.escoreGado, 1, 5, true))
+    errors.push({ field: 'escoreGado', message: 'Escore do gado é obrigatório (1 a 5)' })
+  if (!isScaleValue(data.escoreFezes, 1, 5, true))
+    errors.push({ field: 'escoreFezes', message: 'Escore de fezes é obrigatório (1 a 5)' })
+
+  const numPessoas = Number(data.numeroPessoasManejo) || 0
+  if (numPessoas < 1 || numPessoas > 6)
+    errors.push({ field: 'numeroPessoasManejo', message: 'Número de pessoas no manejo é obrigatório (1 a 6+)' })
+  if (numPessoas > 0) {
+    const nomes = Array.isArray(data.equipe_nomes) ? data.equipe_nomes : []
+    const preenchidos = nomes.filter((n: any) => typeof n === 'string' && n.trim() !== '').length
+    if (preenchidos < numPessoas)
+      errors.push({ field: 'equipeNomes', message: `Preencha o nome de todas as ${numPessoas} pessoas` })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
 export function validatePastagens(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -1143,11 +1186,12 @@ export function validateOsRecebimento(data: Record<string, unknown>): Validation
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos'
+export type CadernetaType = 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   maternidade: validateMaternidade,
   pastagens: validatePastagens,
+  curral: validateCurral,
   rodeio: validateRodeio,
   suplementacao: validateSuplementacao,
   bebedouros: validateBebedouros,
