@@ -775,16 +775,27 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         valor = (registro as any)[flatCampo]
         observacao = (registro as any)[`${flatCampo}Obs`]
       }
-      return { label, valor, observacao }
+      const pendencia = (registro.checklist as any)?.[campo]?.pendencia as { situacao?: string; desde?: string } | undefined
+      return { campo, label, valor, observacao, pendencia }
     }).filter(item => item.valor === false)
 
     if (problematicos.length > 0) {
       texto += `\nPROBLEMAS ENCONTRADOS\n`
-      problematicos.forEach(({ label, observacao }) => {
-        texto += `⚠️ *${label}*\n`
+      problematicos.forEach(({ label, observacao, pendencia }) => {
+        const desde = pendencia?.situacao === 'mantida' && pendencia.desde ? new Date(pendencia.desde).toLocaleDateString('pt-BR') : ''
+        texto += `⚠️ *${label}*${desde ? ` (pendente desde ${desde})` : ''}\n`
         if (observacao && observacao !== '') {
           texto += `OBSERVAÇÃO: *${observacao}*\n`
         }
+      })
+    }
+
+    // Pendências de registros anteriores que o peão deu como resolvidas neste registro
+    const resolvidas = checklistBebedouros.filter(({ campo }) => (registro.checklist as any)?.[campo]?.pendencia?.situacao === 'resolvida')
+    if (resolvidas.length > 0) {
+      texto += `\nPENDÊNCIAS RESOLVIDAS\n`
+      resolvidas.forEach(({ label }) => {
+        texto += `✅ ${label}\n`
       })
     }
 

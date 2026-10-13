@@ -8,6 +8,7 @@ import PdfModal from '../../components/PdfModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import CadernetaSection from '../../components/cadernetas/CadernetaSection'
 import InfoStrip from '../../components/cadernetas/InfoStrip'
+import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import FormFooter from '../../components/cadernetas/FormFooter'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
@@ -24,8 +25,16 @@ import {
   getIntervaloMedioLimpezasCached,
   getPastosByBebedouroCached,
   getPastosByBebedouroFromCacheOnly,
+  getPendenciasBebedouroCached,
   withTimeout,
 } from '../../services/cadastroCache'
+import {
+  CHECKLIST_PROBLEMAS_BEBEDOURO,
+  CampoChecklistBebedouro,
+  PendenciaBebedouro,
+  SituacaoPendencia,
+  diasEntre,
+} from '../../utils/pendenciasBebedouro'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { useChecklistAtivo } from '../../hooks/useChecklistAtivo'
@@ -50,15 +59,9 @@ const AGUA_OPTIONS = [
 // O payload mantem as chaves positivas (agua_suficiente etc.): valor=true
 // significa "condicao adequada", false = problema marcado. Isso preserva o
 // formato historico e a leitura do Painel Web.
-const CHECKLIST_PROBLEMAS = [
-  { campo: 'aguaSuficiente', checklistKey: 'agua_suficiente', label: 'ÁGUA INSUFICIENTE', aviso: 'Água insuficiente: mostre e conte' },
-  { campo: 'vazaoBebedouroIdeal', checklistKey: 'vazao_bebedouro_ideal', label: 'VAZÃO DA BÓIA FORA DO IDEAL', aviso: 'Vazão fora do ideal: mostre e conte' },
-  { campo: 'boiaProtecaoBoasCondicoes', checklistKey: 'boia_protecao_boas_condicoes', label: 'BÓIA/PROTEÇÃO EM MÁS CONDIÇÕES', aviso: 'Bóia com problema: mostre e conte' },
-  { campo: 'aterroAcessoBebedouroIdeal', checklistKey: 'aterro_acesso_bebedouro_ideal', label: 'ATERRO/ACESSO INADEQUADO', aviso: 'Acesso inadequado: mostre e conte' },
-  { campo: 'espacamentoBebedouroIdeal', checklistKey: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO INADEQUADO', aviso: 'Espaçamento inadequado: mostre e conte' },
-] as const
+const CHECKLIST_PROBLEMAS = CHECKLIST_PROBLEMAS_BEBEDOURO
 
-type CampoChecklist = typeof CHECKLIST_PROBLEMAS[number]['campo']
+type CampoChecklist = CampoChecklistBebedouro
 // 'fotoBebedouro' é a foto principal do registro (evidência do bebedouro), fora do checklist de problemas
 type CampoFoto = CampoChecklist | 'fotoBebedouro'
 
@@ -69,6 +72,8 @@ interface FormState {
   observacao: string
   fotoBebedouro: string
   limpouHoje: string
+  // Resposta a cada pendência anterior do bebedouro (campo do item -> resolvida | mantida)
+  pendencias: Record<string, SituacaoPendencia | ''>
   // Itens do checklist: '' = adequado (padrao), 'Não' = problema marcado.
   aguaSuficiente: string
   aguaSuficienteObs: string
@@ -98,6 +103,7 @@ const makeInitial = (): FormState => ({
   observacao: '',
   fotoBebedouro: '',
   limpouHoje: '',
+  pendencias: {},
   aguaSuficiente: '',
   aguaSuficienteObs: '',
   aguaSuficienteFoto: '',
@@ -146,6 +152,12 @@ export default function BebedourosPage() {
   // Incrementa quando a internet volta com dados do bebedouro indisponíveis: refaz a leitura sozinho
   const [recarga, setRecarga] = useState(0)
   const bebedouroIndisponivelRef = useRef(false)
+  // Itens marcados como problema em registros anteriores deste bebedouro e ainda não resolvidos
+  const [pendenciasAbertas, setPendenciasAbertas] = useState<PendenciaBebedouro[]>([])
+  // null = ainda não consultado; false = não foi possível ler o histórico do servidor (offline sem cache)
+  const [pendenciasVerificadas, setPendenciasVerificadas] = useState<boolean | null>(null)
+  const [carregandoPendencias, setCarregandoPendencias] = useState(false)
+  const bebedouroPendenciasRef = useRef('')
   const [campoFotoAtual, setCampoFotoAtual] = useState<CampoFoto | null>(null)
   const [campoVozAtual, setCampoVozAtual] = useState<CampoChecklist | null>(null)
   const baseVozRef = useRef('')
@@ -175,6 +187,18 @@ export default function BebedourosPage() {
 
   const toggleProblema = (campo: CampoChecklist) =>
     setForm((prev) => ({ ...prev, [campo]: prev[campo] === 'Não' ? '' : 'Não' }))
+
+  // Responder uma pendência define o item do checklist: ainda pendente = problema marcado; resolvido = adequado.
+  const responderPendencia = (campo: CampoChecklist, situacao: SituacaoPendencia) =>
+    setForm((prev) => ({
+      ...prev,
+      pendencias: { ...(prev.pendencias || {}), [campo]: situacao },
+      [campo]: situacao === 'mantida' ? 'Não' : '',
+    }))
+
+  const respostasPendencia = form.pendencias || {}
+  const pendenciasPorCampo = Object.fromEntries(pendenciasAbertas.map((p) => [p.campo, p])) as Partial<Record<CampoChecklist, PendenciaBebedouro>>
+  const pendenciasSemResposta = checklistAtivo ? pendenciasAbertas.filter((p) => !respostasPendencia[p.campo]) : []
 
   // Foto: 'fotoBebedouro' (evidência do registro) ou item do checklist.
   const campoFotoDestino = (campo: CampoFoto) => (campo === 'fotoBebedouro' ? 'fotoBebedouro' : `${campo}Foto`)
@@ -343,6 +367,50 @@ export default function BebedourosPage() {
     }
   }, [form.numeroBebedouro, form.data, fazendaId, recarga])
 
+  // Pendências do bebedouro selecionado: cache primeiro (inclui registros deste aparelho ainda não sincronizados)
+  // e revalida com timeout. Só vale com o checklist ativo: sem ele o registro não traz os itens e nada se resolve.
+  useEffect(() => {
+    let cancelado = false
+    setPendenciasAbertas([])
+    setPendenciasVerificadas(null)
+    const nome = form.numeroBebedouro
+    if (!nome || !fazendaId || !checklistAtivo) {
+      setCarregandoPendencias(false)
+      return
+    }
+    setCarregandoPendencias(true)
+    getPendenciasBebedouroCached(fazendaId, nome)
+      .then(({ resultado, verificado }) => {
+        if (cancelado) return
+        setPendenciasAbertas(resultado.abertas)
+        setPendenciasVerificadas(verificado)
+      })
+      .catch((error) => {
+        if (cancelado) return
+        console.warn('[BebedourosPage] Pendências do bebedouro indisponíveis:', error)
+        setPendenciasVerificadas(false)
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoPendencias(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [form.numeroBebedouro, fazendaId, checklistAtivo, recarga])
+
+  // Trocar de bebedouro descarta as respostas das pendências do anterior (e os itens que elas marcaram).
+  // Só quando havia outro bebedouro escolhido: restaurar rascunho (vazio -> bebedouro) preserva as respostas.
+  useEffect(() => {
+    const anterior = bebedouroPendenciasRef.current
+    bebedouroPendenciasRef.current = form.numeroBebedouro
+    if (!anterior || anterior === form.numeroBebedouro) return
+    setForm((prev) => {
+      const respondidos = Object.keys(prev.pendencias || {})
+      if (respondidos.length === 0) return prev
+      return { ...prev, pendencias: {}, ...Object.fromEntries(respondidos.map((campo) => [campo, ''])) } as FormState
+    })
+  }, [form.numeroBebedouro, setForm])
+
   // Validation rules: itens do checklist nao sao obrigatorios porque
   // "nao marcado" ja significa "condicao adequada" no modelo novo.
   const validationRules: any = {
@@ -352,11 +420,15 @@ export default function BebedourosPage() {
   }
   if (checklistAtivo) {
     validationRules.limpouHoje = { required: true }
+    // Chave com "_": o useFormValidation só roda regra custom com campo vazio nesse caso
+    validationRules._pendencias = {
+      custom: () => (pendenciasSemResposta.length > 0 ? 'Responda se as pendências do bebedouro foram resolvidas' : null),
+    }
   }
 
   const { isValid } = useFormValidation(form, validationRules)
 
-  const bebedouroBloqueado = carregandoBebedouro || bebedouroIndisponivel || loadingChecklistRegras
+  const bebedouroBloqueado = carregandoBebedouro || bebedouroIndisponivel || loadingChecklistRegras || (checklistAtivo && carregandoPendencias)
   bebedouroIndisponivelRef.current = bebedouroIndisponivel && !carregandoBebedouro
 
   useEffect(() => {
@@ -415,6 +487,10 @@ export default function BebedourosPage() {
               valor: form[campo] !== 'Não',
               observacao: (form as any)[`${campo}Obs`] || '',
               fotoBase64: (form as any)[`${campo}Foto`] || undefined,
+              // Auditoria da pergunta de pendência: resolvida (valor true) ou mantida (valor false, segue aberta)
+              ...(pendenciasPorCampo[campo] && respostasPendencia[campo]
+                ? { pendencia: { situacao: respostasPendencia[campo], desde: pendenciasPorCampo[campo]!.desde } }
+                : {}),
             },
           ])),
           limpou_hoje: {
@@ -517,6 +593,11 @@ export default function BebedourosPage() {
     if (carregandoBebedouro) return 'Carregando dados do bebedouro...'
     if (bebedouroIndisponivel) return 'Dados do bebedouro indisponíveis neste aparelho: conecte à internet e atualize os dados'
     if (loadingChecklistRegras) return 'Carregando regras do checklist...'
+    if (checklistAtivo && carregandoPendencias) return 'Buscando pendências do bebedouro...'
+    if (pendenciasSemResposta.length > 0) {
+      const n = pendenciasSemResposta.length
+      return `Falta responder ${n} ${n === 1 ? 'pendência anterior' : 'pendências anteriores'} do bebedouro`
+    }
     if (!form.leituraBebedouro) return 'Falta a leitura do bebedouro'
     if (checklistAtivo && !form.limpouHoje) return 'Falta informar se limpou o bebedouro hoje'
     return undefined
@@ -675,6 +756,64 @@ export default function BebedourosPage() {
           </div>
         </CadernetaSection>
 
+        {checklistAtivo && form.numeroBebedouro && (carregandoPendencias || pendenciasAbertas.length > 0 || pendenciasVerificadas === false) && (
+          <CadernetaSection titulo="Pendências anteriores" required={pendenciasAbertas.length > 0}>
+            {carregandoPendencias ? (
+              <p className="py-2 text-center text-sm text-gray-500">Buscando pendências do bebedouro...</p>
+            ) : (
+              <>
+                {pendenciasAbertas.length > 0 && (
+                  <p className="-mt-2 text-sm text-gray-500">
+                    Estes itens foram marcados como problema em registros anteriores. Informe se já foram resolvidos.
+                  </p>
+                )}
+                {pendenciasVerificadas === false && (
+                  <InfoStrip tone="warning" icon="⚠️">
+                    Pendências não verificadas com o servidor neste aparelho. Conecte à internet e atualize os dados.
+                  </InfoStrip>
+                )}
+                {pendenciasAbertas.map((p) => {
+                  const dias = diasEntre(p.desde, new Date().toISOString())
+                  return (
+                    <div key={p.campo} className="flex flex-col gap-2 rounded-xl border-2 border-amber-300 bg-amber-50/60 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-extrabold leading-tight text-amber-900">{p.label}</span>
+                        <span className="shrink-0 text-xs font-bold text-amber-800">
+                          desde {new Date(p.desde).toLocaleDateString('pt-BR')} · {dias === 0 ? 'hoje' : `há ${dias} ${dias === 1 ? 'dia' : 'dias'}`}
+                        </span>
+                      </div>
+                      {p.ocorrencias > 1 && (
+                        <p className="text-xs font-semibold text-amber-800">Marcado em {p.ocorrencias} registros seguidos</p>
+                      )}
+                      {p.observacao && <p className="text-sm text-gray-700">“{p.observacao}”</p>}
+                      {p.fotoUrl && (
+                        <img
+                          src={p.fotoUrl}
+                          alt={`Foto anterior: ${p.label}`}
+                          className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      )}
+                      <ChoiceGrid
+                        options={[
+                          { value: 'resolvida', label: 'RESOLVIDO', icon: '✓', tone: 'success' },
+                          { value: 'mantida', label: 'AINDA PENDENTE', icon: '✗', tone: 'danger' },
+                        ]}
+                        value={respostasPendencia[p.campo] || ''}
+                        onChange={(v) => responderPendencia(p.campo, v as SituacaoPendencia)}
+                        cols={2}
+                        dataField={`pendencia_${p.campo}`}
+                      />
+                    </div>
+                  )
+                })}
+              </>
+            )}
+          </CadernetaSection>
+        )}
+
         {loadingChecklistRegras ? (
           <CadernetaSection numero={2} titulo="Checklist">
             <p className="py-4 text-center text-sm text-gray-500">Carregando regras do checklist...</p>
@@ -685,21 +824,27 @@ export default function BebedourosPage() {
               Toque em um item se encontrar o problema. Não tocar significa que está tudo certo.
             </p>
             {CHECKLIST_PROBLEMAS.map(({ campo, label, aviso }) => {
+              const pendencia = pendenciasPorCampo[campo]
+              // Item com pendência anterior é decidido pela pergunta acima: resolvido some daqui, pendente aparece marcado
+              if (pendencia && respostasPendencia[campo] !== 'mantida') return null
               const marcado = form[campo] === 'Não'
               const foto = (form as any)[`${campo}Foto`] as string
               return (
                 <div key={campo} className="flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => toggleProblema(campo)}
+                    onClick={pendencia ? undefined : () => toggleProblema(campo)}
                     data-field={campo}
-                    className={`flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                    className={`flex min-h-[52px] w-full ${pendencia ? 'cursor-default' : 'cursor-pointer'} items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
                       marcado
                         ? 'border-red-500 bg-red-50 text-red-800'
                         : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
                     }`}
                   >
-                    <span className="text-sm font-bold leading-tight">{label}</span>
+                    <span className="text-sm font-bold leading-tight">
+                      {label}
+                      {pendencia && <span className="ml-2 text-xs font-semibold text-red-700">(pendência anterior)</span>}
+                    </span>
                     {marcado && <span className="text-lg leading-none">⚠️</span>}
                   </button>
 

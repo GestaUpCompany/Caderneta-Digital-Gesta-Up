@@ -1,6 +1,6 @@
 import { BACKEND_URL } from '../utils/constants'
 import { redeInstavelRecentemente, registrarFalhaDeRede } from '../utils/fetchComTimeout'
-import { saveCadastroData, getAllCadastroData, getCadastroData, deleteCadastroData, clearCadastroData } from './indexedDB'
+import { saveCadastroData, getAllCadastroData, getCadastroData, deleteCadastroData, clearCadastroData, getAllRegistros } from './indexedDB'
 import * as supabaseService from './supabaseService'
 import { getSupabaseClientWithRefresh } from './supabaseClient'
 import { fetchFuncionariosComAcesso } from './funcionarioAuthService'
@@ -9,7 +9,8 @@ import { fetchRotinas } from './rotinasService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 import { setCadastroSyncState } from './cadastroSyncState'
 import { isCategoriaAoPe } from '../utils/categorias'
-import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
+import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE, brWithTimeToIso } from '../utils/formatDate'
+import { calcularPendenciasBebedouro, ResultadoPendencias, RegistroChecklistBebedouro } from '../utils/pendenciasBebedouro'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
@@ -2635,6 +2636,50 @@ export async function getIntervaloMedioLimpezasCached(fazendaId: string, bebedou
 }
 
 /**
+ * Pendências do checklist de um bebedouro (itens marcados como problema que ainda não foram resolvidos).
+ * Junta o histórico do servidor (rede ou cache do aparelho) com os registros locais deste aparelho, que
+ * podem ainda não ter sincronizado: sem isso, uma pendência respondida offline reapareceria na próxima abertura.
+ * `verificado` = false quando não foi possível ler o histórico do servidor (offline sem cache): o resultado só
+ * reflete o que há neste aparelho e a tela avisa em vez de bloquear.
+ */
+export async function getPendenciasBebedouroCached(
+  fazendaId: string,
+  numeroBebedouro: string
+): Promise<{ resultado: ResultadoPendencias; verificado: boolean }> {
+  const key = buildKey('registros-checklist-bebedouro', fazendaId, numeroBebedouro)
+  const doCache = async () => getCachedQuery(key) ?? (await getCachedQueryFromIDB<RegistroChecklistBebedouro[]>(key)) ?? null
+
+  let servidor: RegistroChecklistBebedouro[] | null = null
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    servidor = (await doCache()) as RegistroChecklistBebedouro[] | null
+  } else {
+    try {
+      const linhas = await withTimeout(supabaseService.getRegistrosChecklistBebedouro(fazendaId, numeroBebedouro), 3000)
+      servidor = linhas.map((l) => ({ data: l.data, localId: l.local_id, checklist: l.checklist }))
+      setCachedQuery(key, servidor)
+    } catch {
+      servidor = (await doCache()) as RegistroChecklistBebedouro[] | null
+    }
+  }
+
+  let locais: RegistroChecklistBebedouro[] = []
+  try {
+    const todos = await getAllRegistros('bebedouros')
+    locais = todos
+      .filter((r: any) => r.fazendaId === fazendaId && r.numeroBebedouro === numeroBebedouro && !r.deletedAt)
+      .map((r: any) => ({ data: brWithTimeToIso(r.data as string) ?? '', localId: r.id as string, checklist: (r.checklist as Record<string, any>) ?? null }))
+      .filter((r) => r.data)
+  } catch (error) {
+    console.warn('[CadastroCache] Registros locais de bebedouro indisponíveis para as pendências:', error)
+  }
+
+  return {
+    resultado: calcularPendenciasBebedouro([...(servidor ?? []), ...locais]),
+    verificado: servidor !== null,
+  }
+}
+
+/**
  * Aquece o cache com todos os detalhes de pastos e lotes.
  * Deve ser chamado explicitamente quando o usuário clica em "Atualizar Dados"
  * ou quando há internet e se quer garantir funcionamento 100% offline.
@@ -2713,7 +2758,7 @@ export async function warmAllCadastroCache(
   // Lista completa de formulações para telas que a mostram em dropdown (ex.: Produção Fábrica) sem depender da rede
   if (formulacoes.length > 0) setCachedQuery(buildKey('formulacoes-batch', fazendaId), formulacoes)
 
-  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 19
+  const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 20
   let warmedPastos = 0
   let warmedLotes = 0
   let warmedFormulacoes = 0
@@ -3051,6 +3096,10 @@ export async function warmAllCadastroCache(
     { label: 'Locais', fn: () => getLocaisCached(fazendaId) },
     { label: 'Classificações Almoxarifado', fn: () => getClassificacoesAlmoxarifadoCached(fazendaId) },
     { label: 'Pendências de devolução', fn: () => getItensPendentesDevolucaoCached(fazendaId) },
+    { label: 'Pendências de bebedouros', fn: async () => {
+      const bebedouros = (await getBebedourosCached(fazendaId)) || []
+      await Promise.allSettled(bebedouros.map((b: any) => getPendenciasBebedouroCached(fazendaId, b.nome)))
+    } },
     { label: 'Classificações Cantina', fn: () => getClassificacoesCantinaCached(fazendaId) },
     { label: 'Tanques Combustível', fn: () => getTanquesCombustivelCached(fazendaId) },
     { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },

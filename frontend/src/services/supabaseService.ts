@@ -1931,6 +1931,29 @@ export async function getIntervaloMedioLimpezas(fazendaId: string, bebedouroId: 
   return Math.round(totalDias / (data.length - 1))
 }
 
+/**
+ * Registros recentes de um bebedouro, só com o que as pendências do checklist precisam.
+ * O bebedouro é identificado pelo nome (registros_bebedouros não tem bebedouro_id).
+ */
+export async function getRegistrosChecklistBebedouro(
+  fazendaId: string,
+  numeroBebedouro: string,
+  limite = 60
+): Promise<{ data: string; local_id: string | null; checklist: Record<string, any> | null }[]> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_bebedouros')
+    .select('data, local_id, checklist')
+    .eq('fazenda_id', fazendaId)
+    .eq('numero_bebedouro', numeroBebedouro)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+    .limit(limite)
+
+  if (error) throw error
+  return data ?? []
+}
+
 export async function createHistoricoLimpeza(
   fazendaId: string,
   bebedouroId: string,
