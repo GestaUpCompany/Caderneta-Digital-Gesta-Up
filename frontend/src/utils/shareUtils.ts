@@ -473,6 +473,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     cadernetaNome = 'ENTRADA DE ESTOQUE - CANTINA'
   }
 
+  // Curral compartilha a tela de Pastagens e o mesmo layout de texto
+  const ehCurral = caderneta === 'curral'
+  const ehManejoLotes = caderneta === 'pastagens' || ehCurral
+
   let texto = `📋 ${cadernetaNome}\n`
   // registro.data já contém data e hora, formatar com "às" antes do horário
   let dataStr = String(registro.data ?? '')
@@ -529,7 +533,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         }
       }
       // Filtrar categorias de gado com valor zero nas pastagens
-      if (caderneta === 'pastagens' && ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
+      if (ehManejoLotes && ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].includes(key)) {
         const numValue = Number(value)
         if (numValue === 0) {
           return // Não incluir campos com valor zero
@@ -562,7 +566,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         return // Não incluir campos de observação separadamente
       }
       // Filtrar campos de observação nas pastagens (serão agrupados com o campo principal)
-      if (caderneta === 'pastagens' && key.endsWith('Obs')) {
+      if (ehManejoLotes && key.endsWith('Obs')) {
         return // Não incluir campos de observação separadamente
       }
       if (caderneta === 'movimentacao') {
@@ -2081,16 +2085,21 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
   } else {
     // Para pastagens, usar estrutura organizada
-    if (caderneta === 'pastagens') {
+    if (ehManejoLotes) {
       // Cabeçalho
       texto += `MANEJADOR: *${registro.manejador || '—'}*\n\n`
 
       // Seção PASTO SAÍDA
-      texto += `PASTO/CURRAL SAÍDA\n`
-      texto += `Nome: *${registro.pastoSaida || '—'}*\n`
-      texto += `Área útil: *${registro.pastoSaidaAreaUtil || '—'}* ha\n`
-      texto += `Espécie: *${registro.pastoSaidaEspecie || '—'}*\n`
-      texto += `Avaliação saída: *${registro.avaliacaoSaida ? comRotulo(ESCALA_PASTO, registro.avaliacaoSaida) : '—'}*\n`
+      if (ehCurral) {
+        texto += `CURRAL SAÍDA\n`
+        texto += `Nome: *${registro.curralSaida || '—'}*\n`
+      } else {
+        texto += `PASTO/CURRAL SAÍDA\n`
+        texto += `Nome: *${registro.pastoSaida || '—'}*\n`
+        texto += `Área útil: *${registro.pastoSaidaAreaUtil || '—'}* ha\n`
+        texto += `Espécie: *${registro.pastoSaidaEspecie || '—'}*\n`
+        texto += `Avaliação saída: *${registro.avaliacaoSaida ? comRotulo(ESCALA_PASTO, registro.avaliacaoSaida) : '—'}*\n`
+      }
       texto += `Tempo de ocupação: *${registro.tempoOcupacao || '—'}*\n\n`
 
       // Seção LOTE SAÍDA
@@ -2134,12 +2143,17 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `\n`
 
       // Seção PASTO ENTRADA
-      texto += `PASTO/CURRAL ENTRADA\n`
-      texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
-      texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
-      texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
-      texto += `Avaliação entrada: *${registro.avaliacaoEntrada ? comRotulo(ESCALA_PASTO, registro.avaliacaoEntrada) : '—'}*\n`
-      texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
+      if (ehCurral) {
+        texto += `CURRAL ENTRADA\n`
+        texto += `Nome: *${registro.curralEntrada || '—'}*\n\n`
+      } else {
+        texto += `PASTO/CURRAL ENTRADA\n`
+        texto += `Nome: *${registro.pastoEntrada || '—'}*\n`
+        texto += `Área útil: *${registro.pastoEntradaAreaUtil || '—'}* ha\n`
+        texto += `Espécie: *${registro.pastoEntradaEspecie || '—'}*\n`
+        texto += `Avaliação entrada: *${registro.avaliacaoEntrada ? comRotulo(ESCALA_PASTO, registro.avaliacaoEntrada) : '—'}*\n`
+        texto += `Tempo de vedação: *${registro.tempoVedacao || '—'}*\n\n`
+      }
 
       // Escore do gado
       if (registro.escoreGado) {
@@ -2430,7 +2444,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   }
 
   // Adicionar aviso de divergência de cabeças para pastagens
-  if (caderneta === 'pastagens') {
+  if (ehManejoLotes) {
     // Calcular total informado (soma de todas as categorias)
     const totalInformado = ['vaca', 'touro', 'boiGordo', 'boiMagro', 'garrote', 'bezerro', 'novilha', 'tropa', 'outros'].reduce((total, key) => {
       const value = normalizarNumero(registro[key] as any) || 0
