@@ -40,6 +40,10 @@ O PWA (`Caderneta-Digital-Gesta-Up`) não cria nem aplica migrations diretamente
 - Migrações ESTRUTURAIS (schema: CREATE/ALTER TABLE, triggers, policies, índices) devem ser escritas em arquivo local em `supabase/migrations/`, aplicadas via `supabase db push`, e depois commitadas e pushadas. Isso mantém versionamento e tracking no Supabase.
 - Migrações PONTUAIS (dados operacionais: resets, backfills, deletes por fazenda) NÃO geram arquivo nem passam por `db push`. Aplique diretamente via MCP. Critérios para identificar uma migração pontual: (1) não é idempotente, rodar duas vezes não faz sentido; (2) falharia em banco novo vazio, pois depende de dados existentes; (3) poluiria a linha do tempo do histórico de schema com operações de dados.
 
+## Remotes e pushes (obrigatório ler antes de qualquer push)
+
+Para testar no app staging: `git push-stg` (alias local, só nesta máquina: `git push origin staging` + `git push staging-repo staging:main`). `git push origin staging` sozinho só guarda o trabalho na conta da empresa e **não** atualiza o app staging; o deploy só dispara com push em `staging-repo` (`main`, conta `VictorHSM24`, Actions). Produção (só quando o usuário pedir): `git checkout master`, `git merge staging`, `git push origin master`. Mapa completo de repos, branches e workflows do PWA e do Painel em `docs/GITHUB.md`.
+
 ## Documentação de continuidade
 
 O histórico de mudanças já aplicadas e o backlog de trabalho pendente estão separados para manter este arquivo enxuto. Consulte quando relevante:
