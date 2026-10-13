@@ -1,3 +1,4 @@
+import { CHAVES_ITENS_5S } from './auditoria5sItens'
 import { normalizarNumero } from './formatNumber'
 import { conflitosDeIdentificacao } from './maternidadeIds'
 import { isFutureBR } from './formatDate'
@@ -1186,9 +1187,29 @@ export function validateOsRecebimento(data: Record<string, unknown>): Validation
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos'
+export function validateAuditoria5s(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (!isNonEmptyString(data.setor))
+    errors.push({ field: 'setor', message: 'Setor é obrigatório' })
+  if (!isNonEmptyString(data.responsavel))
+    errors.push({ field: 'responsavel', message: 'Responsável é obrigatório' })
+
+  const itens = (data.itens ?? {}) as Record<string, unknown>
+  for (const chave of CHAVES_ITENS_5S) {
+    if (itens[chave] !== 'C' && itens[chave] !== 'N')
+      errors.push({ field: chave, message: 'Responda C ou N' })
+  }
+
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
+  'auditoria-5s': validateAuditoria5s,
   maternidade: validateMaternidade,
   pastagens: validatePastagens,
   curral: validateCurral,

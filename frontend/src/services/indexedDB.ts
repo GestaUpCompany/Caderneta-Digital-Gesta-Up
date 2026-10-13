@@ -38,6 +38,7 @@ export type CadernetaStore =
   | 'entrada-cantina'
   | 'ordens-servico'
   | 'os-recebimentos'
+  | 'auditoria-5s'
 
 export const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'curral', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
@@ -52,10 +53,11 @@ export const STORES: CadernetaStore[] = [
   'entrada-cantina',
   'ordens-servico',
   'os-recebimentos',
+  'auditoria-5s',
 ]
 
 async function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, 33, {
+  return openDB(DB_NAME, 34, {
     upgrade(db) {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) {

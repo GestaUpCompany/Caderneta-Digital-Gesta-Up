@@ -52,6 +52,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   maternidade: 'registros_maternidade',
   pastagens: 'registros_pastagens',
   curral: 'registros_curral',
+  'auditoria-5s': 'registros_auditoria_5s',
   rodeio: 'registros_rodeio',
   suplementacao: 'registros_suplementacao',
   bebedouros: 'registros_bebedouros',
@@ -279,6 +280,20 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
         equipe_nomes: (() => { const n = ((registro as any).equipe_nomes ?? registro.equipeNomes) as string[] | undefined; return n && n.length > 0 ? n : null })(),
         observacao: (registro as any).observacao || null,
+      }
+    case 'auditoria-5s':
+      return {
+        ...baseData,
+        data: brWithTimeToIso(registro.data),
+        setor_id: (registro as any).setorId || null,
+        setor: (registro as any).setor || '',
+        responsavel: (registro as any).responsavel || '',
+        itens: (registro as any).itens || {},
+        observacoes: (registro as any).observacoes || null,
+        total_itens: Number((registro as any).totalItens) || 0,
+        total_conformes: Number((registro as any).totalConformes) || 0,
+        total_nao_conformes: Number((registro as any).totalNaoConformes) || 0,
+        percentual_conformidade: (registro as any).percentualConformidade ?? null,
       }
     case 'rodeio':
       return {
@@ -1172,7 +1187,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         'registros_operacoes_maquinas', 'registros_manutencao_maquinas',
         'registros_problemas', 'registros_almoxarifado', 'registros_leitura_cocho',
         'registros_oferta_trato', 'registros_pesagem', 'ordens_servico',
-        'os_recebimentos',
+        'os_recebimentos', 'registros_auditoria_5s',
       ])
       const tableNameStr = Array.isArray(tableName) ? tableName[0] : tableName
       if (upsertTables.has(tableNameStr)) {
@@ -1202,6 +1217,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             break
           case 'registros_curral':
             result = await supabaseService.createRegistroCurral(data)
+            break
+          case 'registros_auditoria_5s':
+            result = await supabaseService.createRegistroAuditoria5s(data)
             break
           case 'registros_rodeio':
             result = await supabaseService.createRegistroRodeio(data)
@@ -1496,6 +1514,9 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_curral':
           await supabaseService.updateRegistroCurral(supabaseId, data)
+          break
+        case 'registros_auditoria_5s':
+          await supabaseService.updateRegistroAuditoria5s(supabaseId, data)
           break
         case 'registros_rodeio':
           await supabaseService.updateRegistroRodeio(supabaseId, data)

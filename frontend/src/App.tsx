@@ -127,6 +127,8 @@ const EntradaAlmoxarifadoPage = lazy(() => import('./pages/cadernetas/EntradaAlm
 const EntradaAlmoxarifadoListaPage = lazy(() => import('./pages/cadernetas/EntradaAlmoxarifadoListaPage'))
 const LimpezaPage = lazy(() => import('./pages/cadernetas/LimpezaPage'))
 const LimpezaListaPage = lazy(() => import('./pages/cadernetas/LimpezaListaPage'))
+const Auditoria5sPage = lazy(() => import('./pages/cadernetas/Auditoria5sPage'))
+const Auditoria5sListaPage = lazy(() => import('./pages/cadernetas/Auditoria5sListaPage'))
 const OperacoesMaquinasPage = lazy(() => import('./pages/cadernetas/OperacoesMaquinasPage'))
 const OperacoesMaquinasListaPage = lazy(() => import('./pages/cadernetas/OperacoesMaquinasListaPage'))
 const ManutencaoMaquinasPage = lazy(() => import('./pages/cadernetas/ManutencaoMaquinasPage'))
@@ -622,6 +624,10 @@ function AppInner() {
             {/* Limpeza */}
             <Route path="/caderneta/limpeza" element={<LimpezaPage />} />
             <Route path="/caderneta/limpeza/lista" element={<LimpezaListaPage />} />
+
+            {/* Auditoria 5S (checklist) */}
+            <Route path="/caderneta/auditoria-5s" element={<Auditoria5sPage />} />
+            <Route path="/caderneta/auditoria-5s/lista" element={<Auditoria5sListaPage />} />
 
             {/* Operações de Máquinas */}
             <Route path="/caderneta/operacoes-maquinas" element={<OperacoesMaquinasPage />} />

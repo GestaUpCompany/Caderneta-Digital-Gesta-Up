@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Checklist Auditoria 5S (13/10/2026)
+
+Primeiro item da tela Checklists (`/modulos/checklists`): ficha de 25 itens C/N em 5 pilares (Utilização, Organização, Limpeza, Padronização, Disciplina), com setor, responsável e observações por pilar.
+
+- **PWA:** `Auditoria5sPage` (+ `Auditoria5sListaPage`), rotas `/caderneta/auditoria-5s` e `/lista`, store IndexedDB `auditoria-5s` (versão 33 → 34), sync para `registros_auditoria_5s` (`syncService`: mapa de tabela, `registroToSupabase`, `upsertTables`, create/update; `supabaseService`: `createRegistroAuditoria5s`/`updateRegistroAuditoria5s`). Salva por `useSalvarRegistro('auditoria-5s')`. Não aparece em Módulos (só em Checklists), então o RBAC por `funcionarioCadernetas` não filtra o card.
+- **Itens e cálculo:** `utils/auditoria5sItens.ts` (chaves estáveis `utilizacao_1`…`disciplina_5`; o banco guarda a chave, não o texto) e `calcularResultado5S`. O Painel mantém cópia em `features/relatorioAuditoria5s/itens.ts`: mudou a lista, atualize os dois repos. Testes em `auditoria5sItens.test.ts`.
+- **Responsável:** com RBAC ativo (`controleAcessoHabilitado` e `funcionarioCadernetas` não vazio) é o funcionário logado; sem RBAC, `SearchableModal` com os funcionários do cache. Setor: `SearchableModal` com `getSetoresCached` (grava `setor_id` e o nome).
+- **Banco (repo do Painel):** migration `20261013130000_registros_auditoria_5s.sql` (RLS com `caller_has_fazenda_access`, `local_id` único) e rollback.
+- **Painel:** `/controller/cadernetas/auditoria-5s` (filtros por período, setor e responsável; KPIs; evolução por mês/semana; conformidade por pilar; setores do pior ao melhor com cobertura de setores sem auditoria; itens mais não conformes; exportação XLSX) e `/:id` (detalhe por pilar). Agregações puras em `features/relatorioAuditoria5s/agregacao.ts` com testes; o percentual é recalculado de `itens`, não dos totais gravados.
+- **Verificado (13/10/2026, fazenda de testes):** migration aplicada com `db push`; validação campo a campo (setor, responsável sem RBAC, 25 itens, rascunho, LIMPAR); salvar online e offline com sync idempotente (`local_id`, sem duplicata); lista e formulário offline em build de produção com service worker (recarregando direto na rota); Painel (KPIs, filtros, gráficos, detalhe) conferido contra o banco. Num aparelho recém-configurado os setores só ficam disponíveis offline depois de ATUALIZAR (aquecimento do cache), igual às outras cadernetas.
+- **Pendente:** arte própria do card em Checklists (hoje usa o ícone da Limpeza).
+
 ## Enfermaria: offline, sinal ruim, validação, lista e compartilhar (09/10/2026)
 
 Bateria completa na fazenda de testes (build de produção): online, offline, rede travada, validação campo a campo e conferência no banco.

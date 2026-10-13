@@ -2104,6 +2104,31 @@ export async function updateRegistroCurral(id: string, registro: TablesUpdate<'r
   return data
 }
 
+export async function createRegistroAuditoria5s(registro: Record<string, unknown>) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_auditoria_5s')
+    .upsert(registro, { onConflict: 'local_id' })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function updateRegistroAuditoria5s(id: string, registro: Record<string, unknown>) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_auditoria_5s')
+    .update(registro)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
 export async function createRegistroPastagens(registro: TablesInsert<'registros_pastagens'>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client

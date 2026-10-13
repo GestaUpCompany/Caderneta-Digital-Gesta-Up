@@ -29,7 +29,10 @@ export default function ChecklistsMenuPage() {
     setRecentChecklists(getRecentChecklists())
   }, [])
 
-  const menuItems: any[] = []
+  // Ícone genérico de caderneta até a arte própria do 5S ser enviada
+  const menuItems = [
+    { id: 'auditoria-5s', label: 'AUDITORIA 5S', path: '/caderneta/auditoria-5s', color: '#10B981', icon: `${import.meta.env.BASE_URL}cadernetas/limpeza.png`, emoji: '📋' },
+  ]
 
   const filteredItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchTerm.toLowerCase())

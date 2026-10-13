@@ -6,6 +6,7 @@ import { isCategoriaAoPe, capitalizarCategoria } from './categorias'
 import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
 import { Filesystem, Directory } from '@capacitor/filesystem'
+import { SECOES_5S, calcularResultado5S } from './auditoria5sItens'
 
 /**
  * Calcula o tempo desde a última limpeza formatado para exibição.
@@ -443,7 +444,49 @@ const ROTULOS_DIAGNOSTICO_ENFERMARIA: Record<string, string> = {
 
 export const rotuloDiagnosticoEnfermaria = (nome: string): string => ROTULOS_DIAGNOSTICO_ENFERMARIA[nome] || nome.toUpperCase()
 
+const formatarAuditoria5sComoTexto = (registro: Registro): string => {
+  const itens = (registro.itens ?? {}) as Record<string, string>
+  const observacoes = (registro.observacoes ?? {}) as Record<string, string>
+  const resultado = calcularResultado5S(itens)
+  const dataFormatada = String(registro.data ?? '').replace(/(\d{2}:\d{2})$/, 'às $1')
+
+  let texto = '📋 *AUDITORIA 5S*\n'
+  texto += `📅 Data: ${dataFormatada}\n\n`
+  texto += `Setor: *${registro.setor || '—'}*\n`
+  texto += `Responsável: *${registro.responsavel || '—'}*\n`
+  texto += `Conformidade: *${resultado.percentual ?? 0}%* (${resultado.conformes} C / ${resultado.naoConformes} N)\n`
+
+  // Só os pilares com N entram em detalhe, e cada N sai como afirmação negativa (não como a pergunta da ficha).
+  const secoesComProblema = SECOES_5S.filter((s) => s.itens.some((i) => itens[i.chave] === 'N'))
+  if (secoesComProblema.length === 0) {
+    texto += '\n✅ *Nenhuma não conformidade*\n'
+  } else {
+    texto += `\n⚠️ *NÃO CONFORMIDADES (${resultado.naoConformes})*\n`
+    for (const secao of secoesComProblema) {
+      const res = resultado.secoes.find((r) => r.id === secao.id)
+      texto += `\n*${secao.titulo}* (${res?.percentual ?? 0}%)\n`
+      secao.itens.filter((i) => itens[i.chave] === 'N').forEach((i) => { texto += `❌ ${i.negativa}\n` })
+      if (observacoes[secao.id]) texto += `📝 ${observacoes[secao.id]}\n`
+    }
+  }
+
+  const secoesOk = SECOES_5S.filter((s) => !secoesComProblema.includes(s))
+  if (secoesComProblema.length > 0 && secoesOk.length > 0) {
+    texto += `\n✅ Sem não conformidades: ${secoesOk.map((s) => s.titulo).join(', ')}\n`
+  }
+  // Observação de um pilar sem N também é informação da auditoria
+  const obsSoltas = secoesOk.filter((s) => observacoes[s.id])
+  if (obsSoltas.length > 0) {
+    texto += '\n📝 *Observações*\n'
+    obsSoltas.forEach((s) => { texto += `${s.titulo}: ${observacoes[s.id]}\n` })
+  }
+  return texto.trimEnd()
+}
+
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
+  if (caderneta === 'auditoria-5s') {
+    return formatarAuditoria5sComoTexto(registro)
+  }
   if (caderneta === 'pesagem') {
     return formatarPesagemComoTexto(registro, todosRegistros)
   }
