@@ -28,10 +28,12 @@ import {
   getNotasLeituraCochoConfigCached,
   getLoteByNomeCached,
   getOcupacoesCurralNaDataCached,
+  getConsumoConfinamentoDiaCached,
 } from '../../services/cadastroCache'
 import { getLotes, getNotasLeituraCochoConfig, buildLoteDetalhesFromCategorias } from '../../services/supabaseService'
 import { salvarRascunho, lerRascunho, limparRascunho, getAllRegistros } from '../../services/indexedDB'
 import { calcularCmsPorJanelas, CmsJanelas } from '../../utils/leituraCochoMetrics'
+import { aplicarConsumoServidor, diaDaFazendaISO } from '../../utils/consumoServidor'
 import { ocupacaoVigentePorCurral } from '../../utils/ocupacaoCurral'
 import { Brush, FileText, LayoutGrid, Save } from 'lucide-react'
 
@@ -261,12 +263,15 @@ export default function LeituraCochoPage() {
         // Carregamento em batch: 4 queries para a fazenda inteira em vez de
         // ~3 queries por lote. Se o batch não estiver disponível (offline sem
         // cache), cai no caminho por lote via cache lazy.
-        const [categoriasBatch, tratosBatch, leiturasBatch, formulacoesBatch] = await Promise.all([
+        const [categoriasBatch, tratosBatch, leiturasBatch, formulacoesBatch, consumoServidor] = await Promise.all([
           getLoteCategoriasBatchCached(fazendaId),
           getRegistrosOfertaTratoBatchCached(fazendaId),
           getRegistrosLeituraCochoBatchCached(fazendaId),
           getFormulacoesBatchCached(fazendaId),
+          // Consumo já fechado no Painel; qualquer falha mantém o cálculo local de sempre
+          getConsumoConfinamentoDiaCached(fazendaId).catch(() => null),
         ])
+        const hojeFazendaISO = diaDaFazendaISO()
 
         const formById = new Map<string, any>()
         const formByNome = new Map<string, any>()
@@ -371,7 +376,12 @@ export default function LeituraCochoPage() {
                   : ''
 
             const teorEfetivo = teorMsDieta ?? 70
-            const cms = calcularCmsPorJanelas(detalhes || lote, supOrdenados, teorEfetivo)
+            const cms = aplicarConsumoServidor(
+              calcularCmsPorJanelas(detalhes || lote, supOrdenados, teorEfetivo),
+              consumoServidor,
+              lote.id,
+              hojeFazendaISO
+            )
 
             return {
               id: lote.id,

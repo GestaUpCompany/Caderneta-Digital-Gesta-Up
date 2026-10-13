@@ -9,7 +9,8 @@ import { fetchRotinas } from './rotinasService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 import { setCadastroSyncState } from './cadastroSyncState'
 import { isCategoriaAoPe } from '../utils/categorias'
-import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE, brWithTimeToIso } from '../utils/formatDate'
+import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE, brWithTimeToIso, addDaysISO } from '../utils/formatDate'
+import { diaDaFazendaISO, type ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 import { calcularPendenciasBebedouro, ResultadoPendencias, RegistroChecklistBebedouro } from '../utils/pendenciasBebedouro'
 
 const CACHE_KEYS = {
@@ -1674,6 +1675,35 @@ export async function getRegistrosLeituraCochoBatchCached(fazendaId: string): Pr
   }
 }
 
+/** Dias para trás que o cache de consumo de confinamento guarda (o queryCache vive em uma única linha do IndexedDB). */
+const JANELA_CONSUMO_CONFINAMENTO_DIAS = 15
+
+/**
+ * Consumo diário de confinamento calculado pelo Painel, da fazenda inteira, dos últimos dias.
+ * Online vai ao Supabase; offline ou sem rede usa o cache. Retorna null quando não há nada em cache:
+ * quem chama deve manter o cálculo local. Só grava no cache quando a busca traz linhas, então uma
+ * falha ou uma resposta vazia nunca apaga um cache bom (dias fechados não mudam depois).
+ */
+export async function getConsumoConfinamentoDiaCached(fazendaId: string): Promise<ConsumoConfinamentoDiaLinha[] | null> {
+  const key = buildKey('consumo-confinamento-dia', fazendaId)
+  const cached = getCachedQuery<ConsumoConfinamentoDiaLinha[]>(key)
+
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<ConsumoConfinamentoDiaLinha[]>(key)
+  }
+
+  try {
+    const desde = addDaysISO(diaDaFazendaISO(), -JANELA_CONSUMO_CONFINAMENTO_DIAS)
+    const data = await withTimeout(supabaseService.getConsumoConfinamentoDia(fazendaId, desde), 8000)
+    if (data.length > 0) setCachedQuery(key, data)
+    return data
+  } catch {
+    if (cached) return cached
+    return await getCachedQueryFromIDB<ConsumoConfinamentoDiaLinha[]>(key)
+  }
+}
+
 /**
  * Busca todas as formulações ativas da fazenda em uma única query.
  * Usado para resolver formulacao_id/nome sem query por item.
@@ -3266,6 +3296,8 @@ export async function warmAllCadastroCache(
           allPromises.push(getRegistrosOfertaTratoAnterioresCached(fazendaId, curralId, dataHoje))
         }
       }
+      // Consumo de confinamento do Painel (usado em Leitura de Cocho). Não falha: sem rede devolve o cache.
+      allPromises.push(getConsumoConfinamentoDiaCached(fazendaId))
       await Promise.all(allPromises)
       warmedExtras++
     } catch (error) {

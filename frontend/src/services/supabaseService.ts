@@ -3,6 +3,7 @@ import type { TablesInsert, TablesUpdate } from '../types/supabase'
 import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/relatorioLote'
 import { getCurrentDateTimeInTimezone, getDayRangeIso, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 import { isCategoriaAoPe } from '../utils/categorias'
+import type { ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
@@ -581,6 +582,26 @@ export async function getRegistrosLeituraCochoBatch(fazendaId: string): Promise<
     }
   })
   return map
+}
+
+/**
+ * Consumo diário de confinamento calculado pelo Painel (`consumo_confinamento_dia`, uma linha por
+ * lote e dia). Só leitura. A tabela não está em types/supabase.ts, então o cliente é usado sem tipo.
+ */
+export async function getConsumoConfinamentoDia(
+  fazendaId: string,
+  desdeISO: string
+): Promise<ConsumoConfinamentoDiaLinha[]> {
+  const client: any = await getSupabaseClientWithRefresh()
+  const { data, error } = await client
+    .from('consumo_confinamento_dia')
+    .select('lote_id, data, consumo_percent_pv, leitura_confirmada, dia_incompleto, n_currais')
+    .eq('fazenda_id', fazendaId)
+    .gte('data', desdeISO)
+    .order('data', { ascending: false })
+
+  if (error) throw error
+  return (data || []) as ConsumoConfinamentoDiaLinha[]
 }
 
 /**
