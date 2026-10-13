@@ -1,6 +1,20 @@
 # GITHUB.md — Mapa de repositórios, branches e pushes
 
-Referência para saber para onde cada push vai. Conferido em 08/10/2026 com `git remote -v`, `git ls-remote` e os workflows.
+Referência para saber para onde cada push vai. Conferido em 08/10/2026 (PWA) e atualizado em 13/10/2026 (Painel) com `git remote -v` e `git ls-remote`.
+
+## Resumo: qual comando para quê
+
+"Staging" aparece com três sentidos: a **branch local** `staging`, o **repositório** `VictorHSM24/Manejus-PWA-Staging` e a branch **`main`** dentro dele. Use esta tabela e não improvise.
+
+| Quero... | Repo | Comando |
+|---|---|---|
+| Testar no app staging do **PWA** | PWA | `git push staging-repo staging:main` |
+| Publicar o **PWA** em produção (só se o usuário pedir) | PWA | merge da `staging` na `master`, depois `git push origin master` |
+| Guardar trabalho do **Painel** | Painel | `git push origin staging` (ou a branch de feature) |
+| Publicar o **Painel** em produção (só se o usuário pedir) | Painel | merge da `staging` na `master`, depois `git push origin master` |
+| **Nunca** | PWA | `git push origin staging` (vai para a conta da empresa e não dispara o staging) |
+
+A mesma palavra "staging" tem efeitos opostos nos dois repos: no PWA o push vai para **outra conta** (`staging-repo`); no Painel vai para `origin`, a conta da empresa. Antes de pushar, confirme o repo com `git remote -v`.
 
 ## Contas e repositórios
 
@@ -53,11 +67,12 @@ Remote:
 
 - `origin` → `GestaUpCompany/manejus`
 
-Não há remote para a conta `VictorHSM24` e **não há `.github/workflows`** neste repo (conferido). Ou seja:
+Não há remote para a conta `VictorHSM24` e **não há `.github/workflows`** neste repo (conferido em 08/10/2026). Ou seja:
 
-- Não existe app staging do Painel pelo Actions.
-- A branch local `staging` do Painel tem upstream `origin/staging`, mas essa branch **não existe no remoto** (nem aparece em `git branch -a`). Um `git push` nela criaria `staging` na conta da empresa.
-- Para o Painel, o fluxo é: trabalhar em branch de feature, commitar e pushar para `origin` (`git push origin <branch>`), e `master` recebe por merge.
+- Não existe app staging do Painel pelo Actions e **não existe `staging-repo`**. O comando do PWA (`git push staging-repo staging:main`) não se aplica aqui.
+- A branch `staging` do Painel **existe em `origin`** (conferido em 13/10/2026) e é a branch de trabalho, com upstream `origin/staging`: `git push origin staging` é o push normal e vai para a conta da empresa. (Em 08/10 ela ainda não existia no remoto; este documento dizia isso e ficou desatualizado.)
+- Fluxo: trabalhar na `staging` (ou em branch de feature), commitar e pushar para `origin`. A `master` recebe por merge da `staging` (`git merge staging` na `master`, depois `git push origin master`). O deploy do Painel é pela Vercel (ver o `CLAUDE.md` do Painel); a branch que dispara a produção não está documentada aqui, confirme no projeto da Vercel.
+- Por ser produção, só mesclar na `master` e pushar quando o usuário pedir.
 - Migrations estruturais do banco vivem aqui: `supabase/migrations/` + `supabase db push` (ver `AGENTS.md`). Commitar e pushar o arquivo.
 - Antes de qualquer push no Painel, perguntar ao usuário a branch de destino se não estiver explícita.
 
