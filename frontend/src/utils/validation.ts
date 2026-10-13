@@ -1199,8 +1199,8 @@ export function validateAuditoria5s(data: Record<string, unknown>): ValidationRe
 
   const itens = (data.itens ?? {}) as Record<string, unknown>
   for (const chave of CHAVES_ITENS_5S) {
-    if (itens[chave] !== 'C' && itens[chave] !== 'N')
-      errors.push({ field: chave, message: 'Responda C ou N' })
+    if (itens[chave] !== 'C' && itens[chave] !== 'N' && itens[chave] !== 'NA')
+      errors.push({ field: chave, message: 'Responda C, N ou – (não se aplica)' })
   }
 
   return { isValid: errors.length === 0, errors }

@@ -454,7 +454,7 @@ const formatarAuditoria5sComoTexto = (registro: Registro): string => {
   texto += `📅 Data: ${dataFormatada}\n\n`
   texto += `Setor: *${registro.setor || '—'}*\n`
   texto += `Responsável: *${registro.responsavel || '—'}*\n`
-  texto += `Conformidade: *${resultado.percentual ?? 0}%* (${resultado.conformes} C / ${resultado.naoConformes} N)\n`
+  texto += `Conformidade: *${resultado.percentual ?? 0}%* (${resultado.conformes} C / ${resultado.naoConformes} N${resultado.naoAplicaveis > 0 ? ` / ${resultado.naoAplicaveis} não se aplica` : ''})\n`
 
   // Só os pilares com N entram em detalhe, e cada N sai como afirmação negativa (não como a pergunta da ficha).
   const secoesComProblema = SECOES_5S.filter((s) => s.itens.some((i) => itens[i.chave] === 'N'))

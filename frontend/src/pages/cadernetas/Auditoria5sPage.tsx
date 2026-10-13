@@ -22,9 +22,11 @@ import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { RootState } from '../../store/store'
 
+// NA (não se aplica) é gravado como 'NA' e aparece como hífen; fica fora do percentual de conformidade.
 const RESPOSTA_OPTIONS = [
   { value: 'C', label: 'C', tone: 'success' as const },
   { value: 'N', label: 'N', tone: 'danger' as const },
+  { value: 'NA', label: '–' },
 ]
 
 interface FormState {
@@ -235,6 +237,10 @@ export default function Auditoria5sPage() {
             />
           )}
 
+          <InfoStrip tone="neutral" icon="ℹ️">
+            C = Conforme · N = Não conforme · – = Não se aplica (não entra no percentual)
+          </InfoStrip>
+
           <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
             <span className="text-sm font-bold text-gray-600">RESPONDIDOS</span>
             <span className="text-lg font-extrabold text-gray-900">
@@ -263,7 +269,7 @@ export default function Auditoria5sPage() {
                     options={RESPOSTA_OPTIONS}
                     value={form.itens[item.chave] || ''}
                     onChange={setResposta(item.chave)}
-                    cols={2}
+                    cols={3}
                     dataField={item.chave}
                   />
                   {getError(item.chave) && <p className="text-sm font-semibold text-red-700">{getError(item.chave)}</p>}

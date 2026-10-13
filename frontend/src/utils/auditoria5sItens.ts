@@ -1,4 +1,5 @@
-export type RespostaItem5S = 'C' | 'N'
+/** C = conforme, N = não conforme, NA = não se aplica (fica fora do percentual). */
+export type RespostaItem5S = 'C' | 'N' | 'NA'
 
 export interface Item5S {
   chave: string
@@ -13,7 +14,7 @@ export interface Secao5S {
   itens: Item5S[]
 }
 
-// A chave do item é o que vai para o banco (itens = { chave: 'C' | 'N' }); o texto pode mudar sem quebrar o histórico.
+// A chave do item é o que vai para o banco (itens = { chave: 'C' | 'N' | 'NA' }); o texto pode mudar sem quebrar o histórico.
 // O Painel Web mantém uma cópia desta lista (apps/manejus/src/features/relatorioAuditoria5s/itens.ts).
 export const SECOES_5S: Secao5S[] = [
   {
@@ -82,15 +83,18 @@ export interface ResultadoSecao5S {
   total: number
   conformes: number
   naoConformes: number
+  naoAplicaveis: number
   percentual: number | null
 }
 
 export interface Resultado5S {
   totalItens: number
+  /** Itens com qualquer resposta (C, N ou NA). */
   respondidos: number
   conformes: number
   naoConformes: number
-  /** Percentual de conformidade sobre os itens respondidos (0 a 100, 2 casas); null sem respostas. */
+  naoAplicaveis: number
+  /** Percentual de conformidade sobre os itens avaliados, C + N (0 a 100, 2 casas); NA fica de fora. Null sem itens avaliados. */
   percentual: number | null
   secoes: ResultadoSecao5S[]
 }
@@ -102,9 +106,11 @@ export function calcularResultado5S(itens: Record<string, string | undefined | n
   const secoes: ResultadoSecao5S[] = SECOES_5S.map((secao) => {
     let conformes = 0
     let naoConformes = 0
+    let naoAplicaveis = 0
     for (const { chave } of secao.itens) {
       if (itens[chave] === 'C') conformes++
       else if (itens[chave] === 'N') naoConformes++
+      else if (itens[chave] === 'NA') naoAplicaveis++
     }
     return {
       id: secao.id,
@@ -112,16 +118,19 @@ export function calcularResultado5S(itens: Record<string, string | undefined | n
       total: secao.itens.length,
       conformes,
       naoConformes,
+      naoAplicaveis,
       percentual: percentualDe(conformes, conformes + naoConformes),
     }
   })
   const conformes = secoes.reduce((acc, s) => acc + s.conformes, 0)
   const naoConformes = secoes.reduce((acc, s) => acc + s.naoConformes, 0)
+  const naoAplicaveis = secoes.reduce((acc, s) => acc + s.naoAplicaveis, 0)
   return {
     totalItens: TOTAL_ITENS_5S,
-    respondidos: conformes + naoConformes,
+    respondidos: conformes + naoConformes + naoAplicaveis,
     conformes,
     naoConformes,
+    naoAplicaveis,
     percentual: percentualDe(conformes, conformes + naoConformes),
     secoes,
   }
