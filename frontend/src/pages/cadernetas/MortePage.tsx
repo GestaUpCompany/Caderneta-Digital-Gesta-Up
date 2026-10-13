@@ -169,7 +169,7 @@ export default function MortePage() {
   const [alvoVoz, setAlvoVoz] = useState<string | null>(null)
   const baseVozRef = useRef('')
 
-  // Foto do animal: obrigatória, com GPS obrigatório (correção iOS inclusa no hook)
+  // Foto do animal: opcional; quando tirada, o GPS é obrigatório (correção iOS inclusa no hook)
   const fotoAnimal = usePhotoGps({ gpsObrigatorio: true })
   // Fotos de apoio (brinco e cabeça): só imagem
   const fotoBrinco = usePhotoGps({ comGps: false })
@@ -224,9 +224,6 @@ export default function MortePage() {
   const validationRules: any = {
     data: { required: true },
     lote: { required: true },
-    fotoAnimal: {
-      custom: () => (!fotoAnimal.fotoBase64 ? 'Tire a foto do animal (com localização)' : null),
-    },
     observacaoIdentificacao: {
       custom: (_value: any, formState: any) => {
         const semBrinco = !formState.brinco || formState.brinco.trim() === ''
@@ -468,7 +465,6 @@ export default function MortePage() {
 
   const pendenciaTexto = (() => {
     if (!form.lote) return 'Falta escolher o pasto/lote'
-    if (!fotoAnimal.fotoBase64) return 'Falta a foto do animal'
     const semBrinco = !form.brinco.trim()
     const semChip = !form.chip.trim()
     if (semBrinco && semChip && !form.observacaoIdentificacao.trim()) return 'Falta o brinco/chip ou o motivo de não ter'
@@ -683,9 +679,9 @@ export default function MortePage() {
         </CadernetaSection>
 
         {/* 1. Fotos do animal */}
-        <CadernetaSection numero={1} titulo="Fotos do animal" required>
+        <CadernetaSection numero={1} titulo="Fotos do animal">
           <div className="grid grid-cols-3 gap-2">
-            {tileFoto('Animal', fotoAnimal, () => fotoAnimal.capturarFotoComGps(), true, 'fotoAnimal')}
+            {tileFoto('Animal', fotoAnimal, () => fotoAnimal.capturarFotoComGps(), false, 'fotoAnimal')}
             {tileFoto('Brinco', fotoBrinco, () => fotoBrinco.capturarFoto())}
             {tileFoto('Cabeça', fotoCabeca, () => fotoCabeca.capturarFoto())}
           </div>
@@ -696,7 +692,7 @@ export default function MortePage() {
             </InfoStrip>
           ) : (
             <InfoStrip tone="neutral" icon="📍">
-              A foto do animal marca o local pelo GPS automaticamente. Brinco e cabeça são opcionais.
+              Todas as fotos são opcionais. A foto do animal marca o local pelo GPS automaticamente.
             </InfoStrip>
           )}
           {fotoAnimal.fotoErro && <InfoStrip tone="danger">{fotoAnimal.fotoErro}</InfoStrip>}
