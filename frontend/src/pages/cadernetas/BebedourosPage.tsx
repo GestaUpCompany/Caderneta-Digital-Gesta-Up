@@ -46,6 +46,8 @@ import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import InfoCard, { InfoCardStatus } from '../../components/cadernetas/InfoCard'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { base64ToDataUrl } from '../../utils/photoCompress'
+import { getFuncionarios } from '../../services/supabaseService'
+import ParticipantesLimpeza, { separarNomes, mesclarNomes } from '../../components/cadernetas/ParticipantesLimpeza'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -90,6 +92,10 @@ interface FormState {
   boiaProtecaoBoasCondicoes: string
   boiaProtecaoBoasCondicoesObs: string
   boiaProtecaoBoasCondicoesFoto: string
+  // Participantes da limpeza (opcional)
+  participantesFuncionarios: string[]
+  participantesDiaristas: string[]
+  diaristaDigitando: string
   // Limpeza info fields (read-only)
   tempoDesdeLimpeza: string
   intervaloMedioLimpezas: string
@@ -119,6 +125,9 @@ const makeInitial = (): FormState => ({
   boiaProtecaoBoasCondicoes: '',
   boiaProtecaoBoasCondicoesObs: '',
   boiaProtecaoBoasCondicoesFoto: '',
+  participantesFuncionarios: [],
+  participantesDiaristas: [],
+  diaristaDigitando: '',
   tempoDesdeLimpeza: '',
   intervaloMedioLimpezas: '',
   metaIntervaloLimpeza: '',
@@ -158,6 +167,7 @@ export default function BebedourosPage() {
   const [pendenciasVerificadas, setPendenciasVerificadas] = useState<boolean | null>(null)
   const [carregandoPendencias, setCarregandoPendencias] = useState(false)
   const bebedouroPendenciasRef = useRef('')
+  const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [campoFotoAtual, setCampoFotoAtual] = useState<CampoFoto | null>(null)
   const [campoVozAtual, setCampoVozAtual] = useState<CampoChecklist | null>(null)
   const baseVozRef = useRef('')
@@ -265,6 +275,30 @@ export default function BebedourosPage() {
       }
     }
     loadData()
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId])
+
+  // Funcionários para a seção de participantes da limpeza: cache local, com fallback online
+  useEffect(() => {
+    let cancelado = false
+    const carregar = async () => {
+      try {
+        const cache = await getCachedCadastroData()
+        if (cancelado) return
+        if (cache?.funcionarios?.length) {
+          setFuncionariosDisponiveis(cache.funcionarios)
+          return
+        }
+        if (!fazendaId) return
+        const lista = await withTimeout(getFuncionarios(fazendaId), 3000)
+        if (!cancelado) setFuncionariosDisponiveis(lista.map((f) => f.nome))
+      } catch (error) {
+        console.warn('[BebedourosPage] Funcionários indisponíveis:', error)
+      }
+    }
+    carregar()
     return () => {
       cancelado = true
     }
@@ -463,6 +497,14 @@ export default function BebedourosPage() {
       return
     }
 
+    // Nome digitado e ainda não confirmado entra como diarista (evita perder o último nome)
+    const funcionariosParticipantes = form.participantesFuncionarios ?? []
+    const diaristasParticipantes = mesclarNomes(form.participantesDiaristas ?? [], separarNomes(form.diaristaDigitando ?? ''))
+    const participantesLimpeza =
+      funcionariosParticipantes.length > 0 || diaristasParticipantes.length > 0
+        ? { funcionarios: funcionariosParticipantes, diaristas: diaristasParticipantes }
+        : null
+
     const result = await salvarRegistro('bebedouros', {
       data: form.data,
       responsavel: usuario,
@@ -472,6 +514,7 @@ export default function BebedourosPage() {
       pasto: pastosBebedouro && pastosBebedouro.length > 0 ? pastosBebedouro.map(p => p.nome).join(', ') : null,
       pastoId: pastosBebedouro && pastosBebedouro.length === 1 ? pastosBebedouro[0].id : null,
       observacao: form.observacao,
+      participantesLimpeza,
       tempoDesdeLimpeza: form.tempoDesdeLimpeza,
       intervaloMedioLimpezas: form.intervaloMedioLimpezas,
       metaIntervaloLimpeza: form.metaIntervaloLimpeza,
@@ -950,7 +993,19 @@ export default function BebedourosPage() {
           </CadernetaSection>
         ) : null}
 
-        <CadernetaSection numero={checklistAtivo || loadingChecklistRegras ? 3 : 2} titulo="Observação">
+        <CadernetaSection numero={checklistAtivo || loadingChecklistRegras ? 3 : 2} titulo="Quem participou da limpeza">
+          <ParticipantesLimpeza
+            funcionariosDisponiveis={funcionariosDisponiveis}
+            funcionariosSelecionados={form.participantesFuncionarios ?? []}
+            onChangeFuncionarios={(nomes) => setForm((prev) => ({ ...prev, participantesFuncionarios: nomes }))}
+            diaristas={form.participantesDiaristas ?? []}
+            onChangeDiaristas={(nomes) => setForm((prev) => ({ ...prev, participantesDiaristas: nomes }))}
+            digitando={form.diaristaDigitando ?? ''}
+            onChangeDigitando={(texto) => setForm((prev) => ({ ...prev, diaristaDigitando: texto }))}
+          />
+        </CadernetaSection>
+
+        <CadernetaSection numero={checklistAtivo || loadingChecklistRegras ? 4 : 3} titulo="Observação">
           <Input
             placeholder="Detalhes adicionais (opcional)"
             value={form.observacao}

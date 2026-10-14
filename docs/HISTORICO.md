@@ -2,6 +2,13 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Bebedouros: participantes da limpeza (14/10/2026)
+
+Nova seção opcional "Quem participou da limpeza" em `BebedourosPage`: chips de funcionários (cache de cadastro, fallback online) e campo único de diaristas (Adicionar/Enter ou vários separados por vírgula, viram chips removíveis; texto pendente entra ao salvar). Componente `components/cadernetas/ParticipantesLimpeza.tsx`.
+
+- **Dado:** coluna `registros_bebedouros.participantes_limpeza jsonb` (`{funcionarios: [], diaristas: []}`, null se vazio). Migration `20261014170000_registros_bebedouros_participantes_limpeza.sql` aplicada via `db push` no repo do Painel (commit local lá, push pendente). `syncService.registroToSupabase` mapeia `participantesLimpeza`. Sem bump de IndexedDB.
+- **Painel:** ainda não exibe o campo (pendente).
+
 ## Leitura de Cocho: consumo fechado calculado pelo Painel (13/10/2026)
 
 Na Leitura de Cocho, os cartões "Ontem", "2 dias" e "3 dias" de "Consumo do curral" passam a usar o consumo que o Painel já calculou (tabela `consumo_confinamento_dia`, uma linha por lote e dia) quando aquele dia exato está fechado. **Nenhum elemento, texto ou layout novo na tela**: só o número muda. "Média 10 dias" e "Geral" continuam locais.

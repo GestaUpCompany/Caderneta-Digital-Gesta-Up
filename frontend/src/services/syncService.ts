@@ -387,6 +387,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         pasto_id: registro.pastoId || null,
         observacao: registro.observacao || null,
         checklist: registro.checklist || null,
+        participantes_limpeza: registro.participantesLimpeza || null,
       }
     case 'movimentacao': {
       return {

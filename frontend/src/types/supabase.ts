@@ -7628,6 +7628,7 @@ export type Database = {
           lote_id: string | null
           nome_usuario: string | null
           numero_bebedouro: string | null
+          participantes_limpeza: Json | null
           observacao: string | null
           pasto: string | null
           pasto_id: string | null
@@ -7650,6 +7651,7 @@ export type Database = {
           lote_id?: string | null
           nome_usuario?: string | null
           numero_bebedouro?: string | null
+          participantes_limpeza?: Json | null
           observacao?: string | null
           pasto?: string | null
           pasto_id?: string | null
@@ -7672,6 +7674,7 @@ export type Database = {
           lote_id?: string | null
           nome_usuario?: string | null
           numero_bebedouro?: string | null
+          participantes_limpeza?: Json | null
           observacao?: string | null
           pasto?: string | null
           pasto_id?: string | null
