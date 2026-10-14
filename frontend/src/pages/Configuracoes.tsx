@@ -214,10 +214,10 @@ export default function Configuracoes() {
       fazenda: nomeFazenda,
       fazendaId: supabaseFazendaId,
       acessoId: supabaseAcessoId,
-      // Na troca de fazenda a identidade reseta: sem isso o nome e o
-      // funcionário logado da fazenda anterior continuam aparecendo e
-      // assinando registros no aparelho compartilhado.
-      usuario: trocouFazenda ? '' : usuario.trim(),
+      // O nome digitado aqui é obrigatório (validate) e vira o tratador dos registros;
+      // zerá-lo na troca de fazenda deixava o app sem nome e quebrava o salvamento.
+      // O funcionário logado da fazenda anterior é limpo abaixo.
+      usuario: usuario.trim(),
       logoUrl: validacaoSupabase.logoUrl,
       controleAcessoHabilitado: validacaoSupabase.controleAcessoHabilitado || false,
       acessoConfinamento: validacaoSupabase.acessoConfinamento || false,
