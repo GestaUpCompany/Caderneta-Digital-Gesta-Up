@@ -33,8 +33,43 @@ export function createSupabaseClientWithToken(token: string) {
   })
 }
 
+/**
+ * Sem sessão válida para gravar. Usa o código PGRST301 (JWT vencido) para que a classificação de sync
+ * trate como falha momentânea: o registro fica na fila e nunca é enviado como anônimo (o RLS rejeitaria com 42501).
+ */
+export class SessaoIndisponivelError extends Error {
+  code = 'PGRST301'
+  constructor(motivo: string) {
+    super(`Sessão indisponível: ${motivo}`)
+    this.name = 'SessaoIndisponivelError'
+  }
+}
+
+/** Segundos até o JWT expirar (negativo se já expirou); null se não for possível ler. */
+function segundosParaExpirar(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return typeof payload.exp === 'number' ? payload.exp - Math.floor(Date.now() / 1000) : null
+  } catch {
+    return null
+  }
+}
+
+// Várias gravações do sync pedem o cliente ao mesmo tempo. Com o refresh token rotativo, dois refreshes
+// paralelos invalidam um ao outro (400) e o segundo apagava a sessão: um só refresh em voo por vez.
+let refreshEmAndamento: Promise<string | null> | null = null
+
+function refreshAccessToken(): Promise<string | null> {
+  if (!refreshEmAndamento) {
+    refreshEmAndamento = executarRefresh().finally(() => {
+      refreshEmAndamento = null
+    })
+  }
+  return refreshEmAndamento
+}
+
 // Função para refresh do token
-async function refreshAccessToken(): Promise<string | null> {
+async function executarRefresh(): Promise<string | null> {
   try {
     const refreshToken = localStorage.getItem('supabase_refresh_token')
     if (!refreshToken) return null
@@ -57,6 +92,9 @@ async function refreshAccessToken(): Promise<string | null> {
       // 401 = nao autorizado, 403 = proibido). Erros 5xx, timeout e rede instavel sao
       // transitorios: manter tokens atuais para que proximas tentativas usem o cliente autenticado.
       if (statusCode === 400 || statusCode === 401 || statusCode === 403) {
+        // Outra aba/ciclo pode ter rotacionado o refresh token enquanto esta chamada estava em voo: não apagar a sessão nova
+        const atual = localStorage.getItem('supabase_refresh_token')
+        if (atual && atual !== refreshToken) return localStorage.getItem('supabase_token')
         localStorage.removeItem('supabase_token')
         localStorage.removeItem('supabase_refresh_token')
         stopTokenRefresh()
@@ -131,36 +169,43 @@ export function stopTokenRefresh() {
 }
 
 // Criar cliente Supabase com auto-refresh de token
-export async function getSupabaseClientWithRefresh() {
+// `exigirSessao`: para GRAVAÇÕES. Nunca cai no cliente anônimo; sem sessão válida lança SessaoIndisponivelError.
+export async function getSupabaseClientWithRefresh(opcoes?: { exigirSessao?: boolean }) {
+  const exigirSessao = opcoes?.exigirSessao === true
   let token = localStorage.getItem('supabase_token')
-  
+
   if (!token) {
+    if (exigirSessao) throw new SessaoIndisponivelError('sem token de acesso')
     return supabase
   }
 
-  // Verificar se o token está expirado (JWT expira em 1 hora por padrão)
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    const now = Math.floor(Date.now() / 1000)
-    
-    // Se o token expirou ou vai expirar em menos de 5 minutos, fazer refresh
-    if (payload.exp && payload.exp - now < 300) {
-      console.log('[SupabaseClient] Token expirando, fazendo refresh')
-      token = await refreshAccessToken()
-      if (!token) {
-        // Se refresh falhar, usar cliente anon
-        return supabase
-      }
+  // Se o token expirou ou vai expirar em menos de 5 minutos, fazer refresh (JWT expira em 1 hora por padrão)
+  const restante = segundosParaExpirar(token)
+  if (restante !== null && restante < 300) {
+    console.log('[SupabaseClient] Token expirando, fazendo refresh')
+    const renovado = await refreshAccessToken()
+    if (renovado) {
+      token = renovado
+    } else if (restante > 0) {
+      // Refresh falhou (rede ruim), mas o token atual ainda vale: usa ele em vez do anônimo
+      console.warn('[SupabaseClient] Refresh falhou; mantendo token atual até expirar')
+    } else {
+      // Expirado e sem renovação: anônimo só serve para leitura
+      if (exigirSessao) throw new SessaoIndisponivelError('token expirado e refresh falhou')
+      return supabase
     }
-  } catch (error) {
-    console.error('[SupabaseClient] Erro ao verificar expiração do token:', error)
-  }
-
-  if (!token) {
-    return supabase
   }
 
   return createSupabaseClientWithToken(token)
+}
+
+/** Renova a sessão se estiver perto de vencer, sem apagar nada quando a rede falha. Usado ao abrir o app. */
+export async function renovarSessaoSeNecessario(): Promise<void> {
+  try {
+    await getSupabaseClientWithRefresh()
+  } catch (error) {
+    console.warn('[SupabaseClient] Não foi possível renovar a sessão agora:', error)
+  }
 }
 
 // Função para validar acesso à fazenda usando Edge Function

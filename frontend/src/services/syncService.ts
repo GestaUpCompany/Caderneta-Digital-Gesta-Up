@@ -17,7 +17,7 @@ import {
 import { generateId } from '../utils/generateId'
 import { Registro, SyncError } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
-import { getSupabaseClientWithRefresh } from './supabaseClient'
+import { getSupabaseClientWithRefresh, SessaoIndisponivelError } from './supabaseClient'
 import { brWithTimeToIso, brToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
 import {
@@ -1943,6 +1943,10 @@ export async function processQueue(
 
       // Gravar no Supabase
       if (fazendaId) {
+        // Sem sessão válida o envio iria como anônimo e o RLS recusaria (42501, erro "permanente"). Aqui o
+        // registro só espera: o item continua na fila e o próximo ciclo tenta de novo com a sessão renovada.
+        await getSupabaseClientWithRefresh({ exigirSessao: true })
+
         // Caso especial: Novo Lote (movimentacao com subtipo='Novo Lote')
         // Envia para solicitacoes_novo_lote em vez de registros_movimentacao
         if (item.store === 'movimentacao' && (registro as any).subtipo === 'Novo Lote') {
@@ -1969,6 +1973,12 @@ export async function processQueue(
       // Falha de conectividade não é erro do registro: ele segue na fila (pending) e o próximo ciclo
       // (10 s, evento online ou REENVIAR) tenta de novo. Reenviar não duplica: as tabelas de registro
       // usam upsert por local_id e as fotos usam upsert. Os demais itens falhariam igual, então para aqui.
+      if (err instanceof SessaoIndisponivelError) {
+        console.warn(`[SYNC] Sem sessão válida para ${item.store}/${item.registroId}; mantido na fila.`, err)
+        networkFailure = true
+        break
+      }
+
       const classe = classificarErroDeSync(err)
       if (classe === 'network') {
         console.warn(`[SYNC] Sem conexão ao sincronizar ${item.store}/${item.registroId}; mantido na fila.`, err)

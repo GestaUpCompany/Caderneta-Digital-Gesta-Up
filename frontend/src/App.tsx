@@ -10,6 +10,7 @@ import CadastroSyncOverlay from './components/CadastroSyncOverlay'
 import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate'
 import PageLoader from './components/PageLoader'
 import { useSync } from './hooks/useSync'
+import { renovarSessaoSeNecessario } from './services/supabaseClient'
 import { useConflicts } from './hooks/useConflicts'
 import { useFirstOpen } from './hooks/useFirstOpen'
 import { verificarBackupAutomatico } from './services/backupService'
@@ -190,30 +191,11 @@ function AppInner() {
   // Solicitar persistência de armazenamento para evitar evicção do navegador
   useStoragePersistence()
 
-  // Limpar tokens expirados automaticamente ao carregar o app
+  // Ao abrir o app, renova a sessão se o token venceu ou está perto de vencer. Antes isto apagava o token E o
+  // refresh token sem tentar renovar: depois de uma noite parado, o sync seguinte ia como anônimo (RLS 42501).
+  // Só o refresh que o servidor recusar de vez (400/401/403) limpa a sessão; sem rede, ela é mantida.
   useEffect(() => {
-    const clearExpiredTokens = () => {
-      const token = localStorage.getItem('supabase_token')
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]))
-          const now = Math.floor(Date.now() / 1000)
-          
-          // Limpar se expirou ou vai expirar em menos de 5 minutos
-          if (payload.exp && payload.exp - now < 300) {
-            console.log('[App] Limpando token expirado do localStorage')
-            localStorage.removeItem('supabase_token')
-            localStorage.removeItem('supabase_refresh_token')
-          }
-        } catch (error) {
-          console.error('[App] Erro ao verificar token, limpando:', error)
-          localStorage.removeItem('supabase_token')
-          localStorage.removeItem('supabase_refresh_token')
-        }
-      }
-    }
-
-    clearExpiredTokens()
+    void renovarSessaoSeNecessario()
   }, [])
 
   // Inicializar cache de dados de cadastro (apenas carrega do IndexedDB, não faz polling)
