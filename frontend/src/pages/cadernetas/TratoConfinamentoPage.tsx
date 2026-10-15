@@ -387,7 +387,17 @@ export default function TratoConfinamentoPage() {
           let pesoVivoKg: number | null = null
           let categorias = ''
           let formulacaoNome: string | null = null
-          const formulacaoId: string | null = curralInfo?.formulacao_id || null
+          // A dieta vem do lote (ou do plano nutricional ativo): `currais` não tem formulacao_id.
+          let formulacaoId: string | null = lote?.formulacao_id || ocupacao.lotes?.formulacao_id || null
+          if (!formulacaoId && loteId) {
+            try {
+              const { getPlanoNutricionalAtivoByLoteIdCached } = await import('../../services/cadastroCache')
+              const plano = await getPlanoNutricionalAtivoByLoteIdCached(loteId)
+              formulacaoId = plano?.formulacaoId || plano?.formulacao_id || null
+            } catch {
+              // ignorar erro, segue para o fallback de suplementação
+            }
+          }
           if (loteId) {
             try {
               const detalhes = await getLoteDetalhesComCategoriasCached(loteId)
