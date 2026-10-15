@@ -63,6 +63,23 @@ const BASE = import.meta.env.BASE_URL
 
 // Leitura do cocho (-1 a 3): descricao padrao por nota. Quando a fazenda
 // configura notas proprias, a descricao aparece na faixa de KG previsto.
+// Teto de sanidade: o banco guarda kg em numeric(10,2) e um erro de digitação (ex.: 104530000)
+// estourava o limite e o registro ficava preso no aparelho sem chegar ao servidor.
+const MAX_DIGITOS_QUANTIDADE = 6
+const MAX_KG_SUPLEMENTO = 100000
+const MAX_SACOS_SUPLEMENTO = 5000
+
+const erroQuantidadeAbsurda = (valor: number, kgPorSaco: number | null, sacaria: boolean): string | null => {
+  if (sacaria) {
+    if (valor > MAX_SACOS_SUPLEMENTO || (kgPorSaco && valor * kgPorSaco > MAX_KG_SUPLEMENTO)) {
+      return 'Quantidade de sacos muito alta. Confira se não houve erro de digitação.'
+    }
+    return null
+  }
+  if (valor > MAX_KG_SUPLEMENTO) return 'Valor muito alto (máximo 100.000 kg). Confira se não houve erro de digitação.'
+  return null
+}
+
 const LEITURA_OPTIONS = [
   { value: '-1', numero: '-1', label: 'Lambido', dot: 'bg-red-500', selecionado: 'bg-red-50 border-red-500 text-red-800' },
   { value: '0', numero: '0', label: 'Limpo', dot: 'bg-amber-400', selecionado: 'bg-amber-50 border-amber-400 text-amber-900' },
@@ -954,6 +971,7 @@ export default function SuplementacaoPage() {
         required: adultoAtivo,
         custom: (value: any) => {
           if (adultoAtivo && value && Number(value) <= 0) return isSacaria ? 'Número de sacos deve ser maior que zero' : 'KG no cocho deve ser maior que zero'
+          if (adultoAtivo && value) return erroQuantidadeAbsurda(Number(value), isSacaria ? kgPorSaco : null, isSacaria)
           return null
         },
       },
@@ -981,6 +999,7 @@ export default function SuplementacaoPage() {
           required: true,
           custom: (value: any) => {
             if (value && Number(value) <= 0) return isSacariaCreep ? 'Número de sacos deve ser maior que zero' : 'KG no cocho creep deve ser maior que zero'
+            if (value) return erroQuantidadeAbsurda(Number(value), isSacariaCreep ? kgPorSacoCreep : null, isSacariaCreep)
             return null
           },
         }
@@ -996,7 +1015,7 @@ export default function SuplementacaoPage() {
               ? 'Número de sacos no depósito é obrigatório e deve ser maior que zero'
               : 'KG no depósito é obrigatório e deve ser maior que zero'
           }
-          return null
+          return erroQuantidadeAbsurda(Number(form.kgDeposito), isSacaria ? kgPorSaco : null, isSacaria)
         }
       }
     }
@@ -1413,7 +1432,7 @@ export default function SuplementacaoPage() {
           placeholder="0"
           value={form[kgField]}
           onChange={(e) => {
-            const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
+            const apenasDigitos = e.target.value.replace(/[^0-9]/g, '').slice(0, MAX_DIGITOS_QUANTIDADE)
             setForm((prev) => ({ ...prev, [kgField]: apenasDigitos }))
           }}
           error={getError(kgField)}
@@ -1597,7 +1616,7 @@ export default function SuplementacaoPage() {
               value={form.kgDeposito}
               onChange={isSacaria
                 ? (e) => {
-                    const apenasDigitos = e.target.value.replace(/[^0-9]/g, '')
+                    const apenasDigitos = e.target.value.replace(/[^0-9]/g, '').slice(0, MAX_DIGITOS_QUANTIDADE)
                     setForm((prev) => ({ ...prev, kgDeposito: apenasDigitos }))
                   }
                 : setInput('kgDeposito')}

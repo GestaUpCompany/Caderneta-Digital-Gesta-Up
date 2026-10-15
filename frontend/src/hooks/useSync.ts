@@ -16,14 +16,19 @@ import {
 } from '../services/syncService'
 import { sincronizarExecucoesPendentes } from '../services/execucaoRotinaService'
 import { getSyncQueue } from '../services/indexedDB'
-import { reauthenticateFarm, isTokenValid } from '../services/authService'
+import { isTokenValid } from '../services/authService'
+import { reautenticarEmSilencio, comSessaoObrigatoria } from '../services/supabaseClient'
 import { SYNC_CHECK_INTERVAL_MS } from '../utils/constants'
+
+const LOCK_MAX_MS = 3 * 60 * 1000
 
 export function useSync() {
   const dispatch = useDispatch()
-  const { fazendaId, acessoId, configurado, testModeAtivo } = useSelector((state: RootState) => state.config)
+  const { fazendaId, configurado, testModeAtivo } = useSelector((state: RootState) => state.config)
   const syncRequestId = useSelector((state: RootState) => state.sync.syncRequestId)
-  const isRunning = useRef(false)
+  // Início do ciclo em andamento (0 = livre). Um ciclo que passa de LOCK_MAX_MS é dado como travado
+  // (requisição pendurada, aba suspensa pelo sistema) e o próximo gatilho assume, em vez de parar o sync até reabrir o app.
+  const cicloIniciadoEm = useRef(0)
 
   const updatePendingCount = useCallback(async () => {
     const queue = await getSyncQueue()
@@ -31,7 +36,10 @@ export function useSync() {
   }, [dispatch])
 
   const runSync = useCallback(async () => {
-    if (!configurado || !fazendaId || isRunning.current) {
+    if (!configurado || !fazendaId) {
+      return
+    }
+    if (cicloIniciadoEm.current > 0 && Date.now() - cicloIniciadoEm.current < LOCK_MAX_MS) {
       return
     }
 
@@ -40,23 +48,28 @@ export function useSync() {
       return
     }
 
-    isRunning.current = true
+    const inicioDoCiclo = Date.now()
+    cicloIniciadoEm.current = inicioDoCiclo
     dispatch(setError(null))
 
     try {
-      // Reautenticar peão se o token não estiver válido
-      if (!isTokenValid() && acessoId) {
-        console.log('[useSync] Token inválido, tentando reautenticar peão...')
-        const authResult = await reauthenticateFarm(acessoId)
-        if (!authResult.sucesso) {
-          console.error('[useSync] Falha ao reautenticar peão')
-        }
+      // Sessão do peão: renova/reautentica em silêncio antes de enviar (sem rede, o ciclo só espera)
+      if (!isTokenValid()) {
+        console.log('[useSync] Token inválido, reautenticando peão em silêncio...')
+        await reautenticarEmSilencio()
+      }
+
+      // Reconciliação barata (só IndexedDB): órfãos sem item na fila e erros que eram só de rede/servidor
+      try {
+        await Promise.all([reconcileOrphanPending(), reenfileirarErrosRecuperaveis()])
+      } catch (e) {
+        console.warn('[useSync] Reconciliação da fila falhou:', e)
       }
 
       // Execuções de rotina ficam fora da syncQueue (cache de cadastro).
       // Reenvia as que ficaram pendentes no dispositivo (ex.: salvas offline).
       try {
-        await sincronizarExecucoesPendentes(fazendaId)
+        await comSessaoObrigatoria(() => sincronizarExecucoesPendentes(fazendaId))
       } catch (e) {
         console.warn('[useSync] Falha ao sincronizar execuções de rotina:', e)
       }
@@ -74,7 +87,6 @@ export function useSync() {
         }
         dispatch(setStatus('online'))
         dispatch(setLastSync(new Date().toISOString()))
-        isRunning.current = false
         return
       }
 
@@ -110,9 +122,10 @@ export function useSync() {
       dispatch(setStatus('error'))
       dispatch(setError('Erro ao sincronizar. Verifique a conexão.'))
     } finally {
-      isRunning.current = false
+      // Só libera se o lock ainda é deste ciclo (um ciclo travado pode ter sido substituído por outro)
+      if (cicloIniciadoEm.current === inicioDoCiclo) cicloIniciadoEm.current = 0
     }
-  }, [configurado, fazendaId, acessoId, dispatch, updatePendingCount, testModeAtivo])
+  }, [configurado, fazendaId, dispatch, updatePendingCount, testModeAtivo])
 
   useEffect(() => {
     const handleOnline = () => {
@@ -123,8 +136,14 @@ export function useSync() {
       dispatch(setStatus('offline'))
     }
 
+    // Voltar ao app (iOS/Android em segundo plano congelam os timers): sincroniza na hora, sem esperar o intervalo
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) runSync()
+    }
+
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
+    document.addEventListener('visibilitychange', handleVisibility)
 
     if (navigator.onLine) {
       dispatch(setStatus('online'))
@@ -136,6 +155,7 @@ export function useSync() {
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [dispatch, runSync])
 

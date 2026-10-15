@@ -203,6 +203,14 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
     'os-recebimentos': 5,
     'pesagem': 6,
     'movimentacao': 7,
+    // Pai sempre antes do filho (o filho precisa do id do servidor do pai). Ficam depois das demais
+    // cadernetas, que não têm dependência. Filho enviado cedo demais espera na fila (PaiNaoEnviadoError).
+    'saida-insumos': 90,
+    'insumos-por-saida': 91,
+    'entrada-insumos': 92,
+    'entrada-insumos-itens': 93,
+    'fabrica-confinamento': 94,
+    'fabrica-confinamento-insumos': 95,
   }
   return all.sort((a: SyncQueueItem, b: SyncQueueItem) => {
     if (priorityOrder[a.priority] !== priorityOrder[b.priority])

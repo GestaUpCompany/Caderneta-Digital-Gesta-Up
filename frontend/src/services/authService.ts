@@ -1,3 +1,24 @@
+import { criarFetchComTimeout } from '../utils/fetchComTimeout'
+
+// Sem limite de tempo, rede travada prenderia o ciclo de sync (e o lock do useSync) até reabrir o app
+const fetchComTimeout = criarFetchComTimeout()
+
+/**
+ * acesso_id da fazenda configurada neste aparelho, lido direto do estado persistido (redux-persist).
+ * Permite reautenticar de qualquer camada (sync, cliente Supabase) sem depender do Redux em memória.
+ */
+export function lerAcessoIdPersistido(): string | null {
+  try {
+    const raiz = localStorage.getItem('persist:root')
+    if (!raiz) return null
+    const config = JSON.parse(JSON.parse(raiz).config ?? 'null')
+    const acessoId = config?.acessoId
+    return typeof acessoId === 'string' && acessoId.trim() !== '' ? acessoId : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Re-authenticates with Supabase using the acessoId from config
  * This is called automatically on app load if tokens are invalid
@@ -19,7 +40,7 @@ export async function reauthenticateFarm(acessoId: string): Promise<{ sucesso: b
 
     // Buscar dados do peao via RPC (SECURITY DEFINER) para um acesso_id especifico.
     // A tabela peoes nao tem mais RLS publica; a RPC e o unico caminho.
-    const rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/autenticar_peao_app`, {
+    const rpcResponse = await fetchComTimeout(`${supabaseUrl}/rest/v1/rpc/autenticar_peao_app`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,7 +64,7 @@ export async function reauthenticateFarm(acessoId: string): Promise<{ sucesso: b
     console.log('[AuthService] Peão encontrado:', rpcData.email)
 
     // Fazer login no Supabase Auth com email/senha do peão
-    const loginResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    const loginResponse = await fetchComTimeout(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -12,6 +12,11 @@ interface NumericInputProps
   /** Emite o valor canônico ("9540", "9.54"), pronto para salvar */
   onChange: (canonical: string) => void
   decimalPlaces?: number
+  /**
+   * Máximo de dígitos antes da vírgula. O padrão (8) cabe em qualquer coluna numeric(10,2) do banco e barra
+   * erro de digitação absurdo (ex.: 104530000 kg no cocho) antes de o registro ficar preso no aparelho.
+   */
+  maxIntegerDigits?: number
 }
 
 function groupMilhar(intPart: string): string {
@@ -38,6 +43,7 @@ export default function NumericInput({
   value,
   onChange,
   decimalPlaces = 3,
+  maxIntegerDigits = 8,
   onBlur,
   onPaste,
   ...props
@@ -61,12 +67,12 @@ export default function NumericInput({
     const cleaned = e.target.value.replace(/\./g, '').replace(/[^\d,]/g, '')
     const commaIdx = cleaned.indexOf(',')
     if (commaIdx === -1 || decimalPlaces === 0) {
-      const digits = cleaned.replace(/,/g, '')
+      const digits = cleaned.replace(/,/g, '').slice(0, maxIntegerDigits)
       setDisplay(decimalPlaces === 0 ? groupMilhar(digits) : groupMilhar(digits))
       onChange(digits)
       return
     }
-    const intPart = cleaned.slice(0, commaIdx) || '0'
+    const intPart = cleaned.slice(0, commaIdx).slice(0, maxIntegerDigits) || '0'
     const decPart = cleaned.slice(commaIdx + 1).replace(/,/g, '').slice(0, decimalPlaces)
     setDisplay(`${groupMilhar(intPart)},${decPart}`)
     onChange(trimCanonical(`${intPart}.${decPart}`))
@@ -75,7 +81,8 @@ export default function NumericInput({
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault()
     const num = normalizarNumero(e.clipboardData.getData('text'))
-    if (num !== null) {
+    // Colar número com mais dígitos que o permitido é ignorado (mesmo limite da digitação)
+    if (num !== null && String(Math.trunc(Math.abs(num))).length <= maxIntegerDigits) {
       const canonical = String(num)
       setDisplay(toDisplay(canonical))
       onChange(canonical)

@@ -16,6 +16,7 @@ const TRANSIENT_CODES = new Set([
   '08000', '08003', '08006', // connection_exception
   'PGRST000', 'PGRST001', 'PGRST002', 'PGRST003', // sem conexão com o banco, schema cache, pool
   '408', '429', '502', '503', '504',
+  'PAI_PENDENTE', // registro-filho esperando o pai chegar ao servidor
 ])
 
 // Gateway fora do ar chega sem código, só com o corpo da resposta (muitas vezes uma página HTML).
@@ -26,10 +27,22 @@ const AUTH_EXPIRED_CODES = new Set(['PGRST301', '401'])
 
 export type ClasseErroSync = 'network' | 'transient' | 'permanent'
 
-/** Tentativas automáticas para falhas transitórias do servidor antes de o registro virar `error`. */
-export const MAX_TENTATIVAS_TRANSITORIAS = 6
+/**
+ * O registro-filho (ex.: item de uma saída de insumos) não pode subir antes do pai. Não é erro do registro:
+ * ele espera na fila e sobe no ciclo em que o pai já tiver chegado ao servidor.
+ */
+export class PaiNaoEnviadoError extends Error {
+  code = 'PAI_PENDENTE'
+  constructor(mensagem = 'Registro principal ainda não enviado ao servidor; este item aguarda na fila.') {
+    super(mensagem)
+    this.name = 'PaiNaoEnviadoError'
+  }
+}
 
-/** Espera antes da próxima tentativa: 15 s, 30 s, 1 min, 2 min, 5 min, 10 min. */
+/**
+ * Falhas de rede, sessão e servidor nunca viram `error`: o registro fica na fila e é tentado sem limite de
+ * vezes, com esta espera crescente: 15 s, 30 s, 1 min, 2 min, 5 min e depois a cada 10 min.
+ */
 export function esperaTransitoriaMs(tentativasFeitas: number): number {
   const passos = [15_000, 30_000, 60_000, 120_000, 300_000, 600_000]
   return passos[Math.min(Math.max(tentativasFeitas, 0), passos.length - 1)]

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../types/supabase'
 import { criarFetchComTimeout } from '../utils/fetchComTimeout'
+import { reauthenticateFarm, lerAcessoIdPersistido } from './authService'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -68,11 +69,53 @@ function refreshAccessToken(): Promise<string | null> {
   return refreshEmAndamento
 }
 
+// Refresh token que o servidor já recusou (400/401/403): não adianta insistir, a sessão volta pela reautenticação.
+let refreshTokenRecusado: string | null = null
+
+// Reautenticação silenciosa do peão (RPC autenticar_peao_app + login), um voo por vez.
+let reautenticacaoEmAndamento: Promise<string | null> | null = null
+
+async function executarReautenticacao(): Promise<string | null> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
+  const acessoId = lerAcessoIdPersistido()
+  if (!acessoId) return null
+  const resultado = await reauthenticateFarm(acessoId)
+  if (!resultado.sucesso) return null
+  refreshTokenRecusado = null
+  return localStorage.getItem('supabase_token')
+}
+
+/**
+ * Refaz o login do peão sem tela nem ação dele. Devolve o novo access token, ou null (sem rede,
+ * aparelho sem fazenda configurada ou peão recusado pelo servidor).
+ */
+export function reautenticarEmSilencio(): Promise<string | null> {
+  if (!reautenticacaoEmAndamento) {
+    reautenticacaoEmAndamento = executarReautenticacao().finally(() => {
+      reautenticacaoEmAndamento = null
+    })
+  }
+  return reautenticacaoEmAndamento
+}
+
+// Quando maior que zero, todo cliente pedido exige sessão (nunca cai no anônimo). Usado durante o ciclo de sync,
+// em que cada gravação e upload precisa sair como o peão e não como anônimo (o RLS recusaria com 42501).
+let sessaoObrigatoriaAtiva = 0
+
+export async function comSessaoObrigatoria<T>(fn: () => Promise<T>): Promise<T> {
+  sessaoObrigatoriaAtiva++
+  try {
+    return await fn()
+  } finally {
+    sessaoObrigatoriaAtiva--
+  }
+}
+
 // Função para refresh do token
 async function executarRefresh(): Promise<string | null> {
   try {
     const refreshToken = localStorage.getItem('supabase_refresh_token')
-    if (!refreshToken) return null
+    if (!refreshToken || refreshToken === refreshTokenRecusado) return null
 
     const response = await fetchComTimeout(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: 'POST',
@@ -88,16 +131,14 @@ async function executarRefresh(): Promise<string | null> {
     if (!response.ok) {
       const statusCode = response.status
       console.error('Erro ao refresh token:', statusCode, await response.text())
-      // So limpar tokens em erro de auth definitivo (400 = refresh token invalido/expirado,
-      // 401 = nao autorizado, 403 = proibido). Erros 5xx, timeout e rede instavel sao
-      // transitorios: manter tokens atuais para que proximas tentativas usem o cliente autenticado.
+      // 400/401/403: o servidor recusou este refresh token (revogado ou já usado). Os tokens NÃO são apagados:
+      // a sessão volta pela reautenticação silenciosa, e apagar só deixaria o app sem sessão se ela falhar.
+      // Erros 5xx, timeout e rede instável são transitórios: nada muda.
       if (statusCode === 400 || statusCode === 401 || statusCode === 403) {
-        // Outra aba/ciclo pode ter rotacionado o refresh token enquanto esta chamada estava em voo: não apagar a sessão nova
+        // Outra aba/ciclo pode ter rotacionado o refresh token enquanto esta chamada estava em voo: usar o novo
         const atual = localStorage.getItem('supabase_refresh_token')
         if (atual && atual !== refreshToken) return localStorage.getItem('supabase_token')
-        localStorage.removeItem('supabase_token')
-        localStorage.removeItem('supabase_refresh_token')
-        stopTokenRefresh()
+        refreshTokenRecusado = refreshToken
       }
       return null
     }
@@ -150,7 +191,7 @@ export function startTokenRefresh() {
       // Se o token vai expirar em menos de 30 minutos, fazer refresh
       if (payload.exp && payload.exp - now < 1800) {
         console.log('[SupabaseClient] Token expirando, fazendo refresh automático')
-        const newToken = await refreshAccessToken()
+        const newToken = (await refreshAccessToken()) ?? (await reautenticarEmSilencio())
         if (!newToken) {
           console.error('[SupabaseClient] Falha ao refresh token')
         }
@@ -169,13 +210,19 @@ export function stopTokenRefresh() {
 }
 
 // Criar cliente Supabase com auto-refresh de token
-// `exigirSessao`: para GRAVAÇÕES. Nunca cai no cliente anônimo; sem sessão válida lança SessaoIndisponivelError.
+// `exigirSessao`: para GRAVAÇÕES. Nunca cai no cliente anônimo; sem sessão válida tenta renovar e, se preciso,
+// reautenticar o peão em silêncio. Só lança SessaoIndisponivelError quando não há como (sem rede, por exemplo):
+// o item então espera na fila. Dentro de `comSessaoObrigatoria` toda chamada se comporta assim.
 export async function getSupabaseClientWithRefresh(opcoes?: { exigirSessao?: boolean }) {
-  const exigirSessao = opcoes?.exigirSessao === true
+  const exigirSessao = opcoes?.exigirSessao === true || sessaoObrigatoriaAtiva > 0
   let token = localStorage.getItem('supabase_token')
 
   if (!token) {
-    if (exigirSessao) throw new SessaoIndisponivelError('sem token de acesso')
+    if (exigirSessao) {
+      const reautenticado = await reautenticarEmSilencio()
+      if (reautenticado) return createSupabaseClientWithToken(reautenticado)
+      throw new SessaoIndisponivelError('sem token de acesso')
+    }
     return supabase
   }
 
@@ -183,7 +230,9 @@ export async function getSupabaseClientWithRefresh(opcoes?: { exigirSessao?: boo
   const restante = segundosParaExpirar(token)
   if (restante !== null && restante < 300) {
     console.log('[SupabaseClient] Token expirando, fazendo refresh')
-    const renovado = await refreshAccessToken()
+    let renovado = await refreshAccessToken()
+    // Expirado e o refresh não deu certo: para gravar, refaz o login do peão em vez de seguir sem sessão
+    if (!renovado && restante <= 0 && exigirSessao) renovado = await reautenticarEmSilencio()
     if (renovado) {
       token = renovado
     } else if (restante > 0) {
@@ -191,7 +240,7 @@ export async function getSupabaseClientWithRefresh(opcoes?: { exigirSessao?: boo
       console.warn('[SupabaseClient] Refresh falhou; mantendo token atual até expirar')
     } else {
       // Expirado e sem renovação: anônimo só serve para leitura
-      if (exigirSessao) throw new SessaoIndisponivelError('token expirado e refresh falhou')
+      if (exigirSessao) throw new SessaoIndisponivelError('token expirado e sem como renovar')
       return supabase
     }
   }

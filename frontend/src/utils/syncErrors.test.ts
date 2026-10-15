@@ -4,7 +4,6 @@ import {
   esperaTransitoriaMs,
   isNetworkError,
   isTransientServerError,
-  MAX_TENTATIVAS_TRANSITORIAS,
 } from './syncErrors'
 
 describe('isTransientServerError', () => {
@@ -48,7 +47,7 @@ describe('esperaTransitoriaMs', () => {
   it('cresce a cada tentativa e para no teto', () => {
     expect(esperaTransitoriaMs(0)).toBe(15_000)
     expect(esperaTransitoriaMs(2)).toBe(60_000)
-    expect(esperaTransitoriaMs(MAX_TENTATIVAS_TRANSITORIAS + 10)).toBe(600_000)
+    expect(esperaTransitoriaMs(500)).toBe(600_000)
   })
 })
 
@@ -88,5 +87,18 @@ describe('isNetworkError', () => {
   it('não trata erro comum de código como falha de rede', () => {
     expect(isNetworkError(new Error('Cannot read properties of undefined'), true)).toBe(false)
     expect(isNetworkError(null, true)).toBe(false)
+  })
+})
+
+describe('registro-filho aguardando o pai', () => {
+  it('PaiNaoEnviadoError é transitório: fica na fila e não vira erro', async () => {
+    const { PaiNaoEnviadoError } = await import('./syncErrors')
+    const erro = new PaiNaoEnviadoError()
+    expect(isTransientServerError(erro)).toBe(true)
+    expect(classificarErroDeSync(erro, true)).toBe('transient')
+  })
+
+  it('sem teto de tentativas: a espera fica em 10 min', () => {
+    expect(esperaTransitoriaMs(1000)).toBe(600_000)
   })
 })

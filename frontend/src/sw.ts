@@ -56,29 +56,6 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-async function refreshSWToken(
-  supabaseUrl: string,
-  anonKey: string,
-  refreshToken: string
-): Promise<string | null> {
-  try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: anonKey },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    await putSWConfig('supabase_token', data.access_token)
-    if (data.refresh_token) {
-      await putSWConfig('supabase_refresh_token', data.refresh_token)
-    }
-    return data.access_token
-  } catch {
-    return null
-  }
-}
-
 async function fetchTable(
   supabaseUrl: string,
   anonKey: string,
@@ -103,25 +80,18 @@ async function fetchAndCacheCadastroData(): Promise<void> {
   const fazendaId = await getSWConfig('fazenda_id')
   const supabaseUrl = await getSWConfig('supabase_url')
   const anonKey = await getSWConfig('supabase_anon_key')
-  let token = await getSWConfig('supabase_token')
-  const refreshToken = await getSWConfig('supabase_refresh_token')
+  const token = await getSWConfig('supabase_token')
 
   if (!fazendaId || !supabaseUrl || !anonKey || !token) {
     console.log('[SW] Config incompleto, pulando background cache')
     return
   }
 
-  // Refresh token se expirado (JWT expira em 1h; Periodic Sync roda a cada 12h)
+  // Token expirado: o SW NÃO renova. O refresh token é rotativo e a cópia do SW divergiria da do app, o que
+  // revogaria a sessão do peão. O cache de cadastro é atualizado quando o app abre e renova a sessão.
   if (isTokenExpired(token)) {
-    if (!refreshToken) {
-      console.log('[SW] Token expirado e sem refresh token, pulando')
-      return
-    }
-    token = await refreshSWToken(supabaseUrl, anonKey, refreshToken)
-    if (!token) {
-      console.log('[SW] Refresh token falhou, pulando')
-      return
-    }
+    console.log('[SW] Token expirado, pulando background cache (o app renova a sessão ao abrir)')
+    return
   }
 
   try {

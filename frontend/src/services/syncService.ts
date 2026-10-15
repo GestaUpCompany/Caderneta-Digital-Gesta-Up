@@ -17,7 +17,7 @@ import {
 import { generateId } from '../utils/generateId'
 import { Registro, SyncError } from '../types/cadernetas'
 import * as supabaseService from './supabaseService'
-import { getSupabaseClientWithRefresh, SessaoIndisponivelError } from './supabaseClient'
+import { getSupabaseClientWithRefresh, SessaoIndisponivelError, comSessaoObrigatoria } from './supabaseClient'
 import { brWithTimeToIso, brToIso } from '../utils/formatDate'
 import { getAuditContext } from '../utils/auditContext'
 import {
@@ -25,9 +25,10 @@ import {
   esperaTransitoriaMs,
   isNetworkError,
   isTransientServerError,
-  MAX_TENTATIVAS_TRANSITORIAS,
+  PaiNaoEnviadoError,
 } from '../utils/syncErrors'
 import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
+import { paraNumero, sanitizarPayloadNumerico } from '../utils/payloadNumerico'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -88,7 +89,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
 }
 
 // Função para converter Registro para formato do Supabase
-function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string): any {
+function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, fazendaId: string): any {
   const baseData = {
     fazenda_id: fazendaId,
     local_id: registro.id,
@@ -161,7 +162,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         pasto_id: registro.pastoId || null,
         lote: registro.lote || null,
         lote_id: registro.loteId || null,
-        peso_cria_kg: registro.pesoCria ? Number(registro.pesoCria) : null,
+        peso_cria_kg: registro.pesoCria ? paraNumero(registro.pesoCria) : null,
         id_provisorio_cria: registro.idProvisorioCria || null,
         id_brinco_cria: registro.idBrincoCria || null,
         id_chip_cria: registro.idChipCria || null,
@@ -178,7 +179,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         individuo_id_cria: registro.individuoIdCria || null,
         categoria_mae: registro.categoriaMae || null,
         escore_matriz: registro.escoreMatriz || null,
-        docilidade_matriz: registro.docilidadeMatriz ? Number(registro.docilidadeMatriz) : null,
+        docilidade_matriz: registro.docilidadeMatriz ? paraNumero(registro.docilidadeMatriz) : null,
         parto_vinculo_id: registro.partoVinculoId || null,
         // Mãe adotiva (guacho)
         individuo_id_mae_adotiva: registro.individuoIdMaeAdotiva || null,
@@ -198,26 +199,26 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote_id: registro.loteId || null,
         pasto_saida: registro.pastoSaida || null,
         pasto_saida_id: registro.pastoSaidaId || null,
-        pasto_saida_area_util: registro.pastoSaidaAreaUtil ? Number(registro.pastoSaidaAreaUtil) : null,
+        pasto_saida_area_util: registro.pastoSaidaAreaUtil ? paraNumero(registro.pastoSaidaAreaUtil) : null,
         pasto_saida_especie: registro.pastoSaidaEspecie || null,
-        avaliacao_saida: registro.avaliacaoSaida ? Number(registro.avaliacaoSaida) : null,
+        avaliacao_saida: registro.avaliacaoSaida ? paraNumero(registro.avaliacaoSaida) : null,
         tempo_ocupacao: registro.tempoOcupacao || null,
         pasto_entrada: registro.pastoEntrada || null,
         pasto_entrada_id: registro.pastoEntradaId || null,
-        pasto_entrada_area_util: registro.pastoEntradaAreaUtil ? Number(registro.pastoEntradaAreaUtil) : null,
+        pasto_entrada_area_util: registro.pastoEntradaAreaUtil ? paraNumero(registro.pastoEntradaAreaUtil) : null,
         pasto_entrada_especie: registro.pastoEntradaEspecie || null,
-        avaliacao_entrada: registro.avaliacaoEntrada ? Number(registro.avaliacaoEntrada) : null,
+        avaliacao_entrada: registro.avaliacaoEntrada ? paraNumero(registro.avaliacaoEntrada) : null,
         tempo_vedacao: registro.tempoVedacao || null,
         gado_contado: registro.gadoContado || null,
         total_animais: registro.totalAnimais || 0,
-        vaca: Number(registro.vaca) || 0,
-        touro: Number(registro.touro) || 0,
-        bezerro: Number(registro.bezerro) || 0,
-        boi_magro: Number(registro.boiMagro) || 0,
-        garrote: Number(registro.garrote) || 0,
-        novilha: Number(registro.novilha) || 0,
+        vaca: paraNumero(registro.vaca) || 0,
+        touro: paraNumero(registro.touro) || 0,
+        bezerro: paraNumero(registro.bezerro) || 0,
+        boi_magro: paraNumero(registro.boiMagro) || 0,
+        garrote: paraNumero(registro.garrote) || 0,
+        novilha: paraNumero(registro.novilha) || 0,
         categorias_detalhes: (registro as any).categorias_detalhes || null,
-        escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
+        escore_gado: registro.escoreGado ? paraNumero(registro.escoreGado) : null,
         avaliacao_geral: (registro as any).avaliacaoGeral ?? {
           bebedourosCochos: {
             valor: registro.bebedourosCochos || null,
@@ -248,8 +249,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
             observacao: registro.animalMortoObs || null,
           },
         },
-        escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
-        numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
+        escore_fezes: registro.escoreFezes ? paraNumero(registro.escoreFezes) : null,
+        numero_pessoas_manejo: registro.numeroPessoasManejo ? paraNumero(registro.numeroPessoasManejo) : null,
         equipe_nomes: (() => { const n = ((registro as any).equipe_nomes ?? registro.equipeNomes) as string[] | undefined; return n && n.length > 0 ? n : null })(),        foto_saida_latitude: (registro as any).fotoSaidaLatitude ?? null,
         foto_saida_longitude: (registro as any).fotoSaidaLongitude ?? null,
         foto_saida_gps_accuracy: (registro as any).fotoSaidaGpsAccuracy ?? null,
@@ -275,9 +276,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         gado_contado: registro.gadoContado || null,
         total_animais: registro.totalAnimais || 0,
         categorias_detalhes: (registro as any).categorias_detalhes || null,
-        escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
-        escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
-        numero_pessoas_manejo: registro.numeroPessoasManejo ? Number(registro.numeroPessoasManejo) : null,
+        escore_gado: registro.escoreGado ? paraNumero(registro.escoreGado) : null,
+        escore_fezes: registro.escoreFezes ? paraNumero(registro.escoreFezes) : null,
+        numero_pessoas_manejo: registro.numeroPessoasManejo ? paraNumero(registro.numeroPessoasManejo) : null,
         equipe_nomes: (() => { const n = ((registro as any).equipe_nomes ?? registro.equipeNomes) as string[] | undefined; return n && n.length > 0 ? n : null })(),
         observacao: (registro as any).observacao || null,
       }
@@ -290,9 +291,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         responsavel: (registro as any).responsavel || '',
         itens: (registro as any).itens || {},
         observacoes: (registro as any).observacoes || null,
-        total_itens: Number((registro as any).totalItens) || 0,
-        total_conformes: Number((registro as any).totalConformes) || 0,
-        total_nao_conformes: Number((registro as any).totalNaoConformes) || 0,
+        total_itens: paraNumero((registro as any).totalItens) || 0,
+        total_conformes: paraNumero((registro as any).totalConformes) || 0,
+        total_nao_conformes: paraNumero((registro as any).totalNaoConformes) || 0,
         percentual_conformidade: (registro as any).percentualConformidade ?? null,
         // fotoBase64 de cada item sobe no sync (uploadFotosChecklist) e vira foto_url
         nao_conformidades: (registro as any).naoConformidades || null,
@@ -307,20 +308,20 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote: registro.numeroLote || null,
         lote_id: registro.loteId || null,
         gado_contado: registro.gadoContado || null,
-        vaca: Number(registro.vaca) || 0,
-        touro: Number(registro.touro) || 0,
-        bezerro: Number(registro.bezerro) || 0,
+        vaca: paraNumero(registro.vaca) || 0,
+        touro: paraNumero(registro.touro) || 0,
+        bezerro: paraNumero(registro.bezerro) || 0,
         // A tabela só tem a coluna `boi` (o Painel a exibe como "Boi"): boi gordo e boi magro somam nela.
         // Antes só o boi gordo entrava e o boi magro sumia do detalhamento (ficava só em categorias_detalhes).
-        boi: (Number(registro.boiGordo) || 0) + (Number(registro.boiMagro) || 0),
-        garrote: Number(registro.garrote) || 0,
-        novilha: Number(registro.novilha) || 0,
-        total_cabecas: Number(registro.totalCabecas) || 0,
+        boi: (paraNumero(registro.boiGordo) || 0) + (paraNumero(registro.boiMagro) || 0),
+        garrote: paraNumero(registro.garrote) || 0,
+        novilha: paraNumero(registro.novilha) || 0,
+        total_cabecas: paraNumero(registro.totalCabecas) || 0,
         diagnosticos: registro.diagnosticos || {},
-        escore_fezes: registro.escoreFezes ? Number(registro.escoreFezes) : null,
-        equipe: registro.equipe ? Number(registro.equipe) : null,
+        escore_fezes: registro.escoreFezes ? paraNumero(registro.escoreFezes) : null,
+        equipe: registro.equipe ? paraNumero(registro.equipe) : null,
         equipe_nomes: registro.equipeNomes || null,
-        escore_gado: registro.escoreGado ? Number(registro.escoreGado) : null,
+        escore_gado: registro.escoreGado ? paraNumero(registro.escoreGado) : null,
         categorias_detalhes: (registro as any).categorias_detalhes || null,
         observacao: (registro as any).observacao || null,
       }
@@ -333,7 +334,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
 
       // Creep feeding: a linha primária carrega o grupo adulto por padrão; quando a
       // operação é somente creep, a linha primária carrega os dados do creep.
-      const temCreep = !!registro.creepKgCocho && Number(registro.creepKgCocho) > 0
+      const temCreep = !!registro.creepKgCocho && paraNumero(registro.creepKgCocho) > 0
       const temAdulto = registro.suplementarAdulto !== false
       const primarioCreep = temCreep && !temAdulto
 
@@ -349,11 +350,11 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         escopo: primarioCreep ? 'creep' : 'lote',
         grupo_operacao: temCreep && temAdulto ? registro.id : null,
         n_cabecas: primarioCreep
-          ? (registro.creepNCabecas ? Number(registro.creepNCabecas) : null)
-          : (registro.nCabecasLote ? Number(registro.nCabecasLote) : null),
+          ? (registro.creepNCabecas ? paraNumero(registro.creepNCabecas) : null)
+          : (registro.nCabecasLote ? paraNumero(registro.nCabecasLote) : null),
         qtd_bezerros: primarioCreep
           ? 0
-          : (registro.qtdBezerrosLote ? Number(registro.qtdBezerrosLote) : null),
+          : (registro.qtdBezerrosLote ? paraNumero(registro.qtdBezerrosLote) : null),
         peso_vivo_kg: null, // Calculado pela trigger/funcão do banco (recalcular_peso_vivo_lote)
         formulacao: primarioCreep ? (registro.creepFormulacao || null) : (registro.formulacao || null),
         formulacao_id: primarioCreep ? (registro.creepFormulacaoId || null) : (registro.formulacaoId || null),
@@ -362,18 +363,18 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
           : ((registro.categoriasString as string) || null),
         leitura: primarioCreep ? (registro.creepLeitura || null) : (registro.leituraCocho || null),
         kg_cocho: primarioCreep
-          ? Number(registro.creepKgCocho)
-          : (registro.kgCocho ? Number(registro.kgCocho) : null),
-        kg_deposito: registro.kgDeposito ? Number(registro.kgDeposito) : 0,
+          ? paraNumero(registro.creepKgCocho)
+          : (registro.kgCocho ? paraNumero(registro.kgCocho) : null),
+        kg_deposito: registro.kgDeposito ? paraNumero(registro.kgDeposito) : 0,
         forma_fornecimento: primarioCreep
           ? (registro.creepFormaFornecimento || null)
           : (registro.formaFornecimento || null),
         qtd_sacos: primarioCreep
-          ? (registro.creepQtdSacos ? Number(registro.creepQtdSacos) : null)
-          : (registro.qtdSacos ? Number(registro.qtdSacos) : null),
+          ? (registro.creepQtdSacos ? paraNumero(registro.creepQtdSacos) : null)
+          : (registro.qtdSacos ? paraNumero(registro.qtdSacos) : null),
         escore_fezes: registro.escoreFezes || null,
         espacamento_cocho_detalhes: registro.espacamentoCochoDetalhes || null,
-        espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? Number(registro.espacamentoCochoCmCab) : null,
+        espacamento_cocho_cm_cab: registro.espacamentoCochoCmCab ? paraNumero(registro.espacamentoCochoCmCab) : null,
         espacamento_cocho_obs: registro.espacamentoCochoObs || null,
         espacamento_cocho_ideal: null, // Temporary field for migration
         checklist: cleanedChecklist || null,
@@ -384,7 +385,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data: brWithTimeToIso(registro.data),
         responsavel: registro.responsavel || null,
-        leitura_bebedouro: registro.leituraBebedouro ? Number(registro.leituraBebedouro) : null,
+        leitura_bebedouro: registro.leituraBebedouro ? paraNumero(registro.leituraBebedouro) : null,
         numero_bebedouro: registro.numeroBebedouro || null,
         pasto: registro.pasto || null,
         pasto_id: registro.pastoId || null,
@@ -401,7 +402,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote_origem_id: registro.loteOrigemId || null,
         destino: registro.loteDestino || null,
         lote_destino_id: registro.loteDestinoId || null,
-        numero_cabecas: registro.numeroCabecas ? Number(registro.numeroCabecas) : null,
+        numero_cabecas: registro.numeroCabecas ? paraNumero(registro.numeroCabecas) : null,
         categoria: registro.categoria || null,
         motivo_movimentacao: registro.motivoMovimentacao || null,
         subtipo: registro.subtipo || null,
@@ -409,11 +410,11 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         chip: registro.chip || null,
         causa_observacao: registro.causaObservacao || null,
         observacao: registro.observacao || null,
-        peso_vivo_atual_kg: registro.pesoVivoAtualKg ? Number(registro.pesoVivoAtualKg) : null,
+        peso_vivo_atual_kg: registro.pesoVivoAtualKg ? paraNumero(registro.pesoVivoAtualKg) : null,
         raca: registro.raca || null,
         sexo: registro.sexo || null,
-        idade: registro.idade ? Number(registro.idade) : null,
-        equipe: registro.equipe ? Number(registro.equipe) : null,
+        idade: registro.idade ? paraNumero(registro.idade) : null,
+        equipe: registro.equipe ? paraNumero(registro.equipe) : null,
         equipe_nomes: (registro.equipeNomes as any) && (registro.equipeNomes as any).length > 0 ? registro.equipeNomes : null,
         os_id: registro.osId || null,
         os_recebimento_id: registro.osRecebimentoId || null,
@@ -464,9 +465,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         sexo: registro.sexo || null,
         raca: registro.raca || null,
         idade: registro.idade || null,
-        peso_vivo: registro.pesoVivo ? Number(registro.pesoVivo) : null,
+        peso_vivo: registro.pesoVivo ? paraNumero(registro.pesoVivo) : null,
         causa_morte: registro.causaMorte || null,
-        escore: registro.escore ? Number(registro.escore) : null,
+        escore: registro.escore ? paraNumero(registro.escore) : null,
         nutricao_atual: registro.nutricaoAtual || null,
         nutricao_anterior: registro.nutricaoAnterior || null,
         diagnosticos: registro.diagnosticos || {},
@@ -479,8 +480,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data: brWithTimeToIso(registro.data),
         responsavel: registro.responsavel || '',
-        temperatura_media: registro.temperaturaMedia ? Number(registro.temperaturaMedia) : null,
-        umidade_relativa: registro.umidadeRelativa ? Number(registro.umidadeRelativa) : null,
+        temperatura_media: registro.temperaturaMedia ? paraNumero(registro.temperaturaMedia) : null,
+        umidade_relativa: registro.umidadeRelativa ? paraNumero(registro.umidadeRelativa) : null,
         observacao: registro.observacao || null,
         medicoes: registro.medicoes || [],
         choveu: registro.choveu ?? null,
@@ -496,12 +497,12 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         maquina_veiculo: registro.maquinaVeiculo || '',
         maquina_veiculo_id: registro.maquinaVeiculoId || null,
         placa: registro.placa || null,
-        total_abastecido: registro.totalAbastecido ? Number(String(registro.totalAbastecido).replace(',', '.')) : 0,
-        total_bomba: registro.totalBomba ? Number(String(registro.totalBomba).replace(',', '.')) : null,
+        total_abastecido: registro.totalAbastecido ? paraNumero(String(registro.totalAbastecido).replace(',', '.')) : 0,
+        total_bomba: registro.totalBomba ? paraNumero(String(registro.totalBomba).replace(',', '.')) : null,
         combustivel: registro.combustivel || '',
         tanque_id: registro.tanqueId || null,
         tanque_nome: registro.tanqueNome || null,
-        odometro_horimetro: registro.odometro ? Number(normalizarNumeroString(String(registro.odometro))) : null,
+        odometro_horimetro: registro.odometro ? paraNumero(normalizarNumeroString(String(registro.odometro))) : null,
         tipo_operacao: registro.tipoOperacao || '',
         tipo_operacao_outros: registro.tipoOperacaoOutros || null,
         observacao: registro.observacao || null,
@@ -512,9 +513,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         local_id: registro.id,
         tanque_id: registro.tanqueId || null,
         tipo_movimentacao: 'entrada',
-        quantidade_l: registro.quantidadeL ? Number(String(registro.quantidadeL).replace(',', '.')) : 0,
-        valor_total: registro.valorTotal ? Number(String(registro.valorTotal).replace(',', '.')) : null,
-        preco_por_litro: registro.precoPorLitro ? Number(String(registro.precoPorLitro).replace(',', '.')) : null,
+        quantidade_l: registro.quantidadeL ? paraNumero(String(registro.quantidadeL).replace(',', '.')) : 0,
+        valor_total: registro.valorTotal ? paraNumero(String(registro.valorTotal).replace(',', '.')) : null,
+        preco_por_litro: registro.precoPorLitro ? paraNumero(String(registro.precoPorLitro).replace(',', '.')) : null,
         data: brToIso(String(registro.data).split(' ')[0]) || null,
         origem: 'pwa_entrada',
         fornecedor: registro.fornecedor || null,
@@ -528,21 +529,21 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         ...baseData,
         data: brWithTimeToIso(registro.data),
         modo: registro.modo || 'cantina',
-        numero_cozinheiras: registro.numeroCozinheiras ? Number(registro.numeroCozinheiras) : null,
+        numero_cozinheiras: registro.numeroCozinheiras ? paraNumero(registro.numeroCozinheiras) : null,
         quem_cozinhou: registro.quemCozinhou || null,
         quem_ajudou: registro.quemAjudou || null,
-        numero_cafe_manha: registro.numeroCafeManha ? Number(registro.numeroCafeManha) : null,
-        numero_lanches: registro.numeroLanches ? Number(registro.numeroLanches) : null,
-        numero_refeicoes_almoco: registro.numeroRefeicoesAlmoco ? Number(registro.numeroRefeicoesAlmoco) : null,
-        numero_refeicoes_jantar: registro.numeroRefeicoesJantar ? Number(registro.numeroRefeicoesJantar) : null,
+        numero_cafe_manha: registro.numeroCafeManha ? paraNumero(registro.numeroCafeManha) : null,
+        numero_lanches: registro.numeroLanches ? paraNumero(registro.numeroLanches) : null,
+        numero_refeicoes_almoco: registro.numeroRefeicoesAlmoco ? paraNumero(registro.numeroRefeicoesAlmoco) : null,
+        numero_refeicoes_jantar: registro.numeroRefeicoesJantar ? paraNumero(registro.numeroRefeicoesJantar) : null,
         itens: registro.itens || null,
         itens_detalhe: registro.itensDetalhe || null,
         nome_outros: registro.nomeOutros || null,
         quantidade_outros: registro.quantidadeOutros || null,
         unidade_outros: registro.unidadeOutros || null,
         fornecedor: registro.fornecedor || null,
-        quantidade_marmitas: registro.quantidadeMarmitas ? Number(registro.quantidadeMarmitas) : null,
-        preco_unitario: registro.precoUnitario ? Number(registro.precoUnitario) : null,
+        quantidade_marmitas: registro.quantidadeMarmitas ? paraNumero(registro.quantidadeMarmitas) : null,
+        preco_unitario: registro.precoUnitario ? paraNumero(registro.precoUnitario) : null,
         destinatario: registro.destinatario || null,
         observacao: registro.observacao || null,
       }
@@ -550,7 +551,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
-        numero_equipe: registro.numeroEquipe ? Number(registro.numeroEquipe) : null,
+        numero_equipe: registro.numeroEquipe ? paraNumero(registro.numeroEquipe) : null,
         setor: registro.setor || null,
         local: registro.local || null,
         hora_inicio: registro.horaInicio || null,
@@ -608,7 +609,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         data_producao: brWithTimeToIso(registro.dataProducao as string),
         dieta_produzida: registro.dietaProduzida || null,
         destino_producao: registro.destinoProducao || null,
-        total_produzido: registro.totalProduzido ? Number(registro.totalProduzido) : null,
+        total_produzido: registro.totalProduzido ? paraNumero(registro.totalProduzido) : null,
         formulacao_id: registro.formulacaoId || null,
       }
     case 'insumos-por-saida':
@@ -616,7 +617,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         local_id: registro.id,
         saida_id: registro.idSaida || null,
         insumo_id: registro.insumoId || null,
-        quantidade: registro.quantidade ? Number(registro.quantidade) : null,
+        quantidade: registro.quantidade ? paraNumero(registro.quantidade) : null,
       }
     case 'manutencao-maquinas':
       return {
@@ -701,7 +702,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         lote: registro.numeroLote || null,
         lote_id: registro.loteId || null,
         leitura_cocho: registro.leituraCocho !== '' && registro.leituraCocho !== null && registro.leituraCocho !== undefined
-          ? Number(registro.leituraCocho)
+          ? paraNumero(registro.leituraCocho)
           : null,
         nota_config_id: registro.notaConfigId || null,
       }
@@ -712,7 +713,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         data: brWithTimeToIso(registro.data),
         curral_id: registro.curralId || null,
         lote_id: registro.loteId || null,
-        ordem_trato: Number(registro.ordemTrato) || null,
+        ordem_trato: paraNumero(registro.ordemTrato) || null,
         kg_planejado: registro.kgPlanejado !== '' && registro.kgPlanejado !== null && registro.kgPlanejado !== undefined
           ? normalizarNumero(registro.kgPlanejado as string)
           : null,
@@ -720,7 +721,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
           ? normalizarNumero(registro.kgReal as string)
           : null,
         leitura_cocho_nota: registro.leituraCochoNota !== '' && registro.leituraCochoNota !== null && registro.leituraCochoNota !== undefined
-          ? Number(registro.leituraCochoNota)
+          ? paraNumero(registro.leituraCochoNota)
           : null,
         programacao_id: registro.programacaoId || null,
         vagao_id: registro.vagaoId || null,
@@ -740,8 +741,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         curral_limpo: snToBool(registro.curralLimpo),
         horario_inicio: registro.horarioInicio || null,
         horario_fim: registro.horarioFim || null,
-        tempo_total_min: registro.tempoTotalMin != null && registro.tempoTotalMin !== '' ? Number(registro.tempoTotalMin) : null,
-        tempo_medio_min_cab: registro.tempoMedioMinCab != null && registro.tempoMedioMinCab !== '' ? Number(registro.tempoMedioMinCab) : null,
+        tempo_total_min: registro.tempoTotalMin != null && registro.tempoTotalMin !== '' ? paraNumero(registro.tempoTotalMin) : null,
+        tempo_medio_min_cab: registro.tempoMedioMinCab != null && registro.tempoMedioMinCab !== '' ? paraNumero(registro.tempoMedioMinCab) : null,
         id_chip: registro.idChip || null,
         id_brinco: registro.idBrinco || null,
         lote: registro.lote || null,
@@ -751,12 +752,12 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         peso_kg: normalizarNumero(registro.pesoKg as string | number | null | undefined),
         raca: registro.raca || null,
         idade_era: registro.idadeEra || null,
-        idade_dias: registro.idadeDias != null && registro.idadeDias !== '' ? Number(registro.idadeDias) : null,
+        idade_dias: registro.idadeDias != null && registro.idadeDias !== '' ? paraNumero(registro.idadeDias) : null,
         acidente: snToBool(registro.acidente),
         manejo_calmo: snToBool(registro.manejoCalmo),
         gritaria: snToBool(registro.gritaria),
         manejo_agil: snToBool(registro.manejoAgil),
-        tempo_preenchimento_seg: registro.tempoPreenchimentoSeg != null ? Number(registro.tempoPreenchimentoSeg) : null,
+        tempo_preenchimento_seg: registro.tempoPreenchimentoSeg != null ? paraNumero(registro.tempoPreenchimentoSeg) : null,
         individuo_id: registro.individuoId || null,
         os_id: registro.osId || null,
       }
@@ -776,7 +777,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         comprador: registro.comprador || null,
         venda_direta: registro.vendaDireta !== false,
         corretora: registro.corretora || null,
-        quantidade_prevista: registro.quantidadePrevista ? Number(registro.quantidadePrevista) : null,
+        quantidade_prevista: registro.quantidadePrevista ? paraNumero(registro.quantidadePrevista) : null,
         sexo: registro.sexo || null,
         idade_era: registro.idadeEra || null,
         data_prevista_embarque: registro.dataPrevistaEmbarque ? brToIso(String(registro.dataPrevistaEmbarque).split(' ')[0]) : null,
@@ -825,8 +826,8 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         hora_pesagem: registro.horaPesagem || null,
         contagens: registro.contagens || null,
         checklist: registro.checklist || null,
-        score_corporal: registro.scoreCorporal ? Number(registro.scoreCorporal) : null,
-        mortes: registro.mortes ? Number(registro.mortes) : 0,
+        score_corporal: registro.scoreCorporal ? paraNumero(registro.scoreCorporal) : null,
+        mortes: registro.mortes ? paraNumero(registro.mortes) : 0,
         destino: registro.destino || null,
         lote_destino_id: registro.loteId || null,
         lote_destino: registro.loteNome || null,
@@ -840,7 +841,7 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
       return {
         ...baseData,
         data: brWithTimeToIso(registro.data),
-        ordem_trato: Number(registro.ordemTrato) || null,
+        ordem_trato: paraNumero(registro.ordemTrato) || null,
         tipo: registro.tipo || 'confinamento',
         formulacao_id: registro.formulacaoId || null,
         vagao_id: registro.vagaoId || null,
@@ -864,12 +865,19 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         kg_produzido: registro.kgProduzido !== '' && registro.kgProduzido !== null && registro.kgProduzido !== undefined
           ? (normalizarNumero(registro.kgProduzido as string | number) ?? 0)
           : 0,
-        ordem: Number(registro.ordem) || 0,
+        ordem: paraNumero(registro.ordem) || 0,
       }
     }
     default:
       return baseData
   }
+}
+
+// Payload final: campos numéricos coerentes com as colunas do banco (vírgula decimal, decimal em inteiro, NaN,
+// valor que estoura numeric). Ver utils/payloadNumerico.ts.
+function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string): any {
+  const tabela = CADERNETA_TO_SUPABASE_TABLE[store]
+  return sanitizarPayloadNumerico(Array.isArray(tabela) ? tabela[0] : tabela, registroToSupabaseBruto(store, registro, fazendaId))
 }
 
 // Cadernetas que capturam foto no PWA: store -> bucket de storage.
@@ -914,6 +922,18 @@ async function registrarLimpezaDoRegistroBebedouro(registro: Registro, fazendaId
   })
 }
 
+/**
+ * Falha de upload de foto que vale tentar de novo (sem rede, timeout, servidor instável, JWT vencido).
+ * Nesses casos o erro sobe e o registro INTEIRO espera na fila: o upload usa upsert e o registro é
+ * idempotente por local_id, então a nova tentativa envia registro e foto juntos. Só recusa definitiva do
+ * storage (ex.: 403 de RLS, arquivo inválido) segue sem a foto, para a foto nunca prender o registro.
+ */
+function fotoDeveTentarDeNovo(erro: unknown): boolean {
+  const e = erro as any
+  const normalizado = { code: String(e?.statusCode ?? e?.status ?? e?.code ?? ''), message: String(e?.message ?? e ?? '') }
+  return classificarErroDeSync(normalizado) !== 'permanent'
+}
+
 // Upload da foto do registro para o Storage; retorna a URL publica ou null.
 async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, fazendaId: string): Promise<string | null> {
   const bucket = FOTO_BUCKET_BY_STORE[store]
@@ -935,6 +955,7 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
 
     if (uploadError) {
       console.error(`[SYNC] Erro ao fazer upload da foto (${store}):`, uploadError)
+      if (fotoDeveTentarDeNovo(uploadError)) throw uploadError
       return null
     }
 
@@ -945,6 +966,7 @@ async function uploadFotoRegistro(store: CadernetaStore, registro: Registro, faz
     return urlData.publicUrl
   } catch (uploadErr) {
     console.error(`[SYNC] Exceção ao fazer upload da foto (${store}):`, uploadErr)
+    if (uploadErr instanceof SessaoIndisponivelError || fotoDeveTentarDeNovo(uploadErr)) throw uploadErr
     return null
   }
 }
@@ -971,6 +993,7 @@ async function uploadFotoNomeada(
 
     if (uploadError) {
       console.error(`[SYNC] Erro ao fazer upload da foto ${opts.nome}:`, uploadError)
+      if (fotoDeveTentarDeNovo(uploadError)) throw uploadError
       return null
     }
 
@@ -978,6 +1001,7 @@ async function uploadFotoNomeada(
     return urlData.publicUrl
   } catch (uploadErr) {
     console.error(`[SYNC] Excecao ao fazer upload da foto ${opts.nome}:`, uploadErr)
+    if (uploadErr instanceof SessaoIndisponivelError || fotoDeveTentarDeNovo(uploadErr)) throw uploadErr
     return null
   }
 }
@@ -1029,12 +1053,14 @@ async function uploadFotosChecklist(checklist: any, registro: Registro, fazendaI
           .upload(fotoPath, base64ToBlob(fotoBase64, mime), { contentType: mime, upsert: true })
         if (uploadError) {
           console.error(`[SYNC] Erro ao fazer upload da foto do checklist (${key}):`, uploadError)
+          if (fotoDeveTentarDeNovo(uploadError)) throw uploadError
         } else {
           const { data: urlData } = client.storage.from('fotos-registros').getPublicUrl(fotoPath)
           rest.foto_url = urlData.publicUrl
         }
       } catch (uploadErr) {
         console.error(`[SYNC] Exceção ao fazer upload da foto do checklist (${key}):`, uploadErr)
+        if (uploadErr instanceof SessaoIndisponivelError || fotoDeveTentarDeNovo(uploadErr)) throw uploadErr
       }
     }
     result[key] = rest
@@ -1084,13 +1110,27 @@ async function criarItensPendentes(store: CadernetaStore, data: any, fazendaId: 
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// Itens da produção guardam o id LOCAL do cabeçalho até ele sincronizar; só o
-// UUID do Supabase serve como saida_id.
-async function resolverSaidaIdSupabase(saidaId: string | null): Promise<string> {
-  if (saidaId && UUID_RE.test(saidaId)) return saidaId
-  const cabecalho = saidaId ? await getRegistro('saida-insumos', saidaId) : undefined
-  if (cabecalho?.supabaseId) return cabecalho.supabaseId as string
-  throw new Error('Produção ainda não enviada ao servidor. Reenvie o registro de Produção Fábrica.')
+/**
+ * Registros-filho (itens de saída/entrada de insumos, insumos da fábrica) guardam o id LOCAL do pai até ele
+ * sincronizar; só o id do servidor serve como chave estrangeira. Devolve o id do servidor, ou:
+ * - PaiNaoEnviadoError: o pai ainda está no aparelho esperando para subir; o filho aguarda na fila (não é erro dele)
+ * - Error: o pai não existe mais neste aparelho e o id guardado não é um id do servidor (dado perdido de verdade)
+ */
+async function resolverIdPaiSupabase(
+  storePai: CadernetaStore,
+  idPai: string | null | undefined,
+  nomePai: string
+): Promise<string | null> {
+  if (!idPai) return null
+  const pai = await getRegistro(storePai, idPai)
+  if (pai?.supabaseId) return pai.supabaseId as string
+  if (pai) throw new PaiNaoEnviadoError(`${nomePai} ainda não enviado ao servidor; este item aguarda o envio dele.`)
+  if (UUID_RE.test(idPai)) return idPai
+  throw new Error(`${nomePai} deste item não existe mais neste aparelho. Refaça o registro.`)
+}
+
+async function resolverSaidaIdSupabase(saidaId: string | null): Promise<string | null> {
+  return resolverIdPaiSupabase('saida-insumos', saidaId, 'Produção')
 }
 
 // Envia os itens (insumos-por-saida) de um cabeçalho de produção. O upsert por
@@ -1114,6 +1154,11 @@ async function sincronizarItensSaida(saidaLocalId: string, saidaSupabaseId: stri
 
 async function syncToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string, operation: 'create' | 'update'): Promise<void> {
   try {
+    // Edição de um registro que nunca recebeu o id do servidor (a criação ainda não subiu, ou o id não foi gravado):
+    // sem este ajuste o `update` não faria nada e o registro seria marcado como sincronizado com a edição perdida.
+    // Como o envio de criação é por upsert (local_id), enviar o registro completo é seguro e idempotente.
+    if (operation === 'update' && !registro.supabaseId) operation = 'create'
+
     const tableName = CADERNETA_TO_SUPABASE_TABLE[store]
     let data = registroToSupabase(store, registro, fazendaId)
 
@@ -1343,7 +1388,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         // Capturar supabaseId retornado e gravar localmente
         if (result && result.id) {
           await updateRegistro(store, registro.id, {
-            ...registro,
             supabaseId: result.id,
             // OS: numero_os é gerado no servidor (trigger), persistir para exibição
             ...(result.numero_os ? { numeroOs: result.numero_os } : {}),
@@ -1358,7 +1402,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const entradaResult = await supabaseService.createRegistroEntradaInsumos(data)
           // Atualizar registro local com ID do Supabase
           await updateRegistro('entrada-insumos', registro.id, {
-            ...registro,
             supabaseId: entradaResult.id,
             syncStatus: 'synced'
           })
@@ -1373,7 +1416,10 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           }
           break
         case 'entrada_insumos_itens':
-          await supabaseService.createEntradaInsumosItem(data)
+          await supabaseService.createEntradaInsumosItem({
+            ...data,
+            entrada_id: await resolverIdPaiSupabase('entrada-insumos', data.entrada_id, 'Entrada'),
+          })
           break
         case 'saida_insumos_itens':
           // Item legado na fila: resolve o id local do cabeçalho antes do upsert
@@ -1386,7 +1432,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const saidaResult = await supabaseService.createRegistroSaidaInsumos(data)
           // Atualizar registro local com ID do Supabase
           await updateRegistro('saida-insumos', registro.id, {
-            ...registro,
             supabaseId: saidaResult.id,
             syncStatus: 'synced'
           })
@@ -1421,7 +1466,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
               .eq('id', registro.supabaseId)
             if (fcError) throw fcError
             await updateRegistro('fabrica-confinamento', registro.id, {
-              ...registro,
               syncStatus: 'synced'
             })
           } else {
@@ -1434,7 +1478,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             if (fcError) throw fcError
             // Atualizar registro local com ID do Supabase
             await updateRegistro('fabrica-confinamento', registro.id, {
-              ...registro,
               supabaseId: fcData.id,
               syncStatus: 'synced'
             })
@@ -1452,10 +1495,11 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         }
         case 'registros_fabrica_confinamento_insumos': {
+          const registroIdPai = await resolverIdPaiSupabase('fabrica-confinamento', data.registro_id, 'Produção da fábrica')
           const client = await getSupabaseClientWithRefresh() as any
           const { error: fciError } = await client
             .from('registros_fabrica_confinamento_insumos')
-            .upsert(data, { onConflict: 'local_id' })
+            .upsert({ ...data, registro_id: registroIdPai }, { onConflict: 'local_id' })
           if (fciError) throw fciError
           break
         }
@@ -1501,7 +1545,6 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           if (mcError) throw mcError
           if (mcData && mcData.id) {
             await updateRegistro('entrada-combustivel', registro.id, {
-              ...registro,
               supabaseId: mcData.id,
               syncStatus: 'synced'
             })
@@ -1829,7 +1872,6 @@ export async function pollSolicitacoesNovoLote(_fazendaId: string): Promise<numb
     if (sol.status === 'aprovada') {
       await updateSyncStatus('movimentacao', registro.id, 'synced')
       await updateRegistro('movimentacao', registro.id, {
-        ...registro,
         syncStatus: 'synced',
         loteCriadoId: sol.lote_criado_id,
       } as any)
@@ -1837,7 +1879,6 @@ export async function pollSolicitacoesNovoLote(_fazendaId: string): Promise<numb
     } else if (sol.status === 'rejeitada') {
       await updateSyncStatus('movimentacao', registro.id, 'rejected')
       await updateRegistro('movimentacao', registro.id, {
-        ...registro,
         syncStatus: 'rejected',
         motivoRejeicao: sol.motivo_rejeicao || null,
       } as any)
@@ -1884,21 +1925,18 @@ export async function reconcileOrphanPending(): Promise<number> {
  * indisponível, JWT vencido), para o peão não precisar apertar REENVIAR. Cobre registros que já estavam
  * em `error` antes do retry automático existir e os que esgotaram as tentativas transitórias. Erros
  * definitivos (RLS, duplicata, valor inválido...) ficam como estão, com a mensagem e o REENVIAR.
- * Só considera falhas das últimas 24 h: um erro antigo que ninguém resolveu não vira laço a cada abertura.
+ * Sem limite de idade: falha de rede/servidor nunca é definitiva, e o retry transitório tem espera crescente (máx. 10 min).
  */
 export async function reenfileirarErrosRecuperaveis(): Promise<number> {
   try {
     const queue = await getSyncQueue()
     const naFila = new Set(queue.map((i) => i.registroId))
-    const limite = Date.now() - 24 * 60 * 60 * 1000
     let reenfileirados = 0
     for (const store of STORES) {
       const comErro = await getRegistrosComErro(store)
       for (const registro of comErro) {
         const erro = registro.syncError
         if (!erro || registro.isTestRecord || naFila.has(registro.id)) continue
-        const falhouEm = erro.failedAt ? new Date(erro.failedAt).getTime() : 0
-        if (falhouEm < limite) continue
         if (!isNetworkError(erro, true) && !isTransientServerError(erro)) continue
         await updateSyncStatus(store, registro.id, 'pending')
         await enqueueRegistro(store, registro.id, registro.supabaseId ? 'update' : 'create')
@@ -1916,10 +1954,32 @@ export async function reenfileirarErrosRecuperaveis(): Promise<number> {
   }
 }
 
-export async function processQueue(
+type ResultadoProcessQueue = { synced: number; failed: number; skipped: number; networkFailure: boolean; transientAdiados: number }
+
+/**
+ * Processa a fila de envio. Todas as gravações e uploads do ciclo exigem sessão do peão: sem token válido
+ * o cliente renova, reautentica em silêncio ou, sem rede, faz o item esperar. Nunca grava como anônimo.
+ */
+export function processQueue(
   fazendaId?: string,
   onProgress?: (remaining: number) => void
-): Promise<{ synced: number; failed: number; skipped: number; networkFailure: boolean; transientAdiados: number }> {
+): Promise<ResultadoProcessQueue> {
+  const executar = () => comSessaoObrigatoria(() => processarFila(fazendaId, onProgress))
+
+  // Uma só aba/janela envia por vez (Web Locks): duas abas processando a mesma fila duplicariam envios e uploads.
+  // Com o lock ocupado esta chamada não faz nada; a aba que o detém já está enviando.
+  const locks = typeof navigator !== 'undefined' ? (navigator as any).locks : undefined
+  if (!locks?.request) return executar()
+  return locks.request('caderneta-sync-fila', { ifAvailable: true }, async (lock: unknown) => {
+    if (!lock) return { synced: 0, failed: 0, skipped: 0, networkFailure: false, transientAdiados: 0 }
+    return executar()
+  })
+}
+
+async function processarFila(
+  fazendaId?: string,
+  onProgress?: (remaining: number) => void
+): Promise<ResultadoProcessQueue> {
   const queue = await getSyncQueue()
   let synced = 0
   let failed = 0
@@ -1948,6 +2008,14 @@ export async function processQueue(
         continue
       }
 
+      // Registro feito em outra fazenda (aparelho que alterna de fazenda): espera na fila até o aparelho voltar a ela.
+      // Enviar agora o gravaria na fazenda errada, ou o RLS o recusaria como erro definitivo.
+      const fazendaDoRegistro = (registro as any).fazendaId as string | null | undefined
+      if (fazendaId && fazendaDoRegistro && fazendaDoRegistro !== fazendaId) {
+        skipped++
+        continue
+      }
+
       // Gravar no Supabase
       if (fazendaId) {
         // Sem sessão válida o envio iria como anônimo e o RLS recusaria (42501, erro "permanente"). Aqui o
@@ -1960,7 +2028,6 @@ export async function processQueue(
           const solicitacaoId = await syncNovoLoteToSupabase(registro, fazendaId)
           await updateSyncStatus(item.store, item.registroId, 'pending_approval')
           await updateRegistro(item.store, item.registroId, {
-            ...registro,
             syncStatus: 'pending_approval',
             supabaseId: solicitacaoId,
           } as any)
@@ -1986,7 +2053,9 @@ export async function processQueue(
         break
       }
 
-      const classe = classificarErroDeSync(err)
+      // 42501 na primeira tentativa: o token pode ter vencido durante o envio. Uma nova tentativa (já com a
+      // sessão renovada) resolve; se o RLS recusar de novo, o erro é definitivo.
+      const classe = extractErrorInfo(err).code === '42501' && item.retryCount === 0 ? 'transient' : classificarErroDeSync(err)
       if (classe === 'network') {
         console.warn(`[SYNC] Sem conexão ao sincronizar ${item.store}/${item.registroId}; mantido na fila.`, err)
         networkFailure = true
@@ -1996,10 +2065,10 @@ export async function processQueue(
       // Falha momentânea do servidor (timeout de banco, deadlock, gateway fora do ar, JWT vencido): o item
       // volta para a fila com espera crescente e o peão não vê nada. Só vira `error` se as tentativas acabarem.
       // Segue para os demais itens: o problema pode ser só deste.
-      if (classe === 'transient' && item.retryCount < MAX_TENTATIVAS_TRANSITORIAS) {
+      if (classe === 'transient') {
         const espera = esperaTransitoriaMs(item.retryCount)
         console.warn(
-          `[SYNC] Falha momentânea em ${item.store}/${item.registroId} (tentativa ${item.retryCount + 1}/${MAX_TENTATIVAS_TRANSITORIAS}); nova tentativa em ${Math.round(espera / 1000)}s.`,
+          `[SYNC] Falha momentânea em ${item.store}/${item.registroId} (tentativa ${item.retryCount + 1}); nova tentativa em ${Math.round(espera / 1000)}s.`,
           err
         )
         try {
@@ -2028,7 +2097,6 @@ export async function processQueue(
           if (existing) {
             await removeFromSyncQueue(item.id)
             await updateRegistro(item.store, item.registroId, {
-              ...registro,
               supabaseId: existing.id,
               syncStatus: 'synced',
               syncError: null,
