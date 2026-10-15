@@ -12,6 +12,7 @@ import { isCategoriaAoPe } from '../utils/categorias'
 import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE, brWithTimeToIso, addDaysISO } from '../utils/formatDate'
 import { diaDaFazendaISO, type ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 import { calcularPendenciasBebedouro, ResultadoPendencias, RegistroChecklistBebedouro } from '../utils/pendenciasBebedouro'
+import { calcularPendenciasRodeio, ResultadoPendenciasRodeio, RegistroDiagnosticoRodeio } from '../utils/pendenciasRodeio'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
@@ -2766,6 +2767,48 @@ export async function getPendenciasBebedouroCached(
 }
 
 /**
+ * Pendências do checklist do Rodeio de um lote (itens persistentes marcados como problema e ainda não resolvidos).
+ * Mesma estratégia de getPendenciasBebedouroCached: histórico do servidor (rede ou cache) mesclado com os
+ * rodeios locais ainda não sincronizados. `verificado` = false quando o histórico do servidor não foi lido.
+ */
+export async function getPendenciasRodeioCached(
+  fazendaId: string,
+  loteId: string
+): Promise<{ resultado: ResultadoPendenciasRodeio; verificado: boolean }> {
+  const key = buildKey('registros-diagnostico-rodeio', fazendaId, loteId)
+  const doCache = async () => getCachedQuery(key) ?? (await getCachedQueryFromIDB<RegistroDiagnosticoRodeio[]>(key)) ?? null
+
+  let servidor: RegistroDiagnosticoRodeio[] | null = null
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    servidor = (await doCache()) as RegistroDiagnosticoRodeio[] | null
+  } else {
+    try {
+      const linhas = await withTimeout(supabaseService.getRegistrosDiagnosticoRodeio(fazendaId, loteId), 3000)
+      servidor = linhas.map((l) => ({ data: l.data, localId: l.local_id, diagnosticos: l.diagnosticos }))
+      setCachedQuery(key, servidor)
+    } catch {
+      servidor = (await doCache()) as RegistroDiagnosticoRodeio[] | null
+    }
+  }
+
+  let locais: RegistroDiagnosticoRodeio[] = []
+  try {
+    const todos = await getAllRegistros('rodeio')
+    locais = todos
+      .filter((r: any) => r.fazendaId === fazendaId && r.loteId === loteId && !r.deletedAt)
+      .map((r: any) => ({ data: brWithTimeToIso(r.data as string) ?? '', localId: r.id as string, diagnosticos: (r.diagnosticos as Record<string, any>) ?? null }))
+      .filter((r) => r.data)
+  } catch (error) {
+    console.warn('[CadastroCache] Registros locais de rodeio indisponíveis para as pendências:', error)
+  }
+
+  return {
+    resultado: calcularPendenciasRodeio([...(servidor ?? []), ...locais]),
+    verificado: servidor !== null,
+  }
+}
+
+/**
  * Aquece o cache com todos os detalhes de pastos e lotes.
  * Deve ser chamado explicitamente quando o usuário clica em "Atualizar Dados"
  * ou quando há internet e se quer garantir funcionamento 100% offline.
@@ -3185,6 +3228,10 @@ export async function warmAllCadastroCache(
     { label: 'Pendências de bebedouros', fn: async () => {
       const bebedouros = (await getBebedourosCached(fazendaId)) || []
       await Promise.allSettled(bebedouros.map((b: any) => getPendenciasBebedouroCached(fazendaId, b.nome)))
+    } },
+    { label: 'Pendências de rodeio', fn: async () => {
+      const lotes = (await supabaseService.getLotes(fazendaId)) || []
+      await Promise.allSettled(lotes.map((l: any) => getPendenciasRodeioCached(fazendaId, l.id)))
     } },
     { label: 'Classificações Cantina', fn: () => getClassificacoesCantinaCached(fazendaId) },
     { label: 'Tanques Combustível', fn: () => getTanquesCombustivelCached(fazendaId) },

@@ -25,8 +25,10 @@ import {
   getLoteDetalhesComCategoriasCached,
   getLoteDetalhesFromCacheOnly,
   getLotesAtivosCached,
+  getPendenciasRodeioCached,
   withTimeout,
 } from '../../services/cadastroCache'
+import { PendenciaRodeio, SituacaoPendencia, diasEntre } from '../../utils/pendenciasRodeio'
 import { getLastRodeioDate } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
@@ -109,6 +111,8 @@ interface FormState {
   escoreGado: string
   observacao: string
   diagnosticos: Record<string, DiagnosticoItem>
+  // Resposta a cada pendência anterior do lote (campo do item -> resolvida | mantida)
+  pendencias: Record<string, SituacaoPendencia | ''>
 }
 
 const makeInitial = (): FormState => ({
@@ -128,6 +132,7 @@ const makeInitial = (): FormState => ({
     acc[campo] = { valor: '', observacao: '' }
     return acc
   }, {} as Record<string, DiagnosticoItem>),
+  pendencias: {},
 })
 
 interface MetaRodeioInfo {
@@ -168,6 +173,11 @@ export default function RodeioPage() {
   // Enquanto o lote não é resolvido (rede lenta: até 2 timeouts antes do cache), salvar gravaria sem loteId/categorias
   const [carregandoLote, setCarregandoLote] = useState(false)
   const [lotesCarregados, setLotesCarregados] = useState(false)
+  // Itens persistentes marcados como problema em rodeios anteriores deste lote e ainda não resolvidos
+  const [pendenciasAbertas, setPendenciasAbertas] = useState<PendenciaRodeio[]>([])
+  // null = ainda não consultado; false = não foi possível ler o histórico do servidor (offline sem cache)
+  const [pendenciasVerificadas, setPendenciasVerificadas] = useState<boolean | null>(null)
+  const [carregandoPendencias, setCarregandoPendencias] = useState(false)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [campoFotoAtual, setCampoFotoAtual] = useState<string | null>(null)
   const [alvoVoz, setAlvoVoz] = useState<AlvoVoz | null>(null)
@@ -389,6 +399,36 @@ export default function RodeioPage() {
     }
   }, [form.numeroLote, fazendaId])
 
+  // Pendências do lote selecionado: cache primeiro (inclui rodeios deste aparelho ainda não sincronizados)
+  // e revalida com timeout. Só vale com o checklist ativo: sem ele o registro não traz os itens e nada se resolve.
+  useEffect(() => {
+    let cancelado = false
+    setPendenciasAbertas([])
+    setPendenciasVerificadas(null)
+    if (!form.loteId || !fazendaId || !checklistAtivo) {
+      setCarregandoPendencias(false)
+      return
+    }
+    setCarregandoPendencias(true)
+    getPendenciasRodeioCached(fazendaId, form.loteId)
+      .then(({ resultado, verificado }) => {
+        if (cancelado) return
+        setPendenciasAbertas(resultado.abertas)
+        setPendenciasVerificadas(verificado)
+      })
+      .catch((error) => {
+        if (cancelado) return
+        console.warn('[RodeioPage] Pendências do lote indisponíveis:', error)
+        setPendenciasVerificadas(false)
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoPendencias(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [form.loteId, fazendaId, checklistAtivo])
+
   // Categorias reais do lote selecionado (um stepper por categoria)
   const categoriasDoLote = useMemo(() => {
     if (!detalhesLote?.categorias_raw || !Array.isArray(detalhesLote.categorias_raw)) return null
@@ -412,9 +452,16 @@ export default function RodeioPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Troca de lote zera a contagem: as categorias mudam
+  // Troca de lote zera a contagem (as categorias mudam) e descarta as respostas das pendências do lote
+  // anterior, junto com os itens do checklist que elas marcaram.
   const handleSelecionarLote = (lote: string) =>
-    setForm((prev) => (prev.numeroLote === lote ? prev : { ...prev, numeroLote: lote, categoriasQuantidades: {} }))
+    setForm((prev) => {
+      if (prev.numeroLote === lote) return prev
+      const respondidos = Object.keys(prev.pendencias || {})
+      const diagnosticos = { ...prev.diagnosticos }
+      for (const campo of respondidos) diagnosticos[campo] = { ...diagnosticos[campo], valor: '' }
+      return { ...prev, numeroLote: lote, categoriasQuantidades: {}, pendencias: {}, diagnosticos }
+    })
 
   const setCategoriaQtd = (chave: string) => (val: string) =>
     setForm((prev) => ({ ...prev, categoriasQuantidades: { ...prev.categoriasQuantidades, [chave]: val } }))
@@ -434,6 +481,21 @@ export default function RodeioPage() {
 
   const toggleProblema = (campo: string, invertido: boolean) =>
     setDiagnostico(campo, { valor: temProblema(campo, invertido) ? '' : valorProblema(invertido) })
+
+  // Responder uma pendência define o item do checklist: ainda pendente = problema marcado; resolvido = conforme.
+  const responderPendencia = (campo: string, situacao: SituacaoPendencia) =>
+    setForm((prev) => ({
+      ...prev,
+      pendencias: { ...(prev.pendencias || {}), [campo]: situacao },
+      diagnosticos: {
+        ...prev.diagnosticos,
+        [campo]: { ...prev.diagnosticos[campo], valor: situacao === 'mantida' ? 'N' : '' },
+      },
+    }))
+
+  const respostasPendencia = form.pendencias || {}
+  const pendenciasPorCampo = Object.fromEntries(pendenciasAbertas.map((p) => [p.campo, p])) as Record<string, PendenciaRodeio>
+  const pendenciasSemResposta = checklistAtivo ? pendenciasAbertas.filter((p) => !respostasPendencia[p.campo]) : []
 
   const handleTirarFotoItem = async (campo: string) => {
     setCampoFotoAtual(campo)
@@ -471,7 +533,7 @@ export default function RodeioPage() {
   const chavesContagem = categoriasDoLote ? categoriasDoLote.map((c) => c.chave) : [CHAVE_TOTAL]
   const contagemCompleta = chavesContagem.every((k) => (form.categoriasQuantidades[k] ?? '') !== '')
 
-  const validationRules = {
+  const validationRules: any = {
     data: { required: true },
     numeroLote: { required: true },
     gadoContado: { required: true },
@@ -498,11 +560,18 @@ export default function RodeioPage() {
     },
   }
 
+  if (checklistAtivo) {
+    // Chave com "_": o useFormValidation só roda regra custom com campo vazio nesse caso
+    validationRules._pendencias = {
+      custom: () => (pendenciasSemResposta.length > 0 ? 'Responda se as pendências do lote foram resolvidas' : null),
+    }
+  }
+
   const { isValid } = useFormValidation(form, validationRules)
 
   // Salvar antes dos dados chegarem gravaria registro incompleto: lote sem loteId/categorias
-  // (carregando, ou ausente do cache offline) ou sem checklist (regras ainda carregando)
-  const loteBloqueado = carregandoLote || (!!form.numeroLote && !detalhesLote) || loadingChecklistRegras
+  // (carregando, ou ausente do cache offline), sem checklist (regras ainda carregando) ou sem saber as pendências
+  const loteBloqueado = carregandoLote || (!!form.numeroLote && !detalhesLote) || loadingChecklistRegras || (checklistAtivo && carregandoPendencias)
 
   const executarSalvamento = async () => {
     setErrors([])
@@ -546,7 +615,14 @@ export default function RodeioPage() {
             const invertido = DIAGNOSTICOS.find((x) => x.campo === campo)?.invertido ?? false
             // Sem toque = conforme. Observação/foto só fazem sentido com o problema marcado.
             const problema = d.valor === valorProblema(invertido)
-            const item = { valor: problema ? d.valor : valorConforme(invertido), observacao: problema ? resto.observacao : '' }
+            const pendencia = pendenciasPorCampo[campo]
+            const resposta = form.pendencias?.[campo]
+            const item = {
+              valor: problema ? d.valor : valorConforme(invertido),
+              observacao: problema ? resto.observacao : '',
+              // Auditoria da pergunta de pendência: resolvida (conforme) ou mantida (segue aberta)
+              ...(pendencia && resposta ? { pendencia: { situacao: resposta, desde: pendencia.desde } } : {}),
+            }
             return [campo, problema && foto ? { ...item, fotoBase64: foto } : item]
           })
         )
@@ -651,6 +727,11 @@ export default function RodeioPage() {
     if (carregandoLote) return 'Carregando dados do lote...'
     if (loadingChecklistRegras) return 'Carregando regras do checklist...'
     if (!detalhesLote) return 'Lote sem dados neste aparelho: conecte à internet e atualize os dados'
+    if (checklistAtivo && carregandoPendencias) return 'Buscando pendências do lote...'
+    if (pendenciasSemResposta.length > 0) {
+      const n = pendenciasSemResposta.length
+      return `Falta responder ${n} ${n === 1 ? 'pendência anterior' : 'pendências anteriores'} do lote`
+    }
     if (!form.gadoContado) return 'Falta informar se o gado foi contado'
     if (form.gadoContado === 'Sim' && !contagemCompleta) return 'Falta informar a quantidade de cada categoria'
     if (form.gadoContado === 'Sim' && total <= 0) return 'Falta contar ao menos um animal (ou marque NÃO)'
@@ -725,6 +806,65 @@ export default function RodeioPage() {
             />
           )}
         </CadernetaSection>
+
+        {/* Pendências de rodeios anteriores deste lote */}
+        {checklistAtivo && form.loteId && (carregandoPendencias || pendenciasAbertas.length > 0 || pendenciasVerificadas === false) && (
+          <CadernetaSection titulo="Pendências anteriores" required={pendenciasAbertas.length > 0}>
+            {carregandoPendencias ? (
+              <p className="py-2 text-center text-sm text-gray-500">Buscando pendências do lote...</p>
+            ) : (
+              <>
+                {pendenciasAbertas.length > 0 && (
+                  <p className="-mt-2 text-sm text-gray-500">
+                    Estes itens foram marcados como problema em rodeios anteriores. Informe se já foram resolvidos.
+                  </p>
+                )}
+                {pendenciasVerificadas === false && (
+                  <InfoStrip tone="warning" icon="⚠️">
+                    Pendências não verificadas com o servidor neste aparelho. Conecte à internet e atualize os dados.
+                  </InfoStrip>
+                )}
+                {pendenciasAbertas.map((p) => {
+                  const dias = diasEntre(p.desde, new Date().toISOString())
+                  return (
+                    <div key={p.campo} className="flex flex-col gap-2 rounded-xl border-2 border-amber-300 bg-amber-50/60 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-extrabold leading-tight text-amber-900">{p.label}</span>
+                        <span className="shrink-0 text-xs font-bold text-amber-800">
+                          desde {new Date(p.desde).toLocaleDateString('pt-BR')} · {dias === 0 ? 'hoje' : `há ${dias} ${dias === 1 ? 'dia' : 'dias'}`}
+                        </span>
+                      </div>
+                      {p.ocorrencias > 1 && (
+                        <p className="text-xs font-semibold text-amber-800">Marcado em {p.ocorrencias} rodeios seguidos</p>
+                      )}
+                      {p.observacao && <p className="text-sm text-gray-700">“{p.observacao}”</p>}
+                      {p.fotoUrl && (
+                        <img
+                          src={p.fotoUrl}
+                          alt={`Foto anterior: ${p.label}`}
+                          className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      )}
+                      <ChoiceGrid
+                        options={[
+                          { value: 'resolvida', label: 'RESOLVIDO', icon: '✓', tone: 'success' },
+                          { value: 'mantida', label: 'AINDA PENDENTE', icon: '✗', tone: 'danger' },
+                        ]}
+                        value={respostasPendencia[p.campo] || ''}
+                        onChange={(v) => responderPendencia(p.campo, v as SituacaoPendencia)}
+                        cols={2}
+                        dataField={`pendencia_${p.campo}`}
+                      />
+                    </div>
+                  )
+                })}
+              </>
+            )}
+          </CadernetaSection>
+        )}
 
         {/* 1. Quantidade de animais */}
         <CadernetaSection numero={1} titulo="Quantidade de animais">
@@ -801,6 +941,9 @@ export default function RodeioPage() {
               Toque em um item se encontrar o problema. Não tocar significa que está tudo certo.
             </p>
             {DIAGNOSTICOS.map(({ campo, label, invertido, aviso }) => {
+              const pendencia = pendenciasPorCampo[campo]
+              // Item com pendência anterior é decidido pela pergunta acima: resolvido some daqui, pendente aparece marcado
+              if (pendencia && respostasPendencia[campo] !== 'mantida') return null
               const item = form.diagnosticos[campo]
               const problema = temProblema(campo, invertido)
               const alvo: AlvoVoz = { tipo: 'item', campo }
@@ -808,15 +951,18 @@ export default function RodeioPage() {
                 <div key={campo} className="flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => toggleProblema(campo, invertido)}
+                    onClick={pendencia ? undefined : () => toggleProblema(campo, invertido)}
                     data-field={campo}
-                    className={`flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                    className={`flex min-h-[52px] w-full ${pendencia ? 'cursor-default' : 'cursor-pointer'} items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
                       problema
                         ? 'border-red-500 bg-red-50 text-red-800'
                         : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
                     }`}
                   >
-                    <span className="text-sm font-bold leading-tight">{label}</span>
+                    <span className="text-sm font-bold leading-tight">
+                      {label}
+                      {pendencia && <span className="ml-2 text-xs font-semibold text-red-700">(pendência anterior)</span>}
+                    </span>
                     {problema && <span className="text-lg leading-none">⚠️</span>}
                   </button>
 

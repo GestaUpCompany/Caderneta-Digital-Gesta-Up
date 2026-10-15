@@ -59,6 +59,18 @@ O app lembra, por bebedouro, os itens marcados como problema em registros anteri
   6. Lista/compartilhar do PWA: mostrar pendências resolvidas/mantidas e um selo "Só pendências".
   - UX sugerida (não decidida): seletor no topo "Registro completo | Só pendências" (padrão do seletor Pastos | Currais), mostrando só bebedouro, pendências e observação. Alternativa: botão "SALVAR SÓ AS PENDÊNCIAS" no rodapé, que deixa o resto do formulário visível e arrisca ignorar o que o usuário já preencheu. Em aberto: a UX e se, nesse modo, é obrigatório responder todas as pendências.
 
+
+## Rodeio: pendências do checklist (15/10/2026)
+
+Mesma lógica das pendências de Bebedouros, por **lote** (`lote_id`), só para as condições persistentes: bebedouros/cochos, pastagem/lotação e cercas/porteiras. Animal morto, doente, carrapato/mosca e entrevero ficam de fora (eventos pontuais; tratados em Enfermaria/Morte).
+
+- **Regra:** `utils/pendenciasRodeio.ts` (cópia da regra do bebedouro, não generalizada para não divergir da cópia do Painel). Lê `diagnosticos.<campo>.valor`: `'N'` = problema, `'S'` = conforme, vazio = não verificado; booleano legado aceito. Testes em `pendenciasRodeio.test.ts`.
+- **Dados:** `getRegistrosDiagnosticoRodeio` (`supabaseService.ts`) + `getPendenciasRodeioCached` (`cadastroCache.ts`), mesclando rodeios locais ainda não sincronizados; entrou no aquecimento ("Pendências de rodeio").
+- **Tela:** `RodeioPage.tsx` ganhou a seção "Pendências anteriores" (RESOLVIDO / AINDA PENDENTE), `form.pendencias` no rascunho, validação `_pendencias`, bloqueio do SALVAR e `diagnosticos.<campo>.pendencia = { situacao, desde }` no payload. Trocar de lote (`handleSelecionarLote`) descarta as respostas.
+- **Compartilhar:** `shareUtils` mostra "pendente desde dd/mm" e "PENDÊNCIAS RESOLVIDAS" no rodeio.
+- **Painel (repo `GestaUp-Cadernetas-Gestao`):** `features/pendenciasRodeio/calculo.ts` (cópia da regra, agrupa por `lote_id`, com testes), aba Registros | Pendências em `Rodeio.tsx` (`?aba=pendencias`, `RodeioPendencias.tsx`: KPIs, filtros por item/lote/prazo, resolvidas em 30 dias, XLSX) e "Pendências anteriores" em `RodeioDetalhes.tsx`. Migration de índice `20261015120000_idx_registros_rodeio_fazenda_lote_data` (`fazenda_id, lote_id, data desc`, parcial em `deleted_at is null`) aplicada com `supabase db push` em 15/10/2026 (rollback em `supabase/rollbacks/`).
+- **Testado** (vite preview + chrome-devtools, fazenda de testes, lote "Teste 2"): problema → pendência aparece com observação e bloqueia o SALVAR → AINDA PENDENTE trava o item marcado → offline (Service Worker, cache + registros locais: "2 rodeios seguidos") → RESOLVIDO → pendência não volta; os 3 registros sincronizaram com `diagnosticos.<campo>.pendencia`. Não testado: aparelho real e o Painel no navegador. Limite herdado do bebedouro: dois rodeios do mesmo lote no mesmo minuto desempatam por `local_id` (aleatório).
+
 ## Checklist Auditoria 5S (13/10/2026)
 
 Primeiro item da tela Checklists (`/modulos/checklists`): ficha de 25 itens C/N em 5 pilares (Utilização, Organização, Limpeza, Padronização, Disciplina), com setor, responsável e observações por pilar.

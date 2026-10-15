@@ -1870,8 +1870,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         const label = LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()
         const valorFormatado = data.valor === 'S' || data.valor === true ? 'Sim' : 'Não'
         // All displayed diagnostics are negative — add warning icon to every one
-        texto += `⚠️ ${label}: *${valorFormatado}*\n`
-        
+        const pendencia = data.pendencia as { situacao?: string; desde?: string } | undefined
+        const desde = pendencia?.situacao === 'mantida' && pendencia.desde ? new Date(pendencia.desde).toLocaleDateString('pt-BR') : ''
+        texto += `⚠️ ${label}: *${valorFormatado}*${desde ? ` (pendente desde ${desde})` : ''}\n`
+
         // Show observation when answer is problematic (matches field context)
         const isInverted = invertedDiagnosticos.includes(key)
         const isSim = data.valor === 'S' || data.valor === true
@@ -1879,6 +1881,15 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
         if (data.observacao && data.observacao !== '' && showObs) {
           texto += `OBSERVAÇÃO: *${data.observacao}*\n`
         }
+      })
+    }
+
+    // Pendências de rodeios anteriores que o peão deu como resolvidas neste registro
+    const pendenciasResolvidas = ordemDiagnosticos.filter(key => (registro.diagnosticos as any)?.[key]?.pendencia?.situacao === 'resolvida')
+    if (pendenciasResolvidas.length > 0) {
+      texto += '\nPENDÊNCIAS RESOLVIDAS:\n'
+      pendenciasResolvidas.forEach(key => {
+        texto += `✅ ${LABELS_BY_CADERNETA[caderneta]?.[key] || key.toUpperCase()}\n`
       })
     }
 

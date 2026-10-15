@@ -1975,6 +1975,28 @@ export async function getRegistrosChecklistBebedouro(
   return data ?? []
 }
 
+/**
+ * Rodeios recentes de um lote, só com o que as pendências do checklist precisam.
+ */
+export async function getRegistrosDiagnosticoRodeio(
+  fazendaId: string,
+  loteId: string,
+  limite = 60
+): Promise<{ data: string; local_id: string | null; diagnosticos: Record<string, any> | null }[]> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_rodeio')
+    .select('data, local_id, diagnosticos')
+    .eq('fazenda_id', fazendaId)
+    .eq('lote_id', loteId)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+    .limit(limite)
+
+  if (error) throw error
+  return data ?? []
+}
+
 export async function createHistoricoLimpeza(
   fazendaId: string,
   bebedouroId: string,

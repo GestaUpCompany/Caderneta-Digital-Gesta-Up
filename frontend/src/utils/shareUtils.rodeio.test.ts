@@ -112,4 +112,27 @@ describe('formatarRegistroComoTexto (rodeio)', () => {
       expect(texto()).not.toContain('META RODEIO')
     })
   })
+
+  describe('pendências do checklist', () => {
+    const comPendencia = (campo: string, valor: string, situacao: string) => ({
+      diagnosticos: {
+        ...base().diagnosticos,
+        [campo]: { valor, observacao: '', pendencia: { situacao, desde: '2026-10-01T10:00:00Z' } },
+      },
+    })
+
+    it('item mantido mostra "pendente desde"', () => {
+      expect(texto(comPendencia('cercasCochosPorteiras', 'N', 'mantida'))).toMatch(/\(pendente desde \d{2}\/\d{2}\/2026\)/)
+    })
+
+    it('item resolvido entra em PENDÊNCIAS RESOLVIDAS e não em problemas', () => {
+      const t = texto(comPendencia('cercasCochosPorteiras', 'S', 'resolvida'))
+      expect(t).toContain('PENDÊNCIAS RESOLVIDAS')
+      expect(t).not.toContain('AVALIAÇÃO GERAL')
+    })
+
+    it('sem pendências não imprime a seção', () => {
+      expect(texto()).not.toContain('PENDÊNCIAS RESOLVIDAS')
+    })
+  })
 })
