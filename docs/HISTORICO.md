@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Abastecimento: lista de tanques vazia sem confirmação do servidor bloqueia o salvar (15/10/2026)
+
+Fazenda d8900758: 5 abastecimentos de Diesel S10 (05 a 10/10, 396 L) foram gravados com `tanque_id` nulo, sem baixa de estoque, apesar de o tanque existir desde 30/09. Causa provável: o aparelho recebeu lista de tanques vazia (cache velho ou rede instável) e a tela tratou como "fazenda sem tanques". O trigger de baixa funciona; ele só roda com `tanque_id`.
+
+- **Código:** `cadastroCache.getTanquesCombustivelComOrigem` informa se a lista veio do servidor; `utils/abastecimentoTanques.tanquesIndisponiveis` (com testes) marca "Tanques indisponíveis" quando a lista vem vazia, sem confirmação do servidor, com o aparelho online. Offline de verdade segue salvando normalmente.
+- **Dados:** os 5 registros receberam o `tanque_id` por update pontual via MCP; o trigger `sync_baixa_abastecimento` criou as baixas (saldo do tanque 4103 para 3707 L).
+- **Testado** na fazenda de testes com `vite preview` (service worker): recarregar offline, salvar, sincronizar e baixa criada. Pendente: saldo do tanque na tela apareceu defasado (850 L com servidor em 840 L), não investigado.
+
 ## Bebedouros: participantes da limpeza (14/10/2026)
 
 Nova seção opcional "Quem participou da limpeza" em `BebedourosPage`: chips de funcionários (cache de cadastro, fallback online) e campo único de diaristas (Adicionar/Enter ou vários separados por vírgula, viram chips removíveis; texto pendente entra ao salvar). Componente `components/cadernetas/ParticipantesLimpeza.tsx`.

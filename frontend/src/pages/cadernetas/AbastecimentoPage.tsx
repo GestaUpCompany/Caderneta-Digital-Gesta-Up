@@ -14,11 +14,12 @@ import { todayBR } from '../../utils/formatDate'
 import { redeInstavelRecentemente, registrarRespostaDeRede } from '../../utils/fetchComTimeout'
 import { normalizarNumeroString } from '../../utils/formatNumber'
 import { scrollToFirstError } from '../../utils/scrollToError'
+import { tanquesIndisponiveis } from '../../utils/abastecimentoTanques'
 import {
   getCachedCadastroData,
   getMaquinasVeiculosCached,
   getMaquinasVeiculosFromCacheOnly,
-  getTanquesCombustivelCached,
+  getTanquesCombustivelComOrigem,
   getTanquesCombustivelFromCacheOnly,
   updateTanqueSaldoCache,
   withTimeout,
@@ -212,11 +213,13 @@ export default function AbastecimentoPage() {
           setTanquesDisponiveis(cache)
           setTanquesIndisponivel(false)
         }
-        const tanques = await getTanquesCombustivelCached(fazendaId!)
+        const { dados: tanques, doServidor } = await getTanquesCombustivelComOrigem(fazendaId!)
         if (cancelado) return
         if (tanques) {
           setTanquesDisponiveis(tanques)
-          setTanquesIndisponivel(false)
+          // Online mas sem confirmar com o servidor e lista vazia: pode ser cache velho (tanque criado depois).
+          // Offline de verdade mantém o comportamento de sempre (fazenda pode não ter tanques).
+          setTanquesIndisponivel(tanquesIndisponiveis(tanques, doServidor, navigator.onLine))
         } else if (!cache) {
           setTanquesIndisponivel(true)
         }

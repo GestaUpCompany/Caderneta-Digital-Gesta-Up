@@ -2217,6 +2217,27 @@ export async function getTanquesCombustivelCached(fazendaId: string): Promise<an
   }
 }
 
+/**
+ * Igual a getTanquesCombustivelCached, mas informa se a lista veio do servidor.
+ * Lista vazia que NAO veio do servidor (cache velho ou rede instavel) nao prova que a fazenda
+ * nao tem tanques: salvar assim grava o abastecimento sem tanque e sem baixa de estoque.
+ */
+export async function getTanquesCombustivelComOrigem(
+  fazendaId: string
+): Promise<{ dados: any[] | null; doServidor: boolean }> {
+  const key = buildKey('tanques-combustivel', fazendaId)
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    return { dados: await getTanquesCombustivelFromCacheOnly(fazendaId), doServidor: false }
+  }
+  try {
+    const data = await withTimeout(supabaseService.getTanquesCombustivel(fazendaId), 3000)
+    if (data) setCachedQuery(key, data)
+    return { dados: data, doServidor: !!data }
+  } catch {
+    return { dados: await getTanquesCombustivelFromCacheOnly(fazendaId), doServidor: false }
+  }
+}
+
 /** Tanques de combustível direto do cache (memória ou IDB), sem tentar online. */
 export async function getTanquesCombustivelFromCacheOnly(fazendaId: string): Promise<any[] | null> {
   const key = buildKey('tanques-combustivel', fazendaId)
