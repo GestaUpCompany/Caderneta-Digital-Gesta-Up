@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Minus, Plus } from 'lucide-react'
+import { Boxes, Minus, Plus } from 'lucide-react'
+import EstoqueAlmoxarifadoModal from '../../components/cadernetas/EstoqueAlmoxarifadoModal'
 import { Input, DatePicker, ValidationMessage } from '../../components/ui'
 import SuccessModal from '../../components/SuccessModal'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -106,6 +107,7 @@ export default function EntradaAlmoxarifadoPage() {
     useRascunhoForm<FormState>({ rascunhoKey: 'entrada-almoxarifado', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
+  const [estoqueAberto, setEstoqueAberto] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
 
@@ -322,6 +324,15 @@ export default function EntradaAlmoxarifadoPage() {
         onDescartar={descartarRascunho}
       />
       {errors.length > 0 && <ValidationMessage errors={errors} />}
+
+      <button
+        type="button"
+        onClick={() => setEstoqueAberto(true)}
+        className="flex !min-h-0 w-full items-center justify-center gap-2 rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 active:scale-95"
+      >
+        <Boxes className="h-5 w-5 text-brand-700" strokeWidth={2.25} />
+        VER ESTOQUE ATUAL
+      </button>
 
       <CadernetaSection numero={1} titulo="Nota fiscal" required>
         <div data-field="notaFiscal" id="notaFiscal">
@@ -613,6 +624,8 @@ export default function EntradaAlmoxarifadoPage() {
         onChange={handleFileInputChange}
         className="hidden"
       />
+
+      <EstoqueAlmoxarifadoModal aberto={estoqueAberto} onFechar={() => setEstoqueAberto(false)} fazendaId={fazendaId} />
 
       <SuccessModal
         isOpen={showSuccessModal}

@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Almoxarifado: consulta do estoque atual (15/10/2026)
+
+Botão "VER ESTOQUE ATUAL" em `AlmoxarifadoPage` e `EntradaAlmoxarifadoPage` (faixa no topo do formulário; no header não coube ao lado da logo) abre `components/cadernetas/EstoqueAlmoxarifadoModal.tsx`: bottom sheet somente leitura com busca por nome (sem acento) e abas por classificação ("Todos" primeiro). Saldo zerado ou negativo em vermelho; item sem `controla_estoque` mostra "sem controle".
+
+- **Cache (`cadastroCache.ts`):** o modal abre pelo cache e revalida online em segundo plano. `getTodosItensAlmoxarifadoFromCacheOnly` lê classificações e itens por classificação (memória ou IndexedDB) pelas mesmas chaves do warm-up da fase `almoxarifado`; `revalidarEstoqueAlmoxarifado` busca online com timeout de 5 s e devolve `null` se offline, rede instável ou qualquer falha, e o modal então mantém o cache (nunca troca por lista parcial). Sem chave nova, então `updateItemAlmoxarifadoSaldoCache` continua atualizando o que o modal lê. Sem bump de IndexedDB, sem mudança no `syncService`.
+- **Limitação:** a revalidação pode mostrar o saldo sem o desconto de uma retirada salva offline e ainda não sincronizada, até a sync terminar (mesmo comportamento das telas de formulário).
+- **Verificado:** `tsc`. Não testado no navegador nem no aparelho.
+
 ## Abastecimento: lista de tanques vazia sem confirmação do servidor bloqueia o salvar (15/10/2026)
 
 Fazenda d8900758: 5 abastecimentos de Diesel S10 (05 a 10/10, 396 L) foram gravados com `tanque_id` nulo, sem baixa de estoque, apesar de o tanque existir desde 30/09. Causa provável: o aparelho recebeu lista de tanques vazia (cache velho ou rede instável) e a tela tratou como "fazenda sem tanques". O trigger de baixa funciona; ele só roda com `tanque_id`.

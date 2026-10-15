@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Minus, Plus } from 'lucide-react'
+import { Boxes, Minus, Plus } from 'lucide-react'
+import EstoqueAlmoxarifadoModal from '../../components/cadernetas/EstoqueAlmoxarifadoModal'
 import { Input, DatePicker, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
@@ -96,6 +97,7 @@ export default function AlmoxarifadoPage() {
   const [classificacaoAtiva, setClassificacaoAtiva] = useState('')
   const [devolucaoSemPendencias, setDevolucaoSemPendencias] = useState(false)
   const [trocandoEntregou, setTrocandoEntregou] = useState(false)
+  const [estoqueAberto, setEstoqueAberto] = useState(false)
 
   const set = (key: keyof FormState) => (value: string) => setForm(prev => ({ ...prev, [key]: value }))
 
@@ -377,6 +379,15 @@ export default function AlmoxarifadoPage() {
           onDescartar={descartarRascunho}
         />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
+
+        <button
+          type="button"
+          onClick={() => setEstoqueAberto(true)}
+          className="flex !min-h-0 w-full items-center justify-center gap-2 rounded-xl border-2 border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 active:scale-95"
+        >
+          <Boxes className="h-5 w-5 text-brand-700" strokeWidth={2.25} />
+          VER ESTOQUE ATUAL
+        </button>
 
         <ChoiceGrid
           options={TIPO_OPTIONS}
@@ -664,6 +675,8 @@ export default function AlmoxarifadoPage() {
           formValido={isValid}
         />
       </CadernetaLayout>
+
+      <EstoqueAlmoxarifadoModal aberto={estoqueAberto} onFechar={() => setEstoqueAberto(false)} fazendaId={fazendaId} />
 
       <SuccessModal
         isOpen={showSuccessModal}

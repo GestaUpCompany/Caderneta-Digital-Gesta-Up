@@ -2442,6 +2442,41 @@ export async function getItensAlmoxarifadoCached(fazendaId: string, classificaca
 }
 
 /**
+ * Todos os itens do almoxarifado (todas as classificacoes) direto do cache (memoria ou IDB),
+ * sem tentar online. Usa as mesmas chaves do warm-up, entao o saldo segue o de
+ * updateItemAlmoxarifadoSaldoCache. Retorna null se nunca foi aquecido.
+ */
+export async function getTodosItensAlmoxarifadoFromCacheOnly(fazendaId: string): Promise<any[] | null> {
+  const keyClass = buildKey('classificacoes-almoxarifado', fazendaId)
+  const classificacoes = getCachedQuery<string[]>(keyClass) ?? (await getCachedQueryFromIDB<string[]>(keyClass))
+  if (!classificacoes || !Array.isArray(classificacoes)) return null
+  const listas = await Promise.all(classificacoes.map(async (c) => {
+    const key = buildKey('itens-almoxarifado', fazendaId, c)
+    return getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  }))
+  return listas.flatMap((l) => (Array.isArray(l) ? l : []))
+}
+
+/**
+ * Revalida o estoque online e atualiza o cache. Retorna null se offline, rede instavel,
+ * timeout ou qualquer falha (quem chama mantem o que ja exibe do cache).
+ */
+export async function revalidarEstoqueAlmoxarifado(fazendaId: string): Promise<any[] | null> {
+  if (!navigator.onLine || redeInstavelRecentemente()) return null
+  try {
+    return await withTimeout((async () => {
+      const classificacoes = await getClassificacoesAlmoxarifadoCached(fazendaId)
+      if (!classificacoes) throw new Error('sem classificacoes')
+      const listas = await Promise.all(classificacoes.map((c) => getItensAlmoxarifadoCached(fazendaId, c)))
+      if (listas.some((l) => !l)) throw new Error('falha ao buscar itens')
+      return listas.flatMap((l) => l as any[])
+    })(), 5000)
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca lista de currais (confinamento) com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
