@@ -2182,6 +2182,29 @@ export async function createRegistroAuditoria5s(registro: Record<string, unknown
   return data
 }
 
+/**
+ * Auditorias 5S recentes de um setor, só com o que as pendências precisam.
+ * Filtra por setor_id quando conhecido (resiste a renomeação); sem id, pelo nome.
+ */
+export async function getRegistrosAuditoria5sSetor(
+  fazendaId: string,
+  setorId: string | null,
+  setorNome: string,
+  limite = 60
+): Promise<{ data: string; local_id: string | null; itens: Record<string, any> | null; nao_conformidades: Record<string, any> | null }[]> {
+  const client = await getSupabaseClientWithRefresh() as any
+  let query = client
+    .from('registros_auditoria_5s')
+    .select('data, local_id, itens, nao_conformidades')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+  query = setorId ? query.eq('setor_id', setorId) : query.eq('setor', setorNome)
+  const { data, error } = await query.order('data', { ascending: false }).limit(limite)
+
+  if (error) throw error
+  return data ?? []
+}
+
 export async function updateRegistroAuditoria5s(id: string, registro: Record<string, unknown>) {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client

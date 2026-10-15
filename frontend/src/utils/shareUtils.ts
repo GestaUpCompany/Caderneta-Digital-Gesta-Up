@@ -447,6 +447,8 @@ export const rotuloDiagnosticoEnfermaria = (nome: string): string => ROTULOS_DIA
 const formatarAuditoria5sComoTexto = (registro: Registro): string => {
   const itens = (registro.itens ?? {}) as Record<string, string>
   const observacoes = (registro.observacoes ?? {}) as Record<string, string>
+  const evidencias = (registro.naoConformidades ?? registro.nao_conformidades ?? {}) as Record<string, { observacao?: string } | undefined>
+  const nota = registro.notaGeral ?? registro.nota_geral
   const resultado = calcularResultado5S(itens)
   const dataFormatada = String(registro.data ?? '').replace(/(\d{2}:\d{2})$/, 'às $1')
 
@@ -455,6 +457,7 @@ const formatarAuditoria5sComoTexto = (registro: Registro): string => {
   texto += `Setor: *${registro.setor || '—'}*\n`
   texto += `Responsável: *${registro.responsavel || '—'}*\n`
   texto += `Conformidade: *${resultado.percentual ?? 0}%* (${resultado.conformes} C / ${resultado.naoConformes} N${resultado.naoAplicaveis > 0 ? ` / ${resultado.naoAplicaveis} não se aplica` : ''})\n`
+  if (nota !== null && nota !== undefined && nota !== '') texto += `Nota do setor: *${nota}/5*\n`
 
   // Só os pilares com N entram em detalhe, e cada N sai como afirmação negativa (não como a pergunta da ficha).
   const secoesComProblema = SECOES_5S.filter((s) => s.itens.some((i) => itens[i.chave] === 'N'))
@@ -465,7 +468,11 @@ const formatarAuditoria5sComoTexto = (registro: Registro): string => {
     for (const secao of secoesComProblema) {
       const res = resultado.secoes.find((r) => r.id === secao.id)
       texto += `\n*${secao.titulo}* (${res?.percentual ?? 0}%)\n`
-      secao.itens.filter((i) => itens[i.chave] === 'N').forEach((i) => { texto += `❌ ${i.negativa}\n` })
+      secao.itens.filter((i) => itens[i.chave] === 'N').forEach((i) => {
+        texto += `❌ ${i.negativa}\n`
+        const obsItem = String(evidencias[i.chave]?.observacao ?? '').trim()
+        if (obsItem) texto += `   ↳ ${obsItem}\n`
+      })
       if (observacoes[secao.id]) texto += `📝 ${observacoes[secao.id]}\n`
     }
   }

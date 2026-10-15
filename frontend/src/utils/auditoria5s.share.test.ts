@@ -49,6 +49,20 @@ describe('texto de compartilhar da Auditoria 5S', () => {
     expect(texto).toContain('📝 *Observações*\nUtilização: Sobra de material')
   })
 
+  it('traz a nota do setor e a observação de cada item N', () => {
+    const texto = formatarRegistroComoTexto(
+      registro({ notaGeral: 3, naoConformidades: { limpeza_3: { observacao: 'Rotina parada há uma semana' } } }),
+      'auditoria-5s'
+    )
+    expect(texto).toContain('Nota do setor: *3/5*')
+    expect(texto).toContain('❌ A rotina de limpeza do local não está sendo cumprida.\n   ↳ Rotina parada há uma semana')
+  })
+
+  it('nota 0 aparece; sem nota (registro antigo) não mostra a linha', () => {
+    expect(formatarRegistroComoTexto(registro({ notaGeral: 0 }), 'auditoria-5s')).toContain('Nota do setor: *0/5*')
+    expect(formatarRegistroComoTexto(registro(), 'auditoria-5s')).not.toContain('Nota do setor')
+  })
+
   it('toda não conformidade tem afirmação própria, diferente da pergunta', () => {
     for (const secao of SECOES_5S) {
       for (const item of secao.itens) {

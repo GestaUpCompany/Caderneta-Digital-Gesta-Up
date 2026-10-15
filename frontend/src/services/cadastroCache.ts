@@ -13,6 +13,7 @@ import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_
 import { diaDaFazendaISO, type ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 import { calcularPendenciasBebedouro, ResultadoPendencias, RegistroChecklistBebedouro } from '../utils/pendenciasBebedouro'
 import { calcularPendenciasRodeio, ResultadoPendenciasRodeio, RegistroDiagnosticoRodeio } from '../utils/pendenciasRodeio'
+import { calcularPendencias5S, ResultadoPendencias5S, RegistroAuditoria5SPendencia } from '../utils/pendencias5s'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
@@ -2809,6 +2810,54 @@ export async function getPendenciasRodeioCached(
 }
 
 /**
+ * Pendências da Auditoria 5S de um setor (itens N ainda não resolvidos em auditorias anteriores).
+ * Mesma estratégia de getPendenciasBebedouroCached: histórico do servidor (rede ou cache) mesclado com as
+ * auditorias locais ainda não sincronizadas. `verificado` = false quando o histórico do servidor não foi lido.
+ */
+export async function getPendencias5SCached(
+  fazendaId: string,
+  setorId: string | null,
+  setorNome: string
+): Promise<{ resultado: ResultadoPendencias5S; verificado: boolean }> {
+  const key = buildKey('registros-auditoria-5s', fazendaId, setorId || setorNome)
+  const doCache = async () => getCachedQuery(key) ?? (await getCachedQueryFromIDB<RegistroAuditoria5SPendencia[]>(key)) ?? null
+
+  let servidor: RegistroAuditoria5SPendencia[] | null = null
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    servidor = (await doCache()) as RegistroAuditoria5SPendencia[] | null
+  } else {
+    try {
+      const linhas = await withTimeout(supabaseService.getRegistrosAuditoria5sSetor(fazendaId, setorId, setorNome), 3000)
+      servidor = linhas.map((l) => ({ data: l.data, localId: l.local_id, itens: l.itens, naoConformidades: l.nao_conformidades }))
+      setCachedQuery(key, servidor)
+    } catch {
+      servidor = (await doCache()) as RegistroAuditoria5SPendencia[] | null
+    }
+  }
+
+  let locais: RegistroAuditoria5SPendencia[] = []
+  try {
+    const todos = await getAllRegistros('auditoria-5s')
+    locais = todos
+      .filter((r: any) => r.fazendaId === fazendaId && !r.deletedAt && (setorId ? r.setorId === setorId : r.setor === setorNome))
+      .map((r: any) => ({
+        data: brWithTimeToIso(r.data as string) ?? '',
+        localId: r.id as string,
+        itens: (r.itens as Record<string, any>) ?? null,
+        naoConformidades: (r.naoConformidades as Record<string, any>) ?? null,
+      }))
+      .filter((r) => r.data)
+  } catch (error) {
+    console.warn('[CadastroCache] Auditorias 5S locais indisponíveis para as pendências:', error)
+  }
+
+  return {
+    resultado: calcularPendencias5S([...(servidor ?? []), ...locais]),
+    verificado: servidor !== null,
+  }
+}
+
+/**
  * Aquece o cache com todos os detalhes de pastos e lotes.
  * Deve ser chamado explicitamente quando o usuário clica em "Atualizar Dados"
  * ou quando há internet e se quer garantir funcionamento 100% offline.
@@ -3232,6 +3281,10 @@ export async function warmAllCadastroCache(
     { label: 'Pendências de rodeio', fn: async () => {
       const lotes = (await supabaseService.getLotes(fazendaId)) || []
       await Promise.allSettled(lotes.map((l: any) => getPendenciasRodeioCached(fazendaId, l.id)))
+    } },
+    { label: 'Pendências de auditoria 5S', fn: async () => {
+      const setores = (await getSetoresCached(fazendaId)) || []
+      await Promise.allSettled(setores.map((s: any) => getPendencias5SCached(fazendaId, s.id, s.nome)))
     } },
     { label: 'Classificações Cantina', fn: () => getClassificacoesCantinaCached(fazendaId) },
     { label: 'Tanques Combustível', fn: () => getTanquesCombustivelCached(fazendaId) },

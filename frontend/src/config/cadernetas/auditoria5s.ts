@@ -18,11 +18,23 @@ export const auditoria5sConfig: CadernetaDisplayConfig = {
     },
     totalConformes: { key: 'totalConformes', label: 'ITENS CONFORMES (C)', section: 'RESULTADO', priority: 2 },
     totalNaoConformes: { key: 'totalNaoConformes', label: 'ITENS NÃO CONFORMES (N)', section: 'RESULTADO', priority: 3 },
+    notaGeral: {
+      key: 'notaGeral', label: 'NOTA DO SETOR', section: 'RESULTADO', priority: 4,
+      format: (v) => (v === null || v === undefined || v === '' ? '—' : `${v}/5`),
+    },
     itens: {
       key: 'itens', label: 'ITENS', section: 'NÃO CONFORMIDADES', priority: 1, colSpan: 2,
       format: (_v, r) => {
         const itens = itensDe(r)
-        const linhas = SECOES_5S.flatMap((s) => s.itens.filter((i) => itens[i.chave] === 'N').map((i) => `${s.titulo}: ${i.negativa}`))
+        const evidencias = (r.naoConformidades ?? {}) as Record<string, { observacao?: string } | undefined>
+        const linhas = SECOES_5S.flatMap((s) =>
+          s.itens
+            .filter((i) => itens[i.chave] === 'N')
+            .map((i) => {
+              const obs = String(evidencias[i.chave]?.observacao ?? '').trim()
+              return `${s.titulo}: ${i.negativa}${obs ? `\n   ↳ ${obs}` : ''}`
+            })
+        )
         return linhas.length > 0 ? linhas.join('\n') : 'Nenhuma'
       },
     },
@@ -36,7 +48,7 @@ export const auditoria5sConfig: CadernetaDisplayConfig = {
       condition: (r) => Object.values((r.observacoes ?? {}) as Record<string, string>).some(Boolean),
     },
   },
-  hiddenFields: ['setorId', 'totalItens'],
+  hiddenFields: ['setorId', 'totalItens', 'naoConformidades', 'pendencias', 'pendenciasAbertas'],
   cardBadge: {
     key: 'percentualConformidade',
     format: (v) => (v === null || v === undefined ? '' : `${v}%`),

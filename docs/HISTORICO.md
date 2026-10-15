@@ -2,6 +2,19 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Auditoria 5S: evidência das não conformidades, pendências por setor e nota do setor (15/10/2026)
+
+Item respondido `N` agora exige observação (digitada ou falada) e aceita foto opcional; cada `N` vira pendência do **setor + item**, perguntada na próxima auditoria do mesmo setor (RESOLVIDO / AINDA PENDENTE); nova nota geral do setor, 0 a 5, obrigatória.
+
+- **Schema (repo do Painel, migration `20261015140000_auditoria_5s_pendencias_nota`, aplicada com `db push`):** `registros_auditoria_5s.nao_conformidades jsonb` (`{chave: {observacao, foto_url, pendencia?: {situacao, desde}}}`) e `nota_geral smallint` com CHECK 0 a 5 (nula nos registros antigos). Rollback em `supabase/rollbacks/`.
+- **Pendência derivada do histórico, sem tabela** (mesma regra de Bebedouros/Rodeio): `N` abre, `C` fecha, `NA`/ausente não altera. Regra em `utils/pendencias5s.ts` (cópia no Painel: `features/pendencias5s/calculo.ts`, mesmos testes). Responder RESOLVIDO grava o item como `C`; AINDA PENDENTE grava `N` herdando a evidência anterior (observação nova é opcional nesse caso).
+- **Offline:** `getPendencias5SCached` (servidor ou cache, mesclado com as auditorias locais não sincronizadas) e aquecimento no "Atualizar dados". Sem bump do IndexedDB (campos novos são dados do registro). Fotos sobem no sync via `uploadFotosChecklist` (store `auditoria-5s`).
+- **Validação (`validateAuditoria5s`):** obs obrigatória em cada `N` novo (campo `obs_<chave>`), `notaGeral` inteira 0 a 5 (0 vale), pendência aberta sem resposta bloqueia.
+- **Painel:** aba "Pendências" em Auditoria 5S, KPI e coluna de nota, nota no XLSX. Tela de detalhe redesenhada: chips de identificação, 4 indicadores coloridos, "Não conformidades" em destaque (foto, pilar, selo "Pendente desde", observação) e resultado por pilar em cartões compactos com barra (itens completos atrás do botão "Ver todos os itens").
+- **Verificado:** `tsc`, lint (47 avisos, teto 48), `vitest` (361 testes), build; no Painel `tsc` e `vitest`. E2E manual via chrome-devtools na Fazenda Gesta'Up: validação (obs obrigatória, nota 0 válida, troca de N por C descarta evidência), pendências, salvar offline e sync (`pending` -> `synced`, sem duplicar), foto (sobe para `fotos-registros/<fazenda>/auditoria-5s/<id>/<chave>.webp`, o banco guarda só `foto_url`), ciclo RESOLVIDO / AINDA PENDENTE com foto nova, e conferência no Painel (pendências, nota média, detalhe, clique na linha).
+- **Não testado:** gravação por voz (botão Falar), "Remover foto" e o aviso "Pendências não verificadas" (offline sem cache). No navegador do devtools o seletor de arquivo não aceita o input com `capture`; a foto foi injetada no input oculto (mesmo `onChange` do app).
+- **Armadilha de teste:** um Service Worker antigo na mesma porta do dev serve build velho (menu de Checklists vazio e "Erro ao sincronizar"). Limpar SW e caches da página antes de testar no devtools.
+
 ## Almoxarifado: consulta do estoque atual (15/10/2026)
 
 Botão "VER ESTOQUE ATUAL" em `AlmoxarifadoPage` e `EntradaAlmoxarifadoPage` (faixa no topo do formulário; no header não coube ao lado da logo) abre `components/cadernetas/EstoqueAlmoxarifadoModal.tsx`: bottom sheet somente leitura com busca por nome (sem acento) e abas por classificação ("Todos" primeiro). Saldo zerado ou negativo em vermelho; item sem `controla_estoque` mostra "sem controle".

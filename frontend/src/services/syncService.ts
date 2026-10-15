@@ -294,6 +294,9 @@ function registroToSupabase(store: CadernetaStore, registro: Registro, fazendaId
         total_conformes: Number((registro as any).totalConformes) || 0,
         total_nao_conformes: Number((registro as any).totalNaoConformes) || 0,
         percentual_conformidade: (registro as any).percentualConformidade ?? null,
+        // fotoBase64 de cada item sobe no sync (uploadFotosChecklist) e vira foto_url
+        nao_conformidades: (registro as any).naoConformidades || null,
+        nota_geral: (registro as any).notaGeral ?? null,
       }
     case 'rodeio':
       return {
@@ -1172,6 +1175,10 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
     // Fotos por item do checklist (bebedouros, suplementacao, manutencao-maquinas)
     if ((store === 'bebedouros' || store === 'suplementacao' || store === 'manutencao-maquinas') && data.checklist) {
       data = { ...data, checklist: await uploadFotosChecklist(data.checklist, registro, fazendaId, store) }
+    }
+    // Auditoria 5S: foto por item nao conforme
+    if (store === 'auditoria-5s' && data.nao_conformidades) {
+      data = { ...data, nao_conformidades: await uploadFotosChecklist(data.nao_conformidades, registro, fazendaId, store) }
     }
     // Rodeio: foto por item do diagnostico (animal doente/machucado etc.)
     if (store === 'rodeio' && data.diagnosticos) {

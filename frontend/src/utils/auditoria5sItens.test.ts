@@ -55,7 +55,7 @@ describe('calcularResultado5S', () => {
 })
 
 describe('validateAuditoria5s', () => {
-  const base = (): Record<string, unknown> => ({ data: '09/10/2026', setor: 'Oficina', responsavel: 'João', itens: todos('C') })
+  const base = (): Record<string, unknown> => ({ data: '09/10/2026', setor: 'Oficina', responsavel: 'João', itens: todos('C'), notaGeral: 4 })
   const campos = (extra: Record<string, unknown> = {}) => validateAuditoria5s({ ...base(), ...extra }).errors.map((e) => e.field)
 
   it('aceita o registro completo', () => {
@@ -75,5 +75,39 @@ describe('validateAuditoria5s', () => {
     const { utilizacao_3: _omitido, ...resto } = todos('C')
     expect(campos({ itens: resto })).toEqual(['utilizacao_3'])
     expect(campos({ itens: undefined })).toHaveLength(25)
+  })
+
+  it('item N exige observação (só espaços não vale)', () => {
+    const itens = { ...todos('C'), utilizacao_1: 'N' }
+    expect(campos({ itens })).toEqual(['obs_utilizacao_1'])
+    expect(campos({ itens, naoConformidades: { utilizacao_1: { observacao: '   ' } } })).toEqual(['obs_utilizacao_1'])
+    expect(campos({ itens, naoConformidades: { utilizacao_1: { observacao: 'Pneus velhos' } } })).toEqual([])
+  })
+
+  it('foto é opcional em item N', () => {
+    const itens = { ...todos('C'), utilizacao_1: 'N' }
+    expect(campos({ itens, naoConformidades: { utilizacao_1: { observacao: 'Pneus velhos', fotoBase64: '' } } })).toEqual([])
+  })
+
+  it('nota geral: 0 é válida; ausente, fora de 0 a 5 ou fracionada não', () => {
+    expect(campos({ notaGeral: 0 })).toEqual([])
+    expect(campos({ notaGeral: 5 })).toEqual([])
+    expect(campos({ notaGeral: null })).toEqual(['notaGeral'])
+    expect(campos({ notaGeral: undefined })).toEqual(['notaGeral'])
+    expect(campos({ notaGeral: 6 })).toEqual(['notaGeral'])
+    expect(campos({ notaGeral: -1 })).toEqual(['notaGeral'])
+    expect(campos({ notaGeral: 2.5 })).toEqual(['notaGeral'])
+  })
+
+  it('pendência aberta sem resposta bloqueia; o item dela não precisa de C/N/–', () => {
+    const { utilizacao_1: _omitido, ...resto } = todos('C')
+    const extra = { itens: resto, pendenciasAbertas: ['utilizacao_1'] }
+    expect(campos(extra)).toEqual(['pendencia_utilizacao_1'])
+    expect(campos({ ...extra, pendencias: { utilizacao_1: 'resolvida' }, itens: { ...resto, utilizacao_1: 'C' } })).toEqual([])
+  })
+
+  it('pendência mantida sem observação nova é válida (herda a anterior)', () => {
+    const extra = { itens: { ...todos('C'), utilizacao_1: 'N' }, pendenciasAbertas: ['utilizacao_1'], pendencias: { utilizacao_1: 'mantida' } }
+    expect(campos(extra)).toEqual([])
   })
 })

@@ -1198,10 +1198,27 @@ export function validateAuditoria5s(data: Record<string, unknown>): ValidationRe
     errors.push({ field: 'responsavel', message: 'Responsável é obrigatório' })
 
   const itens = (data.itens ?? {}) as Record<string, unknown>
+  const naoConformidades = (data.naoConformidades ?? {}) as Record<string, { observacao?: unknown } | undefined>
+  const respostasPendencia = (data.pendencias ?? {}) as Record<string, unknown>
+  // Itens com pendência anterior do setor são decididos pela pergunta RESOLVIDO / AINDA PENDENTE, não pelo C/N/–
+  const chavesPendentes = new Set(Array.isArray(data.pendenciasAbertas) ? (data.pendenciasAbertas as string[]) : [])
+
   for (const chave of CHAVES_ITENS_5S) {
-    if (itens[chave] !== 'C' && itens[chave] !== 'N' && itens[chave] !== 'NA')
+    if (chavesPendentes.has(chave)) {
+      if (respostasPendencia[chave] !== 'resolvida' && respostasPendencia[chave] !== 'mantida')
+        errors.push({ field: `pendencia_${chave}`, message: 'Informe se a pendência foi resolvida' })
+      continue
+    }
+    if (itens[chave] !== 'C' && itens[chave] !== 'N' && itens[chave] !== 'NA') {
       errors.push({ field: chave, message: 'Responda C, N ou – (não se aplica)' })
+    } else if (itens[chave] === 'N' && !isNonEmptyString(naoConformidades[chave]?.observacao)) {
+      errors.push({ field: `obs_${chave}`, message: 'Descreva a não conformidade' })
+    }
   }
+
+  const nota = data.notaGeral
+  if (typeof nota !== 'number' || !Number.isInteger(nota) || nota < 0 || nota > 5)
+    errors.push({ field: 'notaGeral', message: 'Dê uma nota de 0 a 5 ao setor' })
 
   return { isValid: errors.length === 0, errors }
 }
