@@ -29,6 +29,7 @@ import {
 } from '../utils/syncErrors'
 import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
 import { paraNumero, sanitizarPayloadNumerico } from '../utils/payloadNumerico'
+import { dataBRparaIso, linhasParaServidor } from '../utils/manejoCurral'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -86,6 +87,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   pesagem: 'registros_pesagem',
   'ordens-servico': 'ordens_servico',
   'os-recebimentos': 'os_recebimentos',
+  'manejo-curral': 'sessoes_manejo_curral',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -869,6 +871,19 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         ordem: paraNumero(registro.ordem) || 0,
       }
     }
+    case 'manejo-curral':
+      // Cabeçalho da sessão (sem nome_usuario/version, que a tabela não tem); as linhas sobem no sync da sessão
+      return {
+        id: registro.id,
+        fazenda_id: fazendaId,
+        local_id: registro.id,
+        data: dataBRparaIso(registro.data as string) || undefined,
+        responsavel: registro.usuario || registro.responsavel || null,
+        observacao: (registro as any).observacao || null,
+        iniciada_em: (registro as any).iniciadaEm || null,
+        finalizada_em: (registro as any).finalizadaEm || null,
+        sync_status: 'synced',
+      }
     default:
       return baseData
   }
@@ -1502,6 +1517,30 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             .from('registros_fabrica_confinamento_insumos')
             .upsert({ ...data, registro_id: registroIdPai }, { onConflict: 'local_id' })
           if (fciError) throw fciError
+          break
+        }
+        case 'sessoes_manejo_curral': {
+          // Sessão -> linhas -> aplicar. Tudo idempotente: o upsert é por local_id e a RPC só processa linhas pendentes.
+          // Se algo falhar no meio, o item volta à fila e o reenvio completa o que faltou.
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: sessError } = await client.from('sessoes_manejo_curral').upsert(data, { onConflict: 'local_id' })
+          if (sessError) throw sessError
+          const linhas = linhasParaServidor((registro as any).linhas || [], registro.id, fazendaId)
+          if (linhas.length > 0) {
+            const { error: linError } = await client.from('registros_manejo_curral').upsert(linhas, { onConflict: 'local_id' })
+            if (linError) throw linError
+          }
+          const { data: aplicado, error: rpcError } = await client.rpc('aplicar_manejo_curral', {
+            p_fazenda_id: fazendaId,
+            p_sessao_id: registro.id,
+          })
+          if (rpcError) throw rpcError
+          if (aplicado && aplicado.success === false) throw new Error(aplicado.error || 'Falha ao aplicar o manejo de curral')
+          await updateRegistro('manejo-curral', registro.id, {
+            supabaseId: registro.id,
+            syncStatus: 'synced',
+            resultadoServidor: aplicado ?? null,
+          })
           break
         }
         case 'atividade_funcionarios': {

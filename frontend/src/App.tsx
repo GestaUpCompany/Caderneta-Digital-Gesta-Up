@@ -143,6 +143,7 @@ const TratoConfinamentoListaPage = lazy(() => import('./pages/cadernetas/TratoCo
 const FabricaConfinamentoPage = lazy(() => import('./pages/cadernetas/FabricaConfinamentoPage'))
 const FabricaConfinamentoListaPage = lazy(() => import('./pages/cadernetas/FabricaConfinamentoListaPage'))
 const PesagemPage = lazy(() => import('./pages/cadernetas/PesagemPage'))
+const ManejoCurralPage = lazy(() => import('./pages/cadernetas/ManejoCurralPage'))
 const PesagemListaPage = lazy(() => import('./pages/cadernetas/PesagemListaPage'))
 const ComunicadoVendaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaPage'))
 const ComunicadoVendaListaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaListaPage'))
@@ -636,6 +637,7 @@ function AppInner() {
             <Route path="/caderneta/fabrica-confinamento/lista" element={<FabricaConfinamentoListaPage />} />
 
             {/* Pesagem */}
+            <Route path="/caderneta/manejo-curral" element={<ManejoCurralPage />} />
             <Route path="/caderneta/pesagem" element={<PesagemPage />} />
             <Route path="/caderneta/pesagem/lista" element={<PesagemListaPage />} />
 

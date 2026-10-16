@@ -69,6 +69,7 @@ export const CADERNETAS = [
   { id: 'morte', label: 'MORTE', emoji: '', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'maternidade', label: 'MATERNIDADE', emoji: '', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'manejo-curral', label: 'MANEJO DE CURRAL', emoji: '🐂', icon: `${BASE}cadernetas/movimentacao.png`, color: '#6B8E23', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'pesagem', label: 'PESAGEM', emoji: '', icon: `${BASE}cadernetas/pesagem.png`, color: '#4A6FA5', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'comunicado-venda', label: 'COMUNICADO DE VENDA', emoji: '', icon: `${BASE}cadernetas/comunicado.png`, color: '#2F855A', disponivel: true, grupo: 'Comercial' },
   { id: 'comunicado-compra', label: 'COMUNICADO DE COMPRA', emoji: '', icon: `${BASE}cadernetas/comunicado.png`, color: '#1D4ED8', disponivel: true, grupo: 'Comercial' },

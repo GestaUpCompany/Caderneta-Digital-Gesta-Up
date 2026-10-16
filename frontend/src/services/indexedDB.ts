@@ -39,6 +39,7 @@ export type CadernetaStore =
   | 'ordens-servico'
   | 'os-recebimentos'
   | 'auditoria-5s'
+  | 'manejo-curral'
 
 export const STORES: CadernetaStore[] = [
   'maternidade', 'pastagens', 'curral', 'rodeio', 'suplementacao', 'bebedouros', 'movimentacao', 'enfermaria', 'morte', 'clima', 'abastecimento', 'cantina',
@@ -54,10 +55,11 @@ export const STORES: CadernetaStore[] = [
   'ordens-servico',
   'os-recebimentos',
   'auditoria-5s',
+  'manejo-curral',
 ]
 
 async function getDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, 34, {
+  return openDB(DB_NAME, 35, {
     upgrade(db) {
       for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) {
@@ -203,6 +205,8 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
     'os-recebimentos': 5,
     'pesagem': 6,
     'movimentacao': 7,
+    // Por último: animais criados offline (maternidade, ordem 99) precisam existir antes das linhas que os citam
+    'manejo-curral': 100,
     // Pai sempre antes do filho (o filho precisa do id do servidor do pai). Ficam depois das demais
     // cadernetas, que não têm dependência. Filho enviado cedo demais espera na fila (PaiNaoEnviadoError).
     'saida-insumos': 90,

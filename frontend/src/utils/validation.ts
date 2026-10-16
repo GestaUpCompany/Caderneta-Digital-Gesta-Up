@@ -1223,7 +1223,15 @@ export function validateAuditoria5s(data: Record<string, unknown>): ValidationRe
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos'
+export function validateManejoCurral(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+  if (!isValidDate(data.data as string)) errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  const linhas = data.linhas
+  if (!Array.isArray(linhas) || linhas.length === 0) errors.push({ field: 'linhas', message: 'Registre ao menos um animal' })
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   'auditoria-5s': validateAuditoria5s,
@@ -1255,6 +1263,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'entrada-cantina': validateEntradaCantina,
   'ordens-servico': validateOrdensServico,
   'os-recebimentos': validateOsRecebimento,
+  'manejo-curral': validateManejoCurral,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

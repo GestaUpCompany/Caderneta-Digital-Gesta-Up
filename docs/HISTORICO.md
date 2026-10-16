@@ -2,6 +2,10 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Caderneta Manejo de curral (16/10/2026)
+
+Nova caderneta offline-first (`/caderneta/manejo-curral`, menu Gado & Pastagens): sessão com várias linhas (animal, brinco/chip/manejo novo, motivo, lote de destino, peso opcional), rascunho no IndexedDB (`rascunhos`), animal não achado só vira cadastro novo se vier completo. Store novo `manejo-curral` (IndexedDB versão 35). Sync: uma sessão = um item na fila; `sessoes_manejo_curral` -> `registros_manejo_curral` (upsert por local_id) -> RPC `aplicar_manejo_curral`. Lote de destino vira pendência no painel; peso fica só na linha. Fila: ordem 100 (depois da maternidade). Atenção: em `syncToSupabase`, tabela sem `case` no switch correspondente conclui como sucesso sem enviar nada; a tabela nova precisa de `case` no switch de `else` (não no de `upsertTables`). Utilitários e testes em `utils/manejoCurral.ts`.
+
 ## Busca de animais pelo ID provisório da cria (16/10/2026)
 
 Só PWA, sem migration nem mudança de IndexedDB. O cache já trazia `id_provisorio_cria`; faltava a busca usá-lo. `acharPorIdentificador` passa a casar também o ID provisório (sem caixa e sem espaços nas pontas), e o seletor de ID manejo do `AnimalIdentifier` lista o provisório das crias que ainda não têm manejo. Selecionar ou digitar o provisório reencontra a cria e preenche o vínculo. Teste novo em `identificadores.test.ts`.
