@@ -15,6 +15,11 @@ describe('normalizarIdentificador', () => {
 })
 
 describe('acharPorIdentificador', () => {
+  it('acha a cria pelo ID provisório, sem caixa nem espaço', () => {
+    const lista = [{ id: 'c', id_manejo: null, id_brinco: null, id_chip: null, id_provisorio_cria: 'P-7' }]
+    expect(acharPorIdentificador(lista, { manejo: ' p-7 ' })?.id).toBe('c')
+  })
+
   it('ignora caixa e espaços', () => {
     expect(acharPorIdentificador(lista, { brinco: ' ab-12' })?.id).toBe('a')
     expect(acharPorIdentificador(lista, { manejo: 'm-001' })?.id).toBe('a')

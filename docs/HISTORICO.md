@@ -2,6 +2,10 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Busca de animais pelo ID provisório da cria (16/10/2026)
+
+Só PWA, sem migration nem mudança de IndexedDB. O cache já trazia `id_provisorio_cria`; faltava a busca usá-lo. `acharPorIdentificador` passa a casar também o ID provisório (sem caixa e sem espaços nas pontas), e o seletor de ID manejo do `AnimalIdentifier` lista o provisório das crias que ainda não têm manejo. Selecionar ou digitar o provisório reencontra a cria e preenche o vínculo. Teste novo em `identificadores.test.ts`.
+
 ## Busca de animais: lista completa, comparação sem caixa/espaço, animais criados offline e aviso de número já usado (16/10/2026)
 
 Só PWA, sem migration nem mudança de IndexedDB (usa a chave `identificadores_baixados` do store `cadastroData`, objeto `{ itens }`).

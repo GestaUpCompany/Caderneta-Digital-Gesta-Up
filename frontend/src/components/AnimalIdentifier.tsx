@@ -274,10 +274,14 @@ export default function AnimalIdentifier({
   // Filter out calves (they cannot be mothers) - only show individuals with formal IDs
   const eligibleIndividuos = useMemo(() =>
     individuos.filter(i =>
-      i.id_manejo || i.id_brinco || i.id_chip
+      i.id_manejo || i.id_brinco || i.id_chip || i.id_provisorio_cria
     ), [individuos])
 
-  const manejoOptions = useMemo(() => eligibleIndividuos.map((i) => i.id_manejo).filter(Boolean) as string[], [eligibleIndividuos])
+  // Cria ainda sem brinco definitivo é achada pelo ID provisório, na mesma lista do manejo
+  const manejoOptions = useMemo(
+    () => eligibleIndividuos.map((i) => i.id_manejo || i.id_provisorio_cria).filter(Boolean) as string[],
+    [eligibleIndividuos]
+  )
   const brincoOptions = useMemo(() => eligibleIndividuos.map((i) => i.id_brinco).filter(Boolean) as string[], [eligibleIndividuos])
   const chipOptions = useMemo(() => eligibleIndividuos.map((i) => i.id_chip).filter(Boolean) as string[], [eligibleIndividuos])
 

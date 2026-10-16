@@ -6,6 +6,8 @@ export interface IdentificadoresDoAnimal {
   id_manejo?: string | null
   id_brinco?: string | null
   id_chip?: string | null
+  /** ID provisório da cria (antes do brinco definitivo) */
+  id_provisorio_cria?: string | null
 }
 
 export const normalizarIdentificador = (v?: string | null): string => (v ?? '').trim().toUpperCase()
@@ -18,7 +20,7 @@ export interface IdentificadoresDigitados {
 
 /**
  * Acha na lista o animal que tem algum dos identificadores digitados, em qualquer um dos três campos
- * (o peão pode digitar o brinco no campo do manejo). Ignora caixa e espaços; valor vazio não casa com nada.
+ * (o peão pode digitar o brinco no campo do manejo) e no ID provisório da cria. Ignora caixa e espaços; valor vazio não casa com nada.
  */
 export function acharPorIdentificador<T extends IdentificadoresDoAnimal>(
   lista: T[],
@@ -27,7 +29,7 @@ export function acharPorIdentificador<T extends IdentificadoresDoAnimal>(
   const procurados = [digitados.manejo, digitados.brinco, digitados.chip].map(normalizarIdentificador).filter(Boolean)
   if (procurados.length === 0) return undefined
   return lista.find((a) => {
-    const meus = [a.id_manejo, a.id_brinco, a.id_chip].map(normalizarIdentificador)
+    const meus = [a.id_manejo, a.id_brinco, a.id_chip, a.id_provisorio_cria].map(normalizarIdentificador)
     return procurados.some((p) => meus.includes(p))
   })
 }
