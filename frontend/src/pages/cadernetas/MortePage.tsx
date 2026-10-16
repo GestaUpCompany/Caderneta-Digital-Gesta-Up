@@ -110,6 +110,7 @@ interface FormState {
   brinco: string
   chip: string
   idManejo: string
+  idProvisorio: string
   individuoId: string
   observacaoIdentificacao: string
   categoria: string
@@ -140,6 +141,7 @@ const makeInitial = (): FormState => ({
   brinco: '',
   chip: '',
   idManejo: '',
+  idProvisorio: '',
   individuoId: '',
   observacaoIdentificacao: '',
   categoria: '',
@@ -420,10 +422,12 @@ export default function MortePage() {
       loteId: form.loteId,
       brinco: form.brinco,
       chip: form.chip,
-      // registros_morte não tem coluna de ID de manejo: quando só ele identifica o animal, vai na observação
+      // registros_morte não tem colunas de ID de manejo nem de provisório: quando só eles identificam o animal, vão na observação
       observacaoIdentificacao:
-        form.observacaoIdentificacao.trim() === '' && !form.brinco.trim() && !form.chip.trim() && form.idManejo.trim() !== ''
-          ? `ID de manejo: ${form.idManejo.trim()}`
+        form.observacaoIdentificacao.trim() === '' && !form.brinco.trim() && !form.chip.trim() && (form.idManejo.trim() || form.idProvisorio.trim())
+          ? form.idManejo.trim()
+            ? `ID de manejo: ${form.idManejo.trim()}`
+            : `ID provisório: ${form.idProvisorio.trim()}`
           : form.observacaoIdentificacao,
       categoria: categoriaFinal,
       categoriaOutros: '',
@@ -747,6 +751,7 @@ export default function MortePage() {
                 return {
                   ...prev,
                   idManejo,
+                  idProvisorio: animalData?.id_provisorio_cria || '',
                   brinco: idBrinco,
                   chip: idChip,
                   individuoId: individuoId || '',
