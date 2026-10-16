@@ -52,13 +52,15 @@ const MOTIVOS: { value: string; label: string }[] = [
   { value: 'trocado', label: 'Brinco trocado' },
 ]
 
+// Estado inicial determinístico (sem uuid nem hora): o hook de rascunho compara com ele para saber se a tela está
+// vazia. Os ids da sessão e da linha são gerados quando o animal entra na lista ou ao salvar.
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  sessaoId: uuidv4(),
-  iniciadaEm: new Date().toISOString(),
+  sessaoId: '',
+  iniciadaEm: '',
   observacao: '',
   linhas: [],
-  linha: novaLinha(uuidv4()),
+  linha: novaLinha(''),
 })
 
 export default function ManejoCurralPage() {
@@ -131,10 +133,13 @@ export default function ManejoCurralPage() {
     }
     setAvisoLinha(null)
     setForm((f) => {
-      const existe = f.linhas.some((l) => l.uid === f.linha.uid)
+      const atual = f.linha.uid ? f.linha : { ...f.linha, uid: uuidv4() }
+      const existe = f.linhas.some((l) => l.uid === atual.uid)
       return {
         ...f,
-        linhas: existe ? f.linhas.map((l) => (l.uid === f.linha.uid ? f.linha : l)) : [...f.linhas, f.linha],
+        sessaoId: f.sessaoId || uuidv4(),
+        iniciadaEm: f.iniciadaEm || new Date().toISOString(),
+        linhas: existe ? f.linhas.map((l) => (l.uid === atual.uid ? atual : l)) : [...f.linhas, atual],
         linha: novaLinha(uuidv4()),
       }
     })
@@ -154,14 +159,14 @@ export default function ManejoCurralPage() {
     setForm((f) => ({
       ...f,
       linhas: f.linhas.filter((l) => l.uid !== uid),
-      linha: editandoUid === uid ? novaLinha(uuidv4()) : f.linha,
+      linha: editandoUid === uid ? novaLinha('') : f.linha,
     }))
     if (editandoUid === uid) setEditandoUid(null)
   }
 
   // Linha em edição e ainda não adicionada: entra na sessão ao salvar, para ninguém perder o último animal
   const linhasParaSalvar = useMemo(() => {
-    const jaNaLista = form.linhas.some((l) => l.uid === form.linha.uid)
+    const jaNaLista = !!form.linha.uid && form.linhas.some((l) => l.uid === form.linha.uid)
     return !linhaVazia(form.linha) && !jaNaLista ? [...form.linhas, form.linha] : form.linhas
   }, [form.linhas, form.linha])
 
@@ -184,14 +189,14 @@ export default function ManejoCurralPage() {
     setSalvando(true)
     setErrors([])
     const resultado = await salvarRegistro('manejo-curral', {
-      id: form.sessaoId,
+      id: form.sessaoId || uuidv4(),
       data: form.data,
       responsavel: usuario,
       usuario,
       observacao: form.observacao,
-      iniciadaEm: form.iniciadaEm,
+      iniciadaEm: form.iniciadaEm || new Date().toISOString(),
       finalizadaEm: new Date().toISOString(),
-      linhas: linhasParaSalvar,
+      linhas: linhasParaSalvar.map((l) => (l.uid ? l : { ...l, uid: uuidv4() })),
     })
     setSalvando(false)
     if (!resultado.success) {

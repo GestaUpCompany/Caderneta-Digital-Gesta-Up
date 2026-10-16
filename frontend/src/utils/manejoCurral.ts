@@ -124,9 +124,10 @@ export function linhasParaServidor(
       individuo_id: l.individuoId || null,
       identificador_lido: texto(l.identificadorLido),
       id_provisorio_anterior: texto(l.idProvisorioAnterior),
-      id_brinco_novo: texto(l.idBrincoNovo),
-      id_chip_novo: texto(l.idChipNovo),
-      id_manejo_novo: texto(l.idManejoNovo),
+      // Animal não encontrado: o ID digitado no seletor é a identificação do animal novo (o servidor só cadastra com ela)
+      id_brinco_novo: texto(l.idBrincoNovo) ?? (l.individuoId ? null : texto(l.lidoBrinco)),
+      id_chip_novo: texto(l.idChipNovo) ?? (l.individuoId ? null : texto(l.lidoChip)),
+      id_manejo_novo: texto(l.idManejoNovo) ?? (l.individuoId ? null : texto(l.lidoManejo)),
       motivo_troca: l.motivoTroca || null,
       peso_kg: numero(l.pesoKg),
       lote_destino_id: l.loteDestinoId || null,

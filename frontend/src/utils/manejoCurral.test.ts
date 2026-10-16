@@ -40,6 +40,19 @@ describe('manejoCurral', () => {
     expect(r[1]).toMatchObject({ id: 'c', ordem: 2, individuo_id: null, sexo: 'Fêmea', categoria: 'novilha', lote_destino_id: 'L1' })
   })
 
+  it('animal não encontrado: o ID digitado no seletor vira a identificação do animal novo; animal achado não', () => {
+    const novo = { ...base(), uid: 'n', identificadorLido: 'NOVO-77', lidoBrinco: 'NOVO-77', sexo: 'Fêmea' as const, categoria: 'Novilha', raca: 'Nelore', loteDestinoId: 'L1' }
+    const achado = { ...base(), uid: 'e', individuoId: 'ind-1', identificadorLido: '22', lidoBrinco: '22', lidoChip: '26' }
+    const [rn, re] = linhasParaServidor([novo, achado], 's', 'f')
+    expect(rn).toMatchObject({ id_brinco_novo: 'NOVO-77', id_chip_novo: null, id_manejo_novo: null })
+    expect(re).toMatchObject({ id_brinco_novo: null, id_chip_novo: null })
+  })
+
+  it('identificação nova digitada vale mais que o ID lido', () => {
+    const [r] = linhasParaServidor([{ ...base(), idBrincoNovo: 'DEF-1', lidoBrinco: 'PROV-1', identificadorLido: 'PROV-1' }], 's', 'f')
+    expect(r).toMatchObject({ id_brinco_novo: 'DEF-1' })
+  })
+
   it('peso inválido ou zero não vai para o servidor', () => {
     const r = linhasParaServidor([{ ...base(), idBrincoNovo: 'B', pesoKg: '0' }, { ...base(), uid: 'z', idBrincoNovo: 'C', pesoKg: 'abc' }], 's', 'f')
     expect(r.map((x) => x.peso_kg)).toEqual([null, null])
