@@ -490,12 +490,58 @@ const formatarAuditoria5sComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+// Manejo de curral: uma sessão com várias linhas (animal, identificação nova, lote de destino e peso).
+const MOTIVOS_TROCA_CURRAL: Record<string, string> = {
+  definitivo: 'brinco definitivo',
+  perdido: 'brinco perdido',
+  trocado: 'brinco trocado',
+}
+
+const formatarManejoCurralComoTexto = (registro: Registro): string => {
+  const linhas = (Array.isArray(registro.linhas) ? registro.linhas : []) as Record<string, unknown>[]
+  const dataStr = String(registro.data ?? '').replace(/(\d{2}:\d{2})$/, 'às $1')
+
+  let texto = '📋 *MANEJO DE CURRAL*\n'
+  texto += `📅 ${dataStr}\n`
+  if (registro.responsavel || registro.usuario) texto += `👤 ${registro.responsavel || registro.usuario}\n`
+  texto += `\n🐄 *${linhas.length} ${linhas.length === 1 ? 'animal' : 'animais'}*\n`
+
+  linhas.forEach((l, i) => {
+    const lido = String(l.identificadorLido || l.idProvisorioAnterior || '').trim()
+    const novos = [
+      l.idBrincoNovo && `brinco ${l.idBrincoNovo}`,
+      l.idChipNovo && `chip ${l.idChipNovo}`,
+      l.idManejoNovo && `manejo ${l.idManejoNovo}`,
+    ].filter(Boolean)
+    let linha = `${i + 1}. ${lido || (l.individuoId ? 'Animal cadastrado' : 'Animal sem ID')}`
+    if (novos.length > 0) linha += ` → ${novos.join(', ')}`
+    const motivo = MOTIVOS_TROCA_CURRAL[String(l.motivoTroca || '')]
+    if (motivo) linha += ` (${motivo})`
+    if (l.loteDestinoNome) linha += `\n   📍 Lote: ${l.loteDestinoNome}`
+    const peso = normalizarNumero(l.pesoKg as any)
+    if (peso !== null && peso > 0) linha += `\n   ⚖️ ${formatarNumeroBR(peso, '—', 1)} kg`
+    if (!l.individuoId && (l.sexo || l.categoria || l.raca)) {
+      linha += `\n   🆕 Animal novo: ${[l.categoria, l.sexo, l.raca].filter(Boolean).join(' · ')}`
+    }
+    if (l.observacao) linha += `\n   📝 ${l.observacao}`
+    texto += `${linha}\n`
+  })
+
+  const comLote = linhas.filter((l) => l.loteDestinoId).length
+  if (comLote > 0) texto += `\nℹ️ ${comLote} mudança(s) de lote aguardam confirmação do gestor.\n`
+  if (registro.observacao) texto += `\n📝 ${registro.observacao}\n`
+  return texto.trimEnd()
+}
+
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   if (caderneta === 'auditoria-5s') {
     return formatarAuditoria5sComoTexto(registro)
   }
   if (caderneta === 'pesagem') {
     return formatarPesagemComoTexto(registro, todosRegistros)
+  }
+  if (caderneta === 'manejo-curral') {
+    return formatarManejoCurralComoTexto(registro)
   }
   if (caderneta === 'ordens-servico') {
     if (registro.tipo === 'compra') return formatarComunicadoCompraComoTexto(registro)

@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { v4 as uuidv4 } from 'uuid'
-import { CheckCircle2, Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import CadernetaLayout from '../../components/CadernetaLayout'
+import CadernetaSection from '../../components/cadernetas/CadernetaSection'
+import InfoStrip from '../../components/cadernetas/InfoStrip'
+import FormFooter from '../../components/cadernetas/FormFooter'
+import BannerRascunho from '../../components/BannerRascunho'
+import SuccessModal from '../../components/SuccessModal'
 import AnimalIdentifier from '../../components/AnimalIdentifier'
-import { Button, Input, Select } from '../../components/ui'
+import { DatePicker, Input, Select, SearchableModal, ValidationMessage } from '../../components/ui'
 import { salvarRegistro } from '../../services/api'
 import { getLotes } from '../../services/supabaseService'
 import { getCachedCadastroData, getLoteByNomeCached, getRacasCached } from '../../services/cadastroCache'
-import { lerRascunho, limparRascunho, salvarRascunho } from '../../services/indexedDB'
+import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import {
@@ -21,11 +26,13 @@ import {
   type MotivoTroca,
 } from '../../utils/manejoCurral'
 
-interface SessaoManejo {
-  id: string
+interface FormState {
+  data: string
+  sessaoId: string
   iniciadaEm: string
   observacao: string
   linhas: LinhaManejo[]
+  linha: LinhaManejo
 }
 
 interface LoteItem {
@@ -45,47 +52,33 @@ const MOTIVOS: { value: string; label: string }[] = [
   { value: 'trocado', label: 'Brinco trocado' },
 ]
 
-const novaSessao = (): SessaoManejo => ({ id: uuidv4(), iniciadaEm: new Date().toISOString(), observacao: '', linhas: [] })
+const makeInitial = (): FormState => ({
+  data: todayBR(),
+  sessaoId: uuidv4(),
+  iniciadaEm: new Date().toISOString(),
+  observacao: '',
+  linhas: [],
+  linha: novaLinha(uuidv4()),
+})
 
 export default function ManejoCurralPage() {
   const navigate = useNavigate()
   const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
-  const rascunhoKey = `manejo-curral-${fazendaId}`
 
-  const [sessao, setSessao] = useState<SessaoManejo>(novaSessao())
-  const [carregada, setCarregada] = useState(false)
-  const [linha, setLinha] = useState<LinhaManejo>(() => novaLinha(uuidv4()))
+  const initial = useCallback(makeInitial, [])
+  const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } = useRascunhoForm<FormState>({
+    rascunhoKey: `manejo-curral-${fazendaId}`,
+    makeInitial: initial,
+  })
+
   const [editandoUid, setEditandoUid] = useState<string | null>(null)
   const [lotes, setLotes] = useState<LoteItem[]>([])
   const [racas, setRacas] = useState<string[]>([])
-  const [erros, setErros] = useState<string[]>([])
+  const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
+  const [avisoLinha, setAvisoLinha] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
-  const [concluida, setConcluida] = useState<number | null>(null)
-
-  // Rascunho: a sessão inteira (linhas já feitas e a linha em edição) sobrevive a fechar o app
-  useEffect(() => {
-    if (!fazendaId) return
-    let cancelado = false
-    lerRascunho<{ sessao: SessaoManejo; linha: LinhaManejo }>(rascunhoKey)
-      .then((r) => {
-        if (cancelado) return
-        if (r?.sessao) setSessao(r.sessao)
-        if (r?.linha) setLinha(r.linha)
-      })
-      .catch(() => {})
-      .finally(() => !cancelado && setCarregada(true))
-    return () => {
-      cancelado = true
-    }
-  }, [fazendaId, rascunhoKey])
-
-  useEffect(() => {
-    if (!carregada || !fazendaId || concluida !== null) return
-    const t = setTimeout(() => {
-      salvarRascunho(rascunhoKey, { sessao, linha }).catch((e) => console.error('[ManejoCurral] rascunho:', e))
-    }, 400)
-    return () => clearTimeout(t)
-  }, [sessao, linha, carregada, fazendaId, rascunhoKey, concluida])
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [registroSalvo, setRegistroSalvo] = useState<any>(undefined)
 
   // Lotes e raças (online primeiro, cache offline)
   useEffect(() => {
@@ -125,238 +118,279 @@ export default function ManejoCurralPage() {
     }
   }, [fazendaId])
 
-  const opcoesLote = useMemo(
-    () => [{ value: '', label: 'Não designar lote' }, ...lotes.map((l) => ({ value: l.id, label: l.nome }))],
-    [lotes]
-  )
+  const nomesLotes = useMemo(() => lotes.map((l) => l.nome), [lotes])
   const opcoesRaca = useMemo(() => [{ value: '', label: 'Selecione...' }, ...racas.map((r) => ({ value: r, label: r }))], [racas])
 
-  const set = (patch: Partial<LinhaManejo>) => setLinha((l) => ({ ...l, ...patch }))
+  const linha = form.linha
+  const setLinha = (patch: Partial<LinhaManejo>) => setForm((f) => ({ ...f, linha: { ...f.linha, ...patch } }))
 
   const adicionarLinha = () => {
     if (linhaVazia(linha)) {
-      setErros(['Informe o animal, uma identificação nova, o lote ou o peso'])
+      setAvisoLinha('Informe o animal, uma identificação nova, o lote ou o peso')
       return
     }
-    const faltas = faltaParaAnimalNovo(linha)
-    // Animal não encontrado só vira cadastro novo se vier completo; senão o servidor registraria um conflito
-    if (!linha.individuoId && linha.identificadorLido.trim() === '' && faltas.length > 0) {
-      setErros([`Animal novo: falta ${faltas.join(', ')}`])
-      return
-    }
-    setErros([])
-    setSessao((s) => {
-      const existe = s.linhas.some((l) => l.uid === linha.uid)
-      return { ...s, linhas: existe ? s.linhas.map((l) => (l.uid === linha.uid ? linha : l)) : [...s.linhas, linha] }
+    setAvisoLinha(null)
+    setForm((f) => {
+      const existe = f.linhas.some((l) => l.uid === f.linha.uid)
+      return {
+        ...f,
+        linhas: existe ? f.linhas.map((l) => (l.uid === f.linha.uid ? f.linha : l)) : [...f.linhas, f.linha],
+        linha: novaLinha(uuidv4()),
+      }
     })
     setEditandoUid(null)
-    setLinha(novaLinha(uuidv4()))
   }
 
   const editarLinha = (uid: string) => {
-    const alvo = sessao.linhas.find((l) => l.uid === uid)
+    const alvo = form.linhas.find((l) => l.uid === uid)
     if (!alvo) return
-    setLinha(alvo)
+    setForm((f) => ({ ...f, linha: alvo }))
     setEditandoUid(uid)
+    setAvisoLinha(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const removerLinha = (uid: string) => {
-    setSessao((s) => ({ ...s, linhas: s.linhas.filter((l) => l.uid !== uid) }))
-    if (editandoUid === uid) {
-      setEditandoUid(null)
-      setLinha(novaLinha(uuidv4()))
-    }
+    setForm((f) => ({
+      ...f,
+      linhas: f.linhas.filter((l) => l.uid !== uid),
+      linha: editandoUid === uid ? novaLinha(uuidv4()) : f.linha,
+    }))
+    if (editandoUid === uid) setEditandoUid(null)
   }
 
-  const finalizar = async () => {
-    if (sessao.linhas.length === 0) {
-      setErros(['Registre ao menos um animal'])
+  // Linha em edição e ainda não adicionada: entra na sessão ao salvar, para ninguém perder o último animal
+  const linhasParaSalvar = useMemo(() => {
+    const jaNaLista = form.linhas.some((l) => l.uid === form.linha.uid)
+    return !linhaVazia(form.linha) && !jaNaLista ? [...form.linhas, form.linha] : form.linhas
+  }, [form.linhas, form.linha])
+
+  const animalNovoIncompleto = useMemo(
+    () =>
+      linhasParaSalvar.some(
+        (l) => !l.individuoId && l.identificadorLido.trim() === '' && !linhaVazia(l) && faltaParaAnimalNovo(l).length > 0
+      ),
+    [linhasParaSalvar]
+  )
+
+  const isValid = linhasParaSalvar.length > 0
+  const pendenciaTexto = isValid ? undefined : 'Falta registrar ao menos um animal'
+
+  const handleSalvar = async () => {
+    if (!isValid) {
+      setErrors([{ field: 'linhas', message: 'Registre ao menos um animal' }])
       return
     }
     setSalvando(true)
-    setErros([])
+    setErrors([])
     const resultado = await salvarRegistro('manejo-curral', {
-      id: sessao.id,
-      data: todayBR(),
+      id: form.sessaoId,
+      data: form.data,
       responsavel: usuario,
       usuario,
-      observacao: sessao.observacao,
-      iniciadaEm: sessao.iniciadaEm,
+      observacao: form.observacao,
+      iniciadaEm: form.iniciadaEm,
       finalizadaEm: new Date().toISOString(),
-      linhas: sessao.linhas,
+      linhas: linhasParaSalvar,
     })
     setSalvando(false)
     if (!resultado.success) {
-      setErros((resultado.errors || []).map((e) => e.message))
+      setErrors(resultado.errors || [])
       return
     }
-    await limparRascunho(rascunhoKey).catch(() => {})
-    setConcluida(sessao.linhas.length)
+    setRegistroSalvo(resultado.registro)
+    setShowSuccessModal(true)
+    limparRascunho()
+    setEditandoUid(null)
   }
 
-  const novaSessaoDepois = () => {
-    setSessao(novaSessao())
-    setLinha(novaLinha(uuidv4()))
-    setConcluida(null)
-    setErros([])
+  const handleLimpar = () => {
+    limparRascunho()
+    setErrors([])
+    setAvisoLinha(null)
+    setEditandoUid(null)
+  }
+
+  const handleNewRecord = () => {
+    setShowSuccessModal(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleExit = () => {
+    setShowSuccessModal(false)
+    navigate('/')
   }
 
   if (!fazendaId) {
     return (
-      <CadernetaLayout title="MANEJO DE CURRAL" cadernetaId="manejo-curral" showRegistrosButton={false} onBack={() => navigate('/')}>
-        <p className="p-4 text-sm text-gray-600">Configure a fazenda antes de usar esta caderneta.</p>
-      </CadernetaLayout>
-    )
-  }
-
-  if (concluida !== null) {
-    return (
-      <CadernetaLayout title="MANEJO DE CURRAL" cadernetaId="manejo-curral" showRegistrosButton={false} onBack={() => navigate('/')}>
-        <div className="p-4 flex flex-col items-center gap-4 text-center">
-          <CheckCircle2 className="w-14 h-14 text-green-700" />
-          <p className="text-lg font-bold">Sessão salva com {concluida} animal(is)</p>
-          <p className="text-sm text-gray-600">
-            Os dados ficam no aparelho e são enviados quando houver sinal. A mudança de lote não é aplicada sozinha: o gestor
-            confirma no painel.
-          </p>
-          <Button onClick={novaSessaoDepois}>NOVA SESSÃO</Button>
-          <Button variant="secondary" onClick={() => navigate('/')}>
-            VOLTAR AO MENU
-          </Button>
-        </div>
+      <CadernetaLayout title="MANEJO DE CURRAL" cadernetaId="manejo-curral" showRegistrosButton={false}>
+        <InfoStrip tone="warning" icon="⚠️">
+          Configure a fazenda antes de usar esta caderneta.
+        </InfoStrip>
       </CadernetaLayout>
     )
   }
 
   return (
-    <CadernetaLayout title="MANEJO DE CURRAL" cadernetaId="manejo-curral" showRegistrosButton={false} onBack={() => navigate('/')}>
-      <div className="p-4 flex flex-col gap-5">
-        <p className="text-sm text-gray-600">
-          Identifique os animais e escolha o lote de destino. Nada é obrigatório, e o lote só muda depois que o gestor confirmar.
-        </p>
+    <>
+      <CadernetaLayout
+        title="MANEJO DE CURRAL"
+        cadernetaId="manejo-curral"
+        showRegistrosButton={false}
+        dateContent={<DatePicker value={form.data} onChange={(v) => setForm((f) => ({ ...f, data: v }))} variant="header" compact inline maxDate={todayBR()} />}
+      >
+        <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
+        {errors.length > 0 && <ValidationMessage errors={errors} />}
 
-        <section className="flex flex-col gap-3">
-          <h2 className="font-bold">{editandoUid ? 'Editando animal' : `Animal ${sessao.linhas.length + 1}`}</h2>
+        <InfoStrip tone="neutral" icon="ℹ️">
+          Nada é obrigatório. O lote de destino só muda depois que o gestor confirmar, e o peso fica só no animal.
+        </InfoStrip>
 
+        <CadernetaSection numero={1} titulo={editandoUid ? 'Animal (editando)' : `Animal ${form.linhas.length + 1}`}>
           <AnimalIdentifier
             key={linha.uid}
             fazendaId={fazendaId}
-            label="1. Qual é o animal? (provisório, brinco, chip ou manejo)"
+            label="Provisório, brinco, chip ou manejo"
             valueManejo={linha.lidoManejo}
             valueBrinco={linha.lidoBrinco}
             valueChip={linha.lidoChip}
             showAnimalCard
-            mensagemNovoAnimal="ID não encontrado: preencha abaixo para cadastrar como animal novo."
+            mensagemNovoAnimal="ID não encontrado: preencha os dados do animal novo abaixo."
             onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
               const lido = idManejo || idBrinco || idChip || animalData?.id_provisorio_cria || ''
-              setLinha((l) => ({
-                ...l,
-                individuoId,
-                identificadorLido: lido,
-                lidoManejo: idManejo,
-                lidoBrinco: idBrinco,
-                lidoChip: idChip,
-                idProvisorioAnterior: animalData?.id_provisorio_cria || '',
-                // Animal achado: lote e dados dele vêm do cadastro; animal novo: o peão preenche
-                sexo: animalData ? '' : l.sexo,
-                categoria: animalData ? '' : l.categoria,
-                raca: animalData ? '' : l.raca,
+              setForm((f) => ({
+                ...f,
+                linha: {
+                  ...f.linha,
+                  individuoId,
+                  identificadorLido: lido,
+                  lidoManejo: idManejo,
+                  lidoBrinco: idBrinco,
+                  lidoChip: idChip,
+                  idProvisorioAnterior: animalData?.id_provisorio_cria || '',
+                  sexo: animalData ? '' : f.linha.sexo,
+                  categoria: animalData ? '' : f.linha.categoria,
+                  raca: animalData ? '' : f.linha.raca,
+                },
               }))
             }}
           />
-
-          <h3 className="font-semibold text-sm mt-1">2. Identificação nova</h3>
-          <Input label="Brinco novo" value={linha.idBrincoNovo} onChange={(e) => set({ idBrincoNovo: e.target.value })} />
-          <Input label="Chip novo" value={linha.idChipNovo} onChange={(e) => set({ idChipNovo: e.target.value })} />
-          <Input label="ID de manejo novo" value={linha.idManejoNovo} onChange={(e) => set({ idManejoNovo: e.target.value })} />
-          <Select
-            label="Motivo"
-            value={linha.motivoTroca}
-            onChange={(e) => set({ motivoTroca: e.target.value as MotivoTroca })}
-            options={MOTIVOS}
-          />
-
-          <h3 className="font-semibold text-sm mt-1">3. Lote de destino e peso</h3>
-          <Select
-            label="Lote de destino"
-            value={linha.loteDestinoId}
-            onChange={(e) => {
-              const l = lotes.find((x) => x.id === e.target.value)
-              set({ loteDestinoId: e.target.value, loteDestinoNome: l?.nome || '' })
-            }}
-            options={opcoesLote}
-          />
-          <Input
-            label="Peso (kg, opcional)"
-            inputMode="decimal"
-            value={linha.pesoKg}
-            onChange={(e) => set({ pesoKg: e.target.value })}
-            helper="O peso fica só neste animal; não altera o peso do lote."
-          />
-
           {!linha.individuoId && linha.identificadorLido.trim() !== '' && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex flex-col gap-3">
-              <p className="text-sm font-medium text-amber-900">
-                Animal não encontrado. Para cadastrá-lo como novo, preencha estes dados (se deixar em branco, a linha é
-                guardada e o gestor resolve).
-              </p>
+            <>
+              <InfoStrip tone="warning" icon="⚠️">
+                Animal não encontrado. Para cadastrá-lo como novo, preencha os dados; se deixar em branco, a linha é guardada e o
+                gestor resolve.
+              </InfoStrip>
               <Select
                 label="Sexo"
                 value={linha.sexo}
-                onChange={(e) => set({ sexo: e.target.value as LinhaManejo['sexo'] })}
+                onChange={(e) => setLinha({ sexo: e.target.value as LinhaManejo['sexo'] })}
                 options={[{ value: '', label: 'Selecione...' }, { value: 'Macho', label: 'Macho' }, { value: 'Fêmea', label: 'Fêmea' }]}
               />
               <Select
                 label="Categoria"
                 value={linha.categoria}
-                onChange={(e) => set({ categoria: e.target.value })}
+                onChange={(e) => setLinha({ categoria: e.target.value })}
                 options={[{ value: '', label: 'Selecione...' }, ...CATEGORIAS.map((c) => ({ value: c, label: c }))]}
               />
-              <Select label="Raça" value={linha.raca} onChange={(e) => set({ raca: e.target.value })} options={opcoesRaca} />
-            </div>
+              <Select label="Raça" value={linha.raca} onChange={(e) => setLinha({ raca: e.target.value })} options={opcoesRaca} />
+            </>
           )}
+        </CadernetaSection>
 
-          <Input label="Observação" value={linha.observacao} onChange={(e) => set({ observacao: e.target.value })} />
+        <CadernetaSection numero={2} titulo="Identificação nova">
+          <Input label="Brinco novo" value={linha.idBrincoNovo} onChange={(e) => setLinha({ idBrincoNovo: e.target.value })} />
+          <Input label="Chip novo" value={linha.idChipNovo} onChange={(e) => setLinha({ idChipNovo: e.target.value })} />
+          <Input label="ID de manejo novo" value={linha.idManejoNovo} onChange={(e) => setLinha({ idManejoNovo: e.target.value })} />
+          <Select
+            label="Motivo"
+            value={linha.motivoTroca}
+            onChange={(e) => setLinha({ motivoTroca: e.target.value as MotivoTroca })}
+            options={MOTIVOS}
+          />
+        </CadernetaSection>
 
-          {erros.length > 0 && (
-            <ul className="text-sm text-red-700 font-medium list-disc pl-5">
-              {erros.map((e) => (
-                <li key={e}>{e}</li>
-              ))}
-            </ul>
+        <CadernetaSection numero={3} titulo="Lote de destino e peso">
+          {nomesLotes.length > 0 ? (
+            <SearchableModal
+              label=""
+              value={linha.loteDestinoNome}
+              onChange={(nome: string) => {
+                const l = lotes.find((x) => x.nome === nome)
+                setLinha({ loteDestinoId: l?.id || '', loteDestinoNome: l?.nome || '' })
+              }}
+              options={nomesLotes}
+              placeholder="Lote de destino (opcional)..."
+              id="loteDestino"
+              name="loteDestino"
+            />
+          ) : (
+            <Input label="LOTE DE DESTINO" placeholder="Nenhum lote neste aparelho. Conecte à internet e atualize os dados" value="" onChange={() => {}} disabled />
           )}
+          <Input
+            label="Peso (kg, opcional)"
+            inputMode="decimal"
+            value={linha.pesoKg}
+            onChange={(e) => setLinha({ pesoKg: e.target.value })}
+            helper="O peso fica só neste animal; não altera o peso do lote."
+          />
+          <Input label="Observação (opcional)" value={linha.observacao} onChange={(e) => setLinha({ observacao: e.target.value })} />
+          {avisoLinha && <InfoStrip tone="danger">{avisoLinha}</InfoStrip>}
+          <button
+            type="button"
+            onClick={adicionarLinha}
+            className="flex min-h-[56px] items-center justify-center gap-2 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99]"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.5} />
+            <span className="text-sm font-extrabold uppercase tracking-wide">{editandoUid ? 'Salvar alteração' : 'Adicionar animal'}</span>
+          </button>
+        </CadernetaSection>
 
-          <Button onClick={adicionarLinha}>{editandoUid ? 'SALVAR ALTERAÇÃO' : 'ADICIONAR ANIMAL'}</Button>
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <h2 className="font-bold">Animais da sessão ({sessao.linhas.length})</h2>
-          {sessao.linhas.length === 0 && <p className="text-sm text-gray-500">Nenhum animal ainda.</p>}
-          {sessao.linhas.map((l, i) => (
-            <div key={l.uid} className="flex items-center gap-2 rounded-lg border border-gray-300 p-3">
-              <span className="font-bold w-7 text-gray-500">{i + 1}</span>
-              <span className="flex-1 text-sm">{resumirLinha(l)}</span>
-              <button type="button" aria-label="Editar" className="p-2" onClick={() => editarLinha(l.uid)}>
-                <Pencil className="w-5 h-5" />
+        <CadernetaSection numero={4} titulo={`Animais da sessão (${form.linhas.length})`}>
+          {form.linhas.length === 0 && <InfoStrip tone="neutral">Nenhum animal adicionado ainda.</InfoStrip>}
+          {form.linhas.map((l, i) => (
+            <div key={l.uid} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3">
+              <span className="w-6 text-sm font-extrabold text-gray-400">{i + 1}</span>
+              <span className="min-w-0 flex-1 text-sm font-semibold text-gray-800">{resumirLinha(l)}</span>
+              <button type="button" aria-label="Editar" className="!min-h-0 p-2 text-gray-700" onClick={() => editarLinha(l.uid)}>
+                <Pencil className="h-5 w-5" />
               </button>
-              <button type="button" aria-label="Excluir" className="p-2 text-red-700" onClick={() => removerLinha(l.uid)}>
-                <Trash2 className="w-5 h-5" />
+              <button type="button" aria-label="Excluir" className="!min-h-0 p-2 text-red-700" onClick={() => removerLinha(l.uid)}>
+                <Trash2 className="h-5 w-5" />
               </button>
             </div>
           ))}
-        </section>
+          {animalNovoIncompleto && (
+            <InfoStrip tone="warning" icon="⚠️">
+              Há animal novo sem todos os dados (identificação, lote, categoria, sexo e raça). Ele será guardado e o gestor resolve.
+            </InfoStrip>
+          )}
+          <Input
+            placeholder="Observação da sessão (opcional)"
+            value={form.observacao}
+            onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
+          />
+        </CadernetaSection>
 
-        <Input
-          label="Observação da sessão (opcional)"
-          value={sessao.observacao}
-          onChange={(e) => setSessao((s) => ({ ...s, observacao: e.target.value }))}
+        <FormFooter
+          onSalvar={handleSalvar}
+          onLimpar={handleLimpar}
+          salvando={salvando}
+          disabled={!isValid}
+          formValido={isValid}
+          pendenciaTexto={pendenciaTexto}
         />
+      </CadernetaLayout>
 
-        <Button variant="success" loading={salvando} disabled={sessao.linhas.length === 0} onClick={finalizar}>
-          FINALIZAR SESSÃO
-        </Button>
-      </div>
-    </CadernetaLayout>
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onNewRecord={handleNewRecord}
+        onExit={handleExit}
+        cadernetaName="Manejo de Curral"
+        registro={registroSalvo}
+        caderneta="manejo-curral"
+      />
+    </>
   )
 }
