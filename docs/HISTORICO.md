@@ -2,6 +2,10 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Cadernetas novas só na fazenda de testes (16/10/2026)
+
+`manejo-curral` e `sanidade` ficam em `CADERNETAS_EM_TESTE` (`utils/constants.ts`) e só aparecem para a fazenda de testes (`FAZENDA_DE_TESTES_ID`, d649c65e-16ab-4b77-a84b-df937aa41cc3). `cadernetaVisivelNaFazenda(id, fazendaId)` filtra o menu de cadernetas (`ModulosMenuPage`) e a "última caderneta" da Home, e as duas telas mostram "ainda está em teste e não está liberada para esta fazenda" se a rota for aberta direto em outra fazenda. Teste unitário em `cadernetasEmTeste.test.ts`. Para liberar para todas depois: esvaziar a lista (ou remover o id dela). A permissão por funcionário (RBAC) continua valendo por cima. Na fazenda de testes, `sanidade` foi acrescentada à lista do funcionário Victor Hugo (`funcionarios.cadernetas_permitidas`).
+
 ## Caderneta de Sanidade no PWA (Fase 4 do PWA, P2) (16/10/2026)
 
 Nova caderneta `sanidade` (`pages/cadernetas/SanidadePage.tsx`, rota `/caderneta/sanidade`, botão no grupo Gado & Pastagens): aplicação de vacina, vermífugo, tratamento ou preventivo em **um animal cadastrado** (`AnimalIdentifier`) ou em **um lote** (com categoria opcional e número de cabeças). Produto do catálogo (preenche dose, carência e intervalo, editáveis) ou digitado; via, partida, validade (campo opcional com máscara), diagnóstico (tratamento) e observação. **Só registra**: não mexe em contagem, peso nem movimentação. A carência avisa ("Em carência até DD/MM por X") para o animal (própria ou do lote/categoria dele) e para o lote, e nunca bloqueia.

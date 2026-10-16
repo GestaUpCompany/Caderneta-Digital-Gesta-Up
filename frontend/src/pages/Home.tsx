@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
 import { ClipboardList, Sun, Moon, Settings, ChevronRight, RefreshCw, Loader2, UserRound, AlertTriangle, Check, NotebookPen, ListChecks, Users, FileBarChart, Map, ListTodo } from 'lucide-react'
-import { CADERNETAS } from '../utils/constants'
+import { CADERNETAS, cadernetaVisivelNaFazenda } from '../utils/constants'
 import AppHeader from '../components/AppHeader'
 import { getRecentCadernetas } from '../utils/recentCadernetas'
 
@@ -136,6 +136,12 @@ export default function Home() {
   const [greetingIcon, setGreetingIcon] = useState(<Sun />)
 
   const [ultimaCaderneta, setUltimaCaderneta] = useState<typeof CADERNETAS[0] | null>(null)
+
+  // Última caderneta acessada (mesma fonte do menu: recentCadernetas); cadernetas em teste só na fazenda de testes
+  useEffect(() => {
+    const recentId = getRecentCadernetas()[0]
+    setUltimaCaderneta(CADERNETAS.find(c => c.id === recentId && c.disponivel && cadernetaVisivelNaFazenda(c.id, fazendaId)) || null)
+  }, [fazendaId])
   const [versiculoDoDia, setVersiculoDoDia] = useState<Versiculo | null>(null)
   const [showTrocarHint, setShowTrocarHint] = useState(false)
 
@@ -319,10 +325,6 @@ export default function Home() {
       setGreeting('Boa noite')
       setGreetingIcon(<Moon className="text-blue-400" />)
     }
-
-    // Última caderneta acessada (mesma fonte do menu: recentCadernetas)
-    const recentId = getRecentCadernetas()[0]
-    setUltimaCaderneta(CADERNETAS.find(c => c.id === recentId && c.disponivel) || null)
 
     // Lógica de versículos
     const STORAGE_KEY = 'versiculo-do-dia'

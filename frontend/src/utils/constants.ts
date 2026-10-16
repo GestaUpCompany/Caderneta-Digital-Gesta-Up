@@ -91,6 +91,17 @@ export const CADERNETAS = [
   { id: 'entrada-cantina', label: 'CANTINA', emoji: '', icon: `${BASE}cadernetas/cantina.png`, color: '#14B8A6', disponivel: true, grupo: 'Entrada de Estoque' },
 ]
 
+/** Fazenda de testes (Gesta'Up): única que enxerga as cadernetas ainda em teste. */
+export const FAZENDA_DE_TESTES_ID = 'd649c65e-16ab-4b77-a84b-df937aa41cc3'
+
+/** Cadernetas novas, liberadas só para a fazenda de testes até serem validadas no campo. */
+export const CADERNETAS_EM_TESTE: readonly string[] = ['manejo-curral', 'sanidade']
+
+/** Caderneta em teste só aparece (e abre) na fazenda de testes; as demais valem para todas. */
+export function cadernetaVisivelNaFazenda(cadernetaId: string, fazendaId: string | null | undefined): boolean {
+  return !CADERNETAS_EM_TESTE.includes(cadernetaId) || fazendaId === FAZENDA_DE_TESTES_ID
+}
+
 export const CADERNETA_GRUPO_ORDEM = [
   'Suplementação a Pasto',
   'Confinamento & TIP',

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
-import { CADERNETAS, CADERNETA_GRUPO_ORDEM, CADERNETA_GRUPO_CORES } from '../utils/constants'
+import { CADERNETAS, CADERNETA_GRUPO_ORDEM, CADERNETA_GRUPO_CORES, cadernetaVisivelNaFazenda } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernetas'
@@ -40,7 +40,8 @@ export default function ModulosMenuPage() {
   }, [fazendaId])
 
   const cadernetasPermitidas = useMemo(() => {
-    let lista = CADERNETAS
+    // Cadernetas em teste: só na fazenda de testes
+    let lista = CADERNETAS.filter(c => cadernetaVisivelNaFazenda(c.id, fazendaId))
 
     // Filtro por módulo de confinamento
     if (!acessoConfinamento) {
@@ -64,7 +65,7 @@ export default function ModulosMenuPage() {
     }
 
     return lista
-  }, [rbacAtivo, funcionarioCadernetas, acessoConfinamento, acessoComercial, temFazendaNoGrupo])
+  }, [fazendaId, rbacAtivo, funcionarioCadernetas, acessoConfinamento, acessoComercial, temFazendaNoGrupo])
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())

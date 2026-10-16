@@ -17,6 +17,7 @@ import { getLotes } from '../../services/supabaseService'
 import { getCachedCadastroData, getLoteByNomeCached, getRacasCached } from '../../services/cadastroCache'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { todayBR } from '../../utils/formatDate'
+import { cadernetaVisivelNaFazenda } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import {
   faltaParaAnimalNovo,
@@ -228,11 +229,11 @@ export default function ManejoCurralPage() {
     navigate('/')
   }
 
-  if (!fazendaId) {
+  if (!fazendaId || !cadernetaVisivelNaFazenda('manejo-curral', fazendaId)) {
     return (
       <CadernetaLayout title="MANEJO DE CURRAL" cadernetaId="manejo-curral" showRegistrosButton={false}>
         <InfoStrip tone="warning" icon="⚠️">
-          Configure a fazenda antes de usar esta caderneta.
+          {!fazendaId ? 'Configure a fazenda antes de usar esta caderneta.' : 'Esta caderneta ainda está em teste e não está liberada para esta fazenda.'}
         </InfoStrip>
       </CadernetaLayout>
     )

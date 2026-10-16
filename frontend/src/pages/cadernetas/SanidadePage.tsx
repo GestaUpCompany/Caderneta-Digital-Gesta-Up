@@ -24,6 +24,7 @@ import {
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { dataBRparaIso } from '../../utils/manejoCurral'
 import { todayBR } from '../../utils/formatDate'
+import { cadernetaVisivelNaFazenda } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import {
   TIPOS_APLICACAO,
@@ -225,11 +226,11 @@ export default function SanidadePage() {
     navigate('/')
   }
 
-  if (!fazendaId) {
+  if (!fazendaId || !cadernetaVisivelNaFazenda('sanidade', fazendaId)) {
     return (
       <CadernetaLayout title="SANIDADE" cadernetaId="sanidade" showRegistrosButton={false}>
         <InfoStrip tone="warning" icon="⚠️">
-          Configure a fazenda antes de usar esta caderneta.
+          {!fazendaId ? 'Configure a fazenda antes de usar esta caderneta.' : 'Esta caderneta ainda está em teste e não está liberada para esta fazenda.'}
         </InfoStrip>
       </CadernetaLayout>
     )
