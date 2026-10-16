@@ -2,6 +2,13 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Tratamento/vacina no Manejo de Curral (Sanidade C3) (16/10/2026)
+
+Seção 5 da `ManejoCurralPage` ("Tratamento na sessão (opcional)"): tipo, produto do catálogo ou digitado, dose, via, carência, intervalo, partida, validade e diagnóstico (tratamento). Se o produto for preenchido, todos os animais da lista recebem o registro; o botão "Não recebeu" em cada animal abre exceção (`LinhaManejo.semTratamento` → `registros_manejo_curral.sem_tratamento`). Contador "N de M animais receberão". Só registra: não muda contagem nem peso; a carência avisa sem bloquear.
+- **Núcleo:** `utils/tratamentoCurral.ts` (+ testes), reaproveitando `errosSanidade` e `sanidadeParaServidor` para não divergir da caderneta de Sanidade. `validateManejoCurral` confere o tratamento; `syncService` envia as colunas `tratamento_*` no cabeçalho da sessão (nulas sem produto); `shareUtils` mostra o produto, quantos receberam e quem ficou de fora.
+- **Servidor:** a aplicação por animal é gerada na `aplicar_manejo_curral` (migration `20261016350000` do painel); o PWA não precisa do id do animal.
+- **Teste:** sessão offline com 3 animais e vacina, uma exceção, sincronizada: 2 aplicações no banco (ver HISTORICO do painel). Validade vencida bloqueia o salvar com mensagem.
+
 ## Caderneta de Reprodução no PWA (Fase 4 do PWA, P3) (16/10/2026)
 
 Nova caderneta `reproducao` (`pages/cadernetas/ReproducaoPage.tsx`, rota `/caderneta/reproducao`, grupo Gado & Pastagens), restrita à fazenda de testes (`CADERNETAS_EM_TESTE`). Uma **sessão** (um registro local) vale para várias fêmeas: tipo (Cobertura, Inseminação, Diagnóstico de gestação, Aborto), data e dados comuns (touro, partida do sêmen, técnico, método, estação de monta), mais a lista de fêmeas.

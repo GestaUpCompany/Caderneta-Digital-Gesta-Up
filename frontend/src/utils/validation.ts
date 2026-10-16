@@ -4,6 +4,7 @@ import { conflitosDeIdentificacao } from './maternidadeIds'
 import { isFutureBR } from './formatDate'
 import { errosSanidade, type FormSanidade } from './sanidade'
 import { errosReproducao, type FormReproducao } from './reproducao'
+import { errosTratamento, type TratamentoSessao } from './tratamentoCurral'
 
 export interface ValidationError {
   field: string
@@ -1230,6 +1231,7 @@ export function validateManejoCurral(data: Record<string, unknown>): ValidationR
   if (!isValidDate(data.data as string)) errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   const linhas = data.linhas
   if (!Array.isArray(linhas) || linhas.length === 0) errors.push({ field: 'linhas', message: 'Registre ao menos um animal' })
+  errors.push(...errosTratamento(data.tratamento as TratamentoSessao | undefined, String(data.data ?? '')))
   return { isValid: errors.length === 0, errors }
 }
 

@@ -45,3 +45,24 @@ describe('formatarRegistroComoTexto — manejo de curral', () => {
     expect(t).toContain('0 animais')
   })
 })
+
+describe('manejo de curral com tratamento', () => {
+  const base = { id: 'S', data: '16/10/2026', usuario: 'Victor' }
+  const l = (extra = {}) => ({ uid: 'a', individuoId: 'x', identificadorLido: 'B-1', ...extra })
+
+  it('mostra o produto, quantos animais recebem e quem ficou de fora', () => {
+    const t = formatarRegistroComoTexto(
+      { ...base, tratamento: { tipo: 'Vacinação', medicamentoNome: 'Vacina X', dose: '2 ml', via: 'SC', carenciaDias: '21' }, linhas: [l(), l({ uid: 'b', identificadorLido: 'B-2', semTratamento: true })] } as never,
+      'manejo-curral'
+    )
+    expect(t).toContain('Vacinação: Vacina X (2 ml, SC) em 1 animal')
+    expect(t).toContain('Carência para abate: 21 dias')
+    expect(t).toContain('Não recebeu o tratamento')
+  })
+
+  it('sem tratamento o texto não muda', () => {
+    const t = formatarRegistroComoTexto({ ...base, linhas: [l({ semTratamento: true })] } as never, 'manejo-curral')
+    expect(t).not.toContain('Vacinação')
+    expect(t).not.toContain('Não recebeu')
+  })
+})

@@ -30,6 +30,8 @@ export interface LinhaManejo {
   categoria: string
   raca: string
   observacao: string
+  /** o animal não recebeu o tratamento da sessão (só vale se a sessão tem tratamento) */
+  semTratamento: boolean
 }
 
 export function novaLinha(uid: string): LinhaManejo {
@@ -52,6 +54,7 @@ export function novaLinha(uid: string): LinhaManejo {
     categoria: '',
     raca: '',
     observacao: '',
+    semTratamento: false,
   }
 }
 
@@ -135,5 +138,6 @@ export function linhasParaServidor(
       categoria: l.individuoId ? null : texto(l.categoria),
       raca: l.individuoId ? null : texto(l.raca),
       observacao: texto(l.observacao),
+      sem_tratamento: l.semTratamento === true,
     }))
 }

@@ -32,6 +32,7 @@ import { paraNumero, sanitizarPayloadNumerico } from '../utils/payloadNumerico'
 import { dataBRparaIso, linhasParaServidor } from '../utils/manejoCurral'
 import { sanidadeParaServidor } from '../utils/sanidade'
 import { reproducaoParaServidor } from '../utils/reproducao'
+import { tratamentoParaServidor, type TratamentoSessao } from '../utils/tratamentoCurral'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -886,6 +887,8 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         observacao: (registro as any).observacao || null,
         iniciada_em: (registro as any).iniciadaEm || null,
         finalizada_em: (registro as any).finalizadaEm || null,
+        // Tratamento opcional da sessão (colunas tratamento_*); sem produto, tudo nulo
+        ...tratamentoParaServidor((registro as any).tratamento as TratamentoSessao | undefined, String(registro.data ?? '')),
         sync_status: 'synced',
       }
     case 'sanidade':

@@ -63,3 +63,12 @@ describe('manejoCurral', () => {
     expect(resumirLinha(base())).toBe('Animal sem ID')
   })
 })
+
+describe('sem_tratamento na linha enviada ao servidor', () => {
+  it('padrão false; "não recebeu" vira true', () => {
+    const a = { ...novaLinha('a'), individuoId: 'x', identificadorLido: 'B-1' }
+    const b = { ...novaLinha('b'), individuoId: 'y', identificadorLido: 'B-2', semTratamento: true }
+    const rows = linhasParaServidor([a, b], 'S1', 'F1')
+    expect(rows.map((r) => r.sem_tratamento)).toEqual([false, true])
+  })
+})

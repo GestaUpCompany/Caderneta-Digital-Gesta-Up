@@ -14,11 +14,20 @@ import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { DatePicker, Input, Select, SearchableModal, ValidationMessage } from '../../components/ui'
 import { salvarRegistro } from '../../services/api'
 import { getLotes } from '../../services/supabaseService'
-import { getCachedCadastroData, getLoteByNomeCached, getRacasCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getLoteByNomeCached, getMedicamentosCached, getRacasCached } from '../../services/cadastroCache'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { todayBR } from '../../utils/formatDate'
 import { cadernetaVisivelNaFazenda } from '../../utils/constants'
 import { RootState } from '../../store/store'
+import { TIPOS_APLICACAO, type MedicamentoCatalogo, type TipoAplicacao } from '../../utils/sanidade'
+import {
+  aplicarMedicamentoNoTratamento,
+  contarTratados,
+  errosTratamento,
+  temTratamento,
+  tratamentoVazio,
+  type TratamentoSessao,
+} from '../../utils/tratamentoCurral'
 import {
   faltaParaAnimalNovo,
   linhaVazia,
@@ -33,6 +42,8 @@ interface FormState {
   sessaoId: string
   iniciadaEm: string
   observacao: string
+  /** tratamento opcional da sessão (sem produto = sem tratamento) */
+  tratamento: TratamentoSessao
   linhas: LinhaManejo[]
   linha: LinhaManejo
 }
@@ -61,6 +72,7 @@ const makeInitial = (): FormState => ({
   sessaoId: '',
   iniciadaEm: '',
   observacao: '',
+  tratamento: tratamentoVazio(),
   linhas: [],
   linha: novaLinha(''),
 })
@@ -78,6 +90,7 @@ export default function ManejoCurralPage() {
   const [editandoUid, setEditandoUid] = useState<string | null>(null)
   const [lotes, setLotes] = useState<LoteItem[]>([])
   const [racas, setRacas] = useState<string[]>([])
+  const [catalogo, setCatalogo] = useState<MedicamentoCatalogo[]>([])
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [avisoLinha, setAvisoLinha] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -123,7 +136,27 @@ export default function ManejoCurralPage() {
     }
   }, [fazendaId, refreshTick])
 
+  // Catálogo de medicamentos (cache offline); sem catálogo o produto é digitado
+  useEffect(() => {
+    if (!fazendaId) return
+    let cancelado = false
+    getMedicamentosCached(fazendaId)
+      .then((m) => {
+        if (!cancelado) setCatalogo(((m || []) as MedicamentoCatalogo[]).filter((x) => x?.id && x?.nome_comercial))
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, refreshTick])
+
   const nomesLotes = useMemo(() => lotes.map((l) => l.nome), [lotes])
+  const opcoesProduto = useMemo(
+    () => [{ value: '', label: 'Outro produto (digitar)' }, ...catalogo.map((m) => ({ value: m.id, label: m.nome_comercial }))],
+    [catalogo]
+  )
+  const setTratamento = (patch: Partial<TratamentoSessao>) => setForm((f) => ({ ...f, tratamento: { ...f.tratamento, ...patch } }))
+  const comTratamento = temTratamento(form.tratamento)
   const opcoesRaca = useMemo(() => [{ value: '', label: 'Selecione...' }, ...racas.map((r) => ({ value: r, label: r }))], [racas])
 
   const linha = form.linha
@@ -189,6 +222,11 @@ export default function ManejoCurralPage() {
       setErrors([{ field: 'linhas', message: 'Registre ao menos um animal' }])
       return
     }
+    const errosTrat = errosTratamento(form.tratamento, form.data)
+    if (errosTrat.length > 0) {
+      setErrors(errosTrat)
+      return
+    }
     setSalvando(true)
     setErrors([])
     const resultado = await salvarRegistro('manejo-curral', {
@@ -197,6 +235,7 @@ export default function ManejoCurralPage() {
       responsavel: usuario,
       usuario,
       observacao: form.observacao,
+      tratamento: comTratamento ? form.tratamento : undefined,
       iniciadaEm: form.iniciadaEm || new Date().toISOString(),
       finalizadaEm: new Date().toISOString(),
       linhas: linhasParaSalvar.map((l) => (l.uid ? l : { ...l, uid: uuidv4() })),
@@ -359,7 +398,19 @@ export default function ManejoCurralPage() {
           {form.linhas.map((l, i) => (
             <div key={l.uid} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3">
               <span className="w-6 text-sm font-extrabold text-gray-400">{i + 1}</span>
-              <span className="min-w-0 flex-1 text-sm font-semibold text-gray-800">{resumirLinha(l)}</span>
+              <span className="min-w-0 flex-1 text-sm font-semibold text-gray-800">
+                {resumirLinha(l)}
+                {comTratamento && l.semTratamento ? ' · não recebeu' : ''}
+              </span>
+              {comTratamento && (
+                <button
+                  type="button"
+                  className="!min-h-0 rounded-lg border border-gray-300 px-2 py-1 text-xs font-bold text-gray-700"
+                  onClick={() => setForm((f) => ({ ...f, linhas: f.linhas.map((x) => (x.uid === l.uid ? { ...x, semTratamento: !x.semTratamento } : x)) }))}
+                >
+                  {l.semTratamento ? 'Aplicar' : 'Não recebeu'}
+                </button>
+              )}
               <button type="button" aria-label="Editar" className="!min-h-0 p-2 text-gray-700" onClick={() => editarLinha(l.uid)}>
                 <Pencil className="h-5 w-5" />
               </button>
@@ -378,6 +429,66 @@ export default function ManejoCurralPage() {
             value={form.observacao}
             onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))}
           />
+        </CadernetaSection>
+
+        <CadernetaSection numero={5} titulo="Tratamento na sessão (opcional)">
+          <InfoStrip tone="neutral" icon="💉">
+            Se preencher o produto, todos os animais da lista recebem este registro de vacina ou tratamento (use "Não recebeu" nas exceções).
+            Só registra: não muda contagem nem peso, e a carência avisa sem bloquear.
+          </InfoStrip>
+          <Select
+            label="Tipo"
+            value={form.tratamento.tipo}
+            onChange={(e) => setTratamento({ tipo: e.target.value as TipoAplicacao })}
+            options={TIPOS_APLICACAO.map((t) => ({ value: t, label: t }))}
+          />
+          <Select
+            label="Produto do catálogo"
+            value={form.tratamento.medicamentoId}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, tratamento: aplicarMedicamentoNoTratamento(f.tratamento, catalogo.find((m) => m.id === e.target.value) ?? null) }))
+            }
+            options={opcoesProduto}
+          />
+          <Input label="PRODUTO" placeholder="Nome do produto (vazio = sem tratamento)" value={form.tratamento.medicamentoNome} onChange={(e) => setTratamento({ medicamentoNome: e.target.value })} />
+          {comTratamento && (
+            <>
+              <Input label="DOSE (OPCIONAL)" placeholder="Ex: 2 ml" value={form.tratamento.dose} onChange={(e) => setTratamento({ dose: e.target.value })} />
+              <Input label="VIA (OPCIONAL)" placeholder="Ex: subcutânea" value={form.tratamento.via} onChange={(e) => setTratamento({ via: e.target.value })} />
+              <Input
+                label="CARÊNCIA PARA ABATE (DIAS)"
+                inputMode="numeric"
+                placeholder="Sem carência"
+                value={form.tratamento.carenciaDias}
+                onChange={(e) => setTratamento({ carenciaDias: e.target.value.replace(/\D/g, '') })}
+              />
+              <Input
+                label="REAPLICAR EM (DIAS)"
+                inputMode="numeric"
+                placeholder="Sem próxima dose"
+                value={form.tratamento.intervaloDias}
+                onChange={(e) => setTratamento({ intervaloDias: e.target.value.replace(/\D/g, '') })}
+              />
+              <Input label="PARTIDA DO PRODUTO" placeholder="Número da partida (opcional)" value={form.tratamento.loteProduto} onChange={(e) => setTratamento({ loteProduto: e.target.value })} />
+              <Input
+                label="VALIDADE DO PRODUTO"
+                inputMode="numeric"
+                placeholder="DD/MM/AAAA (opcional)"
+                maxLength={10}
+                value={form.tratamento.validadeProduto}
+                onChange={(e) => {
+                  const d = e.target.value.replace(/\D/g, '').slice(0, 8)
+                  setTratamento({ validadeProduto: d.length <= 2 ? d : d.length <= 4 ? `${d.slice(0, 2)}/${d.slice(2)}` : `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}` })
+                }}
+              />
+              {form.tratamento.tipo === 'Tratamento' && (
+                <Input label="DIAGNÓSTICO" placeholder="O que foi tratado" value={form.tratamento.diagnostico} onChange={(e) => setTratamento({ diagnostico: e.target.value })} />
+              )}
+              <InfoStrip tone="neutral" icon="🐄">
+                {contarTratados(linhasParaSalvar)} de {linhasParaSalvar.length} animal(is) da sessão receberão o tratamento.
+              </InfoStrip>
+            </>
+          )}
         </CadernetaSection>
 
         <FormFooter

@@ -505,6 +505,13 @@ const formatarManejoCurralComoTexto = (registro: Registro): string => {
   texto += `📅 ${dataStr}\n`
   if (registro.responsavel || registro.usuario) texto += `👤 ${registro.responsavel || registro.usuario}\n`
   texto += `\n🐄 *${linhas.length} ${linhas.length === 1 ? 'animal' : 'animais'}*\n`
+  const trat = (registro.tratamento ?? null) as Record<string, unknown> | null
+  const temTrat = !!trat && String(trat.medicamentoNome ?? '').trim() !== ''
+  if (temTrat && trat) {
+    const tratados = linhas.filter((l) => !l.semTratamento).length
+    texto += `💉 ${trat.tipo || 'Tratamento'}: ${trat.medicamentoNome}${trat.dose ? ` (${trat.dose}${trat.via ? `, ${trat.via}` : ''})` : ''} em ${tratados} ${tratados === 1 ? 'animal' : 'animais'}\n`
+    if (trat.carenciaDias !== '' && trat.carenciaDias != null) texto += `⛔ Carência para abate: ${trat.carenciaDias} dias\n`
+  }
 
   linhas.forEach((l, i) => {
     const lido = String(l.identificadorLido || l.idProvisorioAnterior || '').trim()
@@ -523,6 +530,7 @@ const formatarManejoCurralComoTexto = (registro: Registro): string => {
     if (!l.individuoId && (l.sexo || l.categoria || l.raca)) {
       linha += `\n   🆕 Animal novo: ${[l.categoria, l.sexo, l.raca].filter(Boolean).join(' · ')}`
     }
+    if (temTrat && l.semTratamento) linha += '\n   🚫 Não recebeu o tratamento'
     if (l.observacao) linha += `\n   📝 ${l.observacao}`
     texto += `${linha}\n`
   })
