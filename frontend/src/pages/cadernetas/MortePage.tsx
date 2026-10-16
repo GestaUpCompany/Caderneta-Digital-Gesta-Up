@@ -9,6 +9,7 @@ import CadernetaSection from '../../components/cadernetas/CadernetaSection'
 import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import InfoCard from '../../components/cadernetas/InfoCard'
 import InfoStrip from '../../components/cadernetas/InfoStrip'
+import AnimalIdentifier from '../../components/AnimalIdentifier'
 import StepperInput from '../../components/cadernetas/StepperInput'
 import FormFooter from '../../components/cadernetas/FormFooter'
 import BannerRascunho from '../../components/BannerRascunho'
@@ -108,6 +109,8 @@ interface FormState {
   pastoId: string
   brinco: string
   chip: string
+  idManejo: string
+  individuoId: string
   observacaoIdentificacao: string
   categoria: string
   categoriaOutros: string
@@ -136,6 +139,8 @@ const makeInitial = (): FormState => ({
   pastoId: '',
   brinco: '',
   chip: '',
+  idManejo: '',
+  individuoId: '',
   observacaoIdentificacao: '',
   categoria: '',
   categoriaOutros: '',
@@ -161,6 +166,9 @@ export default function MortePage() {
     useRascunhoForm<FormState>({ rascunhoKey: 'morte', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
+  // Lote em que o animal está cadastrado (para avisar quando difere do lote da morte) e chave que reinicia o seletor de animal
+  const [animalLoteAtual, setAnimalLoteAtual] = useState<string | null>(null)
+  const [identificadorKey, setIdentificadorKey] = useState(0)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [lotesDisponiveis, setLotesDisponiveis] = useState<string[]>([])
@@ -230,8 +238,9 @@ export default function MortePage() {
       custom: (_value: any, formState: any) => {
         const semBrinco = !formState.brinco || formState.brinco.trim() === ''
         const semChip = !formState.chip || formState.chip.trim() === ''
+        const semAnimal = !formState.individuoId && (!formState.idManejo || formState.idManejo.trim() === '')
         const semObs = !formState.observacaoIdentificacao || formState.observacaoIdentificacao.trim() === ''
-        if (semBrinco && semChip && semObs) {
+        if (semBrinco && semChip && semAnimal && semObs) {
           return 'Informe o brinco/chip ou a razão de o animal não ter identificação'
         }
         return null
@@ -375,6 +384,8 @@ export default function MortePage() {
 
   const resetarTudo = () => {
     limparRascunho()
+    setAnimalLoteAtual(null)
+    setIdentificadorKey((k) => k + 1)
     fotoAnimal.limpar()
     fotoBrinco.limpar()
     fotoCabeca.limpar()
@@ -390,10 +401,10 @@ export default function MortePage() {
     const categoriaFinal = form.categoria
 
     // Vincula a morte ao indivíduo cadastrado (brinco/chip), para o animal ser baixado junto com o agregado.
-    let individuoId: string | null = null
+    let individuoId: string | null = form.individuoId || null
     try {
       const cache = await getCachedCadastroData()
-      individuoId = individuoVivoPorIdentificacao(cache?.individuos || [], form.brinco, form.chip)
+      if (!individuoId) individuoId = individuoVivoPorIdentificacao(cache?.individuos || [], form.brinco, form.chip)
     } catch {
       /* sem cache: a morte segue sem vínculo, como antes */
     }
@@ -409,7 +420,11 @@ export default function MortePage() {
       loteId: form.loteId,
       brinco: form.brinco,
       chip: form.chip,
-      observacaoIdentificacao: form.observacaoIdentificacao,
+      // registros_morte não tem coluna de ID de manejo: quando só ele identifica o animal, vai na observação
+      observacaoIdentificacao:
+        form.observacaoIdentificacao.trim() === '' && !form.brinco.trim() && !form.chip.trim() && form.idManejo.trim() !== ''
+          ? `ID de manejo: ${form.idManejo.trim()}`
+          : form.observacaoIdentificacao,
       categoria: categoriaFinal,
       categoriaOutros: '',
       sexo: form.sexo,
@@ -479,7 +494,8 @@ export default function MortePage() {
     if (!form.lote) return 'Falta escolher o pasto/lote'
     const semBrinco = !form.brinco.trim()
     const semChip = !form.chip.trim()
-    if (semBrinco && semChip && !form.observacaoIdentificacao.trim()) return 'Falta o brinco/chip ou o motivo de não ter'
+    const semAnimal = !form.individuoId && !form.idManejo.trim()
+    if (semBrinco && semChip && semAnimal && !form.observacaoIdentificacao.trim()) return 'Falta o brinco/chip ou o motivo de não ter'
     if (!form.categoria) return 'Falta a categoria'
     if (!form.sexo) return 'Falta o sexo'
     if (!form.raca) return 'Falta a raça'
@@ -715,26 +731,42 @@ export default function MortePage() {
 
         {/* 2. Identificação */}
         <CadernetaSection numero={2} titulo="Identificação">
-          <Input
-            label="ID. BRINCO"
-            placeholder="Número do brinco"
-            value={form.brinco}
-            onChange={setInput('brinco')}
-            error={getError('brinco')}
+          <AnimalIdentifier
+            key={identificadorKey}
+            fazendaId={fazendaId}
+            valueManejo={form.idManejo}
+            valueBrinco={form.brinco}
+            valueChip={form.chip}
+            mensagemNovoAnimal="ID novo: a morte guarda só o ID digitado, o animal não entra no cadastro."
+            onChange={({ idManejo, idBrinco, idChip, individuoId, animalData }) => {
+              setAnimalLoteAtual(animalData?.lote_atual ?? null)
+              setForm((prev) => {
+                const sexo = animalData?.sexo && SEXO.some((o) => o.value === animalData.sexo) ? animalData.sexo : prev.sexo
+                const raca = animalData?.raca && RACAS.some((o) => o.value === animalData.raca) ? animalData.raca : prev.raca
+                // Só preenche o que ainda está vazio: o peão confirma o resto, e a categoria vem das opções do lote
+                return {
+                  ...prev,
+                  idManejo,
+                  brinco: idBrinco,
+                  chip: idChip,
+                  individuoId: individuoId || '',
+                  sexo: prev.sexo || sexo,
+                  raca: prev.raca || raca,
+                }
+              })
+            }}
           />
-          <Input
-            label="ID. CHIP"
-            placeholder="Número do chip"
-            value={form.chip}
-            onChange={setInput('chip')}
-            error={getError('chip')}
-          />
+          {animalLoteAtual && form.loteId && animalLoteAtual !== form.loteId && (
+            <InfoStrip tone="danger" icon="⚠️">
+              Este animal está cadastrado em outro lote. A morte baixa 1 cabeça do lote escolhido acima: confira se é o lote certo.
+            </InfoStrip>
+          )}
           <p className="-mt-2 text-sm text-gray-500">
             Caso o animal tenha perdido ou não possua brinco ou chip, informe o motivo no campo abaixo
           </p>
           <div className="flex flex-col gap-2" data-field="observacaoIdentificacao">
             <Input
-              label={<span>OBS. IDENTIFICAÇÃO {!form.brinco && !form.chip && <span className="text-red-500">*</span>}</span>}
+              label={<span>OBS. IDENTIFICAÇÃO {!form.brinco && !form.chip && !form.individuoId && !form.idManejo && <span className="text-red-500">*</span>}</span>}
               placeholder=""
               value={form.observacaoIdentificacao}
               onChange={setInput('observacaoIdentificacao')}
