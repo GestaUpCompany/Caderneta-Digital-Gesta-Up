@@ -22,6 +22,7 @@ import { enqueueRegistro } from '../../services/syncService'
 import { registerBackgroundSync } from '../../serviceWorkerRegistration'
 import { generateId, generateVersion, getCurrentTimestamp } from '../../utils/generateId'
 import { todayBR } from '../../utils/formatDate'
+import { corteAtingidoPorData, formatarCorteBR } from '../../utils/dataRetroativaMovimentacao'
 import { RootState } from '../../store/store'
 import {
   getCachedCadastroData,
@@ -1071,6 +1072,13 @@ export default function MovimentacaoPage() {
   const mensagemErroCampo = (field: string) =>
     getError(field) ? <p className="text-base font-semibold text-red-700">{getError(field)}</p> : null
 
+  // O banco grava a data de hoje quando a escolhida é anterior à criação da categoria no lote
+  // (senão a movimentação ficaria fora da contagem); aqui só se avisa o usuário.
+  const corteRetroativo = corteAtingidoPorData(
+    form.motivoMovimentacao === 'Entrada' ? form.dataEntrada : form.data,
+    detalhesLoteOrigem?.categorias_raw
+  )
+
   return (
     <>
       <CadernetaLayout
@@ -1080,6 +1088,12 @@ export default function MovimentacaoPage() {
       >
         <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
+        {corteRetroativo && (
+          <InfoStrip tone="warning" icon="⚠️">
+            A data escolhida é anterior à criação do lote/categoria no sistema ({formatarCorteBR(corteRetroativo)}). Para a
+            contagem de cabeças ficar correta, este registro será gravado com a data de hoje.
+          </InfoStrip>
+        )}
 
         {/* Pasto/Lote */}
         <CadernetaSection titulo="Pasto/Lote" required>
