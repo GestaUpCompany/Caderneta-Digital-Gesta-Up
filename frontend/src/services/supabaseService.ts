@@ -1206,6 +1206,26 @@ export async function getCausasMorte(fazendaId: string) {
 
 // ==================== MEDICAMENTOS ====================
 
+/** Aplicações sanitárias com carência de abate ainda em vigor (para avisar no aparelho, inclusive offline). */
+export async function getCarenciasAtivas(fazendaId: string, hojeIso: string) {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('aplicacoes_sanitarias')
+    .select('individuo_id, lote_id, categoria, liberacao_abate_em, medicamento_nome')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .gt('liberacao_abate_em', hojeIso)
+    .limit(2000)
+  if (error) throw error
+  return (data ?? []) as {
+    individuo_id: string | null
+    lote_id: string | null
+    categoria: string | null
+    liberacao_abate_em: string
+    medicamento_nome: string
+  }[]
+}
+
 export async function getMedicamentos(fazendaId: string) {
   const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client

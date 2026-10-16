@@ -2077,6 +2077,30 @@ export async function getMedicamentosFromCacheOnly(fazendaId: string): Promise<a
 }
 
 /**
+ * Carências de abate em vigor (aplicações sanitárias), com cache lazy.
+ * Online consulta o servidor e guarda; offline usa o cache da última vez (aviso apenas, nunca bloqueia).
+ */
+export async function getCarenciasCached(fazendaId: string, hojeIso: string) {
+  const key = buildKey('carencias', fazendaId)
+  if (!navigator.onLine || redeInstavelRecentemente()) return getCarenciasFromCacheOnly(fazendaId)
+  try {
+    const data = await withTimeout(supabaseService.getCarenciasAtivas(fazendaId, hojeIso), 3000)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return getCarenciasFromCacheOnly(fazendaId)
+  }
+}
+
+export async function getCarenciasFromCacheOnly(fazendaId: string) {
+  const key = buildKey('carencias', fazendaId)
+  const cached =
+    getCachedQuery<Awaited<ReturnType<typeof supabaseService.getCarenciasAtivas>>>(key) ??
+    (await getCachedQueryFromIDB<Awaited<ReturnType<typeof supabaseService.getCarenciasAtivas>>>(key))
+  return cached && Array.isArray(cached) ? cached : null
+}
+
+/**
  * Busca tratamentos com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.

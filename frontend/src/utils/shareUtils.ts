@@ -533,7 +533,35 @@ const formatarManejoCurralComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+const formatarSanidadeComoTexto = (registro: Registro): string => {
+  const r = registro as Record<string, unknown>
+  const dataStr = String(r.data ?? '')
+  const ehLote = r.alvo === 'lote'
+  let texto = '📋 *SANIDADE*\n'
+  texto += `📅 ${dataStr}\n`
+  if (r.responsavel || r.usuario) texto += `👤 ${r.responsavel || r.usuario}\n`
+  texto += `\n💉 *${r.tipo || 'Aplicação'}*: ${r.medicamentoNome || ''}\n`
+  if (r.principioAtivo) texto += `🧪 Princípio ativo: ${r.principioAtivo}\n`
+  if (ehLote) {
+    texto += `📍 Lote: ${r.loteNome || '-'}${r.categoria ? ` (${r.categoria})` : ''}\n`
+    if (r.numeroCabecas) texto += `🐄 ${r.numeroCabecas} cabeças\n`
+  } else {
+    texto += `🐄 Animal: ${r.brinco || r.chip || r.idManejo || 'cadastrado'}\n`
+  }
+  if (r.dose) texto += `💧 Dose: ${r.dose}${r.via ? ` (${r.via})` : ''}\n`
+  if (r.loteProduto) texto += `🏷️ Partida: ${r.loteProduto}\n`
+  if (r.validadeProduto) texto += `⏳ Validade: ${r.validadeProduto}\n`
+  if (r.carenciaDias !== '' && r.carenciaDias != null) texto += `⛔ Carência para abate: ${r.carenciaDias} dias\n`
+  if (r.intervaloDias !== '' && r.intervaloDias != null) texto += `🔁 Reaplicar em: ${r.intervaloDias} dias\n`
+  if (r.diagnostico) texto += `🩺 ${r.diagnostico}\n`
+  if (r.observacao) texto += `📝 ${r.observacao}\n`
+  return texto.trimEnd()
+}
+
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
+  if (caderneta === 'sanidade') {
+    return formatarSanidadeComoTexto(registro)
+  }
   if (caderneta === 'auditoria-5s') {
     return formatarAuditoria5sComoTexto(registro)
   }

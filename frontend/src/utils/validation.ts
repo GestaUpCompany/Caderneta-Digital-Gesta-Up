@@ -2,6 +2,7 @@ import { CHAVES_ITENS_5S } from './auditoria5sItens'
 import { normalizarNumero } from './formatNumber'
 import { conflitosDeIdentificacao } from './maternidadeIds'
 import { isFutureBR } from './formatDate'
+import { errosSanidade, type FormSanidade } from './sanidade'
 
 export interface ValidationError {
   field: string
@@ -1231,7 +1232,16 @@ export function validateManejoCurral(data: Record<string, unknown>): ValidationR
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral'
+export function validateSanidade(data: Record<string, unknown>): ValidationResult {
+  const hoje = (() => {
+    const d = new Date()
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  })()
+  const errors: ValidationError[] = errosSanidade(data as unknown as FormSanidade, hoje)
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral' | 'sanidade'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   'auditoria-5s': validateAuditoria5s,
@@ -1264,6 +1274,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'ordens-servico': validateOrdensServico,
   'os-recebimentos': validateOsRecebimento,
   'manejo-curral': validateManejoCurral,
+  sanidade: validateSanidade,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

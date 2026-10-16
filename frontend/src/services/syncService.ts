@@ -30,6 +30,7 @@ import {
 import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
 import { paraNumero, sanitizarPayloadNumerico } from '../utils/payloadNumerico'
 import { dataBRparaIso, linhasParaServidor } from '../utils/manejoCurral'
+import { sanidadeParaServidor } from '../utils/sanidade'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -88,6 +89,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'ordens-servico': 'ordens_servico',
   'os-recebimentos': 'os_recebimentos',
   'manejo-curral': 'sessoes_manejo_curral',
+  sanidade: 'aplicacoes_sanitarias',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -884,6 +886,13 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         finalizada_em: (registro as any).finalizadaEm || null,
         sync_status: 'synced',
       }
+    case 'sanidade':
+      // Só colunas de aplicacoes_sanitarias (sem nome_usuario/version, que a tabela não tem); o id é do servidor
+      return {
+        fazenda_id: fazendaId,
+        local_id: registro.id,
+        ...sanidadeParaServidor(registro as unknown as Record<string, unknown>),
+      }
     default:
       return baseData
   }
@@ -1517,6 +1526,14 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             .from('registros_fabrica_confinamento_insumos')
             .upsert({ ...data, registro_id: registroIdPai }, { onConflict: 'local_id' })
           if (fciError) throw fciError
+          break
+        }
+        case 'aplicacoes_sanitarias': {
+          // Idempotente por local_id (índice único): reenviar não duplica a aplicação
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: apError } = await client.from('aplicacoes_sanitarias').upsert(data, { onConflict: 'local_id' })
+          if (apError) throw apError
+          await updateRegistro('sanidade', registro.id, { syncStatus: 'synced' })
           break
         }
         case 'sessoes_manejo_curral': {

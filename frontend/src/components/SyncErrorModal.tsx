@@ -13,6 +13,7 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   curral: 'Manejo de Currais',
   'auditoria-5s': 'Auditoria 5S',
   'manejo-curral': 'Manejo de curral',
+  sanidade: 'Sanidade',
   rodeio: 'Rodeio',
   suplementacao: 'Suplementação',
   bebedouros: 'Bebedouros',
