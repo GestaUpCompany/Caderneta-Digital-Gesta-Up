@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, ValidationMessage, Radio, SearchableModal, TimeInput, NumericInput } from '../../components/ui'
@@ -167,6 +168,7 @@ export default function OperacoesMaquinasPage() {
     }
   }, [form.quantidadeTotalAplicada, form.areaTrabalhada])
 
+  const refreshTick = useRefreshTick()
   // Carregar máquinas/veículos (com cache lazy para offline)
   useEffect(() => {
     async function carregarMaquinasVeiculos() {
@@ -179,7 +181,7 @@ export default function OperacoesMaquinasPage() {
       }
     }
     carregarMaquinasVeiculos()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Carregar implementos (com cache lazy para offline)
   useEffect(() => {
@@ -193,7 +195,7 @@ export default function OperacoesMaquinasPage() {
       }
     }
     carregarImplementos()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Buscar detalhes da máquina/veículo quando selecionada
   useEffect(() => {

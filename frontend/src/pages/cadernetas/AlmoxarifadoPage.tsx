@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Boxes, Minus, Plus } from 'lucide-react'
@@ -143,6 +144,7 @@ export default function AlmoxarifadoPage() {
   }, [devolucao, usuario, form.quemPegou])
 
   // Carregar funcionários, classificações e setores (com cache lazy para offline)
+  const refreshTick = useRefreshTick()
   useEffect(() => {
     const loadData = async () => {
       const cache = await getCachedCadastroData()
@@ -174,7 +176,7 @@ export default function AlmoxarifadoPage() {
       }
     }
     loadData()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Aba ativa: Pendentes em devolução; primeira classificação em retirada
   useEffect(() => {
@@ -220,7 +222,7 @@ export default function AlmoxarifadoPage() {
     }
     loadItens()
     return () => { cancelado = true }
-  }, [classificacaoAtiva, fazendaId, form.tipo, usuario])
+  }, [classificacaoAtiva, fazendaId, form.tipo, usuario, refreshTick])
 
   const itemDoCarrinho = (item: any): ItemAlmoxarifado | undefined => {
     const chave = chaveItem({

@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import ListaRegistros from '../../components/cadernetas/ListaRegistros'
 import ResumoDiario from '../../components/cadernetas/ResumoDiario'
 import { listarRegistros } from '../../services/api'
+import { useRefreshCadastros } from '../../hooks/useRefreshCadastros'
 import { compartilharWhatsApp, Registro, formatarTempoDesdeLimpeza } from '../../utils/shareUtils'
 import { gerarPdfResumoBebedouros, compartilharPdf } from '../../utils/pdfUtils'
 import { RootState } from '../../store/store'
@@ -30,6 +31,8 @@ export default function BebedourosListaPage() {
   useEffect(() => {
     carregarRegistros()
   }, [carregarRegistros])
+
+  useRefreshCadastros(carregarRegistros)
 
   const filtrarRegistrosDoDia = (data: string) => {
     const dataBase = data.split(' ')[0]

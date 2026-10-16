@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { DatePicker } from '../../components/ui'
@@ -227,9 +228,15 @@ export default function TratoConfinamentoPage() {
   }, [fazendaId])
 
   // Carregamento principal: currais + programação + registros do dia + produções do vagão
+  const refreshTick = useRefreshTick()
+  // Puxar para atualizar: recarrega em silêncio, preservando kg digitados, fotos e a seleção atual
+  const silencioRef = useRef(false)
+  const lastTickRef = useRef(0)
+
   const carregarDados = useCallback(async () => {
     if (!fazendaId || !tipoSelecionado) return
-    setCarregando(true)
+    const silencioso = silencioRef.current
+    if (!silencioso) setCarregando(true)
     setErro(null)
 
     try {
@@ -267,7 +274,7 @@ export default function TratoConfinamentoPage() {
         ])
 
       setRegistrosDoDia(registrosData || [])
-      setLancadosLocal([])
+      if (!silencioso) setLancadosLocal([])
       // Ofertas locais do dia (sincronizadas ou não): o registro local guarda
       // vagaoId mesmo quando a linha do servidor ainda não tem a coluna, então
       // o consumo por vagão usa o local e deduplica o servidor por local_id.
@@ -599,6 +606,27 @@ export default function TratoConfinamentoPage() {
         }
       }
 
+      if (silencioso) {
+        setCurrais((prev) =>
+          curraisTratoValidos.map((novo) => {
+            const atual = prev.find((c) => c.curralId === novo.curralId)
+            if (!atual) return novo
+            const preservarKg = atual.salvo || (!novo.salvo && atual.kgReal !== '')
+            return {
+              ...novo,
+              vagaoSelecionadoKey: atual.vagaoSelecionadoKey,
+              fotoBalanca: atual.fotoBalanca,
+              salvando: atual.salvando,
+              erroSalvar: atual.erroSalvar,
+              ...(preservarKg
+                ? { kgReal: atual.kgReal, rascunhoSalvo: atual.rascunhoSalvo, salvo: atual.salvo || novo.salvo }
+                : {}),
+            }
+          })
+        )
+        return
+      }
+
       setCurrais(curraisTratoValidos)
 
       if (linhasList.length > 0) {
@@ -614,15 +642,19 @@ export default function TratoConfinamentoPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar dados do trato:', error)
-      setErro('Erro ao carregar dados. Tente novamente.')
+      if (!silencioso) setErro('Erro ao carregar dados. Tente novamente.')
     } finally {
       setCarregando(false)
     }
   }, [fazendaId, data, tipoSelecionado, notasConfig])
 
   useEffect(() => {
-    carregarDados()
-  }, [carregarDados])
+    silencioRef.current = refreshTick > 0 && lastTickRef.current !== refreshTick
+    lastTickRef.current = refreshTick
+    void carregarDados().finally(() => {
+      silencioRef.current = false
+    })
+  }, [carregarDados, refreshTick])
 
   // Salvar rascunho do trato (não envia ao Supabase)
   const salvarTratoRascunho = useCallback(

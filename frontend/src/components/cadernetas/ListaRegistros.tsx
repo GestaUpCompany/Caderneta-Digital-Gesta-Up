@@ -6,6 +6,7 @@ import { Registro } from '../../types/cadernetas'
 import { CadernetaStore } from '../../services/indexedDB'
 import { listarRegistros, reenviarRegistro, aguardarSyncConcluido } from '../../services/api'
 import { useSearchFiltros } from '../../hooks/useSearchFiltros'
+import { useRefreshCadastros } from '../../hooks/useRefreshCadastros'
 import DatePickerIcon from '../ui/DatePickerIcon'
 import {
   ChevronLeft, List, Share2, Plus, Search, SlidersHorizontal, FilterX,
@@ -144,6 +145,11 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   useEffect(() => {
     carregar()
   }, [carregar])
+
+  // Puxar para atualizar: recarrega em silêncio (sem piscar o spinner da lista)
+  useRefreshCadastros(async () => {
+    setRegistros(await listarRegistros(caderneta))
+  })
 
   const {
     filtros,

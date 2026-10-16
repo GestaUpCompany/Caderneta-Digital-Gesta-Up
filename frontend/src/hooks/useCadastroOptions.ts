@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getCachedCadastroData, needsCacheUpdate } from '../services/cadastroCache'
-import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
+import { eventBus, CADASTRO_CACHE_UPDATED, REFRESH_CONCLUIDO } from '../utils/eventBus'
 import * as supabaseService from '../services/supabaseService'
 
 export type CadastroOptionType =
@@ -100,10 +100,15 @@ export function useCadastroOptions(
     }
 
     eventBus.on(CADASTRO_CACHE_UPDATED, handleCacheUpdate)
+    // Puxar para atualizar: consulta de novo (online busca no Supabase)
+    const offRefresh = eventBus.on(REFRESH_CONCLUIDO, () => {
+      void load()
+    })
     return () => {
       eventBus.off(CADASTRO_CACHE_UPDATED, handleCacheUpdate)
+      offRefresh()
     }
-  }, [type])
+  }, [type, load])
 
   return { options, loading, error, refresh: load }
 }

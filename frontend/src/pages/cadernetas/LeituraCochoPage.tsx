@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { DatePicker } from '../../components/ui'
@@ -172,10 +173,15 @@ export default function LeituraCochoPage() {
   const [diasCocho, setDiasCocho] = useState<Record<string, number>>({})
   const { capturandoFoto, fotoErro, capturarFoto, fotoInputRef, handleFileInputChange } = usePhotoGps({ comGps: false })
 
+  const refreshTick = useRefreshTick()
+  const cargaFeitaRef = useRef(false)
+
   useEffect(() => {
     async function carregarDadosIniciais() {
       if (!fazendaId) return
-      setCarregando(true)
+      // Puxar para atualizar: recarrega em silêncio, preservando notas digitadas e a seleção atual
+      const ehRefresh = cargaFeitaRef.current
+      if (!ehRefresh) setCarregando(true)
       setErro(null)
 
       try {
@@ -417,7 +423,29 @@ export default function LeituraCochoPage() {
           .sort((a, b) => a.curral.localeCompare(b.curral, 'pt-BR'))
 
         setLeiturasPorLote(leiturasMap)
+        if (ehRefresh) {
+          setLotes((prev) =>
+            lotesFiltrados.map((novo) => {
+              const atual = prev.find((l) => l.id === novo.id)
+              return atual
+                ? {
+                    ...novo,
+                    nota: atual.nota,
+                    notaData: atual.notaData,
+                    notaSalva: atual.notaSalva,
+                    bloqueado: atual.bloqueado,
+                    rascunhoSalvo: atual.rascunhoSalvo,
+                    salvando: atual.salvando,
+                    erroSalvar: atual.erroSalvar,
+                  }
+                : novo
+            })
+          )
+          cargaFeitaRef.current = true
+          return
+        }
         setLotes(lotesFiltrados)
+        cargaFeitaRef.current = true
         const primeiraLinha = linhasMapeadas.find((linha) => lotesFiltrados.some((lote) => lote.linhaId === linha.id))
         const primeiroLote = primeiraLinha
           ? lotesFiltrados.find((lote) => lote.linhaId === primeiraLinha.id)
@@ -426,14 +454,14 @@ export default function LeituraCochoPage() {
         setLoteSelecionadoId(primeiroLote?.id || null)
       } catch (error) {
         console.error('Erro ao carregar dados da leitura de cocho:', error)
-        setErro('Erro ao carregar dados. Tente novamente.')
+        if (!ehRefresh) setErro('Erro ao carregar dados. Tente novamente.')
       } finally {
         setCarregando(false)
       }
     }
 
     carregarDadosIniciais()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   useEffect(() => {
     if (!fazendaId) return

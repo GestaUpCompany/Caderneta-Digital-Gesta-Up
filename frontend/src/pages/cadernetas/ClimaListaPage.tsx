@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import ListaRegistros from '../../components/cadernetas/ListaRegistros'
 import ResumoDiario from '../../components/cadernetas/ResumoDiario'
 import { listarRegistros } from '../../services/api'
+import { useRefreshCadastros } from '../../hooks/useRefreshCadastros'
 import { formatarRegistroComoTexto, compartilharWhatsApp, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoClima, compartilharPdf } from '../../utils/pdfUtils'
 import { RootState } from '../../store/store'
@@ -20,6 +21,8 @@ export default function ClimaListaPage() {
   useEffect(() => {
     carregarRegistros()
   }, [carregarRegistros])
+
+  useRefreshCadastros(carregarRegistros)
 
   const filtrarRegistrosDoDia = (data: string) => {
     const dataBase = data.split(' ')[0]

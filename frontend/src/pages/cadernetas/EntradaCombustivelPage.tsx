@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
@@ -60,6 +61,7 @@ export default function EntradaCombustivelPage() {
 
   const { options: fornecedoresOptions, loading: loadingFornecedores } = useCadastroOptions('fornecedores', fazendaId)
 
+  const refreshTick = useRefreshTick()
   // Carregar tanques do cache
   useEffect(() => {
     async function carregarTanques() {
@@ -74,7 +76,7 @@ export default function EntradaCombustivelPage() {
       }
     }
     carregarTanques()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Filtrar tanques pelo combustível selecionado
   const tanquesFiltrados = tanquesDisponiveis.filter(

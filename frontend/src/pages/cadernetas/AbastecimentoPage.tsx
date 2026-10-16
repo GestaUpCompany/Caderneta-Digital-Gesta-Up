@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, ValidationMessage } from '../../components/ui'
@@ -141,6 +142,7 @@ export default function AbastecimentoPage() {
   const [tanquesIndisponivel, setTanquesIndisponivel] = useState(false)
   // Incrementa quando a internet volta com tanques indisponíveis: refaz a leitura sozinho
   const [recarga, setRecarga] = useState(0)
+  const refreshTick = useRefreshTick()
   const tanquesIndisponivelRef = useRef(false)
 
   // Quem abasteceu vem do login (padrao da referencia)
@@ -198,7 +200,7 @@ export default function AbastecimentoPage() {
     return () => {
       cancelado = true
     }
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Tanques de combustível: cache primeiro. Sem cache e sem rede é "indisponível", não "sem tanques":
   // salvar assim gravaria o abastecimento sem tanque e sem a baixa de estoque.
@@ -235,7 +237,7 @@ export default function AbastecimentoPage() {
     return () => {
       cancelado = true
     }
-  }, [fazendaId, recarga])
+  }, [fazendaId, recarga, refreshTick])
 
   // Leitura anterior da bomba. Prioridade: o que está pendente neste aparelho (é mais novo que qualquer
   // coisa do servidor), depois a última do servidor (outros aparelhos e Painel), por fim o último registro local.
@@ -266,7 +268,7 @@ export default function AbastecimentoPage() {
     return () => {
       cancelado = true
     }
-  }, [fazendaId, recarga])
+  }, [fazendaId, recarga, refreshTick])
 
   // Filtrar tanques pelo combustivel selecionado
   const tanquesFiltrados = tanquesDisponiveis.filter(

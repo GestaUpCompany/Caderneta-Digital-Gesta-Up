@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { Input, DatePicker, ValidationMessage, NumericInput } from '../../components/ui'
 import { Minus, Plus } from 'lucide-react'
@@ -186,6 +187,7 @@ export default function CantinaPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
+  const refreshTick = useRefreshTick()
   // Funcionários do cache (com fallback offline)
   useEffect(() => {
     async function carregarFuncionarios() {
@@ -204,7 +206,7 @@ export default function CantinaPage() {
       }
     }
     carregarFuncionarios()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Classificações de cantina (cache lazy para offline)
   useEffect(() => {
@@ -221,7 +223,7 @@ export default function CantinaPage() {
       }
     }
     carregarClassificacoes()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Itens da classificação ativa
   useEffect(() => {
@@ -252,7 +254,7 @@ export default function CantinaPage() {
     return () => {
       cancelado = true
     }
-  }, [classificacaoAtiva, fazendaId])
+  }, [classificacaoAtiva, fazendaId, refreshTick])
 
   // Total de refeições de ontem (referência para o peão), relativo à data do formulário
   useEffect(() => {

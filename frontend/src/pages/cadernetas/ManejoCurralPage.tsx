@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { v4 as uuidv4 } from 'uuid'
@@ -82,6 +83,7 @@ export default function ManejoCurralPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(undefined)
 
+  const refreshTick = useRefreshTick()
   // Lotes e raças (online primeiro, cache offline)
   useEffect(() => {
     if (!fazendaId) return
@@ -118,7 +120,7 @@ export default function ManejoCurralPage() {
     return () => {
       cancelado = true
     }
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   const nomesLotes = useMemo(() => lotes.map((l) => l.nome), [lotes])
   const opcoesRaca = useMemo(() => [{ value: '', label: 'Selecione...' }, ...racas.map((r) => ({ value: r, label: r }))], [racas])

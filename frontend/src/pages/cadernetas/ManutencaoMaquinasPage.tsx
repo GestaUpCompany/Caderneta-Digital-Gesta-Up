@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Truck } from 'lucide-react'
@@ -261,6 +262,7 @@ export default function ManutencaoMaquinasPage() {
     }
   }, [form.responsavelChecklist, usuario])
 
+  const refreshTick = useRefreshTick()
   // Carregar funcionários do cache
   useEffect(() => {
     const loadData = async () => {
@@ -277,7 +279,7 @@ export default function ManutencaoMaquinasPage() {
       }
     }
     loadData()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Carregar máquinas/veículos (com cache lazy para offline)
   useEffect(() => {
@@ -293,7 +295,7 @@ export default function ManutencaoMaquinasPage() {
       }
     }
     loadData()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Buscar detalhes da máquina/veículo quando selecionada
   useEffect(() => {

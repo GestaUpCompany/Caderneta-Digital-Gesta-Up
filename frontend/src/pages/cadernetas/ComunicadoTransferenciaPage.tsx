@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, Select, DatePicker, ValidationMessage, NumericInput } from '../../components/ui'
@@ -49,6 +50,7 @@ export default function ComunicadoTransferenciaPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [fazendasDestino, setFazendasDestino] = useState<{ id: string; nome: string }[] | null>(null)
 
+  const refreshTick = useRefreshTick()
   // Transferência só existe entre fazendas do mesmo grupo: precisa de ao
   // menos uma outra fazenda ativa no grupo da fazenda atual.
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function ComunicadoTransferenciaPage() {
     getFazendasDoMesmoGrupoCached(fazendaId)
       .then((lista) => setFazendasDestino(lista || []))
       .catch(() => setFazendasDestino([]))
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))

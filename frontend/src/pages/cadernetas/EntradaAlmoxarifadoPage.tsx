@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Boxes, Minus, Plus } from 'lucide-react'
@@ -114,6 +115,7 @@ export default function EntradaAlmoxarifadoPage() {
   const [classificacaoAtiva, setClassificacaoAtiva] = useState<string>(CLASSIFICACOES_ENTRADA[0])
   const [itensDaClassificacao, setItensDaClassificacao] = useState<any[]>([])
   const [recarregar, setRecarregar] = useState(0)
+  const refreshTick = useRefreshTick()
 
   const [mostrarNovo, setMostrarNovo] = useState(false)
   const [novoNome, setNovoNome] = useState('')
@@ -152,7 +154,7 @@ export default function EntradaAlmoxarifadoPage() {
     return () => {
       cancelado = true
     }
-  }, [classificacaoAtiva, fazendaId, recarregar])
+  }, [classificacaoAtiva, fazendaId, recarregar, refreshTick])
 
   const itemDoCarrinho = (id: string) => form.itens.find((i) => chaveItem(i) === id)
 

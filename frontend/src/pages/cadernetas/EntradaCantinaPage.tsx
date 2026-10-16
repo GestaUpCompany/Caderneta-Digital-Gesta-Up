@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { Input, DatePicker, ValidationMessage } from '../../components/ui'
 import { Minus, Plus, Mic } from 'lucide-react'
@@ -83,6 +84,7 @@ export default function EntradaCantinaPage() {
   // Itens criados no PWA (uuid local); o sync cria no servidor antes de postar o registro
   const [itensNovos, setItensNovos] = useState<ItemEntrada[]>([])
   const [recarregar, setRecarregar] = useState(0)
+  const refreshTick = useRefreshTick()
 
   const [mostrarNovo, setMostrarNovo] = useState(false)
   const [novoNome, setNovoNome] = useState('')
@@ -119,7 +121,7 @@ export default function EntradaCantinaPage() {
     return () => {
       cancelado = true
     }
-  }, [classificacaoAtiva, fazendaId, recarregar])
+  }, [classificacaoAtiva, fazendaId, recarregar, refreshTick])
 
   const setQuantidade = (item: { id: string; unidade_medida: string }, bruto: string) => {
     const limpo = unidadeInteira(item.unidade_medida)

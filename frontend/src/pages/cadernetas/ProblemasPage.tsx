@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, SearchableModal, TextArea } from '../../components/ui'
@@ -101,6 +102,7 @@ export default function ProblemasPage() {
     handleFileInputChange,
   } = usePhotoGps({ comGps: true })
 
+  const refreshTick = useRefreshTick()
   // Carregar setores e locais (com cache lazy para offline)
   useEffect(() => {
     const loadData = async () => {
@@ -118,7 +120,7 @@ export default function ProblemasPage() {
       }
     }
     loadData()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Resolver nome do pasto a partir das coordenadas GPS (pastos no cache do mapa)
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, ValidationMessage, SearchableModal, TimeInput } from '../../components/ui'
@@ -97,6 +98,7 @@ export default function LimpezaPage() {
     handleFileInputChange,
   } = usePhotoGps({ comGps: false })
 
+  const refreshTick = useRefreshTick()
   // Carregar setores e locais (com cache lazy para offline)
   useEffect(() => {
     const loadData = async () => {
@@ -114,7 +116,7 @@ export default function LimpezaPage() {
       }
     }
     loadData()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Atualiza o tempo decorrido enquanto a atividade esta em andamento
   useEffect(() => {

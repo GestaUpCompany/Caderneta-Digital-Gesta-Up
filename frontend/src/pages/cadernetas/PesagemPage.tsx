@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -360,6 +361,7 @@ export default function PesagemPage() {
     else if (sessao.fase === 'revisao') setMetricasAbertas(true)
   }, [sessao.fase])
 
+  const refreshTick = useRefreshTick()
   // ==================== Dados de apoio ====================
   useEffect(() => {
     if (!fazendaId) return
@@ -490,7 +492,7 @@ export default function PesagemPage() {
     return () => {
       cancelled = true
     }
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // ==================== Cronômetro ====================
   const sessaoAtiva = sessao.fase === 'captura' && !sessao.horarioFim

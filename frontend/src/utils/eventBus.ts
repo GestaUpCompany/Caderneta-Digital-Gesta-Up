@@ -36,3 +36,5 @@ export const eventBus = new EventBus()
 
 // Eventos disponíveis
 export const CADASTRO_CACHE_UPDATED = 'cadastro_cache_updated'
+// Emitido ao fim do "puxar para atualizar" (push da fila + pull de cadastros)
+export const REFRESH_CONCLUIDO = 'refresh_concluido'

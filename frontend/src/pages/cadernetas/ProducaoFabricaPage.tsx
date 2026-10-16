@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -68,6 +69,7 @@ export default function ProducaoFabricaPage() {
   const [listaIndisponivel, setListaIndisponivel] = useState(false)
   // Incrementa quando a internet volta (ou de tempos em tempos) com a lista sem conferir: refaz a leitura sozinho
   const [recarga, setRecarga] = useState(0)
+  const refreshTick = useRefreshTick()
   const listaPendenteRef = useRef(false)
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
   const [carregandoInsumos, setCarregandoInsumos] = useState(false)
@@ -130,7 +132,7 @@ export default function ProducaoFabricaPage() {
     return () => {
       cancelado = true
     }
-  }, [fazendaId, recarga])
+  }, [fazendaId, recarga, refreshTick])
 
   listaPendenteRef.current = listaDoAparelho || listaIndisponivel
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { saveRegistro } from '../../services/indexedDB'
 import { enqueueRegistro } from '../../services/syncService'
 import { v4 as uuidv4 } from 'uuid'
@@ -198,6 +199,7 @@ export default function EntradaInsumosPage() {
     }
   }
 
+  const refreshTick = useRefreshTick()
   // Carregar insumos e formulações do Supabase com fallback para cache offline
   useEffect(() => {
     async function carregarInsumos() {
@@ -230,7 +232,7 @@ export default function EntradaInsumosPage() {
       }
     }
     carregarInsumos()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Atualiza horário automaticamente a cada minuto se não foi editado pelo usuário
   useEffect(() => {

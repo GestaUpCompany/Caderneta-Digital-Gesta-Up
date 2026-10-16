@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -212,6 +213,11 @@ export default function FabricaConfinamentoPage() {
   const totalRealizadoRef = useRef('')
   const debounceRascunhoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const refreshTick = useRefreshTick()
+  // Puxar para atualizar: recarrega em silêncio, sem apagar o que o peão digitou
+  const silencioRef = useRef(false)
+  const lastTickRef = useRef(0)
+
   // Carregamento inicial: tipos, vagoes
   useEffect(() => {
     async function carregarInicial() {
@@ -227,11 +233,12 @@ export default function FabricaConfinamentoPage() {
         )
         setTiposDisponiveis(tipos.length > 0 ? tipos : ['confinamento'])
         if (tipos.length > 0 && !tipos.includes('confinamento')) {
-          setTipoSelecionado(tipos[0])
+          setTipoSelecionado((atual) => (tipos.includes(atual) ? atual : tipos[0]))
         }
         setVagoes(vagoesData)
         if (vagoesData.length > 0) {
-          setVagaoSelecionadoId(vagoesData[0].id)
+          // Mantém o vagão já escolhido (puxar para atualizar não pode trocar a seleção)
+          setVagaoSelecionadoId((atual) => (atual && vagoesData.some((v: any) => v.id === atual) ? atual : vagoesData[0].id))
         }
       } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error)
@@ -239,7 +246,7 @@ export default function FabricaConfinamentoPage() {
       }
     }
     carregarInicial()
-  }, [fazendaId])
+  }, [fazendaId, refreshTick])
 
   // Carregar dietas disponíveis (formulações usadas por lotes do sistema selecionado)
   const carregarDietas = useCallback(async () => {
@@ -330,7 +337,7 @@ export default function FabricaConfinamentoPage() {
 
   useEffect(() => {
     carregarDietas()
-  }, [carregarDietas])
+  }, [carregarDietas, refreshTick])
 
   // Carregamento principal: currais filtrados, trato atual, total previsto, insumos
   const carregarDados = useCallback(async () => {
@@ -341,7 +348,8 @@ export default function FabricaConfinamentoPage() {
       setCarregando(false)
       return
     }
-    setCarregando(true)
+    const silencioso = silencioRef.current
+    if (!silencioso) setCarregando(true)
     setErro(null)
     try {
       const dataISO = brToDateISO(data)
@@ -648,7 +656,7 @@ export default function FabricaConfinamentoPage() {
 
       setTratoExtra(todosConcluidos && !!tratoNaoConcluido)
       setOrdemTratoAtual(ordemAtual)
-      setConfirmarEncerrar(false)
+      if (!silencioso) setConfirmarEncerrar(false)
 
       // Calcular kgPlanejado de cada curral para o trato atual
       const percentuais = progCompleta.percentuais
@@ -700,6 +708,7 @@ export default function FabricaConfinamentoPage() {
         // erro de rede, seguir com insumos vazios
       }
       setInsumos(insumosData)
+      if (silencioso) return
 
       // Restaurar rascunho salvo (se houver)
       const rascunhoKey = `fabrica-rascunho-${fazendaId}-${dataISO}-${tipoSelecionado}-${dietaSelecionadaId}`
@@ -720,15 +729,19 @@ export default function FabricaConfinamentoPage() {
       setSucesso(false)
     } catch (error) {
       console.error('Erro ao carregar dados da fábrica:', error)
-      setErro('Erro ao carregar dados. Tente novamente.')
+      if (!silencioso) setErro('Erro ao carregar dados. Tente novamente.')
     } finally {
       setCarregando(false)
     }
   }, [fazendaId, data, tipoSelecionado, dietaSelecionadaId])
 
   useEffect(() => {
-    carregarDados()
-  }, [carregarDados])
+    silencioRef.current = refreshTick > 0 && lastTickRef.current !== refreshTick
+    lastTickRef.current = refreshTick
+    void carregarDados().finally(() => {
+      silencioRef.current = false
+    })
+  }, [carregarDados, refreshTick])
 
   // Auto-recarregar quando voltar online (leitura de cocho pode ter chegado)
   useEffect(() => {

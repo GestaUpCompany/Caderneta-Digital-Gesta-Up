@@ -1,4 +1,4 @@
-import { useEffect, useRef, Suspense, lazy } from 'react'
+import { useEffect, useRef, useState, Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
 import Configuracoes from './pages/Configuracoes'
@@ -17,7 +17,10 @@ import { verificarBackupAutomatico } from './services/backupService'
 import { useSelector } from 'react-redux'
 import { RootState } from './store/store'
 import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
-import { preventPullToRefresh, addPullToRefreshCSS } from './utils/preventPullToRefresh'
+import { addPullToRefreshCSS } from './utils/preventPullToRefresh'
+import PullToRefresh from './components/PullToRefresh'
+import { eventBus, REFRESH_CONCLUIDO } from './utils/eventBus'
+import { formularioSujo, limparFormularioSujo, ehRotaFormulario, observarDigitacao } from './utils/formularioSujo'
 import { initializeCadastroCache, updateCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
 import { syncMapaSePreciso } from './services/mapaCache'
 import { fetchChecklistRegras } from './services/checklistRegrasService'
@@ -172,6 +175,21 @@ const MapaFazendaPage = lazy(() => import('./pages/MapaFazendaPage'))
 function AppInner() {
   useSync()
   const location = useLocation()
+  // Puxar para atualizar: formulário intocado é remontado para reler os dados; com digitação, não
+  const [refreshKey, setRefreshKey] = useState(0)
+  const pathnameRef = useRef(location.pathname)
+  pathnameRef.current = location.pathname
+  useEffect(() => {
+    limparFormularioSujo()
+  }, [location.pathname])
+  useEffect(() => observarDigitacao(), [])
+  useEffect(
+    () =>
+      eventBus.on(REFRESH_CONCLUIDO, () => {
+        if (ehRotaFormulario(pathnameRef.current) && !formularioSujo()) setRefreshKey((k) => k + 1)
+      }),
+    []
+  )
   const { currentConflict, loadConflicts, handleConflictResolved } = useConflicts()
   const { shouldShowWelcome } = useFirstOpen()
   const syncStatus = useSelector((state: RootState) => state.sync.status)
@@ -367,13 +385,8 @@ function AppInner() {
 
   // Prevenir pull-to-refresh em PWAs instalados
   useEffect(() => {
-    // Adicionar CSS para prevenir pull-to-refresh
+    // CSS que desliga o overscroll nativo; o gesto em si é do componente PullToRefresh
     addPullToRefreshCSS()
-    
-    // Adicionar listeners JavaScript para prevenir pull-to-refresh
-    const cleanup = preventPullToRefresh()
-    
-    return cleanup
   }, [])
 
   // Backup automático a cada 24 horas
@@ -503,6 +516,7 @@ function AppInner() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
+      <PullToRefresh />
       {/* Só mostrar sync se não for WelcomePage */}
       {(location.pathname !== '/' || !shouldShowWelcome) && location.pathname !== '/welcome' && (
         <SyncStatusBar />
@@ -515,7 +529,7 @@ function AppInner() {
       
       <div className="flex-1">
         <Suspense fallback={<PageLoader />}>
-          <Routes>
+          <Routes key={refreshKey}>
             <Route path="/" element={
               shouldShowWelcome ? <WelcomePage /> : <Home />
             } />
