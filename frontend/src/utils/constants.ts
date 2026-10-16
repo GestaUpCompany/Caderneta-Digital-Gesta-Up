@@ -69,6 +69,7 @@ export const CADERNETAS = [
   { id: 'morte', label: 'MORTE', emoji: '', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'maternidade', label: 'MATERNIDADE', emoji: '', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'reproducao', label: 'REPRODUÇÃO', emoji: '🐄', icon: `${BASE}cadernetas/reproducao.png`, color: '#C2185B', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'sanidade', label: 'SANIDADE', emoji: '💉', icon: `${BASE}cadernetas/sanidade.png`, color: '#2E8B57', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'manejo-curral', label: 'MANEJO DE CURRAL', emoji: '🐂', icon: `${BASE}cadernetas/manejo-curral.png`, color: '#6B8E23', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'pesagem', label: 'PESAGEM', emoji: '', icon: `${BASE}cadernetas/pesagem.png`, color: '#4A6FA5', disponivel: true, grupo: 'Gado & Pastagens' },
@@ -95,7 +96,7 @@ export const CADERNETAS = [
 export const FAZENDA_DE_TESTES_ID = 'd649c65e-16ab-4b77-a84b-df937aa41cc3'
 
 /** Cadernetas novas, liberadas só para a fazenda de testes até serem validadas no campo. */
-export const CADERNETAS_EM_TESTE: readonly string[] = ['manejo-curral', 'sanidade']
+export const CADERNETAS_EM_TESTE: readonly string[] = ['manejo-curral', 'sanidade', 'reproducao']
 
 /** Caderneta em teste só aparece (e abre) na fazenda de testes; as demais valem para todas. */
 export function cadernetaVisivelNaFazenda(cadernetaId: string, fazendaId: string | null | undefined): boolean {

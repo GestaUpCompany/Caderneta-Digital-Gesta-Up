@@ -31,6 +31,7 @@ import { normalizarNumeroString, normalizarNumero } from '../utils/formatNumber'
 import { paraNumero, sanitizarPayloadNumerico } from '../utils/payloadNumerico'
 import { dataBRparaIso, linhasParaServidor } from '../utils/manejoCurral'
 import { sanidadeParaServidor } from '../utils/sanidade'
+import { reproducaoParaServidor } from '../utils/reproducao'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -90,6 +91,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'os-recebimentos': 'os_recebimentos',
   'manejo-curral': 'sessoes_manejo_curral',
   sanidade: 'aplicacoes_sanitarias',
+  reproducao: 'eventos_reprodutivos',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -893,6 +895,9 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         local_id: registro.id,
         ...sanidadeParaServidor(registro as unknown as Record<string, unknown>),
       }
+    case 'reproducao':
+      // Uma sessão vira uma linha por fêmea (local_id = sessão:linha); o envio lê data.linhas
+      return { linhas: reproducaoParaServidor(registro as unknown as Record<string, unknown>, fazendaId) }
     default:
       return baseData
   }
@@ -1534,6 +1539,18 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           const { error: apError } = await client.from('aplicacoes_sanitarias').upsert(data, { onConflict: 'local_id' })
           if (apError) throw apError
           await updateRegistro('sanidade', registro.id, { syncStatus: 'synced' })
+          break
+        }
+        case 'eventos_reprodutivos': {
+          // Idempotente por local_id (índice único): reenviar a sessão não duplica eventos. O gatilho do banco recusa
+          // fêmea inexistente/de outro sexo; o erro volta ao peão pela fila.
+          const client = await getSupabaseClientWithRefresh() as any
+          const linhasEventos = ((data as { linhas?: unknown[] }).linhas ?? []) as unknown[]
+          if (linhasEventos.length > 0) {
+            const { error: evError } = await client.from('eventos_reprodutivos').upsert(linhasEventos, { onConflict: 'local_id' })
+            if (evError) throw evError
+          }
+          await updateRegistro('reproducao', registro.id, { syncStatus: 'synced' })
           break
         }
         case 'sessoes_manejo_curral': {

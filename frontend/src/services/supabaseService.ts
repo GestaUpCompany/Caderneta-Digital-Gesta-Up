@@ -1226,6 +1226,36 @@ export async function getCarenciasAtivas(fazendaId: string, hojeIso: string) {
   }[]
 }
 
+/** Status reprodutivo derivado por fêmea viva (view do servidor), para avisar no aparelho, inclusive offline. */
+export async function getStatusReprodutivo(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('v_status_reprodutivo')
+    .select('individuo_id, status_reprodutivo, ultima_cobertura_data, previsao_parto')
+    .eq('fazenda_id', fazendaId)
+    .limit(5000)
+  if (error) throw error
+  return (data ?? []) as {
+    individuo_id: string
+    status_reprodutivo: string
+    ultima_cobertura_data: string | null
+    previsao_parto: string | null
+  }[]
+}
+
+export async function getEstacoesMonta(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('estacoes_monta')
+    .select('id, nome, data_inicio, data_fim')
+    .eq('fazenda_id', fazendaId)
+    .is('deleted_at', null)
+    .order('data_inicio', { ascending: false })
+    .limit(200)
+  if (error) throw error
+  return (data ?? []) as { id: string; nome: string; data_inicio: string; data_fim: string }[]
+}
+
 export async function getMedicamentos(fazendaId: string) {
   const client = await getSupabaseClientWithRefresh()
   const { data, error } = await client

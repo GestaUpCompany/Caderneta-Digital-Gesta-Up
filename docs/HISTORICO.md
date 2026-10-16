@@ -2,9 +2,21 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Caderneta de Reprodução no PWA (Fase 4 do PWA, P3) (16/10/2026)
+
+Nova caderneta `reproducao` (`pages/cadernetas/ReproducaoPage.tsx`, rota `/caderneta/reproducao`, grupo Gado & Pastagens), restrita à fazenda de testes (`CADERNETAS_EM_TESTE`). Uma **sessão** (um registro local) vale para várias fêmeas: tipo (Cobertura, Inseminação, Diagnóstico de gestação, Aborto), data e dados comuns (touro, partida do sêmen, técnico, método, estação de monta), mais a lista de fêmeas.
+- **Adicionar fêmeas:** pelo `AnimalIdentifier` (uma a uma; macho é recusado) ou escolhendo um lote e tocando em "Adicionar todas" ou em cada fêmea (vêm do cadastro local, então funciona offline). Cada fêmea mostra o status reprodutivo (`v_status_reprodutivo`, cache da última consulta) e, quando o evento destoa do status (cobertura em prenha, aborto em quem não está prenha nem coberta), um aviso que nunca bloqueia.
+- **Diagnóstico em grupo:** resultado por fêmea (Prenha, Vazia, Inconclusivo), atalho "marcar as sem resultado como", dias de gestação opcionais para prenha.
+- **Estação de monta:** `getEstacoesMonta` + cache; sugere a estação que cobre a data em cobertura e inseminação.
+- **Sync:** store `reproducao` (IndexedDB v37), `eventos_reprodutivos` no `syncService` (case próprio, `data.linhas`). Uma linha por fêmea com `local_id = <id da sessão>:<uid da linha>` e `origem = 'pwa'` (migration `20261016310000` no painel); upsert por `local_id`, reenviar não duplica. `evento_cobertura_id` nunca é enviado: registros chegam fora de ordem e a view calcula o status pelas datas.
+- **Núcleo testável:** `utils/reproducao.ts` (+ `reproducao.test.ts`: validação, payload com as constraints do banco, avisos, estação), `shareUtils.ts` (`formatarReproducaoComoTexto`, com teste), `validation.ts`, `SyncErrorModal`, botão com imagem provisória (`public/cadernetas/reproducao.png`, cópia da de sanidade).
+- **Teste (fazenda de testes, navegador):** diagnóstico em grupo de 3 fêmeas salvo **offline** (1 pendente) e sincronizado ao voltar: 3 linhas em `eventos_reprodutivos`, status derivado Prenha/Vazia; inseminação com touro e partida (aviso "Já consta como prenha" exibido) e aborto, ambos sincronizados; reenvio com o mesmo `local_id` não cria linha (0 novas). Os 5 eventos foram revertidos por soft-delete.
+- **Ponto aberto (view):** diagnóstico `Inconclusivo` sem cobertura faz uma fêmea "Parida" aparecer como "Sem registro" em `v_status_reprodutivo` (o ramo do inconclusivo ignora o marco). Corrigir por migration no painel.
+- **Pendências:** lista/edição dos registros no PWA; o status exibido é o da última consulta (não atualiza logo após salvar); imagem definitiva.
+
 ## Cadernetas novas só na fazenda de testes (16/10/2026)
 
-`manejo-curral` e `sanidade` ficam em `CADERNETAS_EM_TESTE` (`utils/constants.ts`) e só aparecem para a fazenda de testes (`FAZENDA_DE_TESTES_ID`, d649c65e-16ab-4b77-a84b-df937aa41cc3). `cadernetaVisivelNaFazenda(id, fazendaId)` filtra o menu de cadernetas (`ModulosMenuPage`) e a "última caderneta" da Home, e as duas telas mostram "ainda está em teste e não está liberada para esta fazenda" se a rota for aberta direto em outra fazenda. Teste unitário em `cadernetasEmTeste.test.ts`. Para liberar para todas depois: esvaziar a lista (ou remover o id dela). A permissão por funcionário (RBAC) continua valendo por cima. Na fazenda de testes, `sanidade` foi acrescentada à lista do funcionário Victor Hugo (`funcionarios.cadernetas_permitidas`).
+`manejo-curral`, `sanidade` e `reproducao` ficam em `CADERNETAS_EM_TESTE` (`utils/constants.ts`) e só aparecem para a fazenda de testes (`FAZENDA_DE_TESTES_ID`, d649c65e-16ab-4b77-a84b-df937aa41cc3). `cadernetaVisivelNaFazenda(id, fazendaId)` filtra o menu de cadernetas (`ModulosMenuPage`) e a "última caderneta" da Home, e as duas telas mostram "ainda está em teste e não está liberada para esta fazenda" se a rota for aberta direto em outra fazenda. Teste unitário em `cadernetasEmTeste.test.ts`. Para liberar para todas depois: esvaziar a lista (ou remover o id dela). A permissão por funcionário (RBAC) continua valendo por cima. Na fazenda de testes, `sanidade` foi acrescentada à lista do funcionário Victor Hugo (`funcionarios.cadernetas_permitidas`).
 
 ## Caderneta de Sanidade no PWA (Fase 4 do PWA, P2) (16/10/2026)
 

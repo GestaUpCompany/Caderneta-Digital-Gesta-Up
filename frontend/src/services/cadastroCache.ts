@@ -2100,6 +2100,48 @@ export async function getCarenciasFromCacheOnly(fazendaId: string) {
   return cached && Array.isArray(cached) ? cached : null
 }
 
+/** Status reprodutivo das fêmeas, com cache lazy (aviso apenas; offline usa a última cópia). */
+export async function getStatusReprodutivoCached(fazendaId: string) {
+  const key = buildKey('status-reprodutivo', fazendaId)
+  if (!navigator.onLine || redeInstavelRecentemente()) return getStatusReprodutivoFromCacheOnly(fazendaId)
+  try {
+    const data = await withTimeout(supabaseService.getStatusReprodutivo(fazendaId), 5000)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return getStatusReprodutivoFromCacheOnly(fazendaId)
+  }
+}
+
+export async function getStatusReprodutivoFromCacheOnly(fazendaId: string) {
+  const key = buildKey('status-reprodutivo', fazendaId)
+  const cached =
+    getCachedQuery<Awaited<ReturnType<typeof supabaseService.getStatusReprodutivo>>>(key) ??
+    (await getCachedQueryFromIDB<Awaited<ReturnType<typeof supabaseService.getStatusReprodutivo>>>(key))
+  return cached && Array.isArray(cached) ? cached : null
+}
+
+/** Estações de monta da fazenda, com cache lazy. */
+export async function getEstacoesMontaCached(fazendaId: string) {
+  const key = buildKey('estacoes-monta', fazendaId)
+  if (!navigator.onLine || redeInstavelRecentemente()) return getEstacoesMontaFromCacheOnly(fazendaId)
+  try {
+    const data = await withTimeout(supabaseService.getEstacoesMonta(fazendaId), 3000)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return getEstacoesMontaFromCacheOnly(fazendaId)
+  }
+}
+
+export async function getEstacoesMontaFromCacheOnly(fazendaId: string) {
+  const key = buildKey('estacoes-monta', fazendaId)
+  const cached =
+    getCachedQuery<Awaited<ReturnType<typeof supabaseService.getEstacoesMonta>>>(key) ??
+    (await getCachedQueryFromIDB<Awaited<ReturnType<typeof supabaseService.getEstacoesMonta>>>(key))
+  return cached && Array.isArray(cached) ? cached : null
+}
+
 /**
  * Busca tratamentos com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).

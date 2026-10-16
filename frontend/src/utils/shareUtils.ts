@@ -533,6 +533,30 @@ const formatarManejoCurralComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+const formatarReproducaoComoTexto = (registro: Registro): string => {
+  const r = registro as Record<string, unknown>
+  const linhas = (Array.isArray(r.linhas) ? r.linhas : []) as { rotulo?: string; resultado?: string; idadeGestacaoDias?: string }[]
+  let texto = '📋 *REPRODUÇÃO*\n'
+  texto += `📅 ${String(r.data ?? '')}\n`
+  if (r.responsavel || r.usuario) texto += `👤 ${r.responsavel || r.usuario}\n`
+  texto += `\n🐄 *${r.tipo || 'Evento'}* (${linhas.length} ${linhas.length === 1 ? 'fêmea' : 'fêmeas'})\n`
+  if (r.estacaoNome) texto += `📆 Estação: ${r.estacaoNome}\n`
+  if (r.touroNome) texto += `🐂 Touro: ${r.touroNome}\n`
+  if (r.semenPartida) texto += `🧪 Partida do sêmen: ${r.semenPartida}\n`
+  if (r.tecnico) texto += `🩺 Técnico: ${r.tecnico}\n`
+  if (r.metodo) texto += `🔎 Método: ${r.metodo}\n`
+  if (r.tipo === 'Diagnóstico de gestação') {
+    const cont = (res: string) => linhas.filter((l) => l.resultado === res).length
+    texto += `✅ Prenhas: ${cont('Prenha')}  ❌ Vazias: ${cont('Vazia')}  ❔ Inconclusivas: ${cont('Inconclusivo')}\n`
+  }
+  texto += '\n'
+  for (const l of linhas) {
+    texto += `• ${l.rotulo || 'Fêmea'}${l.resultado ? `: ${l.resultado}` : ''}${l.resultado === 'Prenha' && l.idadeGestacaoDias ? ` (${l.idadeGestacaoDias} dias)` : ''}\n`
+  }
+  if (r.observacao) texto += `\n📝 ${r.observacao}\n`
+  return texto.trimEnd()
+}
+
 const formatarSanidadeComoTexto = (registro: Registro): string => {
   const r = registro as Record<string, unknown>
   const dataStr = String(r.data ?? '')
@@ -559,6 +583,9 @@ const formatarSanidadeComoTexto = (registro: Registro): string => {
 }
 
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
+  if (caderneta === 'reproducao') {
+    return formatarReproducaoComoTexto(registro)
+  }
   if (caderneta === 'sanidade') {
     return formatarSanidadeComoTexto(registro)
   }
