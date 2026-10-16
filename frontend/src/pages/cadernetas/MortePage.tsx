@@ -22,6 +22,8 @@ import {
   getLotesAtivosCached,
 } from '../../services/cadastroCache'
 import { getFormulacoes } from '../../services/supabaseService'
+import { getCachedCadastroData } from '../../services/cadastroCache'
+import { individuoVivoPorIdentificacao } from '../../utils/individuoPorIdentificacao'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -387,7 +389,17 @@ export default function MortePage() {
     const causaMorteFinal = form.causaMorte === 'Outros' ? form.causaMorteOutros : form.causaMorte
     const categoriaFinal = form.categoria
 
+    // Vincula a morte ao indivíduo cadastrado (brinco/chip), para o animal ser baixado junto com o agregado.
+    let individuoId: string | null = null
+    try {
+      const cache = await getCachedCadastroData()
+      individuoId = individuoVivoPorIdentificacao(cache?.individuos || [], form.brinco, form.chip)
+    } catch {
+      /* sem cache: a morte segue sem vínculo, como antes */
+    }
+
     const result = await salvarRegistro('morte', {
+      individuoId,
       responsavel: usuario,
       usuario: usuario,
       data: form.data,

@@ -457,6 +457,7 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         pasto_id: registro.pastoId || null,
         lote: registro.lote || null,
         lote_id: registro.loteId || null,
+        individuo_id: registro.individuoId || null,
         brinco: registro.brinco || null,
         chip: registro.chip || null,
         observacao_identificacao: registro.observacaoIdentificacao || null,
