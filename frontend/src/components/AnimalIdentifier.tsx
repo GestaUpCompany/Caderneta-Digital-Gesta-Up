@@ -1,8 +1,16 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import SearchableModal from './ui/SearchableModal'
 import { Input } from './ui'
-import { getIndividuos, buscarIndividuoPorIdGenerico } from '../services/supabaseService'
-import { getCachedCadastroData } from '../services/cadastroCache'
+import { getIndividuosVivosCompleto, buscarIndividuoPorIdGenerico } from '../services/supabaseService'
+import { getCachedCadastroData, getIdentificadoresBaixadosDoCache } from '../services/cadastroCache'
+import { getRegistrosPendentes } from '../services/indexedDB'
+import {
+  acharConflitoComAnimalBaixado,
+  acharPorIdentificador,
+  mesclarAnimais,
+  type IdentificadorEmUso,
+} from '../utils/identificadores'
+import { extrairAnimaisPendentes } from '../utils/animaisPendentes'
 
 interface AnimalData {
   id: string
@@ -80,6 +88,7 @@ export default function AnimalIdentifier({
   const [hasIndividuos, setHasIndividuos] = useState<boolean | null>(null)
   const [animalEncontrado, setAnimalEncontrado] = useState<AnimalData | null>(null)
   const [isNewlyCreated, setIsNewlyCreated] = useState(false)
+  const [baixados, setBaixados] = useState<IdentificadorEmUso[]>([])
 
   // Notify parent when hasIndividuos changes
   useEffect(() => {
@@ -100,23 +109,32 @@ export default function AnimalIdentifier({
 
     const load = async () => {
       try {
+        // Animais que registros ainda não sincronizados vão criar (mãe/cria cadastradas offline) e identificadores
+        // de animais baixados: não vêm do servidor, mas a busca e o aviso de número já usado precisam deles
+        const [pendentesBrutos, baixadosCache] = await Promise.all([
+          getRegistrosPendentes('maternidade').catch(() => []),
+          getIdentificadoresBaixadosDoCache(),
+        ])
+        const pendentes = extrairAnimaisPendentes(pendentesBrutos, fazendaId) as unknown as AnimalData[]
+        if (!cancelled) setBaixados(baixadosCache)
+
         // Tenta primeiro o cache de cadastro para funcionar offline/rapido
         const cache = await getCachedCadastroData()
-        const cachedIndividuos = cache?.individuos || []
+        const cachedIndividuos = mesclarAnimais((cache?.individuos || []) as AnimalData[], pendentes)
         console.log('[AnimalIdentifier] cache de individuos:', cachedIndividuos.length, cachedIndividuos.slice(0, 3))
 
         if (cachedIndividuos.length > 0) {
           if (cancelled) return
-          setIndividuos(cachedIndividuos as AnimalData[])
+          setIndividuos(cachedIndividuos)
           const hasFormalIds = cachedIndividuos.some((i: any) => i.id_manejo || i.id_brinco || i.id_chip)
           console.log('[AnimalIdentifier] usando cache. hasFormalIds:', hasFormalIds)
           setHasIndividuos(hasFormalIds)
           setLoading(false)
           // Ainda busca no Supabase em background para atualizar
-          getIndividuos(fazendaId, 100)
+          getIndividuosVivosCompleto(fazendaId)
             .then((data) => {
               if (cancelled) return
-              const list = (data as AnimalData[]) || []
+              const list = mesclarAnimais((data as AnimalData[]) || [], pendentes)
               console.log('[AnimalIdentifier] background getIndividuos retornou', list.length, 'individuos')
               setIndividuos(list)
               setHasIndividuos(list.some(i => i.id_manejo || i.id_brinco || i.id_chip))
@@ -127,9 +145,9 @@ export default function AnimalIdentifier({
 
         // Fallback: busca direto no Supabase
         console.log('[AnimalIdentifier] iniciando getIndividuos para fazendaId:', fazendaId)
-        const data = await getIndividuos(fazendaId, 100)
+        const data = await getIndividuosVivosCompleto(fazendaId)
         if (cancelled) return
-        const list = (data as AnimalData[]) || []
+        const list = mesclarAnimais((data as AnimalData[]) || [], pendentes)
         console.log('[AnimalIdentifier] getIndividuos retornou', list.length, 'individuos. Raw sample:', list.slice(0, 3))
         setIndividuos(list)
         const hasFormalIds = list.some(i => i.id_manejo || i.id_brinco || i.id_chip)
@@ -149,18 +167,12 @@ export default function AnimalIdentifier({
 
   // Busca um animal na lista pre-carregada a partir de qualquer um dos IDs
   const findAnimalByAnyId = (ids: { manejo?: string; brinco?: string; chip?: string }) => {
-    const manejo = ids.manejo?.trim()
-    const brinco = ids.brinco?.trim()
-    const chip = ids.chip?.trim()
-    return individuos.find((i) =>
-      (manejo && i.id_manejo === manejo) ||
-      (brinco && i.id_brinco === brinco) ||
-      (chip && i.id_chip === chip)
-    )
+    // Ignora caixa e espaços, como o banco: "ab-12" é o animal "AB-12"
+    return acharPorIdentificador(individuos, ids)
   }
 
   // Atualiza o estado do pai com os dados de um animal, ou limpa se nenhum for encontrado
-  const setAnimalFromData = (animal: AnimalData | null) => {
+  const setAnimalFromData = useCallback((animal: AnimalData | null) => {
     if (animal) {
       setAnimalEncontrado(animal)
       onChange({
@@ -174,7 +186,7 @@ export default function AnimalIdentifier({
       setAnimalEncontrado(null)
       onChange({ idManejo: '', idBrinco: '', idChip: '', individuoId: null, animalData: null })
     }
-  }
+  }, [onChange])
 
   // Quando o usuario seleciona um ID existente no SearchableModal, preenche todos os
   // campos com os dados do mesmo animal, evitando misturar IDs de animais diferentes
@@ -208,14 +220,21 @@ export default function AnimalIdentifier({
     }
   }
 
+  // Números já preenchidos sem o animal resolvido (rascunho recuperado, tela reaberta): acha o animal na lista para
+  // mostrar os dados dele e refazer o vínculo (individuoId), em vez de exibir "não encontrado na base"
+  useEffect(() => {
+    if (animalEncontrado || isNewlyCreated || loading) return
+    if (!(valueManejo || valueBrinco || valueChip)) return
+    const found = acharPorIdentificador(individuos, { manejo: valueManejo, brinco: valueBrinco, chip: valueChip })
+    if (found) setAnimalFromData(found)
+  }, [individuos, loading, valueManejo, valueBrinco, valueChip, animalEncontrado, isNewlyCreated, setAnimalFromData])
+
   // Faz a busca ao banco somente quando o usuário sai do input (onBlur)
   const handleInputBlur = async (value: string) => {
     if (!value || value.trim() === '') return
 
     // Primeiro tenta encontrar na lista pré-carregada
-    const found = individuos.find((i) =>
-      i.id_manejo === value || i.id_brinco === value || i.id_chip === value
-    )
+    const found = acharPorIdentificador(individuos, { manejo: value, brinco: value, chip: value })
     if (found) {
       setAnimalEncontrado(found)
       onChange({
@@ -284,6 +303,15 @@ export default function AnimalIdentifier({
   }, [fazendaId, hasIndividuos, individuos.length, eligibleIndividuos.length])
 
   const renderSearchable = !!fazendaId
+
+  // Número digitado que já foi de um animal que saiu do rebanho: o banco não o libera, e o registro seria recusado
+  const conflitoBaixado = useMemo(
+    () =>
+      animalEncontrado
+        ? undefined
+        : acharConflitoComAnimalBaixado(baixados, { manejo: valueManejo, brinco: valueBrinco, chip: valueChip }),
+    [animalEncontrado, baixados, valueManejo, valueBrinco, valueChip]
+  )
 
   return (
     <div className="flex flex-col gap-3">
@@ -480,6 +508,12 @@ export default function AnimalIdentifier({
             </p>
           )}
         </div>
+      )}
+      {conflitoBaixado && (
+        <p className="text-xs text-red-600 mt-2 font-medium">
+          ⚠️ O {conflitoBaixado.campo} {conflitoBaixado.valor} já pertence a um animal {conflitoBaixado.status}. Esse número não
+          pode ser usado por outro animal; confira se digitou certo.
+        </p>
       )}
       {isNewlyCreated && (valueManejo || valueBrinco || valueChip) && (
         <p className="text-xs text-green-600 mt-2 font-medium">

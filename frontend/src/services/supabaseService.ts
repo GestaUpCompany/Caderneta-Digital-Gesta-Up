@@ -4,6 +4,7 @@ import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/r
 import { getCurrentDateTimeInTimezone, getDayRangeIso, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
 import { isCategoriaAoPe } from '../utils/categorias'
 import type { ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
+import { buscarTodasAsPaginas } from '../utils/paginacao'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
@@ -1043,6 +1044,51 @@ export async function getIndividuos(fazendaId: string, limit = 100) {
 
   if (error) throw error
   return data
+}
+
+const COLUNAS_INDIVIDUO_CACHE =
+  'id, id_manejo, id_brinco, id_chip, id_provisorio_cria, sexo, raca, categoria, classificacao_matriz, numero_partos, status, data_nascimento, lote_atual, idade_era'
+
+/**
+ * Todos os animais Vivos da fazenda, paginando (o PostgREST corta cada resposta em ~1000 linhas). Ordem estável
+ * por id na consulta; depois ordena por manejo, como a lista antiga.
+ */
+export async function getIndividuosVivosCompleto(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const linhas = await buscarTodasAsPaginas<any>(async (inicio, fim) => {
+    const { data, error } = await client
+      .from('individuos')
+      .select(COLUNAS_INDIVIDUO_CACHE)
+      .eq('fazenda_id', fazendaId)
+      .eq('status', 'Vivo')
+      .is('deleted_at', null)
+      .order('id')
+      .range(inicio, fim)
+    if (error) throw error
+    return data || []
+  })
+  return linhas.sort((a, b) => (a.id_manejo ?? '\uffff').localeCompare(b.id_manejo ?? '\uffff'))
+}
+
+/**
+ * Identificadores de animais que saíram do rebanho (mortos, vendidos...) e não estão excluídos. O banco não libera
+ * o número quando o animal sai, então servem para avisar, mesmo offline, que um brinco/chip/manejo já foi usado.
+ */
+export async function getIdentificadoresBaixados(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const linhas = await buscarTodasAsPaginas<any>(async (inicio, fim) => {
+    const { data, error } = await client
+      .from('individuos')
+      .select('id, id_manejo, id_brinco, id_chip, status')
+      .eq('fazenda_id', fazendaId)
+      .neq('status', 'Vivo')
+      .is('deleted_at', null)
+      .order('id')
+      .range(inicio, fim)
+    if (error) throw error
+    return data || []
+  })
+  return linhas.filter((l) => l.id_manejo || l.id_brinco || l.id_chip)
 }
 
 export async function getIndividuoPorCampo(

@@ -2,6 +2,18 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Busca de animais: lista completa, comparação sem caixa/espaço, animais criados offline e aviso de número já usado (16/10/2026)
+
+Só PWA, sem migration nem mudança de IndexedDB (usa a chave `identificadores_baixados` do store `cadastroData`, objeto `{ itens }`).
+
+- **Lista truncada em 100:** o `AnimalIdentifier` carregava o cache (até 1000) e, em segundo plano, trocava a lista por `getIndividuos(fazendaId, 100)`; em fazenda com mais de 100 animais vivos o seletor perdia o resto. Agora `getIndividuosVivosCompleto` pagina de 1000 em 1000 (`utils/paginacao.ts`) e é usado no cache (`cadastroCache.ts`, nos dois caminhos) e no seletor.
+- **Comparação sem caixa e espaço:** o banco guarda e compara brinco/chip/manejo sem espaços nas pontas e em maiúsculas (índices únicos normalizados); o seletor comparava com `===`, então "ab-12" não achava "AB-12", virava "Novo animal" e a sincronização recusava por duplicidade. `utils/identificadores.ts` (`normalizarIdentificador`, `acharPorIdentificador`) passou a ser usado na busca e no blur.
+- **Animais criados offline:** `utils/animaisPendentes.ts` lê `novosIndividuos` dos registros de maternidade ainda pendentes e os soma à lista, para um segundo registro offline achar a mesma mãe/cria em vez de cadastrá-la de novo.
+- **Aviso de número já usado:** `getIdentificadoresBaixados` guarda, a cada atualização do cadastro, os identificadores de animais que saíram do rebanho (o banco não libera o número); `acharConflitoComAnimalBaixado` mostra o aviso quando o peão digita um desses números num animal novo. Hoje não há animal baixado na base; passa a valer quando a morte vinculada for promovida.
+- **Rascunho recuperado:** com os números já preenchidos (rascunho recuperado ou tela reaberta), o seletor mostrava o cartão vazio e "Animal não encontrado na base" e perdia o vínculo `individuoId`; agora reencontra o animal na lista, mostra os dados e refaz o vínculo.
+- Testes: 15 novos (identificadores, paginação, animais pendentes). Verificado no preview local na fazenda de testes: " adot-br-c1 " achou a vaca ADOT-BR-C1 (antes virava "Novo animal"); rascunho recuperado mostra a Vaca Parida. Lint no teto (48).
+- **Ainda não feito (Fase 3):** campo/busca por ID provisório de cria, caderneta de brincagem (provisório → brinco) e leitura por bastão RFID.
+
 ## Sync à prova de retenção: sessão invisível, nada transitório vira erro, pai antes do filho, dado sempre válido (15/10/2026)
 
 Caso Chibata: registros de suplementação, rodeio e saída de insumos ficaram dias no aparelho. Causas: `22003` (kg_cocho 104530000 estoura `numeric(10,2)`, sem limite na tela), `42501` (app apagava o token ao abrir e gravava como anônimo; corrigido antes no `e2e1106`) e `57014` (timeout que esgotava 6 tentativas e virava `error`). Os 10 registros de outubro foram reinseridos à mão a partir de `logs_sync_errors` (o duplicado de 10/10 Lote 5 foi descartado). Princípio: o peão abre online ou offline, registra e sai, sem login nem REENVIAR.

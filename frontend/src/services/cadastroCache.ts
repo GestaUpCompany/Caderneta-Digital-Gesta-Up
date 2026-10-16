@@ -14,11 +14,32 @@ import { diaDaFazendaISO, type ConsumoConfinamentoDiaLinha } from '../utils/cons
 import { calcularPendenciasBebedouro, ResultadoPendencias, RegistroChecklistBebedouro } from '../utils/pendenciasBebedouro'
 import { calcularPendenciasRodeio, ResultadoPendenciasRodeio, RegistroDiagnosticoRodeio } from '../utils/pendenciasRodeio'
 import { calcularPendencias5S, ResultadoPendencias5S, RegistroAuditoria5SPendencia } from '../utils/pendencias5s'
+import type { IdentificadorEmUso } from '../utils/identificadores'
 
 const CACHE_KEYS = {
   PASTOS_LOTES: 'pastos_lotes',
   SUPLEMENTACAO: 'suplementacao',
   FRIGORIFICOS: 'frigorificos',
+  IDENTIFICADORES_BAIXADOS: 'identificadores_baixados',
+}
+
+/** Guarda os identificadores dos animais baixados para avisar offline que um número já foi usado (melhor esforço). */
+export async function atualizarIdentificadoresBaixados(fazendaId: string): Promise<void> {
+  try {
+    const itens = await supabaseService.getIdentificadoresBaixados(fazendaId)
+    await saveCadastroData(CACHE_KEYS.IDENTIFICADORES_BAIXADOS, { itens }, fazendaId)
+  } catch (error) {
+    console.warn('[CadastroCache] Não foi possível atualizar os identificadores de animais baixados:', error)
+  }
+}
+
+export async function getIdentificadoresBaixadosDoCache(): Promise<IdentificadorEmUso[]> {
+  try {
+    const dados = await getCadastroData(CACHE_KEYS.IDENTIFICADORES_BAIXADOS)
+    return Array.isArray(dados?.itens) ? (dados.itens as IdentificadorEmUso[]) : []
+  } catch {
+    return []
+  }
 }
 
 const CACHE_EXPIRY_MS = 30 * 60 * 1000 // 30 minutos (polling de cache em foreground)
@@ -343,7 +364,7 @@ async function fetchCadastroData(cadastroSheetUrl: string, fazendaId?: string): 
         supabaseService.getBebedouros(fazendaId),
         supabaseService.getFornecedores(fazendaId),
         supabaseService.getFuncionarios(fazendaId),
-        supabaseService.getIndividuos(fazendaId, 100),
+        supabaseService.getIndividuosVivosCompleto(fazendaId),
         supabaseService.getMineral(fazendaId),
         supabaseService.getProteinado(fazendaId),
         supabaseService.getRacao(fazendaId),
@@ -3535,7 +3556,14 @@ export async function syncAllCadastroData(
   const syncSteps = [
     { name: 'Pastos', fn: () => supabaseService.getPastos(fazendaId) },
     { name: 'Lotes', fn: () => supabaseService.getLotes(fazendaId) },
-    { name: 'Indivíduos', fn: () => supabaseService.getIndividuos(fazendaId, 1000) },
+    {
+      name: 'Indivíduos',
+      fn: async () => {
+        const vivos = await supabaseService.getIndividuosVivosCompleto(fazendaId)
+        await atualizarIdentificadoresBaixados(fazendaId)
+        return vivos
+      },
+    },
     { name: 'Bebedouros', fn: () => supabaseService.getBebedouros(fazendaId) },
     { name: 'Formulações', fn: () => supabaseService.getFormulacoes(fazendaId) },
     { name: 'Funcionários', fn: () => supabaseService.getFuncionarios(fazendaId) },
