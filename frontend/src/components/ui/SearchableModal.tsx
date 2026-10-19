@@ -53,6 +53,16 @@ export default function SearchableModal({
   // ativos chamados "Lote 147" no mesmo pasto) e o dropdown não deve exibir
   // entradas repetidas.
   const uniqueOptions = Array.from(new Set(options))
+  // Com texto secundário (pasto/curral), ordena alfabeticamente por ele; itens sem pasto vão ao fim.
+  if (secondaryText) {
+    const collator = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' })
+    uniqueOptions.sort((a, b) => {
+      const pa = secondaryText(a) || ''
+      const pb = secondaryText(b) || ''
+      if (!pa !== !pb) return pa ? -1 : 1
+      return collator.compare(pa, pb) || collator.compare(a, b)
+    })
+  }
 
   useEffect(() => {
     if (isOpen) {
