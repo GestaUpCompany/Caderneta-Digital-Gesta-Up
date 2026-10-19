@@ -27,6 +27,8 @@ import { ordensServicoConfig } from './ordensServico'
 import { osRecebimentosConfig } from './osRecebimentos'
 import { leituraCochoConfig } from './leituraCocho'
 import { tratoConfinamentoConfig } from './tratoConfinamento'
+import { sanidadeConfig } from './sanidade'
+import { reproducaoConfig } from './reproducao'
 
 export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaDisplayConfig>> = {
   pastagens: pastagensConfig,
@@ -56,4 +58,6 @@ export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaD
   'os-recebimentos': osRecebimentosConfig,
   'leitura-cocho': leituraCochoConfig,
   'trato-confinamento': tratoConfinamentoConfig,
+  sanidade: sanidadeConfig,
+  reproducao: reproducaoConfig,
 }

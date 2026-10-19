@@ -241,7 +241,6 @@ export default function SanidadePage() {
       <CadernetaLayout
         title="SANIDADE"
         cadernetaId="sanidade"
-        showRegistrosButton={false}
         dateContent={<DatePicker value={form.data} onChange={(v) => set({ data: v })} variant="header" compact inline maxDate={todayBR()} />}
       >
         <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />

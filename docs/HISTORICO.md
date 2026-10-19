@@ -2,6 +2,10 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Lista de registros de Sanidade e Reprodução no PWA (19/10/2026)
+
+As duas cadernetas ganharam a lista de registros salvos no aparelho, no padrão das demais (`ListaRegistros`): páginas `SanidadeListaPage` e `ReproducaoListaPage` (rotas `/caderneta/sanidade/lista` e `/caderneta/reproducao/lista`), o botão **Registros** do cabeçalho do formulário (antes escondido com `showRegistrosButton={false}`), configs de exibição `config/cadernetas/sanidade.ts` e `reproducao.ts` e o componente especial que lista as fêmeas de cada evento de reprodução com o resultado (`registroSpecialComponents.tsx`). Cada cartão mostra o status de sincronização, permite compartilhar (os textos de `shareUtils` já existiam) e reenviar em caso de erro. **Edição não foi criada**: nenhuma caderneta do PWA edita registro salvo (a lista é só leitura, com reenvio) e o sync só faz criação idempotente por `local_id`; correção de registro já enviado segue pelo painel. Testado no PWA local com registros de exemplo no IndexedDB (removidos depois): os dois cartões, o selo Pendente/Sincronizado, a lista de fêmeas e o botão Registros levando à lista. Typecheck, 459 testes e lint no teto (48) ok.
+
 ## Tratamento/vacina no Manejo de Curral (Sanidade C3) (16/10/2026)
 
 Seção 5 da `ManejoCurralPage` ("Tratamento na sessão (opcional)"): tipo, produto do catálogo ou digitado, dose, via, carência, intervalo, partida, validade e diagnóstico (tratamento). Se o produto for preenchido, todos os animais da lista recebem o registro; o botão "Não recebeu" em cada animal abre exceção (`LinhaManejo.semTratamento` → `registros_manejo_curral.sem_tratamento`). Contador "N de M animais receberão". Só registra: não muda contagem nem peso; a carência avisa sem bloquear.
