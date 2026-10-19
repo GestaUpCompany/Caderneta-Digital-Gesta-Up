@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acharConflitoComAnimalBaixado, acharPorIdentificador, mesclarAnimais, normalizarIdentificador } from './identificadores'
+import { acharConflitoComAnimalBaixado, acharPorIdentificador, aparaIdentificador, mesclarAnimais, normalizarIdentificador } from './identificadores'
 
 const lista = [
   { id: 'a', id_manejo: 'M-001', id_brinco: 'AB-12', id_chip: null },
@@ -65,5 +65,20 @@ describe('mesclarAnimais', () => {
       [{ id: '1', id_brinco: 'DIFERENTE' }, { id: '2', id_brinco: 'B' }]
     )
     expect(r.map((a) => [a.id, a.id_brinco])).toEqual([['1', 'A'], ['2', 'B']])
+  })
+})
+
+describe('aparaIdentificador', () => {
+  it('tira os espaços das pontas e preserva a caixa', () => {
+    expect(aparaIdentificador('  ab-12 ')).toBe('ab-12')
+    expect(aparaIdentificador('AB 12')).toBe('AB 12')
+  })
+
+  it('vazio, só espaços ou ausente viram null; número vira texto', () => {
+    expect(aparaIdentificador('   ')).toBeNull()
+    expect(aparaIdentificador('')).toBeNull()
+    expect(aparaIdentificador(null)).toBeNull()
+    expect(aparaIdentificador(undefined)).toBeNull()
+    expect(aparaIdentificador(1234)).toBe('1234')
   })
 })

@@ -1147,9 +1147,9 @@ export async function criarIndividuosIdempotente(individuos: any[]): Promise<Rec
 
     if (individuo.origem === 'Cadastro Manual') {
       const filtros = [
-        individuo.id_brinco ? `id_brinco.eq.${aspas(String(individuo.id_brinco))}` : null,
-        individuo.id_chip ? `id_chip.eq.${aspas(String(individuo.id_chip))}` : null,
-        individuo.id_manejo ? `id_manejo.eq.${aspas(String(individuo.id_manejo))}` : null,
+        individuo.id_brinco ? `id_brinco.eq.${aspas(String(individuo.id_brinco).trim())}` : null,
+        individuo.id_chip ? `id_chip.eq.${aspas(String(individuo.id_chip).trim())}` : null,
+        individuo.id_manejo ? `id_manejo.eq.${aspas(String(individuo.id_manejo).trim())}` : null,
       ].filter(Boolean) as string[]
       if (filtros.length > 0) {
         const { data: existentes, error: erroBusca } = await client

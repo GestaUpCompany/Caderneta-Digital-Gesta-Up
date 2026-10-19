@@ -12,6 +12,16 @@ export interface IdentificadoresDoAnimal {
 
 export const normalizarIdentificador = (v?: string | null): string => (v ?? '').trim().toUpperCase()
 
+/**
+ * Identificador para ENVIAR ao servidor: só tira os espaços das pontas e vazio vira null (a caixa é preservada de
+ * propósito: pesagem, OS e maternidade comparam o texto exato com o animal, que o banco guarda aparado).
+ */
+export function aparaIdentificador(v: unknown): string | null {
+  if (v === null || v === undefined) return null
+  const t = String(v).trim()
+  return t === '' ? null : t
+}
+
 export interface IdentificadoresDigitados {
   manejo?: string
   brinco?: string
