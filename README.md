@@ -4,7 +4,7 @@ Aplicativo PWA offline-first para peões de fazenda registrarem dados de produç
 
 ## Arquitetura
 
-O PWA é a ponta de campo. Toda escrita vai primeiro ao IndexedDB (`cadernetas-digitais`, v22) com `syncStatus = 'pending'` e é enfileirada na store `syncQueue`. O hook `useSync` drena a fila a cada 30s chamando `syncToSupabase` por item, que faz INSERT ou UPDATE conforme a operação e o `supabaseId` já gravado. Falhas são logadas em `logs_sync_errors` no Supabase para auditoria no Painel Web.
+O PWA é a ponta de campo. Toda escrita vai primeiro ao IndexedDB (`cadernetas-digitais`, v32) com `syncStatus = 'pending'` e é enfileirada na store `syncQueue`. O hook `useSync` drena a fila a cada 30s chamando `syncToSupabase` por item, que faz INSERT ou UPDATE conforme a operação e o `supabaseId` já gravado. Falhas são logadas em `logs_sync_errors` no Supabase para auditoria no Painel Web.
 
 A autenticação é por **peão da fazenda**, não por pessoa: o usuário digita o `acesso_id` da fazenda, o app busca o peão em `peoes` (email `peao.<acesso_id>@gestaup.internal`) e faz `signInWithPassword` no Supabase Auth. O token JWT vai ao `localStorage`. A RLS do banco verifica `usuarios.auth_id = auth.uid()` com `usuario_fazenda.ativo = true`, então o vínculo do peão nessas duas tabelas é obrigatório para ler cadastros protegidos (pastos, lotes, categorias, raças, etc.).
 

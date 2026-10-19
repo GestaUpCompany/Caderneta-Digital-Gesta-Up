@@ -119,3 +119,6 @@ vite.config.ts.timestamp-*.mjs
 
 # Export files
 *.csv
+
+# Claude Code local settings (contém segredos / preferências pessoais)
+.claude/settings.local.json

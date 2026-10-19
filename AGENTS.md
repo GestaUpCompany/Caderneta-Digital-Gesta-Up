@@ -17,6 +17,19 @@ Projeto Supabase: `nrwljcvhwbezmoummxbl` ("Cadernetas Digitais")
 - Typecheck PWA: `cd frontend && npx tsc --noEmit`
 - Dev PWA: `cd frontend && npm run dev`
 
+## Fluxo de abertura do PWA via chrome-devtools
+
+Sempre que o usuário pedir para "abrir devtools", "abrir o PWA no chrome-devtools", "iniciar devtools", ou qualquer variação que mencione devtools combinado com abrir/iniciar o app, seguir este fluxo:
+
+1. Subir `cd frontend && npm run dev` em background (shell com `timeout: 0`).
+2. Aguardar a mensagem de ready do Vite e extrair a porta da linha `Local: http://localhost:<porta>/` (a porta pode variar; não assumir 5173).
+3. Chamar `list_pages` no MCP `chrome-devtools` para obter o `pageId` ativo.
+4. Chamar `navigate_page` no MCP `chrome-devtools` apontando para `http://localhost:<porta>/Caderneta-Digital-Gesta-Up/`, usando a porta extraída do passo 2 e incluindo a base path `/Caderneta-Digital-Gesta-Up/` (definida em `frontend/vite.config.ts`; sem ela a página não carrega).
+
+Não usar `browser_preview` quando o pedido mencionar devtools; usar exclusivamente o MCP `chrome-devtools`.
+
+Disparador: "abrir devtools", "abre devtools", "iniciar devtools", "abrir PWA no chrome-devtools", ou frases equivalentes que combinem "devtools" com abertura/início do app.
+
 ## Fluxo de migrations estruturais (obrigatório)
 
 Migrations estruturais (CREATE/ALTER TABLE, triggers, policies, índices, functions) devem seguir este fluxo rigorosamente:

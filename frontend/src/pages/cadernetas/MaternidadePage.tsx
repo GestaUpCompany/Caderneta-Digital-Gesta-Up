@@ -7,6 +7,7 @@ import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import PdfModal from '../../components/PdfModal'
 import { salvarRegistro } from '../../services/api'
+import { validate } from '../../utils/validation'
 import { todayBR, brToIso } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import CadernetaLayout from '../../components/CadernetaLayout'
@@ -246,6 +247,11 @@ export default function MaternidadePage() {
   const [recarga, setRecarga] = useState(0)
   const pendenteRef = useRef(false)
   const salvandoRef = useRef(false)
+  // Gêmeos: a 1ª cria já foi salva e a 2ª falhou; o próximo Salvar grava só a 2ª (não repete a 1ª)
+  const gemeaPendenteRef = useRef<{
+    payload2: Record<string, unknown>
+    resultado1: Awaited<ReturnType<typeof salvarRegistro>>
+  } | null>(null)
 
   // Fotos (sem GPS nesta caderneta): da cria/mãe (foto_url) e do brinco da mãe (opcional)
   const fotoCria = usePhotoGps({ comGps: false })
@@ -729,6 +735,7 @@ export default function MaternidadePage() {
         raca: form.racaMaeAdotiva2 || null,
         categoria: categoriaAdotiva(form.categoriaMaeAdotiva2),
         classificacao_matriz: form.categoriaMaeAdotiva2 || null,
+        status: 'Vivo',
         data_nascimento: null,
         lote_atual: form.loteId || null,
         pasto_atual: form.pastoId || null,
@@ -810,8 +817,8 @@ export default function MaternidadePage() {
     // Vínculo entre gêmeos (mesmo UUID para ambos os registros)
     const partoVinculoId = form.gemelos ? crypto.randomUUID() : null
 
-    // Registrar 1ª cria (cria morta: sem identificação nem indivíduo)
-    const result = await salvarRegistro('maternidade', {
+    // 1ª cria (cria morta: sem identificação nem indivíduo)
+    const payload1: Record<string, unknown> = {
       data: form.data,
       pasto: pastoNome,
       pastoId: form.pastoId,
@@ -848,59 +855,91 @@ export default function MaternidadePage() {
       fotoBase64: fotoCria.fotoBase64 || null,
       fotoBrincoMaeBase64: fotoBrincoMae.fotoBase64 || null,
       usuario: usuario,
-    })
+    }
 
-    // Registrar 2ª cria (gêmeos)
+    // 2ª cria (gêmeos): monta e valida o registro ANTES de gravar a 1ª, para não deixar a 1ª salva e a 2ª recusada
+    let payload2: Record<string, unknown> | null = null
     if (form.gemelos) {
-      try {
-        // 2ª cria natimorta: garante 'Natimorto' no tipoParto; cria viva não herda a marca da 1ª cria
-        const tipoPartoCria2 = form.gemelosNatimorto
-          ? (tipoPartoFinal.includes('Natimorto') ? tipoPartoFinal : [...tipoPartoFinal, 'Natimorto'])
-          : tipoPartoFinal.filter((t) => t !== 'Natimorto')
+      // 2ª cria natimorta: garante 'Natimorto' no tipoParto; cria viva não herda a marca da 1ª cria
+      const tipoPartoCria2 = form.gemelosNatimorto
+        ? (tipoPartoFinal.includes('Natimorto') ? tipoPartoFinal : [...tipoPartoFinal, 'Natimorto'])
+        : tipoPartoFinal.filter((t) => t !== 'Natimorto')
 
-        await salvarRegistro('maternidade', {
-          data: form.data,
-          pasto: pastoNome,
-          pastoId: form.pastoId,
-          lote: form.lote,
-          loteId: form.loteId,
-          // 2ª cria morta (natimorta ou aborto): sem peso, sem IDs
-          pesoCria: cria2Morta ? null : (form.pesoCria2 ? Number(form.pesoCria2) : null),
-          idProvisorioCria: cria2Morta ? null : form.idProvisorioCria2,
-          idBrincoCria: cria2Morta ? null : form.idBrincoCria2,
-          idChipCria: cria2Morta ? null : form.idChipCria2,
-          // 2ª cria morta: sem primeiros cuidados
-          tratamento: cria2Morta ? null : tratamentoFinal2,
-          medicamentos: cria2Morta ? [] : form.medicamentos2,
-          tipoParto: tipoPartoCria2,
-          observacaoParto: observacaoCria2,
-          // 2ª cria morta: sem sexo e raça (não identificado)
-          sexo: cria2Morta ? null : form.sexo2,
-          raca: cria2Morta ? null : form.raca2,
-          idManejoMae: form.idManejoMae,
-          idBrincoMae: form.idBrincoMae,
-          idChipMae: form.idChipMae,
-          individuoIdMae: individuoIdMaeFinal,
-          individuoIdCria: individuoIdCria2,
-          novosIndividuos: novosIndividuos2,
-          categoriaMae: form.categoriaMae,
-          escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
-          docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
-          partoVinculoId,
-          // Mãe adotiva (guacho 2ª cria)
-          guachoCria: guacho2,
-          individuoIdMaeAdotiva: guacho2 ? (individuoIdMaeAdotiva2Final || null) : null,
-          idManejoMaeAdotiva: guacho2 ? form.idManejoMaeAdotiva2 : null,
-          idBrincoMaeAdotiva: guacho2 ? form.idBrincoMaeAdotiva2 : null,
-          idChipMaeAdotiva: guacho2 ? form.idChipMaeAdotiva2 : null,
-          categoriaMaeAdotiva: guacho2 ? form.categoriaMaeAdotiva2 : null,
-          racaMaeAdotiva: guacho2 ? form.racaMaeAdotiva2 : null,
-          fotoBase64: fotoCria.fotoBase64 || null,
-        })
+      payload2 = {
+        data: form.data,
+        pasto: pastoNome,
+        pastoId: form.pastoId,
+        lote: form.lote,
+        loteId: form.loteId,
+        // 2ª cria morta (natimorta ou aborto): sem peso, sem IDs
+        pesoCria: cria2Morta ? null : (form.pesoCria2 ? Number(form.pesoCria2) : null),
+        idProvisorioCria: cria2Morta ? null : form.idProvisorioCria2,
+        idBrincoCria: cria2Morta ? null : form.idBrincoCria2,
+        idChipCria: cria2Morta ? null : form.idChipCria2,
+        // 2ª cria morta: sem primeiros cuidados
+        tratamento: cria2Morta ? null : tratamentoFinal2,
+        medicamentos: cria2Morta ? [] : form.medicamentos2,
+        tipoParto: tipoPartoCria2,
+        observacaoParto: observacaoCria2,
+        // 2ª cria morta: sem sexo e raça (não identificado)
+        sexo: cria2Morta ? null : form.sexo2,
+        raca: cria2Morta ? null : form.raca2,
+        idManejoMae: form.idManejoMae,
+        idBrincoMae: form.idBrincoMae,
+        idChipMae: form.idChipMae,
+        individuoIdMae: individuoIdMaeFinal,
+        individuoIdCria: individuoIdCria2,
+        novosIndividuos: novosIndividuos2,
+        categoriaMae: form.categoriaMae,
+        escoreMatriz: form.escoreMatriz ? Number(form.escoreMatriz) : null,
+        docilidadeMatriz: form.docilidadeMatriz ? Number(form.docilidadeMatriz) : null,
+        partoVinculoId,
+        // Mãe adotiva (guacho 2ª cria)
+        guachoCria: guacho2,
+        individuoIdMaeAdotiva: guacho2 ? (individuoIdMaeAdotiva2Final || null) : null,
+        idManejoMaeAdotiva: guacho2 ? form.idManejoMaeAdotiva2 : null,
+        idBrincoMaeAdotiva: guacho2 ? form.idBrincoMaeAdotiva2 : null,
+        idChipMaeAdotiva: guacho2 ? form.idChipMaeAdotiva2 : null,
+        categoriaMaeAdotiva: guacho2 ? form.categoriaMaeAdotiva2 : null,
+        racaMaeAdotiva: guacho2 ? form.racaMaeAdotiva2 : null,
+        fotoBase64: fotoCria.fotoBase64 || null,
+      }
+    }
+
+    // Falha anterior só na 2ª cria: a 1ª já está salva, então este Salvar grava apenas a 2ª
+    const pendente = gemeaPendenteRef.current
+    let result: Awaited<ReturnType<typeof salvarRegistro>>
+    if (pendente) {
+      result = pendente.resultado1
+      payload2 = pendente.payload2
+    } else {
+      if (payload2) {
+        const validacao2 = validate('maternidade', payload2)
+        if (!validacao2.isValid) {
+          setErrors(validacao2.errors)
+          scrollToFirstError(validacao2.errors)
+          return
+        }
+      }
+      result = await salvarRegistro('maternidade', payload1)
+    }
+
+    if (result.success && payload2) {
+      let gravou2 = false
+      try {
+        gravou2 = (await salvarRegistro('maternidade', payload2)).success
       } catch (err) {
         console.error('Erro ao salvar registro da 2ª cria (gêmeos):', err)
       }
+      if (!gravou2) {
+        gemeaPendenteRef.current = { payload2, resultado1: result }
+        const erro = [{ field: 'geral', message: 'A 1ª cria foi salva, mas a 2ª não. Toque em Salvar de novo para gravar só a 2ª cria.' }]
+        setErrors(erro)
+        scrollToFirstError(erro)
+        return
+      }
     }
+    gemeaPendenteRef.current = null
 
     if (!result.success) {
       const errosSalvar = result.errors ?? [{ field: 'geral', message: 'Não foi possível salvar. Tente novamente.' }]
@@ -939,6 +978,7 @@ export default function MaternidadePage() {
   }
 
   const handleLimpar = () => {
+    gemeaPendenteRef.current = null
     limparRascunho()
     fotoCria.limpar()
     fotoBrincoMae.limpar()
