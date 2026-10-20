@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Novo lote de protocolo IATF pelo PWA (20/10/2026)
+
+Nova tela `/caderneta/protocolo-iatf/novo-lote` (botão "+ Novo lote de protocolo" na caderneta Protocolo IATF; lista em `/novo-lote/lista`), em teste (só fazenda de testes). O peão monta o lote no campo, offline: escolhe o protocolo (cache `getProtocolosIatfCached`, persistido), o D0 (prévia das datas D0/D8/D10 calculada no aparelho), nome, responsável e as fêmeas (por brinco/chip/manejo ou "adicionar todas" de um lote da fazenda, cache de indivíduos como na Reprodução).
+
+- **Núcleo** `utils/loteProtocoloIatf.ts` (+ teste): validação, prévia de datas e `loteProtocoloParaServidor` (RPC `criar_lote_protocolo_iatf` com `p_local_id` = id do registro e `p_origem = 'pwa'`; responsável vazio cai para o usuário).
+- **Sync:** store IndexedDB `protocolo-iatf-lote` (versão 39), tabela `lotes_protocolo_iatf`; RPC já era idempotente por `local_id`, sem migration. As tarefas nascem no servidor; o lote só aparece na caderneta de marcar passos depois de sincronizar. `translateSyncError` mostra as recusas do banco (protocolo inativo/removido, fêmea morta, macho...).
+- **Teste no preview offline (20/10, fazenda de testes):** IndexedDB migrou para 39 e os protocolos ficaram em cache; recarregar offline mantém os protocolos; lote montado offline (7 fêmeas, D0 12/10) salvo com "1 pendente" e nada no banco; ao reconectar o lote nasceu (origem pwa, responsável, 7 fêmeas, tarefas 12/10, 20/10, 22/10 = prévia); segundo lote com protocolo inativado no servidor ficou em "ERRO DE SYNC: O protocolo está inativo", e o Reenviar (após reativar) criou uma vez; reenvio do mesmo `local_id` devolve o mesmo lote; os dois lotes aparecem na caderneta de marcar passos. Dados de teste apagados por soft-delete.
+
 ## Caderneta Protocolo IATF (20/10/2026)
 
 Caderneta nova `protocolo-iatf`, em teste (só fazenda de testes, `CADERNETAS_EM_TESTE`). O peão marca no curral o passo de um **lote de protocolo criado no painel** (implante, retirada, inseminação). Cada registro local é UMA marcação de passo; só registra, não altera contagem nem peso.
