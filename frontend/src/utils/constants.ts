@@ -69,10 +69,10 @@ export const CADERNETAS = [
   { id: 'morte', label: 'MORTE', emoji: '', icon: `${BASE}cadernetas/morte.png`, color: '#A0522D', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'enfermaria', label: 'ENFERMARIA', emoji: '', icon: `${BASE}cadernetas/enfermaria.png`, color: '#78AB46', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'maternidade', label: 'MATERNIDADE', emoji: '', icon: `${BASE}cadernetas/maternidade.png`, color: '#6D9E3B', disponivel: true, grupo: 'Gado & Pastagens' },
-  { id: 'reproducao', label: 'REPRODUÇÃO', emoji: '🐄', icon: `${BASE}cadernetas/reproducao.png`, color: '#C2185B', disponivel: true, grupo: 'Gado & Pastagens' },
-  { id: 'protocolo-iatf', label: 'PROTOCOLO IATF', emoji: '🗓️', icon: `${BASE}cadernetas/protocolo-iatf.png`, color: '#AD1457', disponivel: true, grupo: 'Gado & Pastagens' },
-  { id: 'sanidade', label: 'SANIDADE', emoji: '💉', icon: `${BASE}cadernetas/sanidade.png`, color: '#2E8B57', disponivel: true, grupo: 'Gado & Pastagens' },
-  { id: 'manejo-curral', label: 'MANEJO DE CURRAL', emoji: '🐂', icon: `${BASE}cadernetas/manejo-curral.png`, color: '#6B8E23', disponivel: true, grupo: 'Gado & Pastagens' },
+  { id: 'reproducao', label: 'REPRODUÇÃO', emoji: '🐄', icon: `${BASE}cadernetas/reproducao.png`, color: '#C2185B', disponivel: true, grupo: 'Controle Individual' },
+  { id: 'protocolo-iatf', label: 'PROTOCOLO IATF', emoji: '🗓️', icon: `${BASE}cadernetas/protocolo-iatf.png`, color: '#AD1457', disponivel: true, grupo: 'IATF' },
+  { id: 'sanidade', label: 'SANIDADE', emoji: '💉', icon: `${BASE}cadernetas/sanidade.png`, color: '#2E8B57', disponivel: true, grupo: 'Controle Individual' },
+  { id: 'manejo-curral', label: 'MANEJO DE CURRAL', emoji: '🐂', icon: `${BASE}cadernetas/manejo-curral.png`, color: '#6B8E23', disponivel: true, grupo: 'Controle Individual' },
   { id: 'pesagem', label: 'PESAGEM', emoji: '', icon: `${BASE}cadernetas/pesagem.png`, color: '#4A6FA5', disponivel: true, grupo: 'Gado & Pastagens' },
   { id: 'comunicado-venda', label: 'COMUNICADO DE VENDA', emoji: '', icon: `${BASE}cadernetas/comunicado.png`, color: '#2F855A', disponivel: true, grupo: 'Comercial' },
   { id: 'comunicado-compra', label: 'COMUNICADO DE COMPRA', emoji: '', icon: `${BASE}cadernetas/comunicado.png`, color: '#1D4ED8', disponivel: true, grupo: 'Comercial' },
@@ -97,17 +97,33 @@ export const CADERNETAS = [
 export const FAZENDA_DE_TESTES_ID = 'd649c65e-16ab-4b77-a84b-df937aa41cc3'
 
 /** Cadernetas novas, liberadas só para a fazenda de testes até serem validadas no campo. */
-export const CADERNETAS_EM_TESTE: readonly string[] = ['manejo-curral', 'sanidade', 'reproducao', 'protocolo-iatf']
+export const CADERNETAS_EM_TESTE: readonly string[] = ['manejo-curral', 'sanidade', 'reproducao']
+
+/**
+ * Cadernetas do IATF: liberadas por fazenda pela flag fazendas.acesso_iatf (toggle em Admin > Fazendas no painel),
+ * no mesmo molde de acesso_confinamento.
+ */
+export const CADERNETAS_IATF: readonly string[] = ['protocolo-iatf']
 
 /** Caderneta em teste só aparece (e abre) na fazenda de testes; as demais valem para todas. */
 export function cadernetaVisivelNaFazenda(cadernetaId: string, fazendaId: string | null | undefined): boolean {
   return !CADERNETAS_EM_TESTE.includes(cadernetaId) || fazendaId === FAZENDA_DE_TESTES_ID
 }
 
+/**
+ * Visibilidade completa: a do IATF depende da flag da fazenda (desconhecida = oculta); as em teste, da fazenda de testes.
+ */
+export function cadernetaVisivel(cadernetaId: string, fazendaId: string | null | undefined, acessoIatf: boolean | null | undefined): boolean {
+  if (CADERNETAS_IATF.includes(cadernetaId)) return acessoIatf === true
+  return cadernetaVisivelNaFazenda(cadernetaId, fazendaId)
+}
+
 export const CADERNETA_GRUPO_ORDEM = [
   'Suplementação a Pasto',
   'Confinamento & TIP',
   'Gado & Pastagens',
+  'Controle Individual',
+  'IATF',
   'Comercial',
   'Infraestrutura & Geral',
   'Máquinas',
@@ -119,6 +135,8 @@ export const CADERNETA_GRUPO_CORES: Record<string, string> = {
   'Suplementação a Pasto': '#223ecb',
   'Confinamento & TIP': '#8B4513',
   'Gado & Pastagens': '#6D9E3B',
+  'Controle Individual': '#AD1457',
+  'IATF': '#C2185B',
   'Comercial': '#1D4ED8',
   'Infraestrutura & Geral': '#b7b712',
   'Máquinas': '#4A6FA5',

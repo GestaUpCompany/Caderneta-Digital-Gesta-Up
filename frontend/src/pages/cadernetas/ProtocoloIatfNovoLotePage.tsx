@@ -18,7 +18,7 @@ import { getCachedCadastroData, getLoteByNomeCached, getProtocolosIatfCached } f
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { dataBRparaIso } from '../../utils/manejoCurral'
 import { todayBR } from '../../utils/formatDate'
-import { cadernetaVisivelNaFazenda } from '../../utils/constants'
+import { cadernetaVisivel } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import {
   errosLoteProtocolo,
@@ -48,7 +48,7 @@ const rotuloDoAnimal = (a: { id_brinco?: string | null; id_chip?: string | null;
 
 export default function ProtocoloIatfNovoLotePage() {
   const navigate = useNavigate()
-  const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
+  const { fazendaId, usuario, acessoIatf } = useSelector((state: RootState) => state.config)
 
   const initial = useCallback(makeInitial, [])
   const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } = useRascunhoForm<FormLoteProtocolo>({
@@ -189,7 +189,7 @@ export default function ProtocoloIatfNovoLotePage() {
     navigate('/')
   }
 
-  if (!fazendaId || !cadernetaVisivelNaFazenda('protocolo-iatf', fazendaId)) {
+  if (!fazendaId || !cadernetaVisivel('protocolo-iatf', fazendaId, acessoIatf)) {
     return (
       <CadernetaLayout title="NOVO LOTE DE PROTOCOLO" cadernetaId="protocolo-iatf" showRegistrosButton={false}>
         <InfoStrip tone="warning" icon="⚠️">

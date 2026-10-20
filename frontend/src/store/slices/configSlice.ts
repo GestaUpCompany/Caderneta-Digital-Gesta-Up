@@ -21,6 +21,7 @@ interface ConfigState {
   expedienteDias: ExpedienteDias | null
   acessoConfinamento: boolean
   acessoComercial: boolean
+  acessoIatf: boolean
   travaSuplementacao: boolean
   funcionarioId: string
   funcionarioNome: string
@@ -41,6 +42,7 @@ const initialState: ConfigState = {
   expedienteDias: null,
   acessoConfinamento: false,
   acessoComercial: false,
+  acessoIatf: false,
   travaSuplementacao: false,
   funcionarioId: '',
   funcionarioNome: '',
