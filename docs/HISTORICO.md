@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Caderneta Protocolo IATF (20/10/2026)
+
+Caderneta nova `protocolo-iatf`, em teste (só fazenda de testes, `CADERNETAS_EM_TESTE`). O peão marca no curral o passo de um **lote de protocolo criado no painel** (implante, retirada, inseminação). Cada registro local é UMA marcação de passo; só registra, não altera contagem nem peso.
+
+- **Tela** `ProtocoloIatfPage` (+ `ProtocoloIatfListaPage`, rotas `/caderneta/protocolo-iatf` e `/lista`): escolhe o lote, vê os passos pendentes (Atrasado/Hoje/Previsto), marca o feito com data. No passo de inseminação pede touro, partida do sêmen e técnico, e a IA vale para todas as fêmeas ativas do lote.
+- **Núcleo** `utils/protocoloIatf.ts` (+ teste): `tarefasPendentes` (tira as feitas no servidor e as marcadas neste aparelho ainda não enviadas, ignorando as com erro), `errosProtocoloIatf`, `protocoloIatfParaServidor`.
+- **Cache offline:** `getLotesProtocoloIatf` (supabaseService) e `getLotesProtocoloIatfCached` (cadastroCache, mesmo padrão de estações e status reprodutivo): offline usa a última cópia; é preciso abrir o app com internet uma vez depois que o gestor cria o lote.
+- **Sync:** `CADERNETA_TO_SUPABASE_TABLE['protocolo-iatf'] = 'lotes_protocolo_iatf_tarefas'`; o payload é uma chamada de RPC: passo de IA chama `registrar_ia_lote_protocolo`, os demais `marcar_tarefa_protocolo_iatf`, sempre com `p_local_id` = id do registro (reenviar não duplica). O banco recusa a IA de um passo já feito por outro registro (o erro volta pela fila). Store IndexedDB `protocolo-iatf` (versão 38). `SyncErrorModal`, `validation`, `shareUtils`, `config/cadernetas` e `constants` atualizados; o painel ganhou a caderneta na lista de permissões por funcionário.
+- **Imagem** `protocolo-iatf.png` é cópia provisória da de Reprodução. Banco e painel: ver HISTORICO do painel (seção Protocolo de IATF).
+
 ## Lista de registros de Sanidade e Reprodução no PWA (19/10/2026)
 
 As duas cadernetas ganharam a lista de registros salvos no aparelho, no padrão das demais (`ListaRegistros`): páginas `SanidadeListaPage` e `ReproducaoListaPage` (rotas `/caderneta/sanidade/lista` e `/caderneta/reproducao/lista`), o botão **Registros** do cabeçalho do formulário (antes escondido com `showRegistrosButton={false}`), configs de exibição `config/cadernetas/sanidade.ts` e `reproducao.ts` e o componente especial que lista as fêmeas de cada evento de reprodução com o resultado (`registroSpecialComponents.tsx`). Cada cartão mostra o status de sincronização, permite compartilhar (os textos de `shareUtils` já existiam) e reenviar em caso de erro. **Edição não foi criada**: nenhuma caderneta do PWA edita registro salvo (a lista é só leitura, com reenvio) e o sync só faz criação idempotente por `local_id`; correção de registro já enviado segue pelo painel. Testado no PWA local com registros de exemplo no IndexedDB (removidos depois): os dois cartões, o selo Pendente/Sincronizado, a lista de fêmeas e o botão Registros levando à lista. Typecheck, 459 testes e lint no teto (48) ok.
