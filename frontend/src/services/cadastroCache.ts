@@ -2127,7 +2127,11 @@ export async function getLotesProtocoloIatfCached(fazendaId: string) {
   if (!navigator.onLine || redeInstavelRecentemente()) return getLotesProtocoloIatfFromCacheOnly(fazendaId)
   try {
     const data = await withTimeout(supabaseService.getLotesProtocoloIatf(fazendaId), 5000)
-    if (data) setCachedQuery(key, data)
+    if (data) {
+      setCachedQuery(key, data)
+      // Persiste já: sem isto o cache só chegava ao IndexedDB no "Atualizar dados" e o app recarregado offline ficava sem lotes
+      try { await saveQueryCacheToIndexedDB() } catch { /* cache em memória continua válido */ }
+    }
     return data
   } catch {
     return getLotesProtocoloIatfFromCacheOnly(fazendaId)
