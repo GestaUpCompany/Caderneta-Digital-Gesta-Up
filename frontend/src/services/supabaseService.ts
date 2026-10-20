@@ -6,6 +6,7 @@ import { isCategoriaAoPe } from '../utils/categorias'
 import type { ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 import { buscarTodasAsPaginas } from '../utils/paginacao'
 import type { LoteIatfCache, TarefaIatfCache } from '../utils/protocoloIatf'
+import type { ProtocoloIatfCache } from '../utils/loteProtocoloIatf'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
@@ -1279,6 +1280,25 @@ export async function getLotesProtocoloIatf(fazendaId: string) {
     femeasAtivas: ((l.femeas ?? []) as { status: string }[]).filter((f) => f.status === 'Ativa').length,
     tarefas: (l.tarefas ?? []) as TarefaIatfCache[],
   })) as LoteIatfCache[]
+}
+
+/** Protocolos de IATF ativos da fazenda com os passos (cache da caderneta Novo lote de protocolo). */
+export async function getProtocolosIatf(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('protocolos_iatf')
+    .select('id, nome, passos:protocolos_iatf_passos(dia, ordem, rotulo, tipo)')
+    .eq('fazenda_id', fazendaId)
+    .eq('ativo', true)
+    .is('deleted_at', null)
+    .order('nome', { ascending: true })
+    .limit(100)
+  if (error) throw error
+  return ((data ?? []) as any[]).map((p) => ({
+    id: p.id as string,
+    nome: p.nome as string,
+    passos: ((p.passos ?? []) as ProtocoloIatfCache['passos']).slice().sort((a, b) => a.dia - b.dia || a.ordem - b.ordem),
+  })) as ProtocoloIatfCache[]
 }
 
 export async function getMedicamentos(fazendaId: string) {

@@ -7,6 +7,23 @@ import { rotuloDiagnosticoEnfermaria } from '../../utils/shareUtils'
 type SpecialComponentFn = (registro: Registro) => React.ReactNode
 
 export const SPECIAL_COMPONENTS: Partial<Record<CadernetaStore, Record<string, SpecialComponentFn>>> = {
+  'protocolo-iatf-lote': {
+    linhas: (registro) => {
+      const linhas = registro.linhas as { uid?: string; rotulo?: string }[] | undefined
+      if (!Array.isArray(linhas) || linhas.length === 0) return null
+      return (
+        <div className="col-span-2 mt-2">
+          <p className="text-xs font-bold text-gray-700 mb-1">🐄 FÊMEAS ({linhas.length})</p>
+          {linhas.map((l, i) => (
+            <div key={l.uid ?? i} className="text-sm text-gray-900">
+              {i + 1}. <span className="font-semibold">{l.rotulo || 'Sem identificação'}</span>
+            </div>
+          ))}
+        </div>
+      )
+    },
+  },
+
   reproducao: {
     linhas: (registro) => {
       const linhas = registro.linhas as { uid?: string; rotulo?: string; resultado?: string; idadeGestacaoDias?: string }[] | undefined

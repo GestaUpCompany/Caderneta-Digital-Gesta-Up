@@ -53,7 +53,7 @@ const UNIQUE_CONSTRAINT_MESSAGES: Record<string, string> = {
 }
 
 const MENSAGENS_PROTOCOLO_IATF =
-  /inseminação deste lote já foi registrada|lote está cancelado|data de execução não pode ser futura|Nenhuma fêmea ativa|fêmea que não é ativa|não é o passo de Inseminação/i
+  /inseminação deste lote já foi registrada|lote está cancelado|data de execução não pode ser futura|Nenhuma fêmea ativa|fêmea que não é ativa|não é o passo de Inseminação|protocolo está inativo|Selecione ao menos uma fêmea|precisa estar viva|só se aplica a fêmeas|protocolo precisa ter um passo|Protocolo não encontrado|Indivíduo não encontrado ou excluído|indivíduo pertence a outra fazenda/i
 
 /**
  * Retorna mensagem amigável para um SyncError.
@@ -72,7 +72,7 @@ export function translateSyncError(error: SyncError | null | undefined): string 
     return 'O tanque deste abastecimento foi removido do cadastro. Avise o administrador para conferir o registro.'
   }
   // Protocolo IATF: o banco recusa com mensagens já escritas para o peão (IA já registrada por outro, lote cancelado...)
-  if (code === '23514' && MENSAGENS_PROTOCOLO_IATF.test(error.message || '')) return error.message
+  if ((code === '23514' || code === '23503') && MENSAGENS_PROTOCOLO_IATF.test(error.message || '')) return error.message
   if (code && ERROR_MESSAGES[code]) {
     // Registros antigos de falha de rede foram gravados com code 'unknown'; a mensagem original revela a causa.
     if (code === 'unknown' && isNetworkError(error, true)) return ERROR_MESSAGES.network

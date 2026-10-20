@@ -158,8 +158,25 @@ export default function ProtocoloIatfPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         <InfoStrip tone="neutral" icon="ℹ️">
-          Marca o passo feito de um lote de protocolo criado no painel. No passo de inseminação, a IA é lançada para todas as fêmeas ativas do lote. Não altera contagem nem peso.
+          Marca o passo feito de um lote de protocolo (criado no painel ou aqui no app). No passo de inseminação, a IA é lançada para todas as fêmeas ativas do lote. Não altera contagem nem peso.
         </InfoStrip>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/caderneta/protocolo-iatf/novo-lote')}
+            className="flex-1 rounded-xl border-2 border-brand-900 px-3 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-900 active:scale-[0.99]"
+          >
+            + Novo lote de protocolo
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/caderneta/protocolo-iatf/novo-lote/lista')}
+            className="rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-bold uppercase text-gray-600 active:scale-[0.99]"
+          >
+            Lotes criados
+          </button>
+        </div>
 
         <CadernetaSection numero={1} titulo="Lote de protocolo">
           {lotes === null && <InfoStrip tone="neutral">Carregando lotes...</InfoStrip>}

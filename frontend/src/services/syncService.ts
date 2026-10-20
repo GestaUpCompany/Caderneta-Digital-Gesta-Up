@@ -33,6 +33,7 @@ import { dataBRparaIso, linhasParaServidor } from '../utils/manejoCurral'
 import { sanidadeParaServidor } from '../utils/sanidade'
 import { reproducaoParaServidor } from '../utils/reproducao'
 import { protocoloIatfParaServidor } from '../utils/protocoloIatf'
+import { loteProtocoloParaServidor } from '../utils/loteProtocoloIatf'
 import { aparaIdentificador } from '../utils/identificadores'
 import { tratamentoParaServidor, type TratamentoSessao } from '../utils/tratamentoCurral'
 
@@ -96,6 +97,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   sanidade: 'aplicacoes_sanitarias',
   reproducao: 'eventos_reprodutivos',
   'protocolo-iatf': 'lotes_protocolo_iatf_tarefas',
+  'protocolo-iatf-lote': 'lotes_protocolo_iatf',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -904,6 +906,9 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
     case 'reproducao':
       // Uma sessão vira uma linha por fêmea (local_id = sessão:linha); o envio lê data.linhas
       return { linhas: reproducaoParaServidor(registro as unknown as Record<string, unknown>, fazendaId) }
+    case 'protocolo-iatf-lote':
+      // Um lote montado no campo vira uma chamada de RPC idempotente (local_id = id do registro)
+      return loteProtocoloParaServidor(registro as unknown as Record<string, unknown>, fazendaId)
     case 'protocolo-iatf':
       // Uma marcação de passo vira uma chamada de RPC (IA do lote ou marcar tarefa); o id do registro é a chave
       return protocoloIatfParaServidor(registro as unknown as Record<string, unknown>, fazendaId)
@@ -1560,6 +1565,16 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             if (evError) throw evError
           }
           await updateRegistro('reproducao', registro.id, { syncStatus: 'synced' })
+          break
+        }
+        case 'lotes_protocolo_iatf': {
+          // RPC idempotente pelo id do registro local (reenviar devolve o lote já criado). O banco recusa fêmea morta, macho,
+          // protocolo inativo ou removido; o erro volta ao peão pela fila.
+          const client = await getSupabaseClientWithRefresh() as any
+          const chamada = data as { rpc: string; params: Record<string, unknown> }
+          const { error: loteError } = await client.rpc(chamada.rpc, chamada.params)
+          if (loteError) throw loteError
+          await updateRegistro('protocolo-iatf-lote', registro.id, { syncStatus: 'synced' })
           break
         }
         case 'lotes_protocolo_iatf_tarefas': {

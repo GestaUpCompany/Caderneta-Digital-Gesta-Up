@@ -582,6 +582,19 @@ const formatarProtocoloIatfComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+const formatarLoteProtocoloIatfComoTexto = (registro: Registro): string => {
+  const r = registro as Record<string, unknown>
+  const linhas = (Array.isArray(r.linhas) ? r.linhas : []) as { rotulo?: string }[]
+  let texto = '📋 *NOVO LOTE DE PROTOCOLO IATF*\n'
+  texto += `📅 D0: ${String(r.data ?? '').split(' ')[0]}\n`
+  if (r.responsavel || r.usuario) texto += `👤 ${r.responsavel || r.usuario}\n`
+  texto += `\n🗓️ *${r.nome || 'Lote de protocolo'}*\n`
+  if (r.protocoloNome) texto += `🧬 Protocolo: ${r.protocoloNome}\n`
+  texto += `🐄 ${linhas.length} ${linhas.length === 1 ? 'fêmea' : 'fêmeas'}\n\n`
+  for (const l of linhas) texto += `• ${l.rotulo || 'Fêmea'}\n`
+  return texto.trimEnd()
+}
+
 const formatarSanidadeComoTexto = (registro: Registro): string => {
   const r = registro as Record<string, unknown>
   const dataStr = String(r.data ?? '')
@@ -610,6 +623,9 @@ const formatarSanidadeComoTexto = (registro: Registro): string => {
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   if (caderneta === 'reproducao') {
     return formatarReproducaoComoTexto(registro)
+  }
+  if (caderneta === 'protocolo-iatf-lote') {
+    return formatarLoteProtocoloIatfComoTexto(registro)
   }
   if (caderneta === 'protocolo-iatf') {
     return formatarProtocoloIatfComoTexto(registro)

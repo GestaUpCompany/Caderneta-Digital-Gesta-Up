@@ -5,6 +5,7 @@ import { isFutureBR } from './formatDate'
 import { errosSanidade, type FormSanidade } from './sanidade'
 import { errosReproducao, type FormReproducao } from './reproducao'
 import { errosProtocoloIatf, type FormProtocoloIatf } from './protocoloIatf'
+import { errosLoteProtocolo, type FormLoteProtocolo } from './loteProtocoloIatf'
 import { errosTratamento, type TratamentoSessao } from './tratamentoCurral'
 
 export interface ValidationError {
@@ -1263,7 +1264,12 @@ export function validateProtocoloIatf(data: Record<string, unknown>): Validation
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral' | 'sanidade' | 'reproducao' | 'protocolo-iatf'
+export function validateLoteProtocoloIatf(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = errosLoteProtocolo(data as unknown as FormLoteProtocolo)
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral' | 'sanidade' | 'reproducao' | 'protocolo-iatf' | 'protocolo-iatf-lote'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   'auditoria-5s': validateAuditoria5s,
@@ -1299,6 +1305,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   sanidade: validateSanidade,
   reproducao: validateReproducao,
   'protocolo-iatf': validateProtocoloIatf,
+  'protocolo-iatf-lote': validateLoteProtocoloIatf,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {

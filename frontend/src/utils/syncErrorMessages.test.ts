@@ -31,6 +31,12 @@ describe('translateSyncError', () => {
     expect(translateSyncError(erro({ code: '23514', message: 'O lote está cancelado' }))).toBe('O lote está cancelado')
   })
 
+  it('mostra as recusas do banco ao criar o lote de protocolo pelo PWA', () => {
+    expect(translateSyncError(erro({ code: '23514', message: 'O protocolo está inativo' }))).toBe('O protocolo está inativo')
+    expect(translateSyncError(erro({ code: '23514', message: 'A fêmea precisa estar viva (status Morto)' }))).toMatch(/precisa estar viva/)
+    expect(translateSyncError(erro({ code: '23503', message: 'Protocolo não encontrado nesta fazenda' }))).toBe('Protocolo não encontrado nesta fazenda')
+  })
+
   it('check_violation de outros assuntos continua com a mensagem genérica', () => {
     expect(translateSyncError(erro({ code: '23514', message: 'new row violates check constraint "x"' }))).toMatch(/Valor inválido/)
   })

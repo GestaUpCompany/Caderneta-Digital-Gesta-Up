@@ -16,6 +16,7 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   sanidade: 'Sanidade',
   reproducao: 'Reprodução',
   'protocolo-iatf': 'Protocolo IATF',
+  'protocolo-iatf-lote': 'Novo lote de protocolo IATF',
   rodeio: 'Rodeio',
   suplementacao: 'Suplementação',
   bebedouros: 'Bebedouros',

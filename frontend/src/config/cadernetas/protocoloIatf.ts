@@ -1,5 +1,15 @@
 import { CadernetaDisplayConfig } from '../registroDisplayConfig'
 
+export const loteProtocoloIatfConfig: CadernetaDisplayConfig = {
+  sections: [{ title: 'LOTE DE PROTOCOLO', order: 1, icon: '🗓️' }],
+  fieldConfig: {
+    nome: { key: 'nome', label: 'LOTE', section: 'LOTE DE PROTOCOLO', priority: 1, colSpan: 2 },
+    protocoloNome: { key: 'protocoloNome', label: 'PROTOCOLO', section: 'LOTE DE PROTOCOLO', priority: 2, colSpan: 2 },
+    responsavel: { key: 'responsavel', label: 'RESPONSÁVEL', section: 'LOTE DE PROTOCOLO', priority: 3 },
+  },
+  hiddenFields: ['protocoloId', 'linhas'],
+}
+
 export const protocoloIatfConfig: CadernetaDisplayConfig = {
   sections: [
     { title: 'PASSO', order: 1, icon: '🗓️' },
