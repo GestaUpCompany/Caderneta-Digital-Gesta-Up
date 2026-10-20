@@ -565,6 +565,23 @@ const formatarReproducaoComoTexto = (registro: Registro): string => {
   return texto.trimEnd()
 }
 
+const formatarProtocoloIatfComoTexto = (registro: Registro): string => {
+  const r = registro as Record<string, unknown>
+  let texto = '📋 *PROTOCOLO IATF*\n'
+  texto += `📅 ${String(r.data ?? '')}\n`
+  if (r.responsavel || r.usuario) texto += `👤 ${r.responsavel || r.usuario}\n`
+  texto += `\n🗓️ *${r.tarefaDia != null ? `D${r.tarefaDia} ` : ''}${r.tarefaRotulo || 'Passo'}*\n`
+  if (r.loteNome) texto += `📍 Lote de protocolo: ${r.loteNome}\n`
+  if (r.tarefaTipo === 'Inseminacao') {
+    if (r.femeasAtivas) texto += `🐄 ${r.femeasAtivas} fêmeas inseminadas\n`
+    if (r.touroNome) texto += `🐂 Touro: ${r.touroNome}\n`
+    if (r.semenPartida) texto += `🧪 Partida do sêmen: ${r.semenPartida}\n`
+    if (r.tecnico) texto += `🩺 Técnico: ${r.tecnico}\n`
+  }
+  if (r.observacao) texto += `📝 ${r.observacao}\n`
+  return texto.trimEnd()
+}
+
 const formatarSanidadeComoTexto = (registro: Registro): string => {
   const r = registro as Record<string, unknown>
   const dataStr = String(r.data ?? '')
@@ -593,6 +610,9 @@ const formatarSanidadeComoTexto = (registro: Registro): string => {
 export const formatarRegistroComoTexto = (registro: Registro, caderneta: string, todosRegistros?: Registro[]): string => {
   if (caderneta === 'reproducao') {
     return formatarReproducaoComoTexto(registro)
+  }
+  if (caderneta === 'protocolo-iatf') {
+    return formatarProtocoloIatfComoTexto(registro)
   }
   if (caderneta === 'sanidade') {
     return formatarSanidadeComoTexto(registro)

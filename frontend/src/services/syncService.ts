@@ -32,6 +32,7 @@ import { paraNumero, sanitizarPayloadNumerico } from '../utils/payloadNumerico'
 import { dataBRparaIso, linhasParaServidor } from '../utils/manejoCurral'
 import { sanidadeParaServidor } from '../utils/sanidade'
 import { reproducaoParaServidor } from '../utils/reproducao'
+import { protocoloIatfParaServidor } from '../utils/protocoloIatf'
 import { aparaIdentificador } from '../utils/identificadores'
 import { tratamentoParaServidor, type TratamentoSessao } from '../utils/tratamentoCurral'
 
@@ -94,6 +95,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   'manejo-curral': 'sessoes_manejo_curral',
   sanidade: 'aplicacoes_sanitarias',
   reproducao: 'eventos_reprodutivos',
+  'protocolo-iatf': 'lotes_protocolo_iatf_tarefas',
 }
 
 // Função para converter Registro para formato do Supabase
@@ -902,6 +904,9 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
     case 'reproducao':
       // Uma sessão vira uma linha por fêmea (local_id = sessão:linha); o envio lê data.linhas
       return { linhas: reproducaoParaServidor(registro as unknown as Record<string, unknown>, fazendaId) }
+    case 'protocolo-iatf':
+      // Uma marcação de passo vira uma chamada de RPC (IA do lote ou marcar tarefa); o id do registro é a chave
+      return protocoloIatfParaServidor(registro as unknown as Record<string, unknown>, fazendaId)
     default:
       return baseData
   }
@@ -1555,6 +1560,16 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             if (evError) throw evError
           }
           await updateRegistro('reproducao', registro.id, { syncStatus: 'synced' })
+          break
+        }
+        case 'lotes_protocolo_iatf_tarefas': {
+          // RPC idempotente pelo id do registro local. A guarda do banco recusa IA de passo já feito por outro registro
+          // (o erro volta ao peão pela fila); marcar de novo o mesmo passo é inofensivo.
+          const client = await getSupabaseClientWithRefresh() as any
+          const chamada = data as { rpc: string; params: Record<string, unknown> }
+          const { error: iatfError } = await client.rpc(chamada.rpc, chamada.params)
+          if (iatfError) throw iatfError
+          await updateRegistro('protocolo-iatf', registro.id, { syncStatus: 'synced' })
           break
         }
         case 'sessoes_manejo_curral': {

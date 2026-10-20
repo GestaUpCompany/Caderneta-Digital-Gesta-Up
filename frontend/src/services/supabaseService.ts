@@ -5,6 +5,7 @@ import { getCurrentDateTimeInTimezone, getDayRangeIso, DEFAULT_FARM_TIMEZONE } f
 import { isCategoriaAoPe } from '../utils/categorias'
 import type { ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 import { buscarTodasAsPaginas } from '../utils/paginacao'
+import type { LoteIatfCache, TarefaIatfCache } from '../utils/protocoloIatf'
 
 // Função para fazer upload de logo de fazenda
 export async function uploadFazendaLogo(file: File, fazendaId: string): Promise<string | null> {
@@ -1254,6 +1255,30 @@ export async function getEstacoesMonta(fazendaId: string) {
     .limit(200)
   if (error) throw error
   return (data ?? []) as { id: string; nome: string; data_inicio: string; data_fim: string }[]
+}
+
+/** Lotes de protocolo de IATF em andamento, com as tarefas e o número de fêmeas ativas (cache da caderneta Protocolo IATF). */
+export async function getLotesProtocoloIatf(fazendaId: string) {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('lotes_protocolo_iatf')
+    .select(
+      'id, nome, data_d0, responsavel, femeas:lotes_protocolo_iatf_femeas(status), tarefas:lotes_protocolo_iatf_tarefas(id, dia, ordem, rotulo, tipo, medicamento_nome, dose, data_prevista, feita_em)'
+    )
+    .eq('fazenda_id', fazendaId)
+    .eq('status', 'Em andamento')
+    .is('deleted_at', null)
+    .order('data_d0', { ascending: false })
+    .limit(100)
+  if (error) throw error
+  return ((data ?? []) as any[]).map((l) => ({
+    id: l.id as string,
+    nome: l.nome as string,
+    data_d0: l.data_d0 as string,
+    responsavel: (l.responsavel as string | null) ?? null,
+    femeasAtivas: ((l.femeas ?? []) as { status: string }[]).filter((f) => f.status === 'Ativa').length,
+    tarefas: (l.tarefas ?? []) as TarefaIatfCache[],
+  })) as LoteIatfCache[]
 }
 
 export async function getMedicamentos(fazendaId: string) {

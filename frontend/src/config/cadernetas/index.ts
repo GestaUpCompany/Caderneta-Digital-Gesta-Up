@@ -29,6 +29,7 @@ import { leituraCochoConfig } from './leituraCocho'
 import { tratoConfinamentoConfig } from './tratoConfinamento'
 import { sanidadeConfig } from './sanidade'
 import { reproducaoConfig } from './reproducao'
+import { protocoloIatfConfig } from './protocoloIatf'
 
 export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaDisplayConfig>> = {
   pastagens: pastagensConfig,
@@ -60,4 +61,5 @@ export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaD
   'trato-confinamento': tratoConfinamentoConfig,
   sanidade: sanidadeConfig,
   reproducao: reproducaoConfig,
+  'protocolo-iatf': protocoloIatfConfig,
 }

@@ -112,6 +112,7 @@ const EnfermariaPage = lazy(() => import('./pages/cadernetas/EnfermariaPage'))
 const EnfermariaListaPage = lazy(() => import('./pages/cadernetas/EnfermariaListaPage'))
 const SanidadeListaPage = lazy(() => import('./pages/cadernetas/SanidadeListaPage'))
 const ReproducaoListaPage = lazy(() => import('./pages/cadernetas/ReproducaoListaPage'))
+const ProtocoloIatfListaPage = lazy(() => import('./pages/cadernetas/ProtocoloIatfListaPage'))
 const MortePage = lazy(() => import('./pages/cadernetas/MortePage'))
 const MorteListaPage = lazy(() => import('./pages/cadernetas/MorteListaPage'))
 const ClimaPage = lazy(() => import('./pages/cadernetas/ClimaPage'))
@@ -151,6 +152,7 @@ const PesagemPage = lazy(() => import('./pages/cadernetas/PesagemPage'))
 const ManejoCurralPage = lazy(() => import('./pages/cadernetas/ManejoCurralPage'))
 const SanidadePage = lazy(() => import('./pages/cadernetas/SanidadePage'))
 const ReproducaoPage = lazy(() => import('./pages/cadernetas/ReproducaoPage'))
+const ProtocoloIatfPage = lazy(() => import('./pages/cadernetas/ProtocoloIatfPage'))
 const PesagemListaPage = lazy(() => import('./pages/cadernetas/PesagemListaPage'))
 const ComunicadoVendaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaPage'))
 const ComunicadoVendaListaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaListaPage'))
@@ -660,6 +662,8 @@ function AppInner() {
             <Route path="/caderneta/reproducao" element={<ReproducaoPage />} />
             <Route path="/caderneta/sanidade/lista" element={<SanidadeListaPage />} />
             <Route path="/caderneta/reproducao/lista" element={<ReproducaoListaPage />} />
+            <Route path="/caderneta/protocolo-iatf" element={<ProtocoloIatfPage />} />
+            <Route path="/caderneta/protocolo-iatf/lista" element={<ProtocoloIatfListaPage />} />
             <Route path="/caderneta/pesagem" element={<PesagemPage />} />
             <Route path="/caderneta/pesagem/lista" element={<PesagemListaPage />} />
 

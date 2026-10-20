@@ -2121,6 +2121,27 @@ export async function getStatusReprodutivoFromCacheOnly(fazendaId: string) {
   return cached && Array.isArray(cached) ? cached : null
 }
 
+/** Lotes de protocolo de IATF em andamento (tarefas e fêmeas ativas), com cache lazy: offline usa a última cópia. */
+export async function getLotesProtocoloIatfCached(fazendaId: string) {
+  const key = buildKey('lotes-protocolo-iatf', fazendaId)
+  if (!navigator.onLine || redeInstavelRecentemente()) return getLotesProtocoloIatfFromCacheOnly(fazendaId)
+  try {
+    const data = await withTimeout(supabaseService.getLotesProtocoloIatf(fazendaId), 5000)
+    if (data) setCachedQuery(key, data)
+    return data
+  } catch {
+    return getLotesProtocoloIatfFromCacheOnly(fazendaId)
+  }
+}
+
+export async function getLotesProtocoloIatfFromCacheOnly(fazendaId: string) {
+  const key = buildKey('lotes-protocolo-iatf', fazendaId)
+  const cached =
+    getCachedQuery<Awaited<ReturnType<typeof supabaseService.getLotesProtocoloIatf>>>(key) ??
+    (await getCachedQueryFromIDB<Awaited<ReturnType<typeof supabaseService.getLotesProtocoloIatf>>>(key))
+  return cached && Array.isArray(cached) ? cached : null
+}
+
 /** Estações de monta da fazenda, com cache lazy. */
 export async function getEstacoesMontaCached(fazendaId: string) {
   const key = buildKey('estacoes-monta', fazendaId)

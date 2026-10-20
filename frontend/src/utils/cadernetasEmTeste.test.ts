@@ -12,8 +12,8 @@ describe('cadernetas em teste', () => {
     expect(cadernetaVisivelNaFazenda('enfermaria', 'outra-fazenda')).toBe(true)
   })
 
-  it('a lista de teste tem manejo de curral, reprodução e sanidade, e todas existem no menu', () => {
-    expect([...CADERNETAS_EM_TESTE].sort()).toEqual(['manejo-curral', 'reproducao', 'sanidade'])
+  it('a lista de teste tem manejo de curral, protocolo IATF, reprodução e sanidade, e todas existem no menu', () => {
+    expect([...CADERNETAS_EM_TESTE].sort()).toEqual(['manejo-curral', 'protocolo-iatf', 'reproducao', 'sanidade'])
     for (const id of CADERNETAS_EM_TESTE) expect(CADERNETAS.some((c) => c.id === id)).toBe(true)
   })
 })

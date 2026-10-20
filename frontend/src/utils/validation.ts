@@ -4,6 +4,7 @@ import { conflitosDeIdentificacao } from './maternidadeIds'
 import { isFutureBR } from './formatDate'
 import { errosSanidade, type FormSanidade } from './sanidade'
 import { errosReproducao, type FormReproducao } from './reproducao'
+import { errosProtocoloIatf, type FormProtocoloIatf } from './protocoloIatf'
 import { errosTratamento, type TratamentoSessao } from './tratamentoCurral'
 
 export interface ValidationError {
@@ -1253,7 +1254,16 @@ export function validateReproducao(data: Record<string, unknown>): ValidationRes
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral' | 'sanidade' | 'reproducao'
+export function validateProtocoloIatf(data: Record<string, unknown>): ValidationResult {
+  const hoje = (() => {
+    const d = new Date()
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  })()
+  const errors: ValidationError[] = errosProtocoloIatf(data as unknown as FormProtocoloIatf, hoje)
+  return { isValid: errors.length === 0, errors }
+}
+
+export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral' | 'sanidade' | 'reproducao' | 'protocolo-iatf'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   'auditoria-5s': validateAuditoria5s,
@@ -1288,6 +1298,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'manejo-curral': validateManejoCurral,
   sanidade: validateSanidade,
   reproducao: validateReproducao,
+  'protocolo-iatf': validateProtocoloIatf,
 }
 
 export function validate(caderneta: CadernetaType, data: Record<string, unknown>): ValidationResult {
