@@ -2085,7 +2085,11 @@ export async function getCarenciasCached(fazendaId: string, hojeIso: string) {
   if (!navigator.onLine || redeInstavelRecentemente()) return getCarenciasFromCacheOnly(fazendaId)
   try {
     const data = await withTimeout(supabaseService.getCarenciasAtivas(fazendaId, hojeIso), 3000)
-    if (data) setCachedQuery(key, data)
+    if (data) {
+      setCachedQuery(key, data)
+      // Persiste já: o cache em memória só ia ao IndexedDB no "Atualizar dados", e o app recarregado offline perdia o dado
+      try { await saveQueryCacheToIndexedDB() } catch { /* cache em memória continua válido */ }
+    }
     return data
   } catch {
     return getCarenciasFromCacheOnly(fazendaId)
@@ -2106,7 +2110,11 @@ export async function getStatusReprodutivoCached(fazendaId: string) {
   if (!navigator.onLine || redeInstavelRecentemente()) return getStatusReprodutivoFromCacheOnly(fazendaId)
   try {
     const data = await withTimeout(supabaseService.getStatusReprodutivo(fazendaId), 5000)
-    if (data) setCachedQuery(key, data)
+    if (data) {
+      setCachedQuery(key, data)
+      // Persiste já: o cache em memória só ia ao IndexedDB no "Atualizar dados", e o app recarregado offline perdia o dado
+      try { await saveQueryCacheToIndexedDB() } catch { /* cache em memória continua válido */ }
+    }
     return data
   } catch {
     return getStatusReprodutivoFromCacheOnly(fazendaId)
@@ -2152,7 +2160,11 @@ export async function getEstacoesMontaCached(fazendaId: string) {
   if (!navigator.onLine || redeInstavelRecentemente()) return getEstacoesMontaFromCacheOnly(fazendaId)
   try {
     const data = await withTimeout(supabaseService.getEstacoesMonta(fazendaId), 3000)
-    if (data) setCachedQuery(key, data)
+    if (data) {
+      setCachedQuery(key, data)
+      // Persiste já: o cache em memória só ia ao IndexedDB no "Atualizar dados", e o app recarregado offline perdia o dado
+      try { await saveQueryCacheToIndexedDB() } catch { /* cache em memória continua válido */ }
+    }
     return data
   } catch {
     return getEstacoesMontaFromCacheOnly(fazendaId)

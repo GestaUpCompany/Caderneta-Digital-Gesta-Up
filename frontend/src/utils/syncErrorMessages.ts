@@ -52,6 +52,9 @@ const UNIQUE_CONSTRAINT_MESSAGES: Record<string, string> = {
   idx_individuos_fazenda_manejo_unico: 'Já existe um animal com este ID de manejo nesta fazenda. Avise o administrador para corrigir o ID.',
 }
 
+const MENSAGENS_PROTOCOLO_IATF =
+  /inseminação deste lote já foi registrada|lote está cancelado|data de execução não pode ser futura|Nenhuma fêmea ativa|fêmea que não é ativa|não é o passo de Inseminação/i
+
 /**
  * Retorna mensagem amigável para um SyncError.
  */
@@ -68,6 +71,8 @@ export function translateSyncError(error: SyncError | null | undefined): string 
   if (code === 'P0001' && /tanque .* nao encontrado/i.test(error.message || '')) {
     return 'O tanque deste abastecimento foi removido do cadastro. Avise o administrador para conferir o registro.'
   }
+  // Protocolo IATF: o banco recusa com mensagens já escritas para o peão (IA já registrada por outro, lote cancelado...)
+  if (code === '23514' && MENSAGENS_PROTOCOLO_IATF.test(error.message || '')) return error.message
   if (code && ERROR_MESSAGES[code]) {
     // Registros antigos de falha de rede foram gravados com code 'unknown'; a mensagem original revela a causa.
     if (code === 'unknown' && isNetworkError(error, true)) return ERROR_MESSAGES.network

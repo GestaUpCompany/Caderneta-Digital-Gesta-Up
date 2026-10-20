@@ -25,6 +25,16 @@ describe('translateSyncError', () => {
     expect(translateSyncError(erro({ code: '503', message: 'x' }))).toMatch(/Servidor indisponível/)
   })
 
+  it('mostra a mensagem do banco quando a IA do protocolo IATF já foi registrada por outro', () => {
+    const msg = 'A inseminação deste lote já foi registrada em 20/10/2026'
+    expect(translateSyncError(erro({ code: '23514', message: msg }))).toBe(msg)
+    expect(translateSyncError(erro({ code: '23514', message: 'O lote está cancelado' }))).toBe('O lote está cancelado')
+  })
+
+  it('check_violation de outros assuntos continua com a mensagem genérica', () => {
+    expect(translateSyncError(erro({ code: '23514', message: 'new row violates check constraint "x"' }))).toMatch(/Valor inválido/)
+  })
+
   it('mantém a mensagem genérica para erro desconhecido que não é de rede', () => {
     expect(translateSyncError(erro({ message: 'Cannot read properties of undefined' }))).toMatch(/Erro desconhecido/)
   })
