@@ -2,6 +2,12 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## IATF no PWA: liberação só para a fazenda de testes e o que falta (20/10/2026)
+
+As telas do IATF (caderneta Protocolo IATF, Novo lote de protocolo e as duas listas de registros) só abrem na fazenda de testes `d649c65e-16ab-4b77-a84b-df937aa41cc3`: `protocolo-iatf` está em `CADERNETAS_EM_TESTE` (`utils/constants.ts`) e as quatro páginas conferem `cadernetaVisivelNaFazenda('protocolo-iatf', fazendaId)`. As duas listas (`ProtocoloIatfListaPage`, `ProtocoloIatfLoteListaPage`) não conferiam e abriam por URL direta; agora mostram "Esta caderneta ainda está em teste e não está liberada para esta fazenda". O novo store `protocolo-iatf-lote` não é item do menu e segue a chave de liberação `protocolo-iatf`. Testes: vitest (`cadernetasEmTeste.test.ts`) e preview com um id de fazenda inexistente configurado só no aparelho (as 4 páginas bloqueadas; configuração restaurada).
+
+**O que falta** (lista completa no `docs/BACKLOG.md` do painel, seção "IATF: o que ficou faltando depois da primeira entrega"): teste em aparelho físico com sinal ruim; lote criado no campo só aparece na caderneta de marcar passos depois de sincronizar (precisa de internet para enviar e de novo para baixar); sem diagnóstico em grupo por lote de protocolo na caderneta de Reprodução do PWA; sem estação de monta ao criar o lote; "Fêmeas no lote" aparece em passos que não são a IA (cosmético); outras consultas "lazy" de `cadastroCache.ts` ainda guardam só em memória e podem perder dado ao recarregar offline (só status reprodutivo, estações, carências, lotes e protocolos de IATF foram corrigidos); RFID (C4) pendente.
+
 ## Novo lote de protocolo IATF pelo PWA (20/10/2026)
 
 Nova tela `/caderneta/protocolo-iatf/novo-lote` (botão "+ Novo lote de protocolo" na caderneta Protocolo IATF; lista em `/novo-lote/lista`), em teste (só fazenda de testes). O peão monta o lote no campo, offline: escolhe o protocolo (cache `getProtocolosIatfCached`, persistido), o D0 (prévia das datas D0/D8/D10 calculada no aparelho), nome, responsável e as fêmeas (por brinco/chip/manejo ou "adicionar todas" de um lote da fazenda, cache de indivíduos como na Reprodução).
