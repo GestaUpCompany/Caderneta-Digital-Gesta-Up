@@ -155,6 +155,7 @@ const ReproducaoPage = lazy(() => import('./pages/cadernetas/ReproducaoPage'))
 const ProtocoloIatfPage = lazy(() => import('./pages/cadernetas/ProtocoloIatfPage'))
 const ProtocoloIatfNovoLotePage = lazy(() => import('./pages/cadernetas/ProtocoloIatfNovoLotePage'))
 const ProtocoloIatfLoteListaPage = lazy(() => import('./pages/cadernetas/ProtocoloIatfLoteListaPage'))
+const ProtocoloIatfDescartePage = lazy(() => import('./pages/cadernetas/ProtocoloIatfDescartePage'))
 const PesagemListaPage = lazy(() => import('./pages/cadernetas/PesagemListaPage'))
 const ComunicadoVendaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaPage'))
 const ComunicadoVendaListaPage = lazy(() => import('./pages/cadernetas/ComunicadoVendaListaPage'))
@@ -668,6 +669,7 @@ function AppInner() {
             <Route path="/caderneta/protocolo-iatf/lista" element={<ProtocoloIatfListaPage />} />
             <Route path="/caderneta/protocolo-iatf/novo-lote" element={<ProtocoloIatfNovoLotePage />} />
             <Route path="/caderneta/protocolo-iatf/novo-lote/lista" element={<ProtocoloIatfLoteListaPage />} />
+            <Route path="/caderneta/protocolo-iatf/descartar" element={<ProtocoloIatfDescartePage />} />
             <Route path="/caderneta/pesagem" element={<PesagemPage />} />
             <Route path="/caderneta/pesagem/lista" element={<PesagemListaPage />} />
 

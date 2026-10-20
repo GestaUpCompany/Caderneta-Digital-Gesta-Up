@@ -55,6 +55,14 @@ describe('errosLoteProtocolo', () => {
     const repetida = { ...completo(), linhas: [novaLinhaLoteProtocolo('u1', 'f1', 'BR-1'), novaLinhaLoteProtocolo('u2', 'f1', 'BR-1')] }
     expect(errosLoteProtocolo(repetida)[0].message).toMatch(/repetida/)
   })
+  it('recusa fêmea que já está ativa em outro lote de protocolo em andamento', () => {
+    const emOutro = new Map([['f2', 'Lote setembro']])
+    const erros = errosLoteProtocolo(completo(), emOutro)
+    expect(erros).toHaveLength(1)
+    expect(erros[0].message).toMatch(/BR-2 já está no lote de protocolo "Lote setembro" em andamento/)
+    expect(errosLoteProtocolo(completo(), new Map([['f1', 'A'], ['f2', 'B']]))[0].message).toMatch(/e mais 1/)
+    expect(errosLoteProtocolo(completo(), new Map([['zz', 'A']]))).toEqual([])
+  })
 })
 
 describe('loteProtocoloParaServidor', () => {

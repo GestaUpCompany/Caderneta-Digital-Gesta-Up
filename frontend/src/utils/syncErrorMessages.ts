@@ -53,7 +53,7 @@ const UNIQUE_CONSTRAINT_MESSAGES: Record<string, string> = {
 }
 
 const MENSAGENS_PROTOCOLO_IATF =
-  /inseminação deste lote já foi registrada|lote está cancelado|data de execução não pode ser futura|Nenhuma fêmea ativa|fêmea que não é ativa|não é o passo de Inseminação|protocolo está inativo|Selecione ao menos uma fêmea|precisa estar viva|só se aplica a fêmeas|protocolo precisa ter um passo|Protocolo não encontrado|Indivíduo não encontrado ou excluído|indivíduo pertence a outra fazenda/i
+  /inseminação deste lote já foi registrada|fêmeas informadas já têm inseminação|diagnóstico de gestação lançado depois da IA|Fêmea não encontrada neste lote de protocolo|lote de protocolo não está em andamento|já em outro lote de protocolo|já está no lote de protocolo|lote está cancelado|data de execução não pode ser futura|data de execução não pode ser anterior ao D0|Nenhuma fêmea ativa|fêmea que não é ativa|não é o passo de Inseminação|protocolo está inativo|Selecione ao menos uma fêmea|precisa estar viva|só se aplica a fêmeas|protocolo precisa ter um passo|Protocolo não encontrado|Indivíduo não encontrado ou excluído|indivíduo pertence a outra fazenda/i
 
 /**
  * Retorna mensagem amigável para um SyncError.

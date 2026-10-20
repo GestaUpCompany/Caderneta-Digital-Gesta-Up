@@ -14,12 +14,13 @@ import AnimalIdentifier from '../../components/AnimalIdentifier'
 import { DatePicker, Input, SearchableModal, ValidationMessage } from '../../components/ui'
 import { salvarRegistro } from '../../services/api'
 import { getLotes } from '../../services/supabaseService'
-import { getCachedCadastroData, getLoteByNomeCached, getProtocolosIatfCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getLoteByNomeCached, getLotesProtocoloIatfCached, getProtocolosIatfCached } from '../../services/cadastroCache'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { dataBRparaIso } from '../../utils/manejoCurral'
 import { todayBR } from '../../utils/formatDate'
 import { cadernetaVisivel } from '../../utils/constants'
 import { RootState } from '../../store/store'
+import type { LoteIatfCache } from '../../utils/protocoloIatf'
 import {
   errosLoteProtocolo,
   formVazioLoteProtocolo,
@@ -82,6 +83,23 @@ export default function ProtocoloIatfNovoLotePage() {
     }
   }, [fazendaId, refreshTick])
 
+  // Fêmeas ativas em lotes de protocolo em andamento (cópia do aparelho): não podem entrar em outro lote ao mesmo tempo.
+  // Lote criado neste aparelho e ainda não enviado não está aqui; nesse caso o servidor recusa e o erro volta pela fila.
+  const [emOutroLote, setEmOutroLote] = useState<ReadonlyMap<string, string>>(new Map())
+  useEffect(() => {
+    if (!fazendaId) return
+    let cancelado = false
+    ;(async () => {
+      const lotesAtivos = ((await getLotesProtocoloIatfCached(fazendaId).catch(() => null)) || []) as LoteIatfCache[]
+      const mapa = new Map<string, string>()
+      for (const l of lotesAtivos) for (const f of l.femeas ?? []) if (!mapa.has(f.individuoId)) mapa.set(f.individuoId, l.nome)
+      if (!cancelado) setEmOutroLote(mapa)
+    })()
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, refreshTick])
+
   // Lotes da fazenda e fêmeas vivas do cadastro local (mesmo caminho da caderneta de Reprodução)
   useEffect(() => {
     if (!fazendaId) return
@@ -129,7 +147,7 @@ export default function ProtocoloIatfNovoLotePage() {
   )
 
   const set = (patch: Partial<FormLoteProtocolo>) => setForm((f) => ({ ...f, ...patch }))
-  const pendenciaTexto = pendenciaLoteProtocolo(form)
+  const pendenciaTexto = pendenciaLoteProtocolo(form, emOutroLote)
   const isValid = pendenciaTexto === ''
 
   const adicionarFemeas = (novas: { id: string; rotulo: string }[]) => {
@@ -150,7 +168,7 @@ export default function ProtocoloIatfNovoLotePage() {
   const removerLinha = (uid: string) => setForm((f) => ({ ...f, linhas: f.linhas.filter((l) => l.uid !== uid) }))
 
   const handleSalvar = async () => {
-    const lista = errosLoteProtocolo(form)
+    const lista = errosLoteProtocolo(form, emOutroLote)
     if (lista.length > 0) {
       setErrors(lista)
       return
@@ -193,7 +211,7 @@ export default function ProtocoloIatfNovoLotePage() {
     return (
       <CadernetaLayout title="NOVO LOTE DE PROTOCOLO" cadernetaId="protocolo-iatf" showRegistrosButton={false}>
         <InfoStrip tone="warning" icon="⚠️">
-          {!fazendaId ? 'Configure a fazenda antes de usar esta caderneta.' : 'Esta caderneta ainda está em teste e não está liberada para esta fazenda.'}
+          {!fazendaId ? 'Configure a fazenda antes de usar esta caderneta.' : 'Esta caderneta não está liberada para esta fazenda. Peça ao administrador para ativar o Acesso ao IATF.'}
         </InfoStrip>
       </CadernetaLayout>
     )

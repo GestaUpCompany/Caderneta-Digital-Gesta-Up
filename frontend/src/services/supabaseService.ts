@@ -1264,7 +1264,7 @@ export async function getLotesProtocoloIatf(fazendaId: string) {
   const { data, error } = await (client as any)
     .from('lotes_protocolo_iatf')
     .select(
-      'id, nome, data_d0, responsavel, femeas:lotes_protocolo_iatf_femeas(status), tarefas:lotes_protocolo_iatf_tarefas(id, dia, ordem, rotulo, tipo, medicamento_nome, dose, data_prevista, feita_em)'
+      'id, nome, data_d0, responsavel, femeas:lotes_protocolo_iatf_femeas(status, individuo_id, individuo:individuos(id_brinco, id_manejo, id_chip)), tarefas:lotes_protocolo_iatf_tarefas(id, dia, ordem, rotulo, tipo, medicamento_nome, dose, data_prevista, feita_em), eventos:eventos_reprodutivos(individuo_id, tipo, deleted_at)'
     )
     .eq('fazenda_id', fazendaId)
     .eq('status', 'Em andamento')
@@ -1272,14 +1272,29 @@ export async function getLotesProtocoloIatf(fazendaId: string) {
     .order('data_d0', { ascending: false })
     .limit(100)
   if (error) throw error
-  return ((data ?? []) as any[]).map((l) => ({
-    id: l.id as string,
-    nome: l.nome as string,
-    data_d0: l.data_d0 as string,
-    responsavel: (l.responsavel as string | null) ?? null,
-    femeasAtivas: ((l.femeas ?? []) as { status: string }[]).filter((f) => f.status === 'Ativa').length,
-    tarefas: (l.tarefas ?? []) as TarefaIatfCache[],
-  })) as LoteIatfCache[]
+  type FemeaRaw = {
+    status: string
+    individuo_id: string
+    individuo: { id_brinco: string | null; id_manejo: string | null; id_chip: string | null } | null
+  }
+  return ((data ?? []) as any[]).map((l) => {
+    const ativas = ((l.femeas ?? []) as FemeaRaw[]).filter((f) => f.status === 'Ativa')
+    return {
+      id: l.id as string,
+      nome: l.nome as string,
+      data_d0: l.data_d0 as string,
+      responsavel: (l.responsavel as string | null) ?? null,
+      femeasAtivas: ativas.length,
+      tarefas: (l.tarefas ?? []) as TarefaIatfCache[],
+      femeas: ativas.map((f) => ({
+        individuoId: f.individuo_id,
+        rotulo: f.individuo?.id_brinco || f.individuo?.id_manejo || f.individuo?.id_chip || 'Sem identificação',
+      })),
+      inseminadas: ((l.eventos ?? []) as { individuo_id: string; tipo: string; deleted_at: string | null }[])
+        .filter((e) => e.tipo === 'Inseminação' && e.deleted_at == null)
+        .map((e) => e.individuo_id),
+    }
+  }) as LoteIatfCache[]
 }
 
 /** Protocolos de IATF ativos da fazenda com os passos (cache da caderneta Novo lote de protocolo). */

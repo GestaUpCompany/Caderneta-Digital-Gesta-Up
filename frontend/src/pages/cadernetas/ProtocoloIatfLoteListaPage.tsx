@@ -13,7 +13,7 @@ export default function ProtocoloIatfLoteListaPage() {
     return (
       <CadernetaLayout title="LOTES DE PROTOCOLO" cadernetaId="protocolo-iatf" showRegistrosButton={false}>
         <InfoStrip tone="warning" icon="⚠️">
-          {!fazendaId ? 'Configure a fazenda antes de usar esta caderneta.' : 'Esta caderneta ainda está em teste e não está liberada para esta fazenda.'}
+          {!fazendaId ? 'Configure a fazenda antes de usar esta caderneta.' : 'Esta caderneta não está liberada para esta fazenda. Peça ao administrador para ativar o Acesso ao IATF.'}
         </InfoStrip>
       </CadernetaLayout>
     )

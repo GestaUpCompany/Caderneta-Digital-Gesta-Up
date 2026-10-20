@@ -31,6 +31,17 @@ describe('translateSyncError', () => {
     expect(translateSyncError(erro({ code: '23514', message: 'O lote está cancelado' }))).toBe('O lote está cancelado')
   })
 
+  it('mostra as recusas novas da IA por grupos e do desfazer', () => {
+    const jaTem = 'As fêmeas informadas já têm inseminação neste lote'
+    const diag = 'Não é possível desfazer: há fêmea com diagnóstico de gestação lançado depois da IA'
+    expect(translateSyncError(erro({ code: '23514', message: jaTem }))).toBe(jaTem)
+    expect(translateSyncError(erro({ code: '23514', message: diag }))).toBe(diag)
+    const outroLote = 'Fêmea(s) já em outro lote de protocolo em andamento: BR-042 (lote "A"). Descarte-a(s) de lá ou cancele aquele lote'
+    expect(translateSyncError(erro({ code: '23514', message: outroLote }))).toBe(outroLote)
+    const antesD0 = 'A data de execução não pode ser anterior ao D0 do lote (08/10/2026)'
+    expect(translateSyncError(erro({ code: '23514', message: antesD0 }))).toBe(antesD0)
+  })
+
   it('mostra as recusas do banco ao criar o lote de protocolo pelo PWA', () => {
     expect(translateSyncError(erro({ code: '23514', message: 'O protocolo está inativo' }))).toBe('O protocolo está inativo')
     expect(translateSyncError(erro({ code: '23514', message: 'A fêmea precisa estar viva (status Morto)' }))).toMatch(/precisa estar viva/)

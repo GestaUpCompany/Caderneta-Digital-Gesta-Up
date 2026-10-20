@@ -4,7 +4,7 @@ import { conflitosDeIdentificacao } from './maternidadeIds'
 import { isFutureBR } from './formatDate'
 import { errosSanidade, type FormSanidade } from './sanidade'
 import { errosReproducao, type FormReproducao } from './reproducao'
-import { errosProtocoloIatf, type FormProtocoloIatf } from './protocoloIatf'
+import { ehDescarteIatf, errosDescarteIatf, errosProtocoloIatf, type FormProtocoloIatf } from './protocoloIatf'
 import { errosLoteProtocolo, type FormLoteProtocolo } from './loteProtocoloIatf'
 import { errosTratamento, type TratamentoSessao } from './tratamentoCurral'
 
@@ -1260,7 +1260,9 @@ export function validateProtocoloIatf(data: Record<string, unknown>): Validation
     const d = new Date()
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
   })()
-  const errors: ValidationError[] = errosProtocoloIatf(data as unknown as FormProtocoloIatf, hoje)
+  const errors: ValidationError[] = ehDescarteIatf(data)
+    ? errosDescarteIatf(data)
+    : errosProtocoloIatf(data as unknown as FormProtocoloIatf, hoje)
   return { isValid: errors.length === 0, errors }
 }
 

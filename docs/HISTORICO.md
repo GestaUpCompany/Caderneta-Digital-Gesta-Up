@@ -2,6 +2,19 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Auditoria do IATF: correções do lado do PWA (20/10/2026)
+
+Origem: `docs/RELATORIO_AUDITORIA_IATF.md` no repo do Painel (as migrations e o detalhe por item estão no HISTORICO de lá). Lado do PWA, nada foi publicado em `staging-repo`; está só no working tree.
+
+- **IA por grupos de fêmeas** (`ProtocoloIatfPage`, `utils/protocoloIatf.ts`, `getLotesProtocoloIatf`): o passo de IA lista as fêmeas ativas do lote com caixa de seleção (touro e partida valem só para as marcadas) e só conclui quando todas as ativas têm IA. O cache do lote ganhou `femeas` e `inseminadas` (opcionais: cópia antiga do aparelho segue no comportamento antigo). Só registro local **ainda não sincronizado** conta como fêmea coberta; o que já subiu vem do servidor.
+- **Data anterior ao D0**: o formulário guarda `loteD0` e recusa a data (pendência e Salvar desabilitado; o `DatePicker` compartilhado não tem data mínima e não foi alterado). IA com passos anteriores pendentes mostra faixa de atenção, sem bloquear.
+- **Fêmea em um lote por vez**: `errosLoteProtocolo` confere com o cache dos lotes em andamento (fêmeas ativas) antes de salvar.
+- **Descartar fêmea do lote** (`ProtocoloIatfDescartePage`, rota `/caderneta/protocolo-iatf/descartar`): offline, vira registro `protocolo-iatf` com `acao: 'descartar'` (sem store novo no IndexedDB) enviado pela RPC `descartar_femea_lote_protocolo`; a fêmea descartada neste aparelho sai da lista da IA antes de sincronizar.
+- **Lote criado offline**: a caderneta mostra o lote como "aguardando envio" (ou "erro no envio") até ele subir e ser baixado.
+- **Mensagens**: as recusas novas do servidor entram em `syncErrorMessages`; nas 5 telas do IATF a mensagem de caderneta não liberada passou a dizer "Peça ao administrador para ativar o Acesso ao IATF" (Sanidade, Reprodução e Manejo continuam "em teste", por ID).
+- **Escrita direta**: com a mudança do item 7 no banco, o peão só escreve nas tabelas de IATF pelas RPCs (criar lote, marcar passo, registrar IA, descartar fêmea); todas já eram usadas assim pelo `syncService`.
+- Testado pelo DevTools como o funcionário Victor Hugo na fazenda de testes (localhost:4173): lote criado, D0, IA em grupos, descarte, data anterior ao D0, conflito de lote, lote offline "aguardando envio" e envio ao voltar a rede. Testes: 491 passam; typecheck e lint limpos.
+
 ## Grupo "IATF" nas cadernetas, liberado por fazenda pela flag do painel (20/10/2026)
 
 - A caderneta **Protocolo IATF** saiu de "Gado & Pastagens" e foi para o grupo próprio **IATF** (cor `#C2185B`) em `utils/constants.ts`, `CADERNETA_GRUPO_ORDEM` e `CADERNETA_GRUPO_CORES`. Reprodução, Sanidade e Manejo de Curral ficam no grupo **Controle Individual** e continuam só na fazenda de testes pela trava por ID (`CADERNETAS_EM_TESTE`, `cadernetaVisivelNaFazenda`).

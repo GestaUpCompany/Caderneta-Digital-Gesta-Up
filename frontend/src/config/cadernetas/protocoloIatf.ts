@@ -23,7 +23,9 @@ export const protocoloIatfConfig: CadernetaDisplayConfig = {
     semenPartida: { key: 'semenPartida', label: 'SÊMEN (PARTIDA)', section: 'DETALHES', priority: 2 },
     tecnico: { key: 'tecnico', label: 'TÉCNICO', section: 'DETALHES', priority: 3 },
     femeasAtivas: { key: 'femeasAtivas', label: 'FÊMEAS NO LOTE', section: 'DETALHES', priority: 4 },
-    observacao: { key: 'observacao', label: 'OBSERVAÇÃO', section: 'DETALHES', priority: 5, colSpan: 2 },
+    femeaRotulo: { key: 'femeaRotulo', label: 'FÊMEA DESCARTADA', section: 'DETALHES', priority: 5 },
+    motivoDescarte: { key: 'motivoDescarte', label: 'MOTIVO', section: 'DETALHES', priority: 6 },
+    observacao: { key: 'observacao', label: 'OBSERVAÇÃO', section: 'DETALHES', priority: 7, colSpan: 2 },
   },
-  hiddenFields: ['loteProtocoloId', 'tarefaId', 'tarefaTipo', 'tarefaDia'],
+  hiddenFields: ['loteProtocoloId', 'tarefaId', 'tarefaTipo', 'tarefaDia', 'acao', 'individuoId', 'femeasSelecionadas', 'femeasDisponiveis', 'loteD0'],
 }

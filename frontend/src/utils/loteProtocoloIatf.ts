@@ -63,7 +63,11 @@ export function previaDatasProtocolo(protocolo: ProtocoloIatfCache | undefined, 
 }
 
 /** Erros em texto, na ordem em que o peão preenche. Lista vazia = pode salvar. */
-export function errosLoteProtocolo(form: FormLoteProtocolo): { field: string; message: string }[] {
+export function errosLoteProtocolo(
+  form: FormLoteProtocolo,
+  /** individuoId -> nome do lote de protocolo em andamento onde a fêmea já está ativa (cache do aparelho) */
+  emOutroLote?: ReadonlyMap<string, string>
+): { field: string; message: string }[] {
   const erros: { field: string; message: string }[] = []
   if (!dataBRparaIso(form.data)) erros.push({ field: 'data', message: 'D0 inválido. Use DD/MM/AAAA' })
   if (!form.protocoloId) erros.push({ field: 'protocolo', message: 'Escolha o protocolo' })
@@ -85,11 +89,20 @@ export function errosLoteProtocolo(form: FormLoteProtocolo): { field: string; me
     }
     vistos.add(l.individuoId)
   }
+  const ocupadas = linhas.filter((l) => l.individuoId && emOutroLote?.has(l.individuoId))
+  if (ocupadas.length > 0) {
+    const l = ocupadas[0]
+    const mais = ocupadas.length > 1 ? ` (e mais ${ocupadas.length - 1})` : ''
+    erros.push({
+      field: 'linhas',
+      message: `A fêmea ${l.rotulo || ''} já está no lote de protocolo "${emOutroLote!.get(l.individuoId)}" em andamento${mais}. Remova-a ou conclua/cancele aquele lote`.replace('  ', ' '),
+    })
+  }
   return erros
 }
 
-export function pendenciaLoteProtocolo(form: FormLoteProtocolo): string {
-  const e = errosLoteProtocolo(form)
+export function pendenciaLoteProtocolo(form: FormLoteProtocolo, emOutroLote?: ReadonlyMap<string, string>): string {
+  const e = errosLoteProtocolo(form, emOutroLote)
   return e.length > 0 ? e[0].message : ''
 }
 
