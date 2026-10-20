@@ -2641,6 +2641,7 @@ export type Database = {
       fazendas: {
         Row: {
           acesso_comercial: boolean
+          acesso_iatf: boolean
           acesso_confinamento: boolean
           acesso_id: string
           ativo: boolean | null
@@ -2667,6 +2668,7 @@ export type Database = {
         }
         Insert: {
           acesso_comercial?: boolean
+          acesso_iatf?: boolean
           acesso_confinamento?: boolean
           acesso_id: string
           ativo?: boolean | null
@@ -2693,6 +2695,7 @@ export type Database = {
         }
         Update: {
           acesso_comercial?: boolean
+          acesso_iatf?: boolean
           acesso_confinamento?: boolean
           acesso_id?: string
           ativo?: boolean | null

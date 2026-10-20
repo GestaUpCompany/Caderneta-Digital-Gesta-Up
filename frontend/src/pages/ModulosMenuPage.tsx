@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
-import { CADERNETAS, CADERNETA_GRUPO_ORDEM, CADERNETA_GRUPO_CORES, cadernetaVisivelNaFazenda } from '../utils/constants'
+import { CADERNETAS, CADERNETA_GRUPO_ORDEM, CADERNETA_GRUPO_CORES, CADERNETAS_IATF, cadernetaVisivelNaFazenda } from '../utils/constants'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernetas'
@@ -19,7 +19,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
+  const { fazenda, fazendaId, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial, acessoIatf } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -53,6 +53,11 @@ export default function ModulosMenuPage() {
       lista = lista.filter(c => !CADERNETAS_COMERCIAL.includes(c.id))
     }
 
+    // Filtro por módulo de IATF (feature flag por fazenda)
+    if (!acessoIatf) {
+      lista = lista.filter(c => !CADERNETAS_IATF.includes(c.id))
+    }
+
     // Transferência exige outra fazenda ativa no mesmo grupo
     if (!temFazendaNoGrupo) {
       lista = lista.filter(c => c.id !== 'comunicado-transferencia')
@@ -65,7 +70,7 @@ export default function ModulosMenuPage() {
     }
 
     return lista
-  }, [fazendaId, rbacAtivo, funcionarioCadernetas, acessoConfinamento, acessoComercial, temFazendaNoGrupo])
+  }, [fazendaId, rbacAtivo, funcionarioCadernetas, acessoConfinamento, acessoComercial, acessoIatf, temFazendaNoGrupo])
 
   useEffect(() => {
     setRecentCadernetas(getRecentCadernetas())

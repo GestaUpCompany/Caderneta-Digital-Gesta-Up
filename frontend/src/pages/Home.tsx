@@ -5,7 +5,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
 import { setConfig } from '../store/slices/configSlice'
 import { ClipboardList, Sun, Moon, Settings, ChevronRight, RefreshCw, Loader2, UserRound, AlertTriangle, Check, NotebookPen, ListChecks, Users, FileBarChart, Map, ListTodo } from 'lucide-react'
-import { CADERNETAS, cadernetaVisivelNaFazenda } from '../utils/constants'
+import { CADERNETAS, cadernetaVisivel } from '../utils/constants'
 import AppHeader from '../components/AppHeader'
 import { getRecentCadernetas } from '../utils/recentCadernetas'
 
@@ -33,7 +33,7 @@ const BASE = import.meta.env.BASE_URL
 export default function Home() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { configurado, fazenda, usuario, acessoId, fazendaId, controleAcessoHabilitado, expedienteHabilitado, expedienteTimezone, expedienteDias } = useSelector((state: RootState) => state.config)
+  const { configurado, fazenda, usuario, acessoId, fazendaId, controleAcessoHabilitado, expedienteHabilitado, expedienteTimezone, expedienteDias, acessoIatf } = useSelector((state: RootState) => state.config)
   const pendingSyncCount = useSelector((state: RootState) => state.sync.pendingCount)
   const { active: cadastroSyncActive } = useCadastroSyncState()
   const [syncing, setSyncing] = useState(false)
@@ -140,8 +140,8 @@ export default function Home() {
   // Última caderneta acessada (mesma fonte do menu: recentCadernetas); cadernetas em teste só na fazenda de testes
   useEffect(() => {
     const recentId = getRecentCadernetas()[0]
-    setUltimaCaderneta(CADERNETAS.find(c => c.id === recentId && c.disponivel && cadernetaVisivelNaFazenda(c.id, fazendaId)) || null)
-  }, [fazendaId])
+    setUltimaCaderneta(CADERNETAS.find(c => c.id === recentId && c.disponivel && cadernetaVisivel(c.id, fazendaId, acessoIatf)) || null)
+  }, [fazendaId, acessoIatf])
   const [versiculoDoDia, setVersiculoDoDia] = useState<Versiculo | null>(null)
   const [showTrocarHint, setShowTrocarHint] = useState(false)
 
@@ -198,6 +198,7 @@ export default function Home() {
           controleAcessoHabilitado: fazendaData.controle_acesso_habilitado,
           acessoConfinamento: fazendaData.acesso_confinamento || false,
           acessoComercial: fazendaData.acesso_comercial || false,
+          acessoIatf: fazendaData.acesso_iatf || false,
           travaSuplementacao: fazendaData.trava_suplementacao || false,
           expedienteHabilitado: !!fazendaData.expediente_habilitado,
           expedienteTimezone: fazendaData.expediente_timezone || 'America/Cuiaba',

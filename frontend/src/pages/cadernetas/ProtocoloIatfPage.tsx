@@ -15,7 +15,7 @@ import { getAllRegistros } from '../../services/indexedDB'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { dataBRparaIso } from '../../utils/manejoCurral'
 import { todayBR } from '../../utils/formatDate'
-import { cadernetaVisivelNaFazenda } from '../../utils/constants'
+import { cadernetaVisivel } from '../../utils/constants'
 import { RootState } from '../../store/store'
 import {
   errosProtocoloIatf,
@@ -42,7 +42,7 @@ const formatarDataIso = (iso: string) => iso.split('-').reverse().join('/')
 
 export default function ProtocoloIatfPage() {
   const navigate = useNavigate()
-  const { fazendaId, usuario } = useSelector((state: RootState) => state.config)
+  const { fazendaId, usuario, acessoIatf } = useSelector((state: RootState) => state.config)
 
   const initial = useCallback(makeInitial, [])
   const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } = useRascunhoForm<FormProtocoloIatf>({
@@ -137,7 +137,7 @@ export default function ProtocoloIatfPage() {
     navigate('/')
   }
 
-  if (!fazendaId || !cadernetaVisivelNaFazenda('protocolo-iatf', fazendaId)) {
+  if (!fazendaId || !cadernetaVisivel('protocolo-iatf', fazendaId, acessoIatf)) {
     return (
       <CadernetaLayout title="PROTOCOLO IATF" cadernetaId="protocolo-iatf" showRegistrosButton={false}>
         <InfoStrip tone="warning" icon="⚠️">

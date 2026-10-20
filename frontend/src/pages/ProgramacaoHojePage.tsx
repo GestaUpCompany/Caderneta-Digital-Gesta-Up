@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux'
 import { useState, useEffect } from 'react'
 import { RootState } from '../store/store'
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
-import { CADERNETAS, CADERNETA_GRUPO_CORES } from '../utils/constants'
+import { CADERNETAS, CADERNETA_GRUPO_CORES, cadernetaVisivel } from '../utils/constants'
 import { formatarHorario } from '../utils/rotinas'
 import { ChevronLeft, Clock } from 'lucide-react'
 import { LOGO_URL, getFarmLogo } from '../utils/constants'
@@ -25,7 +25,7 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ProgramacaoHojePage() {
   const navigate = useNavigate()
-  const { fazenda, logoUrl, funcionarioNome, fazendaId, acessoConfinamento, acessoComercial } = useSelector((state: RootState) => state.config)
+  const { fazenda, logoUrl, funcionarioNome, fazendaId, acessoConfinamento, acessoComercial, acessoIatf } = useSelector((state: RootState) => state.config)
   const { programacao, horarios, loading, refresh } = useProgramacaoHoje()
 
   // Carregar regras de checklist uma única vez para a página inteira,
@@ -102,6 +102,7 @@ export default function ProgramacaoHojePage() {
   ).filter(c => {
     if (CADERNETAS_CONFINAMENTO.includes(c.id) && !acessoConfinamento) return false
     if (CADERNETAS_COMERCIAL.includes(c.id) && !acessoComercial) return false
+    if (!cadernetaVisivel(c.id, fazendaId, acessoIatf)) return false
     return true
   })
 
