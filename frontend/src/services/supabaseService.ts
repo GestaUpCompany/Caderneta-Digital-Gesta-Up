@@ -3295,6 +3295,7 @@ export async function criarMedicamentoPwa(params: {
   unidade: string
   conteudoPorUnidade?: number | null
   conteudoUnidade?: string | null
+  sku?: string | null
 }): Promise<any> {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client.rpc('criar_medicamento_pwa', {
@@ -3305,6 +3306,7 @@ export async function criarMedicamentoPwa(params: {
     p_unidade: params.unidade,
     p_conteudo: params.conteudoPorUnidade ?? null,
     p_conteudo_unidade: params.conteudoUnidade ?? null,
+    p_sku: params.sku ?? null,
   })
   if (error) throw error
   return data

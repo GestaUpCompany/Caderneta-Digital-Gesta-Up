@@ -61,7 +61,7 @@ const makeInitial = (): FormState => ({
   observacao: '',
 })
 
-const rotuloMedicamento = (m: any) => `${m.nome_comercial} (${m.tipo})`
+const rotuloMedicamento = (m: any) => `${m.nome_comercial} (${m.tipo})${m.sku ? ` · ${m.sku}` : ''}`
 const normalizar = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 
 interface Props {
@@ -83,6 +83,7 @@ export default function FarmaciaForm({ modo }: Props) {
   // Cadastro de medicamento novo (só na entrada)
   const [mostrarNovo, setMostrarNovo] = useState(false)
   const [novoNome, setNovoNome] = useState('')
+  const [novoSku, setNovoSku] = useState('')
   const [novoTipo, setNovoTipo] = useState('')
   const [novaUnidade, setNovaUnidade] = useState('')
   const [novoConteudo, setNovoConteudo] = useState('')
@@ -155,7 +156,8 @@ export default function FarmaciaForm({ modo }: Props) {
     if (!nome) return setNovoErro('Informe o nome do medicamento')
     if (!novoTipo) return setNovoErro('Escolha o tipo')
     if (!novaUnidade) return setNovoErro('Escolha a unidade de medida')
-    const existente = medicamentos.find((m) => normalizar(m.nome_comercial) === normalizar(nome))
+    const sku = novoSku.trim()
+    const existente = medicamentos.find((m) => normalizar(m.nome_comercial) === normalizar(nome) || (sku && normalizar(m.sku || '') === normalizar(sku)))
     if (existente) {
       setForm((prev) => ({ ...prev, medicamento: rotuloMedicamento(existente) }))
       setMostrarNovo(false)
@@ -167,6 +169,7 @@ export default function FarmaciaForm({ modo }: Props) {
     const novo = {
       id: crypto.randomUUID(),
       nome_comercial: nome,
+      sku: sku || null,
       tipo: novoTipo,
       principio_ativo: '',
       unidade: novaUnidade,
@@ -179,6 +182,7 @@ export default function FarmaciaForm({ modo }: Props) {
     setMedicamentos((prev) => [...prev, novo])
     setForm((prev) => ({ ...prev, medicamento: rotuloMedicamento(novo) }))
     setNovoNome('')
+    setNovoSku('')
     setNovoTipo('')
     setNovaUnidade('')
     setNovoConteudo('')
@@ -211,6 +215,7 @@ export default function FarmaciaForm({ modo }: Props) {
         ? {
             id: selecionado.id,
             nome_comercial: selecionado.nome_comercial,
+            sku: selecionado.sku,
             tipo: selecionado.tipo,
             unidade: selecionado.unidade,
             conteudo_por_unidade: selecionado.conteudo_por_unidade,
@@ -291,6 +296,12 @@ export default function FarmaciaForm({ modo }: Props) {
               placeholder="Ex: Draxxin 100 mL"
               value={novoNome}
               onChange={(e) => setNovoNome(e.target.value)}
+            />
+            <Input
+              label={<span>SKU (CÓDIGO INTERNO)</span>}
+              placeholder="Ex: MED-001 (opcional)"
+              value={novoSku}
+              onChange={(e) => setNovoSku(e.target.value)}
             />
             <div className="flex flex-col gap-2">
               <p className="text-[15px] font-bold text-gray-900">TIPO <span className="text-red-500">*</span></p>

@@ -1247,6 +1247,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         unidade: novo.unidade,
         conteudoPorUnidade: novo.conteudo_por_unidade,
         conteudoUnidade: novo.conteudo_unidade,
+        sku: novo.sku,
       })
       data = { ...data, medicamento_id: criado?.id || novo.id }
     }
