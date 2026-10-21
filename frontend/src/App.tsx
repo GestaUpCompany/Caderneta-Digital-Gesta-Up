@@ -121,6 +121,7 @@ const ClimaListaPage = lazy(() => import('./pages/cadernetas/ClimaListaPage'))
 const AbastecimentoPage = lazy(() => import('./pages/cadernetas/AbastecimentoPage'))
 const AbastecimentoListaPage = lazy(() => import('./pages/cadernetas/AbastecimentoListaPage'))
 const EntradaCombustivelPage = lazy(() => import('./pages/cadernetas/EntradaCombustivelPage'))
+const FarmaciaPage = lazy(() => import('./pages/cadernetas/FarmaciaPage'))
 const CantinaPage = lazy(() => import('./pages/cadernetas/CantinaPage'))
 const CantinaListaPage = lazy(() => import('./pages/cadernetas/CantinaListaPage'))
 const EntradaCantinaPage = lazy(() => import('./pages/cadernetas/EntradaCantinaPage'))
@@ -606,6 +607,9 @@ function AppInner() {
             <Route path="/caderneta/abastecimento/lista" element={<AbastecimentoListaPage />} />
             {/* Entrada de Combustível */}
             <Route path="/caderneta/entrada-combustivel" element={<EntradaCombustivelPage />} />
+
+            {/* Farmácia (entrada e saída de medicamentos/vacinas) */}
+            <Route path="/caderneta/farmacia" element={<FarmaciaPage />} />
 
             {/* Cantina */}
             <Route path="/caderneta/cantina" element={<CantinaPage />} />

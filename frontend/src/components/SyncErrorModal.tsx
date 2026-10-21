@@ -45,6 +45,7 @@ const STORE_NAMES: Record<CadernetaStore, string> = {
   'atividade-imprevistos': 'Imprevistos de Atividade',
   'atividades': 'Atividades (cadastro)',
   'entrada-combustivel': 'Entrada de Combustível',
+  farmacia: 'Farmácia',
   'entrada-almoxarifado': 'Almoxarifado (entrada)',
   'entrada-cantina': 'Cantina (entrada)',
   'ordens-servico': 'Ordens de Serviço',

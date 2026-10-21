@@ -677,6 +677,21 @@ export function validateEntradaCombustivel(data: Record<string, unknown>): Valid
   return { isValid: errors.length === 0, errors }
 }
 
+export function validateFarmacia(data: Record<string, unknown>): ValidationResult {
+  const errors: ValidationError[] = []
+
+  if (!isValidDate(data.data as string))
+    errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
+  if (data.tipoMovimentacao !== 'entrada' && data.tipoMovimentacao !== 'baixa')
+    errors.push({ field: 'tipoMovimentacao', message: 'Selecione entrada ou saída' })
+  if (!isNonEmptyString(data.medicamentoId))
+    errors.push({ field: 'medicamentoId', message: 'Medicamento é obrigatório' })
+  if (!isPositiveNumber(data.quantidade) || Number(String(data.quantidade).replace(',', '.')) <= 0)
+    errors.push({ field: 'quantidade', message: 'Quantidade deve ser maior que zero' })
+
+  return { isValid: errors.length === 0, errors }
+}
+
 export function validateCantina(data: Record<string, unknown>): ValidationResult {
   const errors: ValidationError[] = []
 
@@ -1271,7 +1286,7 @@ export function validateLoteProtocoloIatf(data: Record<string, unknown>): Valida
   return { isValid: errors.length === 0, errors }
 }
 
-export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral' | 'sanidade' | 'reproducao' | 'protocolo-iatf' | 'protocolo-iatf-lote'
+export type CadernetaType = 'auditoria-5s' | 'maternidade' | 'pastagens' | 'curral' | 'rodeio' | 'suplementacao' | 'bebedouros' | 'movimentacao' | 'enfermaria' | 'morte' | 'clima' | 'abastecimento' | 'cantina' | 'limpeza' | 'operacoes-maquinas' | 'manutencao-maquinas' | 'problemas' | 'entrada-insumos' | 'saida-insumos' | 'almoxarifado' | 'leitura-cocho' | 'trato-confinamento' | 'fabrica-confinamento' | 'entrada-combustivel' | 'farmacia' | 'pesagem' | 'entrada-almoxarifado' | 'entrada-cantina' | 'ordens-servico' | 'os-recebimentos' | 'manejo-curral' | 'sanidade' | 'reproducao' | 'protocolo-iatf' | 'protocolo-iatf-lote'
 
 const validators: Record<CadernetaType, (data: Record<string, unknown>) => ValidationResult> = {
   'auditoria-5s': validateAuditoria5s,
@@ -1298,6 +1313,7 @@ const validators: Record<CadernetaType, (data: Record<string, unknown>) => Valid
   'trato-confinamento': validateTratoConfinamento,
   'fabrica-confinamento': validateFabricaConfinamento,
   'entrada-combustivel': validateEntradaCombustivel,
+  farmacia: validateFarmacia,
   pesagem: validatePesagem,
   'entrada-almoxarifado': validateEntradaAlmoxarifado,
   'entrada-cantina': validateEntradaCantina,

@@ -2419,6 +2419,27 @@ export async function updateTanqueSaldoCache(fazendaId: string, tanqueId: string
 }
 
 /**
+ * Atualização otimista do saldo de um medicamento no cache (entrada +delta, saída -delta).
+ * O saldo canônico é recalculado no servidor pelo trigger de movimentacoes_farmacia.
+ */
+export async function updateMedicamentoSaldoCache(fazendaId: string, medicamentoId: string, delta: number): Promise<void> {
+  const key = buildKey('medicamentos', fazendaId)
+  const cached = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  if (!cached || !Array.isArray(cached)) return
+  const updated = cached.map((m) =>
+    m.id === medicamentoId
+      ? { ...m, estoque_atual: Number(Number(m.estoque_atual || 0) + delta) }
+      : m
+  )
+  setCachedQuery(key, updated)
+  try {
+    await saveQueryCacheToIndexedDB()
+  } catch {
+    // ignorar falha de persistencia; o cache em memoria ja esta atualizado
+  }
+}
+
+/**
  * Busca classificações de cantina com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.

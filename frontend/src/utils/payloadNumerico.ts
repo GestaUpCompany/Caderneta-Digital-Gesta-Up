@@ -17,6 +17,7 @@ export const COLUNAS_NUMERICAS: Record<string, Record<string, TipoColuna>> = {
   atividades: { prioridade: 'int' },
   entrada_insumos_itens: { quantidade: 'livre', valor_total: 'livre', valor_unitario: 'livre' },
   movimentacoes_combustivel: { preco_por_litro: NUM(12, 4), quantidade_l: NUM(12, 3), valor_total: NUM(12, 2) },
+  movimentacoes_farmacia: { custo_unitario: NUM(12, 4), quantidade: NUM(12, 3), valor_total: NUM(12, 2) },
   ordens_servico: {
     ano: 'int', mortes_transporte: 'int', preco_arroba: 'livre', quantidade_embarcada: 'int', quantidade_prevista: 'int',
     sequencial: 'int', valor_acerto: 'livre', valor_frete: 'livre', valor_total_previsto: 'livre',
