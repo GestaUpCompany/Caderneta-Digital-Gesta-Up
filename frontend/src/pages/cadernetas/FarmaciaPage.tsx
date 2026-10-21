@@ -272,7 +272,7 @@ export default function FarmaciaPage() {
       )}
 
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">{ehSaida ? '2' : '3'}. OBSERVAÇÃO</h2>
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">{form.tipoMovimentacao === 'entrada' ? '3' : '2'}. OBSERVAÇÃO</h2>
         <Input
           placeholder={ehSaida ? 'Motivo ou destino da saída (opcional)' : 'Detalhes adicionais (opcional)'}
           value={form.observacao}
