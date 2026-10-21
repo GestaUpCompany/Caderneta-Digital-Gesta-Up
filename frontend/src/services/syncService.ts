@@ -70,7 +70,8 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   clima: 'registros_clima',
   abastecimento: 'registros_abastecimento',
   'entrada-combustivel': 'movimentacoes_combustivel',
-  farmacia: 'movimentacoes_farmacia',
+  'entrada-farmacia': 'movimentacoes_farmacia',
+  'saida-farmacia': 'movimentacoes_farmacia',
   cantina: 'registros_alimentacao',
   limpeza: 'registros_limpeza',
   'operacoes-maquinas': 'registros_operacoes_maquinas',
@@ -538,14 +539,15 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         nota_fiscal: registro.notaFiscal || null,
         observacao: registro.observacao || null,
       }
-    case 'farmacia': {
+    case 'entrada-farmacia':
+    case 'saida-farmacia': {
       const quantidade = registro.quantidade ? paraNumero(String(registro.quantidade).replace(',', '.')) : 0
       const custo = registro.custoUnitario ? paraNumero(String(registro.custoUnitario).replace(',', '.')) : null
       return {
         fazenda_id: fazendaId,
         local_id: registro.id,
         medicamento_id: registro.medicamentoId || null,
-        tipo_movimentacao: registro.tipoMovimentacao === 'baixa' ? 'baixa' : 'entrada',
+        tipo_movimentacao: store === 'saida-farmacia' ? 'baixa' : 'entrada',
         quantidade,
         custo_unitario: custo,
         valor_total: custo != null && quantidade ? Math.round(custo * quantidade * 100) / 100 : null,
@@ -1233,6 +1235,22 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       data = await criarItensPendentes(store, data, fazendaId)
     }
 
+    // Entrada de medicamento que ainda não existe no servidor: cria antes (a movimentação precisa do medicamento),
+    // usando o id devolvido (a RPC deduplica por nome e pode devolver outro id).
+    if (store === 'entrada-farmacia' && (registro as any).novoMedicamento) {
+      const novo = (registro as any).novoMedicamento
+      const criado = await supabaseService.criarMedicamentoPwa({
+        id: novo.id,
+        fazendaId,
+        nomeComercial: novo.nome_comercial,
+        tipo: novo.tipo,
+        unidade: novo.unidade,
+        conteudoPorUnidade: novo.conteudo_por_unidade,
+        conteudoUnidade: novo.conteudo_unidade,
+      })
+      data = { ...data, medicamento_id: criado?.id || novo.id }
+    }
+
     if (store === 'maternidade') {
       console.log('[SYNC DEBUG] Payload maternidade:', JSON.stringify(data, null, 2))
     }
@@ -1675,7 +1693,7 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             .single()
           if (mfError) throw mfError
           if (mfData && mfData.id) {
-            await updateRegistro('farmacia', registro.id, {
+            await updateRegistro(store, registro.id, {
               supabaseId: mfData.id,
               syncStatus: 'synced'
             })

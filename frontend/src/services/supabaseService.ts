@@ -3283,6 +3283,33 @@ export async function criarItemCantinaPwa(params: {
   return data
 }
 
+/**
+ * Cria (idempotente, deduplica por nome) o medicamento registrado numa entrada de farmácia que ainda não existia.
+ * Devolve o medicamento; o id pode ser o de um já existente com o mesmo nome.
+ */
+export async function criarMedicamentoPwa(params: {
+  id: string
+  fazendaId: string
+  nomeComercial: string
+  tipo: string
+  unidade: string
+  conteudoPorUnidade?: number | null
+  conteudoUnidade?: string | null
+}): Promise<any> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('criar_medicamento_pwa', {
+    p_id: params.id,
+    p_fazenda_id: params.fazendaId,
+    p_nome_comercial: params.nomeComercial,
+    p_tipo: params.tipo,
+    p_unidade: params.unidade,
+    p_conteudo: params.conteudoPorUnidade ?? null,
+    p_conteudo_unidade: params.conteudoUnidade ?? null,
+  })
+  if (error) throw error
+  return data
+}
+
 // ==================== PLUVIÔMETROS ====================
 
 export async function getPluviometros(fazendaId: string) {

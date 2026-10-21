@@ -2419,6 +2419,22 @@ export async function updateTanqueSaldoCache(fazendaId: string, tanqueId: string
 }
 
 /**
+ * Guarda no cache um medicamento criado neste aparelho (entrada de medicamento novo), para o app o
+ * encontrar de novo antes do sync. O servidor passa a devolvê-lo na próxima leitura online.
+ */
+export async function adicionarMedicamentoCache(fazendaId: string, medicamento: any): Promise<void> {
+  const key = buildKey('medicamentos', fazendaId)
+  const cached = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key)) ?? []
+  if (!Array.isArray(cached) || cached.some((m) => m.id === medicamento.id)) return
+  setCachedQuery(key, [...cached, medicamento])
+  try {
+    await saveQueryCacheToIndexedDB()
+  } catch {
+    // ignorar falha de persistencia; o cache em memoria ja esta atualizado
+  }
+}
+
+/**
  * Atualização otimista do saldo de um medicamento no cache (entrada +delta, saída -delta).
  * O saldo canônico é recalculado no servidor pelo trigger de movimentacoes_farmacia.
  */

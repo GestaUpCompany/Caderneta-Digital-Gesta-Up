@@ -2,26 +2,43 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, DatePicker, Radio, ValidationMessage, SearchableModal } from '../../components/ui'
-import SuccessModal from '../../components/SuccessModal'
-import CadernetaLayout from '../../components/CadernetaLayout'
+import { Input, DatePicker, ValidationMessage, SearchableModal } from '../ui'
+import SuccessModal from '../SuccessModal'
+import CadernetaLayout from '../CadernetaLayout'
+import ChoiceGrid from './ChoiceGrid'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
-import { getMedicamentosCached, updateMedicamentoSaldoCache } from '../../services/cadastroCache'
+import { adicionarMedicamentoCache, getMedicamentosCached, updateMedicamentoSaldoCache } from '../../services/cadastroCache'
 import { useCadastroOptions } from '../../hooks/useCadastroOptions'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { Save } from 'lucide-react'
+import { Plus, Save } from 'lucide-react'
 
-const TIPO_OPTIONS = [
-  { value: 'entrada', label: 'ENTRADA' },
-  { value: 'baixa', label: 'SAÍDA' },
+export type ModoFarmacia = 'entrada' | 'baixa'
+
+// Valores do enum medicamento_tipo no banco
+const TIPOS_MEDICAMENTO = [
+  { value: 'Antibiotico', label: 'ANTIBIÓTICO' },
+  { value: 'Vermifugo', label: 'VERMÍFUGO' },
+  { value: 'Carrapaticida', label: 'CARRAPATICIDA' },
+  { value: 'Vacina', label: 'VACINA' },
+  { value: 'Anti_inflamatorio', label: 'ANTI-INFLAMATÓRIO' },
+  { value: 'Analgesico', label: 'ANALGÉSICO' },
+  { value: 'Hormonio', label: 'HORMÔNIO' },
+  { value: 'Vitamina_Mineral', label: 'VITAMINA / MINERAL' },
+  { value: 'Probiotico', label: 'PROBIÓTICO' },
+  { value: 'Anti_stress', label: 'ANTI-STRESS' },
+  { value: 'Coccidiostatico', label: 'COCCIDIOSTÁTICO' },
+  { value: 'Fluido_oral', label: 'FLUIDO ORAL' },
+  { value: 'Outro', label: 'OUTRO' },
 ]
+
+const UNIDADES = ['un', 'dose', 'frasco', 'caixa', 'mL', 'L', 'g', 'kg']
+const UNIDADES_DIRETAS = ['mL', 'L', 'g', 'kg']
 
 interface FormState {
   data: string
-  tipoMovimentacao: string
   medicamento: string
   quantidade: string
   custoUnitario: string
@@ -34,7 +51,6 @@ interface FormState {
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
-  tipoMovimentacao: '',
   medicamento: '',
   quantidade: '',
   custoUnitario: '',
@@ -46,16 +62,32 @@ const makeInitial = (): FormState => ({
 })
 
 const rotuloMedicamento = (m: any) => `${m.nome_comercial} (${m.tipo})`
+const normalizar = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 
-export default function FarmaciaPage() {
+interface Props {
+  modo: ModoFarmacia
+}
+
+export default function FarmaciaForm({ modo }: Props) {
   const navigate = useNavigate()
   const { fazendaId } = useSelector((state: RootState) => state.config)
+  const ehSaida = modo === 'baixa'
+  const cadernetaId = ehSaida ? 'saida-farmacia' : 'entrada-farmacia'
   const [form, setForm] = useState<FormState>(makeInitial)
   const [apiErrors, setApiErrors] = useState<{ field: string; message: string }[]>([])
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [medicamentos, setMedicamentos] = useState<any[]>([])
+
+  // Cadastro de medicamento novo (só na entrada)
+  const [mostrarNovo, setMostrarNovo] = useState(false)
+  const [novoNome, setNovoNome] = useState('')
+  const [novoTipo, setNovoTipo] = useState('')
+  const [novaUnidade, setNovaUnidade] = useState('')
+  const [novoConteudo, setNovoConteudo] = useState('')
+  const [novoConteudoUn, setNovoConteudoUn] = useState('mL')
+  const [novoErro, setNovoErro] = useState<string | null>(null)
 
   const { options: fornecedoresOptions, loading: loadingFornecedores } = useCadastroOptions('fornecedores', fazendaId)
 
@@ -65,7 +97,8 @@ export default function FarmaciaPage() {
       if (!fazendaId) return
       try {
         const lista = await getMedicamentosCached(fazendaId)
-        if (lista) setMedicamentos(lista)
+        // Medicamentos criados neste aparelho e ainda não enviados não vêm do servidor: não os perde ao recarregar
+        if (lista) setMedicamentos((prev) => [...lista, ...prev.filter((p) => p.novo && !lista.some((l) => l.id === p.id))])
       } catch (error) {
         console.error('Erro ao carregar medicamentos:', error)
       }
@@ -75,24 +108,22 @@ export default function FarmaciaPage() {
 
   const opcoes = useMemo(() => medicamentos.map(rotuloMedicamento), [medicamentos])
   const selecionado = useMemo(() => medicamentos.find((m) => rotuloMedicamento(m) === form.medicamento), [medicamentos, form.medicamento])
-  const ehSaida = form.tipoMovimentacao === 'baixa'
 
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   // Sanitiza campos decimais: permite apenas dígitos e uma vírgula decimal
-  const setDecimalInput = (field: 'quantidade' | 'custoUnitario') => (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/[^\d,]/g, '')
+  const sanitizarDecimal = (texto: string) => {
+    let value = texto.replace(/[^\d,]/g, '')
     const firstComma = value.indexOf(',')
-    if (firstComma !== -1) {
-      value = value.slice(0, firstComma + 1) + value.slice(firstComma + 1).replace(/,/g, '')
-    }
-    setForm((prev) => ({ ...prev, [field]: value }))
+    if (firstComma !== -1) value = value.slice(0, firstComma + 1) + value.slice(firstComma + 1).replace(/,/g, '')
+    return value
   }
+  const setDecimalInput = (field: 'quantidade' | 'custoUnitario') => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((prev) => ({ ...prev, [field]: sanitizarDecimal(e.target.value) }))
 
   const validationRules: any = {
     data: { required: true },
-    tipoMovimentacao: { required: true },
     medicamento: {
       required: true,
       custom: (value: string) => (value && !medicamentos.some((m) => rotuloMedicamento(m) === value) ? 'Selecione um medicamento da lista' : null),
@@ -119,6 +150,42 @@ export default function FarmaciaPage() {
   const getError = (field: string) =>
     formErrors[field] || apiErrors.find((e) => e.field === field)?.message
 
+  const handleAdicionarNovo = () => {
+    const nome = novoNome.trim()
+    if (!nome) return setNovoErro('Informe o nome do medicamento')
+    if (!novoTipo) return setNovoErro('Escolha o tipo')
+    if (!novaUnidade) return setNovoErro('Escolha a unidade de medida')
+    const existente = medicamentos.find((m) => normalizar(m.nome_comercial) === normalizar(nome))
+    if (existente) {
+      setForm((prev) => ({ ...prev, medicamento: rotuloMedicamento(existente) }))
+      setMostrarNovo(false)
+      setNovoErro(null)
+      return
+    }
+    const conteudo = parseFloat(novoConteudo.replace(',', '.'))
+    const temConteudo = !UNIDADES_DIRETAS.includes(novaUnidade) && !isNaN(conteudo) && conteudo > 0
+    const novo = {
+      id: crypto.randomUUID(),
+      nome_comercial: nome,
+      tipo: novoTipo,
+      principio_ativo: '',
+      unidade: novaUnidade,
+      conteudo_por_unidade: temConteudo ? conteudo : null,
+      conteudo_unidade: temConteudo ? novoConteudoUn : null,
+      estoque_atual: 0,
+      controla_estoque: true,
+      novo: true,
+    }
+    setMedicamentos((prev) => [...prev, novo])
+    setForm((prev) => ({ ...prev, medicamento: rotuloMedicamento(novo) }))
+    setNovoNome('')
+    setNovoTipo('')
+    setNovaUnidade('')
+    setNovoConteudo('')
+    setNovoErro(null)
+    setMostrarNovo(false)
+  }
+
   const handleSalvar = async () => {
     if (!selecionado) return
     setSalvando(true)
@@ -126,9 +193,9 @@ export default function FarmaciaPage() {
 
     const quantidade = parseFloat(String(form.quantidade).replace(',', '.')) || 0
 
-    const result = await salvarRegistro('farmacia', {
+    const result = await salvarRegistro(cadernetaId, {
       data: form.data,
-      tipoMovimentacao: form.tipoMovimentacao,
+      tipoMovimentacao: modo,
       medicamentoId: selecionado.id,
       medicamentoNome: selecionado.nome_comercial,
       unidade: selecionado.unidade || 'un',
@@ -139,6 +206,17 @@ export default function FarmaciaPage() {
       loteProduto: form.loteProduto,
       validade: ehSaida ? '' : form.validade,
       observacao: form.observacao,
+      // Medicamento que ainda não existe no servidor: o sync o cria (RPC criar_medicamento_pwa) antes da movimentação
+      novoMedicamento: selecionado.novo
+        ? {
+            id: selecionado.id,
+            nome_comercial: selecionado.nome_comercial,
+            tipo: selecionado.tipo,
+            unidade: selecionado.unidade,
+            conteudo_por_unidade: selecionado.conteudo_por_unidade,
+            conteudo_unidade: selecionado.conteudo_unidade,
+          }
+        : undefined,
     })
 
     setSalvando(false)
@@ -146,13 +224,15 @@ export default function FarmaciaPage() {
       setApiErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Atualização otimista do saldo no cache; o saldo canônico vem do servidor
-      if (fazendaId && quantidade > 0) {
-        const delta = ehSaida ? -quantidade : quantidade
-        await updateMedicamentoSaldoCache(fazendaId, selecionado.id, delta)
-        setMedicamentos((prev) =>
-          prev.map((m) => (m.id === selecionado.id ? { ...m, estoque_atual: Number(Number(m.estoque_atual || 0) + delta) } : m))
-        )
+      if (fazendaId) {
+        if (selecionado.novo) await adicionarMedicamentoCache(fazendaId, { ...selecionado, estoque_atual: 0 })
+        if (quantidade > 0) {
+          const delta = ehSaida ? -quantidade : quantidade
+          await updateMedicamentoSaldoCache(fazendaId, selecionado.id, delta)
+          setMedicamentos((prev) =>
+            prev.map((m) => (m.id === selecionado.id ? { ...m, estoque_atual: Number(Number(m.estoque_atual || 0) + delta) } : m))
+          )
+        }
       }
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
@@ -172,24 +252,14 @@ export default function FarmaciaPage() {
 
   return (
     <CadernetaLayout
-      title="FARMÁCIA"
-      cadernetaId="farmacia"
+      title={ehSaida ? 'FARMÁCIA · SAÍDA' : 'FARMÁCIA · ENTRADA'}
+      cadernetaId={cadernetaId}
       dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
     >
       {allErrors.length > 0 && <ValidationMessage errors={allErrors} />}
 
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">1. MOVIMENTO</h2>
-
-        <Radio
-          name="tipoMovimentacao"
-          label={<span>TIPO <span className="text-red-500">*</span></span>}
-          options={TIPO_OPTIONS}
-          value={form.tipoMovimentacao}
-          onChange={(val) => setForm((prev) => ({ ...prev, tipoMovimentacao: val }))}
-          error={getError('tipoMovimentacao')}
-          gridCols={2}
-        />
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">1. {ehSaida ? 'O QUE SAIU?' : 'O QUE CHEGOU?'}</h2>
 
         <SearchableModal
           label={<span>MEDICAMENTO / VACINA <span className="text-red-500">*</span></span>}
@@ -202,10 +272,73 @@ export default function FarmaciaPage() {
           name="medicamento"
         />
 
+        {!ehSaida && !mostrarNovo && (
+          <button
+            type="button"
+            onClick={() => { setMostrarNovo(true); setNovoErro(null) }}
+            className="w-full rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-4 py-3 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-500 transition-colors hover:border-brand-600 hover:text-brand-700 active:scale-[0.99]"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            NÃO ESTÁ NA LISTA? CADASTRAR NOVO
+          </button>
+        )}
+
+        {!ehSaida && mostrarNovo && (
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex flex-col gap-4">
+            <h3 className="text-[15px] font-extrabold uppercase tracking-tight text-gray-900">NOVO MEDICAMENTO / VACINA</h3>
+            <Input
+              label={<span>NOME COMERCIAL <span className="text-red-500">*</span></span>}
+              placeholder="Ex: Draxxin 100 mL"
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+            />
+            <div className="flex flex-col gap-2">
+              <p className="text-[15px] font-bold text-gray-900">TIPO <span className="text-red-500">*</span></p>
+              <ChoiceGrid options={TIPOS_MEDICAMENTO} value={novoTipo} onChange={setNovoTipo} cols={2} labelSize="xs" showCheck={false} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-[15px] font-bold text-gray-900">UNIDADE DE MEDIDA <span className="text-red-500">*</span></p>
+              <ChoiceGrid options={UNIDADES.map((u) => ({ value: u, label: u.toUpperCase() }))} value={novaUnidade} onChange={setNovaUnidade} cols={4} labelSize="xs" showCheck={false} />
+              <p className="text-xs text-amber-700">Atenção: depois do primeiro lançamento a unidade não pode ser alterada.</p>
+            </div>
+            {novaUnidade && !UNIDADES_DIRETAS.includes(novaUnidade) && (
+              <div className="flex flex-col gap-2">
+                <Input
+                  label={<span>CONTEÚDO POR {novaUnidade.toUpperCase()} (OPCIONAL)</span>}
+                  placeholder="Ex: 100"
+                  value={novoConteudo}
+                  onChange={(e) => setNovoConteudo(sanitizarDecimal(e.target.value))}
+                  inputMode="decimal"
+                />
+                <ChoiceGrid options={[{ value: 'mL', label: 'ML' }, { value: 'mg', label: 'MG' }]} value={novoConteudoUn} onChange={setNovoConteudoUn} cols={2} labelSize="xs" showCheck={false} />
+                <p className="text-xs text-gray-500">Permite a baixa automática pela Enfermaria (ex.: 20 mL aplicados ÷ 100 mL = 0,2 {novaUnidade}).</p>
+              </div>
+            )}
+            {novoErro && <p className="text-sm text-red-500">{novoErro}</p>}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleAdicionarNovo}
+                className="flex-1 rounded-xl bg-green-600 px-3 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700 active:scale-[0.99]"
+              >
+                USAR ESTE MEDICAMENTO
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMostrarNovo(false); setNovoErro(null) }}
+                className="rounded-xl bg-gray-200 px-4 py-3 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
+              >
+                CANCELAR
+              </button>
+            </div>
+          </div>
+        )}
+
         {selecionado && (
           <div className="bg-green-50 border border-green-300 rounded-xl p-4">
             <p className="text-sm text-green-800">
               <span className="font-bold">{selecionado.nome_comercial}</span>
+              {selecionado.novo && <span className="ml-2 rounded-full bg-green-200 px-2 py-0.5 text-[11px] font-bold">NOVO</span>}
               <span className="block text-xs mt-1">
                 {selecionado.controla_estoque
                   ? `Saldo: ${Number(selecionado.estoque_atual || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${selecionado.unidade || 'un'}`
@@ -232,7 +365,7 @@ export default function FarmaciaPage() {
         />
       </div>
 
-      {!ehSaida && form.tipoMovimentacao && (
+      {!ehSaida && (
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
           <h2 className="text-lg font-black text-gray-900 tracking-tight">2. DADOS DA COMPRA</h2>
 
@@ -272,7 +405,7 @@ export default function FarmaciaPage() {
       )}
 
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-        <h2 className="text-lg font-black text-gray-900 tracking-tight">{form.tipoMovimentacao === 'entrada' ? '3' : '2'}. OBSERVAÇÃO</h2>
+        <h2 className="text-lg font-black text-gray-900 tracking-tight">{ehSaida ? '2' : '3'}. OBSERVAÇÃO</h2>
         <Input
           placeholder={ehSaida ? 'Motivo ou destino da saída (opcional)' : 'Detalhes adicionais (opcional)'}
           value={form.observacao}
@@ -308,9 +441,9 @@ export default function FarmaciaPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName="Farmácia"
+        cadernetaName={ehSaida ? 'Saída de Farmácia' : 'Entrada de Farmácia'}
         registro={registroSalvo}
-        caderneta="farmacia"
+        caderneta={cadernetaId}
       />
     </CadernetaLayout>
   )

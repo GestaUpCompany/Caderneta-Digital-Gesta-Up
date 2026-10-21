@@ -121,8 +121,10 @@ const ClimaListaPage = lazy(() => import('./pages/cadernetas/ClimaListaPage'))
 const AbastecimentoPage = lazy(() => import('./pages/cadernetas/AbastecimentoPage'))
 const AbastecimentoListaPage = lazy(() => import('./pages/cadernetas/AbastecimentoListaPage'))
 const EntradaCombustivelPage = lazy(() => import('./pages/cadernetas/EntradaCombustivelPage'))
-const FarmaciaPage = lazy(() => import('./pages/cadernetas/FarmaciaPage'))
-const FarmaciaListaPage = lazy(() => import('./pages/cadernetas/FarmaciaListaPage'))
+const EntradaFarmaciaPage = lazy(() => import('./pages/cadernetas/EntradaFarmaciaPage'))
+const EntradaFarmaciaListaPage = lazy(() => import('./pages/cadernetas/EntradaFarmaciaListaPage'))
+const SaidaFarmaciaPage = lazy(() => import('./pages/cadernetas/SaidaFarmaciaPage'))
+const SaidaFarmaciaListaPage = lazy(() => import('./pages/cadernetas/SaidaFarmaciaListaPage'))
 const CantinaPage = lazy(() => import('./pages/cadernetas/CantinaPage'))
 const CantinaListaPage = lazy(() => import('./pages/cadernetas/CantinaListaPage'))
 const EntradaCantinaPage = lazy(() => import('./pages/cadernetas/EntradaCantinaPage'))
@@ -610,8 +612,10 @@ function AppInner() {
             <Route path="/caderneta/entrada-combustivel" element={<EntradaCombustivelPage />} />
 
             {/* Farmácia (entrada e saída de medicamentos/vacinas) */}
-            <Route path="/caderneta/farmacia" element={<FarmaciaPage />} />
-            <Route path="/caderneta/farmacia/lista" element={<FarmaciaListaPage />} />
+            <Route path="/caderneta/entrada-farmacia" element={<EntradaFarmaciaPage />} />
+            <Route path="/caderneta/entrada-farmacia/lista" element={<EntradaFarmaciaListaPage />} />
+            <Route path="/caderneta/saida-farmacia" element={<SaidaFarmaciaPage />} />
+            <Route path="/caderneta/saida-farmacia/lista" element={<SaidaFarmaciaListaPage />} />
 
             {/* Cantina */}
             <Route path="/caderneta/cantina" element={<CantinaPage />} />
