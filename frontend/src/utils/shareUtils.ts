@@ -6,6 +6,7 @@ import { isCategoriaAoPe, capitalizarCategoria } from './categorias'
 import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
 import { Filesystem, Directory } from '@capacitor/filesystem'
+import { custoTotalRegistro, custoUnitarioRegistro, ehSaidaFarmacia, quantidadeRegistro, validadeRegistro } from './farmaciaEstoque'
 import { SECOES_5S, calcularResultado5S } from './auditoria5sItens'
 
 /**
@@ -667,6 +668,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   if (caderneta === 'entrada-cantina') {
     cadernetaNome = 'ENTRADA DE ESTOQUE - CANTINA'
   }
+  if (caderneta === 'entrada-farmacia') {
+    cadernetaNome = 'ENTRADA DE ESTOQUE - FARMÁCIA'
+  }
+  if (caderneta === 'saida-farmacia') {
+    cadernetaNome = 'SAÍDA DE ESTOQUE - FARMÁCIA'
+  }
 
   // Curral compartilha a tela de Pastagens e o mesmo layout de texto
   const ehCurral = caderneta === 'curral'
@@ -1037,6 +1044,39 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
     if (registro.usuario) {
       texto += `RESPONSÁVEL: *${registro.usuario}*\n`
+    }
+  } else if (caderneta === 'entrada-farmacia' || caderneta === 'saida-farmacia') {
+    // Só o que o gestor precisa ler: ids internos (medicamentoId, novoMedicamento) e a unidade solta ficam de fora
+    texto += `MEDICAMENTO / VACINA: *${registro.medicamentoNome || '—'}*
+`
+    texto += `QUANTIDADE: *${quantidadeRegistro(registro)}*
+`
+    if (registro.loteProduto) {
+      texto += `LOTE DO PRODUTO: *${registro.loteProduto}*
+`
+    }
+    if (!ehSaidaFarmacia(registro)) {
+      const custoUnitario = custoUnitarioRegistro(registro)
+      if (custoUnitario) texto += `CUSTO UNITÁRIO: *${custoUnitario}*
+`
+      const custoTotal = custoTotalRegistro(registro)
+      if (custoTotal) texto += `CUSTO TOTAL: *${custoTotal}*
+`
+      const validade = validadeRegistro(registro)
+      if (validade) texto += `VALIDADE: *${validade}*
+`
+      if (registro.fornecedor) texto += `FORNECEDOR: *${registro.fornecedor}*
+`
+      if (registro.notaFiscal) texto += `NOTA FISCAL: *${registro.notaFiscal}*
+`
+    }
+    if (registro.observacao) {
+      texto += `OBSERVAÇÃO: *${registro.observacao}*
+`
+    }
+    if (registro.usuario) {
+      texto += `RESPONSÁVEL: *${registro.usuario}*
+`
     }
   } else if (caderneta === 'cantina') {
     const modo = (registro.modo as string) || 'cantina'
