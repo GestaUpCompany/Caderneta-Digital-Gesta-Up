@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -52,6 +52,51 @@ const makeInitial = (): FormState => ({
 })
 
 const DESTINOS = ['Cria', 'Recria', 'Engorda', 'Tropa', 'Outros Animais']
+
+// Desvio (em %) acima do qual o realizado é destacado em vermelho; só aviso visual, não bloqueia o salvar
+const TOLERANCIA_DESVIO_PERCENT = 3
+
+// (real - previsto) / previsto em %; null quando não dá para calcular
+const calcularDesvio = (previsto: number, real: number | null): number | null => {
+  if (real === null || real <= 0 || previsto <= 0) return null
+  return ((real - previsto) / previsto) * 100
+}
+
+const formatarDesvio = (desvio: number): string => {
+  const arredondado = Number(desvio.toFixed(1))
+  const sinal = arredondado > 0 ? '+' : arredondado < 0 ? '−' : ''
+  return `${sinal}${Math.abs(arredondado).toFixed(1).replace('.', ',')}%`
+}
+
+const formatarKg = (valor: number): string =>
+  valor.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+
+function OpcaoCard({
+  selecionado,
+  onClick,
+  children,
+  className = '',
+}: {
+  selecionado: boolean
+  onClick: () => void
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selecionado}
+      onClick={onClick}
+      className={`min-h-[56px] rounded-2xl border-2 px-3 py-3 text-base font-bold transition-colors active:scale-[0.99] ${
+        selecionado
+          ? 'border-[#1a3a2a] bg-[#1a3a2a] text-white'
+          : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+      } ${className}`}
+    >
+      {children}
+    </button>
+  )
+}
 
 export default function ProducaoFabricaPage() {
   const navigate = useNavigate()
@@ -186,6 +231,33 @@ export default function ProducaoFabricaPage() {
       return result
     }, {})
   }, [form.totalProduzido, insumos])
+
+  const desvioPorInsumo = useMemo(() => {
+    return insumos.reduce<Record<string, number | null>>((result, insumo) => {
+      const real = normalizarNumero(form.insumosQuantidades[insumo.insumo_id])
+      result[insumo.insumo_id] = calcularDesvio(kgPrevistoPorInsumo[insumo.insumo_id] || 0, real ?? null)
+      return result
+    }, {})
+  }, [insumos, form.insumosQuantidades, kgPrevistoPorInsumo])
+
+  const insumosForaDaTolerancia = useMemo(
+    () =>
+      insumos.filter((i) => {
+        const d = desvioPorInsumo[i.insumo_id]
+        return d !== null && Math.abs(d) > TOLERANCIA_DESVIO_PERCENT
+      }),
+    [insumos, desvioPorInsumo],
+  )
+
+  const somaReal = useMemo(
+    () => insumos.reduce((acc, i) => acc + (normalizarNumero(form.insumosQuantidades[i.insumo_id]) ?? 0), 0),
+    [insumos, form.insumosQuantidades],
+  )
+
+  const insumosFaltando = useMemo(
+    () => insumos.filter((i) => (normalizarNumero(form.insumosQuantidades[i.insumo_id]) ?? 0) <= 0).length,
+    [insumos, form.insumosQuantidades],
+  )
 
   // Todos os campos obrigatórios, inclusive o realizado de cada insumo da formulação
   const formValido = useMemo(() => {
@@ -345,16 +417,17 @@ export default function ProducaoFabricaPage() {
                         : 'Nenhuma formulação ativa cadastrada. Cadastre formulações no Painel Web.'}
                     </p>
                   ) : (
-                    <select
-                      value={form.formulacaoId}
-                      onChange={(e) => handleSelecionarFormulacao(e.target.value)}
-                      className="w-full min-h-[60px] rounded-2xl border-2 border-gray-400 px-3 sm:px-4 py-3 text-lg sm:text-xl text-gray-900 bg-white focus:border-black focus:outline-none"
-                    >
-                      <option value="">Selecione uma formulação...</option>
+                    <div className="grid grid-cols-2 gap-3">
                       {dietasDisponiveis.map((d) => (
-                        <option key={d.id} value={d.id}>{d.nome}</option>
+                        <OpcaoCard
+                          key={d.id}
+                          selecionado={form.formulacaoId === d.id}
+                          onClick={() => handleSelecionarFormulacao(d.id)}
+                        >
+                          {d.nome}
+                        </OpcaoCard>
                       ))}
-                    </select>
+                    </div>
                   )}
                   {listaDoAparelho && dietasDisponiveis.length > 0 && (
                     <p className="text-xs text-amber-700">
@@ -370,30 +443,35 @@ export default function ProducaoFabricaPage() {
                   <label className="block text-lg font-bold text-gray-900 mb-2">
                     DESTINO DA PRODUÇÃO *
                   </label>
-                  <select
-                    value={form.destinoProducao}
-                    onChange={(e) => set('destinoProducao')(e.target.value)}
-                    className="w-full min-h-[60px] rounded-2xl border-2 border-gray-400 px-3 sm:px-4 py-3 text-lg sm:text-xl text-gray-900 bg-white focus:border-black focus:outline-none"
-                  >
-                    <option value="">Selecione...</option>
-                    {DESTINOS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                  <div className="grid grid-cols-2 gap-3">
+                    {DESTINOS.map((d, i) => (
+                      <OpcaoCard
+                        key={d}
+                        selecionado={form.destinoProducao === d}
+                        onClick={() => set('destinoProducao')(d)}
+                        className={i === DESTINOS.length - 1 && DESTINOS.length % 2 === 1 ? 'col-span-2' : ''}
+                      >
+                        {d}
+                      </OpcaoCard>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="block text-lg font-bold text-gray-900 mb-2">
-                    TOTAL PRODUZIDO (KG) *
+                    TOTAL PRODUZIDO *
                   </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={form.totalProduzido}
-                    onChange={(e) => handleTotalProduzidoChange(e.target.value)}
-                    placeholder="0"
-                    className="w-full min-h-[60px] rounded-2xl border-2 border-gray-400 px-3 sm:px-4 py-3 text-lg sm:text-xl font-black text-gray-900 focus:border-black focus:outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={form.totalProduzido}
+                      onChange={(e) => handleTotalProduzidoChange(e.target.value)}
+                      placeholder="0"
+                      className="w-full min-h-[60px] rounded-2xl border-2 border-gray-300 pl-4 pr-14 py-3 text-xl font-black text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
+                    />
+                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-base font-bold text-gray-500">kg</span>
+                  </div>
                 </div>
               </div>
 
@@ -412,44 +490,83 @@ export default function ProducaoFabricaPage() {
                       : 'Selecione uma formulação para ver os insumos.'}
                   </p>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left p-1.5 sm:p-2 font-bold text-gray-700">INSUMO</th>
-                          <th className="text-center p-1.5 sm:p-2 font-bold text-gray-700 whitespace-nowrap">% MN</th>
-                          <th className="text-center p-1.5 sm:p-2 font-bold text-gray-700 whitespace-nowrap">PREV.</th>
-                          <th className="text-center p-1.5 sm:p-2 font-bold text-gray-700 whitespace-nowrap">REAL</th>
+                        <tr className="border-b border-gray-200 text-gray-500">
+                          <th className="text-left py-1.5 pr-1 font-semibold">Insumo</th>
+                          <th className="text-right py-1.5 px-1 font-semibold">Previsto</th>
+                          <th className="text-right py-1.5 px-1 font-semibold">Real</th>
+                          <th className="text-right py-1.5 pl-1 font-semibold">Desvio</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {insumos.map((insumo) => (
-                          <tr key={insumo.insumo_id} className="border-b border-gray-100 last:border-0">
-                            <td className="p-1.5 sm:p-2 font-bold text-gray-900">
-                              {insumo.nome}
-                              {insumo.tipo && <span className="ml-1 text-[10px] font-bold text-gray-500 align-middle">{insumo.tipo.toUpperCase()}</span>}
-                            </td>
-                            <td className="p-1.5 sm:p-2 text-center text-gray-600 whitespace-nowrap">
-                              {Number(insumo.formula_mn_percent || 0).toFixed(2).replace('.', ',')}%
-                            </td>
-                            <td className="p-1.5 sm:p-2 text-center font-bold text-gray-700 whitespace-nowrap">
-                              {(kgPrevistoPorInsumo[insumo.insumo_id] || 0).toFixed(1).replace('.', ',')}
-                            </td>
-                            <td className="p-1.5 sm:p-2 text-center">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={form.insumosQuantidades[insumo.insumo_id] || ''}
-                                onChange={(e) => handleInsumoRealizadoChange(insumo.insumo_id, e.target.value)}
-                                placeholder="0"
-                                className="w-16 sm:w-20 rounded-lg border border-gray-200 px-1.5 sm:px-2 py-1 text-center font-bold text-gray-900 focus:border-[#1a3a2a] focus:outline-none"
-                              />
-                            </td>
-                          </tr>
-                        ))}
+                        {insumos.map((insumo) => {
+                          const desvio = desvioPorInsumo[insumo.insumo_id]
+                          const fora = desvio !== null && Math.abs(desvio) > TOLERANCIA_DESVIO_PERCENT
+                          return (
+                            <tr key={insumo.insumo_id} className="border-b border-gray-100 last:border-0">
+                              <td className="py-3 pr-1 font-bold text-gray-900">
+                                {insumo.nome}
+                                <span className="block text-[11px] font-medium text-gray-500">
+                                  {Number(insumo.formula_mn_percent || 0).toFixed(2).replace('.', ',')}% MN
+                                  {insumo.tipo && ` · ${insumo.tipo}`}
+                                </span>
+                              </td>
+                              <td className="py-3 px-1 text-right font-bold text-gray-900 whitespace-nowrap">
+                                {formatarKg(kgPrevistoPorInsumo[insumo.insumo_id] || 0)}
+                              </td>
+                              <td className="py-3 px-1 text-right">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={form.insumosQuantidades[insumo.insumo_id] || ''}
+                                  onChange={(e) => handleInsumoRealizadoChange(insumo.insumo_id, e.target.value)}
+                                  placeholder="0"
+                                  className={`w-16 sm:w-20 rounded-xl border-2 px-2 py-2 text-right font-bold text-gray-900 focus:outline-none ${
+                                    fora ? 'border-red-600 focus:border-red-600' : 'border-gray-300 focus:border-[#1a3a2a]'
+                                  }`}
+                                />
+                              </td>
+                              <td
+                                className={`py-3 pl-1 text-right font-bold whitespace-nowrap ${
+                                  desvio === null ? 'text-gray-300' : fora ? 'text-red-700' : 'text-green-700'
+                                }`}
+                              >
+                                {desvio === null ? '—' : formatarDesvio(desvio)}
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
-                  </div>
+
+                    {insumosForaDaTolerancia.map((insumo) => {
+                      const desvio = desvioPorInsumo[insumo.insumo_id] as number
+                      return (
+                        <div
+                          key={insumo.insumo_id}
+                          className="flex items-start gap-2 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-800"
+                        >
+                          <AlertCircle className="h-5 w-5 shrink-0" />
+                          <span>
+                            {insumo.nome} {Math.abs(desvio).toFixed(0)}% {desvio > 0 ? 'acima' : 'abaixo'} do previsto. Confira a pesagem antes de salvar.
+                          </span>
+                        </div>
+                      )
+                    })}
+
+                    {somaReal > 0 && (
+                      <div className="rounded-xl bg-gray-100 p-3 text-sm font-semibold text-gray-600">
+                        Soma dos insumos: {formatarKg(somaReal)} kg
+                        {(() => {
+                          const total = normalizarNumero(form.totalProduzido) ?? 0
+                          const dif = calcularDesvio(total, somaReal)
+                          return dif !== null ? ` · diferença ${formatarDesvio(dif)}` : ''
+                        })()}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -494,6 +611,19 @@ export default function ProducaoFabricaPage() {
                     LIMPAR
                   </span>
                 </button>
+                <p className="text-center text-sm font-semibold text-gray-500">
+                  {formValido
+                    ? 'Tudo preenchido ✓'
+                    : !form.formulacaoId
+                      ? 'Selecione a formulação'
+                      : !form.destinoProducao
+                        ? 'Selecione o destino'
+                        : (normalizarNumero(form.totalProduzido) ?? 0) <= 0
+                          ? 'Informe o total produzido'
+                          : insumosFaltando > 0
+                            ? `Faltam ${insumosFaltando} ${insumosFaltando === 1 ? 'insumo' : 'insumos'}`
+                            : ''}
+                </p>
               </div>
             </>
           )}
