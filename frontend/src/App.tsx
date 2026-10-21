@@ -20,6 +20,7 @@ import { checkPWARequirements, debugPWA } from './utils/pwaDebug'
 import { addPullToRefreshCSS } from './utils/preventPullToRefresh'
 import PullToRefresh from './components/PullToRefresh'
 import { eventBus, REFRESH_CONCLUIDO } from './utils/eventBus'
+import { corrigirKgCochoDigitadoErrado } from './utils/correcaoPontualKgCocho'
 import { formularioSujo, limparFormularioSujo, ehRotaFormulario, observarDigitacao } from './utils/formularioSujo'
 import { initializeCadastroCache, updateCadastroCache, startCadastroCachePolling, stopCadastroCachePolling } from './services/cadastroCache'
 import { syncMapaSePreciso } from './services/mapaCache'
@@ -192,6 +193,9 @@ function AppInner() {
     limparFormularioSujo()
   }, [location.pathname])
   useEffect(() => observarDigitacao(), [])
+  useEffect(() => {
+    corrigirKgCochoDigitadoErrado()
+  }, [])
   useEffect(
     () =>
       eventBus.on(REFRESH_CONCLUIDO, () => {

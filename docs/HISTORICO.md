@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Correção pontual de kgCocho digitado errado, Lote 9 (21/10/2026)
+
+- Caso: fazenda d3965505-74d5-4af7-9858-f773d2e8aab3, registro de suplementação de 14/10/2026 do Lote 9 (TIP 03.A) digitado com `kg_cocho = 104530000`. O texto de resumo mostrava CMS 6195%, CMN 30046 kg e custo R$ 9445 por cabeça/dia mesmo depois da edição.
+- Causa: o servidor já estava correto (`kg_cocho = 1045`, colunas `consumo_medio_*` plausíveis). O resumo (`ListaRegistros.prepararCompartilhamento` e `SuplementacaoListaPage.buscarMetricas`) calcula as métricas sobre o IndexedDB local, e o sync é push-only: a edição feita no Painel nunca chega à cópia local do aparelho. A tela de novo registro lê do Supabase e não sofria disso.
+- Solução provisória: `utils/correcaoPontualKgCocho.ts`, chamado em `App.tsx`, troca `kgCocho` de 104530000 para 1045 na loja `suplementacao` quando o registro não tem `supabaseId` ou tem o id `133c20c0-5768-43ca-95d2-117e165f4140`. Preserva `syncStatus` e `lastModified` (sem reenvio) e roda uma vez por aparelho. **Para remover em commit futuro** (item no BACKLOG).
+- Causa raiz segue aberta no BACKLOG ("CMS do texto da suplementação usa só a série do aparelho").
+- Testado no preview do build (localhost:4173): registro errado virou 1045; registro normal e registro com outro `supabaseId` ficaram intactos; segunda execução não repete. Typecheck e lint limpos (0 erros, 48 avisos).
+
 ## Auditoria do IATF: correções do lado do PWA (20/10/2026)
 
 Origem: `docs/RELATORIO_AUDITORIA_IATF.md` no repo do Painel (as migrations e o detalhe por item estão no HISTORICO de lá). Lado do PWA, nada foi publicado em `staging-repo`; está só no working tree.

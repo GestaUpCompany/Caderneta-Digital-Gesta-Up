@@ -2,6 +2,14 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## REMOVER script de correção pontual de kgCocho (publicado em 21/10/2026)
+
+`frontend/src/utils/correcaoPontualKgCocho.ts` corrige na cópia local (IndexedDB) o registro de suplementação de 14/10/2026 do Lote 9 (fazenda d3965505-74d5-4af7-9858-f773d2e8aab3), digitado com `kgCocho = 104530000` e já corrigido para 1045 no servidor. Roda uma vez por aparelho (marca `correcao-kg-cocho-lote9-20261014` no `localStorage`), chamado em `App.tsx` (`AppInner`).
+
+**Fazer num dos próximos commits** (depois que os peões abrirem a versão nova): apagar o arquivo, o import e o `useEffect` que o chama em `App.tsx`. A marca no `localStorage` pode ficar, é inofensiva. Quando o item "CMS do texto da suplementação usa só a série do aparelho" (abaixo) for resolvido, esse tipo de correção deixa de ser necessário.
+
+**Disparador**: ao mexer em `App.tsx`, no IndexedDB de suplementação ou fazer limpeza geral, conferir se o script ainda existe e removê-lo.
+
 ## Fábrica Confinamento: entidade Carga para rastrear vagões por trato (spec aprovada 30/09/2026)
 
 **Contexto**: hoje `registros_fabrica_confinamento` (master por trato) tem um único `vagao_id` e os insumos penduram direto no master. A operação precisa rastrear quantos e quais vagões produziram cada trato (ex.: trato de 1.000 kg = 500 no vagão A + 500 no vagão B), com kg realizado por insumo informado **a cada carga**. A estrutura atual perde esse rastro (segundo save sobrescreve `vagao_id`) e tem dois riscos multi-dispositivo: master duplicado por ordem (dois aparelhos offline criam linhas distintas via `local_id`) e lost update no `total_produzido` (update carrega total absoluto calculado de snapshot velho).
