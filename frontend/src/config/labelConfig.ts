@@ -355,6 +355,20 @@ const ENTRADA_ALMOXARIFADO_LABELS = {
   observacao: 'OBSERVAÇÃO',
 }
 
+const FARMACIA_LABELS = {
+  data: 'DATA',
+  tipoMovimentacao: 'TIPO',
+  medicamentoNome: 'MEDICAMENTO / VACINA',
+  quantidade: 'QUANTIDADE',
+  unidade: 'UNIDADE',
+  loteProduto: 'LOTE DO PRODUTO',
+  custoUnitario: 'CUSTO UNITÁRIO (R$)',
+  validade: 'VALIDADE',
+  fornecedor: 'FORNECEDOR',
+  notaFiscal: 'NOTA FISCAL',
+  observacao: 'OBSERVAÇÃO',
+}
+
 const ENTRADA_CANTINA_LABELS = {
   data: 'DATA',
   itens: 'ITENS DA ENTRADA',
@@ -483,6 +497,7 @@ export const LABELS_BY_CADERNETA: Record<string, Record<string, string>> = {
   almoxarifado: ALMOXARIFADO_LABELS,
   'entrada-almoxarifado': ENTRADA_ALMOXARIFADO_LABELS,
   'entrada-cantina': ENTRADA_CANTINA_LABELS,
+  farmacia: FARMACIA_LABELS,
   pesagem: PESAGEM_LABELS,
   'ordens-servico': ORDENS_SERVICO_LABELS,
   'os-recebimentos': OS_RECEBIMENTOS_LABELS,

@@ -22,6 +22,7 @@ import { entradaInsumosConfig } from './entradaInsumos'
 import { saidaInsumosConfig } from './saidaInsumos'
 import { pesagemConfig } from './pesagem'
 import { entradaAlmoxarifadoConfig } from './entradaAlmoxarifado'
+import { farmaciaConfig } from './farmacia'
 import { entradaCantinaConfig } from './entradaCantina'
 import { ordensServicoConfig } from './ordensServico'
 import { osRecebimentosConfig } from './osRecebimentos'
@@ -54,6 +55,7 @@ export const CADERNETA_DISPLAY_CONFIG: Partial<Record<CadernetaStore, CadernetaD
   'saida-insumos': saidaInsumosConfig,
   pesagem: pesagemConfig,
   'entrada-almoxarifado': entradaAlmoxarifadoConfig,
+  farmacia: farmaciaConfig,
   'entrada-cantina': entradaCantinaConfig,
   'ordens-servico': ordensServicoConfig,
   'os-recebimentos': osRecebimentosConfig,

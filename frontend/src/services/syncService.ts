@@ -70,6 +70,7 @@ const CADERNETA_TO_SUPABASE_TABLE: Record<CadernetaStore, string | string[]> = {
   clima: 'registros_clima',
   abastecimento: 'registros_abastecimento',
   'entrada-combustivel': 'movimentacoes_combustivel',
+  farmacia: 'movimentacoes_farmacia',
   cantina: 'registros_alimentacao',
   limpeza: 'registros_limpeza',
   'operacoes-maquinas': 'registros_operacoes_maquinas',
@@ -537,6 +538,28 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         nota_fiscal: registro.notaFiscal || null,
         observacao: registro.observacao || null,
       }
+    case 'farmacia': {
+      const quantidade = registro.quantidade ? paraNumero(String(registro.quantidade).replace(',', '.')) : 0
+      const custo = registro.custoUnitario ? paraNumero(String(registro.custoUnitario).replace(',', '.')) : null
+      return {
+        fazenda_id: fazendaId,
+        local_id: registro.id,
+        medicamento_id: registro.medicamentoId || null,
+        tipo_movimentacao: registro.tipoMovimentacao === 'baixa' ? 'baixa' : 'entrada',
+        quantidade,
+        custo_unitario: custo,
+        valor_total: custo != null && quantidade ? Math.round(custo * quantidade * 100) / 100 : null,
+        data: brToIso(String(registro.data).split(' ')[0]) || null,
+        origem: 'pwa_farmacia',
+        fornecedor: registro.fornecedor || null,
+        nota_fiscal: registro.notaFiscal || null,
+        lote_produto: registro.loteProduto || null,
+        validade: registro.validade ? (/^\d{4}-\d{2}-\d{2}$/.test(String(registro.validade)) ? String(registro.validade) : brToIso(String(registro.validade)) || null) : null,
+        observacao: registro.observacao || null,
+        nome_usuario: registro.usuario || null,
+        sync_status: 'synced',
+      }
+    }
     case 'cantina':
       return {
         ...baseData,
@@ -1643,6 +1666,22 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           if (aError) throw aError
           break
         }
+        case 'movimentacoes_farmacia': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { data: mfData, error: mfError } = await client
+            .from('movimentacoes_farmacia')
+            .upsert(data, { onConflict: 'local_id' })
+            .select()
+            .single()
+          if (mfError) throw mfError
+          if (mfData && mfData.id) {
+            await updateRegistro('farmacia', registro.id, {
+              supabaseId: mfData.id,
+              syncStatus: 'synced'
+            })
+          }
+          break
+        }
         case 'movimentacoes_combustivel': {
           const client = await getSupabaseClientWithRefresh() as any
           const { data: mcData, error: mcError } = await client
@@ -1834,6 +1873,14 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             })
             .eq('id', supabaseId)
           if (aError) throw aError
+          break
+        }
+        case 'movimentacoes_farmacia': {
+          const client = await getSupabaseClientWithRefresh() as any
+          const { error: mfError } = await client
+            .from('movimentacoes_farmacia')
+            .upsert(data, { onConflict: 'local_id' })
+          if (mfError) throw mfError
           break
         }
         case 'movimentacoes_combustivel': {
