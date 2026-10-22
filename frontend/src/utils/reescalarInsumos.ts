@@ -16,3 +16,14 @@ export function reescalarInsumos(kgAtuais: number[], totalAntigo: number, totalN
   }
   return novos
 }
+
+/**
+ * Distribui o novo kg de UM insumo entre as linhas dele (um trato com várias cargas tem várias linhas por insumo).
+ * Mantém a proporção entre as linhas; se todas estiverem zeradas, o valor vai para a primeira.
+ */
+export function distribuirNoInsumo(kgLinhas: number[], novoKg: number): number[] {
+  if (kgLinhas.length === 0) return []
+  const soma = kgLinhas.reduce((acc, v) => acc + v, 0)
+  if (soma <= 0) return kgLinhas.map((_, i) => (i === 0 ? Math.round(novoKg * 100) / 100 : 0))
+  return reescalarInsumos(kgLinhas, soma, novoKg)
+}

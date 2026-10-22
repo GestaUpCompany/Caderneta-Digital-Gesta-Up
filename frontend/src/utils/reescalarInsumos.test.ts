@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reescalarInsumos } from './reescalarInsumos'
+import { reescalarInsumos, distribuirNoInsumo } from './reescalarInsumos'
 
 describe('reescalarInsumos', () => {
   it('mantém a proporção', () => {
@@ -18,5 +18,23 @@ describe('reescalarInsumos', () => {
 
   it('lista vazia', () => {
     expect(reescalarInsumos([], 100, 50)).toEqual([])
+  })
+})
+
+describe('distribuirNoInsumo', () => {
+  it('uma linha recebe o valor novo', () => {
+    expect(distribuirNoInsumo([40], 55)).toEqual([55])
+  })
+
+  it('várias linhas mantêm a proporção', () => {
+    expect(distribuirNoInsumo([30, 10], 20)).toEqual([15, 5])
+  })
+
+  it('linhas zeradas: tudo na primeira', () => {
+    expect(distribuirNoInsumo([0, 0], 12.345)).toEqual([12.35, 0])
+  })
+
+  it('sem linhas', () => {
+    expect(distribuirNoInsumo([], 10)).toEqual([])
   })
 })
