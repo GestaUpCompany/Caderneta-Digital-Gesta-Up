@@ -10,14 +10,16 @@ import {
   cadernetaVisivelNaFazenda,
 } from './constants'
 
-describe('cadernetas em teste: Reprodução, Sanidade e Manejo de Curral', () => {
+describe('cadernetas em teste: Reprodução, Sanidade, Manejo de Curral e Farmácia', () => {
   it('só aparecem na fazenda de testes; as demais valem para todas', () => {
-    expect([...CADERNETAS_EM_TESTE].sort()).toEqual(['manejo-curral', 'reproducao', 'sanidade'])
+    expect([...CADERNETAS_EM_TESTE].sort()).toEqual(['entrada-farmacia', 'manejo-curral', 'reproducao', 'saida-farmacia', 'sanidade'])
     for (const id of CADERNETAS_EM_TESTE) {
       expect(cadernetaVisivelNaFazenda(id, FAZENDA_DE_TESTES_ID)).toBe(true)
       expect(cadernetaVisivelNaFazenda(id, 'outra-fazenda')).toBe(false)
       expect(cadernetaVisivelNaFazenda(id, null)).toBe(false)
       expect(cadernetaVisivelNaFazenda(id, undefined)).toBe(false)
+    }
+    for (const id of ['manejo-curral', 'reproducao', 'sanidade']) {
       expect(CADERNETAS.find((c) => c.id === id)?.grupo).toBe('Controle Individual')
     }
     expect(cadernetaVisivelNaFazenda('enfermaria', 'outra-fazenda')).toBe(true)

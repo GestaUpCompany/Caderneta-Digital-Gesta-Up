@@ -99,7 +99,7 @@ export const CADERNETAS = [
 export const FAZENDA_DE_TESTES_ID = 'd649c65e-16ab-4b77-a84b-df937aa41cc3'
 
 /** Cadernetas novas, liberadas só para a fazenda de testes até serem validadas no campo. */
-export const CADERNETAS_EM_TESTE: readonly string[] = ['manejo-curral', 'sanidade', 'reproducao']
+export const CADERNETAS_EM_TESTE: readonly string[] = ['manejo-curral', 'sanidade', 'reproducao', 'entrada-farmacia', 'saida-farmacia']
 
 /**
  * Cadernetas do IATF: liberadas por fazenda pela flag fazendas.acesso_iatf (toggle em Admin > Fazendas no painel),
