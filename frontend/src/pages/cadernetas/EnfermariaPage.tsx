@@ -14,7 +14,9 @@ import BannerRascunho from '../../components/BannerRascunho'
 import CadernetaSection from '../../components/cadernetas/CadernetaSection'
 import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import FormFooter from '../../components/cadernetas/FormFooter'
+import { baixaPorMedicamento } from '../../utils/doseMedicamento'
 import {
+  updateMedicamentoSaldoCache,
   getLoteByNomeCached,
   getLoteByNomeFromCacheOnly,
   getLoteByIdCached,
@@ -382,6 +384,16 @@ export default function EnfermariaPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
+      // Saldo local acompanha a baixa que o trigger fará no sync (a Enfermaria não grava o estoque no aparelho)
+      if (fazendaId) {
+        const baixas = baixaPorMedicamento(
+          form.medicamentos.map((m) => ({ medicamentoId: m.medicamentoId, doseAplicada: m.doseAplicada })),
+          medicamentosDisponiveis,
+        )
+        for (const b of baixas) {
+          await updateMedicamentoSaldoCache(fazendaId, b.medicamentoId, -b.quantidade)
+        }
+      }
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       handleLimpar()
@@ -625,6 +637,7 @@ export default function EnfermariaPage() {
               items={form.medicamentos}
               onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
               medicamentosDisponiveis={medicamentosDisponiveis}
+              baixaEstoque
             />
             {getError('medicamentos') && (
               <p className="text-sm text-red-500">{getError('medicamentos')}</p>

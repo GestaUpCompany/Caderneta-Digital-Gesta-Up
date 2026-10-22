@@ -4,6 +4,7 @@ import ChoiceGrid from './ChoiceGrid'
 import StepperInput from './StepperInput'
 import InfoStrip from './InfoStrip'
 import { Plus } from 'lucide-react'
+import { modoBaixaMedicamento, unidadeDoseFixa, type UnidadeDose } from '../../utils/doseMedicamento'
 
 export interface MedicamentoItem {
   medicamentoId: string
@@ -18,12 +19,12 @@ interface MedicamentosSectionProps {
   items: MedicamentoItem[]
   onChange: (items: MedicamentoItem[]) => void
   medicamentosDisponiveis: any[]
+  // Enfermaria: avisa quando o medicamento controlado não converte a dose em baixa de estoque
+  baixaEstoque?: boolean
 }
 
 const normalizar = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-
-type UnidadeDose = 'ml' | 'mg'
 
 // "20 ml" / "1,5 mg" / "15" -> número (com ponto) + unidade; texto livre antigo ("15ml IV") não parseia
 const parseDose = (str: string): { num: string; un: UnidadeDose } | null => {
@@ -52,6 +53,7 @@ export default function MedicamentosSection({
   items,
   onChange,
   medicamentosDisponiveis,
+  baixaEstoque = false,
 }: MedicamentosSectionProps) {
   const [mostrarFormularioMedicamento, setMostrarFormularioMedicamento] = useState(false)
   const [medicamentoEditando, setMedicamentoEditando] = useState<MedicamentoItem | null>(null)
@@ -73,15 +75,27 @@ export default function MedicamentosSection({
     setTipoFiltro(tiposDisponiveis.length === 1 ? tiposDisponiveis[0] : '')
   }
 
+  const medicamentoPorId = (id: string) => medicamentosDisponiveis.find((m) => m.id === id)
+
   const handleEditarMedicamento = (index: number) => {
+    const item = items[index]
     setMostrarFormularioMedicamento(true)
-    setMedicamentoEditando(items[index])
     setMedicamentoEditandoIndex(index)
-    const dose = parseDose(items[index].doseAplicada)
+    setTipoFiltro(item.tipo)
+    const dose = parseDose(item.doseAplicada)
+    const fixa = unidadeDoseFixa(medicamentoPorId(item.medicamentoId) ?? {})
+    // Dose gravada em unidade diferente da exigida pelo medicamento: não pode ser salva de novo sem ser informada
+    if (dose && fixa && dose.un !== fixa) {
+      setMedicamentoEditando({ ...item, doseAplicada: '' })
+      setDoseNum('')
+      setDoseUn(fixa)
+      setDoseLegada(item.doseAplicada)
+      return
+    }
+    setMedicamentoEditando(item)
     setDoseNum(dose?.num || '')
-    setDoseUn(dose?.un || 'ml')
-    setDoseLegada(dose ? '' : items[index].doseAplicada)
-    setTipoFiltro(items[index].tipo)
+    setDoseUn(fixa ?? dose?.un ?? 'ml')
+    setDoseLegada(dose ? '' : item.doseAplicada)
   }
 
   const handleRemoverMedicamento = (index: number) => {
@@ -124,15 +138,26 @@ export default function MedicamentosSection({
   }
 
   const handleSelecionarMedicamento = (medicamento: any) => {
+    // Unidade travada pelo medicamento: a dose já digitada é reexpressa nela
+    const fixa = unidadeDoseFixa(medicamento)
+    const un = fixa ?? doseUn
+    const doseAplicada = fixa ? formatarDose(doseNum, un) : medicamentoEditando?.doseAplicada || ''
+    setDoseUn(un)
+    setDoseLegada('')
     setMedicamentoEditando({
       medicamentoId: medicamento.id,
       tipo: medicamento.tipo,
       nomeComercial: medicamento.nome_comercial,
       principioAtivo: medicamento.principio_ativo || '',
       doseRecomendada: medicamento.dose_recomendada || '',
-      doseAplicada: medicamentoEditando?.doseAplicada || '',
+      doseAplicada,
     })
   }
+
+  const medicamentoSelecionado = medicamentoEditando ? medicamentoPorId(medicamentoEditando.medicamentoId) : undefined
+  const semConversao =
+    baixaEstoque && !!medicamentoSelecionado && modoBaixaMedicamento(medicamentoSelecionado) === 'sem_conversao'
+  const unidadeTravada = !!medicamentoSelecionado && unidadeDoseFixa(medicamentoSelecionado) !== null
 
   return (
     <>
@@ -199,7 +224,7 @@ export default function MedicamentosSection({
                 options={tiposDisponiveis.map((t) => ({ value: t, label: t.toUpperCase(), icon: tipoIcon(t) }))}
                 value={tipoFiltro}
                 onChange={setTipoFiltro}
-                cols={4}
+                cols={2}
                 labelSize="xs"
                 showCheck={false}
               />
@@ -238,20 +263,22 @@ export default function MedicamentosSection({
               <label className="text-[15px] font-bold text-gray-900">
                 DOSE APLICADA <span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-1.5">
-                {(['ml', 'mg'] as UnidadeDose[]).map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => atualizarDose(doseNum, u)}
-                    className={`!min-h-0 rounded-lg border-2 px-3 py-1 text-xs font-extrabold uppercase transition-colors ${
-                      doseUn === u ? 'border-brand-900 bg-brand-900 text-white' : 'border-gray-300 bg-white text-gray-700'
-                    }`}
-                  >
-                    {u}
-                  </button>
-                ))}
-              </div>
+              {!unidadeTravada && (
+                <div className="flex gap-1.5">
+                  {(['ml', 'mg'] as UnidadeDose[]).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => atualizarDose(doseNum, u)}
+                      className={`!min-h-0 rounded-lg border-2 px-3 py-1 text-xs font-extrabold uppercase transition-colors ${
+                        doseUn === u ? 'border-brand-900 bg-brand-900 text-white' : 'border-gray-300 bg-white text-gray-700'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <StepperInput
               value={doseNum}
@@ -261,7 +288,12 @@ export default function MedicamentosSection({
               suffix={doseUn}
             />
             {doseLegada && (
-              <InfoStrip tone="warning">Dose registrada antes: "{doseLegada}". Informe novamente no seletor para alterar.</InfoStrip>
+              <InfoStrip tone="warning">Dose registrada antes: "{doseLegada}". Informe novamente para alterar.</InfoStrip>
+            )}
+            {semConversao && (
+              <InfoStrip tone="warning">
+                Este registro não baixa o estoque de {medicamentoSelecionado?.nome_comercial}. Peça ao controller para definir o conteúdo da embalagem no Painel.
+              </InfoStrip>
             )}
           </div>
 

@@ -324,3 +324,7 @@ Concluído: Fases 1–4, Fase 5 inteira (RPCs SECURITY DEFINER, 5.0 a 5.4) e Fas
 
 **Pendências de produto/qualidade registradas na Fase 5:** tokens de `relatorios_publicos` sem validade (`expira_em` nulo em 100%); gravação garantida da sessão em `impersonate-user`; peão e gestor com o mesmo papel (`controller`) em `usuario_fazenda`; `update_quant_atual_with_data` com 42P10; `get_audit_log.tabelasAuditadas` agrega contagem global; validar funções de plano (`iniciar/encerrar/migrar_plano_*`) em tela com plano real; confirmar `funcionario_id` válido em `registrar_push_subscription` (FK).
 
+
+## Trigger de baixa da Enfermaria descarta dose sem conversão em silêncio (22/10/2026)
+
+`trg_enfermaria_baixa_farmacia` faz `CONTINUE` quando `farmacia_dose_para_estoque` devolve `NULL` (dose em formato livre como "10ml IM", unidade de dose sem conteúdo, ou medicamento de `dose` sem embalagem). O registro é salvo sem baixa e ninguém é avisado. O PWA agora avisa para medicamentos sem conversão, mas registros antigos continuam sem baixa. Ação: alerta/auditoria de registros sem movimentação, exige migration no repo do Painel (fluxo do AGENTS.md).
