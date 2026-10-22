@@ -30,7 +30,6 @@ export type ModoFarmacia = 'entrada' | 'baixa'
 const MOTIVOS_SAIDA = [
   { value: 'Uso na fazenda', label: 'USO NA FAZENDA', icon: '🐄' },
   { value: 'Perda ou vencido', label: 'PERDA / VENCIDO', icon: '🗑️' },
-  { value: 'Devolução', label: 'DEVOLUÇÃO', icon: '↩️' },
   { value: 'Outro', label: 'OUTRO', icon: '📝' },
 ]
 
@@ -49,6 +48,8 @@ interface FormState {
   novoMedicamento: MedicamentoNovo | null
   quantidade: string
   motivoSaida: string
+  // Texto digitado ou ditado quando o motivo é "Outro"
+  motivoOutro: string
   custoUnitario: string
   fornecedor: string
   notaFiscal: string
@@ -63,6 +64,7 @@ const makeInitial = (): FormState => ({
   novoMedicamento: null,
   quantidade: '',
   motivoSaida: '',
+  motivoOutro: '',
   custoUnitario: '',
   fornecedor: '',
   notaFiscal: '',
@@ -101,8 +103,10 @@ export default function FarmaciaForm({ modo }: Props) {
   const [mostrarNovo, setMostrarNovo] = useState(false)
   const salvandoRef = useRef(false)
   const baseVozRef = useRef('')
+  const baseVozMotivoRef = useRef('')
 
   const { ouvindo: ouvindoVoz, erro: vozErro, toggle: toggleVoz, parar: pararVoz } = useVoiceInput()
+  const { ouvindo: ouvindoMotivo, erro: vozMotivoErro, toggle: toggleVozMotivo, parar: pararVozMotivo } = useVoiceInput()
   const { options: fornecedoresOptions, loading: loadingFornecedores } = useCadastroOptions('fornecedores', fazendaId)
 
   const refreshTick = useRefreshTick()
@@ -189,6 +193,23 @@ export default function FarmaciaForm({ modo }: Props) {
     })
   }
 
+  // Ditado do motivo "Outro": mesmo esquema da observação, em campo próprio
+  const handleFalarMotivo = async () => {
+    if (ouvindoMotivo) {
+      await pararVozMotivo()
+      return
+    }
+    baseVozMotivoRef.current = (form.motivoOutro ?? '').trim()
+    await toggleVozMotivo((parcial) => {
+      const texto = baseVozMotivoRef.current ? `${baseVozMotivoRef.current} ${parcial}` : parcial
+      setForm((prev) => ({ ...prev, motivoOutro: texto }))
+    })
+  }
+
+  const motivoSaidaTexto = form.motivoSaida === 'Outro' ? (form.motivoOutro ?? '').trim() : form.motivoSaida
+  // Motivo "Outro" sem texto impede salvar, como os demais campos obrigatórios
+  const motivoPendente = ehSaida && form.motivoSaida === 'Outro' && !motivoSaidaTexto
+
   const handleSalvar = async () => {
     if (!selecionado || salvandoRef.current) return
     salvandoRef.current = true
@@ -196,7 +217,7 @@ export default function FarmaciaForm({ modo }: Props) {
     setApiErrors([])
 
     // Na saída o motivo escolhido vai na frente da observação (não há coluna própria)
-    const observacao = [ehSaida ? form.motivoSaida : '', form.observacao.trim()].filter(Boolean).join(' - ')
+    const observacao = [ehSaida ? motivoSaidaTexto : '', form.observacao.trim()].filter(Boolean).join(' - ')
 
     let result: Awaited<ReturnType<typeof salvarRegistro>>
     try {
@@ -272,6 +293,7 @@ export default function FarmaciaForm({ modo }: Props) {
     if (!selecionado) return 'Escolha um medicamento da lista'
     if (!form.quantidade.trim()) return 'Falta informar a quantidade'
     if (quantidade <= 0) return 'A quantidade precisa ser maior que zero'
+    if (motivoPendente) return 'Descreva o motivo da saída'
     return undefined
   })()
 
@@ -369,6 +391,29 @@ export default function FarmaciaForm({ modo }: Props) {
                 labelSize="xs"
                 showCheck={false}
               />
+
+              {form.motivoSaida === 'Outro' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleFalarMotivo}
+                    className={`flex min-h-[56px] items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
+                      ouvindoMotivo ? 'animate-pulse bg-red-600' : 'bg-gray-600 hover:bg-gray-700'
+                    }`}
+                  >
+                    <span className="text-lg leading-none">🎤</span>
+                    <span className="text-sm font-extrabold uppercase tracking-wide">{ouvindoMotivo ? 'Ouvindo...' : 'Gravar motivo'}</span>
+                  </button>
+                  {vozMotivoErro && <InfoStrip tone="danger">{vozMotivoErro}</InfoStrip>}
+                  <Input
+                    label={<span>QUAL O MOTIVO?</span>}
+                    placeholder="Digite ou grave o motivo da saída"
+                    value={form.motivoOutro ?? ''}
+                    onChange={setInput('motivoOutro')}
+                    error={getError('motivoOutro')}
+                  />
+                </>
+              )}
             </div>
           )}
 
@@ -460,7 +505,7 @@ export default function FarmaciaForm({ modo }: Props) {
           onSalvar={handleSalvar}
           onLimpar={limparRascunho}
           salvando={salvando}
-          disabled={!isValid}
+          disabled={!isValid || motivoPendente}
           formValido={isValid}
           pendenciaTexto={pendenciaTexto}
         />
