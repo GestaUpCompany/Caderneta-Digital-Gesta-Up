@@ -773,7 +773,7 @@ export async function getLotesAtivosCached(
           supabaseService.getPastos(fazendaId),
           supabaseService.getOcupacoesCurralAtivas(fazendaId).catch(() => []),
         ]),
-        3000
+        8000
       )
       const lotes = Array.from(new Set(lotesData?.map((l: any) => l.nome) || []))
       const lotesPastoMap = buildLotesLocalMap(lotesData, pastosData, ocupacoesCurralData)
