@@ -88,3 +88,27 @@ export function validadeRegistro(r: RegistroFarmacia): string | null {
 }
 
 export const ehSaidaFarmacia = (r: RegistroFarmacia) => r.tipoMovimentacao === 'baixa'
+
+// ---- Seleção de medicamento no lançamento ----
+
+/** Só medicamentos com controle de estoque aparecem para entrada e saída (o Painel controla o resto). */
+export function medicamentosControlados<T extends MedicamentoEstoque>(lista: T[]): T[] {
+  return lista.filter((m) => m.controla_estoque === true)
+}
+
+const semAcentoCaixa = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+/**
+ * Procura um medicamento já controlado igual ao cadastrado (SKU ou nome, sem acento e caixa).
+ * Item sem controle não conta: o cadastro segue para a RPC, que o deduplica e ativa o controle.
+ */
+export function encontrarMedicamentoExistente<T extends MedicamentoEstoque & { nome_comercial: string; sku?: string | null }>(
+  lista: T[],
+  dados: { nome_comercial: string; sku?: string | null },
+): T | undefined {
+  const nome = semAcentoCaixa(dados.nome_comercial)
+  const sku = semAcentoCaixa(dados.sku ?? '')
+  return medicamentosControlados(lista).find(
+    (m) => semAcentoCaixa(m.nome_comercial) === nome || (sku !== '' && semAcentoCaixa(m.sku ?? '') === sku),
+  )
+}

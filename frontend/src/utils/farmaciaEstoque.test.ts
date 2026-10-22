@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { parseQuantidade, saldoApos, statusEstoque, formatarQuantidade, unidadeConcordada } from './farmaciaEstoque'
+import {
+  parseQuantidade,
+  saldoApos,
+  statusEstoque,
+  formatarQuantidade,
+  unidadeConcordada,
+  medicamentosControlados,
+  encontrarMedicamentoExistente,
+} from './farmaciaEstoque'
 
 describe('parseQuantidade', () => {
   it('aceita vírgula e ponto', () => {
@@ -62,6 +70,24 @@ describe('unidadeConcordada', () => {
   it('não altera unidades sem plural', () => {
     expect(unidadeConcordada('mL', 100)).toBe('mL')
     expect(formatarQuantidade(18, 'frasco')).toBe('18 frascos')
+  })
+})
+
+describe('seleção de medicamento no lançamento', () => {
+  const lista = [
+    { nome_comercial: 'Draxxin', sku: 'MED-001', controla_estoque: true },
+    { nome_comercial: 'Penicilina', sku: null, controla_estoque: false },
+    { nome_comercial: 'Exceller', sku: null, controla_estoque: true },
+  ]
+  it('só mantém os controlados', () => {
+    expect(medicamentosControlados(lista).map((m) => m.nome_comercial)).toEqual(['Draxxin', 'Exceller'])
+  })
+  it('acha o existente ignorando acento e caixa, e pelo SKU', () => {
+    expect(encontrarMedicamentoExistente(lista, { nome_comercial: 'DRAXXIN' })?.nome_comercial).toBe('Draxxin')
+    expect(encontrarMedicamentoExistente(lista, { nome_comercial: 'Outro nome', sku: 'med-001' })?.nome_comercial).toBe('Draxxin')
+  })
+  it('item sem controle não conta como existente', () => {
+    expect(encontrarMedicamentoExistente(lista, { nome_comercial: 'Penicilina' })).toBeUndefined()
   })
 })
 

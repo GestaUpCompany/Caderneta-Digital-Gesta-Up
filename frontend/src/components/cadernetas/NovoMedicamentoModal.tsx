@@ -81,6 +81,9 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
     if (!unidade) return setErro('Escolha a unidade de medida')
     const valor = parseFloat(conteudo.replace(',', '.'))
     const temConteudo = !UNIDADES_DIRETAS.includes(unidade) && !isNaN(valor) && valor > 0
+    // Unidade de embalagem precisa do conteúdo: sem ele a Enfermaria não consegue dar baixa
+    if (!UNIDADES_DIRETAS.includes(unidade) && !temConteudo)
+      return setErro(`Informe o conteúdo por ${unidade} (ex.: 500 mL por frasco) para a Enfermaria dar baixa automática`)
     onConfirmar({
       nome_comercial: nome.trim(),
       sku: sku.trim() || null,
@@ -146,7 +149,7 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
         {unidade && !UNIDADES_DIRETAS.includes(unidade) && (
           <div className="flex flex-col gap-2">
             <Input
-              label={<span>CONTEÚDO POR {unidade.toUpperCase()} (OPCIONAL)</span>}
+              label={<span>CONTEÚDO POR {unidade.toUpperCase()} <span className="text-red-500">*</span></span>}
               placeholder="Ex: 100"
               value={conteudo}
               onChange={(e) => setConteudo(sanitizarDecimal(e.target.value))}

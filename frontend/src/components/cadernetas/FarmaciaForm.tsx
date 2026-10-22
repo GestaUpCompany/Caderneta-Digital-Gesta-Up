@@ -22,7 +22,15 @@ import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { useVoiceInput } from '../../hooks/useVoiceInput'
 import { RootState } from '../../store/store'
 import { useFormValidation } from '../../hooks/useFormValidation'
-import { formatarQuantidade, parseQuantidade, saldoApos, statusEstoque, unidadeConcordada } from '../../utils/farmaciaEstoque'
+import {
+  encontrarMedicamentoExistente,
+  formatarQuantidade,
+  medicamentosControlados,
+  parseQuantidade,
+  saldoApos,
+  statusEstoque,
+  unidadeConcordada,
+} from '../../utils/farmaciaEstoque'
 import { Pill, Plus, Syringe } from 'lucide-react'
 
 export type ModoFarmacia = 'entrada' | 'baixa'
@@ -74,7 +82,6 @@ const makeInitial = (): FormState => ({
 })
 
 const rotuloMedicamento = (m: any) => `${m.nome_comercial} (${m.tipo})${m.sku ? ` · ${m.sku}` : ''}`
-const normalizar = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 
 // Sanitiza campos decimais: permite apenas dígitos e uma vírgula decimal
 const sanitizarDecimal = (texto: string) => {
@@ -91,6 +98,7 @@ interface Props {
 export default function FarmaciaForm({ modo }: Props) {
   const navigate = useNavigate()
   const { fazendaId } = useSelector((state: RootState) => state.config)
+  const lastSync = useSelector((state: RootState) => state.sync.lastSync)
   const ehSaida = modo === 'baixa'
   const cadernetaId = ehSaida ? 'saida-farmacia' : 'entrada-farmacia'
   const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
@@ -121,7 +129,8 @@ export default function FarmaciaForm({ modo }: Props) {
       }
     }
     carregar()
-  }, [fazendaId, refreshTick])
+    // lastSync: depois do sync, o saldo do servidor (que já inclui o lançamento) substitui o do aparelho
+  }, [fazendaId, refreshTick, lastSync])
 
   // Lista do servidor + o medicamento novo deste aparelho (se o servidor ainda não o conhece)
   const medicamentos = useMemo(() => {
@@ -129,8 +138,10 @@ export default function FarmaciaForm({ modo }: Props) {
     return novo && !medicamentosServidor.some((m) => m.id === novo.id) ? [...medicamentosServidor, novo] : medicamentosServidor
   }, [medicamentosServidor, form.novoMedicamento])
 
-  const opcoes = useMemo(() => medicamentos.map(rotuloMedicamento), [medicamentos])
-  const selecionado = useMemo(() => medicamentos.find((m) => rotuloMedicamento(m) === form.medicamento), [medicamentos, form.medicamento])
+  // Entrada e saída só lidam com medicamentos de controle ativo; os demais são ativados pelo Painel (ou pelo cadastro novo)
+  const controlados = useMemo(() => medicamentosControlados(medicamentos), [medicamentos])
+  const opcoes = useMemo(() => controlados.map(rotuloMedicamento), [controlados])
+  const selecionado = useMemo(() => controlados.find((m) => rotuloMedicamento(m) === form.medicamento), [controlados, form.medicamento])
 
   const setCampo = <K extends keyof FormState>(campo: K) => (valor: FormState[K]) =>
     setForm((prev) => ({ ...prev, [campo]: valor }))
@@ -144,7 +155,7 @@ export default function FarmaciaForm({ modo }: Props) {
     data: { required: true },
     medicamento: {
       required: true,
-      custom: (value: string) => (value && !medicamentos.some((m) => rotuloMedicamento(m) === value) ? 'Selecione um medicamento da lista' : null),
+      custom: (value: string) => (value && !controlados.some((m) => rotuloMedicamento(m) === value) ? 'Selecione um medicamento da lista' : null),
     },
     quantidade: {
       required: true,
@@ -153,6 +164,18 @@ export default function FarmaciaForm({ modo }: Props) {
         return value && (isNaN(n) || n <= 0) ? 'Informe uma quantidade maior que zero' : null
       },
     },
+    // Entrada exige custo unitário (o Painel também exige); saída não lança custo
+    ...(ehSaida
+      ? {}
+      : {
+          custoUnitario: {
+            required: true,
+            custom: (value: string) => {
+              const n = parseFloat(String(value).replace(',', '.'))
+              return value && (isNaN(n) || n <= 0) ? 'Informe um custo unitário maior que zero' : null
+            },
+          },
+        }),
   }
 
   const { isValid } = useFormValidation(form, validationRules)
@@ -161,9 +184,8 @@ export default function FarmaciaForm({ modo }: Props) {
   const getError = (field: string) => apiErrors.find((e) => e.field === field)?.message
 
   const handleAdicionarNovo = (dados: NovoMedicamentoDados) => {
-    const existente = medicamentos.find(
-      (m) => normalizar(m.nome_comercial) === normalizar(dados.nome_comercial) || (dados.sku && normalizar(m.sku || '') === normalizar(dados.sku))
-    )
+    // Só conta como existente quem já tem controle; o cadastro de um item sem controle segue e a RPC o ativa
+    const existente = encontrarMedicamentoExistente(medicamentos, dados)
     if (existente) {
       setForm((prev) => ({ ...prev, medicamento: rotuloMedicamento(existente) }))
     } else {
@@ -293,6 +315,7 @@ export default function FarmaciaForm({ modo }: Props) {
     if (!selecionado) return 'Escolha um medicamento da lista'
     if (!form.quantidade.trim()) return 'Falta informar a quantidade'
     if (quantidade <= 0) return 'A quantidade precisa ser maior que zero'
+    if (!ehSaida && !(parseQuantidade(form.custoUnitario) > 0)) return 'Falta informar o custo unitário'
     if (motivoPendente) return 'Descreva o motivo da saída'
     return undefined
   })()
@@ -329,6 +352,11 @@ export default function FarmaciaForm({ modo }: Props) {
             id="medicamento"
             name="medicamento"
           />
+          <p className="text-xs text-gray-500">
+            {ehSaida
+              ? 'Só aparecem medicamentos com controle de estoque ativo. Se o que você procura não aparece, avise o controller.'
+              : 'Só aparecem medicamentos com controle de estoque ativo. Se não estiver na lista, use "Cadastrar novo".'}
+          </p>
 
           {!ehSaida && (
             <button
@@ -426,9 +454,9 @@ export default function FarmaciaForm({ modo }: Props) {
         </CadernetaSection>
 
         {!ehSaida && (
-          <CadernetaSection numero={3} titulo="Dados da compra (opcional)">
+          <CadernetaSection numero={3} titulo="Dados da compra" required>
             <Input
-              label={<span>CUSTO UNITÁRIO (R$)</span>}
+              label={<span>CUSTO UNITÁRIO (R$) <span className="text-red-500">*</span></span>}
               placeholder="Ex: 12,50"
               value={form.custoUnitario}
               onChange={(e) => setCampo('custoUnitario')(sanitizarDecimal(e.target.value))}

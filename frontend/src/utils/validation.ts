@@ -688,6 +688,12 @@ export function validateFarmacia(data: Record<string, unknown>): ValidationResul
     errors.push({ field: 'medicamentoId', message: 'Medicamento é obrigatório' })
   if (!isPositiveNumber(data.quantidade) || Number(String(data.quantidade).replace(',', '.')) <= 0)
     errors.push({ field: 'quantidade', message: 'Quantidade deve ser maior que zero' })
+  // Entrada precisa de custo (o Painel exige o mesmo); saída não lança custo
+  if (data.tipoMovimentacao === 'entrada') {
+    const custo = Number(String(data.custoUnitario ?? '').replace(',', '.'))
+    if (String(data.custoUnitario ?? '').trim() === '' || !Number.isFinite(custo) || custo <= 0)
+      errors.push({ field: 'custoUnitario', message: 'Custo unitário deve ser maior que zero' })
+  }
 
   return { isValid: errors.length === 0, errors }
 }
