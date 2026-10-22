@@ -1715,3 +1715,7 @@ Painel Web (`apps/manejus`): `totaisDaTela` devolve `sem_conversao` e a tela de 
 ## Entrada e saída de farmácia: só controlados, custo obrigatório na entrada e saldo atualizado após sync (22/10/2026)
 
 Entrada e saída listam só medicamentos com controle de estoque (`medicamentosControlados` em `utils/farmaciaEstoque.ts`). Cadastro de medicamento novo usa `encontrarMedicamentoExistente`, que ignora item sem controle: a RPC `criar_medicamento_pwa` deduplica e ativa o controle. Entrada exige custo unitário maior que zero no PWA (`validateFarmacia` e a validação do formulário), igual ao Painel; saída não lança custo. O `NovoMedicamentoModal` exige conteúdo da embalagem para unidades que não são mL/L/g/kg. A tela recarrega os medicamentos quando o sync termina (`state.sync.lastSync`), então o saldo mostrado é o do servidor. No Painel, cards de medicamento sem controle mostram "Sem controle de estoque" no lugar de saldo, custo e valor.
+
+## Baixas de farmácia valorizadas (22/10/2026)
+
+As baixas (saída do PWA, Enfermaria) passam a ter custo e valor gravados pelo Painel (migration `20261022120000_farmacia_baixa_valorizada`). "Baixas no mês" deixa de ficar R$ 0,00. Nenhuma mudança de código no PWA.

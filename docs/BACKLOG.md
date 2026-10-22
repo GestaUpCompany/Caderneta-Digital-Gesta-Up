@@ -328,3 +328,7 @@ Concluído: Fases 1–4, Fase 5 inteira (RPCs SECURITY DEFINER, 5.0 a 5.4) e Fas
 ## Trigger de baixa da Enfermaria descarta dose sem conversão em silêncio (22/10/2026)
 
 `trg_enfermaria_baixa_farmacia` faz `CONTINUE` quando `farmacia_dose_para_estoque` devolve `NULL` (dose em formato livre como "10ml IM", unidade de dose sem conteúdo, ou medicamento de `dose` sem embalagem). O registro é salvo sem baixa e ninguém é avisado. O PWA agora avisa para medicamentos sem conversão, mas registros antigos continuam sem baixa. Ação: alerta/auditoria de registros sem movimentação, exige migration no repo do Painel (fluxo do AGENTS.md).
+
+## Estorno de farmácia: baixa e estorno tratados de forma diferente no card (22/10/2026)
+
+`recalcular_estoque_farmacia` soma o estorno ao saldo como a baixa (devolve estoque), e a consulta de "Baixas no mês" trata estorno como negativo. Nenhum fluxo gera estorno hoje; antes de criar esse fluxo, conferir a regra de sinal e o valor gravado.
