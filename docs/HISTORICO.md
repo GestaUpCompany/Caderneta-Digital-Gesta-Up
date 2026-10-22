@@ -517,6 +517,16 @@ Item S3 do BACKLOG (parcial). `insumos` e `formulacoes` tinham as quatro operaç
 
 **Disparador**: quando mencionar "policy qual=true em insumos/formulacoes", S3, `formulacao_insumos`, `formulacoes_historico`, isolamento de tenant em cadastro de estoque ou lista vazia de insumos/fórmulas no Painel, ler esta seção.
 
+## Itens de Produção Fábrica duplicados pelo backfill de 09/10 (22/10/2026)
+
+**Sintoma**: fazenda `d3965505-74d5-4af7-9858-f773d2e8aab3` com saldo da Ração 0,5% Seca REP. em 7.342 kg, embora tudo o que é produzido seja usado na hora.
+
+**Causa**: o backfill de 09/10 (seção "Itens de Produção Fábrica perdidos") reinseriu itens em `saida_insumos_itens` **sem `local_id`**. Em 16/10 o aparelho reenviou os mesmos itens com upsert por `local_id`, e o sync criou linhas novas. Foram 21 itens duplicados em 5 cabeçalhos (Ração 0,5% 25/09 e 28/09, PROTEINADO 0,3% 29/09, E/A Engorda 02/10 e 03/10): crédito em dobro na formulação e baixa em dobro nos insumos.
+
+**O que foi feito**: backup em `backup_saida_itens_duplicados_20261022`, depois DELETE das cópias com `local_id` NULL. O trigger `trg_saida_insumos_itens_mov` estornou os movimentos. Depois disso, `estoque_atual` de cada formulação bate com a soma dos movimentos. Saldo da Ração caiu para 3.202,1 kg. Essa sobra é de produção não lançada como consumo na Suplementação, a conferir com a fazenda.
+
+**Regra**: backfill de itens a partir do payload de `logs_sync_errors` deve preencher `local_id`, senão o reenvio do aparelho duplica.
+
 ## Itens de Produção Fábrica perdidos: estoque sem crédito (07/10/2026)
 
 **Sintoma**: registros de Produção Fábrica chegavam ao Supabase, mas o estoque dos produtos finais (ex.: E/A Engorda TIP 1,8%) não era creditado; histórico do Painel parava em 30/09. Fazenda `d3965505-74d5-4af7-9858-f773d2e8aab3`.
@@ -1691,3 +1701,7 @@ Migration aplicada no Painel: `20261006120000_oferta_trato_vagao_e_foto.sql` adi
 Payload/sync: `vagaoId`, `vagaoNome` e `fabricaConfinamentoId` (só quando a produção já tem id do Supabase — id local do IndexedDB quebraria a FK) seguem no registro local e são mapeados para `vagao_id`/`fabrica_confinamento_id`. **Sequenciamento deploy → migration**: como as colunas novas só existem após `supabase/migrations/20261006120000_oferta_trato_vagao_e_foto.sql` (repo do Painel, propositalmente não aplicada até depois do deploy do PWA), `createRegistroOfertaTrato`/`updateRegistroOfertaTrato` retentam sem as 3 colunas quando o PostgREST responde PGRST204 — o sync não derruba no intervalo e passa a gravar vagão/foto assim que a coluna existir. Registros lançados antes da migration guardam `vagaoId` localmente e o saldo já os conta.
 
 Migration pendente (Painel): adiciona `fabrica_confinamento_id`, `vagao_id` e `foto_url` a `registros_oferta_trato` + índices parciais; aplicar com `supabase db push` depois do deploy do PWA.
+
+## Edição do total carregado na Fábrica Confinamento (22/10/2026)
+
+Na lista de `FabricaConfinamentoListaPage`, o card tem o botão EDITAR TOTAL (só para registros do IndexedDB do aparelho que lançou). `editarTotalFabrica` (`services/edicaoFabricaConfinamento.ts`) grava o novo `totalProduzido` no pai e reescala `kgProduzido` dos insumos na mesma proporção (`utils/reescalarInsumos.ts`, resíduo no maior insumo para a soma bater), tudo `pending` + `syncQueue` como `update`; o trigger `trg_fabrica_confinamento_insumos_mov` ajusta a baixa de estoque no UPDATE. Sem migration nem bump de IndexedDB. Pontos de extensão para Suplementação/Trato: prop `acoesRegistro` do `ListaRegistros` e `EditarValorRegistroModal` (genérico, a regra fica no `onSalvar`). `ListaRegistros` agora recarrega a lista em silêncio quando `state.sync.lastSync` muda, então os selos dos cards passam de PENDENTE a SINCRONIZADO sozinhos, inclusive quando a fila drena depois de voltar a conexão. Testado via chrome-devtools na fazenda de testes: edição online, edição offline com sync ao reconectar, e saldo do vagão no Trato Confinamento.

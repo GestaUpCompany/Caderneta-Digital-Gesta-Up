@@ -32,6 +32,8 @@ interface Props {
   titulo: React.ReactNode
   rotaForm: string
   extraActions?: React.ReactNode
+  // Ações extras por card (ex: editar valor); recarregar atualiza a lista após a ação
+  acoesRegistro?: (registro: Registro, recarregar: () => Promise<void>) => React.ReactNode
   // Filtro extra aplicado sobre os registros do store (ex: OS por tipo)
   filtrarRegistro?: (registro: Registro) => boolean
 }
@@ -119,10 +121,11 @@ const formatFieldValue = (key: string, value: unknown): string => {
   return valueStr
 }
 
-export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActions, filtrarRegistro }: Props) {
+export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActions, acoesRegistro, filtrarRegistro }: Props) {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
+  const lastSync = useSelector((state: RootState) => state.sync.lastSync)
   const [registros, setRegistros] = useState<Registro[]>([])
   const [carregando, setCarregando] = useState(true)
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
@@ -145,6 +148,14 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
   useEffect(() => {
     carregar()
   }, [carregar])
+
+  // Sync concluído (inclusive o que drena a fila após voltar a conexão): atualiza os selos dos cards em silêncio
+  const lastSyncAnterior = useRef(lastSync)
+  useEffect(() => {
+    if (lastSyncAnterior.current === lastSync) return
+    lastSyncAnterior.current = lastSync
+    void listarRegistros(caderneta).then(setRegistros)
+  }, [lastSync, caderneta])
 
   // Puxar para atualizar: recarrega em silêncio (sem piscar o spinner da lista)
   useRefreshCadastros(async () => {
@@ -1086,6 +1097,7 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
 
                 <div className="flex flex-col gap-2 border-t border-gray-100 pt-3">
                   <div className="flex gap-2">
+                    {acoesRegistro?.(registro, carregar)}
                     <button
                       onClick={() => handleCompartilhar(registro)}
                       className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
