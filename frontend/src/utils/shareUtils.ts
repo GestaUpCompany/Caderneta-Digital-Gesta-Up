@@ -2750,10 +2750,20 @@ const isMobileShare = () =>
   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)) // iPadOS reporta como Mac
 
+// Acima disso o wa.me corta o texto sem avisar (resumos diários perdiam o fim).
+export const LIMITE_URL_WHATSAPP = 2000
+
+export const urlWhatsAppExcedeLimite = (url: string) => url.length > LIMITE_URL_WHATSAPP
+
 const abrirUrlExterna = (url: string, texto: string) => {
   // Garante o texto na área de transferência: se o pop-up for bloqueado, o
   // usuário ainda consegue colar no WhatsApp manualmente.
   navigator.clipboard?.writeText(texto).catch(() => {})
+  if (urlWhatsAppExcedeLimite(url)) {
+    // Abre o WhatsApp sem texto: o conteúdo completo vai pela área de transferência.
+    url = 'https://wa.me/'
+    alert('O texto é grande demais para ir pelo link do WhatsApp e foi copiado. Abra a conversa e use Colar.')
+  }
   // window.open após await costuma cair no bloqueador de pop-up (user activation
   // expirada); um clique em <a> é tratado como navegação e passa.
   const a = document.createElement('a')
