@@ -1,10 +1,11 @@
 import { store } from '../store/store'
 import { requestSyncNow } from '../store/slices/syncSlice'
-import { updateCadastroCache, getCachedCadastroData } from './cadastroCache'
+import { updateCadastroCache, getCachedCadastroData, syncAllCadastroData, setCadastroCacheTimestamp } from './cadastroCache'
 import { syncMapaSePreciso } from './mapaCache'
 import { countPending } from './indexedDB'
 import { eventBus, CADASTRO_CACHE_UPDATED, REFRESH_CONCLUIDO } from '../utils/eventBus'
 import { motivoBloqueioRefresh, type MotivoRefresh } from '../utils/pullToRefreshLogic'
+import type { FaseSync } from './atualizacaoAutomaticaStatus'
 
 export interface ResultadoRefresh {
   ok: boolean
@@ -88,4 +89,51 @@ export function executarRefresh(): Promise<ResultadoRefresh> {
   })
 
   return emAndamento
+}
+
+const CHAVE_ULTIMO_AQUECIMENTO = 'ultimo-aquecimento-cache'
+
+let completaEmAndamento: Promise<{ success: boolean; errors: string[] }> | null = null
+
+/** Quem quiser acompanhar a execução em andamento (botão manual, atualização automática) */
+type OuvinteProgresso = (current: number, total: number, item: string, fase: FaseSync) => void
+const ouvintesAtuais = new Set<OuvinteProgresso>()
+
+/**
+ * Atualização completa dos dados: o mesmo efeito do botão "Atualizar Dados" da Home
+ * (drena a fila, baixa cadastros e aquece o cache). Só marca o horário quando termina sem erro.
+ * Se já houver uma execução em andamento, não inicia outra: o `onProgress` de quem chegou
+ * depois passa a receber o progresso da execução que está rodando.
+ */
+export function executarAtualizacaoCompleta(
+  fazendaId: string,
+  onProgress?: OuvinteProgresso
+): Promise<{ success: boolean; errors: string[] }> {
+  if (onProgress) ouvintesAtuais.add(onProgress)
+  if (completaEmAndamento) return completaEmAndamento
+
+  completaEmAndamento = (async () => {
+    const result = await syncAllCadastroData(fazendaId, (current, total, item, fase) => {
+      ouvintesAtuais.forEach((ouvinte) => ouvinte(current, total, item, fase))
+    })
+    if (result.errors.length === 0) {
+      const timestamp = new Date().toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      })
+      localStorage.setItem(CHAVE_ULTIMO_AQUECIMENTO, timestamp)
+      setCadastroCacheTimestamp()
+    }
+    return result
+  })().finally(() => {
+    completaEmAndamento = null
+    ouvintesAtuais.clear()
+  })
+
+  return completaEmAndamento
+}
+
+/** True enquanto uma atualização completa (manual ou automática) está rodando. */
+export function atualizacaoCompletaEmAndamento(): boolean {
+  return completaEmAndamento !== null
 }

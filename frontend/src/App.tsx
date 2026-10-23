@@ -30,6 +30,7 @@ import { useFarmStatus } from './hooks/useFarmStatus'
 import FarmInactiveBlock from './components/FarmInactiveBlock'
 import ScrollToTop from './components/ScrollToTop'
 import { useStoragePersistence } from './hooks/useStoragePersistence'
+import { useAtualizacaoAutomatica } from './hooks/useAtualizacaoAutomatica'
 import TestModeBanner from './components/TestModeBanner'
 import { registerPushSubscription, unregisterPushSubscription } from './services/pushNotificationService'
 import { registerBackgroundSync } from './serviceWorkerRegistration'
@@ -226,6 +227,7 @@ function AppInner() {
 
   // Solicitar persistência de armazenamento para evitar evicção do navegador
   useStoragePersistence()
+  useAtualizacaoAutomatica(fazendaId, isFarmInactive)
 
   // Ao abrir o app, renova a sessão se o token venceu ou está perto de vencer. Antes isto apagava o token E o
   // refresh token sem tentar renovar: depois de uma noite parado, o sync seguinte ia como anônimo (RLS 42501).

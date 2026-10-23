@@ -1719,3 +1719,40 @@ Entrada e saída listam só medicamentos com controle de estoque (`medicamentosC
 ## Baixas de farmácia valorizadas (22/10/2026)
 
 As baixas (saída do PWA, Enfermaria) passam a ter custo e valor gravados pelo Painel (migration `20261022120000_farmacia_baixa_valorizada`). "Baixas no mês" deixa de ficar R$ 0,00. Nenhuma mudança de código no PWA.
+
+## Atualização automática dos dados na abertura do dia (22/10/2026)
+
+Pedido: atualizar os dados sozinho às 05h em segundo plano (Android e iOS), com o mesmo efeito do botão "Atualizar Dados". **Agendamento em horário fixo foi descartado**: a PWA não tem esse recurso. No iOS não existe nenhum mecanismo de segundo plano; no Android/Chrome só o `periodicsync` (`sw.ts`), que é melhor esforço, cerca de 12 h, sem horário. O `@capacitor/background-runner` resolveria, mas só no APK, e ninguém usa o APK (todos usam a PWA).
+
+Adotado: (1) `useAtualizacaoAutomatica` (App.tsx) dispara `executarAtualizacaoCompleta` (`refreshService.ts`, o mesmo caminho do botão da Home, com trava de uma execução por vez) na abertura, ao voltar do background ou ao recuperar a rede, quando está ligado, online, fora do modo teste, já passou do horário de corte e a última atualização completa é anterior a ele (regra pura em `utils/atualizacaoAutomatica.ts`, com teste). Roda sem overlay: o peão já trabalha com o cache local. Tentativas falhas esperam 5 min. (2) Toggle e horário em Configurações (`AtualizacaoAutomaticaCard`), padrão ligado às 05:00, guardados em localStorage. (3) Atualização mais rápida: os 11 passos de listas base em `syncAllCadastroData` agora disparam em paralelo (consumidos em ordem, preservando checkpoint/resume), lotes do aquecimento de 5 para 12 itens, "Pendências de rodeio" reaproveita a lista de lotes, e o console registra o tempo das listas base e do warm.
+
+Limitação conhecida: quem abre o app só quando já está offline usa os dados da última atualização; só um app nativo (APK) resolveria. Pendente: medir o ganho de tempo em aparelho real (logs `[CadastroCache] Tempo do ...`); `periodicsync` do SW ainda não respeita o toggle.
+
+## Aquecimento do cache: lotes sem registro deixam de refazer consulta (23/10/2026)
+
+Medição por fase na fazenda de testes (`[WarmCache][tempo]` no console): a fase de rodeio levava ~8,9 s, porque o batch só gravava lotes com registro (`if (data)`), e cada lote vazio refazia a consulta de rede. Agora o batch grava também os lotes sem registro (`null`/`[]`) e a checagem usa presença da chave (`hasCachedQuery`). Aquecimento: 18,4 s → 12,3 s. Rodeio: ~8,9 s → ~1,9 s. Restante: o fallback de plano nutricional (`getPlanoNutricionalAtivoByLoteIdCached`) ainda consulta a rede para lotes sem plano, por ter semântica de "confiável" própria; fica como pendência.
+
+## Planos nutricionais no aquecimento: lote sem plano não consulta de novo (23/10/2026)
+
+O batch de planos ativos (`getPlanosNutricionaisAtivosBatch`) já traz todos os lotes com plano da fazenda, com o mesmo filtro da consulta individual. O aquecimento agora marca como "sem plano" os lotes fora desse batch, sem consulta individual, e só quando o batch respondeu (`planosBatchConfirmado`); falha de rede não conta como "sem plano". Medido na fazenda de testes: aquecimento 12,3 s → 10,4 s, fase de rodeio ~1,9 s → ~0 s. Restante: a fase batch (~5,3 s) é quase toda a consulta completa dos 8 lotes com plano (`getPlanoNutricionalAtivoByLoteId`, várias consultas por lote); próximo alvo se for preciso.
+
+## Guarda contra cadastro vazio e estado amarelo da atualização automática (23/10/2026)
+
+Estado amarelo: enquanto a atualização automática roda, a Home mostra um card "Atualizando dados em segundo plano..." com barra e item atual (`atualizacaoAutomaticaStatus.ts`), sem o overlay bloqueante do botão manual. Ao terminar, a Home relê o carimbo na hora.
+
+Guarda: se pastos ou lotes vierem vazios onde o cache já tinha itens (`utils/guardaCadastroVazio.ts`), o sync não grava o cache, não marca a atualização e limpa o checkpoint. Motivo: uma falha silenciosa (ex.: sessão expirada) devolve listas vazias sem erro e apagaria o cache bom. Testado com 5 casos unitários e no `vite dev`, em atualização normal.
+
+Pendência: um caso observado em preview de produção (carimbo gravado em <1 s sem requisições de pastos) não foi reproduzido; sem logs na época, a causa não foi confirmada.
+
+## Correções da revisão da atualização automática (23/10/2026)
+
+- **Checkpoint não pula mais as listas base:** retomar pulando etapas gravava cache incompleto (indivíduos, funcionários e demais ficavam vazios e o carimbo era marcado). Agora as listas são sempre rebuscadas inteiras; o checkpoint só retoma o aquecimento. Testado com checkpoint antigo injetado: listas completas, aquecimento em 9,7 s.
+- **Guarda de cadastro vazio:** só bloqueia quando pastos e lotes somem juntos (padrão de falha de sessão). Fazenda que zera só os lotes não fica travada.
+- **Plano encerrado:** se o batch de planos confirmou e o lote não está nele, grava "sem plano" mesmo que exista chave antiga no cache.
+
+Pendências conhecidas: o botão manual não recebe o progresso da atualização automática (mostra 0/0 até terminar), e a barra amarela recomeça do 1 ao passar das listas para o aquecimento.
+
+## Progresso compartilhado e fases da atualização (23/10/2026)
+
+- **Botão manual durante a atualização automática:** antes, o botão reaproveitava a execução em andamento mas perdia o callback de progresso, e o overlay ficava em 0/0. Agora `executarAtualizacaoCompleta` mantém um conjunto de ouvintes: quem chega durante a execução passa a receber o progresso. Testado: clique no meio do aquecimento mostra 67% → 100% e termina com "atualizado".
+- **Fases:** o progresso informa a fase (`listas` ou `aquecimento`, tipo `FaseSync`). O card azul mostra "Cadastros 11/11 · Fornecedores" e depois "Aquecimento 8/79 · Pasto 3". A barra recomeça em cada fase, mas o rótulo deixa claro qual é. O overlay do botão manual ainda não mostra o rótulo; mostra o item em andamento.

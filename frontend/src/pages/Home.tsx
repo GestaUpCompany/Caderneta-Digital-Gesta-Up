@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useSyncExternalStore } from 'react'
 import { Button } from '../components/ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../store/store'
@@ -8,10 +8,12 @@ import { ClipboardList, Sun, Moon, Settings, ChevronRight, RefreshCw, Loader2, U
 import { CADERNETAS, cadernetaVisivel } from '../utils/constants'
 import AppHeader from '../components/AppHeader'
 import { getRecentCadernetas } from '../utils/recentCadernetas'
+import { getStatusAtualizacaoAutomatica, subscribeStatusAtualizacaoAutomatica, rotuloFase } from '../services/atualizacaoAutomaticaStatus'
 
 import { VERSICULOS, Versiculo } from '../config/versiculos'
 import { getFazendaByAcessoId } from '../services/supabaseService'
-import { syncAllCadastroData, setCadastroCacheTimestamp, getCadastroCacheTimestamp, PENDING_SYNC_ERROR_MSG } from '../services/cadastroCache'
+import { getCadastroCacheTimestamp, PENDING_SYNC_ERROR_MSG } from '../services/cadastroCache'
+import { executarAtualizacaoCompleta } from '../services/refreshService'
 import { setCadastroSyncState } from '../services/cadastroSyncState'
 import { getSyncQueue } from '../services/indexedDB'
 import { setPendingCount } from '../store/slices/syncSlice'
@@ -36,11 +38,11 @@ export default function Home() {
   const { configurado, fazenda, usuario, acessoId, fazendaId, controleAcessoHabilitado, expedienteHabilitado, expedienteTimezone, expedienteDias, acessoIatf } = useSelector((state: RootState) => state.config)
   const pendingSyncCount = useSelector((state: RootState) => state.sync.pendingCount)
   const { active: cadastroSyncActive } = useCadastroSyncState()
+  const statusAutomatica = useSyncExternalStore(subscribeStatusAtualizacaoAutomatica, getStatusAtualizacaoAutomatica)
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; item: string } | null>(null)
   const [syncErrors, setSyncErrors] = useState<string[]>([])
   const [completedItems, setCompletedItems] = useState<string[]>([])
-  const LAST_SYNC_KEY = 'ultimo-aquecimento-cache'
   // Timestamp numérico da última atualização (manual ou SW em background).
   // Atualizado no mount, após sync manual, e quando o SW notifica BG_CACHE_UPDATED.
   const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(() => getCadastroCacheTimestamp())
@@ -74,6 +76,11 @@ export default function Home() {
       setSyncErrors((prev) => prev.filter((e) => e !== PENDING_SYNC_ERROR_MSG))
     }
   }, [pendingSyncCount])
+
+  // Ao terminar a atualização automática, relê o carimbo na hora
+  useEffect(() => {
+    if (!statusAutomatica.ativa) setCacheTimestamp(getCadastroCacheTimestamp())
+  }, [statusAutomatica.ativa])
 
   // Atualizar timestamp periodicamente (a cada minuto) para refletir "há X min"
   useEffect(() => {
@@ -271,7 +278,7 @@ export default function Home() {
     setCadastroSyncState({ active: true, current: 0, total: 0, item: '' })
 
     try {
-      const result = await syncAllCadastroData(fazendaId, (current, total, item) => {
+      const result = await executarAtualizacaoCompleta(fazendaId, (current, total, item) => {
         setSyncProgress({ current, total, item })
         setCadastroSyncState({ current, total, item })
         setCompletedItems(prev => {
@@ -284,13 +291,6 @@ export default function Home() {
       if (result.errors.length > 0) {
         setSyncErrors(result.errors)
       } else {
-        const now = new Date()
-        const timestamp = now.toLocaleString('pt-BR', {
-          day: '2-digit', month: '2-digit',
-          hour: '2-digit', minute: '2-digit'
-        })
-        localStorage.setItem(LAST_SYNC_KEY, timestamp)
-        setCadastroCacheTimestamp()
         setCacheTimestamp(Date.now())
       }
 
@@ -427,6 +427,30 @@ export default function Home() {
           <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
             Toque e segure o botão de usuário no topo para trocar de funcionário.
           </p>
+        )}
+
+        {/* Atualização automática em segundo plano: tom azul neutro, sem bloquear a tela */}
+        {configurado && fazendaId && statusAutomatica.ativa && !cadastroSyncActive && (
+          <div className="app-card p-4 border-sky-200 bg-sky-50">
+            <div className="flex items-center gap-2 mb-2">
+              <Loader2 className="w-4 h-4 animate-spin text-sky-700 flex-shrink-0" />
+              <p className="text-sm font-semibold text-sky-900">Atualizando dados em segundo plano...</p>
+            </div>
+            {statusAutomatica.total > 0 && (
+              <>
+                <div className="w-full bg-sky-200 rounded-full h-2 mb-2 overflow-hidden">
+                  <div
+                    className="bg-sky-600 h-2 rounded-full transition-all duration-300 max-w-full"
+                    style={{ width: `${(statusAutomatica.current / statusAutomatica.total) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-sky-800 break-words min-w-0">
+                  {rotuloFase(statusAutomatica.fase)} {statusAutomatica.current}/{statusAutomatica.total} · {statusAutomatica.item}
+                </p>
+              </>
+            )}
+            <p className="text-xs text-sky-800 mt-2">Você já pode trabalhar. A atualização termina sozinha.</p>
+          </div>
         )}
 
         {/* Status de sincronização */}

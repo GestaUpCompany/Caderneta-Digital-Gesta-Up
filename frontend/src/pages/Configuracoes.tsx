@@ -10,6 +10,7 @@ import { getFazendaByAcessoId } from '../services/supabaseService'
 import { clearCadastroCache } from '../services/cadastroCache'
 import { desativarModoTeste } from '../services/api'
 import PushNotificationCard from '../components/PushNotificationCard'
+import AtualizacaoAutomaticaCard from '../components/AtualizacaoAutomaticaCard'
 import { getVersaoCompleta } from '../utils/version'
 
 export default function Configuracoes() {
@@ -408,6 +409,8 @@ export default function Configuracoes() {
             )}
           </div>
         )}
+
+        {config.configurado && config.fazendaId && <AtualizacaoAutomaticaCard />}
 
         {/* Card de Notificações Push - só mostra se configurado */}
         {config.configurado && config.fazendaId && (

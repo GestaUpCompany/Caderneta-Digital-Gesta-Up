@@ -1,4 +1,6 @@
 import { BACKEND_URL } from '../utils/constants'
+import { deveBloquearCadastroVazio } from '../utils/guardaCadastroVazio'
+import type { FaseSync } from './atualizacaoAutomaticaStatus'
 import { redeInstavelRecentemente, registrarFalhaDeRede } from '../utils/fetchComTimeout'
 import { saveCadastroData, getAllCadastroData, getCadastroData, deleteCadastroData, clearCadastroData, getAllRegistros } from './indexedDB'
 import * as supabaseService from './supabaseService'
@@ -920,6 +922,11 @@ function getCachedQuery<T>(key: string): T | null {
 
 function setCachedQuery(key: string, data: any): void {
   queryCache[key] = { data, timestamp: Date.now() }
+}
+
+/** Distingue "não consultado" de "consultado e sem registro" (null ou []), que getCachedQuery não separa */
+function hasCachedQuery(key: string): boolean {
+  return key in queryCache
 }
 
 /**
@@ -3059,7 +3066,15 @@ export async function warmAllCadastroCache(
   // Helper: persistir lazy cache e atualizar checkpoint periodicamente
   const WARM_SAVE_INTERVAL = 10
   let itemsSinceLastSave = 0
+  // Medição por fase: tempo desde a marca anterior (ou início do warm) até o fim da fase
+  let marcaFase = performance.now()
+  const medirFase = (fase: string) => {
+    const agora = performance.now()
+    console.log(`[WarmCache][tempo] ${fase}: ${Math.round(agora - marcaFase)}ms`)
+    marcaFase = agora
+  }
   const persistProgress = async (phase: string, index: number) => {
+    medirFase(phase)
     itemsSinceLastSave++
     if (itemsSinceLastSave >= WARM_SAVE_INTERVAL) {
       await saveQueryCacheToIndexedDB()
@@ -3131,6 +3146,7 @@ export async function warmAllCadastroCache(
   let warmedExtras = 0
   let processed = 0
 
+  medirFase('preparo (listas e formulações)')
   // ==================== FASE BATCH: queries em paralelo ====================
   // Buscar todos os dados N×M em poucas queries batch ANTES de processar item por item.
   // Isso substitui centenas de queries individuais por ~7 queries por fazenda.
@@ -3142,6 +3158,8 @@ export async function warmAllCadastroCache(
   let batchLeituraCocho: Record<string, any[]> = {}
   let batchTratoTotal: Record<string, { data: string; total_kg: number } | null> = {}
   let batchPlanosNutricionais: Record<string, any> = {}
+  // Só um batch que respondeu pode afirmar que um lote não tem plano; falha de rede vira {} e não pode contar como "sem plano"
+  let planosBatchConfirmado = false
   let batchPastosDatas: { ultimaEntrada: Record<string, string | null>; ultimaSaida: Record<string, string | null>; ultimoStatus: Record<string, 'entrada' | 'saida' | null> } = { ultimaEntrada: {}, ultimaSaida: {}, ultimoStatus: {} }
 
   try {
@@ -3153,7 +3171,9 @@ export async function warmAllCadastroCache(
       supabaseService.getRegistrosSuplementacaoBatch(fazendaId).catch(() => ({})),
       supabaseService.getRegistrosLeituraCochoBatch(fazendaId).catch(() => ({})),
       supabaseService.getUltimoTratoTotalBatch(fazendaId).catch(() => ({})),
-      supabaseService.getPlanosNutricionaisAtivosBatch(fazendaId).catch(() => ({})),
+      supabaseService.getPlanosNutricionaisAtivosBatch(fazendaId)
+        .then((planos) => { planosBatchConfirmado = true; return planos })
+        .catch(() => ({})),
       supabaseService.getPastosUltimasDatasBatch(fazendaId).catch(() => ({ ultimaEntrada: {}, ultimaSaida: {}, ultimoStatus: {} })),
     ])
     batchCategorias = categorias
@@ -3221,24 +3241,18 @@ export async function warmAllCadastroCache(
     })
   }
 
-  // rodeio -> ultimo-rodeio por lote
-  for (const [loteId, data] of Object.entries(batchRodeio)) {
-    if (data) setCachedQuery(buildKey('ultimo-rodeio', fazendaId, loteId), data)
+  // rodeio, leitura de cocho e trato -> por lote. Grava também os lotes sem registro (null/[]),
+  // senão a fase de rodeio refaz a consulta de rede para cada lote vazio.
+  for (const lote of lotes) {
+    const loteId = lote.id
+    setCachedQuery(buildKey('ultimo-rodeio', fazendaId, loteId), batchRodeio[loteId] ?? null)
+    setCachedQuery(buildKey('leitura-cocho-lote', fazendaId, loteId, '', ''), batchLeituraCocho[loteId] ?? [])
+    setCachedQuery(buildKey('ultimo-trato-lote', fazendaId, loteId), batchTratoTotal[loteId] ?? null)
   }
 
   // suplementacao -> suplementacao-lote por lote
   for (const [loteId, regs] of Object.entries(batchSuplementacao)) {
     if (regs && regs.length > 0) setCachedQuery(buildKey('suplementacao-lote', fazendaId, loteId), regs)
-  }
-
-  // leitura cocho -> leitura-cocho-lote por lote
-  for (const [loteId, regs] of Object.entries(batchLeituraCocho)) {
-    if (regs && regs.length > 0) setCachedQuery(buildKey('leitura-cocho-lote', fazendaId, loteId, '', ''), regs)
-  }
-
-  // trato total -> ultimo-trato-lote por lote
-  for (const [loteId, trato] of Object.entries(batchTratoTotal)) {
-    if (trato) setCachedQuery(buildKey('ultimo-trato-lote', fazendaId, loteId), trato)
   }
 
   // planos nutricionais: o batch identifica quais lotes têm plano ativo, mas os dados
@@ -3264,11 +3278,12 @@ export async function warmAllCadastroCache(
     if (status) setCachedQuery(buildKey('ultimo-status', fazendaId, pastoNome), status)
   }
 
+  medirFase('batch de queries (rodeio, cocho, trato, plano)')
   // ==================== FASE PASTOS: paralelizado em batches de 5 ====================
   // Os dados de entrada/saída/status já estão no cache lazy via batch.
   // Aqui só precisamos: guardar dados brutos do pasto, buscar lotes do pasto,
   // e aquecer ocupação por módulo (não dá para batchar facilmente).
-  const PASTO_BATCH_SIZE = 5
+  const PASTO_BATCH_SIZE = 12
   if (shouldSkip('pastos')) {
     console.log('[CadastroCache] Pulando fase pastos (já concluída no checkpoint)')
   }
@@ -3317,7 +3332,7 @@ export async function warmAllCadastroCache(
   // Aqui só guardamos os dados brutos do lote.
   const pastoNomeByIdWarm: Record<string, string> = {}
   pastos.forEach((p: any) => { if (p?.id) pastoNomeByIdWarm[p.id] = p.nome })
-  const LOTE_BATCH_SIZE = 5
+  const LOTE_BATCH_SIZE = 12
   for (let li = 0; li < lotes.length; li += LOTE_BATCH_SIZE) {
     const batch = lotes.slice(li, li + LOTE_BATCH_SIZE)
     await Promise.all(batch.map(async (lote) => {
@@ -3361,7 +3376,7 @@ export async function warmAllCadastroCache(
   // ==================== FASE FORMULAÇÕES: paralelizado ====================
   // O histórico de suplementação por lote já está no cache lazy via batch.
   // Aqui só guardamos os dados brutos da formulação.
-  const FORM_BATCH_SIZE = 5
+  const FORM_BATCH_SIZE = 12
   for (let fi = 0; fi < formulacoes.length; fi += FORM_BATCH_SIZE) {
     const batch = formulacoes.slice(fi, fi + FORM_BATCH_SIZE)
     await Promise.all(batch.map(async (formulacao) => {
@@ -3399,16 +3414,21 @@ export async function warmAllCadastroCache(
     // buscar individualmente como fallback
     const loteId = lotes[ri].id
     try {
-      if (!getCachedQuery(buildKey('ultimo-rodeio', fazendaId, loteId))) {
+      if (!hasCachedQuery(buildKey('ultimo-rodeio', fazendaId, loteId))) {
         await getLastRodeioDateCached(fazendaId, loteId)
       }
-      if (!getCachedQuery(buildKey('leitura-cocho-lote', fazendaId, loteId, '', ''))) {
+      if (!hasCachedQuery(buildKey('leitura-cocho-lote', fazendaId, loteId, '', ''))) {
         await getRegistrosLeituraCochoByLoteCached(fazendaId, loteId)
       }
-      if (!getCachedQuery(buildKey('ultimo-trato-lote', fazendaId, loteId))) {
+      if (!hasCachedQuery(buildKey('ultimo-trato-lote', fazendaId, loteId))) {
         await getUltimoTratoTotalByLoteCached(fazendaId, loteId)
       }
-      if (!getCachedQuery(buildKey('plano-nutricional-ativo', loteId))) {
+      const planoKey = buildKey('plano-nutricional-ativo', loteId)
+      if (planosBatchConfirmado && !(loteId in batchPlanosNutricionais)) {
+        // O batch já consultou os planos ativos da fazenda: lote fora dele não tem plano.
+        // Grava mesmo que haja chave antiga, para não manter plano já encerrado no cache offline
+        setCachedQuery(planoKey, null)
+      } else if (!hasCachedQuery(planoKey)) {
         await getPlanoNutricionalAtivoByLoteIdCached(loteId)
       }
       warmedLotesRodeio++
@@ -3464,8 +3484,9 @@ export async function warmAllCadastroCache(
       await Promise.allSettled(bebedouros.map((b: any) => getPendenciasBebedouroCached(fazendaId, b.nome)))
     } },
     { label: 'Pendências de rodeio', fn: async () => {
-      const lotes = (await supabaseService.getLotes(fazendaId)) || []
-      await Promise.allSettled(lotes.map((l: any) => getPendenciasRodeioCached(fazendaId, l.id)))
+      // Reaproveita a lista já baixada; só refaz a consulta se ela veio vazia
+      const lotesRodeio = lotes.length > 0 ? lotes : ((await supabaseService.getLotes(fazendaId)) || [])
+      await Promise.allSettled(lotesRodeio.map((l: any) => getPendenciasRodeioCached(fazendaId, l.id)))
     } },
     { label: 'Pendências de auditoria 5S', fn: async () => {
       const setores = (await getSetoresCached(fazendaId)) || []
@@ -3673,7 +3694,7 @@ export const PENDING_SYNC_ERROR_MSG = 'Há registros pendentes de sincronizaçã
  */
 export async function syncAllCadastroData(
   fazendaId: string,
-  onProgress?: (current: number, total: number, item: string) => void
+  onProgress?: (current: number, total: number, item: string, fase: FaseSync) => void
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = []
 
@@ -3711,9 +3732,11 @@ export async function syncAllCadastroData(
 
   // Verificar checkpoint para retomar de onde parou
   const checkpoint = await loadSyncCheckpoint(fazendaId)
-  const resumeFromStep = checkpoint?.syncStepsCompleted ?? -1
+  // As listas base são sempre rebuscadas inteiras: retomar pulando etapas gravava cache incompleto.
+  // O checkpoint só retoma o aquecimento (warmPhase), via warmCheckpoint abaixo.
+  const resumeFromStep = -1
   if (checkpoint) {
-    console.log(`[CadastroCache] Checkpoint encontrado: retomando sync do step ${resumeFromStep + 1}, warm phase=${checkpoint.warmPhase}`)
+    console.log(`[CadastroCache] Checkpoint encontrado: retomando aquecimento na fase ${checkpoint.warmPhase}`)
   }
 
   // Ordem de dependência
@@ -3759,6 +3782,18 @@ export async function syncAllCadastroData(
   let rawPastos: any[] = []
   let rawLotes: any[] = []
 
+  // As consultas são independentes: dispara todas de uma vez e consome em ordem abaixo,
+  // preservando checkpoint/resume (que dependem do índice) sem esperar uma consulta por vez.
+  const tInicioSync = performance.now()
+  type ResultadoStep = { ok: true; data: any } | { ok: false; error: unknown }
+  const stepPromises: (Promise<ResultadoStep> | null)[] = syncSteps.map((step, i) =>
+    i <= resumeFromStep
+      ? null
+      : Promise.resolve()
+          .then(() => step.fn())
+          .then((data): ResultadoStep => ({ ok: true, data }), (error): ResultadoStep => ({ ok: false, error }))
+  )
+
   for (let i = 0; i < syncSteps.length; i++) {
     const step = syncSteps[i]
 
@@ -3776,10 +3811,12 @@ export async function syncAllCadastroData(
       continue
     }
 
-    onProgress?.(i + 1, syncSteps.length, step.name)
+    onProgress?.(i + 1, syncSteps.length, step.name, 'listas')
 
     try {
-      const data = await step.fn()
+      const resultadoStep = await stepPromises[i]!
+      if (!resultadoStep.ok) throw resultadoStep.error
+      const data = resultadoStep.data
 
       // Mapear dados para o cache
       switch (step.name) {
@@ -3866,6 +3903,17 @@ export async function syncAllCadastroData(
     console.warn('[CadastroCache] Falha ao buscar ocupações de curral para lotesPastoMap:', e)
   }
   result.lotesPastoMap = buildLotesLocalMap(rawLotes, rawPastos, ocupacoesCurralData)
+  console.log(`[CadastroCache] Tempo das listas base: ${Math.round(performance.now() - tInicioSync)}ms`)
+
+  // Guarda: listas que sumiram (ex.: falha silenciosa de sessão) não sobrescrevem o cache bom
+  const anterior = await getCachedCadastroData().catch(() => null)
+  if (deveBloquearCadastroVazio(anterior, { pastos: result.pastos, lotes: result.lotes })) {
+    console.warn('[CadastroCache] Pastos/lotes vieram vazios onde já havia dados. Cache mantido e atualização não marcada.')
+    errors.push('Cadastros vazios (cache mantido)')
+    // Sem limpar o checkpoint, a próxima tentativa retomaria no meio e gravaria cache incompleto
+    await clearSyncCheckpoint()
+    return { success: false, errors }
+  }
 
   // Salvar no cache
   await saveToCache(result)
@@ -3889,7 +3937,15 @@ export async function syncAllCadastroData(
       const warmCheckpoint = checkpoint && checkpoint.warmPhase !== 'none' && checkpoint.warmPhase !== 'done'
         ? { phase: checkpoint.warmPhase, index: checkpoint.warmPhaseIndex }
         : null
-      const warmResult = await warmAllCadastroCache(fazendaId, onProgress, rawPastos, rawLotes, warmCheckpoint)
+      const tInicioWarm = performance.now()
+      const warmResult = await warmAllCadastroCache(
+        fazendaId,
+        (current, total, item) => onProgress?.(current, total, item, 'aquecimento'),
+        rawPastos,
+        rawLotes,
+        warmCheckpoint
+      )
+      console.log(`[CadastroCache] Tempo do warm cache: ${Math.round(performance.now() - tInicioWarm)}ms`)
       if (!warmResult.success) {
         errors.push(...warmResult.errors)
       }
