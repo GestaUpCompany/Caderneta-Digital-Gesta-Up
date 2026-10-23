@@ -1756,3 +1756,7 @@ Pendências conhecidas: o botão manual não recebe o progresso da atualização
 
 - **Botão manual durante a atualização automática:** antes, o botão reaproveitava a execução em andamento mas perdia o callback de progresso, e o overlay ficava em 0/0. Agora `executarAtualizacaoCompleta` mantém um conjunto de ouvintes: quem chega durante a execução passa a receber o progresso. Testado: clique no meio do aquecimento mostra 67% → 100% e termina com "atualizado".
 - **Fases:** o progresso informa a fase (`listas` ou `aquecimento`, tipo `FaseSync`). O card azul mostra "Cadastros 11/11 · Fornecedores" e depois "Aquecimento 8/79 · Pasto 3". A barra recomeça em cada fase, mas o rótulo deixa claro qual é. O overlay do botão manual ainda não mostra o rótulo; mostra o item em andamento.
+
+## Planos nutricionais em lote no aquecimento (23/10/2026)
+
+A consulta completa dos planos deixou de ser feita lote a lote. `getPlanosNutricionaisCompletosBatch` busca a fazenda inteira em 4 consultas (formulações, categorias dos lotes, personalização e GMDs), e o cálculo foi extraído para `utils/planoNutricionalCalculo.ts`, usado pelos dois caminhos. Se o lote falhar, volta para a consulta individual. Fase batch do aquecimento: ~5 s → ~2,5 s (fazenda de testes). Testes do cálculo em `planoNutricionalCalculo.test.ts`. Conferido ao vivo na fazenda de testes: os 8 lotes com plano dão o mesmo resultado nos dois caminhos (5 com GMD, 3 no ramo de peso de início, 2 no ramo de ajuste).

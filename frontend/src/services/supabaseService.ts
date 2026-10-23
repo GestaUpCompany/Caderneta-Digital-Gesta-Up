@@ -1,4 +1,5 @@
 import { supabase, getSupabaseClientWithRefresh } from './supabaseClient'
+import { calcularPlanoNutricional } from '../utils/planoNutricionalCalculo'
 import type { TablesInsert, TablesUpdate } from '../types/supabase'
 import type { RelatorioLotePayload, LoteRelatorioSimplificado } from '../types/relatorioLote'
 import { getCurrentDateTimeInTimezone, getDayRangeIso, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
@@ -881,87 +882,80 @@ export async function getPlanoNutricionalAtivoByLoteId(loteId: string) {
     }
   }
 
-  // 4. Buscar peso_inicio_kg_cab por categoria na personalização deste plano
+  // 4-6. Personalização, GMDs e médias ponderadas (cálculo compartilhado com a versão em lote)
   const { data: personalizacao } = await (client as any)
     .from('plano_categoria_personalizacao')
     .select('lote_categoria_id, peso_inicio_kg_cab')
     .eq('plano_id', plano.id)
     .eq('ativo', true)
 
-  const pcpMap: Record<string, number> = {}
-  ;(personalizacao || []).forEach((p: any) => {
-    if (p.peso_inicio_kg_cab != null) {
-      pcpMap[p.lote_categoria_id] = Number(p.peso_inicio_kg_cab)
-    }
-  })
-
-  // 5. Buscar GMDs por categoria da formulação (fonte de verdade pós-refactor)
   const { data: gmds } = await (client as any)
     .from('formulacao_categorias_gmd')
     .select('categoria, gmd')
     .eq('formulacao_id', plano.formulacao_id)
 
-  const gmdMap: Record<string, number> = {}
-  ;(gmds || []).forEach((g: any) => {
-    gmdMap[(g.categoria || '').toLowerCase().trim()] = Number(g.gmd)
-  })
+  return calcularPlanoNutricional(plano, formulacaoNome, categorias, personalizacao || [], gmds || [])
+}
 
-  // 6. Calcular médias ponderadas por quant_atual para o lote
-  let totalPesoInicio = 0
-  let totalPesoAtual = 0
-  let totalGmd = 0
-  let totalCabecas = 0
-  let catsComAjuste = 0
-  let catsSemAjuste = 0
+/**
+ * Planos completos de todos os lotes com plano ativo da fazenda, em 4 consultas (em vez de ~4 por lote).
+ * Recebe o mapa de planos básicos do batch (getPlanosNutricionaisAtivosBatch) e devolve lote_id -> plano.
+ * Qualquer erro propaga: quem chama cai no caminho individual, que já trata falhas por lote.
+ */
+export async function getPlanosNutricionaisCompletosBatch(
+  planosBase: Record<string, { lote_id: string; plano_id: string; data_inicio: string | null; formulacao_id: string | null }>
+): Promise<Record<string, any>> {
+  const planos = Object.values(planosBase)
+  if (planos.length === 0) return {}
 
-  for (const cat of categorias) {
-    const quant = cat.quant_atual || 0
-    if (quant <= 0) continue
+  const client = await getSupabaseClientWithRefresh() as any
+  const loteIds = planos.map((p) => p.lote_id)
+  const planoIds = planos.map((p) => p.plano_id)
+  const formulacaoIds = [...new Set(planos.map((p) => p.formulacao_id).filter((id): id is string => !!id))]
 
-    const gmd = gmdMap[(cat.categoria || '').toLowerCase().trim()]
-    if (gmd == null) continue // categoria não coberta pela formulação, GMD NULL
+  const vazio = { data: [], error: null }
+  const [formulacoes, categorias, personalizacoes, gmds] = await Promise.all([
+    formulacaoIds.length ? client.from('formulacoes').select('id, nome').in('id', formulacaoIds) : vazio,
+    client
+      .from('lote_categorias')
+      .select('id, lote_id, categoria, quant_atual, data_ajuste_peso, peso_vivo_atual_kg_cab')
+      .in('lote_id', loteIds)
+      .eq('ativo', true)
+      .is('data_fim', null),
+    client
+      .from('plano_categoria_personalizacao')
+      .select('plano_id, lote_categoria_id, peso_inicio_kg_cab')
+      .in('plano_id', planoIds)
+      .eq('ativo', true),
+    formulacaoIds.length ? client.from('formulacao_categorias_gmd').select('formulacao_id, categoria, gmd').in('formulacao_id', formulacaoIds) : vazio,
+  ])
+  const erro = formulacoes.error || categorias.error || personalizacoes.error || gmds.error
+  if (erro) throw erro
 
-    if (cat.data_ajuste_peso) {
-      catsComAjuste++
-      if (cat.peso_vivo_atual_kg_cab != null) {
-        totalPesoAtual += Number(cat.peso_vivo_atual_kg_cab) * quant
-      }
-    } else {
-      const pesoInicio = pcpMap[cat.id]
-      if (pesoInicio == null) continue // sem peso_inicio na personalizacao, nao pode projetar esta categoria
-      catsSemAjuste++
-      totalPesoInicio += pesoInicio * quant
-    }
+  const nomePorFormulacao: Record<string, string> = {}
+  ;(formulacoes.data || []).forEach((f: any) => { nomePorFormulacao[f.id] = f.nome })
 
-    totalGmd += gmd * quant
-    totalCabecas += quant
-  }
+  const categoriasPorLote: Record<string, any[]> = {}
+  ;(categorias.data || []).forEach((c: any) => { (categoriasPorLote[c.lote_id] ??= []).push(c) })
 
-  if (totalCabecas === 0) {
-    return {
-      pesoInicioKgCab: null,
-      dataInicio: plano.data_inicio ?? null,
-      gmdEfetivo: null,
-      dataAjustePeso: null,
-      pesoVivoAtualKgCab: null,
-      formulacaoId: plano.formulacao_id ?? null,
+  const personalizacoesPorPlano: Record<string, any[]> = {}
+  ;(personalizacoes.data || []).forEach((p: any) => { (personalizacoesPorPlano[p.plano_id] ??= []).push(p) })
+
+  const gmdsPorFormulacao: Record<string, any[]> = {}
+  ;(gmds.data || []).forEach((g: any) => { (gmdsPorFormulacao[g.formulacao_id] ??= []).push(g) })
+
+  const resultado: Record<string, any> = {}
+  for (const plano of planos) {
+    const formulacaoNome = plano.formulacao_id ? nomePorFormulacao[plano.formulacao_id] ?? null : null
+    resultado[plano.lote_id] = calcularPlanoNutricional(
+      plano,
       formulacaoNome,
-    }
+      categoriasPorLote[plano.lote_id] || [],
+      personalizacoesPorPlano[plano.plano_id] || [],
+      gmdsPorFormulacao[plano.formulacao_id ?? ''] || []
+    )
   }
-
-  // Se todas as categorias com GMD têm ajuste manual, usar projeção por ajuste.
-  // Senão, usar projeção por peso_inicio (mais comum e mais estável).
-  const usarAjuste = catsComAjuste > 0 && catsSemAjuste === 0
-
-  return {
-    pesoInicioKgCab: usarAjuste ? null : totalPesoInicio / totalCabecas,
-    dataInicio: plano.data_inicio ?? null,
-    gmdEfetivo: totalGmd / totalCabecas,
-    dataAjustePeso: usarAjuste ? categorias.find((c: any) => c.data_ajuste_peso)?.data_ajuste_peso ?? null : null,
-    pesoVivoAtualKgCab: usarAjuste ? totalPesoAtual / totalCabecas : null,
-    formulacaoId: plano.formulacao_id ?? null,
-    formulacaoNome,
-  }
+  return resultado
 }
 
 export async function updateLote(id: string, lote: TablesUpdate<'lotes'>) {

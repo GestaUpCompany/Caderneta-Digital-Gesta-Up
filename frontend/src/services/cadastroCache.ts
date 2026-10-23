@@ -3261,10 +3261,20 @@ export async function warmAllCadastroCache(
   // Chamamos getPlanoNutricionalAtivoByLoteIdCached em paralelo para cada lote com plano.
   const lotesComPlano = Object.keys(batchPlanosNutricionais)
   if (lotesComPlano.length > 0) {
-    console.log(`[CadastroCache] Buscando planos nutricionais completos para ${lotesComPlano.length} lotes em paralelo...`)
-    await Promise.all(
-      lotesComPlano.map(loteId => getPlanoNutricionalAtivoByLoteIdCached(loteId))
-    )
+    console.log(`[CadastroCache] Buscando planos nutricionais completos para ${lotesComPlano.length} lotes em lote...`)
+    try {
+      // Um conjunto de consultas para a fazenda inteira; o resultado é o mesmo do caminho individual
+      const completos = await supabaseService.getPlanosNutricionaisCompletosBatch(batchPlanosNutricionais)
+      for (const loteId of lotesComPlano) {
+        if (completos[loteId]) setCachedQuery(buildKey('plano-nutricional-ativo', loteId), completos[loteId])
+      }
+    } catch (error) {
+      // Falha no lote não pode deixar planos sem dado: volta para a consulta individual por lote
+      console.warn('[CadastroCache] Consulta de planos em lote falhou, buscando um a um:', error)
+      await Promise.all(
+        lotesComPlano.map(loteId => getPlanoNutricionalAtivoByLoteIdCached(loteId))
+      )
+    }
   }
 
   // pastos -> ultima-entrada, ultima-saida, ultimo-status por nome do pasto
