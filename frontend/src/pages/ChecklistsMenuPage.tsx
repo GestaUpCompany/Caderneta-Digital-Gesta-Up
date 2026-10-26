@@ -18,6 +18,9 @@ const addRecentChecklist = (checklistId: string) => {
   localStorage.setItem('recentChecklists', JSON.stringify(updated))
 }
 
+// Seções do menu, na ordem de exibição (mesmo molde do menu de cadernetas: barra colorida + título + linha)
+const GRUPOS_CHECKLIST = [{ nome: 'Auditorias', cor: '#10B981' }]
+
 export default function ChecklistsMenuPage() {
   const navigate = useNavigate()
   const { fazenda } = useSelector((state: RootState) => state.config)
@@ -30,7 +33,7 @@ export default function ChecklistsMenuPage() {
   }, [])
 
   const menuItems = [
-    { id: 'auditoria-5s', label: 'AUDITORIA 5S', path: '/caderneta/auditoria-5s', color: '#10B981', icon: `${import.meta.env.BASE_URL}cadernetas/auditoria-5s.jpg`, emoji: '📋' },
+    { id: 'auditoria-5s', label: 'AUDITORIA 5S', grupo: 'Auditorias', path: '/caderneta/auditoria-5s', color: '#10B981', icon: `${import.meta.env.BASE_URL}cadernetas/auditoria-5s.jpg`, emoji: '📋' },
   ]
 
   const filteredItems = menuItems.filter(item =>
@@ -78,18 +81,18 @@ export default function ChecklistsMenuPage() {
         {recentChecklistsData.length > 0 && (
           <div className="app-card p-4">
             <h2 className="text-xs font-extrabold uppercase tracking-wider text-gray-400 mb-3">Últimos acessados</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
               {recentChecklistsData.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleChecklistClick(item.id, item.path)}
-                  style={{ backgroundColor: hexToRgba(item.color) }}
-                  className="relative flex flex-col items-center justify-center gap-1 p-3 transition-all rounded-xl hover:scale-105 hover:shadow-md"
+                  style={{ backgroundColor: hexToRgba(item.color, 0.07), borderColor: hexToRgba(item.color, 0.18) }}
+                  className="relative flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-transform active:scale-95"
                 >
                   <img
                     src={item.icon}
-                    alt={item.label}
-                    className="w-12 h-auto object-contain rounded-[16px]"
+                    alt=""
+                    className="w-12 h-12 object-contain rounded-xl"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
                       target.style.display = 'none'
@@ -97,8 +100,8 @@ export default function ChecklistsMenuPage() {
                       if (emoji) emoji.style.display = 'block'
                     }}
                   />
-                  <span className="text-2xl fallback-emoji hidden">{item.emoji}</span>
-                  <span className="text-xs font-bold text-center leading-tight text-gray-900">
+                  <span aria-hidden="true" className="text-2xl fallback-emoji hidden">{item.emoji}</span>
+                  <span className="text-[11px] font-bold text-center leading-tight text-gray-800">
                     {item.label}
                   </span>
                 </button>
@@ -135,38 +138,45 @@ export default function ChecklistsMenuPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-6">
-            {filteredItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleChecklistClick(item.id, item.path)}
-                style={{ backgroundColor: hexToRgba(item.color) }}
-                className="relative flex flex-col items-center justify-center gap-2 p-4 transition-all rounded-2xl hover:scale-105"
-              >
-                {item.icon ? (
-                  <>
-                    <img
-                      src={item.icon}
-                      alt={item.label}
-                      className="w-40 h-auto object-contain rounded-[32px]"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                        const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
-                        if (emoji) emoji.style.display = 'block'
-                      }}
-                    />
-                    <span className="text-5xl fallback-emoji hidden">{item.emoji}</span>
-                  </>
-                ) : (
-                  <span className="text-5xl">{item.emoji}</span>
-                )}
-                <span className="text-base font-bold text-center leading-tight text-gray-900">
-                  {item.label}
-                </span>
-              </button>
-            ))}
-          </div>
+          GRUPOS_CHECKLIST.map((grupo) => {
+            const itensDoGrupo = filteredItems.filter((item) => item.grupo === grupo.nome)
+            if (itensDoGrupo.length === 0) return null
+            return (
+              <div key={grupo.nome}>
+                <h2 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider mb-3 px-0.5" style={{ color: grupo.cor }}>
+                  <span className="w-1 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: grupo.cor }} />
+                  {grupo.nome}
+                  <span className="flex-1 h-px bg-gray-200" />
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {itensDoGrupo.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleChecklistClick(item.id, item.path)}
+                      className="app-card relative flex flex-col items-center justify-center gap-2 p-4 min-h-[124px] transition-transform active:scale-[0.97]"
+                    >
+                      {/* Ícone decorativo: o nome do checklist já está no texto abaixo (evita leitura dupla) */}
+                      <img
+                        src={item.icon}
+                        alt=""
+                        className="w-16 h-16 object-contain rounded-2xl"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          const emoji = target.parentElement?.querySelector('.fallback-emoji') as HTMLElement
+                          if (emoji) emoji.style.display = 'block'
+                        }}
+                      />
+                      <span aria-hidden="true" className="text-3xl fallback-emoji hidden">{item.emoji}</span>
+                      <span className="text-xs font-bold text-center leading-tight text-gray-800">
+                        {item.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })
         )}
       </main>
     </div>

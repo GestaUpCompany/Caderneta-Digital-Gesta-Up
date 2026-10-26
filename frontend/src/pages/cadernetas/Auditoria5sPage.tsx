@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import { Brush, Check, ClipboardList, User, X } from 'lucide-react'
 import { Input, DatePicker, ValidationMessage } from '../../components/ui'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import CadernetaSection from '../../components/cadernetas/CadernetaSection'
-import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import InfoStrip from '../../components/cadernetas/InfoStrip'
-import FormFooter from '../../components/cadernetas/FormFooter'
 import EvidenciaProblema from '../../components/cadernetas/EvidenciaProblema'
+import PlanoAcaoEditor, { novaMedida } from '../../components/cadernetas/PlanoAcaoEditor'
+import BarraAcao5S from '../../components/cadernetas/auditoria5s/BarraAcao5S'
+import ItemAuditoria5S from '../../components/cadernetas/auditoria5s/ItemAuditoria5S'
+import SegmentoResposta5S, { type OpcaoSegmento } from '../../components/cadernetas/auditoria5s/SegmentoResposta5S'
+import TrilhaPilares5S from '../../components/cadernetas/auditoria5s/TrilhaPilares5S'
 import BannerRascunho from '../../components/BannerRascunho'
 import ObservacaoAtrasoModal from '../../components/ObservacaoAtrasoModal'
 import { salvarRegistro } from '../../services/api'
@@ -18,21 +22,27 @@ import { todayBR } from '../../utils/formatDate'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { SECOES_5S, TOTAL_ITENS_5S, CHAVES_ITENS_5S, calcularResultado5S } from '../../utils/auditoria5sItens'
+import { chavesSemResposta5S, marcarRestantesConformes5S } from '../../utils/auditoria5sForm'
 import { validateAuditoria5s } from '../../utils/validation'
-import { Pendencia5S, SituacaoPendencia5S, diasEntre } from '../../utils/pendencias5s'
+import { MedidaPlano5S, Pendencia5S, SituacaoPendencia5S, diasEntre, situacaoPlano5S } from '../../utils/pendencias5s'
 import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
 import { useVoiceInput } from '../../hooks/useVoiceInput'
 import { useSalvarRegistro } from '../../hooks/useSalvarRegistro'
 import { RootState } from '../../store/store'
 
-// NA (não se aplica) é gravado como 'NA' e aparece como hífen; fica fora do percentual de conformidade.
-const NOTA_OPTIONS = [0, 1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))
+// A nota usa as cores como o resto da tela: vermelho (0-1), âmbar (2-3), verde (4-5). O número e o texto abaixo dizem o mesmo.
+const NOTAS_TEXTO = ['Muito ruim', 'Ruim', 'Regular', 'Bom', 'Muito bom', 'Excelente']
+const OPCOES_NOTA: OpcaoSegmento[] = [0, 1, 2, 3, 4, 5].map((n) => ({
+  value: String(n),
+  label: String(n),
+  descricao: `${n}, ${NOTAS_TEXTO[n]}`,
+  tom: n <= 1 ? 'ruim' : n <= 3 ? 'alerta' : 'ok',
+}))
 
-const RESPOSTA_OPTIONS = [
-  { value: 'C', label: 'C', tone: 'success' as const },
-  { value: 'N', label: 'N', tone: 'danger' as const },
-  { value: 'NA', label: '–' },
+const OPCOES_PENDENCIA: OpcaoSegmento[] = [
+  { value: 'resolvida', label: 'Resolvido', tom: 'ok', icone: <Check className="h-5 w-5" strokeWidth={3} /> },
+  { value: 'mantida', label: 'Ainda pendente', tom: 'ruim', icone: <X className="h-5 w-5" strokeWidth={3} /> },
 ]
 
 interface FormState {
@@ -42,8 +52,8 @@ interface FormState {
   responsavel: string
   itens: Record<string, string>
   observacoes: Record<string, string>
-  // Evidência de cada item N: observação (obrigatória) e foto (opcional)
-  naoConformidades: Record<string, { observacao: string; fotoBase64: string }>
+  // Evidência de cada item N: observação (obrigatória), foto (opcional) e plano de ação (opcional)
+  naoConformidades: Record<string, { observacao: string; fotoBase64: string; planoAcao?: MedidaPlano5S[] }>
   // Resposta a cada pendência anterior do setor (chave do item -> resolvida | mantida)
   pendencias: Record<string, SituacaoPendencia5S | ''>
   notaGeral: number | null
@@ -87,6 +97,7 @@ export default function Auditoria5sPage() {
   // null = ainda não consultado; false = histórico do servidor não lido (offline sem cache)
   const [pendenciasVerificadas, setPendenciasVerificadas] = useState<boolean | null>(null)
   const [carregandoPendencias, setCarregandoPendencias] = useState(false)
+  const [confirmandoLimpar, setConfirmandoLimpar] = useState(false)
   const [campoFotoAtual, setCampoFotoAtual] = useState<string | null>(null)
   const [campoVozAtual, setCampoVozAtual] = useState<string | null>(null)
   const baseVozRef = useRef('')
@@ -172,7 +183,7 @@ export default function Auditoria5sPage() {
 
   const resultado = useMemo(() => calcularResultado5S(form.itens), [form.itens])
   // Itens decididos pela pergunta de pendência não contam como "para responder"
-  const faltam = CHAVES_ITENS_5S.filter((c) => !form.itens[c] && !pendenciasPorChave[c]).length
+  const faltam = chavesSemResposta5S(form.itens, chavesPendentes).length
 
   const validacao = validateAuditoria5s({ ...form, responsavel, pendenciasAbertas: chavesPendentes })
   const isValid = validacao.isValid && !carregandoPendencias
@@ -203,12 +214,16 @@ export default function Auditoria5sPage() {
       return { ...prev, itens: { ...prev.itens, [chave]: valor }, naoConformidades: evidencias }
     })
 
-  // Responder uma pendência define o item: ainda pendente = N (herda a evidência anterior); resolvida = C.
+  // Responder uma pendência define o item: ainda pendente = N (herda a evidência e o plano anteriores); resolvida = C.
   const responderPendencia = (chave: string, situacao: SituacaoPendencia5S) =>
     setForm((prev) => {
       const evidencias = { ...(prev.naoConformidades ?? {}) }
-      if (situacao === 'mantida') evidencias[chave] = evidencias[chave] ?? { observacao: '', fotoBase64: '' }
-      else delete evidencias[chave]
+      if (situacao === 'mantida') {
+        const planoAnterior = pendenciasPorChave[chave]?.planoAcao?.medidas.map((m) => ({ ...m }))
+        evidencias[chave] = evidencias[chave] ?? { observacao: '', fotoBase64: '', planoAcao: planoAnterior }
+      } else {
+        delete evidencias[chave]
+      }
       return {
         ...prev,
         pendencias: { ...(prev.pendencias ?? {}), [chave]: situacao },
@@ -217,7 +232,7 @@ export default function Auditoria5sPage() {
       }
     })
 
-  const setEvidencia = (chave: string, parcial: Partial<{ observacao: string; fotoBase64: string }>) =>
+  const setEvidencia = (chave: string, parcial: Partial<{ observacao: string; fotoBase64: string; planoAcao: MedidaPlano5S[] }>) =>
     setForm((prev) => {
       const atual = (prev.naoConformidades ?? {})[chave] ?? { observacao: '', fotoBase64: '' }
       return { ...prev, naoConformidades: { ...(prev.naoConformidades ?? {}), [chave]: { ...atual, ...parcial } } }
@@ -251,6 +266,67 @@ export default function Auditoria5sPage() {
   const setObservacao = (secaoId: string, texto: string) =>
     setForm((prev) => ({ ...prev, observacoes: { ...prev.observacoes, [secaoId]: texto } }))
 
+  // Atalho de praticidade: itens do pilar ainda sem resposta viram Conforme; respostas existentes e pendências não mudam
+  const marcarRestantesConformes = (secaoId: string) =>
+    setForm((prev) => {
+      const secao = SECOES_5S.find((s) => s.id === secaoId)
+      if (!secao) return prev
+      const itens = marcarRestantesConformes5S(prev.itens, secao, chavesPendentes)
+      return itens === prev.itens ? prev : { ...prev, itens }
+    })
+
+  const rolarAte = (el: Element | null, focar = true) => {
+    if (!el) return
+    const reduzido = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduzido ? 'auto' : 'smooth', block: 'center' })
+    if (focar) (el.querySelector('button, input, textarea') as HTMLElement | null)?.focus({ preventScroll: true })
+  }
+
+  const irParaPilar = (secaoId: string) => {
+    const el = document.getElementById(`pilar-${secaoId}`)
+    if (!el) return
+    const reduzido = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduzido ? 'auto' : 'smooth', block: 'start' })
+  }
+
+  // Leva ao próximo ponto que impede salvar, na mesma ordem em que a tela pede as informações
+  const irParaPendente = () => {
+    const campo = (seletor: string) => document.querySelector(seletor)
+    if (!form.setor) return rolarAte(document.getElementById('setor'))
+    if (!responsavel) return rolarAte(document.getElementById('responsavel'))
+    if (pendenciasSemResposta.length > 0) return rolarAte(campo(`[data-field="pendencia_${pendenciasSemResposta[0].chave}"]`))
+    const semObservacao = validacao.errors.find((e) => e.field.startsWith('obs_'))
+    if (semObservacao) return rolarAte(campo(`[data-field="${semObservacao.field}"]`))
+    const semResposta = chavesSemResposta5S(form.itens, chavesPendentes)[0]
+    if (semResposta) return rolarAte(campo(`[data-field="${semResposta}"]`))
+    return rolarAte(campo('[data-field="notaGeral"]'))
+  }
+
+  // Plano de ação do item N: criado vazio por botão; a edição e a remoção ficam no PlanoAcaoEditor
+  const renderPlano = (chave: string) => {
+    const medidas = naoConformidades[chave]?.planoAcao
+    if (!medidas) {
+      return (
+        <button
+          type="button"
+          onClick={() => setEvidencia(chave, { planoAcao: [novaMedida()] })}
+          className="flex !min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 border-blue-400 bg-white px-4 text-sm font-extrabold text-blue-900 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-300/70"
+        >
+          <ClipboardList className="h-5 w-5" aria-hidden="true" />
+          Criar plano de ação
+        </button>
+      )
+    }
+    return (
+      <PlanoAcaoEditor
+        medidas={medidas}
+        onChange={(novas) => setEvidencia(chave, { planoAcao: novas })}
+        onRemover={() => setEvidencia(chave, { planoAcao: undefined })}
+        dataField={`plano_${chave}`}
+      />
+    )
+  }
+
   const pendenciaTexto = (() => {
     if (!form.setor) return 'Falta escolher o setor'
     if (!responsavel) return 'Falta escolher o responsável'
@@ -275,16 +351,24 @@ export default function Auditoria5sPage() {
         .filter(([, texto]) => texto)
     )
 
-    // Evidência só dos itens N; o item que veio de pendência "ainda pendente" leva o marcador com a data de origem
+    // Evidência só dos itens N; o item que veio de pendência "ainda pendente" leva o marcador com a data de origem.
+    // Plano de ação: só medidas com descrição; sem medidas não grava plano. criado_em herda o da pendência anterior.
+    const agora = new Date().toISOString()
     const evidencias = Object.fromEntries(
       CHAVES_ITENS_5S.filter((chave) => form.itens[chave] === 'N').map((chave) => {
         const ev = naoConformidades[chave]
         const pendencia = pendenciasPorChave[chave]
+        const medidas = (ev?.planoAcao ?? [])
+          .filter((m) => m.descricao.trim())
+          .map((m) => ({ ...m, descricao: m.descricao.trim(), responsavel: m.responsavel?.trim() || null }))
         return [
           chave,
           {
             observacao: (ev?.observacao || '').trim(),
             fotoBase64: ev?.fotoBase64 || undefined,
+            ...(medidas.length > 0
+              ? { plano_acao: { medidas, criado_em: pendencia?.planoAcao?.criado_em ?? agora, atualizado_em: agora } }
+              : {}),
             ...(pendencia && respostasPendencia[chave] ? { pendencia: { situacao: respostasPendencia[chave], desde: pendencia.desde } } : {}),
           },
         ]
@@ -319,10 +403,22 @@ export default function Auditoria5sPage() {
     }
   }
 
+  // Limpar apaga tudo o que foi preenchido: o primeiro toque só pede confirmação (volta ao normal em 4 s)
   const handleLimpar = () => {
+    if (!confirmandoLimpar) {
+      setConfirmandoLimpar(true)
+      return
+    }
+    setConfirmandoLimpar(false)
     limparRascunho()
     setErrors([])
   }
+
+  useEffect(() => {
+    if (!confirmandoLimpar) return
+    const t = setTimeout(() => setConfirmandoLimpar(false), 4000)
+    return () => clearTimeout(t)
+  }, [confirmandoLimpar])
 
   const handleNewRecord = () => {
     setShowSuccessModal(false)
@@ -340,6 +436,19 @@ export default function Auditoria5sPage() {
         title="AUDITORIA 5S"
         cadernetaId="auditoria-5s"
         dateContent={<DatePicker value={form.data} onChange={(v) => setForm((prev) => ({ ...prev, data: v }))} variant="header" compact inline maxDate={todayBR()} />}
+        bottomPaddingClass="pb-56"
+        bottomContent={
+          <BarraAcao5S
+            respondidos={resultado.respondidos}
+            total={TOTAL_ITENS_5S}
+            naoConformes={resultado.naoConformes}
+            valido={isValid}
+            salvando={salvando}
+            pendenciaTexto={pendenciaTexto}
+            onSalvar={() => salvar(executarSalvamento)}
+            onIrParaPendente={irParaPendente}
+          />
+        }
       >
         <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors.filter((e) => !e.field.includes('_'))} />}
@@ -368,7 +477,12 @@ export default function Auditoria5sPage() {
           )}
 
           {responsavelLogado ? (
-            <InfoStrip tone="neutral" icon="👤">Responsável: {responsavelLogado}</InfoStrip>
+            <p className="flex items-center gap-2 rounded-xl bg-gray-100 px-3.5 py-2.5 text-sm font-semibold text-gray-700">
+              <User className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span>
+                Responsável: <strong className="text-gray-900">{responsavelLogado}</strong>
+              </span>
+            </p>
           ) : funcionarios.length > 0 ? (
             <SearchableModal
               label={<span>Responsável <span className="text-red-500">*</span></span>}
@@ -391,27 +505,27 @@ export default function Auditoria5sPage() {
             />
           )}
 
-          <InfoStrip tone="neutral" icon="ℹ️">
-            C = Conforme · N = Não conforme · – = Não se aplica (não entra no percentual)
-          </InfoStrip>
-
-          <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-            <span className="text-sm font-bold text-gray-600">RESPONDIDOS</span>
-            <span className="text-lg font-extrabold text-gray-900">
-              {resultado.respondidos}/{TOTAL_ITENS_5S}
-              {resultado.percentual !== null && <span className="ml-2 text-sm font-bold text-gray-500">{resultado.percentual}% conforme</span>}
-            </span>
-          </div>
+          <TrilhaPilares5S itens={form.itens} respondidos={resultado.respondidos} total={TOTAL_ITENS_5S} percentual={resultado.percentual} onIrPara={irParaPilar} />
         </CadernetaSection>
 
         {form.setor && (carregandoPendencias || pendenciasAbertas.length > 0 || pendenciasVerificadas === false) && (
-          <CadernetaSection titulo="Pendências anteriores" required={pendenciasAbertas.length > 0}>
+          <CadernetaSection
+            titulo="Pendências anteriores"
+            required={pendenciasAbertas.length > 0}
+            right={
+              pendenciasAbertas.length > 0 ? (
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-extrabold tabular-nums text-amber-900">
+                  {pendenciasAbertas.length - pendenciasSemResposta.length}/{pendenciasAbertas.length} respondidas
+                </span>
+              ) : undefined
+            }
+          >
             {carregandoPendencias ? (
-              <p className="py-2 text-center text-sm text-gray-500">Buscando pendências do setor...</p>
+              <p role="status" className="py-2 text-center text-sm text-gray-600">Buscando pendências do setor...</p>
             ) : (
               <>
                 {pendenciasAbertas.length > 0 && (
-                  <p className="-mt-2 text-sm text-gray-500">
+                  <p className="-mt-2 text-sm text-gray-600">
                     Estes itens foram marcados como não conformes em auditorias anteriores deste setor. Informe se já foram resolvidos.
                   </p>
                 )}
@@ -422,39 +536,64 @@ export default function Auditoria5sPage() {
                 )}
                 {pendenciasAbertas.map((p) => {
                   const dias = diasEntre(p.desde, new Date().toISOString())
+                  const idTitulo = `pendencia-titulo-${p.chave}`
                   return (
-                    <div key={p.chave} className="flex flex-col gap-2 rounded-xl border-2 border-amber-300 bg-amber-50/60 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-extrabold leading-tight text-amber-900">
+                    <div key={p.chave} className="flex flex-col gap-3 rounded-xl border border-amber-300 border-l-4 border-l-amber-500 bg-amber-50/60 p-3.5">
+                      <div className="flex flex-col gap-2">
+                        <p id={idTitulo} className="text-[17px] font-extrabold leading-snug text-amber-950">
                           {p.secao}: {p.label}
-                        </span>
-                        <span className="shrink-0 text-xs font-bold text-amber-800">
-                          desde {new Date(p.desde).toLocaleDateString('pt-BR')} · {dias === 0 ? 'hoje' : `há ${dias} ${dias === 1 ? 'dia' : 'dias'}`}
-                        </span>
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 text-xs font-bold">
+                          <span className={`rounded-full px-2.5 py-1 ${dias >= 7 ? 'bg-red-100 text-red-800' : 'bg-amber-200 text-amber-900'}`}>
+                            {dias === 0 ? 'Aberta hoje' : `Aberta há ${dias} ${dias === 1 ? 'dia' : 'dias'}`}
+                          </span>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-gray-700">desde {new Date(p.desde).toLocaleDateString('pt-BR')}</span>
+                          {p.ocorrencias > 1 && <span className="rounded-full bg-red-100 px-2.5 py-1 text-red-800">Marcada em {p.ocorrencias} auditorias seguidas</span>}
+                        </div>
                       </div>
-                      {p.ocorrencias > 1 && <p className="text-xs font-semibold text-amber-800">Marcado em {p.ocorrencias} auditorias seguidas</p>}
-                      {p.observacao && <p className="text-sm text-gray-700">“{p.observacao}”</p>}
+                      {p.observacao && <p className="text-sm text-gray-800">“{p.observacao}”</p>}
+                      {p.planoAcao && (
+                        <div className="rounded-lg bg-white/80 p-2.5 text-sm text-gray-800">
+                          <span className="font-bold text-blue-900">
+                            Plano anterior: {p.planoAcao.medidas.filter((m) => m.concluida).length}/{p.planoAcao.medidas.length} medidas concluídas
+                          </span>
+                          {situacaoPlano5S(p.planoAcao, new Date().toISOString()) === 'atrasado' && <span className="ml-2 font-bold text-red-700">· com prazo vencido</span>}
+                          <ul className="mt-1 list-disc pl-5">
+                            {p.planoAcao.medidas
+                              .filter((m) => !m.concluida)
+                              .map((m) => (
+                                <li key={m.id}>
+                                  {m.descricao}
+                                  {m.responsavel ? ` (${m.responsavel})` : ''}
+                                  {m.prazo ? ` · prazo ${new Date(`${m.prazo}T12:00:00`).toLocaleDateString('pt-BR')}` : ''}
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
                       {p.fotoUrl && (
                         <img
                           src={p.fotoUrl}
                           alt={`Foto anterior: ${p.label}`}
-                          className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
+                          className="h-24 w-24 rounded-lg border border-gray-200 object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
                           }}
                         />
                       )}
-                      <ChoiceGrid
-                        options={[
-                          { value: 'resolvida', label: 'RESOLVIDO', icon: '✓', tone: 'success' },
-                          { value: 'mantida', label: 'AINDA PENDENTE', icon: '✗', tone: 'danger' },
-                        ]}
+                      <SegmentoResposta5S
+                        opcoes={OPCOES_PENDENCIA}
                         value={respostasPendencia[p.chave] || ''}
                         onChange={(v) => responderPendencia(p.chave, v as SituacaoPendencia5S)}
-                        cols={2}
+                        ariaLabelledBy={idTitulo}
                         dataField={`pendencia_${p.chave}`}
+                        colunas={2}
                       />
-                      {getError(`pendencia_${p.chave}`) && <p className="text-sm font-semibold text-red-700">{getError(`pendencia_${p.chave}`)}</p>}
+                      {getError(`pendencia_${p.chave}`) && (
+                        <p role="alert" className="text-sm font-semibold text-red-700">
+                          {getError(`pendencia_${p.chave}`)}
+                        </p>
+                      )}
                       {respostasPendencia[p.chave] === 'mantida' && (
                         <EvidenciaProblema
                           observacao={naoConformidades[p.chave]?.observacao || ''}
@@ -471,6 +610,7 @@ export default function Auditoria5sPage() {
                           aviso="Ainda pendente. A observação anterior é mantida; acrescente uma nova se quiser (opcional)."
                         />
                       )}
+                      {respostasPendencia[p.chave] === 'mantida' && renderPlano(p.chave)}
                     </div>
                   )
                 })}
@@ -481,89 +621,120 @@ export default function Auditoria5sPage() {
 
         {SECOES_5S.map((secao, indice) => {
           const res = resultado.secoes.find((s) => s.id === secao.id)
+          const feitos = res ? res.conformes + res.naoConformes + res.naoAplicaveis : 0
+          const restantes = chavesSemResposta5S(form.itens, chavesPendentes, secao).length
           return (
-            <CadernetaSection
-              key={secao.id}
-              numero={indice + 1}
-              titulo={secao.titulo}
-              required
-              right={res && res.conformes + res.naoConformes > 0 ? <span className="text-xs font-extrabold text-gray-500">{res.percentual}%</span> : undefined}
-            >
-              {secao.itens.map((item, i) => {
-                // Item com pendência anterior é decidido pela pergunta acima: resolvido some daqui, pendente aparece como N fixo
-                const pendencia = pendenciasPorChave[item.chave]
-                if (pendencia && respostasPendencia[item.chave] !== 'mantida') return null
-                const resposta = form.itens[item.chave] || ''
-                return (
-                  <div key={item.chave} className="flex flex-col gap-2">
-                    <p className="text-[15px] font-bold leading-snug text-gray-900">
-                      {i + 1}) {item.texto}
-                      {pendencia && <span className="ml-2 text-xs font-semibold text-red-700">(pendência anterior: ainda não conforme)</span>}
-                    </p>
-                    {!pendencia && (
-                      <ChoiceGrid
-                        options={RESPOSTA_OPTIONS}
-                        value={resposta}
-                        onChange={setResposta(item.chave)}
-                        cols={3}
-                        dataField={item.chave}
-                      />
+            <div key={secao.id} id={`pilar-${secao.id}`} className="scroll-mt-32">
+              <CadernetaSection
+                numero={indice + 1}
+                titulo={secao.titulo}
+                required
+                right={
+                  <div className="flex items-center gap-2">
+                    {restantes > 0 && feitos > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => marcarRestantesConformes(secao.id)}
+                        aria-label={`Marcar como conforme os ${restantes} itens ainda sem resposta do pilar ${secao.titulo}`}
+                        className="!min-h-[40px] !min-w-0 rounded-lg border-2 border-green-700 px-2.5 text-xs font-extrabold text-green-800 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-green-400/70"
+                      >
+                        Restantes: Conforme
+                      </button>
                     )}
-                    {getError(item.chave) && <p className="text-sm font-semibold text-red-700">{getError(item.chave)}</p>}
-                    {!pendencia && resposta === 'N' && (
-                      <EvidenciaProblema
-                        obrigatoria
-                        observacao={naoConformidades[item.chave]?.observacao || ''}
-                        onObservacao={(texto) => setEvidencia(item.chave, { observacao: texto })}
-                        erroObservacao={getError(`obs_${item.chave}`)}
-                        dataField={`obs_${item.chave}`}
-                        foto={naoConformidades[item.chave]?.fotoBase64 || ''}
-                        onTirarFoto={() => handleTirarFoto(item.chave)}
-                        onRemoverFoto={() => setEvidencia(item.chave, { fotoBase64: '' })}
-                        capturandoFoto={capturandoFoto && campoFotoAtual === item.chave}
-                        fotoErro={campoFotoAtual === item.chave ? fotoErro : null}
-                        ouvindo={ouvindoVoz && campoVozAtual === item.chave}
-                        onFalar={() => handleFalar(item.chave)}
-                        vozErro={campoVozAtual === item.chave ? vozErro : null}
-                        aviso={item.negativa}
-                      />
-                    )}
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums ${
+                        feitos === secao.itens.length ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {feitos}/{secao.itens.length}
+                    </span>
                   </div>
-                )
-              })}
-              <Input
-                label="OBSERVAÇÕES GERAIS DO PILAR"
-                placeholder="Observações (opcional)"
-                value={form.observacoes[secao.id] || ''}
-                onChange={(e) => setObservacao(secao.id, e.target.value)}
-              />
-            </CadernetaSection>
+                }
+              >
+                {secao.itens.map((item, i) => {
+                  // Item com pendência anterior é decidido pela pergunta acima: resolvido some daqui, pendente aparece como N fixo
+                  const pendencia = pendenciasPorChave[item.chave]
+                  if (pendencia && respostasPendencia[item.chave] !== 'mantida') return null
+                  const resposta = form.itens[item.chave] || ''
+                  return (
+                    <ItemAuditoria5S
+                      key={item.chave}
+                      chave={item.chave}
+                      numero={i + 1}
+                      texto={item.texto}
+                      resposta={resposta}
+                      onResposta={setResposta(item.chave)}
+                      pendenciaAnterior={!!pendencia}
+                      erro={getError(item.chave)}
+                    >
+                      {!pendencia && resposta === 'N' && (
+                        <EvidenciaProblema
+                          obrigatoria
+                          observacao={naoConformidades[item.chave]?.observacao || ''}
+                          onObservacao={(texto) => setEvidencia(item.chave, { observacao: texto })}
+                          erroObservacao={getError(`obs_${item.chave}`)}
+                          dataField={`obs_${item.chave}`}
+                          foto={naoConformidades[item.chave]?.fotoBase64 || ''}
+                          onTirarFoto={() => handleTirarFoto(item.chave)}
+                          onRemoverFoto={() => setEvidencia(item.chave, { fotoBase64: '' })}
+                          capturandoFoto={capturandoFoto && campoFotoAtual === item.chave}
+                          fotoErro={campoFotoAtual === item.chave ? fotoErro : null}
+                          ouvindo={ouvindoVoz && campoVozAtual === item.chave}
+                          onFalar={() => handleFalar(item.chave)}
+                          vozErro={campoVozAtual === item.chave ? vozErro : null}
+                          aviso={item.negativa}
+                        />
+                      )}
+                      {!pendencia && resposta === 'N' && renderPlano(item.chave)}
+                    </ItemAuditoria5S>
+                  )
+                })}
+                <Input
+                  label="OBSERVAÇÕES GERAIS DO PILAR"
+                  placeholder="Observações (opcional)"
+                  value={form.observacoes[secao.id] || ''}
+                  onChange={(e) => setObservacao(secao.id, e.target.value)}
+                />
+              </CadernetaSection>
+            </div>
           )
         })}
 
         <CadernetaSection numero={SECOES_5S.length + 1} titulo="Nota do setor" required>
-          <p className="-mt-2 text-sm text-gray-500">De 0 (muito ruim) a 5 (excelente). Independe do percentual de conformidade.</p>
-          <ChoiceGrid
-            options={NOTA_OPTIONS}
+          <p id="nota-setor-titulo" className="-mt-2 text-sm text-gray-600">
+            De 0 (muito ruim) a 5 (excelente). Independe do percentual de conformidade.
+          </p>
+          <SegmentoResposta5S
+            opcoes={OPCOES_NOTA}
             value={form.notaGeral === null || form.notaGeral === undefined ? '' : String(form.notaGeral)}
             onChange={(v) => setForm((prev) => ({ ...prev, notaGeral: Number(v) }))}
-            cols={6}
-            size="sm"
+            ariaLabelledBy="nota-setor-titulo"
             dataField="notaGeral"
+            colunas={6}
+            compacto
           />
-          {getError('notaGeral') && <p className="text-sm font-semibold text-red-700">{getError('notaGeral')}</p>}
+          <p aria-live="polite" className="text-center text-sm font-bold text-gray-800">
+            {form.notaGeral === null || form.notaGeral === undefined ? 'Toque no número para dar a nota' : `${form.notaGeral} · ${NOTAS_TEXTO[form.notaGeral]}`}
+          </p>
+          {getError('notaGeral') && (
+            <p role="alert" className="text-sm font-semibold text-red-700">
+              {getError('notaGeral')}
+            </p>
+          )}
         </CadernetaSection>
 
         <input ref={fotoInputRef} type="file" accept="image/*" capture="environment" onChange={handleFotoInput} className="hidden" />
 
-        <FormFooter
-          onSalvar={() => salvar(executarSalvamento)}
-          onLimpar={handleLimpar}
-          salvando={salvando}
-          disabled={!isValid}
-          formValido={isValid}
-          pendenciaTexto={pendenciaTexto}
-        />
+        <button
+          type="button"
+          onClick={handleLimpar}
+          className={`mx-auto flex !min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/70 ${
+            confirmandoLimpar ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          <Brush className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
+          {confirmandoLimpar ? 'Toque de novo para apagar tudo' : 'Limpar formulário'}
+        </button>
       </CadernetaLayout>
 
       <SuccessModal

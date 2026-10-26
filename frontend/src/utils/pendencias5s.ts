@@ -26,6 +26,54 @@ export interface RegistroAuditoria5SPendencia {
   naoConformidades?: Record<string, any> | null
 }
 
+/** Medida do plano de ação, gravada em naoConformidades[chave].plano_acao (nome do campo no banco). */
+export interface MedidaPlano5S {
+  id: string
+  descricao: string
+  responsavel: string | null
+  /** YYYY-MM-DD */
+  prazo: string | null
+  concluida: boolean
+  concluida_em: string | null
+}
+
+export interface PlanoAcao5S {
+  medidas: MedidaPlano5S[]
+  criado_em: string | null
+  atualizado_em: string | null
+}
+
+/** sem_plano: nenhuma medida; atrasado: alguma medida aberta com prazo já vencido; concluido: todas feitas. */
+export type SituacaoPlano5S = 'sem_plano' | 'em_dia' | 'atrasado' | 'concluido'
+
+const texto = (valor: unknown): string | null => (typeof valor === 'string' && valor.trim() ? valor.trim() : null)
+
+/** Lê o plano de uma não conformidade; formato inválido vira null (auditorias antigas não têm o campo). */
+export function lerPlanoAcao5S(evidencia: any): PlanoAcao5S | null {
+  const bruto = evidencia?.plano_acao
+  if (!bruto || !Array.isArray(bruto.medidas)) return null
+  const medidas: MedidaPlano5S[] = bruto.medidas
+    .filter((m: any) => texto(m?.descricao))
+    .map((m: any, i: number) => ({
+      id: texto(m.id) ?? `m${i}`,
+      descricao: texto(m.descricao)!,
+      responsavel: texto(m.responsavel),
+      prazo: texto(m.prazo),
+      concluida: m.concluida === true,
+      concluida_em: texto(m.concluida_em),
+    }))
+  return medidas.length > 0 ? { medidas, criado_em: texto(bruto.criado_em), atualizado_em: texto(bruto.atualizado_em) } : null
+}
+
+/** Situação do plano em `agoraIso` (compara o prazo como data local YYYY-MM-DD). */
+export function situacaoPlano5S(plano: PlanoAcao5S | null, agoraIso: string): SituacaoPlano5S {
+  if (!plano || plano.medidas.length === 0) return 'sem_plano'
+  if (plano.medidas.every((m) => m.concluida)) return 'concluido'
+  const hoje = agoraIso.slice(0, 10)
+  const atrasada = plano.medidas.some((m) => !m.concluida && m.prazo !== null && m.prazo < hoje)
+  return atrasada ? 'atrasado' : 'em_dia'
+}
+
 export interface Pendencia5S {
   chave: string
   /** Texto do item como não conformidade (ex.: "Há material em desuso no local."). */
@@ -33,10 +81,12 @@ export interface Pendencia5S {
   secao: string
   /** Data do primeiro `N` da sequência atual. */
   desde: string
-  /** Data do `N` mais recente (de onde vêm observação e foto). */
+  /** Data do `N` mais recente (de onde vêm observação, foto e plano). */
   ultimaData: string
   observacao: string
   fotoUrl: string | null
+  /** Plano de ação mais recente da sequência (null se nenhum N registrou plano). */
+  planoAcao: PlanoAcao5S | null
   /** Quantas auditorias seguidas marcaram o item como N. */
   ocorrencias: number
 }
@@ -47,6 +97,8 @@ export interface PendenciaResolvida5S {
   secao: string
   abertaEm: string
   resolvidaEm: string
+  /** Último plano de ação registrado antes da resolução. */
+  planoAcao: PlanoAcao5S | null
 }
 
 export interface ResultadoPendencias5S {
@@ -86,16 +138,26 @@ export function calcularPendencias5S(registros: RegistroAuditoria5SPendencia[]):
           // Um "ainda pendente" sem foto/observação nova não apaga a evidência da ocorrência original
           const observacaoNova = typeof evidencia?.observacao === 'string' ? evidencia.observacao.trim() : ''
           const fotoNova = typeof evidencia?.foto_url === 'string' && evidencia.foto_url ? evidencia.foto_url : null
+          // O plano segue a mesma regra da observação: o mais recente presente vence; sem plano novo, herda o anterior
+          const planoNovo = lerPlanoAcao5S(evidencia)
           const base = {
             ultimaData: registro.data,
             observacao: observacaoNova || aberta?.observacao || '',
             fotoUrl: fotoNova ?? aberta?.fotoUrl ?? null,
+            planoAcao: planoNovo ?? aberta?.planoAcao ?? null,
           }
           aberta = aberta
             ? { ...aberta, ...base, ocorrencias: aberta.ocorrencias + 1 }
             : { chave: item.chave, label: item.negativa, secao: secao.titulo, desde: registro.data, ocorrencias: 1, ...base }
         } else if (resposta === 'C' && aberta) {
-          resolvidas.push({ chave: item.chave, label: item.negativa, secao: secao.titulo, abertaEm: aberta.desde, resolvidaEm: registro.data })
+          resolvidas.push({
+            chave: item.chave,
+            label: item.negativa,
+            secao: secao.titulo,
+            abertaEm: aberta.desde,
+            resolvidaEm: registro.data,
+            planoAcao: aberta.planoAcao,
+          })
           aberta = null
         }
       }

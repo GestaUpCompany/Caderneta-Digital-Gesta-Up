@@ -2576,7 +2576,8 @@ export async function getSetoresCached(fazendaId: string): Promise<any[] | null>
   const key = buildKey('setores', fazendaId)
 
   if (!navigator.onLine || redeInstavelRecentemente()) {
-    const cached = getCachedQuery(key)
+    // Após recarregar offline a memória está vazia: o IndexedDB guarda a última lista baixada
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB<any[]>(key))
     return (cached && Array.isArray(cached)) ? cached : null
   }
 
