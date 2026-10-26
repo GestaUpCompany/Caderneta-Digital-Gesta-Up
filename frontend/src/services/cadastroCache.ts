@@ -1259,6 +1259,67 @@ export async function getLotesByPastoIdCached(fazendaId: string, pastoId: string
   }
 }
 
+export interface MovimentoLocal {
+  fazendaId: string
+  loteId: string
+  pastoSaidaId?: string | null
+  pastoEntradaId?: string | null
+  pastoSaidaNome?: string | null
+  pastoEntradaNome?: string | null
+  curralSaidaId?: string | null
+  curralEntradaId?: string | null
+  /** Data do manejo (ISO): alimenta o tempo de ocupação e de vedação do próximo manejo */
+  dataISO: string
+}
+
+/**
+ * Espelha no cache local um movimento que acabou de ser salvo no aparelho (ainda na fila de sync).
+ * Sem isso, o próximo manejo feito offline enxerga o lote no lugar antigo (pasto vazio, curral ocupado).
+ * O servidor continua sendo a fonte da verdade quando sincronizar.
+ */
+export async function aplicarMovimentoNoCache(m: MovimentoLocal): Promise<void> {
+  const { fazendaId, loteId } = m
+  const lote = await getLoteByIdFromCacheOnly(fazendaId, loteId)
+
+  if (m.pastoSaidaId) {
+    const key = buildKey('lotes-pasto', fazendaId, m.pastoSaidaId)
+    const lista = getCachedQuery<any[]>(key)
+    if (lista) setCachedQuery(key, lista.filter((l) => l.id !== loteId))
+  }
+  if (m.pastoEntradaId) {
+    const key = buildKey('lotes-pasto', fazendaId, m.pastoEntradaId)
+    const lista = getCachedQuery<any[]>(key) ?? []
+    if (!lista.some((l) => l.id === loteId)) setCachedQuery(key, [...lista, lote ?? { id: loteId }])
+  }
+
+  const keyCurrais = buildKey('currais', fazendaId)
+  const currais = getCachedQuery<any[]>(keyCurrais)
+  if (currais) {
+    setCachedQuery(keyCurrais, currais.map((c) => {
+      if (m.curralSaidaId && c.id === m.curralSaidaId) return { ...c, lote_id: null }
+      if (m.curralEntradaId && c.id === m.curralEntradaId) return { ...c, lote_id: loteId }
+      return c
+    }))
+  }
+
+  if (lote) setCachedQuery(buildKey('lote-id', fazendaId, loteId), { ...lote, pasto_id: m.pastoEntradaId ?? null })
+
+  // Ocupações de curral do dia: sai do curral de origem e entra no de destino (tempo no curral)
+  const hoje = m.dataISO.slice(0, 10)
+  const keyOcupacoes = buildKey('ocupacoes-curral-data', fazendaId, hoje)
+  const ocupacoes = getCachedQuery<any[]>(keyOcupacoes) ?? []
+  const semOrigem = m.curralSaidaId ? ocupacoes.filter((o) => o.curral_id !== m.curralSaidaId) : ocupacoes
+  setCachedQuery(keyOcupacoes, m.curralEntradaId
+    ? [...semOrigem.filter((o) => o.curral_id !== m.curralEntradaId), { curral_id: m.curralEntradaId, lote_id: loteId, data_inicial: hoje, data_hora_entrada: m.dataISO, data_final: null }]
+    : semOrigem)
+
+  // Tempo de ocupação (pasto de entrada agora) e de vedação (pasto de saída agora), indexados pelo nome do pasto
+  if (m.pastoEntradaNome) setCachedQuery(buildKey('ultima-entrada', fazendaId, m.pastoEntradaNome), m.dataISO)
+  if (m.pastoSaidaNome) setCachedQuery(buildKey('ultima-saida', fazendaId, m.pastoSaidaNome), m.dataISO)
+
+  await saveQueryCacheToIndexedDB()
+}
+
 /**
  * Busca última data de entrada do pasto com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).

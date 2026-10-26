@@ -3576,7 +3576,7 @@ export async function getOcupacoesCurralNaData(fazendaId: string, data: string) 
   const client = await getSupabaseClientWithRefresh() as any
   const { data: rows, error } = await client
     .from('lote_curral_historico')
-    .select('id, curral_id, lote_id, data_inicial, data_final, kg_mn_dia_dia1, lotes(nome, sistema_producao)')
+    .select('id, curral_id, lote_id, data_inicial, data_hora_entrada, data_final, kg_mn_dia_dia1, lotes(nome, sistema_producao)')
     .eq('fazenda_id', fazendaId)
     .lte('data_inicial', data)
     .or(`data_final.is.null,data_final.gte.${data}`)

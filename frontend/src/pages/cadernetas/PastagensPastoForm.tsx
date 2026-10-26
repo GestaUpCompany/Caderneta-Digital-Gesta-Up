@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Input, DatePicker, ValidationMessage } from '../../components/ui'
@@ -16,7 +16,7 @@ import FormFooter from '../../components/cadernetas/FormFooter'
 import EscalaRotulada from '../../components/cadernetas/EscalaRotulada'
 import BannerRascunho from '../../components/BannerRascunho'
 import { salvarRegistro } from '../../services/api'
-import { todayBR, getCurrentTimeInTimezone } from '../../utils/formatDate'
+import { todayBR, brToIso, getCurrentTimeInTimezone } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
 import {
   getCachedCadastroData,
@@ -27,9 +27,14 @@ import {
   getUltimaDataPastoSaidaCached,
   getOcupacaoAtualPorLotePastoCached,
   getOcupacaoAtualPorLoteModuloCached,
+  getCurraisCached,
+  getLoteByIdCached,
+  getOcupacoesCurralNaDataCached,
+  aplicarMovimentoNoCache,
 } from '../../services/cadastroCache'
 import { getPastos, getFuncionarios } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
+import { ocupacaoVigentePorCurral } from '../../utils/ocupacaoCurral'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { base64ToDataUrl } from '../../utils/photoCompress'
@@ -74,9 +79,17 @@ interface DiagnosticoItem {
   fotoBase64?: string
 }
 
+// Cada lado do manejo (saída/entrada) pode ser pasto ou curral. Curral->curral fica na aba Currais.
+type LadoTipo = 'pasto' | 'curral'
+
+// Curral só recebe lote de sistemas com confinamento (mesma regra de validateCurral e de _ocupar_curral).
+const SISTEMAS_COM_CURRAL = ['Confinamento', 'TIP', 'Sequestro']
+
 interface FormState {
   data: string
   horarioManejo: string
+  /** Quando true, o horário gravado é o do momento do salvamento; quando false, usa horarioManejo */
+  horarioAutomatico: boolean
   numeroLote: string
   loteId: string
   pastoSaida: string
@@ -100,11 +113,18 @@ interface FormState {
   diagnosticos: Record<string, DiagnosticoItem>
   fotoSaidaEm: string
   fotoEntradaEm: string
+  tipoSaida: LadoTipo
+  curralSaida: string
+  curralSaidaId: string
+  tipoEntrada: LadoTipo
+  curralEntrada: string
+  curralEntradaId: string
 }
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
   horarioManejo: getCurrentTimeInTimezone().slice(0, 5),
+  horarioAutomatico: true,
   numeroLote: '',
   loteId: '',
   pastoSaida: '',
@@ -131,16 +151,17 @@ const makeInitial = (): FormState => ({
   }, {} as Record<string, DiagnosticoItem>),
   fotoSaidaEm: '',
   fotoEntradaEm: '',
+  tipoSaida: 'pasto',
+  curralSaida: '',
+  curralSaidaId: '',
+  tipoEntrada: 'pasto',
+  curralEntrada: '',
+  curralEntradaId: '',
 })
 
 type AlvoVoz = { campo: string }
 
-interface PastagensPastoFormProps {
-  /** Seletor Pastos | Currais, renderizado no topo da tela */
-  seletor?: ReactNode
-}
-
-export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps) {
+export default function PastagensPastoForm() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
   const { ativo: checklistAtivo, loading: loadingChecklistRegras } = useChecklistAtivo('pastagens')
@@ -213,7 +234,9 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
     return cats as { nome: string; maxCabecas: number }[]
   }, [detalhesLote])
 
-  // Hora do manejo automática (somente leitura); o valor gravado é recalculado no momento de salvar
+  // Hora do manejo: automática por padrão. Rascunhos antigos (sem o campo) também contam como automáticos.
+  const horarioAuto = form.horarioAutomatico !== false
+  // Hora atual exibida no modo automático; o valor gravado é recalculado no momento de salvar
   const [horaAtual, setHoraAtual] = useState(() => getCurrentTimeInTimezone().slice(0, 5))
   useEffect(() => {
     const id = setInterval(() => setHoraAtual(getCurrentTimeInTimezone().slice(0, 5)), 30000)
@@ -324,6 +347,93 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
 
     return unsubscribe
   }, [])
+
+  // Currais do cache: usados quando algum lado do manejo é curral
+  const [currais, setCurrais] = useState<{ id: string; nome: string; lote_id: string | null }[]>([])
+  useEffect(() => {
+    let cancelado = false
+    if (!fazendaId) return
+    getCurraisCached(fazendaId)
+      .then((lista) => {
+        if (!cancelado && lista) setCurrais(lista.map((c: any) => ({ id: c.id, nome: c.nome, lote_id: c.lote_id ?? null })))
+      })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [fazendaId])
+
+  // Curral de saída: o lote é o que está no curral
+  useEffect(() => {
+    let cancelado = false
+    if (form.tipoSaida !== 'curral' || !form.curralSaida || !fazendaId) return
+    const curral = currais.find((c) => c.nome === form.curralSaida)
+    if (!curral) return
+    if (!curral.lote_id) {
+      setErrors([{ field: 'curralSaida', message: 'Este curral está vazio (não possui lote). Selecione outro curral.' }])
+      setForm((prev) => ({ ...prev, curralSaida: '' }))
+      return
+    }
+    const carregarLote = async () => {
+      try {
+        const lote = await getLoteByIdCached(fazendaId, curral.lote_id as string)
+        if (cancelado) return
+        if (!lote || !lote.sistema_producao || !SISTEMAS_COM_CURRAL.includes(lote.sistema_producao)) {
+          setDetalhesLote(null)
+          setErrors([{ field: 'curralSaida', message: `O lote deste curral não usa curral (${lote?.sistema_producao || 'sem sistema de produção'}). Selecione outro curral.` }])
+          setForm((prev) => ({ ...prev, curralSaida: '', numeroLote: '', loteId: '' }))
+          return
+        }
+        // Mesmos detalhes do lado pasto: categorias e contagem para o formulário
+        const detalhes = await getLoteDetalhesComCategoriasCached(lote.id)
+        // Tempo no curral: mesma regra do PastagensCurralForm (entrada no início do dia, Cuiabá = UTC-4)
+        let tempo = 'Primeiro uso'
+        try {
+          const ocupacoes = ocupacaoVigentePorCurral(await getOcupacoesCurralNaDataCached(fazendaId, brToIso(todayBR())))
+          const ocupacao = ocupacoes.find((o: any) => o.curral_id === curral.id)
+          // Horário real de entrada no curral; sem ele (registro antigo), início do dia (Cuiabá = UTC-4)
+          const inicio = ocupacao?.data_hora_entrada ?? (ocupacao?.data_inicial ? `${ocupacao.data_inicial}T04:00:00Z` : null)
+          if (inicio) tempo = calcularDiferencaTempo(inicio)
+        } catch (e) {
+          console.error('[PastagensPastoForm] Erro ao calcular tempo no curral:', e)
+        }
+        if (cancelado) return
+        setDetalhesLote({
+          ...lote,
+          categorias: detalhes.categorias,
+          n_cabecas: detalhes.quant_atual,
+          peso_vivo_kg: detalhes.peso_vivo_kg,
+          qtd_bezerros: detalhes.qtd_bezerros,
+          categorias_raw: detalhes.categorias_raw,
+        })
+        setForm((prev) => ({
+          ...prev,
+          curralSaidaId: curral.id,
+          loteId: lote.id,
+          numeroLote: lote.nome || '',
+          tempoOcupacao: tempo,
+          categoriasQuantidades: {},
+        }))
+        setErrors((prev) => prev.filter((e) => e.field !== 'curralSaida'))
+      } catch (e) {
+        console.error('[PastagensPastoForm] Erro ao carregar lote do curral de saída:', e)
+      }
+    }
+    carregarLote()
+    return () => { cancelado = true }
+  }, [form.tipoSaida, form.curralSaida, currais, fazendaId, setForm])
+
+  // Curral de entrada: precisa estar livre (a regra de sistema de produção é validada no banco)
+  useEffect(() => {
+    if (form.tipoEntrada !== 'curral' || !form.curralEntrada) return
+    const curral = currais.find((c) => c.nome === form.curralEntrada)
+    if (!curral) return
+    if (curral.lote_id) {
+      setErrors([{ field: 'curralEntrada', message: 'Este curral já possui um lote. Selecione outro curral.' }])
+      setForm((prev) => ({ ...prev, curralEntrada: '' }))
+      return
+    }
+    setForm((prev) => ({ ...prev, curralEntradaId: curral.id }))
+    setErrors((prev) => prev.filter((e) => e.field !== 'curralEntrada'))
+  }, [form.tipoEntrada, form.curralEntrada, currais, setForm])
 
   // Buscar detalhes do pasto de saída quando selecionado
   useEffect(() => {
@@ -517,10 +627,12 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
   const validationRules: any = {
     data: { required: true },
     numeroLote: { required: true },
-    pastoSaida: { required: true },
-    avaliacaoSaida: { required: true },
-    pastoEntrada: { required: true },
-    avaliacaoEntrada: { required: true },
+    ...(form.tipoSaida === 'pasto'
+      ? { pastoSaida: { required: true }, avaliacaoSaida: { required: true } }
+      : { curralSaida: { required: true } }),
+    ...(form.tipoEntrada === 'pasto'
+      ? { pastoEntrada: { required: true }, avaliacaoEntrada: { required: true } }
+      : { curralEntrada: { required: true } }),
     gadoContado: { required: true },
     escoreGado: { required: true },
     escoreFezes: { required: true },
@@ -573,11 +685,19 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
   const executarSalvamento = async () => {
     setErrors([])
 
+    // Horário do manejo: automático (momento do salvamento) ou o informado manualmente
+    if (!horarioAuto && !form.horarioManejo) {
+      setErrors([{ field: 'horarioManejo', message: 'Informe o horário do manejo' }])
+      return
+    }
+    const horarioEfetivo = horarioAuto ? getCurrentTimeInTimezone().slice(0, 5) : form.horarioManejo
+
     // Validar que pasto de saída e entrada não são iguais
     if (form.pastoSaida && form.pastoEntrada && form.pastoSaida === form.pastoEntrada) {
       setErrors([{ field: 'pastoEntrada', message: 'O pasto de entrada não pode ser igual ao pasto de saída' }])
       return
     }
+
 
     // Calcular total de animais baseado na resposta de gadoContado
     let totalAnimais = 0
@@ -625,21 +745,49 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
       flat[`${campo}Obs`] = observacao
     }
 
-    const result = await salvarRegistro('pastagens', {
+    // Curral -> curral vai para a caderneta curral (registros_curral), que já tem o trigger de movimento
+    const ehCurralParaCurral = form.tipoSaida === 'curral' && form.tipoEntrada === 'curral'
+    const registroCurral = {
       data: form.data,
-      horarioManejo: getCurrentTimeInTimezone().slice(0, 5),
+      horarioManejo: horarioEfetivo,
+      manejador: usuario,
+      usuario: usuario,
+      numeroLote: form.numeroLote,
+      loteId: form.loteId,
+      curralSaida: form.curralSaida,
+      curralSaidaId: form.curralSaidaId || null,
+      tempoOcupacao: form.tempoOcupacao || null,
+      curralEntrada: form.curralEntrada,
+      curralEntradaId: form.curralEntradaId || null,
+      gadoContado: form.gadoContado,
+      totalAnimais,
+      ...camposFixos,
+      categorias_detalhes: categoriasDetalhes.length > 0 ? categoriasDetalhes : null,
+      escoreGado: form.escoreGado ? Number(form.escoreGado) : 0,
+      escoreFezes: form.escoreFezes || null,
+      numeroPessoasManejo: form.numeroPessoasManejo ? Number(form.numeroPessoasManejo) : 0,
+      equipe_nomes: form.equipeNomes || null,
+    }
+
+    const result = ehCurralParaCurral ? await salvarRegistro('curral', registroCurral) : await salvarRegistro('pastagens', {
+      data: form.data,
+      horarioManejo: horarioEfetivo,
       manejador: usuario,
       usuario: usuario,
       numeroLote: form.numeroLote,
       loteId: form.loteId,
       pastoSaida: form.pastoSaida,
       pastoSaidaId: form.pastoSaidaId || null,
+      curralSaida: form.tipoSaida === 'curral' ? form.curralSaida : null,
+      curralSaidaId: form.tipoSaida === 'curral' ? form.curralSaidaId || null : null,
       pastoSaidaAreaUtil: form.pastoSaidaAreaUtil,
       pastoSaidaEspecie: form.pastoSaidaEspecie,
       avaliacaoSaida: form.avaliacaoSaida ? Number(form.avaliacaoSaida) : 0,
       tempoOcupacao: form.tempoOcupacao || null,
       pastoEntrada: form.pastoEntrada,
       pastoEntradaId: form.pastoEntradaId || null,
+      curralEntrada: form.tipoEntrada === 'curral' ? form.curralEntrada : null,
+      curralEntradaId: form.tipoEntrada === 'curral' ? form.curralEntradaId || null : null,
       pastoEntradaAreaUtil: form.pastoEntradaAreaUtil,
       pastoEntradaEspecie: form.pastoEntradaEspecie,
       avaliacaoEntrada: form.avaliacaoEntrada ? Number(form.avaliacaoEntrada) : 0,
@@ -678,6 +826,22 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
+      // Espelha o movimento no cache local: o próximo manejo (inclusive offline) vê o lote no lugar novo
+      if (fazendaId) {
+        const pastoSaida = form.tipoSaida === 'pasto' ? await getPastoByNomeCached(fazendaId, form.pastoSaida) : null
+        const pastoEntrada = form.tipoEntrada === 'pasto' ? await getPastoByNomeCached(fazendaId, form.pastoEntrada) : null
+        await aplicarMovimentoNoCache({
+          fazendaId,
+          loteId: form.loteId,
+          pastoSaidaId: pastoSaida?.id ?? null,
+          pastoEntradaId: pastoEntrada?.id ?? null,
+          pastoSaidaNome: pastoSaida ? form.pastoSaida : null,
+          pastoEntradaNome: pastoEntrada ? form.pastoEntrada : null,
+          dataISO: new Date().toISOString(),
+          curralSaidaId: form.tipoSaida === 'curral' ? form.curralSaidaId || null : null,
+          curralEntradaId: form.tipoEntrada === 'curral' ? form.curralEntradaId || null : null,
+        })
+      }
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       resetarTudo()
@@ -719,10 +883,12 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
     : ''
 
   const pendenciaTexto = (() => {
-    if (!form.pastoSaida) return 'Falta escolher o pasto de saída'
-    if (!form.avaliacaoSaida) return 'Falta a avaliação do pasto de saída'
-    if (!form.pastoEntrada) return 'Falta escolher o pasto de entrada'
-    if (!form.avaliacaoEntrada) return 'Falta a avaliação do pasto de entrada'
+    if (form.tipoSaida === 'curral' && !form.curralSaida) return 'Falta escolher o curral de saída'
+    if (form.tipoSaida === 'pasto' && !form.pastoSaida) return 'Falta escolher o pasto de saída'
+    if (form.tipoSaida === 'pasto' && !form.avaliacaoSaida) return 'Falta a avaliação do pasto de saída'
+    if (form.tipoEntrada === 'curral' && !form.curralEntrada) return 'Falta escolher o curral de entrada'
+    if (form.tipoEntrada === 'pasto' && !form.pastoEntrada) return 'Falta escolher o pasto de entrada'
+    if (form.tipoEntrada === 'pasto' && !form.avaliacaoEntrada) return 'Falta a avaliação do pasto de entrada'
     if (!form.gadoContado) return 'Falta informar se o gado foi contado'
     if (form.gadoContado === 'Sim' && !Object.values(form.categoriasQuantidades).some((v) => Number(v) > 0)) return 'Falta informar a quantidade de animais'
     if (!form.escoreGado) return 'Falta o escore corporal'
@@ -731,6 +897,53 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
     if (Number(form.numeroPessoasManejo) > 0 && form.equipeNomes.some((n) => !n || !n.trim())) return 'Falta o nome de todas as pessoas da equipe'
     return undefined
   })()
+
+  // Troca o tipo de um lado. Limpa os campos do outro tipo e, ao virar curral, descarta a foto desse lado
+  const trocarTipo = (lado: 'saida' | 'entrada', tipo: LadoTipo) => {
+    setErrors([])
+    if (lado === 'saida') {
+      setForm((prev) => ({
+        ...prev,
+        tipoSaida: tipo, pastoSaida: '', pastoSaidaId: '', pastoSaidaAreaUtil: '', pastoSaidaEspecie: '',
+        avaliacaoSaida: '', tempoOcupacao: '', curralSaida: '', curralSaidaId: '', numeroLote: '', loteId: '',
+      }))
+      setDetalhesLote(null)
+      if (tipo === 'curral') fotoSaida.limpar()
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        tipoEntrada: tipo, pastoEntrada: '', pastoEntradaId: '', pastoEntradaAreaUtil: '', pastoEntradaEspecie: '',
+        avaliacaoEntrada: '', tempoVedacao: '', curralEntrada: '', curralEntradaId: '',
+      }))
+      if (tipo === 'curral') fotoEntrada.limpar()
+    }
+  }
+
+  const seletorLado = (lado: 'saida' | 'entrada') => {
+    const tipoAtual = lado === 'saida' ? form.tipoSaida : form.tipoEntrada
+    return (
+      <div role="tablist" aria-label={`Tipo do ${lado}`} className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-200 p-1">
+        {(['pasto', 'curral'] as LadoTipo[]).map((tipo) => {
+          const ativo = tipo === tipoAtual
+          return (
+            <button
+              key={tipo}
+              type="button"
+              role="tab"
+              aria-selected={ativo}
+              data-field={`tipo-${lado}-${tipo}`}
+              onClick={() => trocarTipo(lado, tipo)}
+              className={`min-h-[44px] rounded-xl text-sm font-extrabold uppercase tracking-wide transition-colors active:scale-[0.99] ${
+                ativo ? 'bg-brand-900 text-white shadow' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {tipo === 'pasto' ? 'Pasto' : 'Curral'}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   const chipPop = (onClick: () => void, texto: string) => (
     <button
@@ -816,14 +1029,57 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
         cadernetaId="pastagens"
         dateContent={<DatePicker value={form.data} onChange={set('data')} variant="header" compact inline />}
       >
-        {seletor}
         <BannerRascunho visible={rascunhoRestaurado} onConfirmar={confirmarRascunho} onDescartar={descartarRascunho} />
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* 1. Entrada e saída */}
         <CadernetaSection numero={1} titulo="Entrada e saída">
-          <InfoStrip tone="neutral" icon="🕐">Horário do manejo: {horaAtual} (automático)</InfoStrip>
+          <div className="flex flex-col gap-2 rounded-xl bg-gray-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            {horarioAuto ? (
+              <span className="text-base font-semibold text-gray-800">🕐 Horário: {horaAtual} (automático)</span>
+            ) : (
+              <label className="flex min-w-0 items-center gap-2 whitespace-nowrap text-base font-semibold text-gray-800">
+                🕐 Horário
+                <input
+                  type="time"
+                  id="horarioManejo"
+                  name="horarioManejo"
+                  value={form.horarioManejo}
+                  onChange={(e) => setForm((prev) => ({ ...prev, horarioManejo: e.target.value }))}
+                  className="min-h-[44px] w-28 shrink-0 rounded-lg border border-gray-300 bg-white px-2 font-bold"
+                />
+              </label>
+            )}
+            <button
+              type="button"
+              data-field="horarioAutomatico"
+              onClick={() => setForm((prev) => ({
+                ...prev,
+                horarioAutomatico: !horarioAuto,
+                horarioManejo: horarioAuto ? prev.horarioManejo : horaAtual,
+              }))}
+              className="min-h-[44px] w-full whitespace-nowrap rounded-xl bg-white px-3 text-sm font-extrabold uppercase tracking-wide text-brand-900 shadow-sm active:scale-[0.99] sm:w-auto"
+            >
+              {horarioAuto ? 'Alterar horário' : 'Voltar ao automático'}
+            </button>
+          </div>
+          {getError('horarioManejo') && <p className="text-base font-semibold text-red-700">{getError('horarioManejo')}</p>}
 
+          {/* Saída: pasto (com avaliação e foto) ou curral */}
+          {seletorLado('saida')}
+          {form.tipoSaida === 'curral' ? (
+            <SearchableModal
+              label={<span>CURRAL DE SAÍDA <span className="text-red-500">*</span></span>}
+              value={form.curralSaida}
+              onChange={set('curralSaida')}
+              error={getError('curralSaida')}
+              options={currais.filter((c) => c.lote_id && c.nome !== form.curralEntrada).map((c) => c.nome)}
+              placeholder="Buscar curral..."
+              id="curralSaida"
+              name="curralSaida"
+            />
+          ) : (
+          <>
           {/* Pasto de saída */}
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
@@ -879,7 +1135,24 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
           </div>
 
           {blocoFotoPasto('saida')}
+          </>
+          )}
 
+          {/* Entrada: pasto (com avaliação e foto) ou curral */}
+          {seletorLado('entrada')}
+          {form.tipoEntrada === 'curral' ? (
+            <SearchableModal
+              label={<span>CURRAL DE ENTRADA <span className="text-red-500">*</span></span>}
+              value={form.curralEntrada}
+              onChange={set('curralEntrada')}
+              error={getError('curralEntrada')}
+              options={currais.filter((c) => !c.lote_id && c.nome !== form.curralSaida).map((c) => c.nome)}
+              placeholder="Buscar curral de entrada..."
+              id="curralEntrada"
+              name="curralEntrada"
+            />
+          ) : (
+          <>
           {/* Pasto de entrada */}
           {pastosDisponiveis.length > 0 ? (
             <SearchableModal
@@ -927,6 +1200,8 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
 
           {blocoFotoPasto('entrada')}
           <InfoStrip tone="neutral" icon="📍">As fotos ficam marcadas com o local (GPS) e a hora.</InfoStrip>
+          </>
+          )}
         </CadernetaSection>
 
         {/* 2. Quantidade de animais */}
@@ -949,7 +1224,7 @@ export default function PastagensPastoForm({ seletor }: PastagensPastoFormProps)
 
           {form.gadoContado === 'Sim' && (
             <>
-              {!form.pastoSaida && <InfoStrip tone="warning" icon="⚠️">Escolha o pasto de saída para ver as categorias do lote</InfoStrip>}
+              {form.tipoSaida === 'pasto' && !form.pastoSaida && <InfoStrip tone="warning" icon="⚠️">Escolha o pasto de saída para ver as categorias do lote</InfoStrip>}
               {getError('categorias') && <p className="text-base font-semibold text-red-700">⚠️ {getError('categorias')}</p>}
               {(categoriasDoLote
                 ? categoriasDoLote.map((c) => ({ chave: c.nome, nome: c.nome, cadastro: c.maxCabecas }))

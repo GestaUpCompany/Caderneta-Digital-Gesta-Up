@@ -2346,8 +2346,12 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       // Cabeçalho
       texto += `MANEJADOR: *${registro.manejador || '—'}*\n\n`
 
+      // Cada lado é pasto ou curral: o registro de movimento misto (caderneta pastagens) traz curralSaida/curralEntrada
+      const saidaEhCurral = ehCurral || !!registro.curralSaida
+      const entradaEhCurral = ehCurral || !!registro.curralEntrada
+
       // Seção PASTO SAÍDA
-      if (ehCurral) {
+      if (saidaEhCurral) {
         texto += `CURRAL SAÍDA\n`
         texto += `Nome: *${registro.curralSaida || '—'}*\n`
       } else {
@@ -2400,7 +2404,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `\n`
 
       // Seção PASTO ENTRADA
-      if (ehCurral) {
+      if (entradaEhCurral) {
         texto += `CURRAL ENTRADA\n`
         texto += `Nome: *${registro.curralEntrada || '—'}*\n\n`
       } else {

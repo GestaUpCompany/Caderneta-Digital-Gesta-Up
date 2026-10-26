@@ -5,7 +5,7 @@ export default function CurralListaPage() {
     <ListaRegistros
       caderneta="curral"
       titulo={<>MANEJO DE<br/>CURRAIS</>}
-      rotaForm="/caderneta/pastagens?modo=curral"
+      rotaForm="/caderneta/pastagens"
     />
   )
 }
