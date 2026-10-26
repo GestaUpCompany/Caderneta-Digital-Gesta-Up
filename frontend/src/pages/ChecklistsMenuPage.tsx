@@ -19,11 +19,17 @@ const addRecentChecklist = (checklistId: string) => {
 }
 
 // Seções do menu, na ordem de exibição (mesmo molde do menu de cadernetas: barra colorida + título + linha)
-const GRUPOS_CHECKLIST = [{ nome: 'Auditorias', cor: '#10B981' }]
+const GRUPOS_CHECKLIST = [
+  { nome: 'Auditorias', cor: '#10B981' },
+  { nome: 'Recepção', cor: '#0E7490' },
+]
 
 export default function ChecklistsMenuPage() {
   const navigate = useNavigate()
-  const { fazenda } = useSelector((state: RootState) => state.config)
+  const { fazenda, controleAcessoHabilitado, funcionarioCadernetas, acessoComercial } = useSelector((state: RootState) => state.config)
+  // Mesmas regras do menu de cadernetas: flag comercial por fazenda e RBAC por funcionário
+  const rbacAtivo = controleAcessoHabilitado && funcionarioCadernetas.length > 0
+  const recepcaoLiberada = acessoComercial && (!rbacAtivo || funcionarioCadernetas.includes('recebimento-compra'))
 
   const [searchTerm, setSearchTerm] = useState('')
   const [recentChecklists, setRecentChecklists] = useState<string[]>([])
@@ -34,6 +40,9 @@ export default function ChecklistsMenuPage() {
 
   const menuItems = [
     { id: 'auditoria-5s', label: 'AUDITORIA 5S', grupo: 'Auditorias', path: '/caderneta/auditoria-5s', color: '#10B981', icon: `${import.meta.env.BASE_URL}cadernetas/auditoria-5s.jpg`, emoji: '📋' },
+    ...(recepcaoLiberada
+      ? [{ id: 'recebimento-compra', label: 'RECEPÇÃO ANIMAIS', grupo: 'Recepção', path: '/caderneta/recebimento-compra', color: '#0E7490', icon: `${import.meta.env.BASE_URL}cadernetas/recepcao.jpg`, emoji: '🚚' }]
+      : []),
   ]
 
   const filteredItems = menuItems.filter(item =>

@@ -43,6 +43,9 @@ export default function ModulosMenuPage() {
     // Cadernetas em teste: só na fazenda de testes
     let lista = CADERNETAS.filter(c => cadernetaVisivelNaFazenda(c.id, fazendaId))
 
+    // Recepção Animais fica no menu de Checklists (ChecklistsMenuPage)
+    lista = lista.filter(c => c.id !== 'recebimento-compra')
+
     // Filtro por módulo de confinamento
     if (!acessoConfinamento) {
       lista = lista.filter(c => !CADERNETAS_CONFINAMENTO.includes(c.id))

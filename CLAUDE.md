@@ -47,3 +47,4 @@ O banco é compartilhado; mudanças lá quebram aqui sem erro de compilação:
 - Cadastros compartilhados (pastos, lotes, categorias, raças): `services/cadastroCache.ts` + `services/supabaseService.ts`.
 - Edge Functions (`login-peao`, `lembrete-tratos-diario`): `supabase/functions/`, deploy via `supabase functions deploy`.
 - Decisões de arquitetura já tomadas e débitos pendentes: `docs/HISTORICO.md` e `docs/BACKLOG.md` (consultar sob demanda, ver disparadores no AGENTS.md).
+- Módulo comercial (comunicados de venda/compra/transferência, recepção, ordens de serviço): `docs/MODULO_COMERCIAL.md` (fluxo completo, PWA + Painel).

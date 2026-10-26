@@ -1760,3 +1760,14 @@ Pendências conhecidas: o botão manual não recebe o progresso da atualização
 ## Planos nutricionais em lote no aquecimento (23/10/2026)
 
 A consulta completa dos planos deixou de ser feita lote a lote. `getPlanosNutricionaisCompletosBatch` busca a fazenda inteira em 4 consultas (formulações, categorias dos lotes, personalização e GMDs), e o cálculo foi extraído para `utils/planoNutricionalCalculo.ts`, usado pelos dois caminhos. Se o lote falhar, volta para a consulta individual. Fase batch do aquecimento: ~5 s → ~2,5 s (fazenda de testes). Testes do cálculo em `planoNutricionalCalculo.test.ts`. Conferido ao vivo na fazenda de testes: os 8 lotes com plano dão o mesmo resultado nos dois caminhos (5 com GMD, 3 no ramo de peso de início, 2 no ramo de ajuste).
+
+## Documentação do módulo comercial (26/10/2026)
+
+- Novo `docs/MODULO_COMERCIAL.md` descreve o fluxo completo dos comunicados de venda, compra e transferência, da recepção e das ordens de serviço, cobrindo PWA e Painel Web: telas, campos, escrita offline, leitura por cache, ciclo de vida por tipo, triggers, RPCs, RLS e armadilhas conhecidas.
+
+## Recepção Animais: menu, visual e máscaras (26/10/2026)
+
+- **Menu:** o card RECEPÇÃO ANIMAIS saiu do menu de cadernetas (Gado & Pastagens) e foi para o menu de Checklists, em grupo próprio "Recepção". O card mantém o gate de `acesso_comercial` e o RBAC. A entrada em `constants.ts` ficou, porque compartilhamento, programação e Home dependem dela.
+- **Visual:** formulário em "livro de campo": seções com lombada verde, cabeçalhos em caixa-alta, total de cabeças em destaque e botão de salvar na cor da marca. Só classes; lógica intacta.
+- **Máscaras e validações:** horas de chegada e de pesagem usam o `TimeInput` (HH:MM); placas gravam em maiúsculas; peso de saída igual ou maior que o de entrada mostra aviso (antes o peso médio ficava vazio em silêncio).
+- **Pendências:** labels não ligados aos inputs (componente `Input`), placa e GTA sem formato, `TimeInput` remove dois-pontos ao digitar "9:3".

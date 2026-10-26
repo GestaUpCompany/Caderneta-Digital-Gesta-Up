@@ -88,3 +88,4 @@ Quando mencionar qualquer um destes tópicos, ler a seção correspondente em `d
 - "CATEGORIA_NOT_IN_LOTE", trigger de desconto de cabeças, `update_quant_atual_*` → `docs/BACKLOG.md` (Validação de categoria em triggers)
 - "syncError", "REENVIAR", retries automáticos, `processQueue` catch → `docs/BACKLOG.md` (Log de erro visível + eliminação de retries)
 - "RLS", "policy qual=true", "auditoria", S1-S11, N1-N30, R1-R24, C1-C14 → `docs/BACKLOG.md` (Auditoria de código)
+- "comunicado de venda", "comunicado de compra", "comunicado de transferência", "ordem de serviço", "OS", "recepção de animais", `ordens_servico`, `os_recebimentos`, `fechar_os_venda`, `conferir_recebimento_transferencia` → `docs/MODULO_COMERCIAL.md` (documento completo do módulo)
