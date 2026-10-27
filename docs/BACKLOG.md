@@ -238,7 +238,7 @@ Correções **SEGURAS** (sem impacto no Painel Web):
 
 | ID | Arquivo:Linha | Problema |
 |---|---|---|
-| R2 | CantinaPage.tsx:189 | `form.quemAjudou.forEach` sem null/undefined check |
+| R2 | SaidaCantinaPage.tsx:189 | `form.quemAjudou.forEach` sem null/undefined check |
 | R6 | LimpezaPage.tsx:103,135 | `form.limpezaRealizada.forEach` sem null check |
 | R7 | ManutencaoMaquinasPage.tsx:93,102 | `p.checklist[campo]` sem optional chaining |
 | R8 | MaternidadePage.tsx:215 | `useState<FormState>(makeInitial())` executa a função a cada render |

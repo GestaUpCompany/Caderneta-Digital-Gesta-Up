@@ -112,6 +112,11 @@ export function cadernetaVisivelNaFazenda(cadernetaId: string, fazendaId: string
   return !CADERNETAS_EM_TESTE.includes(cadernetaId) || fazendaId === FAZENDA_DE_TESTES_ID
 }
 
+/** Marmita separada em interna/terceirizada por refeição: só na fazenda de testes até validar. */
+export function marmitaDetalhadaLiberada(fazendaId: string | null | undefined): boolean {
+  return fazendaId === FAZENDA_DE_TESTES_ID
+}
+
 /**
  * Visibilidade completa: a do IATF depende da flag da fazenda (desconhecida = oculta); as em teste, da fazenda de testes.
  */

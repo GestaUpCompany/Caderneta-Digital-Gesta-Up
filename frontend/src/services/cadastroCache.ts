@@ -1,4 +1,5 @@
-import { BACKEND_URL } from '../utils/constants'
+import { BACKEND_URL, marmitaDetalhadaLiberada } from '../utils/constants'
+import { empresasDosDetalhes } from '../utils/cantinaMarmitas'
 import { deveBloquearCadastroVazio } from '../utils/guardaCadastroVazio'
 import type { FaseSync } from './atualizacaoAutomaticaStatus'
 import { redeInstavelRecentemente, registrarFalhaDeRede } from '../utils/fetchComTimeout'
@@ -2546,6 +2547,26 @@ export async function getClassificacoesCantinaCached(fazendaId: string): Promise
 }
 
 /**
+ * Empresas terceirizadas já usadas nas marmitas da fazenda (sugestões do formulário).
+ * Online consulta o Supabase e atualiza o cache; offline (ou em falha) usa o último cache.
+ */
+export async function getEmpresasTerceirizadasCached(fazendaId: string): Promise<string[]> {
+  const key = buildKey('empresas-terceirizadas', fazendaId)
+  const cached = getCachedQuery(key)
+  const doCache = Array.isArray(cached) ? (cached as string[]) : []
+
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache
+
+  try {
+    const nomes = empresasDosDetalhes(await supabaseService.getDetalhesMarmitasRecentes(fazendaId))
+    setCachedQuery(key, nomes)
+    return nomes
+  } catch {
+    return doCache
+  }
+}
+
+/**
  * Busca itens de cantina por classificação com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
@@ -3565,6 +3586,7 @@ export async function warmAllCadastroCache(
       await Promise.allSettled(setores.map((s: any) => getPendencias5SCached(fazendaId, s.id, s.nome)))
     } },
     { label: 'Classificações Cantina', fn: () => getClassificacoesCantinaCached(fazendaId) },
+    { label: 'Empresas terceirizadas (marmita)', fn: async () => { if (marmitaDetalhadaLiberada(fazendaId)) await getEmpresasTerceirizadasCached(fazendaId) } },
     { label: 'Tanques Combustível', fn: () => getTanquesCombustivelCached(fazendaId) },
     { label: 'Bebedouros', fn: () => getBebedourosCached(fazendaId) },
     { label: 'Currais (Confinamento)', fn: () => getCurraisCached(fazendaId) },

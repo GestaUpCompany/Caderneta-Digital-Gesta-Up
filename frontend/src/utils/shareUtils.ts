@@ -1,5 +1,6 @@
 import { LABELS_BY_CADERNETA } from '../config/labelConfig'
 import { CADERNETAS } from './constants'
+import { resumoRefeicoes, type MarmitasDetalhe } from './cantinaMarmitas'
 import { formatarNumeroBR, normalizarNumero } from './formatNumber'
 import { base64ToBlob, imageExtFromBase64, imageMimeFromBase64 } from './photoCompress'
 import { isCategoriaAoPe, capitalizarCategoria } from './categorias'
@@ -658,6 +659,9 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   if (caderneta === 'cantina' && (registro.modo as string) === 'marmita') {
     cadernetaNome = 'MARMITA'
   }
+  if (caderneta === 'cantina' && (registro.modo as string) === 'prato_feito') {
+    cadernetaNome = 'PRATO FEITO'
+  }
   // Almoxarifado/cantina de saída vs entrada: deixar explícito no compartilhamento
   if (caderneta === 'almoxarifado') {
     cadernetaNome = registro.tipo === 'devolucao' ? 'DEVOLUÇÃO DE ESTOQUE - ALMOXARIFADO' : 'SAÍDA DE ESTOQUE - ALMOXARIFADO'
@@ -1080,11 +1084,18 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     }
   } else if (caderneta === 'cantina') {
     const modo = (registro.modo as string) || 'cantina'
-    if (modo === 'marmita') {
+    if (modo === 'marmita' || modo === 'prato_feito') {
       // Seção: DADOS DA MARMITA
-      texto += `DADOS DA MARMITA\n`
+      texto += modo === 'prato_feito' ? `DADOS DO PRATO FEITO\n` : `DADOS DA MARMITA\n`
       texto += `FORNECEDOR: *${registro.fornecedor || '—'}*\n`
       texto += `QUANTIDADE: *${registro.quantidadeMarmitas || '—'}*\n`
+      const detalheMarmita = registro.marmitasDetalhe as unknown as MarmitasDetalhe | undefined
+      if (detalheMarmita?.interna) {
+        texto += `INTERNAS (FUNCIONÁRIOS): *${resumoRefeicoes(detalheMarmita.interna)}*\n`
+        for (const t of detalheMarmita.terceirizadas || []) {
+          texto += `TERCEIRIZADA ${t.empresa}: *${resumoRefeicoes(t)}*\n`
+        }
+      }
       const preco = registro.precoUnitario ? normalizarNumero(registro.precoUnitario as any) : null
       texto += `PREÇO UNITÁRIO: *${preco !== null ? 'R$ ' + preco.toFixed(2).replace('.', ',') : '—'}*\n`
       if (registro.quantidadeMarmitas && preco !== null) {
