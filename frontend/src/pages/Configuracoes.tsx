@@ -60,7 +60,7 @@ export default function Configuracoes() {
     return newErrors.length === 0
   }
 
-  const validarFazendaNoSupabase = async (acessoIdRaw: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean; acessoComercial?: boolean; acessoIatf?: boolean; travaSuplementacao?: boolean }> => {
+  const validarFazendaNoSupabase = async (acessoIdRaw: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean; acessoComercial?: boolean; acessoIatf?: boolean; travaSuplementacao?: boolean; emGrupo?: boolean }> => {
     const acessoId = acessoIdRaw.toLowerCase()
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
@@ -134,6 +134,7 @@ export default function Configuracoes() {
           acessoComercial: fazenda.acesso_comercial || false,
           acessoIatf: fazenda.acesso_iatf || false,
           travaSuplementacao: fazenda.trava_suplementacao || false,
+          emGrupo: !!fazenda.grupo_id,
         }
       }
     } catch (error) {
@@ -163,6 +164,7 @@ export default function Configuracoes() {
       acessoComercial: resultSupabase.acessoComercial,
       acessoIatf: resultSupabase.acessoIatf,
       travaSuplementacao: resultSupabase.travaSuplementacao,
+      emGrupo: resultSupabase.emGrupo || false,
     }
 
     setValidandoFazenda(false)
@@ -227,6 +229,7 @@ export default function Configuracoes() {
       acessoComercial: validacaoSupabase.acessoComercial || false,
       acessoIatf: validacaoSupabase.acessoIatf || false,
       travaSuplementacao: validacaoSupabase.travaSuplementacao || false,
+      fazendaEmGrupo: validacaoSupabase.emGrupo,
       ...(trocouFazenda ? {
         funcionarioId: '',
         funcionarioNome: '',

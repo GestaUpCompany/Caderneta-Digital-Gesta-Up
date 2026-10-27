@@ -6,6 +6,7 @@ import { base64ToBlob, imageExtFromBase64, imageMimeFromBase64 } from './photoCo
 import { isCategoriaAoPe, capitalizarCategoria } from './categorias'
 import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
+import { store } from '../store/store'
 import { Filesystem, Directory } from '@capacitor/filesystem'
 import { custoTotalRegistro, custoUnitarioRegistro, ehSaidaFarmacia, quantidadeRegistro, validadeRegistro } from './farmaciaEstoque'
 import { SECOES_5S, calcularResultado5S } from './auditoria5sItens'
@@ -2832,7 +2833,14 @@ export const fotoUrlParaBase64 = async (url: string): Promise<string | null> => 
   }
 }
 
-export const compartilharWhatsApp = async (texto: string, fotoBase64?: string | string[] | null) => {
+/** Cabeçalho com o nome da fazenda atual, só quando ela pertence a um grupo (texto compartilhado). */
+export const cabecalhoFazendaCompartilhado = (): string => {
+  const { fazenda, fazendaEmGrupo } = store.getState().config
+  return fazendaEmGrupo && fazenda ? `*Fazenda: ${fazenda}*\n\n` : ''
+}
+
+export const compartilharWhatsApp = async (textoBase: string, fotoBase64?: string | string[] | null) => {
+  const texto = cabecalhoFazendaCompartilhado() + textoBase
   const textoCodificado = encodeURIComponent(texto)
   const url = `https://wa.me/?text=${textoCodificado}`
   const mobile = isMobileShare()

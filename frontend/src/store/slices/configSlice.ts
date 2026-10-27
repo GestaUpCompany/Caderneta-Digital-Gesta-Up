@@ -23,6 +23,8 @@ interface ConfigState {
   acessoComercial: boolean
   acessoIatf: boolean
   travaSuplementacao: boolean
+  /** Fazenda pertence a um grupo: textos compartilhados mostram o nome da fazenda no cabeçalho. */
+  fazendaEmGrupo: boolean
   funcionarioId: string
   funcionarioNome: string
   funcionarioCadernetas: string[]
@@ -44,6 +46,7 @@ const initialState: ConfigState = {
   acessoComercial: false,
   acessoIatf: false,
   travaSuplementacao: false,
+  fazendaEmGrupo: false,
   funcionarioId: '',
   funcionarioNome: '',
   funcionarioCadernetas: [],

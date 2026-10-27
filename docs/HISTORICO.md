@@ -1791,3 +1791,10 @@ A consulta completa dos planos deixou de ser feita lote a lote. `getPlanosNutric
 - **Painel:** detalhe da saída mostra a grade e permite editá-la (`GradeEdicaoMarmitas`); lista mostra "N int. + M terc."; relatório público e PDF ganham interna x terceirizada, por refeição e por empresa. Registros antigos continuam com o formulário de quantidade única.
 - **Testado:** trigger, helper e relatório com rollback na fazenda de testes (inclui casos inválidos e registros antigos); RPC de edição simulando um controller; fluxo completo no app em 320 px (preencher, validar empresa obrigatória, salvar, sincronizar e conferir a linha no banco); HTML do PDF com e sem divisão.
 - **Pendente:** telas do Painel conferidas só por tipos, lint e leitura (sem login de controller no navegador); registro de teste "Teste E2E marmita" (id `1fc80ed2-a0b5-4750-92da-78740ee452a3`) ficou na fazenda de testes; o app em produção só envia a grade depois do deploy e, mesmo então, só na fazenda de testes.
+
+## Cabeçalho com a fazenda nos textos compartilhados (27/10/2026)
+
+- **Pedido:** quando a fazenda pertence a um grupo, o texto compartilhado (registros, resumos, WhatsApp e share nativo) deve trazer o nome da fazenda atual do usuário no cabeçalho.
+- **App:** flag `fazendaEmGrupo` no `configSlice` (persistido). Gravada na validação da fazenda (`Configuracoes`, a partir de `fazendas.grupo_id`) e atualizada ao abrir o menu de módulos (`ModulosMenuPage`), para instalações antigas. `cabecalhoFazendaCompartilhado()` em `utils/shareUtils.ts` monta `*Fazenda: <nome>*` e `compartilharWhatsApp` o prefixa uma única vez, cobrindo todos os textos que passam por ela.
+- **Sem mudança:** IndexedDB (sem bump de versão), sync e banco. Fazenda sem grupo segue igual.
+- **Pendente:** não há teste unitário do cabeçalho; PDFs (`pdfUtils`) não recebem o cabeçalho.
