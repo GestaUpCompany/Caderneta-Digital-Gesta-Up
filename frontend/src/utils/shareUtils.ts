@@ -1939,7 +1939,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   } else if (caderneta === 'rodeio') {
     // Para rodeio, usar ordem específica dos formulários
     const ordemRodeio = [
-      'pasto',
+      'pasto', // pasto ou curral (label PASTO/CURRAL)
       'numeroLote',
       'gadoContado',
       'vaca',

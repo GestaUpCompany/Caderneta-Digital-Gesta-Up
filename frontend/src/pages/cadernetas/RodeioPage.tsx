@@ -632,7 +632,8 @@ export default function RodeioPage() {
       data: form.data,
       manejador: usuario,
       usuario: usuario,
-      pasto: form.pasto,
+      // Pasto ou curral onde o lote está (lote em curral não tem pasto_id)
+      pasto: lotesPastoMap[form.numeroLote] || form.pasto,
       pastoId: form.pastoId,
       numeroLote: form.numeroLote,
       loteId: form.loteId,
@@ -795,7 +796,7 @@ export default function RodeioPage() {
             <InfoCard
               icon={MapPin}
               title={form.numeroLote}
-              subtitle={form.pasto || 'Sem pasto associado'}
+              subtitle={lotesPastoMap[form.numeroLote] || form.pasto || 'Sem pasto associado'}
               stats={[
                 { label: 'Categoria', value: detalhesLote.categorias || '-' },
                 { label: 'Cabeças', value: String(totalLote) },

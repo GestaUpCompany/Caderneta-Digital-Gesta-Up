@@ -170,7 +170,7 @@ export default function RodeioListaPage() {
       partes.push('━━━━━━━━━━━━━━━━━━━━━━━━')
       partes.push('')
 
-      partes.push(`PASTO: *${r.pasto || '—'}*`)
+      partes.push(`PASTO/CURRAL: *${r.pasto || '—'}*`)
       partes.push(`LOTE: *${r.numeroLote || '—'}*`)
 
       const horario = formatarHorarioRegistro(r.data)
