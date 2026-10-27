@@ -1865,6 +1865,41 @@ export async function getFormulacoesListaCached(fazendaId: string): Promise<Form
   }
 }
 
+export interface InsumoLista {
+  id: string
+  nome: string
+}
+
+/**
+ * Lista de insumos ativos guardada neste aparelho, sem tentar a rede. Vem do "Atualizar dados" (ou da última
+ * leitura online). Retorna null quando não há nada no aparelho.
+ */
+export async function getInsumosListaFromCacheOnly(fazendaId: string): Promise<InsumoLista[] | null> {
+  const key = buildKey('insumos-batch', fazendaId)
+  const batch = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  if (batch && Array.isArray(batch) && batch.length > 0) {
+    return batch.filter((i) => i?.id && i?.nome).map((i) => ({ id: i.id, nome: i.nome }))
+  }
+  return null
+}
+
+/**
+ * Lista de insumos ativos direto do servidor, com tempo limite de 3 s. Retorna null quando não deu para
+ * saber (sem rede, rede instável ou demora): quem chama usa a lista do aparelho.
+ */
+export async function getInsumosListaCached(fazendaId: string): Promise<InsumoLista[] | null> {
+  if (!navigator.onLine || redeInstavelRecentemente()) return null
+  try {
+    const data = await withTimeout(supabaseService.getInsumos(fazendaId), 3000)
+    if (!Array.isArray(data)) return null
+    setCachedQuery(buildKey('insumos-batch', fazendaId), data)
+    return data.filter((i) => i?.id && i?.nome).map((i) => ({ id: i.id, nome: i.nome }))
+  } catch (error) {
+    if (error instanceof Error && error.message === 'timeout') registrarFalhaDeRede()
+    return null
+  }
+}
+
 /**
  * Busca o total de kg do último dia de tratos para um lote (sistema de confinamento).
  * Retorna { data, total_kg } ou null.
@@ -3218,6 +3253,14 @@ export async function warmAllCadastroCache(
 
   // Lista completa de formulações para telas que a mostram em dropdown (ex.: Produção Fábrica) sem depender da rede
   if (formulacoes.length > 0) setCachedQuery(buildKey('formulacoes-batch', fazendaId), formulacoes)
+
+  // Lista completa de insumos com id, para a entrada de insumos resolver o produto sem depender da rede
+  try {
+    const insumosLista = await supabaseService.getInsumos(fazendaId)
+    if (insumosLista?.length) setCachedQuery(buildKey('insumos-batch', fazendaId), insumosLista)
+  } catch (error) {
+    console.error('[CadastroCache] Erro ao buscar insumos para warm cache:', error)
+  }
 
   const totalItems = pastos.length + lotes.length + formulacoes.length + lotes.length + 20
   let warmedPastos = 0

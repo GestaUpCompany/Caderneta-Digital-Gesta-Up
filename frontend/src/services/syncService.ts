@@ -36,6 +36,7 @@ import { protocoloIatfParaServidor } from '../utils/protocoloIatf'
 import { loteProtocoloParaServidor } from '../utils/loteProtocoloIatf'
 import { aparaIdentificador } from '../utils/identificadores'
 import { tratamentoParaServidor, type TratamentoSessao } from '../utils/tratamentoCurral'
+import { garantirProdutoNoServidor, type ProdutoNovo } from '../utils/entradaInsumos'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -1257,6 +1258,28 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       data = { ...data, medicamento_id: criado?.id || novo.id }
     }
 
+    // Item de entrada com produto criado no campo (sem rede): garante o cadastro no servidor antes de gravar o item.
+    // Procura pelo nome (sem diferenciar caixa e acento) e só cria se não existir, então reenviar não duplica.
+    if (store === 'entrada-insumos-itens' && !data.insumo_id && !data.formulacao_id) {
+      const novoProduto = (registro as any).novoProduto as ProdutoNovo | undefined
+      if (novoProduto?.nome) {
+        const produtoId = await garantirProdutoNoServidor(
+          {
+            listar: async (tipo) =>
+              ((tipo === 'formulacao'
+                ? await supabaseService.getFormulacoes(fazendaId)
+                : await supabaseService.getInsumos(fazendaId)) || []) as { id: string; nome: string }[],
+            criar: async (tipo, nome) =>
+              tipo === 'formulacao'
+                ? await supabaseService.createFormulacao({ nome, fazenda_id: fazendaId, ativo: true, e_premix: false })
+                : await supabaseService.createInsumo({ nome, fazenda_id: fazendaId, ativo: true }),
+          },
+          novoProduto
+        )
+        data = { ...data, [novoProduto.tipo === 'formulacao' ? 'formulacao_id' : 'insumo_id']: produtoId }
+      }
+    }
+
     if (store === 'maternidade') {
       console.log('[SYNC DEBUG] Payload maternidade:', JSON.stringify(data, null, 2))
     }
@@ -1491,20 +1514,13 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
       switch (tableName) {
         case 'registros_entrada_insumos':
           const entradaResult = await supabaseService.createRegistroEntradaInsumos(data)
-          // Atualizar registro local com ID do Supabase
+          // Atualizar registro local com ID do Supabase. Os itens continuam guardando o id LOCAL do cabeçalho:
+          // é por ele que a lista os encontra, e o envio de cada item converte para o id do servidor
+          // (resolverIdPaiSupabase). Trocar o entradaId aqui os desligava do cabeçalho local.
           await updateRegistro('entrada-insumos', registro.id, {
             supabaseId: entradaResult.id,
             syncStatus: 'synced'
           })
-          // Atualizar itens com o novo ID do Supabase
-          const itens = await getAllRegistros('entrada-insumos-itens')
-          for (const item of itens) {
-            if (item.entradaId === registro.id) {
-              await updateRegistro('entrada-insumos-itens', item.id, {
-                entradaId: entradaResult.id
-              })
-            }
-          }
           break
         case 'entrada_insumos_itens':
           await supabaseService.createEntradaInsumosItem({

@@ -9,6 +9,7 @@ import { setTestMode } from '../store/slices/configSlice'
 import { getFazendaByAcessoId } from './supabaseService'
 import { redeInstavelRecentemente } from '../utils/fetchComTimeout'
 import { getCurrentTimeInTimezone, DEFAULT_FARM_TIMEZONE } from '../utils/formatDate'
+import { agruparItensPorEntrada } from '../utils/entradaInsumos'
 
 export interface SaveResult {
   success: boolean
@@ -125,20 +126,20 @@ export async function listarRegistros(caderneta: CadernetaStore): Promise<Regist
     const itensStore = 'entrada-insumos-itens' as CadernetaStore
     const todosItens = await getAllRegistros(itensStore)
 
-    // Agrupar itens por entrada_id
-    const itensPorEntrada = todosItens.reduce((acc, item) => {
-      const entradaId = item.entradaId as string
-      if (!acc[entradaId]) {
-        acc[entradaId] = []
-      }
-      acc[entradaId].push({
-        produto: item.produto,
-        quantidade: item.quantidade,
-        valorUnitario: item.valorUnitario,
-        valorTotal: item.valorTotal,
-      })
-      return acc
-    }, {} as Record<string, any[]>)
+    // Agrupar itens por entrada. Casa pelo id local e também pelo id do servidor: registros sincronizados por
+    // versões antigas tiveram o entradaId dos itens trocado pelo id do servidor.
+    const grupos = agruparItensPorEntrada(registros, todosItens)
+    const itensPorEntrada = Object.fromEntries(
+      Object.entries(grupos).map(([entradaId, itens]) => [
+        entradaId,
+        itens.map(item => ({
+          produto: item.produto,
+          quantidade: item.quantidade,
+          valorUnitario: item.valorUnitario,
+          valorTotal: item.valorTotal,
+        })),
+      ])
+    ) as Record<string, any[]>
 
     // Anexar itens aos registros
     return registros.map(registro => ({
