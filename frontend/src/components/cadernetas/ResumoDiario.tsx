@@ -9,7 +9,8 @@ interface ResumoDiarioProps {
   /** quantos registros existem na data DD/MM/YYYY selecionada */
   contarRegistros: (data: string) => number
   onEnviarTexto: (data: string) => Promise<void>
-  onExportarPdf: (data: string) => Promise<void>
+  /** opcional: sem ele, o resumo só oferece o envio como texto */
+  onExportarPdf?: (data: string) => Promise<void>
 }
 
 export default function ResumoDiario({ descricao, contarRegistros, onEnviarTexto, onExportarPdf }: ResumoDiarioProps) {
@@ -37,7 +38,7 @@ export default function ResumoDiario({ descricao, contarRegistros, onEnviarTexto
     setGerando(acao)
     try {
       if (acao === 'texto') await onEnviarTexto(dataResumo)
-      else await onExportarPdf(dataResumo)
+      else await onExportarPdf?.(dataResumo)
       setAberto(false)
     } catch (err) {
       console.error('Erro ao gerar resumo diário:', err)
@@ -104,16 +105,18 @@ export default function ResumoDiario({ descricao, contarRegistros, onEnviarTexto
                   : <Share2 className="h-5 w-5" />}
                 ENVIAR COMO TEXTO
               </button>
-              <button
-                onClick={() => executar('pdf')}
-                disabled={!!gerando || semRegistros}
-                className="w-full font-bold px-4 py-3 rounded-2xl bg-brand-900 text-white active:bg-brand-950 flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {gerando === 'pdf'
-                  ? <Loader2 className="h-5 w-5 animate-spin" />
-                  : <FileDown className="h-5 w-5" />}
-                EXPORTAR PDF
-              </button>
+              {onExportarPdf && (
+                <button
+                  onClick={() => executar('pdf')}
+                  disabled={!!gerando || semRegistros}
+                  className="w-full font-bold px-4 py-3 rounded-2xl bg-brand-900 text-white active:bg-brand-950 flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {gerando === 'pdf'
+                    ? <Loader2 className="h-5 w-5 animate-spin" />
+                    : <FileDown className="h-5 w-5" />}
+                  EXPORTAR PDF
+                </button>
+              )}
               <button
                 onClick={fechar}
                 disabled={!!gerando}
