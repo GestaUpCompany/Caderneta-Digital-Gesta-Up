@@ -1,5 +1,6 @@
 import { CHAVES_ITENS_5S } from './auditoria5sItens'
 import { normalizarNumero } from './formatNumber'
+import { erroDoDetalhe } from './cantinaMarmitas'
 import { conflitosDeIdentificacao } from './maternidadeIds'
 import { isFutureBR } from './formatDate'
 import { errosSanidade, type FormSanidade } from './sanidade'
@@ -709,12 +710,15 @@ export function validateCantina(data: Record<string, unknown>): ValidationResult
 
   const modo = (data.modo as string) || 'cantina'
 
-  if (modo === 'marmita') {
-    // Validação modo marmita
+  if (modo === 'marmita' || modo === 'prato_feito') {
+    // Validação modo marmita e prato feito (mesmos campos)
     if (!isNonEmptyString(data.fornecedor))
       errors.push({ field: 'fornecedor', message: 'Fornecedor é obrigatório' })
+    // Marmita detalhada (interna/terceirizada por refeição): quantidadeMarmitas e destinatario vêm derivados dela
+    const erroDetalhe = modo === 'marmita' && data.marmitasDetalhe ? erroDoDetalhe(data.marmitasDetalhe) : null
+    if (erroDetalhe) errors.push({ field: 'marmitasDetalhe', message: erroDetalhe })
     if (!isPositiveNumber(data.quantidadeMarmitas))
-      errors.push({ field: 'quantidadeMarmitas', message: 'Quantidade de marmitas deve ser maior que zero' })
+      errors.push({ field: 'quantidadeMarmitas', message: `Quantidade de ${modo === 'prato_feito' ? 'pratos feitos' : 'marmitas'} deve ser maior que zero` })
     if (!isPositiveNumber(data.precoUnitario))
       errors.push({ field: 'precoUnitario', message: 'Preço unitário deve ser maior que zero' })
     if (!isNonEmptyString(data.destinatario))

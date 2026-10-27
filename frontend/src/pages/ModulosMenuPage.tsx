@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
 import { CADERNETAS, CADERNETA_GRUPO_ORDEM, CADERNETA_GRUPO_CORES, CADERNETAS_IATF, cadernetaVisivelNaFazenda } from '../utils/constants'
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../store/store'
+import { setConfig } from '../store/slices/configSlice'
+import { getFazendaByAcessoId } from '../services/supabaseService'
 import { getRecentCadernetas, addRecentCaderneta } from '../utils/recentCadernetas'
 import { useProgramacaoHoje } from '../hooks/useProgramacaoHoje'
 import { CalendarCheck, ChevronLeft, ChevronRight, Search, ArrowUp } from 'lucide-react'
@@ -19,7 +21,8 @@ const hexToRgba = (hex: string, alpha: number = 0.25): string => {
 
 export default function ModulosMenuPage() {
   const navigate = useNavigate()
-  const { fazenda, fazendaId, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial, acessoIatf } = useSelector((state: RootState) => state.config)
+  const dispatch = useDispatch()
+  const { fazenda, fazendaId, acessoId, controleAcessoHabilitado, funcionarioCadernetas, acessoConfinamento, acessoComercial, acessoIatf } = useSelector((state: RootState) => state.config)
   const [searchTerm, setSearchTerm] = useState('')
   const [recentCadernetas, setRecentCadernetas] = useState<string[]>([])
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -39,9 +42,22 @@ export default function ModulosMenuPage() {
       .catch(() => setTemFazendaNoGrupo(false))
   }, [fazendaId])
 
+  // Atualiza o flag de grupo usado no cabeçalho dos textos compartilhados (instalações antigas não o gravaram na validação)
+  useEffect(() => {
+    if (!acessoId) return
+    getFazendaByAcessoId(acessoId)
+      .then((f) => {
+        if (f) dispatch(setConfig({ fazendaEmGrupo: !!f.grupo_id }))
+      })
+      .catch(() => {})
+  }, [acessoId, dispatch])
+
   const cadernetasPermitidas = useMemo(() => {
     // Cadernetas em teste: só na fazenda de testes
     let lista = CADERNETAS.filter(c => cadernetaVisivelNaFazenda(c.id, fazendaId))
+
+    // Recepção Animais fica no menu de Checklists (ChecklistsMenuPage)
+    lista = lista.filter(c => c.id !== 'recebimento-compra')
 
     // Filtro por módulo de confinamento
     if (!acessoConfinamento) {

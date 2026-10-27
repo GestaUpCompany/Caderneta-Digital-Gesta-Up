@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRefreshTick } from '../../hooks/useRefreshCadastros'
 import { useNavigate } from 'react-router-dom'
 import { Input, DatePicker, ValidationMessage, NumericInput } from '../../components/ui'
-import { Minus, Plus } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
 import CadernetaLayout from '../../components/CadernetaLayout'
 import CadernetaSection from '../../components/cadernetas/CadernetaSection'
 import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import InfoStrip from '../../components/cadernetas/InfoStrip'
+import Stepper from '../../components/cadernetas/Stepper'
+import GradeMarmitas from '../../components/cadernetas/GradeMarmitas'
 import FormFooter from '../../components/cadernetas/FormFooter'
 import { salvarRegistro, listarRegistros } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
@@ -15,7 +16,17 @@ import { scrollToFirstError } from '../../utils/scrollToError'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store/store'
 import { getFuncionarios } from '../../services/supabaseService'
-import { getCachedCadastroData,getClassificacoesCantinaCached, getItensCantinaCached } from '../../services/cadastroCache'
+import { getCachedCadastroData,getClassificacoesCantinaCached, getItensCantinaCached, getEmpresasTerceirizadasCached } from '../../services/cadastroCache'
+import { marmitaDetalhadaLiberada } from '../../utils/constants'
+import {
+  empresasDosDetalhes,
+  destinatarioDoDetalhe,
+  gradeVazia,
+  paraDetalhe,
+  pendenciaGrade,
+  totaisDetalhe,
+  type GradeMarmitasForm,
+} from '../../utils/cantinaMarmitas'
 import { iconeDoItem } from '../../utils/iconeItem'
 import { iniciais, corAvatar } from '../../utils/avatar'
 
@@ -44,7 +55,7 @@ const REFEICOES: { campo: CampoRefeicao; label: string; icone: string }[] = [
 ]
 
 interface FormState {
-  modo: 'cantina' | 'marmita'
+  modo: 'cantina' | 'marmita' | 'prato_feito'
   data: string
   // Cantina: a 1ª pessoa marcada é quem cozinhou, as demais ajudaram
   cozinheiras: string[]
@@ -52,11 +63,13 @@ interface FormState {
   numeroLanches: string
   numeroRefeicoesAlmoco: string
   numeroRefeicoesJantar: string
-  // Marmita
+  // Marmita e prato feito (mesmos campos; quantidadeMarmitas guarda a quantidade dos dois)
   fornecedor: string
   quantidadeMarmitas: string
   precoUnitario: string
   destinatario: string
+  // Marmita detalhada (interna x terceirizada por refeição); só com marmitaDetalhadaLiberada
+  grade: GradeMarmitasForm
   // Comum
   observacao: string
 }
@@ -73,6 +86,7 @@ const makeInitial = (): FormState => ({
   quantidadeMarmitas: '',
   precoUnitario: '',
   destinatario: '',
+  grade: gradeVazia(),
   observacao: '',
 })
 
@@ -116,57 +130,7 @@ const diaAnteriorBR = (dataBR: string): string | null => {
 const totalRefeicoes = (r: Record<string, any>) =>
   REFEICOES.reduce((soma, { campo }) => soma + numeroDe(r[campo]), 0)
 
-interface StepperProps {
-  valor: string
-  onChange: (v: string) => void
-  nome: string
-  decimal?: boolean
-}
-
-// Botões −/+ com número editável no meio (mesmo padrão da Entrada Cantina)
-function Stepper({ valor, onChange, nome, decimal = false }: StepperProps) {
-  const bump = (delta: number) => {
-    const prox = Math.max(0, Math.round((numeroDe(valor) + delta) * 1000) / 1000)
-    onChange(prox === 0 ? '' : String(prox))
-  }
-  return (
-    <div className="flex shrink-0 items-stretch gap-1">
-      <button
-        type="button"
-        onClick={() => bump(-1)}
-        aria-label={`Diminuir ${nome}`}
-        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl border-2 border-gray-300 bg-white text-gray-700 active:scale-95"
-      >
-        <Minus className="h-4 w-4" strokeWidth={2.5} />
-      </button>
-      <input
-        type="text"
-        inputMode={decimal ? 'decimal' : 'numeric'}
-        value={valor}
-        placeholder="0"
-        onChange={(e) =>
-          onChange(
-            decimal
-              ? e.target.value.replace(/[^0-9,.]/g, '').replace(',', '.')
-              : e.target.value.replace(/[^0-9]/g, '')
-          )
-        }
-        aria-label={`Quantidade de ${nome}`}
-        className="!min-h-0 h-10 w-10 min-w-0 rounded-xl border-2 border-transparent bg-transparent text-center text-xl font-extrabold text-gray-900 focus:border-gray-300 focus:outline-none"
-      />
-      <button
-        type="button"
-        onClick={() => bump(1)}
-        aria-label={`Aumentar ${nome}`}
-        className="flex !min-h-0 h-10 w-9 items-center justify-center rounded-xl bg-brand-900 text-white active:scale-95"
-      >
-        <Plus className="h-5 w-5" strokeWidth={2.5} />
-      </button>
-    </div>
-  )
-}
-
-export default function CantinaPage() {
+export default function SaidaCantinaPage() {
   const navigate = useNavigate()
   const { fazendaId } = useSelector((state: RootState) => state.config)
   const [form, setForm] = useState<FormState>(makeInitial())
@@ -182,10 +146,13 @@ export default function CantinaPage() {
   const [catalogo, setCatalogo] = useState<Record<string, ItemCatalogo>>({})
   const [quantidades, setQuantidades] = useState<Record<string, string>>({})
   const [totalOntem, setTotalOntem] = useState<number | null>(null)
+  const [empresasSugeridas, setEmpresasSugeridas] = useState<string[]>([])
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const marmitaDetalhada = form.modo === 'marmita' && marmitaDetalhadaLiberada(fazendaId)
 
   const refreshTick = useRefreshTick()
   // Funcionários do cache (com fallback offline)
@@ -224,6 +191,24 @@ export default function CantinaPage() {
     }
     carregarClassificacoes()
   }, [fazendaId, refreshTick])
+
+  // Sugestões de empresa terceirizada: histórico da fazenda (cache) + registros locais ainda não sincronizados
+  useEffect(() => {
+    if (!fazendaId || !marmitaDetalhada) return
+    let cancelado = false
+    Promise.all([
+      getEmpresasTerceirizadasCached(fazendaId),
+      listarRegistros('cantina')
+        .then((lista) => empresasDosDetalhes(lista.map((r: any) => r.marmitasDetalhe)))
+        .catch(() => [] as string[]),
+    ]).then(([historico, locais]) => {
+      if (cancelado) return
+      setEmpresasSugeridas(empresasDosDetalhes([...historico, ...locais].map((empresa) => ({ terceirizadas: [{ empresa }] }))))
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, marmitaDetalhada, refreshTick])
 
   // Itens da classificação ativa
   useEffect(() => {
@@ -308,16 +293,21 @@ export default function CantinaPage() {
     if (form.modo === 'cantina') {
       return form.cozinheiras.length > 0 && totalHoje > 0 && itensDoRegistro.length > 0
     }
+    if (marmitaDetalhada) return !!form.fornecedor && !!form.precoUnitario && !pendenciaGrade(form.grade)
     return !!form.fornecedor && !!form.quantidadeMarmitas && !!form.precoUnitario && !!form.destinatario
-  }, [form, totalHoje, itensDoRegistro.length])
+  }, [form, totalHoje, itensDoRegistro.length, marmitaDetalhada])
 
   const pendenciaTexto = useMemo(() => {
-    if (form.modo === 'marmita') return 'Preencha fornecedor, quantidade, preço e destinatário'
+    if (marmitaDetalhada) {
+      if (!form.fornecedor || !form.precoUnitario) return 'Preencha fornecedor e preço unitário'
+      return pendenciaGrade(form.grade)
+    }
+    if (form.modo !== 'cantina') return 'Preencha fornecedor, quantidade, preço e destinatário'
     if (form.cozinheiras.length === 0) return 'Marque quem cozinhou'
     if (totalHoje <= 0) return 'Informe pelo menos uma refeição'
     if (itensDoRegistro.length === 0) return 'Informe a quantidade de pelo menos um item'
     return undefined
-  }, [form.modo, form.cozinheiras.length, totalHoje, itensDoRegistro.length])
+  }, [form.modo, form.cozinheiras.length, totalHoje, itensDoRegistro.length, marmitaDetalhada, form.fornecedor, form.precoUnitario, form.grade])
 
   const handleSalvar = async () => {
     if (!formValido) {
@@ -343,6 +333,9 @@ export default function CantinaPage() {
     })
 
     const cantina = form.modo === 'cantina'
+    // Marmita detalhada: o total e o destinatário legados saem da grade
+    const detalheMarmita = marmitaDetalhada ? paraDetalhe(form.grade) : null
+    const totalMarmita = detalheMarmita ? totaisDetalhe(detalheMarmita).geral : null
     const result = await salvarRegistro('cantina', {
       data: form.data,
       modo: form.modo,
@@ -358,9 +351,10 @@ export default function CantinaPage() {
       itensDetalhe: cantina ? itensDoRegistro : null,
       // Marmita
       fornecedor: !cantina ? form.fornecedor : null,
-      quantidadeMarmitas: !cantina ? form.quantidadeMarmitas : null,
+      quantidadeMarmitas: !cantina ? (totalMarmita !== null ? String(totalMarmita) : form.quantidadeMarmitas) : null,
       precoUnitario: !cantina ? form.precoUnitario : null,
-      destinatario: !cantina ? form.destinatario : null,
+      destinatario: !cantina ? (detalheMarmita ? destinatarioDoDetalhe(detalheMarmita) : form.destinatario) : null,
+      marmitasDetalhe: detalheMarmita,
       // Comum
       observacao: form.observacao,
     })
@@ -392,14 +386,15 @@ export default function CantinaPage() {
     navigate('/')
   }
 
-  const precoTotalMarmita =
-    form.quantidadeMarmitas && form.precoUnitario && !isNaN(Number(form.quantidadeMarmitas)) && !isNaN(Number(form.precoUnitario))
-      ? Number(form.quantidadeMarmitas) * Number(form.precoUnitario)
+  const quantidadeTotal = marmitaDetalhada ? totaisDetalhe(paraDetalhe(form.grade)).geral : Number(form.quantidadeMarmitas)
+  const precoTotal =
+    quantidadeTotal > 0 && form.precoUnitario && !isNaN(Number(form.precoUnitario))
+      ? quantidadeTotal * Number(form.precoUnitario)
       : null
 
   return (
     <CadernetaLayout
-      title={form.modo === 'marmita' ? 'MARMITA' : 'CANTINA'}
+      title={form.modo === 'marmita' ? 'MARMITA' : form.modo === 'prato_feito' ? 'PRATO FEITO' : 'CANTINA · SAÍDA'}
       cadernetaId="cantina"
       dateContent={<DatePicker value={form.data} onChange={(val) => setForm((prev) => ({ ...prev, data: val }))} variant="header" compact inline />}
     >
@@ -410,10 +405,12 @@ export default function CantinaPage() {
           options={[
             { value: 'cantina', label: 'Cantina', icon: '🍲' },
             { value: 'marmita', label: 'Marmita', icon: '🍱' },
+            { value: 'prato_feito', label: 'Prato Feito', icon: '🍽️' },
           ]}
           value={form.modo}
-          onChange={(v) => setForm((p) => ({ ...p, modo: v as 'cantina' | 'marmita' }))}
-          cols={2}
+          onChange={(v) => setForm((p) => ({ ...p, modo: v as FormState['modo'] }))}
+          cols={3}
+          labelSize="xs"
         />
       </CadernetaSection>
 
@@ -561,16 +558,17 @@ export default function CantinaPage() {
         </>
       ) : (
         <>
-          <CadernetaSection numero={1} titulo="Dados da marmita">
+          <CadernetaSection numero={1} titulo={form.modo === 'prato_feito' ? 'Dados do prato feito' : 'Dados da marmita'}>
             <Input label={<span>FORNECEDOR <span className="text-red-500">*</span></span>} placeholder="Nome do fornecedor" value={form.fornecedor} onChange={setInput('fornecedor')} error={getError('fornecedor')} />
-            <NumericInput label={<span>QUANTIDADE DE MARMITAS <span className="text-red-500">*</span></span>} decimalPlaces={0} placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeMarmitas: v }))} error={getError('quantidadeMarmitas')} />
+            {marmitaDetalhada && <GradeMarmitas grade={form.grade} onChange={(grade) => setForm((prev) => ({ ...prev, grade }))} sugestoes={empresasSugeridas} error={getError('marmitasDetalhe')} />}
+            {!marmitaDetalhada && <NumericInput label={<span>{form.modo === 'prato_feito' ? 'QUANTIDADE DE PRATOS' : 'QUANTIDADE DE MARMITAS'} <span className="text-red-500">*</span></span>} decimalPlaces={0} placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeMarmitas: v }))} error={getError('quantidadeMarmitas')} />}
             <NumericInput label={<span>PREÇO UNITÁRIO (R$) <span className="text-red-500">*</span></span>} decimalPlaces={2} placeholder="0,00" value={form.precoUnitario} onChange={(v) => setForm((prev) => ({ ...prev, precoUnitario: v }))} error={getError('precoUnitario')} />
-            {precoTotalMarmita !== null && (
+            {precoTotal !== null && (
               <InfoStrip tone="success" icon={<span>💰</span>}>
-                Preço total: R$ {precoTotalMarmita.toFixed(2).replace('.', ',')}
+                Preço total: R$ {precoTotal.toFixed(2).replace('.', ',')}
               </InfoStrip>
             )}
-            <Input label={<span>DESTINATÁRIO <span className="text-red-500">*</span></span>} placeholder="Para quem são as marmitas?" value={form.destinatario} onChange={setInput('destinatario')} error={getError('destinatario')} />
+            {!marmitaDetalhada && <Input label={<span>DESTINATÁRIO <span className="text-red-500">*</span></span>} placeholder={form.modo === 'prato_feito' ? 'Para quem são os pratos?' : 'Para quem são as marmitas?'} value={form.destinatario} onChange={setInput('destinatario')} error={getError('destinatario')} />}
           </CadernetaSection>
 
           <CadernetaSection numero={2} titulo="Observações">
@@ -593,7 +591,7 @@ export default function CantinaPage() {
         onClose={() => setShowSuccessModal(false)}
         onNewRecord={handleNewRecord}
         onExit={handleExit}
-        cadernetaName={form.modo === 'marmita' ? 'Marmita' : 'Alimentação'}
+        cadernetaName={form.modo === 'marmita' ? 'Marmita' : form.modo === 'prato_feito' ? 'Prato Feito' : 'Alimentação'}
         registro={registroSalvo}
         caderneta="cantina"
       />

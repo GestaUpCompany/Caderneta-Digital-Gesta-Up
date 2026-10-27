@@ -3354,6 +3354,23 @@ export async function getClassificacoesCantina(fazendaId: string): Promise<strin
   return classificacoes
 }
 
+// Detalhes de marmitas recentes da fazenda (para sugerir empresas terceirizadas já usadas)
+export async function getDetalhesMarmitasRecentes(fazendaId: string): Promise<unknown[]> {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('registros_alimentacao')
+    .select('marmitas_detalhe')
+    .eq('fazenda_id', fazendaId)
+    .eq('modo', 'marmita')
+    .is('deleted_at', null)
+    .not('marmitas_detalhe', 'is', null)
+    .order('data', { ascending: false })
+    .limit(300)
+
+  if (error) throw error
+  return (data || []).map((r: any) => r.marmitas_detalhe)
+}
+
 export async function getItensCantina(fazendaId: string, classificacao?: string) {
   const client = await getSupabaseClientWithRefresh()
   let query = (client as any)

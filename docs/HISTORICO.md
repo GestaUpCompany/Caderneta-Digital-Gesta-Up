@@ -1760,3 +1760,41 @@ Pendências conhecidas: o botão manual não recebe o progresso da atualização
 ## Planos nutricionais em lote no aquecimento (23/10/2026)
 
 A consulta completa dos planos deixou de ser feita lote a lote. `getPlanosNutricionaisCompletosBatch` busca a fazenda inteira em 4 consultas (formulações, categorias dos lotes, personalização e GMDs), e o cálculo foi extraído para `utils/planoNutricionalCalculo.ts`, usado pelos dois caminhos. Se o lote falhar, volta para a consulta individual. Fase batch do aquecimento: ~5 s → ~2,5 s (fazenda de testes). Testes do cálculo em `planoNutricionalCalculo.test.ts`. Conferido ao vivo na fazenda de testes: os 8 lotes com plano dão o mesmo resultado nos dois caminhos (5 com GMD, 3 no ramo de peso de início, 2 no ramo de ajuste).
+
+## Documentação do módulo comercial (26/10/2026)
+
+- Novo `docs/MODULO_COMERCIAL.md` descreve o fluxo completo dos comunicados de venda, compra e transferência, da recepção e das ordens de serviço, cobrindo PWA e Painel Web: telas, campos, escrita offline, leitura por cache, ciclo de vida por tipo, triggers, RPCs, RLS e armadilhas conhecidas.
+
+## Recepção Animais: menu, visual e máscaras (26/10/2026)
+
+- **Menu:** o card RECEPÇÃO ANIMAIS saiu do menu de cadernetas (Gado & Pastagens) e foi para o menu de Checklists, em grupo próprio "Recepção". O card mantém o gate de `acesso_comercial` e o RBAC. A entrada em `constants.ts` ficou, porque compartilhamento, programação e Home dependem dela.
+- **Visual:** formulário em "livro de campo": seções com lombada verde, cabeçalhos em caixa-alta, total de cabeças em destaque e botão de salvar na cor da marca. Só classes; lógica intacta.
+- **Máscaras e validações:** horas de chegada e de pesagem usam o `TimeInput` (HH:MM); placas gravam em maiúsculas; peso de saída igual ou maior que o de entrada mostra aviso (antes o peso médio ficava vazio em silêncio).
+- **Pendências:** labels não ligados aos inputs (componente `Input`), placa e GTA sem formato, `TimeInput` remove dois-pontos ao digitar "9:3".
+
+## Saída Cantina: renomeação e modo Prato Feito (26/10/2026)
+
+- **Renomeação:** `CantinaPage.tsx` virou `SaidaCantinaPage.tsx` (rota `/caderneta/cantina` e `cadernetaId` `cantina` inalterados). Título do modo cantina: `CANTINA · SAÍDA`, igual ao padrão `CANTINA · ENTRADA`.
+- **Prato Feito:** terceiro modo da tela (`modo = 'prato_feito'`). Herda os campos da marmita (fornecedor, quantidade, preço unitário, destinatário) e grava a quantidade em `quantidadeMarmitas` / `quantidade_marmitas`; só mudam rótulos, título e compartilhamento por WhatsApp (`shareUtils.ts`). A validação (`validateCantina`) trata `marmita` e `prato_feito` com as mesmas regras. Não movimenta estoque (o trigger `trg_alimentacao_mov` só processa `cantina` e `entrada`).
+- **Banco (Painel):** migration `20261026160000_cantina_modo_prato_feito.sql`, já aplicada com `supabase db push`. Amplia o CHECK `registros_cantina_modo_check` para `cantina | marmita | prato_feito | entrada`, atualiza `editar_registro_saida_cantina` e `excluir_registro_saida_cantina` e faz `get_dados_relatorio_cantina` devolver `pratos_feitos` separado de `marmitas`. Antes da migration o sync rejeitaria o modo novo.
+- **Painel:** listas e detalhes de saída de cantina com rótulo e campos do prato feito (helper `utils/cantinaModo.ts`); relatório público com aba "Pratos feitos" (só quando há registros) e PDF com tabela própria (6 linhas por tabela quando as duas aparecem).
+- **Testado:** CHECK aceita `prato_feito` e rejeita modo inválido (INSERT na fazenda de testes com rollback); HTML do PDF gerado com e sem pratos feitos e com dado antigo sem a chave; tela do app em 390 e 320 px.
+- **Pendente:** PWA em produção só depois do deploy (a migration já está no banco, mas o app antigo não envia o modo novo); o RPC do relatório não foi exercitado com token público real.
+
+## Marmita interna x terceirizada por refeição (26/10/2026)
+
+- **Pedido:** no lançamento de marmita, separar quem come (funcionários da fazenda x trabalhadores de empresas terceirizadas), com a quantidade de cada refeição (café, lanche, almoço, jantar) no mesmo lançamento.
+- **App:** modo Marmita da `SaidaCantinaPage` ganha a grade `GradeMarmitas`: um cartão "Funcionários (interna)" e um cartão por empresa terceirizada (nome com sugestões das empresas já usadas na fazenda, 4 steppers). Preço unitário único; total = soma de tudo. O Prato Feito não muda. Funções puras em `utils/cantinaMarmitas.ts` (totais, normalização de empresa, validação), com testes. `Stepper` extraído para `components/cadernetas/Stepper.tsx` (variante `compact` para 320 px).
+- **Liberação:** só na fazenda de testes, por `marmitaDetalhadaLiberada` em `utils/constants.ts`. As demais fazendas seguem com o formulário antigo (fornecedor, quantidade, preço, destinatário). Para liberar para todas, basta trocar a função para retornar `true` (ou ligar a uma flag por fazenda).
+- **Dados:** nova coluna `registros_alimentacao.marmitas_detalhe` (jsonb), enviada pelo `syncService`. `quantidade_marmitas` continua sendo o total e `destinatario` vira a lista de empresas (ou "Funcionários"); ambos são recalculados pelo servidor. Sem mudança no IndexedDB (sem bump de versão). Registros antigos ficam sem detalhe e contam como internos, refeição não informada.
+- **Banco (Painel):** migration `20261026170000_cantina_marmitas_detalhe.sql`, já aplicada com `supabase db push`. Coluna e CHECK, helper `marmitas_detalhe_resumo`, trigger `trg_alimentacao_marmitas_detalhe` (vale também para o sync direto do app), `editar_registro_saida_cantina` editando a grade e `get_dados_relatorio_cantina` com `marmitas.por_tipo`, `por_refeicao` e `por_empresa` (empresas agrupadas ignorando maiúsculas, acentos e espaços).
+- **Painel:** detalhe da saída mostra a grade e permite editá-la (`GradeEdicaoMarmitas`); lista mostra "N int. + M terc."; relatório público e PDF ganham interna x terceirizada, por refeição e por empresa. Registros antigos continuam com o formulário de quantidade única.
+- **Testado:** trigger, helper e relatório com rollback na fazenda de testes (inclui casos inválidos e registros antigos); RPC de edição simulando um controller; fluxo completo no app em 320 px (preencher, validar empresa obrigatória, salvar, sincronizar e conferir a linha no banco); HTML do PDF com e sem divisão.
+- **Pendente:** telas do Painel conferidas só por tipos, lint e leitura (sem login de controller no navegador); registro de teste "Teste E2E marmita" (id `1fc80ed2-a0b5-4750-92da-78740ee452a3`) ficou na fazenda de testes; o app em produção só envia a grade depois do deploy e, mesmo então, só na fazenda de testes.
+
+## Cabeçalho com a fazenda nos textos compartilhados (27/10/2026)
+
+- **Pedido:** quando a fazenda pertence a um grupo, o texto compartilhado (registros, resumos, WhatsApp e share nativo) deve trazer o nome da fazenda atual do usuário no cabeçalho.
+- **App:** flag `fazendaEmGrupo` no `configSlice` (persistido). Gravada na validação da fazenda (`Configuracoes`, a partir de `fazendas.grupo_id`) e atualizada ao abrir o menu de módulos (`ModulosMenuPage`), para instalações antigas. `cabecalhoFazendaCompartilhado()` em `utils/shareUtils.ts` monta `*Fazenda: <nome>*` e `compartilharWhatsApp` o prefixa uma única vez, cobrindo todos os textos que passam por ela.
+- **Sem mudança:** IndexedDB (sem bump de versão), sync e banco. Fazenda sem grupo segue igual.
+- **Pendente:** não há teste unitário do cabeçalho; PDFs (`pdfUtils`) não recebem o cabeçalho.

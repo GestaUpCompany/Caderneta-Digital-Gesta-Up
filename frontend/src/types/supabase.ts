@@ -7450,6 +7450,7 @@ export type Database = {
           observacao: string | null
           preco_unitario: number | null
           quantidade_marmitas: number | null
+          marmitas_detalhe: Json | null
           quantidade_outros: string | null
           quem_ajudou: string | null
           quem_cozinhou: string | null
@@ -7482,6 +7483,7 @@ export type Database = {
           observacao?: string | null
           preco_unitario?: number | null
           quantidade_marmitas?: number | null
+          marmitas_detalhe?: Json | null
           quantidade_outros?: string | null
           quem_ajudou?: string | null
           quem_cozinhou?: string | null
@@ -7514,6 +7516,7 @@ export type Database = {
           observacao?: string | null
           preco_unitario?: number | null
           quantidade_marmitas?: number | null
+          marmitas_detalhe?: Json | null
           quantidade_outros?: string | null
           quem_ajudou?: string | null
           quem_cozinhou?: string | null

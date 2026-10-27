@@ -126,7 +126,7 @@ const EntradaFarmaciaPage = lazy(() => import('./pages/cadernetas/EntradaFarmaci
 const EntradaFarmaciaListaPage = lazy(() => import('./pages/cadernetas/EntradaFarmaciaListaPage'))
 const SaidaFarmaciaPage = lazy(() => import('./pages/cadernetas/SaidaFarmaciaPage'))
 const SaidaFarmaciaListaPage = lazy(() => import('./pages/cadernetas/SaidaFarmaciaListaPage'))
-const CantinaPage = lazy(() => import('./pages/cadernetas/CantinaPage'))
+const SaidaCantinaPage = lazy(() => import('./pages/cadernetas/SaidaCantinaPage'))
 const CantinaListaPage = lazy(() => import('./pages/cadernetas/CantinaListaPage'))
 const EntradaCantinaPage = lazy(() => import('./pages/cadernetas/EntradaCantinaPage'))
 const EntradaCantinaListaPage = lazy(() => import('./pages/cadernetas/EntradaCantinaListaPage'))
@@ -620,7 +620,7 @@ function AppInner() {
             <Route path="/caderneta/saida-farmacia/lista" element={<SaidaFarmaciaListaPage />} />
 
             {/* Cantina */}
-            <Route path="/caderneta/cantina" element={<CantinaPage />} />
+            <Route path="/caderneta/cantina" element={<SaidaCantinaPage />} />
             <Route path="/caderneta/cantina/lista" element={<CantinaListaPage />} />
 
             {/* Entrada Cantina */}

@@ -587,6 +587,7 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         quantidade_marmitas: registro.quantidadeMarmitas ? paraNumero(registro.quantidadeMarmitas) : null,
         preco_unitario: registro.precoUnitario ? paraNumero(registro.precoUnitario) : null,
         destinatario: registro.destinatario || null,
+        marmitas_detalhe: registro.marmitasDetalhe || null,
         observacao: registro.observacao || null,
       }
     case 'limpeza':

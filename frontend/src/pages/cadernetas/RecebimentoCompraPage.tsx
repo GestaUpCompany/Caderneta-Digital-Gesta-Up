@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Input, Select, DatePicker, Radio, ValidationMessage, NumericInput } from '../../components/ui'
+import { Input, Select, DatePicker, Radio, ValidationMessage, NumericInput, TimeInput } from '../../components/ui'
 import { Brush, Save, Plus, Trash2, Video } from 'lucide-react'
 import SearchableModal from '../../components/ui/SearchableModal'
 import SuccessModal from '../../components/SuccessModal'
@@ -220,6 +220,9 @@ export default function RecebimentoCompraPage() {
   const setInput = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
+  const setPlaca = (field: 'placaVeiculo' | 'placaReboque') => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value.toUpperCase() }))
+
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
   const totalRecebido = useMemo(
@@ -235,6 +238,12 @@ export default function RecebimentoCompraPage() {
     const liquido = entrada - saida
     return liquido > 0 ? liquido / totalRecebido : null
   }, [form.pesoEntrada, form.pesoSaida, totalRecebido])
+
+  const pesoSaidaInvalido = useMemo(() => {
+    const entrada = normalizarNumero(form.pesoEntrada)
+    const saida = normalizarNumero(form.pesoSaida)
+    return entrada !== null && saida !== null && saida >= entrada
+  }, [form.pesoEntrada, form.pesoSaida])
 
   const osSelecionada = osAbertas.find((o) => o.id === form.osId) || null
   // Transferência: o laudo é gravado mas não credita estoque; a entrada no
@@ -421,8 +430,8 @@ export default function RecebimentoCompraPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         {/* Seção 1: OS */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">1. ORDEM DE SERVIÇO</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-5">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">1. ORDEM DE SERVIÇO</h2>
           <Select
             label="OS DE COMPRA / TRANSFERÊNCIA *"
             value={form.osId}
@@ -457,8 +466,8 @@ export default function RecebimentoCompraPage() {
         </div>
 
         {/* Seção 2: Documental e transporte */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">2. DOCUMENTOS E TRANSPORTE</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-5">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">2. DOCUMENTOS E TRANSPORTE</h2>
           <Input
             label={<span>Nº GTA <span className="text-red-500">*</span></span>}
             placeholder="Número da GTA desta carga"
@@ -485,14 +494,14 @@ export default function RecebimentoCompraPage() {
           />
           <Input
             label="PLACA DO VEÍCULO"
-            placeholder="Ex: ABC-1234"
+            placeholder="Ex: ABC1D23 ou ABC-1234"
             value={form.placaVeiculo}
-            onChange={setInput('placaVeiculo')}
+            onChange={setPlaca('placaVeiculo')}
           />
           <Input
             label="PLACA DO REBOQUE"
             value={form.placaReboque}
-            onChange={setInput('placaReboque')}
+            onChange={setPlaca('placaReboque')}
           />
           <Input
             label="MOTORISTA"
@@ -507,20 +516,19 @@ export default function RecebimentoCompraPage() {
               error={getError('dataChegada')}
               compact
             />
-            <Input
+            <TimeInput
               label="HORA DE CHEGADA"
-              placeholder="Ex: 14:30"
               value={form.horaChegada}
-              onChange={setInput('horaChegada')}
+              onChange={(v) => setForm((prev) => ({ ...prev, horaChegada: v }))}
             />
           </div>
         </div>
 
         {/* Seção 3: Contagens por categoria/sexo */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">3. QUANTIDADES RECEBIDAS</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-5">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">3. QUANTIDADES RECEBIDAS</h2>
           {contagens.map((c, idx) => (
-            <div key={idx} className="border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
+            <div key={idx} className="border border-dashed border-brand-200 bg-surface rounded-xl p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-gray-700">CATEGORIA {idx + 1}</span>
                 {contagens.length > 1 && (
@@ -563,13 +571,13 @@ export default function RecebimentoCompraPage() {
               <Plus className="h-4 w-4" /> ADICIONAR CATEGORIA
             </span>
           </button>
-          <p className="text-sm font-bold text-gray-700">TOTAL RECEBIDO: {totalRecebido} cabeças</p>
+          <p className="flex items-baseline justify-between rounded-xl bg-brand-50 px-4 py-3 text-base font-black uppercase tracking-wide text-brand-900">TOTAL RECEBIDO <span className="text-3xl tabular-nums">{totalRecebido}</span> <span className="text-sm font-bold normal-case">cabeças</span></p>
           {getError('contagens') && <p className="text-sm text-red-500">{getError('contagens')}</p>}
         </div>
 
         {/* Seção 4: Balanço */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">4. BALANÇÃO</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-5">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">4. BALANÇÃO</h2>
           <div className="grid grid-cols-2 gap-4">
             <NumericInput
               label="PESO ENTRADA (KG)"
@@ -586,6 +594,11 @@ export default function RecebimentoCompraPage() {
               decimalPlaces={0}
             />
           </div>
+          {pesoSaidaInvalido && (
+            <p className="-mt-3 text-base font-semibold text-red-700">
+              ⚠️ Peso de saída deve ser menor que o de entrada
+            </p>
+          )}
           <Input
             label="PESO MÉDIO (KG/CAB)"
             placeholder="Calculado: (entrada − saída) ÷ cabeças"
@@ -594,17 +607,16 @@ export default function RecebimentoCompraPage() {
             inputMode="decimal"
             disabled
           />
-          <Input
+          <TimeInput
             label="HORA DA PESAGEM"
-            placeholder="Ex: 14:45"
             value={form.horaPesagem}
-            onChange={setInput('horaPesagem')}
+            onChange={(v) => setForm((prev) => ({ ...prev, horaPesagem: v }))}
           />
         </div>
 
         {/* Seção 5: Destino */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">5. DESTINO</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-5">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">5. DESTINO</h2>
           {lotes.length > 0 ? (
             <SearchableModal
               label={<span>LOTE DE DESTINO <span className="text-red-500">*</span></span>}
@@ -640,8 +652,8 @@ export default function RecebimentoCompraPage() {
         </div>
 
         {/* Seção 6: Checklist diagnóstico */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">6. CHECKLIST DE RECEPÇÃO</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-4">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">6. CHECKLIST DE RECEPÇÃO</h2>
           {checklist.map((c, idx) => (
             <div key={c.item} className="border-b border-gray-100 pb-3">
               <Radio
@@ -687,8 +699,8 @@ export default function RecebimentoCompraPage() {
         </div>
 
         {/* Seção 7: Vídeo do descarregamento */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">7. VÍDEO DO DESCARREGAMENTO</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-4">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">7. VÍDEO DO DESCARREGAMENTO</h2>
           <p className="text-sm text-gray-500">
             Grave ou anexe o vídeo dos animais sendo descarregados. Serve como prova de chegada desta carga (GTA).
           </p>
@@ -719,8 +731,8 @@ export default function RecebimentoCompraPage() {
         </div>
 
         {/* Seção 8: Responsáveis */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex flex-col gap-5">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">8. RESPONSÁVEIS</h2>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 border-l-4 border-l-brand-600 flex flex-col gap-5">
+          <h2 className="text-base font-black uppercase tracking-[0.12em] text-brand-800 border-b border-dashed border-brand-200 pb-2">8. RESPONSÁVEIS</h2>
           {funcionariosDisponiveis.length > 0 ? (
             <SearchableModal
               label={<span>RESPONSÁVEL <span className="text-red-500">*</span></span>}
@@ -770,7 +782,7 @@ export default function RecebimentoCompraPage() {
             className={`w-full !min-h-0 rounded-2xl border-2 px-3 py-4 text-base font-bold transition-colors active:scale-[0.99] ${
               salvando || !isValid
                 ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-green-600 bg-green-600 text-white hover:bg-green-700'
+                : 'border-brand-700 bg-brand-700 text-white hover:bg-brand-800'
             }`}
           >
             <span className="inline-flex items-center justify-center gap-2">
