@@ -7,7 +7,7 @@ import { useRefreshCadastros } from '../../hooks/useRefreshCadastros'
 import { compartilharWhatsApp, Registro } from '../../utils/shareUtils'
 import { gerarPdfResumoRodeio, compartilharPdf } from '../../utils/pdfUtils'
 import { RootState } from '../../store/store'
-import { getFazendasDoMesmoGrupoCached } from '../../services/cadastroCache'
+import { getFazendasDoMesmoGrupoCached, getLotesAtivosCached } from '../../services/cadastroCache'
 
 const CATEGORIAS_CAMPOS: { key: string; label: string }[] = [
   { key: 'vaca', label: 'VACAS' },
@@ -110,8 +110,18 @@ export default function RodeioListaPage() {
     return todosRegistros.filter((r) => String(r.data).split(' ')[0] === dataBase)
   }
 
+  /**
+   * Registros salvos antes de a divisão do lote ser gravada (lote em curral sem pasto_id)
+   * chegam sem pasto. Preenche com o pasto ou curral atual do lote, sem alterar o registro salvo.
+   */
+  const comDivisaoDoLote = async (registros: Registro[]): Promise<Registro[]> => {
+    if (registros.every((r) => r.pasto)) return registros
+    const { lotesPastoMap } = await getLotesAtivosCached(fazendaId)
+    return registros.map((r) => ({ ...r, pasto: r.pasto || lotesPastoMap[String(r.numeroLote)] || '' }))
+  }
+
   const handleGerarResumoTexto = async (data: string) => {
-    const registrosDoDia = filtrarRegistrosDoDia(data)
+    const registrosDoDia = await comDivisaoDoLote(filtrarRegistrosDoDia(data))
     const dataBase = data.split(' ')[0]
     const partes: string[] = []
 
@@ -233,7 +243,7 @@ export default function RodeioListaPage() {
   }
 
   const handleGerarResumoPdf = async (data: string) => {
-    const registrosDoDia = filtrarRegistrosDoDia(data)
+    const registrosDoDia = await comDivisaoDoLote(filtrarRegistrosDoDia(data))
     const dataBase = data.split(' ')[0]
     const pdfFile = await gerarPdfResumoRodeio(registrosDoDia, dataBase, fazenda)
     await compartilharPdf(
