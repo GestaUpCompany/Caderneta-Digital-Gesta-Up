@@ -1781,6 +1781,14 @@ A consulta completa dos planos deixou de ser feita lote a lote. `getPlanosNutric
 - **Testado:** CHECK aceita `prato_feito` e rejeita modo inválido (INSERT na fazenda de testes com rollback); HTML do PDF gerado com e sem pratos feitos e com dado antigo sem a chave; tela do app em 390 e 320 px.
 - **Pendente:** PWA em produção só depois do deploy (a migration já está no banco, mas o app antigo não envia o modo novo); o RPC do relatório não foi exercitado com token público real.
 
+## Prato Feito: almoço e jantar (27/10/2026)
+
+- **Pedido:** no Prato Feito, selecionar as refeições como na Cantina, mas só com almoço e jantar (em vez de "quantidade de pratos").
+- **App:** `SaidaCantinaPage` mostra os steppers Almoço e Jantar (`REFEICOES_PRATO_FEITO`, mesma linha `renderRefeicao` da Cantina). O total de pratos é almoço + jantar e vira `quantidadeMarmitas`, que segue alimentando preço total, relatório e validação. O texto do WhatsApp (`shareUtils.ts`) lista `N° ALMOÇO` e `N° JANTAR` quando preenchidos.
+- **Dados:** sem migration e sem bump do IndexedDB. Usa as colunas `numero_refeicoes_almoco` e `numero_refeicoes_jantar` já sincronizadas; café e lanche ficam nulos no prato feito. O relatório de cantina filtra `modo = 'cantina'`, então esses campos não entram nos totais da cantina.
+- **Testado:** DevTools em 390 px na fazenda de testes: só Almoço e Jantar, total e preço corretos, Salvar só habilita com refeição informada. Sync confirmado em `registros_alimentacao` (`modo = prato_feito`, `quantidade_marmitas = 3`, almoço 2, jantar 1). Registro de teste apagado depois.
+- **Pendente:** editar almoço e jantar de um prato feito pelo Painel exige incluir `numero_refeicoes_*` em `editar_registro_saida_cantina` (migration no repo do Painel). Teste em 320 px e conferência do texto compartilhado ainda não feitos.
+
 ## Marmita interna x terceirizada por refeição (26/10/2026)
 
 - **Pedido:** no lançamento de marmita, separar quem come (funcionários da fazenda x trabalhadores de empresas terceirizadas), com a quantidade de cada refeição (café, lanche, almoço, jantar) no mesmo lançamento.

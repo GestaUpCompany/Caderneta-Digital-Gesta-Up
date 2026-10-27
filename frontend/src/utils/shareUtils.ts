@@ -1090,6 +1090,10 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += modo === 'prato_feito' ? `DADOS DO PRATO FEITO\n` : `DADOS DA MARMITA\n`
       texto += `FORNECEDOR: *${registro.fornecedor || '—'}*\n`
       texto += `QUANTIDADE: *${registro.quantidadeMarmitas || '—'}*\n`
+      if (modo === 'prato_feito') {
+        if (registro.numeroRefeicoesAlmoco) texto += `N° ALMOÇO: *${registro.numeroRefeicoesAlmoco}*\n`
+        if (registro.numeroRefeicoesJantar) texto += `N° JANTAR: *${registro.numeroRefeicoesJantar}*\n`
+      }
       const detalheMarmita = registro.marmitasDetalhe as unknown as MarmitasDetalhe | undefined
       if (detalheMarmita?.interna) {
         texto += `INTERNAS (FUNCIONÁRIOS): *${resumoRefeicoes(detalheMarmita.interna)}*\n`

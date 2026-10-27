@@ -54,6 +54,9 @@ const REFEICOES: { campo: CampoRefeicao; label: string; icone: string }[] = [
   { campo: 'numeroRefeicoesJantar', label: 'Jantar', icone: '🍲' },
 ]
 
+// Prato feito: só almoço e jantar
+const REFEICOES_PRATO_FEITO = REFEICOES.filter(({ campo }) => campo === 'numeroRefeicoesAlmoco' || campo === 'numeroRefeicoesJantar')
+
 interface FormState {
   modo: 'cantina' | 'marmita' | 'prato_feito'
   data: string
@@ -287,6 +290,8 @@ export default function SaidaCantinaPage() {
   )
 
   const totalHoje = REFEICOES.reduce((soma, { campo }) => soma + numeroDe(form[campo]), 0)
+  // Prato feito: almoço + jantar
+  const totalPratos = numeroDe(form.numeroRefeicoesAlmoco) + numeroDe(form.numeroRefeicoesJantar)
 
   const formValido = useMemo(() => {
     if (!form.data) return false
@@ -294,20 +299,22 @@ export default function SaidaCantinaPage() {
       return form.cozinheiras.length > 0 && totalHoje > 0 && itensDoRegistro.length > 0
     }
     if (marmitaDetalhada) return !!form.fornecedor && !!form.precoUnitario && !pendenciaGrade(form.grade)
+    if (form.modo === 'prato_feito') return !!form.fornecedor && totalPratos > 0 && !!form.precoUnitario && !!form.destinatario
     return !!form.fornecedor && !!form.quantidadeMarmitas && !!form.precoUnitario && !!form.destinatario
-  }, [form, totalHoje, itensDoRegistro.length, marmitaDetalhada])
+  }, [form, totalHoje, totalPratos, itensDoRegistro.length, marmitaDetalhada])
 
   const pendenciaTexto = useMemo(() => {
     if (marmitaDetalhada) {
       if (!form.fornecedor || !form.precoUnitario) return 'Preencha fornecedor e preço unitário'
       return pendenciaGrade(form.grade)
     }
+    if (form.modo === 'prato_feito' && totalPratos <= 0) return 'Informe pelo menos uma refeição'
     if (form.modo !== 'cantina') return 'Preencha fornecedor, quantidade, preço e destinatário'
     if (form.cozinheiras.length === 0) return 'Marque quem cozinhou'
     if (totalHoje <= 0) return 'Informe pelo menos uma refeição'
     if (itensDoRegistro.length === 0) return 'Informe a quantidade de pelo menos um item'
     return undefined
-  }, [form.modo, form.cozinheiras.length, totalHoje, itensDoRegistro.length, marmitaDetalhada, form.fornecedor, form.precoUnitario, form.grade])
+  }, [form.modo, form.cozinheiras.length, totalHoje, totalPratos, itensDoRegistro.length, marmitaDetalhada, form.fornecedor, form.precoUnitario, form.grade])
 
   const handleSalvar = async () => {
     if (!formValido) {
@@ -317,6 +324,7 @@ export default function SaidaCantinaPage() {
         if (totalHoje <= 0) faltando.push({ field: 'refeicoes', message: 'Pelo menos uma refeição deve ser informada' })
         if (itensDoRegistro.length === 0) faltando.push({ field: 'itens', message: 'Adicione pelo menos um item' })
       }
+      if (form.modo === 'prato_feito' && totalPratos <= 0) faltando.push({ field: 'refeicoes', message: 'Pelo menos uma refeição deve ser informada' })
       if (faltando.length > 0) {
         setErrors(faltando)
         scrollToFirstError(faltando)
@@ -333,6 +341,7 @@ export default function SaidaCantinaPage() {
     })
 
     const cantina = form.modo === 'cantina'
+    const prato = form.modo === 'prato_feito'
     // Marmita detalhada: o total e o destinatário legados saem da grade
     const detalheMarmita = marmitaDetalhada ? paraDetalhe(form.grade) : null
     const totalMarmita = detalheMarmita ? totaisDetalhe(detalheMarmita).geral : null
@@ -345,13 +354,13 @@ export default function SaidaCantinaPage() {
       quemAjudou: cantina ? form.cozinheiras.slice(1).join(', ') : null,
       numeroCafeManha: cantina ? form.numeroCafeManha : null,
       numeroLanches: cantina ? form.numeroLanches : null,
-      numeroRefeicoesAlmoco: cantina ? form.numeroRefeicoesAlmoco : null,
-      numeroRefeicoesJantar: cantina ? form.numeroRefeicoesJantar : null,
+      numeroRefeicoesAlmoco: cantina || prato ? form.numeroRefeicoesAlmoco : null,
+      numeroRefeicoesJantar: cantina || prato ? form.numeroRefeicoesJantar : null,
       itens: cantina ? itensStorage : null,
       itensDetalhe: cantina ? itensDoRegistro : null,
       // Marmita
       fornecedor: !cantina ? form.fornecedor : null,
-      quantidadeMarmitas: !cantina ? (totalMarmita !== null ? String(totalMarmita) : form.quantidadeMarmitas) : null,
+      quantidadeMarmitas: !cantina ? (prato ? String(totalPratos) : totalMarmita !== null ? String(totalMarmita) : form.quantidadeMarmitas) : null,
       precoUnitario: !cantina ? form.precoUnitario : null,
       destinatario: !cantina ? (detalheMarmita ? destinatarioDoDetalhe(detalheMarmita) : form.destinatario) : null,
       marmitasDetalhe: detalheMarmita,
@@ -386,11 +395,28 @@ export default function SaidaCantinaPage() {
     navigate('/')
   }
 
-  const quantidadeTotal = marmitaDetalhada ? totaisDetalhe(paraDetalhe(form.grade)).geral : Number(form.quantidadeMarmitas)
+  const quantidadeTotal = marmitaDetalhada
+    ? totaisDetalhe(paraDetalhe(form.grade)).geral
+    : form.modo === 'prato_feito'
+      ? totalPratos
+      : Number(form.quantidadeMarmitas)
   const precoTotal =
     quantidadeTotal > 0 && form.precoUnitario && !isNaN(Number(form.precoUnitario))
       ? quantidadeTotal * Number(form.precoUnitario)
       : null
+
+  // Linha de refeição com stepper (usada por cantina e prato feito)
+  const renderRefeicao = ({ campo, label, icone }: (typeof REFEICOES)[number]) => (
+    <div key={campo} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center text-2xl leading-none">{icone}</span>
+      <p className="min-w-0 flex-1 text-base font-bold leading-tight text-gray-900">{label}</p>
+      <Stepper
+        valor={form[campo]}
+        onChange={(v) => setForm((prev) => ({ ...prev, [campo]: v }))}
+        nome={label}
+      />
+    </div>
+  )
 
   return (
     <CadernetaLayout
@@ -480,17 +506,7 @@ export default function SaidaCantinaPage() {
 
           <CadernetaSection numero={2} titulo="Refeições" required>
             <div className="flex flex-col" data-field="refeicoes" id="refeicoes">
-              {REFEICOES.map(({ campo, label, icone }) => (
-                <div key={campo} className="flex items-center gap-2 border-b border-gray-100 py-3 last:border-b-0">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center text-2xl leading-none">{icone}</span>
-                  <p className="min-w-0 flex-1 text-base font-bold leading-tight text-gray-900">{label}</p>
-                  <Stepper
-                    valor={form[campo]}
-                    onChange={(v) => setForm((prev) => ({ ...prev, [campo]: v }))}
-                    nome={label}
-                  />
-                </div>
-              ))}
+              {REFEICOES.map(renderRefeicao)}
             </div>
             {getError('refeicoes') && <p className="text-base font-semibold text-red-700">{getError('refeicoes')}</p>}
             {totalHoje > 0 && (
@@ -561,7 +577,21 @@ export default function SaidaCantinaPage() {
           <CadernetaSection numero={1} titulo={form.modo === 'prato_feito' ? 'Dados do prato feito' : 'Dados da marmita'}>
             <Input label={<span>FORNECEDOR <span className="text-red-500">*</span></span>} placeholder="Nome do fornecedor" value={form.fornecedor} onChange={setInput('fornecedor')} error={getError('fornecedor')} />
             {marmitaDetalhada && <GradeMarmitas grade={form.grade} onChange={(grade) => setForm((prev) => ({ ...prev, grade }))} sugestoes={empresasSugeridas} error={getError('marmitasDetalhe')} />}
-            {!marmitaDetalhada && <NumericInput label={<span>{form.modo === 'prato_feito' ? 'QUANTIDADE DE PRATOS' : 'QUANTIDADE DE MARMITAS'} <span className="text-red-500">*</span></span>} decimalPlaces={0} placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeMarmitas: v }))} error={getError('quantidadeMarmitas')} />}
+            {form.modo === 'marmita' && !marmitaDetalhada && <NumericInput label={<span>QUANTIDADE DE MARMITAS <span className="text-red-500">*</span></span>} decimalPlaces={0} placeholder="Quantidade" value={form.quantidadeMarmitas} onChange={(v) => setForm((prev) => ({ ...prev, quantidadeMarmitas: v }))} error={getError('quantidadeMarmitas')} />}
+            {form.modo === 'prato_feito' && (
+              <div className="flex flex-col" data-field="refeicoes" id="refeicoes">
+                <p className="mb-2 text-[15px] font-bold uppercase text-gray-900">
+                  Refeições <span className="text-red-500">*</span>
+                </p>
+                {REFEICOES_PRATO_FEITO.map(renderRefeicao)}
+                {getError('refeicoes') && <p className="text-base font-semibold text-red-700">{getError('refeicoes')}</p>}
+                {totalPratos > 0 && (
+                  <InfoStrip tone="success">
+                    Total: {totalPratos} {totalPratos === 1 ? 'prato' : 'pratos'}
+                  </InfoStrip>
+                )}
+              </div>
+            )}
             <NumericInput label={<span>PREÇO UNITÁRIO (R$) <span className="text-red-500">*</span></span>} decimalPlaces={2} placeholder="0,00" value={form.precoUnitario} onChange={(v) => setForm((prev) => ({ ...prev, precoUnitario: v }))} error={getError('precoUnitario')} />
             {precoTotal !== null && (
               <InfoStrip tone="success" icon={<span>💰</span>}>
