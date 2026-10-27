@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { setConfig, setConfigurado, setTestMode } from '../store/slices/configSlice'
@@ -12,6 +12,18 @@ import { desativarModoTeste } from '../services/api'
 import PushNotificationCard from '../components/PushNotificationCard'
 import AtualizacaoAutomaticaCard from '../components/AtualizacaoAutomaticaCard'
 import { getVersaoCompleta } from '../utils/version'
+
+// Cabeçalho de ficha: número em mono + título + filete
+const Ficha = ({ n, titulo, children, tom = 'padrao' }: { n: string; titulo: string; children: ReactNode; tom?: 'padrao' | 'alerta' }) => (
+  <section className={`rounded-2xl border p-5 shadow-[0_1px_0_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(29,64,48,0.25)] ${tom === 'alerta' ? 'bg-amber-50 border-amber-300' : 'bg-white border-[#e4dfd3]'}`}>
+    <div className="flex items-center gap-3 mb-4">
+      <span className={`font-mono text-[11px] font-bold tracking-widest px-1.5 py-0.5 rounded ${tom === 'alerta' ? 'bg-amber-200 text-amber-900' : 'bg-[#1d4030] text-[#e8d9a8]'}`}>{n}</span>
+      <h3 className="text-[13px] font-extrabold tracking-[0.14em] text-[#1d4030] uppercase">{titulo}</h3>
+      <span className="flex-1 h-px bg-gradient-to-r from-[#d8d1bf] to-transparent" aria-hidden />
+    </div>
+    {children}
+  </section>
+)
 
 export default function Configuracoes() {
   const navigate = useNavigate()
@@ -253,11 +265,14 @@ export default function Configuracoes() {
 
   const getFieldError = (field: string) => errors.find(e => e.field === field)?.message
 
+  const bloqueado = validandoFazenda || !fazenda.trim() || !usuario.trim()
+  const inicial = (fazendaNome || config.fazenda || '?').trim().charAt(0).toUpperCase()
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-[#f3efe4] flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
-        <div className="px-3 py-3 desktop-form-container">
+      <header className="relative z-20 bg-gradient-to-b from-[#23503a] via-[#1d4030] to-[#1a3a2a] text-white">
+        <div className="px-3 pt-3 pb-16 desktop-form-container">
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={() => navigate(-1)}
@@ -267,50 +282,50 @@ export default function Configuracoes() {
               <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
               <span>Voltar</span>
             </button>
-            <div className="w-[92px]" aria-hidden />
+            <span className="font-mono text-[10px] tracking-[0.25em] text-[#e8d9a8]/80">AJUSTES</span>
           </div>
-
-          <h1 className="mt-2 text-lg font-bold leading-tight tracking-tight text-center truncate tracking-wide">
-            CADASTROS
-          </h1>
+          <h1 className="mt-4 px-1 text-2xl font-extrabold leading-none tracking-tight">Cadastros</h1>
+          <p className="mt-1 px-1 text-xs text-white/60">Fazenda, usuário e preferências do aparelho</p>
         </div>
       </header>
 
-      <main className="flex-1 p-4 flex flex-col gap-4 desktop-form-container">
-        {/* Alerta de sucesso */}
+      <main className="flex-1 px-4 pb-8 -mt-12 relative z-30 flex flex-col gap-4 desktop-form-container">
         {successMsg && (
-          <div className="bg-green-100 border-2 border-green-500 rounded-xl p-4 text-center">
-            <p className="text-lg font-bold text-green-800">{successMsg}</p>
+          <div role="status" className="bg-green-50 border border-green-400 rounded-2xl p-4 text-center shadow-sm">
+            <p className="text-base font-bold text-green-800">{successMsg}</p>
           </div>
         )}
 
-        {/* Card de instruções - só mostra se não configurado */}
+        {/* Cartão de identidade (sobrepõe o cabeçalho) */}
+        <div className="rounded-2xl bg-white border border-[#e4dfd3] p-4 shadow-[0_12px_32px_-12px_rgba(29,64,48,0.45)] flex items-center gap-4">
+          <div className="relative shrink-0">
+            {config.logoUrl ? (
+              <img src={config.logoUrl} alt="" className="w-14 h-14 rounded-2xl object-contain bg-[#f3efe4] border border-[#e4dfd3]" />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-[#1d4030] text-[#e8d9a8] flex items-center justify-center text-2xl font-extrabold">{inicial}</div>
+            )}
+            <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${config.configurado ? 'bg-green-500' : 'bg-gray-300'}`} aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-[10px] tracking-[0.2em] text-gray-500">STATUS</p>
+            <p className="text-lg font-extrabold text-[#1d4030] leading-tight truncate">
+              {config.configurado ? (fazendaNome || config.fazenda) : 'Não configurado'}
+            </p>
+            <p className={`text-xs font-semibold ${config.configurado ? 'text-green-700' : 'text-gray-500'}`}>
+              {config.configurado ? 'Pronto para registrar' : 'Informe o ID da fazenda abaixo'}
+            </p>
+          </div>
+        </div>
+
         {!config.configurado && (
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-            <p className="text-sm text-blue-800 leading-relaxed">
-              Configure sua fazenda para começar a usar o sistema. Você precisará do código da fazenda fornecido pelo administrador.
+          <div className="rounded-2xl border border-dashed border-[#c9c1a8] bg-[#faf7ee] p-4">
+            <p className="text-sm text-[#4a4636] leading-relaxed">
+              Configure sua fazenda para começar. O código é fornecido pelo administrador; sem ele, fale com o suporte.
             </p>
           </div>
         )}
 
-        {/* Status da configuração */}
-        <div className="bg-white rounded-2xl p-4 shadow border-2 border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-gray-600">STATUS DA CONFIGURAÇÃO</p>
-              <p className={`text-lg font-bold ${config.configurado ? 'text-green-600' : 'text-gray-400'}`}>
-                {config.configurado ? 'Configurado' : 'Não configurado'}
-              </p>
-            </div>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${config.configurado ? 'bg-green-100' : 'bg-gray-100'}`}>
-              <div className={`w-4 h-4 rounded-full ${config.configurado ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card de dados do usuário */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-600 mb-4">DADOS DO USUÁRIO</h3>
+        <Ficha n="01" titulo="Usuário">
           <Input
             label="SEU NOME"
             placeholder="Ex: João Silva"
@@ -319,19 +334,14 @@ export default function Configuracoes() {
             error={getFieldError('usuario')}
             fullWidth
           />
-        </div>
+        </Ficha>
 
-        {/* Card de dados da fazenda */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200">
-
-          {/* Nome da Fazenda (autopreenchido) */}
+        <Ficha n="02" titulo="Fazenda">
           {fazendaNome && (
-            <div className="mb-4 p-3 bg-green-50 border-2 border-green-200 rounded-xl">
-              <p className="text-base font-bold text-green-800">{fazendaNome}</p>
+            <div className="mb-4 flex items-center gap-2 px-3 py-2.5 bg-green-50 border-l-4 border-green-600 rounded-r-xl">
+              <p className="text-base font-bold text-green-900">{fazendaNome}</p>
             </div>
           )}
-
-          {/* ID da Fazenda */}
           <Input
             label="ID DA FAZENDA"
             value={fazenda}
@@ -341,24 +351,17 @@ export default function Configuracoes() {
             disabled={validandoFazenda}
           />
           {validandoFazenda && (
-            <p className="text-sm text-gray-500 mt-1">Validando ID na base de dados...</p>
+            <p className="text-sm text-gray-500 mt-2">Validando ID na base de dados...</p>
           )}
-        </div>
+        </Ficha>
 
-        {/* Card de instruções para encontrar ID - só mostra se não configurado */}
-        {!config.configurado && (
-          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
-            <p className="text-sm font-semibold text-gray-700 mb-2">ONDE ENCONTRAR O ID DA FAZENDA?</p>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              O ID da fazenda é fornecido pelo administrador do sistema. Entre em contato com o suporte caso não tenha essa informação.
-            </p>
-          </div>
-        )}
-
-        {/* Card Modo Teste - só mostra se configurado */}
         {config.configurado && (
-          <div className={`rounded-2xl p-5 shadow border-2 ${config.testModeAtivo ? 'bg-amber-50 border-amber-400' : 'bg-white border-gray-200'}`}>
-            <h3 className="text-sm font-semibold text-gray-600 mb-3">MODO TESTE</h3>
+          <Ficha n="03" titulo="Modo teste" tom={config.testModeAtivo ? 'alerta' : 'padrao'}>
+            {config.testModeAtivo && (
+              <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500 text-white text-[11px] font-bold tracking-wider px-2.5 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" aria-hidden /> ATIVO
+              </p>
+            )}
             <p className="text-xs text-gray-600 leading-relaxed mb-4">
               Quando ativado, todos os registros criados ficam apenas neste dispositivo e não são enviados ao banco de dados. Útil para testar o compartilhamento de texto sem gerar dados reais. Ao desativar, todos os registros de teste são permanentemente removidos.
             </p>
@@ -373,13 +376,13 @@ export default function Configuracoes() {
                       dispatch(setTestMode(true))
                       setConfirmarAtivarTeste(false)
                     }}
-                    className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-full px-4 py-2"
+                    className="bg-amber-500 hover:bg-amber-600 active:scale-[0.98] transition text-white font-bold text-xs rounded-full px-4 py-2.5"
                   >
                     SIM, ATIVAR
                   </button>
                   <button
                     onClick={() => setConfirmarAtivarTeste(false)}
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded-full px-4 py-2"
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded-full px-4 py-2.5"
                   >
                     CANCELAR
                   </button>
@@ -398,52 +401,53 @@ export default function Configuracoes() {
                   }
                 }}
                 disabled={desativandoTeste}
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold text-sm rounded-xl px-4 py-3 disabled:opacity-50"
+                className="w-full bg-red-600 hover:bg-red-700 active:scale-[0.99] transition text-white font-bold text-sm rounded-xl px-4 py-3 disabled:opacity-50"
               >
                 {desativandoTeste ? 'DESATIVANDO E LIMPANDO...' : 'DESATIVAR E REMOVER REGISTROS DE TESTE'}
               </button>
             ) : (
               <button
                 onClick={() => setConfirmarAtivarTeste(true)}
-                className="w-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-sm rounded-xl px-4 py-3 border-2 border-amber-300"
+                className="w-full bg-[#faf7ee] hover:bg-amber-50 active:scale-[0.99] transition text-amber-900 font-bold text-sm rounded-xl px-4 py-3 border border-dashed border-amber-400"
               >
                 ATIVAR MODO TESTE
               </button>
             )}
-          </div>
+          </Ficha>
         )}
 
         {config.configurado && config.fazendaId && <AtualizacaoAutomaticaCard />}
 
-        {/* Card de Notificações Push - só mostra se configurado */}
         {config.configurado && config.fazendaId && (
           <PushNotificationCard fazendaId={config.fazendaId} />
         )}
 
-        {/* Botão Salvar */}
-        <Button 
-          onClick={handleSalvar} 
-          variant="success" 
+        <Button
+          onClick={handleSalvar}
+          variant="success"
           icon="💾"
-          disabled={validandoFazenda || !fazenda.trim() || !usuario.trim()}
-          className={validandoFazenda || !fazenda.trim() || !usuario.trim() ? 'opacity-50 cursor-not-allowed' : ''}
+          disabled={bloqueado}
+          className={bloqueado ? 'opacity-50 cursor-not-allowed' : ''}
         >
           {validandoFazenda ? 'VALIDANDO...' : 'SALVAR CONFIGURAÇÕES'}
         </Button>
 
-        {/* Sobre o app */}
-        <div className="bg-white rounded-2xl p-5 shadow border-2 border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-600 mb-2">SOBRE O APP</h3>
-          <p className="text-xs text-gray-600">Versão</p>
-          <p className="text-sm font-mono text-gray-800 break-all">{getVersaoCompleta()}</p>
-          <button
-            onClick={verificarAtualizacao}
-            className="mt-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded-full px-4 py-2"
-          >
-            VERIFICAR ATUALIZAÇÃO
-          </button>
+        {/* Sobre o app: rodapé discreto estilo etiqueta */}
+        <footer className="mt-2 rounded-2xl border border-dashed border-[#c9c1a8] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] tracking-[0.2em] text-gray-500">VERSÃO</p>
+              <p className="text-sm font-mono text-[#1d4030] break-all">{getVersaoCompleta()}</p>
+            </div>
+            <button
+              onClick={verificarAtualizacao}
+              className="shrink-0 bg-[#1d4030] hover:bg-[#23503a] active:scale-[0.98] transition text-[#e8d9a8] font-semibold text-xs rounded-full px-4 py-2.5"
+            >
+              VERIFICAR ATUALIZAÇÃO
+            </button>
+          </div>
           {msgAtualizacao && <p className="text-xs text-gray-600 mt-2">{msgAtualizacao}</p>}
-        </div>
+        </footer>
       </main>
 
       <ValidationModal
