@@ -842,6 +842,12 @@ export default function PastagensPastoForm() {
           curralEntradaId: form.tipoEntrada === 'curral' ? form.curralEntradaId || null : null,
         })
       }
+      // A lista de currais da página é carregada uma vez: espelha o movimento para o curral de saída ficar vago e o de entrada ocupado já no próximo registro
+      setCurrais((prev) => prev.map((c) => {
+        if (form.tipoSaida === 'curral' && c.id === form.curralSaidaId) return { ...c, lote_id: null }
+        if (form.tipoEntrada === 'curral' && c.id === form.curralEntradaId) return { ...c, lote_id: form.loteId }
+        return c
+      }))
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
       resetarTudo()
