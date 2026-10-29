@@ -69,6 +69,7 @@ function iconeCategoria(nome: string): string | undefined {
   if (n.startsWith('touro') || n.startsWith('tourinho') || n.startsWith('boi') || n.startsWith('garrote')) return '🐂'
   if (n.startsWith('bezerr')) return '🐮'
   if (n.startsWith('tropa')) return '🐃'
+  if (['cavalo', 'egua', 'jumento', 'jumenta', 'burro', 'mula'].includes(n)) return '🐎'
   return undefined
 }
 

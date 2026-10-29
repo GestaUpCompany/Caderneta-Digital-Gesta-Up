@@ -45,6 +45,13 @@ export function normalizeCategoriaToField(categoria: string): CampoCategoriaFixa
     'novilhas': 'novilha',
     'tropa': 'tropa',
     'tropas': 'tropa',
+    // Tropa por espécie e sexo (lote_categorias): todas somam no campo fixo "tropa"
+    'cavalo': 'tropa',
+    'egua': 'tropa',
+    'jumento': 'tropa',
+    'jumenta': 'tropa',
+    'burro': 'tropa',
+    'mula': 'tropa',
     'outros': 'outros',
     'outro': 'outros',
   }
