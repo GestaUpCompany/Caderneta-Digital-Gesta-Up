@@ -3,6 +3,7 @@ import { Registro } from './shareUtils'
 import { LOGO_URL } from './constants'
 import { formatarNumeroBR } from './formatNumber'
 import { isCategoriaAoPe } from './categorias'
+import { tropaPorEspecie } from './equideos'
 
 /** Desenha o título de marca "Gesta'Up - Manej'Us 360" com o "360" em dourado (#EAB309). */
 function drawBrandTitle(doc: jsPDF, x: number, y: number): void {
@@ -1216,6 +1217,15 @@ export async function gerarPdfResumoRodeio(
       let temCat = false
       for (const cat of RODEIO_CATEGORIAS) {
         const v = Number((r as any)[cat.key])
+        // Tropa: detalha por espécie e sexo quando a contagem tem categorias_detalhes
+        if (cat.key === 'tropa') {
+          const porEspecie = tropaPorEspecie((r as any).categorias_detalhes)
+          if (porEspecie.length > 0) {
+            for (const e of porEspecie) labelValue(`${e.rotulo}:`, String(e.quantidade), 4)
+            temCat = true
+            continue
+          }
+        }
         if (!isNaN(v) && v > 0) {
           labelValue(`${cat.label}:`, String(v), 4)
           temCat = true

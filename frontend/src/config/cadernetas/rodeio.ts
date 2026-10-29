@@ -1,4 +1,5 @@
 import { CadernetaDisplayConfig, Registro } from '../registroDisplayConfig'
+import { formatarTropaCard } from '../../utils/equideos'
 
 export const rodeioConfig: CadernetaDisplayConfig = {
   sections: [
@@ -18,7 +19,7 @@ export const rodeioConfig: CadernetaDisplayConfig = {
     garrote: { key: 'garrote', section: 'CONTAGEM', priority: 5, condition: (r: Registro) => Number(r.garrote) > 0 },
     bezerro: { key: 'bezerro', section: 'CONTAGEM', priority: 6, condition: (r: Registro) => Number(r.bezerro) > 0 },
     novilha: { key: 'novilha', section: 'CONTAGEM', priority: 7, condition: (r: Registro) => Number(r.novilha) > 0 },
-    tropa: { key: 'tropa', section: 'CONTAGEM', priority: 8, condition: (r: Registro) => Number(r.tropa) > 0 },
+    tropa: { key: 'tropa', section: 'CONTAGEM', priority: 8, condition: (r: Registro) => Number(r.tropa) > 0, format: formatarTropaCard },
     outros: { key: 'outros', section: 'CONTAGEM', priority: 9, condition: (r: Registro) => Number(r.outros) > 0 },
     totalCabecas: { key: 'totalCabecas', section: 'CONTAGEM', priority: 10, colSpan: 2, format: (v) => `${v} animais` },
 

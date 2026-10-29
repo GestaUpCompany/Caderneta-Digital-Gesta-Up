@@ -136,13 +136,14 @@ const ERAS = [
 function categoriasPorDestino(destino: string | null | undefined): string[] {
   const base = ['Bezerro ao Pé', 'Bezerra ao Pé', 'Bezerro', 'Bezerra', 'Garrote', 'Novilha']
   const d = (destino || '').toLowerCase().trim()
-  if (d === 'reprodução' || d === 'reproducao') return [...base, 'Tourinho', 'Touro', 'Vaca', 'Tropa']
-  if (d === 'corte' || d === 'abate') return [...base, 'Boi Magro', 'Boi Gordo', 'Vaca', 'Tropa']
-  return [...base, 'Boi Magro', 'Boi Gordo', 'Tourinho', 'Touro', 'Vaca', 'Tropa']
+  const equideos = ['Cavalo', 'Égua', 'Jumento', 'Jumenta', 'Burro', 'Mula']
+  if (d === 'reprodução' || d === 'reproducao') return [...base, 'Tourinho', 'Touro', 'Vaca', 'Tropa', ...equideos]
+  if (d === 'corte' || d === 'abate') return [...base, 'Boi Magro', 'Boi Gordo', 'Vaca', 'Tropa', ...equideos]
+  return [...base, 'Boi Magro', 'Boi Gordo', 'Tourinho', 'Touro', 'Vaca', 'Tropa', ...equideos]
 }
 
-const CATEGORIAS_FEMEA = new Set(['Bezerra ao Pé', 'Bezerra Desmama', 'Bezerra', 'Novilha', 'Primípara', 'Vaca', 'Vaca Parida', 'Vaca Prenha', 'Vaca Vazia', 'Vaca Descarte', 'Tropa'])
-const CATEGORIAS_MACHO = new Set(['Bezerro ao Pé', 'Bezerro Desmama', 'Bezerro', 'Garrote', 'Boi Magro', 'Boi Gordo', 'Tourinho', 'Touro'])
+const CATEGORIAS_FEMEA = new Set(['Bezerra ao Pé', 'Bezerra Desmama', 'Bezerra', 'Novilha', 'Primípara', 'Vaca', 'Vaca Parida', 'Vaca Prenha', 'Vaca Vazia', 'Vaca Descarte', 'Tropa', 'Égua', 'Jumenta', 'Mula'])
+const CATEGORIAS_MACHO = new Set(['Bezerro ao Pé', 'Bezerro Desmama', 'Bezerro', 'Garrote', 'Boi Magro', 'Boi Gordo', 'Tourinho', 'Touro', 'Cavalo', 'Jumento', 'Burro'])
 
 // lote_categorias.categoria pode vir em minúsculo ('boi gordo'); comparação
 // normalizada para não zerar a lista quando o usuário marca o sexo.

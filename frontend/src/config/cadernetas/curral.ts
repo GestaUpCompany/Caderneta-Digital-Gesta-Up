@@ -1,4 +1,5 @@
 import { CadernetaDisplayConfig, Registro } from '../registroDisplayConfig'
+import { formatarTropaCard } from '../../utils/equideos'
 
 const catQtd = (campo: string) => (r: Registro) => r.gadoContado === 'Sim' && Number(r[campo]) > 0
 
@@ -28,7 +29,7 @@ export const curralConfig: CadernetaDisplayConfig = {
     garrote: { key: 'garrote', section: 'QUANTIDADE DE ANIMAIS', priority: 7, condition: catQtd('garrote') },
     bezerro: { key: 'bezerro', section: 'QUANTIDADE DE ANIMAIS', priority: 8, condition: catQtd('bezerro') },
     novilha: { key: 'novilha', section: 'QUANTIDADE DE ANIMAIS', priority: 9, condition: catQtd('novilha') },
-    tropa: { key: 'tropa', section: 'QUANTIDADE DE ANIMAIS', priority: 10, condition: catQtd('tropa') },
+    tropa: { key: 'tropa', section: 'QUANTIDADE DE ANIMAIS', priority: 10, condition: catQtd('tropa'), format: formatarTropaCard },
     outros: { key: 'outros', section: 'QUANTIDADE DE ANIMAIS', priority: 11, condition: catQtd('outros') },
 
     escoreGado: { key: 'escoreGado', section: 'AVALIAÇÃO', priority: 1 },

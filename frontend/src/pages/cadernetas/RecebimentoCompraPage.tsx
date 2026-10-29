@@ -43,6 +43,7 @@ const CATEGORIAS_RECEBIMENTO = [
   'Bezerro ao Pé', 'Bezerra ao Pé', 'Bezerro Desmama', 'Bezerra Desmama',
   'Bezerro', 'Bezerra', 'Garrote', 'Novilha', 'Boi Magro', 'Boi Gordo',
   'Tourinho', 'Touro', 'Vaca', 'Tropa',
+  'Cavalo', 'Égua', 'Jumento', 'Jumenta', 'Burro', 'Mula',
 ]
 
 interface ContagemRow {

@@ -3,6 +3,7 @@ import { CADERNETAS } from './constants'
 import { resumoRefeicoes, type MarmitasDetalhe } from './cantinaMarmitas'
 import { formatarNumeroBR, normalizarNumero } from './formatNumber'
 import { base64ToBlob, imageExtFromBase64, imageMimeFromBase64 } from './photoCompress'
+import { tropaPorEspecie } from './equideos'
 import { isCategoriaAoPe, capitalizarCategoria } from './categorias'
 import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
@@ -704,6 +705,14 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
   const categoriasAnimais: string[] = []
 
   Object.entries(registro).forEach(([key, value]) => {
+    // Pastagens e curral: tropa detalhada por espécie e sexo quando a contagem tem categorias_detalhes
+    if (ehManejoLotes && key === 'tropa' && registro.gadoContado === 'Sim') {
+      const porEspecie = tropaPorEspecie(lerCategoriasDetalhes(registro))
+      if (porEspecie.length > 0) {
+        porEspecie.forEach((e) => camposNormais.push([e.rotulo, e.quantidade]))
+        return
+      }
+    }
     if (
       key !== 'id' &&
       key !== 'data' &&

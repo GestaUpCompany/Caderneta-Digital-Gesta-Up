@@ -1,4 +1,5 @@
 import { CadernetaDisplayConfig, Registro } from '../registroDisplayConfig'
+import { formatarTropaCard } from '../../utils/equideos'
 
 export const pastagensConfig: CadernetaDisplayConfig = {
   sections: [
@@ -33,7 +34,7 @@ export const pastagensConfig: CadernetaDisplayConfig = {
     garrote: { key: 'garrote', section: 'QUANTIDADE DE ANIMAIS', priority: 7, condition: (r: Registro) => r.gadoContado === 'Sim' && Number(r.garrote) > 0 },
     bezerro: { key: 'bezerro', section: 'QUANTIDADE DE ANIMAIS', priority: 8, condition: (r: Registro) => r.gadoContado === 'Sim' && Number(r.bezerro) > 0 },
     novilha: { key: 'novilha', section: 'QUANTIDADE DE ANIMAIS', priority: 9, condition: (r: Registro) => r.gadoContado === 'Sim' && Number(r.novilha) > 0 },
-    tropa: { key: 'tropa', section: 'QUANTIDADE DE ANIMAIS', priority: 10, condition: (r: Registro) => r.gadoContado === 'Sim' && Number(r.tropa) > 0 },
+    tropa: { key: 'tropa', section: 'QUANTIDADE DE ANIMAIS', priority: 10, condition: (r: Registro) => r.gadoContado === 'Sim' && Number(r.tropa) > 0, format: formatarTropaCard },
     outros: { key: 'outros', section: 'QUANTIDADE DE ANIMAIS', priority: 11, condition: (r: Registro) => r.gadoContado === 'Sim' && Number(r.outros) > 0 },
 
     escoreGado: { key: 'escoreGado', section: 'AVALIAÇÃO', priority: 1 },
