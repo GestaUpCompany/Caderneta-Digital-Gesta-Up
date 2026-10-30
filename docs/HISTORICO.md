@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## PV médio da suplementação em lote com categorias com e sem ajuste de peso (30/10/2026)
+
+- Caso: Fazenda Doce Ilusão, Lote 3 (Marin Pequenos), registro de 29/10/2026. O texto de compartilhamento mostrou PV MÉDIO 151,83 kg e META 3,756 kg MN/cab/dia; o correto é 567,79 kg e ≈14,05 kg.
+- Causa: em `calcularPlanoNutricional`, quando o lote mistura categorias com `data_ajuste_peso` (ajuste pelo "Corrigir peso" ou pela edição do peso atual no Painel) e sem ajuste, a projeção usava o peso de início. Nesse modo as categorias ajustadas entravam no divisor de cabeças, mas o peso delas ficava de fora: era como se pesassem zero. Na data da correção, 20 lotes de clientes estavam nessa situação.
+- Só a cópia local estava errada: o Supabase já gravava o PV certo no registro (recalculado no servidor). Por isso não houve backfill; a cópia antiga no IndexedDB do aparelho continua com o valor errado se o registro for compartilhado de novo.
+- Solução: `calcularPlanoNutricional` devolve `categoriasProjecao` (base `ajuste` ou `inicio` por categoria) e `calcularPesoProjetado` projeta cada categoria pela sua base e tira a média ponderada. A chave do cache do plano virou `plano-nutricional-ativo-v2` (`cadastroCache.ts`) para descartar o resultado antigo já calculado. Plano sem `categoriasProjecao` cai na lógica anterior.
+- Testes em `pesoProjetado.test.ts` e `planoNutricionalCalculo.test.ts` (caso Lote 3 reproduzido). Typecheck, lint (0 erros), 640 testes e build ok.
+
 ## Correção pontual de kgCocho digitado errado, Lote 9 (21/10/2026)
 
 - Caso: fazenda d3965505-74d5-4af7-9858-f773d2e8aab3, registro de suplementação de 14/10/2026 do Lote 9 (TIP 03.A) digitado com `kg_cocho = 104530000`. O texto de resumo mostrava CMS 6195%, CMN 30046 kg e custo R$ 9445 por cabeça/dia mesmo depois da edição.

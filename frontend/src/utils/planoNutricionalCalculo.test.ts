@@ -13,7 +13,25 @@ describe('calcularPlanoNutricional', () => {
       pesoVivoAtualKgCab: null,
       formulacaoId: 'f1',
       formulacaoNome: 'Dieta A',
+      categoriasProjecao: [],
     })
+  })
+
+  it('lote misto guarda a base de projeção de cada categoria', () => {
+    const categorias = [
+      { id: 'c1', categoria: 'Boi magro', quant_atual: 44, data_ajuste_peso: '2026-10-30', peso_vivo_atual_kg_cab: 568.52 },
+      { id: 'c2', categoria: 'Garrote', quant_atual: 1, data_ajuste_peso: null, peso_vivo_atual_kg_cab: 596.5 },
+    ]
+    const personalizacao = [{ lote_categoria_id: 'c2', peso_inicio_kg_cab: 453.4 }]
+    const gmds = [
+      { categoria: 'boi magro', gmd: 1.35 },
+      { categoria: 'garrote', gmd: 1.35 },
+    ]
+    const r = calcularPlanoNutricional(plano, null, categorias, personalizacao, gmds)
+    expect(r.categoriasProjecao).toEqual([
+      { quant: 44, gmd: 1.35, base: 'ajuste', pesoBase: 568.52 },
+      { quant: 1, gmd: 1.35, base: 'inicio', pesoBase: 453.4 },
+    ])
   })
 
   it('projeta por peso de início quando nenhuma categoria tem ajuste', () => {
