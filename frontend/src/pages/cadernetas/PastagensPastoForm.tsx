@@ -350,6 +350,8 @@ export default function PastagensPastoForm() {
 
   // Currais do cache: usados quando algum lado do manejo é curral
   const [currais, setCurrais] = useState<{ id: string; nome: string; lote_id: string | null }[]>([])
+  // Erro do curral de entrada ocupado: fica inline abaixo do campo, fora do banner geral
+  const [erroCurralEntrada, setErroCurralEntrada] = useState('')
   useEffect(() => {
     let cancelado = false
     if (!fazendaId) return
@@ -421,19 +423,28 @@ export default function PastagensPastoForm() {
     return () => { cancelado = true }
   }, [form.tipoSaida, form.curralSaida, currais, fazendaId, setForm])
 
-  // Curral de entrada: precisa estar livre (a regra de sistema de produção é validada no banco)
+  // Curral de entrada: precisa estar livre no momento da escolha (consulta atual, como o pasto de entrada; a regra de sistema de produção é validada no banco)
   useEffect(() => {
-    if (form.tipoEntrada !== 'curral' || !form.curralEntrada) return
-    const curral = currais.find((c) => c.nome === form.curralEntrada)
-    if (!curral) return
-    if (curral.lote_id) {
-      setErrors([{ field: 'curralEntrada', message: 'Este curral já possui um lote. Selecione outro curral.' }])
-      setForm((prev) => ({ ...prev, curralEntrada: '' }))
-      return
+    if (form.tipoEntrada !== 'curral' || !form.curralEntrada || !fazendaId) return
+    let cancelado = false
+    async function validarCurralEntrada() {
+      const lista = (await getCurraisCached(fazendaId as string)) ?? currais
+      if (cancelado) return
+      const curral = lista.find((c: any) => c.nome === form.curralEntrada)
+      if (!curral) return
+      if (curral.lote_id) {
+        const lote = await getLoteByIdCached(fazendaId as string, curral.lote_id)
+        if (cancelado) return
+        setErroCurralEntrada(`Este curral já possui o lote ${lote?.nome ?? 'de outro manejo'}. Selecione outro curral.`)
+        setForm((prev) => ({ ...prev, curralEntrada: '', curralEntradaId: '' }))
+        return
+      }
+      setForm((prev) => ({ ...prev, curralEntradaId: curral.id }))
+      setErroCurralEntrada('')
     }
-    setForm((prev) => ({ ...prev, curralEntradaId: curral.id }))
-    setErrors((prev) => prev.filter((e) => e.field !== 'curralEntrada'))
-  }, [form.tipoEntrada, form.curralEntrada, currais, setForm])
+    validarCurralEntrada()
+    return () => { cancelado = true }
+  }, [form.tipoEntrada, form.curralEntrada, currais, fazendaId, setForm])
 
   // Buscar detalhes do pasto de saída quando selecionado
   useEffect(() => {
@@ -859,6 +870,7 @@ export default function PastagensPastoForm() {
     fotoSaida.limpar()
     fotoEntrada.limpar()
     setErrors([])
+    setErroCurralEntrada('')
   }
 
   const handleNewRecord = () => {
@@ -1151,7 +1163,7 @@ export default function PastagensPastoForm() {
               label={<span>CURRAL DE ENTRADA <span className="text-red-500">*</span></span>}
               value={form.curralEntrada}
               onChange={set('curralEntrada')}
-              error={getError('curralEntrada')}
+              error={erroCurralEntrada || getError('curralEntrada')}
               options={currais.filter((c) => !c.lote_id && c.nome !== form.curralSaida).map((c) => c.nome)}
               placeholder="Buscar curral de entrada..."
               id="curralEntrada"
