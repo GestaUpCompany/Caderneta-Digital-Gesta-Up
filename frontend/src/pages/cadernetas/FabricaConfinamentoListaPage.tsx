@@ -62,6 +62,9 @@ export default function FabricaConfinamentoListaPage() {
     partes.push(`KG previsto: *${formatarNumeroBR(totalPrevisto)} kg*`)
     partes.push(`KG produzido: *${formatarNumeroBR(totalProduzido)} kg*`)
 
+    const dietasDoDia = [...new Set(registrosDoDia.map((r) => r.formulacaoNome).filter((d): d is string => !!d))]
+    if (dietasDoDia.length > 0) partes.push(`Dietas: *${dietasDoDia.join(', ')}*`)
+
     registrosDoDia.forEach((r) => {
       partes.push('')
       partes.push('━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -71,10 +74,20 @@ export default function FabricaConfinamentoListaPage() {
       if (r.ordemTrato !== null && r.ordemTrato !== undefined && r.ordemTrato !== '') {
         partes.push(`TRATO: *${r.ordemTrato}*`)
       }
+      if (r.formulacaoNome) partes.push(`DIETA: *${r.formulacaoNome}*`)
       const previsto = normalizarNumero(r.totalPrevisto as string | number)
       if (previsto !== null) partes.push(`KG PREVISTO: *${formatarNumeroBR(previsto)} kg*`)
       const produzido = normalizarNumero(r.totalProduzido as string | number)
       if (produzido !== null) partes.push(`KG PRODUZIDO: *${formatarNumeroBR(produzido)} kg*`)
+
+      const insumosUtilizados = (Array.isArray(r.insumosResumo) ? r.insumosResumo : [])
+        .map((i: { nome: string; produzido: string | number }) => ({ nome: i.nome, kg: normalizarNumero(i.produzido) }))
+        .filter((i): i is { nome: string; kg: number } => i.kg !== null && i.kg > 0)
+      if (insumosUtilizados.length > 0) {
+        partes.push('')
+        partes.push('INSUMOS UTILIZADOS (kg)')
+        insumosUtilizados.forEach((i) => partes.push(`${i.nome}: *${formatarNumeroBR(i.kg)}*`))
+      }
     })
 
     await compartilharWhatsApp(partes.join('\n'))
