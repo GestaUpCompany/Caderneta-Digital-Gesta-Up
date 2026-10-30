@@ -1424,7 +1424,7 @@ export default function MaternidadePage() {
 
           <div className="flex flex-col gap-2" data-field="categoriaMae">
             <label className={rotulo}>Classificação da matriz <span className="text-red-500">*</span></label>
-            <div className={form.individuoIdMae ? 'pointer-events-none opacity-60' : ''}>
+            <div className={form.individuoIdMae && form.categoriaMae ? 'pointer-events-none opacity-60' : ''}>
               <ChoiceGrid
                 options={CATEGORIAS_MAE}
                 value={form.categoriaMae}
