@@ -1,6 +1,8 @@
 // Cálculo do plano nutricional (projeção de peso e GMD por lote). Puro: sem acesso ao banco.
 // Usado pela consulta individual e pela consulta em lote, que precisam dar o mesmo resultado.
 
+import type { CategoriaProjecao } from './pesoProjetado'
+
 export function calcularPlanoNutricional(
   plano: { data_inicio: string | null; formulacao_id: string | null },
   formulacaoNome: string | null,
@@ -27,6 +29,8 @@ export function calcularPlanoNutricional(
   let totalCabecas = 0
   let catsComAjuste = 0
   let catsSemAjuste = 0
+  // Base de projeção de cada categoria: o lote pode misturar categorias com e sem ajuste manual
+  const categoriasProjecao: CategoriaProjecao[] = []
 
   for (const cat of categorias) {
     const quant = cat.quant_atual || 0
@@ -37,14 +41,15 @@ export function calcularPlanoNutricional(
 
     if (cat.data_ajuste_peso) {
       catsComAjuste++
-      if (cat.peso_vivo_atual_kg_cab != null) {
-        totalPesoAtual += Number(cat.peso_vivo_atual_kg_cab) * quant
-      }
+      if (cat.peso_vivo_atual_kg_cab == null) continue // sem peso ajustado, nao pode projetar esta categoria
+      totalPesoAtual += Number(cat.peso_vivo_atual_kg_cab) * quant
+      categoriasProjecao.push({ quant, gmd, base: 'ajuste', pesoBase: Number(cat.peso_vivo_atual_kg_cab) })
     } else {
       const pesoInicio = pcpMap[cat.id]
       if (pesoInicio == null) continue // sem peso_inicio na personalizacao, nao pode projetar esta categoria
       catsSemAjuste++
       totalPesoInicio += pesoInicio * quant
+      categoriasProjecao.push({ quant, gmd, base: 'inicio', pesoBase: pesoInicio })
     }
 
     totalGmd += gmd * quant
@@ -60,6 +65,7 @@ export function calcularPlanoNutricional(
       pesoVivoAtualKgCab: null,
       formulacaoId: plano.formulacao_id ?? null,
       formulacaoNome,
+      categoriasProjecao,
     }
   }
 
@@ -75,5 +81,6 @@ export function calcularPlanoNutricional(
     pesoVivoAtualKgCab: usarAjuste ? totalPesoAtual / totalCabecas : null,
     formulacaoId: plano.formulacao_id ?? null,
     formulacaoNome,
+    categoriasProjecao,
   }
 }

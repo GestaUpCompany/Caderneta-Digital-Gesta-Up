@@ -27,6 +27,16 @@ export interface ParametrosPesoProjetado {
   gmdEfetivo: number | null
   dataAjustePeso: string | null
   pesoVivoAtualKgCab: number | null
+  // Ausente em planos do cache gravado por versões antigas: nesse caso usa os campos médios acima
+  categoriasProjecao?: CategoriaProjecao[]
+}
+
+// 'ajuste': pesoBase é o peso atual (projetado para hoje); 'inicio': pesoBase é o peso no início do plano
+export interface CategoriaProjecao {
+  quant: number
+  gmd: number
+  base: 'ajuste' | 'inicio'
+  pesoBase: number
 }
 
 /**
@@ -92,6 +102,27 @@ export function calcularPesoProjetado(
   // produzindo peso projetado errado. Normalizar para ISO antes de criar Date.
   const dataReg = parseDataRegistro(dataRegistro)
   if (dataReg === null || isNaN(dataReg.getTime())) return null
+
+  // Projeção por categoria, cada uma pela sua base, e média ponderada pelas cabeças.
+  // Necessária quando o lote mistura categorias com e sem ajuste manual de peso.
+  if (params.categoriasProjecao && params.categoriasProjecao.length > 0) {
+    const hoje = new Date()
+    const dataIni = dataInicio ? parseDataRegistro(dataInicio) : null
+    let somaPeso = 0
+    let somaCabecas = 0
+    for (const cat of params.categoriasProjecao) {
+      let peso: number
+      if (cat.base === 'ajuste') {
+        peso = cat.pesoBase + cat.gmd * diasEntre(dataReg, hoje)
+      } else {
+        if (!dataIni || isNaN(dataIni.getTime())) continue
+        peso = cat.pesoBase + cat.gmd * diasEntre(dataReg, dataIni, true)
+      }
+      somaPeso += peso * cat.quant
+      somaCabecas += cat.quant
+    }
+    return somaCabecas > 0 ? somaPeso / somaCabecas : null
+  }
 
   // Se houve ajuste manual de peso, projetar a partir de hoje.
   // peso_vivo_atual_kg_cab é o peso projetado para hoje (o cron incrementa diariamente).

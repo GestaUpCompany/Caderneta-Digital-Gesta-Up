@@ -962,6 +962,10 @@ async function getCachedQueryFromIDB<T>(key: string): Promise<T | null> {
   return null
 }
 
+// v2: o plano passou a guardar a projeção por categoria (categoriasProjecao). A chave nova descarta o
+// cache antigo, que tinha o PV médio errado em lotes com categorias com e sem ajuste manual de peso.
+const PLANO_NUTRICIONAL_ATIVO_KEY = 'plano-nutricional-ativo-v2'
+
 function buildKey(base: string, ...segments: string[]): string {
   return `${base}:${segments.join(':')}`
 }
@@ -1205,7 +1209,7 @@ export async function getPlanoNutricionalAtivoByLoteIdCached(loteId: string): Pr
  * Lê o plano nutricional ativo do lote diretamente do cache (memória ou IDB), sem tentar online.
  */
 export async function getPlanoNutricionalAtivoFromCacheOnly(loteId: string): Promise<any | null> {
-  const key = buildKey('plano-nutricional-ativo', loteId)
+  const key = buildKey(PLANO_NUTRICIONAL_ATIVO_KEY, loteId)
   const cached = getCachedQuery(key)
   if (cached) return cached
   return await getCachedQueryFromIDB<any>(key)
@@ -1220,7 +1224,7 @@ export async function getPlanoNutricionalAtivoFromCacheOnly(loteId: string): Pro
 export async function getPlanoNutricionalAtivoStatus(
   loteId: string
 ): Promise<{ plano: any | null; confiavel: boolean }> {
-  const key = buildKey('plano-nutricional-ativo', loteId)
+  const key = buildKey(PLANO_NUTRICIONAL_ATIVO_KEY, loteId)
   const doCache = async () => {
     const cached = await getPlanoNutricionalAtivoFromCacheOnly(loteId)
     return { plano: cached, confiavel: !!cached }
@@ -3392,7 +3396,7 @@ export async function warmAllCadastroCache(
       // Um conjunto de consultas para a fazenda inteira; o resultado é o mesmo do caminho individual
       const completos = await supabaseService.getPlanosNutricionaisCompletosBatch(batchPlanosNutricionais)
       for (const loteId of lotesComPlano) {
-        if (completos[loteId]) setCachedQuery(buildKey('plano-nutricional-ativo', loteId), completos[loteId])
+        if (completos[loteId]) setCachedQuery(buildKey(PLANO_NUTRICIONAL_ATIVO_KEY, loteId), completos[loteId])
       }
     } catch (error) {
       // Falha no lote não pode deixar planos sem dado: volta para a consulta individual por lote
@@ -3559,7 +3563,7 @@ export async function warmAllCadastroCache(
       if (!hasCachedQuery(buildKey('ultimo-trato-lote', fazendaId, loteId))) {
         await getUltimoTratoTotalByLoteCached(fazendaId, loteId)
       }
-      const planoKey = buildKey('plano-nutricional-ativo', loteId)
+      const planoKey = buildKey(PLANO_NUTRICIONAL_ATIVO_KEY, loteId)
       if (planosBatchConfirmado && !(loteId in batchPlanosNutricionais)) {
         // O batch já consultou os planos ativos da fazenda: lote fora dele não tem plano.
         // Grava mesmo que haja chave antiga, para não manter plano já encerrado no cache offline
