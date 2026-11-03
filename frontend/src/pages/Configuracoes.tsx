@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { setConfig, setConfigurado, setTestMode } from '../store/slices/configSlice'
@@ -6,8 +6,9 @@ import { RootState } from '../store/store'
 import { Button, Input } from '../components/ui'
 import { ChevronLeft } from 'lucide-react'
 import ValidationModal from '../components/ValidationModal'
-import { getFazendaByAcessoId } from '../services/supabaseService'
-import { clearCadastroCache } from '../services/cadastroCache'
+import { getFazendaByAcessoId, trocarFazendaGrupo } from '../services/supabaseService'
+import { clearCadastroCache, getFazendasDoMesmoGrupoCached } from '../services/cadastroCache'
+import { countPending } from '../services/indexedDB'
 import { desativarModoTeste } from '../services/api'
 import PushNotificationCard from '../components/PushNotificationCard'
 import AtualizacaoAutomaticaCard from '../components/AtualizacaoAutomaticaCard'
@@ -60,9 +61,58 @@ export default function Configuracoes() {
   }
   const [desativandoTeste, setDesativandoTeste] = useState(false)
 
-  const validate = (): boolean => {
+  // Troca de fazenda dentro do grupo (sem digitar o ID)
+  const [fazendasGrupo, setFazendasGrupo] = useState<{ id: string; nome: string }[]>([])
+  const [destinoTroca, setDestinoTroca] = useState<{ id: string; nome: string } | null>(null)
+  const [pendentesTroca, setPendentesTroca] = useState(0)
+  const [erroTroca, setErroTroca] = useState('')
+
+  useEffect(() => {
+    if (!config.configurado || !config.fazendaId) {
+      setFazendasGrupo([])
+      return
+    }
+    let ativo = true
+    getFazendasDoMesmoGrupoCached(config.fazendaId)
+      .then((lista) => { if (ativo) setFazendasGrupo((lista || []).map((f: any) => ({ id: f.id, nome: f.nome }))) })
+      .catch(() => { if (ativo) setFazendasGrupo([]) })
+    return () => { ativo = false }
+  }, [config.configurado, config.fazendaId])
+
+  const escolherFazendaGrupo = async (f: { id: string; nome: string }) => {
+    setErroTroca('')
+    if (!navigator.onLine) {
+      setErroTroca('Sem internet. Para trocar de fazenda é preciso estar online.')
+      return
+    }
+    setPendentesTroca(await countPending().catch(() => 0))
+    setDestinoTroca(f)
+  }
+
+  const confirmarTrocaGrupo = async () => {
+    if (!destinoTroca) return
+    const destino = destinoTroca
+    setDestinoTroca(null)
+    setErroTroca('')
+    if (!usuario.trim()) {
+      setErroTroca('Informe seu nome antes de trocar de fazenda.')
+      return
+    }
+    try {
+      const cred = await trocarFazendaGrupo(destino.id)
+      if (!cred) {
+        setErroTroca('Não foi possível trocar para essa fazenda. Contate o administrador.')
+        return
+      }
+      await handleSalvar(cred)
+    } catch {
+      setErroTroca('Não foi possível trocar de fazenda agora. Confira a conexão e tente de novo.')
+    }
+  }
+
+  const validate = (semFazenda = false): boolean => {
     const newErrors: { field: string; message: string }[] = []
-    if (!fazenda.trim()) {
+    if (!semFazenda && !fazenda.trim()) {
       newErrors.push({ field: 'fazenda', message: 'ID da fazenda é obrigatório' })
     }
     if (!usuario.trim()) {
@@ -72,38 +122,43 @@ export default function Configuracoes() {
     return newErrors.length === 0
   }
 
-  const validarFazendaNoSupabase = async (acessoIdRaw: string): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean; acessoComercial?: boolean; acessoIatf?: boolean; travaSuplementacao?: boolean; emGrupo?: boolean }> => {
+  // `credenciais` vem da troca dentro do grupo (RPC trocar_fazenda_grupo); sem ela, usa o acesso_id digitado.
+  const validarFazendaNoSupabase = async (acessoIdRaw: string, credenciais?: { email: string; password: string }): Promise<{ sucesso: boolean; fazendaId?: string; nome?: string; token?: string; acessoId?: string; logoUrl?: string; controleAcessoHabilitado?: boolean; acessoConfinamento?: boolean; acessoComercial?: boolean; acessoIatf?: boolean; travaSuplementacao?: boolean; emGrupo?: boolean }> => {
     const acessoId = acessoIdRaw.toLowerCase()
     try {
       console.log('Validando fazenda no Supabase com acessoId:', acessoId)
-      
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-      // Buscar dados do peão via RPC (SECURITY DEFINER) para um acesso_id específico.
-      // A tabela peoes não tem mais RLS pública; a RPC é o único caminho.
-      const rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/autenticar_peao_app`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({ p_acesso_id: acessoId }),
-      })
+      let rpcData: { email?: string; password?: string } | null = credenciais ?? null
+      if (!rpcData) {
+        // Buscar dados do peão via RPC (SECURITY DEFINER) para um acesso_id específico.
+        // A tabela peoes não tem mais RLS pública; a RPC é o único caminho.
+        const rpcResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/autenticar_peao_app`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({ p_acesso_id: acessoId }),
+        })
 
-      if (!rpcResponse.ok) {
-        console.error('Erro ao chamar RPC autenticar_peao_app:', await rpcResponse.text())
-        return { sucesso: false }
+        if (!rpcResponse.ok) {
+          console.error('Erro ao chamar RPC autenticar_peao_app:', await rpcResponse.text())
+          return { sucesso: false }
+        }
+
+        const dados = await rpcResponse.json()
+        if (!dados || dados.success !== true || !dados.email || !dados.password) {
+          console.error('Peão não encontrado para esta fazenda')
+          return { sucesso: false }
+        }
+        rpcData = dados
       }
 
-      const rpcData = await rpcResponse.json()
-      if (!rpcData || rpcData.success !== true || !rpcData.email || !rpcData.password) {
-        console.error('Peão não encontrado para esta fazenda')
-        return { sucesso: false }
-      }
-
-      console.log('Peão encontrado:', rpcData.email)
+      console.log('Peão encontrado:', rpcData!.email)
 
       // Fazer login no Supabase Auth com email/senha do peão
       const loginResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -113,8 +168,8 @@ export default function Configuracoes() {
           'apikey': supabaseAnonKey,
         },
         body: JSON.stringify({
-          email: rpcData.email,
-          password: rpcData.password,
+          email: rpcData!.email,
+          password: rpcData!.password,
         }),
       })
 
@@ -155,16 +210,19 @@ export default function Configuracoes() {
     return { sucesso: false }
   }
 
-  const handleSalvar = async () => {
+  const handleSalvar = async (troca?: { acessoId: string; email: string; password: string }) => {
     setSuccessMsg('')
-    if (!validate()) return
+    if (!validate(!!troca)) return
 
     setValidandoFazenda(true)
     setShowValidationModal(true)
     setValidationStatus('validating')
 
     // Validar no Supabase para obter fazendaId (UUID)
-    const resultSupabase = await validarFazendaNoSupabase(fazenda.trim())
+    const resultSupabase = await validarFazendaNoSupabase(
+      troca ? troca.acessoId : fazenda.trim(),
+      troca ? { email: troca.email, password: troca.password } : undefined,
+    )
     const validacaoSupabase = {
       sucesso: resultSupabase.sucesso,
       fazendaId: resultSupabase.fazendaId || '',
@@ -342,6 +400,39 @@ export default function Configuracoes() {
               <p className="text-base font-bold text-green-900">{fazendaNome}</p>
             </div>
           )}
+          {fazendasGrupo.length > 0 && (
+            <div className="mb-4">
+              <p className="font-mono text-[10px] tracking-[0.2em] text-gray-500 mb-2">TROCAR PARA OUTRA FAZENDA DO GRUPO</p>
+              <div className="flex flex-col gap-2">
+                {fazendasGrupo.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => escolherFazendaGrupo(f)}
+                    disabled={validandoFazenda}
+                    className="w-full text-left rounded-xl border border-[#e4dfd3] bg-[#faf7ee] hover:bg-[#f3efe4] active:scale-[0.99] transition px-4 py-3 min-h-[48px] text-sm font-bold text-[#1d4030] disabled:opacity-50"
+                  >
+                    {f.nome}
+                  </button>
+                ))}
+              </div>
+              {erroTroca && <p role="alert" className="text-sm text-red-600 mt-2">{erroTroca}</p>}
+              {destinoTroca && (
+                <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-bold text-amber-900">Trocar para {destinoTroca.nome}?</p>
+                  <p className="text-xs text-amber-800 mt-1">
+                    {pendentesTroca > 0
+                      ? `Há ${pendentesTroca} registro(s) pendentes de envio neste aparelho. Eles ficam guardados e são enviados quando você voltar para a fazenda de origem. Conecte-se e sincronize antes, se puder.`
+                      : 'Os cadastros da fazenda atual serão trocados pelos da nova.'}
+                  </p>
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={confirmarTrocaGrupo} className="bg-[#1d4030] text-white font-bold text-xs rounded-full px-4 py-2.5">TROCAR</button>
+                    <button onClick={() => setDestinoTroca(null)} className="bg-gray-200 text-gray-700 font-semibold text-xs rounded-full px-4 py-2.5">CANCELAR</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <Input
             label="ID DA FAZENDA"
             value={fazenda}
@@ -423,7 +514,7 @@ export default function Configuracoes() {
         )}
 
         <Button
-          onClick={handleSalvar}
+          onClick={() => handleSalvar()}
           variant="success"
           icon="💾"
           disabled={bloqueado}

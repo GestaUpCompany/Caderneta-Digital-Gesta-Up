@@ -160,6 +160,23 @@ export async function getFazendasDoMesmoGrupo(fazendaId: string) {
 }
 
 /**
+ * Credenciais do peão de outra fazenda do mesmo grupo, para trocar de fazenda sem digitar o acesso_id.
+ * RPC SECURITY DEFINER: a origem vem do JWT e o destino precisa estar no mesmo grupo.
+ * Falha (sem detalhe, de propósito) devolve null.
+ */
+export async function trocarFazendaGrupo(
+  fazendaDestinoId: string,
+): Promise<{ acessoId: string; email: string; password: string } | null> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('trocar_fazenda_grupo', {
+    p_fazenda_destino_id: fazendaDestinoId,
+  })
+  if (error) throw error
+  if (!data || data.success !== true || !data.acesso_id || !data.email || !data.password) return null
+  return { acessoId: data.acesso_id, email: data.email, password: data.password }
+}
+
+/**
  * Formulações ativas, com controle de estoque, de outra fazenda do mesmo grupo (candidatas a receber o produto).
  * Vai por RPC porque o peão não lê formulações de outra fazenda.
  */

@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Troca de fazenda dentro do grupo sem digitar o ID (03/11/2026)
+
+- **Fluxo**: em Configurações, Ficha 02 "Fazenda", a lista "TROCAR PARA OUTRA FAZENDA DO GRUPO" (de `getFazendasDoMesmoGrupoCached`) aparece quando a fazenda tem grupo. Tocar abre uma confirmação (avisa dos registros pendentes do aparelho, que ficam na fila e sobem ao voltar à fazenda de origem). Exige internet e o nome do usuário preenchido. O campo "ID DA FAZENDA" continua para o primeiro acesso.
+- **Banco** (migration `20261103190000`, repo do Painel): RPC `trocar_fazenda_grupo(p_fazenda_destino_id)`, SECURITY DEFINER, só `authenticated`. A origem vem do e-mail do JWT (nunca de parâmetro); o destino precisa estar ativo e no mesmo grupo. Devolve `acesso_id`, `email` e `password` do peão do destino (mesmo padrão de `autenticar_peao_app`); qualquer falha devolve `{success:false}` igual, sem revelar se o destino existe. Testado em transação com rollback: mesmo grupo ok; própria fazenda, outro grupo, UUID inexistente e nulo negados; `anon`/`public` sem EXECUTE.
+- **PWA**: `trocarFazendaGrupo` em `supabaseService.ts`; `handleSalvar(troca?)` e `validarFazendaNoSupabase(acessoId, credenciais?)` em `Configuracoes.tsx` reaproveitam todo o fluxo de troca (limpeza de cache, logo, reset de funcionário, `setConfig`), só pulando `autenticar_peao_app`. Sem mudança de IndexedDB (versão 34) nem de `sw.ts`.
+- **Débito de segurança**: `peoes.password` fica em texto puro e é devolvido por RPC; a nova função segue o padrão existente, não o piora.
+- **Verificação**: typecheck, lint (47 avisos, igual ao antes), 647 testes e build ok. **E2E no navegador ainda não feito** (gestaup ↔ gestaupteste).
+
 ## Estoque compartilhado de produto final entre fazendas do grupo (03/11/2026)
 
 - **Fluxo**: na `ProducaoFabricaPage`, seção "ESTOQUE DO PRODUTO" (`Esta fazenda` | `Outra fazenda do grupo`), visível quando a fazenda tem grupo com outras fazendas. Escolhendo "Outra", o peão escolhe a fazenda e, **na hora**, a formulação dela que recebe o produto (o app sugere a de mesmo nome, sem acento/caixa, quando há exatamente uma: `utils/formulacaoDestino.ts`). Crédito imediato ao sincronizar, sem conferência. Os insumos continuam baixando na fazenda que produz. A Suplementação não mudou: já debita `formulacoes.estoque_atual` da fazenda do registro.
