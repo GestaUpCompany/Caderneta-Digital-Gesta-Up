@@ -330,6 +330,8 @@ const SAIDA_INSUMOS_LABELS = {
   dataProducao: 'DATA DE PRODUÇÃO',
   dietaProduzida: 'DIETA PRODUZIDA',
   destinoProducao: 'DESTINO DA PRODUÇÃO',
+  fazendaCreditoNome: 'ESTOQUE CREDITADO EM',
+  formulacaoCreditoNome: 'FORMULAÇÃO NO DESTINO',
   totalProduzido: 'TOTAL PRODUZIDO (kg)',
 }
 

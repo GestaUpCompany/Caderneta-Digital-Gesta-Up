@@ -52,6 +52,20 @@ const UNIQUE_CONSTRAINT_MESSAGES: Record<string, string> = {
   idx_individuos_fazenda_manejo_unico: 'Já existe um animal com este ID de manejo nesta fazenda. Avise o administrador para corrigir o ID.',
 }
 
+/**
+ * Recusas do banco na Produção Fábrica quando o produto é creditado no estoque de outra fazenda do grupo.
+ */
+const CREDITO_MESSAGES: Record<string, string> = {
+  FORMULACAO_CREDITO_INVALIDA:
+    'A formulação da outra fazenda que receberia o produto foi desativada ou não controla mais estoque. Avise o administrador para reativá-la e toque em REENVIAR.',
+  FORMULACAO_CREDITO_OBRIGATORIA:
+    'Faltou a formulação da outra fazenda que recebe o produto. Avise o administrador para conferir o registro.',
+  FAZENDA_CREDITO_FORA_DO_GRUPO:
+    'A fazenda escolhida para receber o produto não é do mesmo grupo desta fazenda. Avise o administrador.',
+  FAZENDA_CREDITO_IMUTAVEL:
+    'Este registro já foi lançado e o estoque de destino não pode ser trocado. Avise o administrador.',
+}
+
 const MENSAGENS_PROTOCOLO_IATF =
   /inseminação deste lote já foi registrada|fêmeas informadas já têm inseminação|diagnóstico de gestação lançado depois da IA|Fêmea não encontrada neste lote de protocolo|lote de protocolo não está em andamento|já em outro lote de protocolo|já está no lote de protocolo|lote está cancelado|data de execução não pode ser futura|data de execução não pode ser anterior ao D0|Nenhuma fêmea ativa|fêmea que não é ativa|não é o passo de Inseminação|protocolo está inativo|Selecione ao menos uma fêmea|precisa estar viva|só se aplica a fêmeas|protocolo precisa ter um passo|Protocolo não encontrado|Indivíduo não encontrado ou excluído|indivíduo pertence a outra fazenda/i
 
@@ -70,6 +84,11 @@ export function translateSyncError(error: SyncError | null | undefined): string 
   }
   if (code === 'P0001' && /tanque .* nao encontrado/i.test(error.message || '')) {
     return 'O tanque deste abastecimento foi removido do cadastro. Avise o administrador para conferir o registro.'
+  }
+  // Produção Fábrica com estoque em outra fazenda do grupo: o banco recusa com o código na frente da mensagem
+  if (code === 'P0001') {
+    const creditoErro = (error.message || '').match(/^(FORMULACAO_CREDITO_INVALIDA|FORMULACAO_CREDITO_OBRIGATORIA|FAZENDA_CREDITO_FORA_DO_GRUPO|FAZENDA_CREDITO_IMUTAVEL)\b/)
+    if (creditoErro) return CREDITO_MESSAGES[creditoErro[1]]
   }
   // Protocolo IATF: o banco recusa com mensagens já escritas para o peão (IA já registrada por outro, lote cancelado...)
   if ((code === '23514' || code === '23503') && MENSAGENS_PROTOCOLO_IATF.test(error.message || '')) return error.message

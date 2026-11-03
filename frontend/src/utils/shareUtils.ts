@@ -2184,9 +2184,11 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       'dataProducao',
       'dietaProduzida',
       'destinoProducao',
+      'fazendaCreditoNome',
+      'formulacaoCreditoNome',
       'totalProduzido'
     ]
-    
+
     ordemSaidaInsumos.forEach(key => {
       const value = registro[key]
       if (value !== null && value !== undefined && value !== '') {

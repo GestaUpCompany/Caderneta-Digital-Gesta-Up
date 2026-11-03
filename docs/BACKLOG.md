@@ -2,6 +2,14 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Estoque compartilhado: teste ponta a ponta e Painel (03/11/2026)
+
+O banco e o PWA já creditam o produto em outra fazenda do grupo, com a formulação escolhida na hora (ver `docs/HISTORICO.md`). Falta:
+
+1. Teste no navegador (dev server, fazendas de teste `d649c65e…` → `a239c062…`; a Gesta'Up Teste não tem formulação com estoque, criar uma) e sync offline com destino cruzado no build de produção (`vite preview`).
+2. **Painel** (`apps/manejus`): mostrar a origem ("Produzido em …", já gravada em `movimentacoes_estoque_suplementos.observacao`) em `EstoqueSuplementacao` e nos relatórios.
+3. Opcional: lembrar no aparelho a última formulação de destino escolhida por par (formulação de origem, fazenda), se a escolha a cada produção incomodar.
+
 ## REMOVER script de correção pontual de kgCocho (publicado em 21/10/2026)
 
 `frontend/src/utils/correcaoPontualKgCocho.ts` corrige na cópia local (IndexedDB) o registro de suplementação de 14/10/2026 do Lote 9 (fazenda d3965505-74d5-4af7-9858-f773d2e8aab3), digitado com `kgCocho = 104530000` e já corrigido para 1045 no servidor. Roda uma vez por aparelho (marca `correcao-kg-cocho-lote9-20261014` no `localStorage`), chamado em `App.tsx` (`AppInner`).

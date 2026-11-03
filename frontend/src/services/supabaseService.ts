@@ -159,6 +159,23 @@ export async function getFazendasDoMesmoGrupo(fazendaId: string) {
   return data || []
 }
 
+/**
+ * Formulações ativas, com controle de estoque, de outra fazenda do mesmo grupo (candidatas a receber o produto).
+ * Vai por RPC porque o peão não lê formulações de outra fazenda.
+ */
+export async function getFormulacoesFazendaDestino(
+  fazendaOrigemId: string,
+  fazendaDestinoId: string,
+): Promise<{ id: string; nome: string; tipo: string | null }[]> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client.rpc('formulacoes_fazenda_destino', {
+    p_fazenda_origem_id: fazendaOrigemId,
+    p_fazenda_destino_id: fazendaDestinoId,
+  })
+  if (error) throw error
+  return data || []
+}
+
 export async function transferirLoteEntreFazendas(
   loteOrigemId: string,
   fazendaDestinoId: string,

@@ -2882,6 +2882,39 @@ export async function getFazendasDoMesmoGrupoCached(fazendaId: string): Promise<
   }
 }
 
+export interface FormulacaoDestino {
+  id: string
+  nome: string
+  tipo: string | null
+}
+
+/**
+ * Formulações de outra fazenda do grupo que podem receber o produto no estoque. Online consulta o servidor
+ * (tempo limite de 3 s) e guarda no aparelho. Retorna null quando não deu para saber e não há cópia no
+ * aparelho: quem chama avisa o peão. Lista vazia é resposta válida ("a fazenda não tem formulação com estoque").
+ */
+export async function getFormulacoesFazendaDestinoCached(
+  fazendaOrigemId: string,
+  fazendaDestinoId: string,
+): Promise<FormulacaoDestino[] | null> {
+  const key = buildKey('formulacoes-fazenda-destino', fazendaOrigemId, fazendaDestinoId)
+  const fromCache = async () => {
+    const cached = getCachedQuery(key) ?? (await getCachedQueryFromIDB(key))
+    return Array.isArray(cached) ? (cached as FormulacaoDestino[]) : null
+  }
+
+  if (!navigator.onLine || redeInstavelRecentemente()) return fromCache()
+
+  try {
+    const data = await withTimeout(supabaseService.getFormulacoesFazendaDestino(fazendaOrigemId, fazendaDestinoId), 3000)
+    setCachedQuery(key, data)
+    return data
+  } catch (error) {
+    if (error instanceof Error && error.message === 'timeout') registrarFalhaDeRede()
+    return fromCache()
+  }
+}
+
 /**
  * Busca lista de linhas de confinamento com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).

@@ -9,7 +9,9 @@ export const saidaInsumosConfig: CadernetaDisplayConfig = {
     dataProducao: { key: 'dataProducao', section: 'DADOS DA PRODUÇÃO', priority: 1 },
     dietaProduzida: { key: 'dietaProduzida', section: 'DADOS DA PRODUÇÃO', priority: 2 },
     destinoProducao: { key: 'destinoProducao', section: 'DADOS DA PRODUÇÃO', priority: 3 },
-    totalProduzido: { key: 'totalProduzido', section: 'DADOS DA PRODUÇÃO', priority: 4, format: (v) => `${v} kg` },
+    fazendaCreditoNome: { key: 'fazendaCreditoNome', section: 'DADOS DA PRODUÇÃO', priority: 4 },
+    formulacaoCreditoNome: { key: 'formulacaoCreditoNome', section: 'DADOS DA PRODUÇÃO', priority: 5 },
+    totalProduzido: { key: 'totalProduzido', section: 'DADOS DA PRODUÇÃO', priority: 6, format: (v) => `${v} kg` },
   },
-  hiddenFields: ['insumosQuantidades'],
+  hiddenFields: ['insumosQuantidades', 'fazendaCreditoId', 'formulacaoCreditoId'],
 }

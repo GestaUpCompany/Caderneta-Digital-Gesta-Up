@@ -655,6 +655,9 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         destino_producao: registro.destinoProducao || null,
         total_produzido: registro.totalProduzido ? paraNumero(registro.totalProduzido) : null,
         formulacao_id: registro.formulacaoId || null,
+        // Estoque que recebe o produto: nulo = a própria fazenda. O banco valida o grupo e a formulação escolhida
+        fazenda_credito_id: registro.fazendaCreditoId || null,
+        formulacao_credito_id: registro.formulacaoCreditoId || null,
       }
     case 'insumos-por-saida':
       return {
