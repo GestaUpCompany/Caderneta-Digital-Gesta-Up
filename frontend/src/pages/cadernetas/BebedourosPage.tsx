@@ -48,14 +48,11 @@ import { eventBus, CADASTRO_CACHE_UPDATED } from '../../utils/eventBus'
 import { base64ToDataUrl } from '../../utils/photoCompress'
 import { getFuncionarios } from '../../services/supabaseService'
 import ParticipantesLimpeza, { separarNomes, mesclarNomes } from '../../components/cadernetas/ParticipantesLimpeza'
+import BebedourosLoteForm from './BebedourosLoteForm'
+import ChecklistProblemasBebedouro from '../../components/cadernetas/ChecklistProblemasBebedouro'
+import { montarPayloadRegistroBebedouro, OPCOES_AGUA } from '../../utils/bebedourosLote'
 
 const BASE = import.meta.env.BASE_URL
-
-const AGUA_OPTIONS = [
-  { value: '1', numero: '1', label: 'Limpa', dot: 'bg-green-500', selecionado: 'bg-green-50 border-green-500 text-green-800' },
-  { value: '2', numero: '2', label: 'Meio suja', dot: 'bg-amber-400', selecionado: 'bg-amber-50 border-amber-400 text-amber-900' },
-  { value: '3', numero: '3', label: 'Suja', dot: 'bg-red-500', selecionado: 'bg-red-50 border-red-500 text-red-800' },
-]
 
 // Checklist vira lista de problemas: clicar marca "o problema existe".
 // O payload mantem as chaves positivas (agua_suficiente etc.): valor=true
@@ -147,6 +144,7 @@ export default function BebedourosPage() {
   } = useSalvarRegistro('bebedouros')
   const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
     useRascunhoForm<FormState>({ rascunhoKey: 'bebedouros', makeInitial })
+  const [modo, setModo] = useState<'individual' | 'lote'>('individual')
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
@@ -505,51 +503,26 @@ export default function BebedourosPage() {
         ? { funcionarios: funcionariosParticipantes, diaristas: diaristasParticipantes }
         : null
 
-    const result = await salvarRegistro('bebedouros', {
+    const result = await salvarRegistro('bebedouros', montarPayloadRegistroBebedouro({
       data: form.data,
-      responsavel: usuario,
-      usuario: usuario,
-      leituraBebedouro: form.leituraBebedouro ? Number(form.leituraBebedouro) : null,
+      usuario,
       numeroBebedouro: form.numeroBebedouro,
-      pasto: pastosBebedouro && pastosBebedouro.length > 0 ? pastosBebedouro.map(p => p.nome).join(', ') : null,
-      pastoId: pastosBebedouro && pastosBebedouro.length === 1 ? pastosBebedouro[0].id : null,
+      leituraBebedouro: form.leituraBebedouro,
+      pastos: pastosBebedouro,
       observacao: form.observacao,
       participantesLimpeza,
       tempoDesdeLimpeza: form.tempoDesdeLimpeza,
       intervaloMedioLimpezas: form.intervaloMedioLimpezas,
       metaIntervaloLimpeza: form.metaIntervaloLimpeza,
-      // valor = "a condicao esta adequada" (true) ou "problema marcado" (false).
-      // A afirmacao negativa existe so na UI; a chave e a proposicao positiva.
-      // foto_bebedouro carrega a evidencia do registro e independe do checklist
-      // estar ativo para a fazenda.
-      checklist: (checklistAtivo || form.fotoBebedouro) ? {
-        ...(checklistAtivo ? {
-          ...Object.fromEntries(CHECKLIST_PROBLEMAS.map(({ campo, checklistKey }) => [
-            checklistKey,
-            {
-              valor: form[campo] !== 'Não',
-              observacao: (form as any)[`${campo}Obs`] || '',
-              fotoBase64: (form as any)[`${campo}Foto`] || undefined,
-              // Auditoria da pergunta de pendência: resolvida (valor true) ou mantida (valor false, segue aberta)
-              ...(pendenciasPorCampo[campo] && respostasPendencia[campo]
-                ? { pendencia: { situacao: respostasPendencia[campo], desde: pendenciasPorCampo[campo]!.desde } }
-                : {}),
-            },
-          ])),
-          limpou_hoje: {
-            valor: form.limpouHoje === 'Sim',
-            observacao: '',
-          },
-        } : {}),
-        ...(form.fotoBebedouro ? {
-          foto_bebedouro: {
-            valor: true,
-            observacao: '',
-            fotoBase64: form.fotoBebedouro,
-          },
-        } : {}),
-      } : null,
-    })
+      checklistAtivo,
+      limpouHoje: form.limpouHoje === 'Sim',
+      fotoBebedouro: form.fotoBebedouro,
+      problemas: Object.fromEntries(CHECKLIST_PROBLEMAS.map(({ campo }) => [campo, form[campo] === 'Não'])),
+      observacoes: Object.fromEntries(CHECKLIST_PROBLEMAS.map(({ campo }) => [campo, (form as any)[`${campo}Obs`] || ''])),
+      fotos: Object.fromEntries(CHECKLIST_PROBLEMAS.map(({ campo }) => [campo, (form as any)[`${campo}Foto`] || ''])),
+      pendencias: respostasPendencia,
+      pendenciasAbertas,
+    }))
 
     if (!result.success && result.errors) {
       setErrors(result.errors)
@@ -648,6 +621,29 @@ export default function BebedourosPage() {
 
   const bebedouroProgress = temMeta && temHistorico ? tempoDiasLimpeza / metaDiasLimpeza : null
 
+  const seletorModo = (
+    <div className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1" role="tablist" aria-label="Modo de lançamento">
+      {([['individual', 'INDIVIDUAL'], ['lote', 'EM LOTE']] as const).map(([valor, rotulo]) => (
+        <button
+          key={valor}
+          type="button"
+          role="tab"
+          aria-selected={modo === valor}
+          onClick={() => setModo(valor)}
+          className={`!min-h-0 rounded-xl px-3 py-2.5 text-sm font-extrabold transition-colors ${
+            modo === valor ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+          }`}
+        >
+          {rotulo}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (modo === 'lote') {
+    return <BebedourosLoteForm topo={seletorModo} funcionariosDisponiveis={funcionariosDisponiveis} />
+  }
+
   return (
     <>
       <CadernetaLayout
@@ -657,6 +653,7 @@ export default function BebedourosPage() {
           <DatePicker value={form.data} onChange={set('data')} variant="header" compact inline maxDate={todayBR()} />
         }
       >
+        {seletorModo}
         <BannerRascunho
           visible={rascunhoRestaurado}
           onConfirmar={confirmarRascunho}
@@ -737,7 +734,7 @@ export default function BebedourosPage() {
               </button>
             </div>
             <div className="grid grid-cols-3 gap-2" data-field="leituraBebedouro">
-              {AGUA_OPTIONS.map((opt) => {
+              {OPCOES_AGUA.map((opt) => {
                 const selecionado = form.leituraBebedouro === opt.value
                 return (
                   <button
@@ -870,94 +867,28 @@ export default function BebedourosPage() {
               const pendencia = pendenciasPorCampo[campo]
               // Item com pendência anterior é decidido pela pergunta acima: resolvido some daqui, pendente aparece marcado
               if (pendencia && respostasPendencia[campo] !== 'mantida') return null
-              const marcado = form[campo] === 'Não'
-              const foto = (form as any)[`${campo}Foto`] as string
               return (
-                <div key={campo} className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={pendencia ? undefined : () => toggleProblema(campo)}
-                    data-field={campo}
-                    className={`flex min-h-[52px] w-full ${pendencia ? 'cursor-default' : 'cursor-pointer'} items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
-                      marcado
-                        ? 'border-red-500 bg-red-50 text-red-800'
-                        : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className="text-sm font-bold leading-tight">
-                      {label}
-                      {pendencia && <span className="ml-2 text-xs font-semibold text-red-700">(pendência anterior)</span>}
-                    </span>
-                    {marcado && <span className="text-lg leading-none">⚠️</span>}
-                  </button>
-
-                  {marcado && (
-                    <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
-                      <InfoStrip tone="danger" icon="⚠️">{aviso}</InfoStrip>
-
-                      {foto && (
-                        <div className="flex items-start gap-3">
-                          <img
-                            src={base64ToDataUrl(foto)}
-                            alt={`Foto de ${label}`}
-                            className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removerFotoItem(campo)}
-                            className="flex-1 rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-300 active:scale-[0.99]"
-                          >
-                            🗑️ REMOVER FOTO
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {!foto && (
-                          <button
-                            type="button"
-                            onClick={() => handleTirarFotoItem(campo)}
-                            disabled={capturandoFoto}
-                            className="flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl bg-brand-900 px-3 py-2.5 text-white transition-colors hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
-                          >
-                            <span className="text-lg leading-none">📷</span>
-                            <span className="text-xs font-extrabold uppercase tracking-wide">
-                              {capturandoFoto && campoFotoAtual === campo ? 'Capturando...' : 'Foto'}
-                            </span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleFalarItem(campo)}
-                          className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2.5 text-white transition-colors active:scale-[0.99] ${
-                            foto ? 'col-span-2' : ''
-                          } ${
-                            ouvindoVoz && campoVozAtual === campo
-                              ? 'animate-pulse bg-red-600'
-                              : 'bg-gray-600 hover:bg-gray-700'
-                          }`}
-                        >
-                          <span className="text-lg leading-none">🎤</span>
-                          <span className="text-xs font-extrabold uppercase tracking-wide">
-                            {ouvindoVoz && campoVozAtual === campo ? 'Ouvindo...' : 'Falar'}
-                          </span>
-                        </button>
-                      </div>
-                      {fotoErro && campoFotoAtual === campo && (
-                        <InfoStrip tone="danger">{fotoErro}</InfoStrip>
-                      )}
-                      {vozErro && campoVozAtual === campo && (
-                        <InfoStrip tone="danger">{vozErro}</InfoStrip>
-                      )}
-
-                      <Input
-                        placeholder="Adicionar observação (opcional)"
-                        value={(form as any)[`${campo}Obs`] || ''}
-                        onChange={(e) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: e.target.value }))}
-                      />
-                    </div>
-                  )}
-                </div>
+                <ChecklistProblemasBebedouro
+                  key={campo}
+                  label={label}
+                  aviso={aviso}
+                  marcado={form[campo] === 'Não'}
+                  pendencia={!!pendencia}
+                  foto={(form as any)[`${campo}Foto`] as string}
+                  observacao={(form as any)[`${campo}Obs`] || ''}
+                  capturandoFoto={capturandoFoto}
+                  fotoAtiva={campoFotoAtual === campo}
+                  ouvindoVoz={ouvindoVoz}
+                  vozAtiva={campoVozAtual === campo}
+                  fotoErro={fotoErro}
+                  vozErro={vozErro}
+                  dataField={campo}
+                  onToggle={() => toggleProblema(campo)}
+                  onTirarFoto={() => handleTirarFotoItem(campo)}
+                  onRemoverFoto={() => removerFotoItem(campo)}
+                  onFalar={() => handleFalarItem(campo)}
+                  onChangeObservacao={(texto) => setForm((prev) => ({ ...prev, [`${campo}Obs`]: texto }))}
+                />
               )
             })}
 

@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Limpeza de bebedouros em lote (03/11/2026)
+
+- Na `BebedourosPage`, seletor "Individual | Em lote". O lote (`BebedourosLoteForm.tsx`) lista os bebedouros da fazenda com o **pasto em destaque** (os funcionários conhecem o bebedouro pelo pasto) e o status de prazo, ordenados por urgência, com busca, "Selecionar todos" e "Selecionar atrasados".
+- Um envio gera **um registro por bebedouro**: cada um passa por `salvarRegistro('bebedouros', ...)` → IndexedDB → `syncQueue`, com o mesmo payload do individual (`montarPayloadRegistroBebedouro` em `utils/bebedourosLote.ts`, usado também pela página individual). Sem mudança de schema, de `syncService` nem do Painel; IndexedDB segue na versão 34.
+- Data, participantes e observação valem para todo o lote; `limpou_hoje = Sim` fixo; água padrão "1 – Limpa", editável por bebedouro. Problemas (checklist, foto, voz, observação) por bebedouro, com o componente extraído `ChecklistProblemasBebedouro`.
+- Pendências anteriores: mesmo bloqueio do individual, por bebedouro (RESOLVIDO / AINDA PENDENTE antes de salvar).
+- Falha parcial: valida tudo antes de gravar; grava em sequência; quem falhar fica selecionado com a mensagem e os salvos saem da seleção. O modal de atraso aparece uma vez para o lote.
+- Compartilhar: `SuccessModal` ganhou `registrosLote` e usa `formatarLoteBebedourosComoTexto` (`shareUtils.ts`) só nesse modo. Leitura em lote: `getResumoLimpezaBebedourosCached` (`cadastroCache.ts`). Rascunho próprio: chave `bebedouros-lote`.
+- Testes: `bebedourosLote.test.ts`, `shareUtils.loteBebedouros.test.ts`. Typecheck, lint (0 erros, 47 avisos) e build ok. Testado no dev server (chrome-devtools, Fazenda Gesta'Up): lote de 3 com problema e observação (3 registros `pending` + 3 itens na `syncQueue`, depois sincronizados), pendência reaparecendo no lote com salvar bloqueado até responder, rascunho do lote restaurado e pendência "mantida" gravada com o `desde` original. Offline no build de produção (`vite preview`, porta 4173): lote de 2 salvo sem rede com a lista vinda do cache, registros `pending` e fila sincronizada ao voltar a rede. Falha parcial forçada (falha de gravação num bebedouro): 2 de 3 salvos, o que falhou ficou selecionado com a mensagem de erro, e ao salvar de novo cada bebedouro ficou com um único registro. COMPARTILHAR no viewport de celular: texto em lote gerado e enviado ao wa.me (sem foto, não há share nativo). **Ainda sem teste:** COMPARTILHAR com foto de problema no APK nativo.
+
 ## PV médio da suplementação em lote com categorias com e sem ajuste de peso (30/10/2026)
 
 - Caso: Fazenda Doce Ilusão, Lote 3 (Marin Pequenos), registro de 29/10/2026. O texto de compartilhamento mostrou PV MÉDIO 151,83 kg e META 3,756 kg MN/cab/dia; o correto é 567,79 kg e ≈14,05 kg.
