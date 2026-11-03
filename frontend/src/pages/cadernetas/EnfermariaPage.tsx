@@ -387,7 +387,7 @@ export default function EnfermariaPage() {
       // Saldo local acompanha a baixa que o trigger fará no sync (a Enfermaria não grava o estoque no aparelho)
       if (fazendaId) {
         const baixas = baixaPorMedicamento(
-          form.medicamentos.map((m) => ({ medicamentoId: m.medicamentoId, doseAplicada: m.doseAplicada })),
+          form.medicamentos.map((m) => ({ medicamentoId: m.medicamentoId, frascosUsados: m.frascosUsados })),
           medicamentosDisponiveis,
         )
         for (const b of baixas) {

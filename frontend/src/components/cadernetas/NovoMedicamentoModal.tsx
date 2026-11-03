@@ -21,9 +21,6 @@ export const TIPOS_MEDICAMENTO = [
   { value: 'Outro', label: 'OUTRO' },
 ]
 
-const UNIDADES = ['un', 'dose', 'frasco', 'caixa', 'mL', 'L', 'g', 'kg']
-const UNIDADES_DIRETAS = ['mL', 'L', 'g', 'kg']
-
 export interface NovoMedicamentoDados {
   nome_comercial: string
   sku: string | null
@@ -53,7 +50,6 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
   const [nome, setNome] = useState('')
   const [sku, setSku] = useState('')
   const [tipo, setTipo] = useState('')
-  const [unidade, setUnidade] = useState('')
   const [conteudo, setConteudo] = useState('')
   const [conteudoUn, setConteudoUn] = useState('mL')
   const [erro, setErro] = useState<string | null>(null)
@@ -63,7 +59,6 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
     setNome('')
     setSku('')
     setTipo('')
-    setUnidade('')
     setConteudo('')
     setConteudoUn('mL')
     setErro(null)
@@ -78,17 +73,14 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
   const confirmar = () => {
     if (!nome.trim()) return setErro('Informe o nome do medicamento')
     if (!tipo) return setErro('Escolha o tipo')
-    if (!unidade) return setErro('Escolha a unidade de medida')
+    // Conteúdo do frasco é opcional e só informativo (o estoque conta frascos inteiros)
     const valor = parseFloat(conteudo.replace(',', '.'))
-    const temConteudo = !UNIDADES_DIRETAS.includes(unidade) && !isNaN(valor) && valor > 0
-    // Unidade de embalagem precisa do conteúdo: sem ele a Enfermaria não consegue dar baixa
-    if (!UNIDADES_DIRETAS.includes(unidade) && !temConteudo)
-      return setErro(`Informe o conteúdo por ${unidade} (ex.: 500 mL por frasco) para a Enfermaria dar baixa automática`)
+    const temConteudo = !isNaN(valor) && valor > 0
     onConfirmar({
       nome_comercial: nome.trim(),
       sku: sku.trim() || null,
       tipo,
-      unidade,
+      unidade: 'frasco',
       conteudo_por_unidade: temConteudo ? valor : null,
       conteudo_unidade: temConteudo ? conteudoUn : null,
     })
@@ -133,41 +125,26 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
           <ChoiceGrid options={TIPOS_MEDICAMENTO} value={tipo} onChange={setTipo} cols={2} labelSize="xs" showCheck={false} />
         </div>
 
+        <InfoStrip tone="neutral">O estoque da farmácia é controlado em frascos inteiros.</InfoStrip>
+
         <div className="flex flex-col gap-2">
-          <p className="text-[13px] font-bold uppercase text-gray-900">Unidade de medida <span className="text-red-500">*</span></p>
+          <Input
+            label={<span>CONTEÚDO DO FRASCO (OPCIONAL)</span>}
+            placeholder="Ex: 100"
+            value={conteudo}
+            onChange={(e) => setConteudo(sanitizarDecimal(e.target.value))}
+            inputMode="decimal"
+          />
           <ChoiceGrid
-            options={UNIDADES.map((u) => ({ value: u, label: u.toUpperCase() }))}
-            value={unidade}
-            onChange={setUnidade}
-            cols={4}
+            options={[{ value: 'mL', label: 'ML' }, { value: 'mg', label: 'MG' }]}
+            value={conteudoUn}
+            onChange={setConteudoUn}
+            cols={2}
             labelSize="xs"
             showCheck={false}
           />
-          <InfoStrip tone="warning" icon="⚠️">Depois do primeiro lançamento a unidade não pode ser alterada</InfoStrip>
+          <p className="text-xs text-gray-500">Só informativo (ex.: 100 mL por frasco); não altera o saldo.</p>
         </div>
-
-        {unidade && !UNIDADES_DIRETAS.includes(unidade) && (
-          <div className="flex flex-col gap-2">
-            <Input
-              label={<span>CONTEÚDO POR {unidade.toUpperCase()} <span className="text-red-500">*</span></span>}
-              placeholder="Ex: 100"
-              value={conteudo}
-              onChange={(e) => setConteudo(sanitizarDecimal(e.target.value))}
-              inputMode="decimal"
-            />
-            <ChoiceGrid
-              options={[{ value: 'mL', label: 'ML' }, { value: 'mg', label: 'MG' }]}
-              value={conteudoUn}
-              onChange={setConteudoUn}
-              cols={2}
-              labelSize="xs"
-              showCheck={false}
-            />
-            <p className="text-xs text-gray-500">
-              Permite a baixa automática pela Enfermaria (ex.: 20 mL aplicados ÷ 100 mL = 0,2 {unidade}).
-            </p>
-          </div>
-        )}
 
         {erro && <InfoStrip tone="danger">{erro}</InfoStrip>}
 

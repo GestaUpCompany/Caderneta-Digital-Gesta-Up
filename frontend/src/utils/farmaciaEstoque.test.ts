@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  parseFrascos,
   parseQuantidade,
   saldoApos,
   statusEstoque,
@@ -17,6 +18,20 @@ describe('parseQuantidade', () => {
   it('vazio ou inválido vira 0', () => {
     expect(parseQuantidade('')).toBe(0)
     expect(parseQuantidade('abc')).toBe(0)
+  })
+})
+
+describe('parseFrascos', () => {
+  it('aceita só dígitos', () => {
+    expect(parseFrascos('3')).toBe(3)
+    expect(parseFrascos(' 12 ')).toBe(12)
+  })
+  it('fração, texto e vazio viram 0', () => {
+    expect(parseFrascos('2,5')).toBe(0)
+    expect(parseFrascos('2.5')).toBe(0)
+    expect(parseFrascos('-1')).toBe(0)
+    expect(parseFrascos('abc')).toBe(0)
+    expect(parseFrascos('')).toBe(0)
   })
 })
 

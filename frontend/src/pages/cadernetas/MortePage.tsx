@@ -182,8 +182,8 @@ export default function MortePage() {
   const [alvoVoz, setAlvoVoz] = useState<string | null>(null)
   const baseVozRef = useRef('')
 
-  // Foto do animal: opcional; quando tirada, o GPS é obrigatório (correção iOS inclusa no hook)
-  const fotoAnimal = usePhotoGps({ gpsObrigatorio: true })
+  // Foto do animal: opcional. O GPS é tentado, mas sem sinal a foto fica e o registro vai sem local
+  const fotoAnimal = usePhotoGps({ gpsObrigatorio: false })
   // Fotos de apoio (brinco e cabeça): só imagem
   const fotoBrinco = usePhotoGps({ comGps: false })
   const fotoCabeca = usePhotoGps({ comGps: false })
@@ -727,6 +727,9 @@ export default function MortePage() {
             <InfoStrip tone="neutral" icon="📍">
               Todas as fotos são opcionais. A foto do animal marca o local pelo GPS automaticamente.
             </InfoStrip>
+          )}
+          {fotoAnimal.fotoBase64 && fotoAnimal.latitude == null && fotoAnimal.gpsErro && !fotoAnimal.capturandoGps && (
+            <InfoStrip tone="neutral" icon="📍">Foto guardada sem o local: o GPS não respondeu.</InfoStrip>
           )}
           {fotoAnimal.fotoErro && <InfoStrip tone="danger">{fotoAnimal.fotoErro}</InfoStrip>}
           {fotoBrinco.fotoErro && <InfoStrip tone="danger">{fotoBrinco.fotoErro}</InfoStrip>}

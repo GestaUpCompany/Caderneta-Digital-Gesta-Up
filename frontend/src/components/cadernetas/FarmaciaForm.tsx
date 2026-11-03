@@ -26,6 +26,7 @@ import {
   encontrarMedicamentoExistente,
   formatarQuantidade,
   medicamentosControlados,
+  parseFrascos,
   parseQuantidade,
   saldoApos,
   statusEstoque,
@@ -149,8 +150,9 @@ export default function FarmaciaForm({ modo }: Props) {
   const setInput = (campo: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [campo]: e.target.value }))
 
-  const quantidade = parseQuantidade(form.quantidade)
-  const unidade = selecionado?.unidade || 'un'
+  // Estoque de farmácia é sempre em frascos inteiros
+  const quantidade = parseFrascos(form.quantidade)
+  const unidade = 'frasco'
 
   const validationRules: any = {
     data: { required: true },
@@ -160,10 +162,7 @@ export default function FarmaciaForm({ modo }: Props) {
     },
     quantidade: {
       required: true,
-      custom: (value: string) => {
-        const n = parseFloat(String(value).replace(',', '.'))
-        return value && (isNaN(n) || n <= 0) ? 'Informe uma quantidade maior que zero' : null
-      },
+      custom: (value: string) => (value && parseFrascos(value) <= 0 ? 'Informe um número inteiro de frascos maior que zero' : null),
     },
     // Entrada exige custo unitário (o Painel também exige); saída não lança custo
     ...(ehSaida
@@ -315,7 +314,7 @@ export default function FarmaciaForm({ modo }: Props) {
     if (!form.medicamento) return 'Falta escolher o medicamento ou vacina'
     if (!selecionado) return 'Escolha um medicamento da lista'
     if (!form.quantidade.trim()) return 'Falta informar a quantidade'
-    if (quantidade <= 0) return 'A quantidade precisa ser maior que zero'
+    if (quantidade <= 0) return 'Informe um número inteiro de frascos maior que zero'
     if (!ehSaida && !(parseQuantidade(form.custoUnitario) > 0)) return 'Falta informar o custo unitário'
     if (motivoPendente) return 'Descreva o motivo da saída'
     return undefined
@@ -407,6 +406,7 @@ export default function FarmaciaForm({ modo }: Props) {
             value={form.quantidade}
             onChange={setCampo('quantidade')}
             min={0}
+            allowDecimals={false}
             suffix={selecionado ? unidadeConcordada(unidade, quantidade) : undefined}
             error={getError('quantidade')}
           />

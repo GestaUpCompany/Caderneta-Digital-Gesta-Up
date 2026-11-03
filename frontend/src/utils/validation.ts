@@ -690,8 +690,9 @@ export function validateFarmacia(data: Record<string, unknown>): ValidationResul
     errors.push({ field: 'tipoMovimentacao', message: 'Selecione entrada ou saída' })
   if (!isNonEmptyString(data.medicamentoId))
     errors.push({ field: 'medicamentoId', message: 'Medicamento é obrigatório' })
-  if (!isPositiveNumber(data.quantidade) || Number(String(data.quantidade).replace(',', '.')) <= 0)
-    errors.push({ field: 'quantidade', message: 'Quantidade deve ser maior que zero' })
+  // Estoque de farmácia em frascos inteiros: sem fração nem vírgula
+  if (!/^\d+$/.test(String(data.quantidade ?? '').trim()) || Number(data.quantidade) <= 0)
+    errors.push({ field: 'quantidade', message: 'Quantidade deve ser um número inteiro de frascos maior que zero' })
   // Entrada precisa de custo (o Painel exige o mesmo); saída não lança custo
   if (data.tipoMovimentacao === 'entrada') {
     const custo = Number(String(data.custoUnitario ?? '').replace(',', '.'))
