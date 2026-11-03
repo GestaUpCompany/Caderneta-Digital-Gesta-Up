@@ -179,6 +179,11 @@ export interface RegistroSaidaInsumos extends Registro {
   dataProducao: string
   dietaProduzida: string
   destinoProducao: string
+  // Estoque que recebe o produto quando não é o da própria fazenda (do mesmo grupo)
+  fazendaCreditoId?: string
+  fazendaCreditoNome?: string
+  formulacaoCreditoId?: string
+  formulacaoCreditoNome?: string
   totalProduzido: number
   insumosQuantidades: Record<string, string>
 }

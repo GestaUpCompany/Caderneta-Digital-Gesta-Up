@@ -828,6 +828,8 @@ export default function ListaRegistros({ caderneta, titulo, rotaForm, extraActio
                         'dataProducao',
                         'dietaProduzida',
                         'destinoProducao',
+                        'fazendaCreditoNome',
+                        'formulacaoCreditoNome',
                         'totalProduzido'
                       ]
                       

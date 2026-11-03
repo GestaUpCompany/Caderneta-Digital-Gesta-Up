@@ -9762,7 +9762,9 @@ export type Database = {
           destino_producao: string | null
           dieta_produzida: string | null
           dispositivo_id: string | null
+          fazenda_credito_id: string | null
           fazenda_id: string
+          formulacao_credito_id: string | null
           formulacao_id: string | null
           id: string
           insumo_id: string | null
@@ -9781,7 +9783,9 @@ export type Database = {
           destino_producao?: string | null
           dieta_produzida?: string | null
           dispositivo_id?: string | null
+          fazenda_credito_id?: string | null
           fazenda_id: string
+          formulacao_credito_id?: string | null
           formulacao_id?: string | null
           id?: string
           insumo_id?: string | null
@@ -9800,7 +9804,9 @@ export type Database = {
           destino_producao?: string | null
           dieta_produzida?: string | null
           dispositivo_id?: string | null
+          fazenda_credito_id?: string | null
           fazenda_id?: string
+          formulacao_credito_id?: string | null
           formulacao_id?: string | null
           id?: string
           insumo_id?: string | null
@@ -9818,6 +9824,20 @@ export type Database = {
             columns: ["dispositivo_id"]
             isOneToOne: false
             referencedRelation: "dispositivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_saida_insumos_fazenda_credito_id_fkey"
+            columns: ["fazenda_credito_id"]
+            isOneToOne: false
+            referencedRelation: "fazendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_saida_insumos_formulacao_credito_id_fkey"
+            columns: ["formulacao_credito_id"]
+            isOneToOne: false
+            referencedRelation: "formulacoes"
             referencedColumns: ["id"]
           },
           {
@@ -12217,6 +12237,14 @@ export type Database = {
           peso_medio_atual_kg: number
           raca: string
           sexo: string
+        }[]
+      }
+      formulacoes_fazenda_destino: {
+        Args: { p_fazenda_destino_id: string; p_fazenda_origem_id: string }
+        Returns: {
+          id: string
+          nome: string
+          tipo: string
         }[]
       }
       get_lotes_para_relatorio: {

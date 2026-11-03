@@ -18,7 +18,7 @@ import { useRascunhoForm } from '../../hooks/useRascunhoForm'
 import { usePhotoGps } from '../../hooks/usePhotoGps'
 import FotoSection from '../../components/cadernetas/FotoSection'
 import { RootState } from '../../store/store'
-import { getSetoresCached, getLocaisCached } from '../../services/cadastroCache'
+import { getLocaisCached } from '../../services/cadastroCache'
 
 const LIMPEZA_OPTIONS = [
   { value: 'capina', label: 'Capina', icon: '⛏️' },
@@ -41,7 +41,6 @@ const PESSOAS_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8+'].map((n) => ({
 interface FormState {
   data: string
   numeroEquipe: string
-  setor: string
   local: string
   horaInicio: string
   horaFinal: string
@@ -52,7 +51,6 @@ interface FormState {
 const makeInitial = (): FormState => ({
   data: todayBR(),
   numeroEquipe: '',
-  setor: '',
   local: '',
   horaInicio: '',
   horaFinal: '',
@@ -82,7 +80,6 @@ export default function LimpezaPage() {
   const [salvando, setSalvando] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
-  const [setoresDisponiveis, setSetoresDisponiveis] = useState<string[]>([])
   const [locaisDisponiveis, setLocaisDisponiveis] = useState<string[]>([])
   const [horarioManual, setHorarioManual] = useState(false)
   const [, setTick] = useState(0)
@@ -104,11 +101,7 @@ export default function LimpezaPage() {
     const loadData = async () => {
       if (fazendaId) {
         try {
-          const [setoresData, locaisData] = await Promise.all([
-            getSetoresCached(fazendaId),
-            getLocaisCached(fazendaId)
-          ])
-          setSetoresDisponiveis(setoresData?.map((s: any) => s.nome) || [])
+          const locaisData = await getLocaisCached(fazendaId)
           setLocaisDisponiveis(locaisData?.map((l: any) => l.nome) || [])
         } catch (error) {
           console.error('Erro ao carregar dados:', error)
@@ -129,7 +122,6 @@ export default function LimpezaPage() {
   const validationRules: any = {
     data: { required: true },
     numeroEquipe: { required: true },
-    setor: { required: true },
     local: { required: true },
     horaInicio: { required: true },
     horaFinal: { required: true },
@@ -159,7 +151,6 @@ export default function LimpezaPage() {
     const result = await salvarRegistro('limpeza', {
       data: form.data,
       numeroEquipe: form.numeroEquipe,
-      setor: form.setor,
       local: form.local,
       horaInicio: form.horaInicio,
       horaFinal: form.horaFinal,
@@ -227,27 +218,13 @@ export default function LimpezaPage() {
             options={PESSOAS_OPTIONS}
             value={form.numeroEquipe}
             onChange={(v) => setForm((prev) => ({ ...prev, numeroEquipe: v }))}
-            cols={8}
+            cols={4}
             size="sm"
             showCheck={false}
-            className="max-w-[300px]"
+            className="sm:grid-cols-8"
             dataField="numeroEquipe"
           />
         </div>
-        {setoresDisponiveis.length > 0 ? (
-          <SearchableModal
-            label={<span>QUAL SETOR? <span className="text-red-500">*</span></span>}
-            value={form.setor}
-            onChange={(val) => setForm((prev) => ({ ...prev, setor: val }))}
-            error={getError('setor')}
-            options={setoresDisponiveis}
-            placeholder="Buscar setor..."
-            id="setor"
-            name="setor"
-          />
-        ) : (
-          <Input label={<span>QUAL SETOR? <span className="text-red-500">*</span></span>} placeholder="Carregando..." value={form.setor} onChange={setInput('setor')} error={getError('setor')} disabled />
-        )}
         {locaisDisponiveis.length > 0 ? (
           <SearchableModal
             label={<span>QUAL LOCAL? <span className="text-red-500">*</span></span>}

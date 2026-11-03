@@ -25,6 +25,22 @@ describe('translateSyncError', () => {
     expect(translateSyncError(erro({ code: '503', message: 'x' }))).toMatch(/Servidor indisponível/)
   })
 
+  it('explica a recusa do estoque de outra fazenda do grupo na Produção Fábrica', () => {
+    const invalida = translateSyncError(erro({
+      code: 'P0001',
+      message: 'FORMULACAO_CREDITO_INVALIDA: a formulação escolhida não é uma formulação ativa, com controle de estoque, da fazenda de crédito',
+    }))
+    expect(invalida).toMatch(/formulação da outra fazenda/)
+    expect(invalida).toMatch(/REENVIAR/)
+    expect(translateSyncError(erro({ code: 'P0001', message: 'FAZENDA_CREDITO_FORA_DO_GRUPO: x' }))).toMatch(/mesmo grupo/)
+    expect(translateSyncError(erro({ code: 'P0001', message: 'FORMULACAO_CREDITO_OBRIGATORIA: x' }))).toMatch(/Faltou a formulação/)
+    expect(translateSyncError(erro({ code: 'P0001', message: 'FAZENDA_CREDITO_IMUTAVEL: x' }))).toMatch(/não pode ser trocado/)
+  })
+
+  it('mantém a mensagem genérica para outras recusas P0001', () => {
+    expect(translateSyncError(erro({ code: 'P0001', message: 'qualquer outra regra' }))).toMatch(/regra de negócio/)
+  })
+
   it('mostra a mensagem do banco quando a IA do protocolo IATF já foi registrada por outro', () => {
     const msg = 'A inseminação deste lote já foi registrada em 20/10/2026'
     expect(translateSyncError(erro({ code: '23514', message: msg }))).toBe(msg)

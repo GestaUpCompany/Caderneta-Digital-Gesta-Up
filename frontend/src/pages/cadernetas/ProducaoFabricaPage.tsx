@@ -16,7 +16,11 @@ import {
   getInsumosByFormulacaoCached,
   getFormulacoesListaFromCacheOnly,
   getFormulacoesListaCached,
+  getFormulacoesFazendaDestinoCached,
+  getFazendasDoMesmoGrupoCached,
+  type FormulacaoDestino,
 } from '../../services/cadastroCache'
+import { sugerirFormulacaoDestino } from '../../utils/formulacaoDestino'
 import { registrarRespostaDeRede } from '../../utils/fetchComTimeout'
 import { Brush, Save, AlertCircle, Loader2 } from 'lucide-react'
 import SuccessModal from '../../components/SuccessModal'
@@ -38,6 +42,12 @@ interface FormState {
   formulacaoId: string
   formulacaoNome: string
   destinoProducao: string
+  // 'propria' credita o estoque desta fazenda; 'outra' credita o de uma fazenda do mesmo grupo
+  estoqueDestino: 'propria' | 'outra'
+  fazendaCreditoId: string
+  fazendaCreditoNome: string
+  formulacaoCreditoId: string
+  formulacaoCreditoNome: string
   totalProduzido: string
   insumosQuantidades: Record<string, string>
 }
@@ -47,6 +57,11 @@ const makeInitial = (): FormState => ({
   formulacaoId: '',
   formulacaoNome: '',
   destinoProducao: '',
+  estoqueDestino: 'propria',
+  fazendaCreditoId: '',
+  fazendaCreditoNome: '',
+  formulacaoCreditoId: '',
+  formulacaoCreditoNome: '',
   totalProduzido: '',
   insumosQuantidades: {},
 })
@@ -119,6 +134,10 @@ export default function ProducaoFabricaPage() {
   const [insumos, setInsumos] = useState<InsumoFormulacao[]>([])
   const [carregandoInsumos, setCarregandoInsumos] = useState(false)
   const [estoqueInsuficiente] = useState<string[]>([])
+  // Outras fazendas do grupo e, escolhida uma, as formulações dela que podem receber o produto (null = sem resposta)
+  const [fazendasGrupo, setFazendasGrupo] = useState<{ id: string; nome: string }[]>([])
+  const [formulacoesDestino, setFormulacoesDestino] = useState<FormulacaoDestino[] | null>(null)
+  const [carregandoFormulacoesDestino, setCarregandoFormulacoesDestino] = useState(false)
 
   const set = (field: keyof FormState) => (val: string) =>
     setForm((prev) => ({ ...prev, [field]: val }))
@@ -224,6 +243,54 @@ export default function ProducaoFabricaPage() {
     carregarInsumos()
   }, [carregarInsumos])
 
+  // Outras fazendas do grupo (candidatas a receber o produto); sem grupo a lista vem vazia e a seção some
+  useEffect(() => {
+    if (!fazendaId) {
+      setFazendasGrupo([])
+      return
+    }
+    let cancelado = false
+    getFazendasDoMesmoGrupoCached(fazendaId)
+      .then((lista) => {
+        if (!cancelado) setFazendasGrupo((lista ?? []).map((f) => ({ id: f.id, nome: f.nome })))
+      })
+      .catch((error) => console.error('Erro ao carregar fazendas do grupo:', error))
+    return () => {
+      cancelado = true
+    }
+  }, [fazendaId, refreshTick])
+
+  // Formulações da fazenda escolhida: o app sugere a de mesmo nome e o peão confirma ou troca
+  useEffect(() => {
+    setFormulacoesDestino(null)
+    if (form.estoqueDestino !== 'outra' || !form.fazendaCreditoId || !fazendaId) return
+    const fazendaCreditoId = form.fazendaCreditoId
+    let cancelado = false
+    setCarregandoFormulacoesDestino(true)
+    getFormulacoesFazendaDestinoCached(fazendaId, fazendaCreditoId)
+      .then((lista) => {
+        if (cancelado) return
+        setFormulacoesDestino(lista)
+        const sugerida = lista ? sugerirFormulacaoDestino(form.formulacaoNome, lista) : null
+        if (sugerida) {
+          setForm((prev) =>
+            prev.fazendaCreditoId === fazendaCreditoId && !prev.formulacaoCreditoId
+              ? { ...prev, formulacaoCreditoId: sugerida.id, formulacaoCreditoNome: sugerida.nome }
+              : prev,
+          )
+        }
+      })
+      .catch((error) => console.error('Erro ao carregar formulações da fazenda de destino:', error))
+      .finally(() => {
+        if (!cancelado) setCarregandoFormulacoesDestino(false)
+      })
+    return () => {
+      cancelado = true
+    }
+    // formulacaoNome fica fora das dependências de propósito: trocar de formulação reseta o formulário inteiro
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.estoqueDestino, form.fazendaCreditoId, fazendaId, refreshTick])
+
   const kgPrevistoPorInsumo = useMemo(() => {
     const total = normalizarNumero(form.totalProduzido) ?? 0
     return insumos.reduce<Record<string, number>>((result, insumo) => {
@@ -262,6 +329,7 @@ export default function ProducaoFabricaPage() {
   // Todos os campos obrigatórios, inclusive o realizado de cada insumo da formulação
   const formValido = useMemo(() => {
     if (!form.dataProducao || !form.formulacaoId || !form.destinoProducao) return false
+    if (form.estoqueDestino === 'outra' && (!form.fazendaCreditoId || !form.formulacaoCreditoId)) return false
     if ((normalizarNumero(form.totalProduzido) ?? 0) <= 0) return false
     if (carregandoInsumos || insumos.length === 0) return false
     return insumos.every((insumo) => (normalizarNumero(form.insumosQuantidades[insumo.insumo_id]) ?? 0) > 0)
@@ -325,6 +393,15 @@ export default function ProducaoFabricaPage() {
         dietaProduzida: form.formulacaoNome,
         formulacaoId: form.formulacaoId,
         destinoProducao: form.destinoProducao,
+        // Campo próprio: não confundir com o selo fazendaId (fazenda que produz) que o sync usa para filtrar
+        ...(form.estoqueDestino === 'outra' && form.fazendaCreditoId && form.formulacaoCreditoId
+          ? {
+              fazendaCreditoId: form.fazendaCreditoId,
+              fazendaCreditoNome: form.fazendaCreditoNome,
+              formulacaoCreditoId: form.formulacaoCreditoId,
+              formulacaoCreditoNome: form.formulacaoCreditoNome,
+            }
+          : {}),
         totalProduzido: form.totalProduzido ? (normalizarNumero(form.totalProduzido) ?? 0) : 0,
         insumosQuantidades,
         usuario: usuario,
@@ -438,6 +515,102 @@ export default function ProducaoFabricaPage() {
                     <p className="text-xs text-red-500">{getError('formulacaoId')}</p>
                   )}
                 </div>
+
+                {/* Estoque que recebe o produto: só aparece quando há fazenda do grupo que pode recebê-lo */}
+                {form.formulacaoId && fazendasGrupo.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <label className="block text-lg font-bold text-gray-900 mb-2">
+                      ESTOQUE DO PRODUTO *
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <OpcaoCard
+                        selecionado={form.estoqueDestino === 'propria'}
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            estoqueDestino: 'propria',
+                            fazendaCreditoId: '',
+                            fazendaCreditoNome: '',
+                            formulacaoCreditoId: '',
+                            formulacaoCreditoNome: '',
+                          }))
+                        }
+                      >
+                        Esta fazenda
+                      </OpcaoCard>
+                      <OpcaoCard
+                        selecionado={form.estoqueDestino === 'outra'}
+                        onClick={() => setForm((prev) => ({ ...prev, estoqueDestino: 'outra' }))}
+                      >
+                        Outra fazenda do grupo
+                      </OpcaoCard>
+                    </div>
+                    {form.estoqueDestino === 'outra' && (
+                      <>
+                        <p className="text-sm font-bold text-gray-700">Fazenda que recebe</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {fazendasGrupo.map((f) => (
+                            <OpcaoCard
+                              key={f.id}
+                              selecionado={form.fazendaCreditoId === f.id}
+                              onClick={() =>
+                                setForm((prev) =>
+                                  prev.fazendaCreditoId === f.id
+                                    ? prev
+                                    : {
+                                        ...prev,
+                                        fazendaCreditoId: f.id,
+                                        fazendaCreditoNome: f.nome,
+                                        formulacaoCreditoId: '',
+                                        formulacaoCreditoNome: '',
+                                      },
+                                )
+                              }
+                            >
+                              {f.nome}
+                            </OpcaoCard>
+                          ))}
+                        </div>
+                        {form.fazendaCreditoId && (
+                          <>
+                            <p className="text-sm font-bold text-gray-700">Formulação que recebe em {form.fazendaCreditoNome}</p>
+                            {carregandoFormulacoesDestino ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                              </div>
+                            ) : formulacoesDestino === null ? (
+                              <p className="text-sm text-amber-700">
+                                Formulações desta fazenda indisponíveis neste aparelho. Conecte à internet uma vez para carregar a lista.
+                              </p>
+                            ) : formulacoesDestino.length === 0 ? (
+                              <p className="text-sm text-gray-500">
+                                Esta fazenda não tem formulação ativa com controle de estoque.
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-3">
+                                {formulacoesDestino.map((d) => (
+                                  <OpcaoCard
+                                    key={d.id}
+                                    selecionado={form.formulacaoCreditoId === d.id}
+                                    onClick={() =>
+                                      setForm((prev) => ({ ...prev, formulacaoCreditoId: d.id, formulacaoCreditoNome: d.nome }))
+                                    }
+                                  >
+                                    {d.nome}
+                                    {d.tipo && <span className="block text-[11px] font-medium opacity-70">{d.tipo}</span>}
+                                  </OpcaoCard>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Os insumos saem do estoque desta fazenda; o produto entra no estoque da formulação escolhida.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-2">
                   <label className="block text-lg font-bold text-gray-900 mb-2">
@@ -618,6 +791,10 @@ export default function ProducaoFabricaPage() {
                       ? 'Selecione a formulação'
                       : !form.destinoProducao
                         ? 'Selecione o destino'
+                        : form.estoqueDestino === 'outra' && !form.fazendaCreditoId
+                          ? 'Selecione a fazenda que recebe o produto'
+                          : form.estoqueDestino === 'outra' && !form.formulacaoCreditoId
+                            ? 'Selecione a formulação que recebe o produto'
                         : (normalizarNumero(form.totalProduzido) ?? 0) <= 0
                           ? 'Informe o total produzido'
                           : insumosFaltando > 0
