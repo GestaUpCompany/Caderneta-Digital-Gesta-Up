@@ -27,6 +27,12 @@ export function parseQuantidade(texto: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
+/** Quantidade de frascos: só dígitos (inteiro > 0); fração, vírgula, vazio ou texto viram 0. */
+export function parseFrascos(texto: string): number {
+  const t = String(texto ?? '').trim()
+  return /^\d+$/.test(t) ? Number(t) : 0
+}
+
 const PLURAIS: Record<string, string> = { frasco: 'frascos', dose: 'doses', caixa: 'caixas' }
 
 /** Plural da unidade quando o valor é maior que 1 (frasco -> frascos); mL, kg, un etc. não mudam. */

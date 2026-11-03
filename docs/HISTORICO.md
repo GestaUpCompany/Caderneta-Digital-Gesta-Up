@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Estoque de farmácia em frascos inteiros (03/11/2026)
+
+- **Regra**: entrada, saída e ajuste só em frascos inteiros; unidade única `frasco`. `conteudo_por_unidade`/`conteudo_unidade` ficam só como informação da embalagem. A Farmácia continua visível só na fazenda de testes (`CADERNETAS_EM_TESTE`).
+- **Enfermaria**: a dose em mL/mg virou texto informativo; o peão informa `frascosUsados` (inteiro) por medicamento controlado e é isso que baixa o estoque. O trigger `trg_enfermaria_baixa_farmacia` soma `frascosUsados` por medicamento; item sem o campo não baixa (PWA antigo no campo). `farmacia_dose_para_estoque` ficou no banco, deprecated.
+- **Banco** (repo do Painel): migration `20261103200000_farmacia_frasco_inteiro` (trigger de baixa e `criar_medicamento_pwa` forçando `frasco`) e `20261103210000_farmacia_frasco_checks` (CHECK de quantidade inteira em lançamento ativo e `controla_estoque => unidade = 'frasco'`).
+- **Dados** (pontual via MCP): os saldos de `a53d7375` em `un` eram contagem de frascos, não mL (conversão `ceil(mL/conteúdo)` teria destruído estoque); só trocou a unidade para `frasco`, sem mexer em quantidade. Única exceção: TIGUVON 1,5 virou 2 (ajuste `origem='migracao_frasco'`). Backups: `backup_medicamentos_20261103` e `backup_movimentacoes_farmacia_20261103`. REPRO ONE (`a53d7375`) e BRINCO MOSQUICIDA (`337b0099`) não são frascos de verdade, mas ficaram com a unidade `frasco`.
+- **PWA**: `FarmaciaForm`, `NovoMedicamentoModal` (sem seletor de unidade), `MedicamentosSection`/`EnfermariaPage` (campo de frascos), `farmaciaEstoque.parseFrascos`, `validateFarmacia` (rejeita fração) e `doseMedicamento.ts` reescrito. `payloadNumerico` não mudou: a coluna segue `numeric(12,3)`.
+- **Painel**: `estoqueFarmacia/logica.ts` e `EstoqueFarmacia.tsx` (só frascos inteiros, sem modo direta/embalagem).
+- **Verificação**: typecheck, lint (47 avisos), 646 testes e build do PWA ok; typecheck, eslint e vitest da farmácia no Painel ok. **E2E na fazenda de testes ainda não feito.**
+
 ## Troca de fazenda dentro do grupo sem digitar o ID (03/11/2026)
 
 - **Fluxo**: em Configurações, Ficha 02 "Fazenda", a lista "TROCAR PARA OUTRA FAZENDA DO GRUPO" (de `getFazendasDoMesmoGrupoCached`) aparece quando a fazenda tem grupo. Tocar abre uma confirmação (avisa dos registros pendentes do aparelho, que ficam na fila e sobem ao voltar à fazenda de origem). Exige internet e o nome do usuário preenchido. O campo "ID DA FAZENDA" continua para o primeiro acesso.
