@@ -6,12 +6,11 @@ export const limpezaConfig: CadernetaDisplayConfig = {
   ],
   fieldConfig: {
     numeroEquipe: { key: 'numeroEquipe', section: 'DADOS DA LIMPEZA', priority: 1 },
-    setor: { key: 'setor', section: 'DADOS DA LIMPEZA', priority: 2 },
-    local: { key: 'local', section: 'DADOS DA LIMPEZA', priority: 3 },
-    horaInicio: { key: 'horaInicio', section: 'DADOS DA LIMPEZA', priority: 4 },
-    horaFinal: { key: 'horaFinal', section: 'DADOS DA LIMPEZA', priority: 5 },
+    local: { key: 'local', section: 'DADOS DA LIMPEZA', priority: 2 },
+    horaInicio: { key: 'horaInicio', section: 'DADOS DA LIMPEZA', priority: 3 },
+    horaFinal: { key: 'horaFinal', section: 'DADOS DA LIMPEZA', priority: 4 },
     limpezaRealizada: {
-      key: 'limpezaRealizada', section: 'DADOS DA LIMPEZA', priority: 6, colSpan: 2,
+      key: 'limpezaRealizada', section: 'DADOS DA LIMPEZA', priority: 5, colSpan: 2,
       format: (v) => {
         if (!Array.isArray(v)) return String(v)
         const labelMap: Record<string, string> = {
