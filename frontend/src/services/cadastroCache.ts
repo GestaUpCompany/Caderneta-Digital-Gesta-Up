@@ -3070,43 +3070,6 @@ export async function getIntervaloMedioLimpezasCached(fazendaId: string, bebedou
   }
 }
 
-export interface ResumoLimpezaBebedouro {
-  nome: string
-  pastos: { id: string; nome: string }[]
-  ultimaLimpeza: string | null
-  intervaloMedio: number
-  metaDias: number | null
-}
-
-/**
- * Resumo de limpeza de todos os bebedouros da fazenda para o lançamento em lote (pasto, última limpeza,
- * intervalo médio e meta). Compõe as leituras individuais em paralelo, cada uma com cache e timeout próprios;
- * o que não puder ser lido volta vazio em vez de derrubar a lista inteira.
- */
-export async function getResumoLimpezaBebedourosCached(
-  fazendaId: string,
-  dataReferencia: string
-): Promise<ResumoLimpezaBebedouro[]> {
-  const lista = await getBebedourosCached(fazendaId)
-  if (!lista || lista.length === 0) return []
-  return Promise.all(
-    lista.map(async (b: any): Promise<ResumoLimpezaBebedouro> => {
-      const [pastos, ultimaLimpeza, intervaloMedio] = await Promise.all([
-        getPastosByBebedouroCached(fazendaId, b.id).catch(() => null),
-        getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId, b.id, dataReferencia).catch(() => null),
-        getIntervaloMedioLimpezasCached(fazendaId, b.id).catch(() => 0),
-      ])
-      return {
-        nome: b.nome,
-        pastos: pastos ?? [],
-        ultimaLimpeza,
-        intervaloMedio,
-        metaDias: b.meta_intervalo_limpeza ? Number(b.meta_intervalo_limpeza) : null,
-      }
-    })
-  )
-}
-
 /**
  * Pendências do checklist de um bebedouro (itens marcados como problema que ainda não foram resolvidos).
  * Junta o histórico do servidor (rede ou cache do aparelho) com os registros locais deste aparelho, que

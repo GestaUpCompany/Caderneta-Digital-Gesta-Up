@@ -11,7 +11,6 @@ import { store } from '../store/store'
 import { Filesystem, Directory } from '@capacitor/filesystem'
 import { custoTotalRegistro, custoUnitarioRegistro, ehSaidaFarmacia, quantidadeRegistro, validadeRegistro } from './farmaciaEstoque'
 import { SECOES_5S, calcularResultado5S } from './auditoria5sItens'
-import { OPCOES_AGUA } from './bebedourosLote'
 
 /**
  * Calcula o tempo desde a última limpeza formatado para exibição.
@@ -926,7 +925,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
       texto += `BEBEDOURO: *${registro.numeroBebedouro}*\n`
     }
     if (registro.leituraBebedouro !== null && registro.leituraBebedouro !== undefined) {
-      texto += `LEITURA BEBEDOURO: *${rotuloLeituraAgua(registro.leituraBebedouro)}*\n`
+      texto += `LEITURA BEBEDOURO: *${registro.leituraBebedouro}*\n`
     }
     if (registro.observacao && registro.observacao !== '') {
       texto += `OBSERVAÇÃO: *${registro.observacao}*\n`
@@ -2818,57 +2817,6 @@ const CHECKLIST_BEBEDOUROS_PROBLEMAS = [
   { campo: 'aterro_acesso_bebedouro_ideal', label: 'ATERRO/ACESSO INADEQUADO' },
   { campo: 'espacamento_bebedouro_ideal', label: 'ESPAÇAMENTO INADEQUADO' },
 ]
-
-// Escala da água (1-3) como rótulo; valor desconhecido volta como veio
-const rotuloLeituraAgua = (valor: unknown): string => {
-  const opcao = OPCOES_AGUA.find((o) => o.value === String(valor))
-  return opcao ? opcao.label : String(valor)
-}
-
-/**
- * Texto compartilhável da limpeza de bebedouros em lote: cabeçalho comum (data, responsável, participantes) e
- * uma linha por bebedouro, identificado pelo pasto (é como os funcionários o conhecem). Só imprime os
- * problemas marcados, no mesmo modelo do texto individual.
- */
-export const formatarLoteBebedourosComoTexto = (registros: Registro[]): string => {
-  if (registros.length === 0) return ''
-  const primeiro = registros[0] as any
-  const dataSemHora = String(primeiro.data || '').split(' ')[0]
-
-  let texto = `📋 *LIMPEZA DE BEBEDOUROS*\n`
-  if (dataSemHora) texto += `DATA: *${dataSemHora}*\n`
-  texto += `RESPONSÁVEL: *${primeiro.responsavel || '—'}*\n`
-
-  const part = primeiro.participantesLimpeza as { funcionarios?: string[]; diaristas?: string[] } | null | undefined
-  const nomes = [...(part?.funcionarios ?? []), ...(part?.diaristas ?? [])]
-  if (nomes.length > 0) texto += `PARTICIPANTES: *${nomes.join(', ')}*\n`
-  if (primeiro.observacao) texto += `OBSERVAÇÃO: *${primeiro.observacao}*\n`
-
-  texto += `\n*${registros.length} ${registros.length === 1 ? 'bebedouro limpo' : 'bebedouros limpos'}*\n`
-
-  registros.forEach((r: any) => {
-    const pasto = r.pasto ? String(r.pasto) : ''
-    const titulo = pasto ? `${pasto} (${r.numeroBebedouro})` : String(r.numeroBebedouro)
-    const problemas = CHECKLIST_BEBEDOUROS_PROBLEMAS.filter(({ campo }) => r.checklist?.[campo]?.valor === false)
-    const resolvidas = CHECKLIST_BEBEDOUROS_PROBLEMAS.filter(({ campo }) => r.checklist?.[campo]?.pendencia?.situacao === 'resolvida')
-
-    texto += `\n${problemas.length > 0 ? '⚠️' : '✅'} *${titulo}*\n`
-    if (r.leituraBebedouro !== null && r.leituraBebedouro !== undefined) texto += `ÁGUA: *${rotuloLeituraAgua(r.leituraBebedouro)}*\n`
-    problemas.forEach(({ campo, label }) => {
-      const item = r.checklist[campo]
-      const desde = item.pendencia?.situacao === 'mantida' && item.pendencia.desde
-        ? ` (pendente desde ${new Date(item.pendencia.desde).toLocaleDateString('pt-BR')})`
-        : ''
-      texto += `⚠️ ${label}${desde}\n`
-      if (item.observacao) texto += `OBSERVAÇÃO: *${item.observacao}*\n`
-    })
-    resolvidas.forEach(({ label }) => {
-      texto += `✅ Pendência resolvida: ${label}\n`
-    })
-  })
-
-  return texto
-}
 
 // Labels negativas do checklist de suplementacao, mesmo modelo de bebedouros.
 const CHECKLIST_SUPLEMENTACAO_PROBLEMAS = [

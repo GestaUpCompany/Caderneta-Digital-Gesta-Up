@@ -29,7 +29,7 @@ describe('formatarRegistroComoTexto (bebedouros)', () => {
     expect(t).toContain('BEBEDOUROS')
     expect(t).toContain('RESPONSÁVEL: *Victor Hugo*')
     expect(t).toContain('BEBEDOURO: *Bebedouro Pasto B2*')
-    expect(t).toContain('LEITURA BEBEDOURO: *Meio suja*')
+    expect(t).toContain('LEITURA BEBEDOURO: *2*')
     expect(t).toContain('LIMPOU O BEBEDOURO HOJE?: *Sim*')
     expect(t).toContain('META LIMPEZA: *a cada 4 dias*')
     expect(t).not.toContain('PROBLEMAS ENCONTRADOS')

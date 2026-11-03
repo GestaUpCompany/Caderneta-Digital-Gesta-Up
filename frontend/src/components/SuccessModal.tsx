@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { CheckCircle2, Share2, Plus } from 'lucide-react'
-import { formatarRegistroComoTexto, formatarLoteBebedourosComoTexto, compartilharWhatsApp, Registro } from '../utils/shareUtils'
+import { formatarRegistroComoTexto, compartilharWhatsApp, Registro } from '../utils/shareUtils'
 
 interface SuccessModalProps {
   isOpen: boolean
@@ -10,10 +10,6 @@ interface SuccessModalProps {
   cadernetaName: string
   registro?: Registro
   caderneta?: string
-  /** Lançamento em lote: o COMPARTILHAR usa o texto único do lote (hoje só bebedouros) */
-  registrosLote?: Registro[]
-  /** Mensagem completa sob o título (substitui o texto padrão) */
-  mensagem?: string
 }
 
 export default function SuccessModal({
@@ -23,18 +19,9 @@ export default function SuccessModal({
   onExit,
   cadernetaName,
   registro,
-  caderneta,
-  registrosLote,
-  mensagem,
+  caderneta
 }: SuccessModalProps) {
   const handleShare = async () => {
-    if (registrosLote && registrosLote.length > 0) {
-      const fotos = registrosLote.flatMap((r) =>
-        Object.values((r as any).checklist ?? {}).map((item: any) => item?.fotoBase64 as string | undefined).filter((f): f is string => !!f)
-      )
-      await compartilharWhatsApp(formatarLoteBebedourosComoTexto(registrosLote), fotos)
-      return
-    }
     if (registro && caderneta) {
       const texto = formatarRegistroComoTexto(registro, caderneta)
       const foto = (registro as any).fotoBase64 as string | null | undefined
@@ -117,12 +104,12 @@ export default function SuccessModal({
           Salvo com sucesso
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          {mensagem ?? `${cadernetaName} registrada no aparelho. Será enviada ao sincronizar.`}
+          {cadernetaName} registrada no aparelho. Será enviada ao sincronizar.
         </p>
 
         {/* Botões de ação */}
         <div className="mt-4 flex flex-col gap-2">
-          {((registro && caderneta) || (registrosLote && registrosLote.length > 0)) && (
+          {registro && caderneta && (
             <button
               onClick={handleShare}
               className="w-full font-bold px-4 py-3 rounded-2xl bg-green-700 text-white active:bg-green-800 flex items-center justify-center gap-2"
