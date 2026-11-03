@@ -2,6 +2,12 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Morte: foto do animal não é mais apagada quando o GPS falha (03/11/2026)
+
+- **Defeito**: com `gpsObrigatorio: true`, o tempo esgotado do GPS (15 s, contados desde o clique que abre a câmera) apagava a foto já tirada. Reproduzido no preview, offline, com o tempo esgotado simulado.
+- **Correção** (`MortePage`): a foto do animal passou a `gpsObrigatorio: false`; sem GPS, a foto fica, o registro vai sem coordenadas e a tela avisa "Foto guardada sem o local: o GPS não respondeu."
+- **Não resolve** o relato da Chibata (Antônio Carlos, Francisco e Jeferson) de a câmera travar no botão de captura, offline. Esse botão é da câmera nativa e não dá para testá-lo no preview; a causa segue em aberto, à espera de dados dos aparelhos.
+
 ## Estoque de farmácia em frascos inteiros (03/11/2026)
 
 - **Regra**: entrada, saída e ajuste só em frascos inteiros; unidade única `frasco`. `conteudo_por_unidade`/`conteudo_unidade` ficam só como informação da embalagem. A Farmácia continua visível só na fazenda de testes (`CADERNETAS_EM_TESTE`).
