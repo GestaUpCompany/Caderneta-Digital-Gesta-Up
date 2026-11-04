@@ -16,6 +16,16 @@ Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não prec
 - **Correção** (`MortePage`): a foto do animal passou a `gpsObrigatorio: false`; sem GPS, a foto fica, o registro vai sem coordenadas e a tela avisa "Foto guardada sem o local: o GPS não respondeu."
 - **Não resolve** o relato da Chibata (Antônio Carlos, Francisco e Jeferson) de a câmera travar no botão de captura, offline. Esse botão é da câmera nativa e não dá para testá-lo no preview; a causa segue em aberto, à espera de dados dos aparelhos.
 
+## Enfermaria: baixa de frascos sem perda silenciosa e aviso de frasco no fim (04/11/2026)
+
+- **Medicamento criado offline**: ao enviar a Enfermaria, `syncToSupabase` chama `criar_medicamento_pwa` (idempotente) para os medicamentos novos citados e grava o id devolvido. Antes, id deduplicado ou Entrada ainda não enviada faziam o trigger pular a baixa sem erro.
+- **Salvar**: falha ao atualizar o saldo local não impede mais a confirmação (evita salvar duas vezes); o modo teste não mexe no saldo (Enfermaria e `FarmaciaForm`).
+- **Formulário**: trocar de medicamento zera os frascos; mostra o saldo do aparelho e avisa, sem bloquear, quando a baixa passa do saldo.
+- **Aviso de frasco no fim**: a partir de 80% do conteúdo da embalagem, somando doses na mesma unidade desde a última baixa e desde 03/11/2026 (`getHistoricoDosesCached`). Só informa; a baixa continua manual. Sem conteúdo cadastrado, não aparece.
+- **Nome duplicado no aparelho**: com o cadastro antigo sem controle e o criado offline na Entrada, a Enfermaria pegava o antigo e o campo de frascos sumia. `escolherMedicamentoPorNome` prefere o controlado. Achado no E2E.
+- **E2E na fazenda de testes (build de produção)**: Entrada e Enfermaria offline com nome já existente; ao voltar a rede o registro subiu com o id real, baixa de 2 frascos, saldo de 5 para 3. Avisos de saldo e de frasco no fim conferidos. Edição e exclusão (via SQL, sem tela no app) estornaram certo. Dados de teste removidos e medicamentos restaurados. Não testado: modo teste e falha do cache depois de salvar.
+- **Limites conhecidos**: offline, o histórico de outros aparelhos é o da última atualização; o saldo no aparelho ainda pode voltar ao do servidor com baixas na fila; cache desatualizado ainda esconde o campo de frascos; Saída e nova Entrada que usam medicamento criado offline continuam com o id local.
+
 ## Estoque de farmácia em frascos inteiros (03/11/2026)
 
 - **Regra**: entrada, saída e ajuste só em frascos inteiros; unidade única `frasco`. `conteudo_por_unidade`/`conteudo_unidade` ficam só como informação da embalagem. A Farmácia continua visível só na fazenda de testes (`CADERNETAS_EM_TESTE`).

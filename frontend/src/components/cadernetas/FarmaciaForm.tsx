@@ -282,7 +282,8 @@ export default function FarmaciaForm({ modo }: Props) {
 
     if (fazendaId) {
       if (selecionado.novo) await adicionarMedicamentoCache(fazendaId, { ...selecionado, estoque_atual: 0 })
-      if (quantidade > 0) {
+      // Registro do modo teste não sobe: não mexe no saldo
+      if (quantidade > 0 && !(result.registro as any)?.isTestRecord) {
         const delta = ehSaida ? -quantidade : quantidade
         await updateMedicamentoSaldoCache(fazendaId, selecionado.id, delta)
         setMedicamentosServidor((prev) => {

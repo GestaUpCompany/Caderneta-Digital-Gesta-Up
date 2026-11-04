@@ -4,8 +4,8 @@ import ChoiceGrid from './ChoiceGrid'
 import StepperInput from './StepperInput'
 import InfoStrip from './InfoStrip'
 import { Plus } from 'lucide-react'
-import { frascosValidos, type UnidadeDose } from '../../utils/doseMedicamento'
-import { unidadeConcordada } from '../../utils/farmaciaEstoque'
+import { avisoFrascoNoFim, dosesDesdeUltimaBaixa, escolherMedicamentoPorNome, frascosValidos, parseDose, type HistoricoDoses, type UnidadeDose } from '../../utils/doseMedicamento'
+import { formatarQuantidade, saldoApos, unidadeConcordada } from '../../utils/farmaciaEstoque'
 
 export interface MedicamentoItem {
   medicamentoId: string
@@ -24,16 +24,12 @@ interface MedicamentosSectionProps {
   medicamentosDisponiveis: any[]
   // Enfermaria: pergunta quantos frascos foram usados quando o medicamento tem controle de estoque
   baixaEstoque?: boolean
+  // Enfermaria: doses desde a última baixa, para avisar que o frasco pode ter acabado
+  historicoDoses?: HistoricoDoses | null
 }
 
 const normalizar = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-
-// "20 ml" / "1,5 mg" / "15" -> número (com ponto) + unidade; texto livre antigo ("15ml IV") não parseia
-const parseDose = (str: string): { num: string; un: UnidadeDose } | null => {
-  const m = /^\s*(\d+(?:[.,]\d+)?)\s*(ml|mg)?\s*$/i.exec(str || '')
-  return m ? { num: m[1].replace(',', '.'), un: ((m[2] || 'ml').toLowerCase() as UnidadeDose) } : null
-}
 
 const formatarDose = (num: string, un: UnidadeDose): string => {
   const n = Number(num)
@@ -57,6 +53,7 @@ export default function MedicamentosSection({
   onChange,
   medicamentosDisponiveis,
   baixaEstoque = false,
+  historicoDoses = null,
 }: MedicamentosSectionProps) {
   const [mostrarFormularioMedicamento, setMostrarFormularioMedicamento] = useState(false)
   const [medicamentoEditando, setMedicamentoEditando] = useState<MedicamentoItem | null>(null)
@@ -140,7 +137,8 @@ export default function MedicamentosSection({
       principioAtivo: medicamento.principio_ativo || '',
       doseRecomendada: medicamento.dose_recomendada || '',
       doseAplicada: medicamentoEditando?.doseAplicada || '',
-      frascosUsados: medicamentoEditando?.frascosUsados ?? 0,
+      // Outro medicamento: os frascos do anterior não valem para este
+      frascosUsados: medicamentoEditando?.medicamentoId === medicamento.id ? medicamentoEditando?.frascosUsados ?? 0 : 0,
     })
   }
 
@@ -150,6 +148,27 @@ export default function MedicamentosSection({
 
   const medicamentoSelecionado = medicamentoEditando ? medicamentoPorId(medicamentoEditando.medicamentoId) : undefined
   const pedeFrascos = baixaEstoque && !!medicamentoSelecionado?.controla_estoque
+
+  // Outros itens deste registro com o mesmo medicamento entram no saldo e na soma das doses
+  const outrosItens = items.filter((m, i) => i !== medicamentoEditandoIndex && m.medicamentoId === medicamentoEditando?.medicamentoId)
+  const frascosInformados = frascosValidos(medicamentoEditando?.frascosUsados)
+  const saldoDepois = pedeFrascos
+    ? saldoApos(medicamentoSelecionado?.estoque_atual, outrosItens.reduce((s, m) => s + frascosValidos(m.frascosUsados), 0) + frascosInformados, true)
+    : 0
+  const unidadeConteudo = medicamentoSelecionado?.conteudo_unidade?.toLowerCase()
+  const somaDoses = (doses: string[]) =>
+    doses.reduce((s, d) => {
+      const dose = parseDose(d)
+      return dose && dose.un === unidadeConteudo ? s + Number(dose.num) : s
+    }, 0)
+  const avisoFrasco =
+    pedeFrascos && historicoDoses && frascosInformados === 0 && !outrosItens.some((m) => frascosValidos(m.frascosUsados) > 0)
+      ? avisoFrascoNoFim(
+          dosesDesdeUltimaBaixa(historicoDoses, medicamentoSelecionado) +
+            somaDoses([...outrosItens.map((m) => m.doseAplicada), medicamentoEditando?.doseAplicada ?? '']),
+          medicamentoSelecionado,
+        )
+      : null
 
   return (
     <>
@@ -234,7 +253,7 @@ export default function MedicamentosSection({
               label={<span>MEDICAMENTO <span className="text-red-500">*</span></span>}
               value={medicamentoEditando?.nomeComercial || ''}
               onChange={(val) => {
-                const medicamento = medicamentosDisponiveis.find(m => m.nome_comercial === val)
+                const medicamento = escolherMedicamentoPorNome(medicamentosDisponiveis, val, tipoFiltro)
                 if (medicamento) {
                   handleSelecionarMedicamento(medicamento)
                 }
@@ -290,6 +309,12 @@ export default function MedicamentosSection({
           {pedeFrascos && (
             <div className="flex flex-col gap-2">
               <label className="text-[15px] font-bold text-gray-900">FRASCOS USADOS NO ESTOQUE</label>
+              <InfoStrip tone={saldoDepois < 0 ? 'danger' : 'neutral'}>
+                {saldoDepois < 0
+                  ? `Maior que o saldo: ficará em ${formatarQuantidade(saldoDepois, 'frasco')}. Confira a quantidade.`
+                  : `Saldo no aparelho: ${formatarQuantidade(Number(medicamentoSelecionado?.estoque_atual || 0), 'frasco')}`}
+              </InfoStrip>
+              {avisoFrasco && <InfoStrip tone="warning">{avisoFrasco}</InfoStrip>}
               <StepperInput
                 value={medicamentoEditando?.frascosUsados ? String(medicamentoEditando.frascosUsados) : ''}
                 onChange={atualizarFrascos}

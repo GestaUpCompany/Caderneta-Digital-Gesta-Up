@@ -37,6 +37,7 @@ import { loteProtocoloParaServidor } from '../utils/loteProtocoloIatf'
 import { aparaIdentificador } from '../utils/identificadores'
 import { tratamentoParaServidor, type TratamentoSessao } from '../utils/tratamentoCurral'
 import { garantirProdutoNoServidor, type ProdutoNovo } from '../utils/entradaInsumos'
+import { medicamentosNovosCitados, trocarIdsMedicamentos } from '../utils/doseMedicamento'
 
 export async function enqueueRegistro(
   store: CadernetaStore,
@@ -1278,6 +1279,29 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
         sku: novo.sku,
       })
       data = { ...data, medicamento_id: criado?.id || novo.id }
+    }
+
+    // Enfermaria citando medicamento criado offline: a RPC é idempotente e deduplica por SKU/nome, então garante o
+    // cadastro aqui e usa o id devolvido. Sem isso o trigger não acha o medicamento e a baixa se perde sem erro.
+    if (store === 'enfermaria' && Array.isArray(data.medicamentos) && data.medicamentos.length > 0) {
+      const novos = medicamentosNovosCitados(data.medicamentos, (await getAllRegistros('entrada-farmacia')) as any[], fazendaId)
+      if (novos.length > 0) {
+        const ids: Record<string, string> = {}
+        for (const novo of novos as any[]) {
+          const criado = await supabaseService.criarMedicamentoPwa({
+            id: novo.id,
+            fazendaId,
+            nomeComercial: novo.nome_comercial,
+            tipo: novo.tipo,
+            unidade: novo.unidade,
+            conteudoPorUnidade: novo.conteudo_por_unidade,
+            conteudoUnidade: novo.conteudo_unidade,
+            sku: novo.sku,
+          })
+          if (criado?.id) ids[novo.id] = criado.id
+        }
+        data = { ...data, medicamentos: trocarIdsMedicamentos(data.medicamentos, ids) }
+      }
     }
 
     // Item de entrada com produto criado no campo (sem rede): garante o cadastro no servidor antes de gravar o item.

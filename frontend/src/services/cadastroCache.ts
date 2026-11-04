@@ -12,6 +12,7 @@ import { fetchRotinas } from './rotinasService'
 import { eventBus, CADASTRO_CACHE_UPDATED } from '../utils/eventBus'
 import { setCadastroSyncState } from './cadastroSyncState'
 import { isCategoriaAoPe } from '../utils/categorias'
+import { INICIO_FRASCOS_INTEIROS, type HistoricoDoses } from '../utils/doseMedicamento'
 import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE, brWithTimeToIso, addDaysISO } from '../utils/formatDate'
 import { diaDaFazendaISO, type ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 import { calcularPendenciasBebedouro, ResultadoPendencias, RegistroChecklistBebedouro } from '../utils/pendenciasBebedouro'
@@ -2564,6 +2565,47 @@ export async function updateMedicamentoSaldoCache(fazendaId: string, medicamento
 }
 
 /**
+ * Histórico para o aviso de frasco no fim: servidor (rede ou cache) mesclado com os lançamentos deste aparelho.
+ * Só informa: sem histórico, o aviso não aparece.
+ */
+export async function getHistoricoDosesCached(fazendaId: string): Promise<HistoricoDoses> {
+  const key = buildKey('historico-doses-farmacia', fazendaId)
+  const doCache = async () => getCachedQuery<HistoricoDoses>(key) ?? (await getCachedQueryFromIDB<HistoricoDoses>(key)) ?? null
+  let servidor: HistoricoDoses | null = null
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    servidor = await doCache()
+  } else {
+    try {
+      const r = await withTimeout(supabaseService.getHistoricoDosesFarmacia(fazendaId, INICIO_FRASCOS_INTEIROS), 3000)
+      servidor = {
+        registros: r.registros.map((l: any) => ({ id: l.local_id || l.id, em: l.data, medicamentos: Array.isArray(l.medicamentos) ? l.medicamentos : [] })),
+        baixas: r.baixas.map((b: any) => ({ medicamentoId: b.medicamento_id, em: b.data })),
+      }
+      setCachedQuery(key, servidor)
+      try { await saveQueryCacheToIndexedDB() } catch { /* cache em memória continua válido */ }
+    } catch {
+      servidor = await doCache()
+    }
+  }
+  const registros = [...(servidor?.registros ?? [])]
+  const baixas = [...(servidor?.baixas ?? [])]
+  try {
+    const daFazenda = (r: any) => r.fazendaId === fazendaId && !r.deletedAt && !r.isTestRecord
+    for (const r of (await getAllRegistros('enfermaria')).filter(daFazenda) as any[]) {
+      const em = brWithTimeToIso(r.data as string)
+      if (em) registros.push({ id: r.id, em, medicamentos: Array.isArray(r.medicamentos) ? r.medicamentos : [] })
+    }
+    for (const r of (await getAllRegistros('saida-farmacia')).filter(daFazenda) as any[]) {
+      const em = brWithTimeToIso(String(r.data).split(' ')[0])
+      if (em && r.medicamentoId) baixas.push({ medicamentoId: r.medicamentoId, em })
+    }
+  } catch (error) {
+    console.warn('[CadastroCache] Registros locais indisponíveis para o histórico de doses:', error)
+  }
+  return { registros, baixas }
+}
+
+/**
  * Busca classificações de cantina com cache lazy.
  * Quando online, sempre consulta o Supabase (ignora cache).
  * Quando offline, usa o cache.
@@ -3656,6 +3698,7 @@ export async function warmAllCadastroCache(
       const bebedouros = (await getBebedourosCached(fazendaId)) || []
       await Promise.allSettled(bebedouros.map((b: any) => getPendenciasBebedouroCached(fazendaId, b.nome)))
     } },
+    { label: 'Histórico de doses (farmácia)', fn: () => getHistoricoDosesCached(fazendaId) },
     { label: 'Pendências de rodeio', fn: async () => {
       // Reaproveita a lista já baixada; só refaz a consulta se ela veio vazia
       const lotesRodeio = lotes.length > 0 ? lotes : ((await supabaseService.getLotes(fazendaId)) || [])
