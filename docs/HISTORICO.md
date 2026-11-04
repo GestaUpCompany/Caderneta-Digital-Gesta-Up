@@ -2,6 +2,14 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Entrada de insumos: o cabeçalho envia os itens e erro de item aparece (04/11/2026)
+
+- **Defeito**: o cabeçalho (`registros_entrada_insumos`) ia para a fila e era marcado `synced` ao subir, e cada item (`entrada_insumos_itens`) ia como entrada separada da fila. Se o item falhasse ou se perdesse, o cabeçalho ficava `synced` sem itens, sem erro visível. Caso real: NF 40110 da Fazenda Santa Cecília, 03/11/2026 (cabeçalho `718bdb6e-eef0-4602-a952-847fac74f1cc`, "0 item(s)" na tela do Painel). Era o único dos 74 registros dos últimos 60 dias sem itens; não havia item órfão no banco.
+- **Correção** (`syncService.ts`): `sincronizarItensEntrada`, igual a `sincronizarItensSaida`. Depois de o cabeçalho subir (criação e REENVIAR), envia cada item pelo caminho de item já existente (mantém o cadastro de produto criado no campo), marca-o `synced` e o tira da fila. Falha de item propaga e o cabeçalho fica em `error` com REENVIAR. Reenvio não duplica (upsert por `local_id`). Itens de modo de teste são ignorados.
+- **Rede de segurança**: `EntradaInsumosPage` continua enfileirando os itens, para o caso de o cabeçalho sincronizar antes de eles serem gravados no aparelho.
+- **Não resolve**: a causa de o item da NF 40110 não ter chegado segue desconhecida (depende do estado da fila no aparelho do Fernando), e cabeçalhos antigos já `synced` sem itens não se corrigem sozinhos. Peões só recebem a correção ao atualizar o app.
+- **Verificação**: `tsc --noEmit` ok, 646 testes ok, eslint sem erros (1 aviso `no-case-declarations` já existente em `syncService.ts`). E2E no navegador não feito.
+
 ## Morte: foto do animal não é mais apagada quando o GPS falha (03/11/2026)
 
 - **Defeito**: com `gpsObrigatorio: true`, o tempo esgotado do GPS (15 s, contados desde o clique que abre a câmera) apagava a foto já tirada. Reproduzido no preview, offline, com o tempo esgotado simulado.

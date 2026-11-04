@@ -455,6 +455,8 @@ export default function EntradaInsumosPage() {
         }
 
         await saveRegistro('entrada-insumos-itens', registroItem)
+        // Rede de segurança: normalmente o cabeçalho envia os itens (syncService.sincronizarItensEntrada) e
+        // esvazia estas entradas da fila; se o cabeçalho sincronizar antes dos itens serem gravados, o item sobe por aqui
         if (!testModeAtivo) {
           await enqueueRegistro('entrada-insumos-itens', itemId, 'create')
         }
