@@ -762,7 +762,11 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         lote_id: registro.loteId || null,
         ordem_trato: paraNumero(registro.ordemTrato) || null,
         kg_planejado: registro.kgPlanejado !== '' && registro.kgPlanejado !== null && registro.kgPlanejado !== undefined
-          ? normalizarNumero(registro.kgPlanejado as string)
+          // kgPlanejado vem de String(number) (formato JS, ponto decimal). Passar por
+          // normalizarNumero lia "1283.625" como milhar pt-BR (1.283.625).
+          ? (typeof registro.kgPlanejado === 'number' || /^-?\d+(\.\d+)?$/.test(String(registro.kgPlanejado))
+              ? Number(registro.kgPlanejado)
+              : normalizarNumero(registro.kgPlanejado as string))
           : null,
         kg_ofertado_real: registro.kgReal !== '' && registro.kgReal !== null && registro.kgReal !== undefined
           ? normalizarNumero(registro.kgReal as string)
