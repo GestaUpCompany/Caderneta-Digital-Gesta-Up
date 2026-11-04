@@ -1230,6 +1230,21 @@ async function sincronizarItensSaida(saidaLocalId: string, saidaSupabaseId: stri
   }
 }
 
+// Envia os itens (entrada-insumos-itens) de um cabeçalho de entrada. Passa por syncToSupabase para manter o
+// cadastro de produto criado no campo e a conversão do payload; o upsert por local_id torna o reenvio idempotente.
+// Se um item falhar, o erro propaga e o cabeçalho fica em 'error' (visível, com REENVIAR) em vez de 'synced' sem itens.
+// A fila dos itens é esvaziada porque o cabeçalho é o dono do envio.
+async function sincronizarItensEntrada(entradaLocalId: string, entradaSupabaseId: string, fazendaId: string): Promise<void> {
+  const itens = await getAllRegistros('entrada-insumos-itens')
+  for (const item of itens) {
+    if ((item as any).entradaId !== entradaLocalId && (item as any).entradaId !== entradaSupabaseId) continue
+    if ((item as any).isTestRecord) continue
+    await syncToSupabase('entrada-insumos-itens', item, fazendaId, 'create')
+    await updateRegistro('entrada-insumos-itens', item.id, { syncStatus: 'synced', syncError: null } as any)
+    await removeFromSyncQueueByRegistroId(item.id)
+  }
+}
+
 async function syncToSupabase(store: CadernetaStore, registro: Registro, fazendaId: string, operation: 'create' | 'update'): Promise<void> {
   try {
     // Edição de um registro que nunca recebeu o id do servidor (a criação ainda não subiu, ou o id não foi gravado):
@@ -1524,6 +1539,8 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
             supabaseId: entradaResult.id,
             syncStatus: 'synced'
           })
+          // Os itens seguem o cabeçalho: se algum falhar, o erro propaga e o cabeçalho fica em 'error'
+          await sincronizarItensEntrada(registro.id, entradaResult.id, fazendaId)
           break
         case 'entrada_insumos_itens':
           await supabaseService.createEntradaInsumosItem({
@@ -1820,6 +1837,8 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
           break
         case 'registros_entrada_insumos':
           await supabaseService.updateRegistroEntradaInsumos(supabaseId, data)
+          // REENVIAR de um cabeçalho já criado também reenvia os itens (upsert por local_id)
+          await sincronizarItensEntrada(registro.id, supabaseId, fazendaId)
           break
         case 'entrada_insumos_itens':
           await supabaseService.updateEntradaInsumosItem(supabaseId, data)
