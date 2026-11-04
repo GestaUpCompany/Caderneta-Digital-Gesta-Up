@@ -14,7 +14,7 @@ import BannerRascunho from '../../components/BannerRascunho'
 import CadernetaSection from '../../components/cadernetas/CadernetaSection'
 import ChoiceGrid from '../../components/cadernetas/ChoiceGrid'
 import FormFooter from '../../components/cadernetas/FormFooter'
-import { baixaPorMedicamento } from '../../utils/doseMedicamento'
+import { baixaPorMedicamento, type HistoricoDoses } from '../../utils/doseMedicamento'
 import {
   updateMedicamentoSaldoCache,
   getLoteByNomeCached,
@@ -24,6 +24,7 @@ import {
   getLoteDetalhesFromCacheOnly,
   getMedicamentosCached,
   getMedicamentosFromCacheOnly,
+  getHistoricoDosesCached,
   getLotesAtivosCached,
 } from '../../services/cadastroCache'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -126,6 +127,7 @@ export default function EnfermariaPage() {
   const [lotesPastoMap, setLotesPastoMap] = useState<Record<string, string>>({})
   const [detalhesLote, setDetalhesLote] = useState<any>(null)
   const [medicamentosDisponiveis, setMedicamentosDisponiveis] = useState<any[]>([])
+  const [historicoDoses, setHistoricoDoses] = useState<HistoricoDoses | null>(null)
   const [loteAutoIdentificado, setLoteAutoIdentificado] = useState<boolean>(false)
   const [mensagemLote, setMensagemLote] = useState<string>('')
   const [carregandoLote, setCarregandoLote] = useState(false)
@@ -232,6 +234,12 @@ export default function EnfermariaPage() {
         if (!cancelado && medicamentos?.length) setMedicamentosDisponiveis(medicamentos)
       } catch (error) {
         console.error('Erro ao carregar medicamentos:', error)
+      }
+      try {
+        const historico = await getHistoricoDosesCached(fazendaId)
+        if (!cancelado) setHistoricoDoses(historico)
+      } catch {
+        // só alimenta um aviso: sem histórico, o aviso não aparece
       }
     }
     loadData()
@@ -384,15 +392,30 @@ export default function EnfermariaPage() {
       setErrors(result.errors)
       scrollToFirstError(result.errors)
     } else {
-      // Saldo local acompanha a baixa que o trigger fará no sync (a Enfermaria não grava o estoque no aparelho)
+      // Saldo local acompanha a baixa que o trigger fará no sync (a Enfermaria não grava o estoque no aparelho).
+      // O registro já está salvo: falha aqui não pode impedir a confirmação, senão o peão salva de novo e duplica.
+      // Registro do modo teste não sobe, então não mexe no saldo.
       if (fazendaId) {
-        const baixas = baixaPorMedicamento(
-          form.medicamentos.map((m) => ({ medicamentoId: m.medicamentoId, frascosUsados: m.frascosUsados })),
-          medicamentosDisponiveis,
-        )
-        for (const b of baixas) {
-          await updateMedicamentoSaldoCache(fazendaId, b.medicamentoId, -b.quantidade)
+        const baixas = (result.registro as any)?.isTestRecord
+          ? []
+          : baixaPorMedicamento(
+              form.medicamentos.map((m) => ({ medicamentoId: m.medicamentoId, frascosUsados: m.frascosUsados })),
+              medicamentosDisponiveis,
+            )
+        try {
+          for (const b of baixas) {
+            await updateMedicamentoSaldoCache(fazendaId, b.medicamentoId, -b.quantidade)
+          }
+        } catch (error) {
+          console.warn('[EnfermariaPage] Saldo local não atualizado; o servidor corrige no próximo sync:', error)
         }
+        setMedicamentosDisponiveis((prev) =>
+          prev.map((m) => {
+            const baixa = baixas.find((b) => b.medicamentoId === m.id)
+            return baixa ? { ...m, estoque_atual: Number(m.estoque_atual || 0) - baixa.quantidade } : m
+          }),
+        )
+        void getHistoricoDosesCached(fazendaId).then(setHistoricoDoses).catch(() => {})
       }
       setRegistroSalvo(result.registro)
       setShowSuccessModal(true)
@@ -638,6 +661,7 @@ export default function EnfermariaPage() {
               onChange={(items) => setForm(prev => ({ ...prev, medicamentos: items }))}
               medicamentosDisponiveis={medicamentosDisponiveis}
               baixaEstoque
+              historicoDoses={historicoDoses}
             />
             {getError('medicamentos') && (
               <p className="text-sm text-red-500">{getError('medicamentos')}</p>

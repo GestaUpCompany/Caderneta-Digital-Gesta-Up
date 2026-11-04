@@ -1359,6 +1359,22 @@ export async function getMedicamentos(fazendaId: string) {
   return data
 }
 
+/** Doses da Enfermaria e baixas da farmácia a partir de uma data (aviso de frasco no fim). */
+export async function getHistoricoDosesFarmacia(fazendaId: string, desde: string, limite = 2000) {
+  const client = await getSupabaseClientWithRefresh() as any
+  const [registros, baixas] = await Promise.all([
+    client.from('registros_enfermaria').select('id, local_id, data, medicamentos')
+      .eq('fazenda_id', fazendaId).is('deleted_at', null).gte('data', desde)
+      .order('data', { ascending: false }).limit(limite),
+    client.from('movimentacoes_farmacia').select('medicamento_id, data')
+      .eq('fazenda_id', fazendaId).eq('tipo_movimentacao', 'baixa').is('deleted_at', null).gte('data', desde)
+      .order('data', { ascending: false }).limit(limite),
+  ])
+  if (registros.error) throw registros.error
+  if (baixas.error) throw baixas.error
+  return { registros: registros.data ?? [], baixas: baixas.data ?? [] }
+}
+
 // ==================== INSUMOS ====================
 
 export async function getInsumos(fazendaId: string) {
