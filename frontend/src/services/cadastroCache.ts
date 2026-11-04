@@ -3246,6 +3246,71 @@ export async function getPendencias5SCached(
   }
 }
 
+// ==================== RELATÓRIO DE LOTE (offline) ====================
+// O relatório vem de RPC do Supabase. O warm guarda a lista de lotes e o payload COMPLETO
+// (todas as seções) de cada lote, para o relatório abrir sem sinal. Usa o queryCache já
+// persistido no IndexedDB, então não precisa de novo store nem bump de versão.
+
+/** Teto de lotes aquecidos por fazenda (ativos primeiro), para limitar tempo e tamanho do cache. */
+const RELATORIO_LOTE_MAX_WARM = 40
+
+export async function getLotesParaRelatorioFromCacheOnly(fazendaId: string): Promise<any[] | null> {
+  const key = buildKey('relatorio-lotes-lista', fazendaId)
+  const cached = getCachedQuery<any[]>(key) ?? (await getCachedQueryFromIDB<any[]>(key))
+  return cached && Array.isArray(cached) ? cached : null
+}
+
+/** Online consulta o servidor e guarda; sem rede (ou rede instável) usa o cache da última atualização. */
+export async function getLotesParaRelatorioCached(fazendaId: string): Promise<any[]> {
+  const key = buildKey('relatorio-lotes-lista', fazendaId)
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    const cached = await getLotesParaRelatorioFromCacheOnly(fazendaId)
+    if (cached) return cached
+    throw new Error('Os relatórios precisam de internet. Abra "Atualizar dados" com sinal para usá-los offline.')
+  }
+  try {
+    const data = await withTimeout(supabaseService.getLotesParaRelatorio(fazendaId), 8000)
+    setCachedQuery(key, data)
+    return data
+  } catch (error) {
+    const cached = await getLotesParaRelatorioFromCacheOnly(fazendaId)
+    if (cached) return cached
+    throw error
+  }
+}
+
+/** Payload completo do relatório de um lote, só do cache. Null se esse lote nunca foi aquecido. */
+export async function getRelatorioLoteFromCacheOnly(fazendaId: string, loteId: string): Promise<any | null> {
+  const key = buildKey('relatorio-lote', fazendaId, loteId)
+  const cached = getCachedQuery<any>(key) ?? (await getCachedQueryFromIDB<any>(key))
+  return cached && cached.success !== false ? cached : null
+}
+
+/** Busca o payload completo (todas as seções) e guarda no cache. */
+export async function aquecerRelatorioLote(fazendaId: string, loteId: string): Promise<void> {
+  const payload = await supabaseService.getRelatorioLoteCicloVida(fazendaId, loteId)
+  if (payload && payload.success !== false) {
+    setCachedQuery(buildKey('relatorio-lote', fazendaId, loteId), payload)
+  }
+}
+
+async function warmRelatoriosLote(fazendaId: string): Promise<number> {
+  const lista = await supabaseService.getLotesParaRelatorio(fazendaId)
+  setCachedQuery(buildKey('relatorio-lotes-lista', fazendaId), lista)
+  const alvo = [...lista]
+    .sort((a, b) => Number(b.ativo) - Number(a.ativo))
+    .slice(0, RELATORIO_LOTE_MAX_WARM)
+  let ok = 0
+  const LOTE_PARALELO = 4
+  for (let i = 0; i < alvo.length; i += LOTE_PARALELO) {
+    const resultados = await Promise.allSettled(
+      alvo.slice(i, i + LOTE_PARALELO).map(l => aquecerRelatorioLote(fazendaId, l.lote_id))
+    )
+    ok += resultados.filter(r => r.status === 'fulfilled').length
+  }
+  return ok
+}
+
 /**
  * Aquece o cache com todos os detalhes de pastos e lotes.
  * Deve ser chamado explicitamente quando o usuário clica em "Atualizar Dados"
@@ -3289,7 +3354,7 @@ export async function warmAllCadastroCache(
   // Determinar ponto de retomada
   const resumePhase = resumeCheckpoint?.phase ?? null
   const resumeIndex = resumeCheckpoint?.index ?? 0
-  const phaseOrder = ['pastos', 'lotes', 'formulacoes', 'rodeio', 'medicamentos', 'tratamentos', 'extras', 'almoxarifado', 'cantina', 'bebedouros', 'tratos']
+  const phaseOrder = ['pastos', 'lotes', 'formulacoes', 'rodeio', 'medicamentos', 'tratamentos', 'extras', 'almoxarifado', 'cantina', 'bebedouros', 'tratos', 'relatorios']
   const shouldSkip = (phase: string) => {
     if (!resumePhase) return false
     const resumeOrder = phaseOrder.indexOf(resumePhase)
@@ -3884,6 +3949,20 @@ export async function warmAllCadastroCache(
       errors.push('Tratos Confinamento')
     }
     await persistProgress('tratos', 0)
+  }
+
+  // ==================== FASE RELATÓRIOS DE LOTE ====================
+  if (!shouldSkip('relatorios')) {
+    try {
+      processed++
+      onProgress?.(processed, totalItems, 'Relatórios de Lote')
+      await warmRelatoriosLote(fazendaId)
+      warmedExtras++
+    } catch (error) {
+      console.error('[CadastroCache] Erro ao aquecer relatórios de lote:', error)
+      errors.push('Relatórios de Lote')
+    }
+    await persistProgress('relatorios', 0)
   }
 
   console.log('[CadastroCache] Warm cache completo concluído:', {
