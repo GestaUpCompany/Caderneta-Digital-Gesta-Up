@@ -1,10 +1,24 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getRelatorioLoteCicloVida } from '../services/supabaseService'
+import { getLotesParaRelatorioCached, getRelatorioLoteFromCacheOnly } from '../services/cadastroCache'
 import {
   SECOES_INICIAIS,
   SECOES_RELATORIO_LOTE,
   type RelatorioLotePayload,
 } from '../types/relatorioLote'
+
+// Os relatórios consultam o Supabase direto (RPC) e não existem offline.
+// "Load failed"/"Failed to fetch" é só o fetch sem rede; traduz para algo útil.
+function mensagemErroRelatorio(e: any, padrao: string): string {
+  const msg: string = e?.message || ''
+  const semRede =
+    (typeof navigator !== 'undefined' && !navigator.onLine) ||
+    /load failed|failed to fetch|networkerror|network request failed/i.test(msg)
+  if (semRede) {
+    return 'Os relatórios precisam de internet. Conecte-se e toque em "Tentar de novo".'
+  }
+  return msg || padrao
+}
 
 interface UseRelatorioLoteReturn {
   dados: RelatorioLotePayload | null
@@ -32,6 +46,15 @@ export function useRelatorioLote(
     setLoading(true)
     setErro(null)
     try {
+      // Sem rede: usa o payload completo guardado no "Atualizar dados" (todas as seções já vêm nele)
+      if (!navigator.onLine) {
+        const cache = await getRelatorioLoteFromCacheOnly(fazendaId, loteId)
+        if (cache) {
+          setDados(cache)
+          setSecoesCarregadas(new Set(Object.values(SECOES_RELATORIO_LOTE)))
+          return
+        }
+      }
       const secoesIniciais = [...SECOES_INICIAIS]
       const resultado = await getRelatorioLoteCicloVida(fazendaId, loteId, secoesIniciais)
       if (resultado.success === false) {
@@ -42,7 +65,18 @@ export function useRelatorioLote(
         setSecoesCarregadas(new Set(secoesIniciais))
       }
     } catch (e: any) {
-      setErro(e?.message || 'Erro ao carregar relatório')
+      // Rede caiu no meio (sinal fraco): tenta o cache antes de mostrar erro
+      const cache = await getRelatorioLoteFromCacheOnly(fazendaId, loteId).catch(() => null)
+      if (cache) {
+        setDados(cache)
+        setSecoesCarregadas(new Set(Object.values(SECOES_RELATORIO_LOTE)))
+        return
+      }
+      setErro(
+        !navigator.onLine || /load failed|failed to fetch|network/i.test(e?.message || '')
+          ? 'Este relatório ainda não foi baixado. Conecte-se e use "Atualizar dados" para ter os relatórios offline.'
+          : mensagemErroRelatorio(e, 'Erro ao carregar relatório')
+      )
       setDados(null)
     } finally {
       setLoading(false)
@@ -108,11 +142,10 @@ export function useLotesParaRelatorio(fazendaId: string | null) {
     setLoading(true)
     setErro(null)
     try {
-      const { getLotesParaRelatorio } = await import('../services/supabaseService')
-      const lista = await getLotesParaRelatorio(fazendaId)
+      const lista = await getLotesParaRelatorioCached(fazendaId)
       setLotes(lista)
     } catch (e: any) {
-      setErro(e?.message || 'Erro ao carregar lotes')
+      setErro(mensagemErroRelatorio(e, 'Erro ao carregar lotes'))
       setLotes([])
     } finally {
       setLoading(false)
