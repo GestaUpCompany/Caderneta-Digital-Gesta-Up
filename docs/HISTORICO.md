@@ -2,6 +2,13 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Saldo do lote com transferência entre fazendas (05/11/2026, Painel)
+
+- **Problema**: `calculate_quant_atual` não contava a saída de transferência (`motivo = 'Transferencia'`, `subtipo = 'Saida'`). Qualquer recálculo posterior devolvia as cabeças transferidas ao saldo da origem. A RPC grava `categoria` como texto livre (`"garrote: 60 cabecas"`), e `numero_cabecas` é o total da transferência, não o de cada categoria.
+- **Correção**: migration `20261105200000_calc_quant_atual_transferencia` (Painel). Desconta da origem a quantidade de cada categoria lida do texto. O destino não muda: a categoria nova já nasce com `quant_inicial` igual às cabeças recebidas.
+- **Dados**: saldos recalculados nos lotes que divergiam: Lote 10 Santa Vitória (112→52), Lote 11 Santa Vitória (190→90), LOTE 23 P (13→0), Teste 2 (fazenda de testes). `lotes.n_cabecas` alinhado com a soma das categorias.
+- **Pendente**: 13 saídas de transferência no histórico de 12 lotes (2.927 cabeças) foram verificadas só pelo cálculo, não por contagem física.
+
 ## Farmácia liberada para todas as fazendas (05/11/2026)
 
 - **Decisão**: em vez de um toggle por fazenda (`acesso_farmacia`), a Farmácia foi liberada para todas. Sem flag, sem migration e sem mudança no Painel, onde o menu e as rotas já não tinham restrição.
