@@ -32,7 +32,6 @@ import {
   statusEstoque,
   unidadeConcordada,
 } from '../../utils/farmaciaEstoque'
-import { cadernetaVisivelNaFazenda } from '../../utils/constants'
 import { Pill, Plus, Syringe } from 'lucide-react'
 
 export type ModoFarmacia = 'entrada' | 'baixa'
@@ -323,11 +322,11 @@ export default function FarmaciaForm({ modo }: Props) {
 
   const iconeMedicamento = selecionado?.tipo === 'Vacina' ? Syringe : Pill
 
-  if (!fazendaId || !cadernetaVisivelNaFazenda(cadernetaId, fazendaId)) {
+  if (!fazendaId) {
     return (
       <CadernetaLayout title="FARMÁCIA" cadernetaId={cadernetaId} showRegistrosButton={false}>
         <InfoStrip tone="warning" icon="⚠️">
-          {!fazendaId ? 'Configure a fazenda antes de usar esta caderneta.' : 'Esta caderneta ainda está em teste e não está liberada para esta fazenda.'}
+          Configure a fazenda antes de usar esta caderneta.
         </InfoStrip>
       </CadernetaLayout>
     )
