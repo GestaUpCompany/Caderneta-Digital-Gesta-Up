@@ -2,6 +2,20 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Autoria da auditoria falsa: contexto de sessão vaza entre requisições (05/11/2026)
+
+O `audit_log` atribui gravações ao usuário errado. Em 30 dias, 67 gravações de `registros_movimentacao` (22 contas, todas origem `web`) têm autoria de um usuário sem vínculo com a fazenda da linha, e em 55 o nome da linha é diferente do registrado na auditoria. Caso de referência: saída de 100 do Lote 10 da Santa Vitória (05/11, 15:48), auditada como "Controller Tropical", que não tem vínculo com a fazenda; a linha foi lançada como "Dani".
+
+Causa: `set_audit_context` grava as variáveis de sessão (`is_local = false`) numa conexão do pool. Gravações seguintes que caem na mesma conexão herdam a identidade anterior. O `AuthContext` do Painel chama `setAuditContext` só na troca de usuário e nunca chama `clearAuditContext`.
+
+Feito (migration `20261105210000_audit_valida_vinculo_contexto`, Painel, aplicada): `fn_audit_trigger` só usa o contexto se o usuário tiver vínculo ativo com a fazenda da linha; senão a autoria fica nula e cai no `nome_usuario` da linha. Limitação: não detecta contexto herdado de outro usuário com vínculo na mesma fazenda.
+
+Falta (Painel):
+1. Trocar a identidade do trigger para `auth.uid()` (mapeado para `usuarios.id`) quando houver JWT; usar o contexto de sessão só em fluxos sem JWT. É a correção completa, porque o JWT é por requisição e não depende da conexão do pool.
+2. Remover o `useEffect` do `setAuditContext` em `packages/shared/src/contexts/AuthContext.tsx`.
+3. Se o contexto de sessão continuar, chamar `clearAuditContext` ao fim de cada escrita auditada.
+4. Depois: conferir na fazenda de testes (`d649c65e…`) que a autoria sai correta e que a validação de vínculo funciona.
+
 ## Estoque compartilhado: teste ponta a ponta e Painel (03/11/2026)
 
 O banco e o PWA já creditam o produto em outra fazenda do grupo, com a formulação escolhida na hora (ver `docs/HISTORICO.md`). Falta:
