@@ -2,6 +2,12 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Farmácia liberada para todas as fazendas (05/11/2026)
+
+- **Decisão**: em vez de um toggle por fazenda (`acesso_farmacia`), a Farmácia foi liberada para todas. Sem flag, sem migration e sem mudança no Painel, onde o menu e as rotas já não tinham restrição.
+- **PWA**: `entrada-farmacia` e `saida-farmacia` saíram de `CADERNETAS_EM_TESTE`; `FarmaciaForm` só exige fazenda configurada. O RBAC por funcionário continua valendo. A baixa pela Enfermaria não mudou.
+- **Verificação**: `tsc --noEmit`, lint (0 erros, 47 avisos), 654 testes e build ok. E2E no build de produção (preview, navegador): na Gesta'Up Teste, antes bloqueada, o menu e as duas telas abrem; na fazenda de testes, saída online, saída offline com sync e entrada geraram uma movimentação cada, com saldo e valor corretos. Lançamentos de teste excluídos logicamente. Não testado: aparelho físico e cadastro de medicamento novo pelo PWA.
+
 ## Entrada de insumos: o cabeçalho envia os itens e erro de item aparece (04/11/2026)
 
 - **Defeito**: o cabeçalho (`registros_entrada_insumos`) ia para a fila e era marcado `synced` ao subir, e cada item (`entrada_insumos_itens`) ia como entrada separada da fila. Se o item falhasse ou se perdesse, o cabeçalho ficava `synced` sem itens, sem erro visível. Caso real: NF 40110 da Fazenda Santa Cecília, 03/11/2026 (cabeçalho `718bdb6e-eef0-4602-a952-847fac74f1cc`, "0 item(s)" na tela do Painel). Era o único dos 74 registros dos últimos 60 dias sem itens; não havia item órfão no banco.
