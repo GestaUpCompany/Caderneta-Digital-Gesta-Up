@@ -897,11 +897,17 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         tipo: registro.tipo || 'confinamento',
         formulacao_id: registro.formulacaoId || null,
         vagao_id: registro.vagaoId || null,
+        // Totais vêm de number do JS (String(number): ponto decimal). Passar por normalizarNumero
+        // lia "2867.726" como milhar pt-BR (2.867.726), igual ao bug do kg_planejado do trato.
         total_previsto: registro.totalPrevisto !== '' && registro.totalPrevisto !== null && registro.totalPrevisto !== undefined
-          ? (normalizarNumero(registro.totalPrevisto as string | number) ?? 0)
+          ? ((typeof registro.totalPrevisto === 'number' || /^-?\d+(\.\d+)?$/.test(String(registro.totalPrevisto))
+              ? Number(registro.totalPrevisto)
+              : normalizarNumero(registro.totalPrevisto as string | number)) ?? 0)
           : 0,
         total_produzido: registro.totalProduzido !== '' && registro.totalProduzido !== null && registro.totalProduzido !== undefined
-          ? (normalizarNumero(registro.totalProduzido as string | number) ?? 0)
+          ? ((typeof registro.totalProduzido === 'number' || /^-?\d+(\.\d+)?$/.test(String(registro.totalProduzido))
+              ? Number(registro.totalProduzido)
+              : normalizarNumero(registro.totalProduzido as string | number)) ?? 0)
           : 0,
         concluido: registro.concluido === true || registro.concluido === 'true',
       }
