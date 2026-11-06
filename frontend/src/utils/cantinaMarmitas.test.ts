@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FAZENDA_DE_TESTES_ID, marmitaDetalhadaLiberada } from './constants'
+import { marmitaDetalhadaLiberada } from './constants'
 import {
   chaveEmpresa,
   destinatarioDoDetalhe,
@@ -26,11 +26,11 @@ const grade = (): GradeMarmitasForm => ({
 })
 
 describe('marmitaDetalhadaLiberada', () => {
-  it('só a fazenda de testes vê a grade; as demais seguem com o formulário atual', () => {
-    expect(marmitaDetalhadaLiberada(FAZENDA_DE_TESTES_ID)).toBe(true)
-    expect(marmitaDetalhadaLiberada('outra-fazenda')).toBe(false)
-    expect(marmitaDetalhadaLiberada(null)).toBe(false)
-    expect(marmitaDetalhadaLiberada(undefined)).toBe(false)
+  it('libera a grade detalhada para todas as fazendas', () => {
+    expect(marmitaDetalhadaLiberada('d649c65e-16ab-4b77-a84b-df937aa41cc3')).toBe(true)
+    expect(marmitaDetalhadaLiberada('outra-fazenda')).toBe(true)
+    expect(marmitaDetalhadaLiberada(null)).toBe(true)
+    expect(marmitaDetalhadaLiberada(undefined)).toBe(true)
   })
 })
 

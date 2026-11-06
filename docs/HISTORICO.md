@@ -2,6 +2,13 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Marmita detalhada liberada para todas as fazendas (06/11/2026)
+
+- **Mudança**: `marmitaDetalhadaLiberada` (`utils/constants.ts`) passou a retornar `true` para qualquer fazenda, em vez de só `FAZENDA_DE_TESTES_ID`. A grade interna/terceirizada por refeição (`GradeMarmitas`, `marmitas_detalhe`) agora aparece no modo Marmita da `SaidaCantinaPage` em todas as fazendas; o modo Prato Feito segue no formulário simples (fornecedor, quantidade, preço, destinatário).
+- **Sem mudança de schema/sync**: `marmitas_detalhe` já ia para `registros_alimentacao.marmitas_detalhe` via `syncService` e o cache de empresas terceirizadas já era aquecido por fazenda; agora o aquecimento roda em todas (`cadastroCache.ts`).
+- **Decisão**: flag virou constante `true` em vez de toggle por fazenda (`acesso_*`), mesmo critério da liberação da Farmácia em 05/11. Para voltar a restringir, reintroduzir condição por `fazendaId` ou flag em `fazendas` no molde de `acesso_confinamento`/`acesso_iatf`.
+- **Verificação**: `tsc --noEmit` ok, 18 testes de `cantinaMarmitas.test.ts` ok (teste da flag atualizado). E2E no app não feito.
+
 ## Saldo do lote com transferência entre fazendas (05/11/2026, Painel)
 
 - **Problema**: `calculate_quant_atual` não contava a saída de transferência (`motivo = 'Transferencia'`, `subtipo = 'Saida'`). Qualquer recálculo posterior devolvia as cabeças transferidas ao saldo da origem. A RPC grava `categoria` como texto livre (`"garrote: 60 cabecas"`), e `numero_cabecas` é o total da transferência, não o de cada categoria.
