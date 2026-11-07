@@ -2,6 +2,14 @@
 
 Este arquivo lista trabalho pendente. Um chat novo deve consultar este arquivo para saber o que ainda falta fazer e o que já foi decidido mas não implementado.
 
+## Trigger de estoque da Fábrica Confinamento não estorna em delete de registro (07/11/2026)
+
+`trg_fabrica_confinamento_insumos_mov` (em `registros_fabrica_confinamento_insumos`) tem branch de DELETE que marca `deleted_at` nas `movimentacoes_estoque_suplementos` órfãs, mas antes disso busca `fazenda_id`/`data` do registro pai em `registros_fabrica_confinamento`. Quando o delete vem em cascata do pai (FK `ON DELETE CASCADE`), o pai já está sendo removido e o SELECT retorna vazio, então a função sai cedo e as baixas ficam ativas para sempre.
+
+Caso real: em 07/11/2026 um registro errado de 3045 kg foi deletado da Fazenda Santa Cecília; as 6 movimentações de baixa (~3049 kg de insumos) permaneceram ativas e foram estornadas manualmente via SQL. Qualquer exclusão de produção de fábrica de confinamento replica o problema.
+
+Correção possível: no branch DELETE do trigger, resolver `fazenda_id`/`data` sem depender do pai (ex.: buscar via join tolerante ou denormalizar as colunas no insumo), ou estornar as movimentações por `registro_origem_id` direto sem precisar do pai. Como a migration é estrutural (function/trigger), deve ser feita no repo do Painel Web (`GestaUp-Cadernetas-Gestao`) com `supabase db push`.
+
 ## Autoria da auditoria falsa: contexto de sessão vaza entre requisições (05/11/2026)
 
 O `audit_log` atribui gravações ao usuário errado. Em 30 dias, 67 gravações de `registros_movimentacao` (22 contas, todas origem `web`) têm autoria de um usuário sem vínculo com a fazenda da linha, e em 55 o nome da linha é diferente do registrado na auditoria. Caso de referência: saída de 100 do Lote 10 da Santa Vitória (05/11, 15:48), auditada como "Controller Tropical", que não tem vínculo com a fazenda; a linha foi lançada como "Dani".
