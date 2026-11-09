@@ -965,7 +965,8 @@ async function getCachedQueryFromIDB<T>(key: string): Promise<T | null> {
 
 // v2: o plano passou a guardar a projeção por categoria (categoriasProjecao). A chave nova descarta o
 // cache antigo, que tinha o PV médio errado em lotes com categorias com e sem ajuste manual de peso.
-const PLANO_NUTRICIONAL_ATIVO_KEY = 'plano-nutricional-ativo-v2'
+// v3: categoria sem peso_inicio na personalização passou a entrar na projeção pelo peso atual (antes era descartada).
+const PLANO_NUTRICIONAL_ATIVO_KEY = 'plano-nutricional-ativo-v3'
 
 function buildKey(base: string, ...segments: string[]): string {
   return `${base}:${segments.join(':')}`
