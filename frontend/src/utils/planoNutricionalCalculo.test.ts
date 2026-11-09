@@ -65,6 +65,36 @@ describe('calcularPlanoNutricional', () => {
     expect(r.gmdEfetivo).toBeCloseTo(1.5)
   })
 
+  it('categoria sem peso_inicio na personalização usa o peso atual como base, sem ser descartada', () => {
+    // Lote 8 da Chibata: boi gordo com peso_inicio, boi magro (113 cab.) com personalização nula
+    const categorias = [
+      { id: 'c1', categoria: 'boi gordo', quant_atual: 1, data_ajuste_peso: null, peso_vivo_atual_kg_cab: 694.25 },
+      { id: 'c2', categoria: 'boi magro', quant_atual: 113, data_ajuste_peso: null, peso_vivo_atual_kg_cab: 538.85 },
+    ]
+    const personalizacao = [
+      { lote_categoria_id: 'c1', peso_inicio_kg_cab: 617.4 },
+      { lote_categoria_id: 'c2', peso_inicio_kg_cab: null },
+    ]
+    const gmds = [
+      { categoria: 'boi gordo', gmd: 1.45 },
+      { categoria: 'boi magro', gmd: 1.45 },
+    ]
+    const r = calcularPlanoNutricional(plano, null, categorias, personalizacao, gmds)
+    expect(r.categoriasProjecao).toEqual([
+      { quant: 1, gmd: 1.45, base: 'inicio', pesoBase: 617.4 },
+      { quant: 113, gmd: 1.45, base: 'ajuste', pesoBase: 538.85 },
+    ])
+  })
+
+  it('categoria sem peso_inicio e sem peso atual continua descartada', () => {
+    const categorias = [
+      { id: 'c1', categoria: 'Bois', quant_atual: 10, data_ajuste_peso: null, peso_vivo_atual_kg_cab: null },
+    ]
+    const r = calcularPlanoNutricional(plano, null, categorias, [], [{ categoria: 'bois', gmd: 1 }])
+    expect(r.categoriasProjecao).toEqual([])
+    expect(r.gmdEfetivo).toBeNull()
+  })
+
   it('ignora categoria sem GMD na formulação', () => {
     const categorias = [
       { id: 'c1', categoria: 'Vacas', quant_atual: 10, data_ajuste_peso: null, peso_vivo_atual_kg_cab: null },

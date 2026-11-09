@@ -46,10 +46,18 @@ export function calcularPlanoNutricional(
       categoriasProjecao.push({ quant, gmd, base: 'ajuste', pesoBase: Number(cat.peso_vivo_atual_kg_cab) })
     } else {
       const pesoInicio = pcpMap[cat.id]
-      if (pesoInicio == null) continue // sem peso_inicio na personalizacao, nao pode projetar esta categoria
-      catsSemAjuste++
-      totalPesoInicio += pesoInicio * quant
-      categoriasProjecao.push({ quant, gmd, base: 'inicio', pesoBase: pesoInicio })
+      if (pesoInicio == null) {
+        // Sem peso_inicio na personalizacao: usa o peso atual da categoria como base (projetado para hoje,
+        // igual ao ajuste manual). Descartar a categoria faria o PV médio refletir só as demais cabeças.
+        if (cat.peso_vivo_atual_kg_cab == null) continue // sem nenhum peso, nao pode projetar esta categoria
+        catsComAjuste++
+        totalPesoAtual += Number(cat.peso_vivo_atual_kg_cab) * quant
+        categoriasProjecao.push({ quant, gmd, base: 'ajuste', pesoBase: Number(cat.peso_vivo_atual_kg_cab) })
+      } else {
+        catsSemAjuste++
+        totalPesoInicio += pesoInicio * quant
+        categoriasProjecao.push({ quant, gmd, base: 'inicio', pesoBase: pesoInicio })
+      }
     }
 
     totalGmd += gmd * quant
