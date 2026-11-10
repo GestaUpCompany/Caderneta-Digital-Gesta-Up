@@ -2,6 +2,16 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Entrada de farmácia com vários lotes e validade por lote (10/11/2026)
+
+- **Mudança**: a Entrada de Farmácia (`FarmaciaForm`, `modo="entrada"`) ganhou a seção "Lotes da carga". Cada lote tem quantidade (frascos inteiros), número do lote e validade, ambos opcionais, e "Adicionar lote"/"Remover lote". A saída segue com lote e quantidade únicos, sem mudança.
+- **Decisão**: um registro por lote. `handleSalvar` chama `salvarRegistro('entrada-farmacia', …)` uma vez por lote, com a mesma data, NF, fornecedor e custo. Sem coluna nova no Painel, sem bump do IndexedDB e sem mudança no `syncService` (cada registro vira uma linha em `movimentacoes_farmacia` com `lote_produto`, `validade` e `quantidade`). Alternativa descartada: um registro com JSON de lotes, que exigiria schema novo.
+- **Estado e rascunho**: `FormState.lotes` (`LoteEntrada` em `utils/farmaciaEstoque.ts`). Rascunho antigo sem `lotes` vira um lote único. As atualizações (`setLote`, `adicionarLote`, `removerLote`) partem do `prev` do `setForm`: usar a lista do render fazia duas ações rápidas seguidas (ex.: "Informar validade" e "Adicionar lote") desfazerem uma à outra.
+- **Validade**: opcional, com botão "Informar validade" por lote. O `DatePicker` não é mostrado vazio porque exibe a data de hoje quando sem valor, o que parece preenchido.
+- **Regras**: `pendenciaLotes` exige quantidade inteira maior que zero em cada lote e recusa número de lote repetido na mesma carga (vários lotes sem número são aceitos); `totalFrascosLotes` soma a carga. O saldo do cache sobe pela soma dos lotes gravados (registros de modo teste não contam). Se um lote falhar no meio, os já gravados saem da tela para não duplicar.
+- **`novoMedicamento`** vai em todos os registros da carga; a RPC `criar_medicamento_pwa` é idempotente. Cenário com medicamento novo e vários lotes não foi testado.
+- **Verificação**: `tsc --noEmit`, lint (0 erros, 47 avisos, teto 48), testes de `farmaciaEstoque` e `npm run build` ok. Testado na Fazenda Gesta'Up: online (2 lotes) e offline em `vite preview` (4 lotes, `pending` → `synced`); linhas conferidas no Supabase e saldo do medicamento somando os lotes. Painel Web e falha no meio do salvamento não verificados. Commit `2548baa`.
+
 ## Marmita detalhada liberada para todas as fazendas (06/11/2026)
 
 - **Mudança**: `marmitaDetalhadaLiberada` (`utils/constants.ts`) passou a retornar `true` para qualquer fazenda, em vez de só `FAZENDA_DE_TESTES_ID`. A grade interna/terceirizada por refeição (`GradeMarmitas`, `marmitas_detalhe`) agora aparece no modo Marmita da `SaidaCantinaPage` em todas as fazendas; o modo Prato Feito segue no formulário simples (fornecedor, quantidade, preço, destinatário).
