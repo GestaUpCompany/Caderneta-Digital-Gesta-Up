@@ -33,6 +33,36 @@ export function parseFrascos(texto: string): number {
   return /^\d+$/.test(t) ? Number(t) : 0
 }
 
+/** Lote de uma carga de entrada: cada um vira um registro (movimentação) próprio. */
+export interface LoteEntrada {
+  id: string
+  lote: string
+  validade: string
+  quantidade: string
+}
+
+/** Soma de frascos dos lotes (quantidade inválida conta 0). */
+export function totalFrascosLotes(lotes: LoteEntrada[]): number {
+  return lotes.reduce((soma, l) => soma + parseFrascos(l.quantidade), 0)
+}
+
+/** Primeiro problema dos lotes da carga (texto para o rodapé) ou undefined se estiver tudo certo. */
+export function pendenciaLotes(lotes: LoteEntrada[]): string | undefined {
+  const vistos = new Set<string>()
+  for (let i = 0; i < lotes.length; i++) {
+    const rotulo = lotes.length > 1 ? `Lote ${i + 1}: ` : ''
+    const q = lotes[i].quantidade.trim()
+    if (!q) return `${rotulo}falta informar a quantidade`
+    if (parseFrascos(q) <= 0) return `${rotulo}informe um número inteiro de frascos maior que zero`
+    const nome = lotes[i].lote.trim().toLowerCase()
+    if (nome) {
+      if (vistos.has(nome)) return `O lote "${lotes[i].lote.trim()}" está repetido na carga`
+      vistos.add(nome)
+    }
+  }
+  return undefined
+}
+
 const PLURAIS: Record<string, string> = { frasco: 'frascos', dose: 'doses', caixa: 'caixas' }
 
 /** Plural da unidade quando o valor é maior que 1 (frasco -> frascos); mL, kg, un etc. não mudam. */
