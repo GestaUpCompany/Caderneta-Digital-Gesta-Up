@@ -8,7 +8,25 @@ import {
   unidadeConcordada,
   medicamentosControlados,
   encontrarMedicamentoExistente,
+  totalFrascosLotes,
+  pendenciaLotes,
 } from './farmaciaEstoque'
+
+describe('lotes da carga', () => {
+  const l = (lote: string, quantidade: string, validade = '') => ({ id: lote || quantidade, lote, validade, quantidade })
+  it('soma os frascos de todos os lotes', () => {
+    expect(totalFrascosLotes([l('A', '3'), l('B', '2'), l('C', '')])).toBe(5)
+  })
+  it('exige quantidade inteira em cada lote', () => {
+    expect(pendenciaLotes([l('A', '3')])).toBeUndefined()
+    expect(pendenciaLotes([l('A', '')])).toBe('falta informar a quantidade')
+    expect(pendenciaLotes([l('A', '3'), l('B', '0')])).toBe('Lote 2: informe um número inteiro de frascos maior que zero')
+  })
+  it('recusa lote repetido, mas aceita vários sem número', () => {
+    expect(pendenciaLotes([l('A', '1'), l('a', '2')])).toBe('O lote "a" está repetido na carga')
+    expect(pendenciaLotes([l('', '1'), l('', '2')])).toBeUndefined()
+  })
+})
 
 describe('parseQuantidade', () => {
   it('aceita vírgula e ponto', () => {

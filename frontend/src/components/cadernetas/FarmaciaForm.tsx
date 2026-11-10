@@ -26,10 +26,13 @@ import {
   encontrarMedicamentoExistente,
   formatarQuantidade,
   medicamentosControlados,
+  LoteEntrada,
   parseFrascos,
   parseQuantidade,
+  pendenciaLotes,
   saldoApos,
   statusEstoque,
+  totalFrascosLotes,
   unidadeConcordada,
 } from '../../utils/farmaciaEstoque'
 import { Pill, Plus, Syringe } from 'lucide-react'
@@ -62,10 +65,15 @@ interface FormState {
   custoUnitario: string
   fornecedor: string
   notaFiscal: string
+  // Saída: lote e quantidade únicos. Entrada: um ou mais lotes (quantidade/lote/validade por lote), cada um vira um registro
   loteProduto: string
   validade: string
+  lotes: LoteEntrada[]
   observacao: string
 }
+
+// Id fixo no primeiro lote para o estado inicial ser estável (o rascunho compara com ele)
+const loteVazio = (id: string = crypto.randomUUID()): LoteEntrada => ({ id, lote: '', validade: '', quantidade: '' })
 
 const makeInitial = (): FormState => ({
   data: todayBR(),
@@ -79,6 +87,7 @@ const makeInitial = (): FormState => ({
   notaFiscal: '',
   loteProduto: '',
   validade: '',
+  lotes: [loteVazio('lote-1')],
   observacao: '',
 })
 
@@ -149,8 +158,20 @@ export default function FarmaciaForm({ modo }: Props) {
   const setInput = (campo: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [campo]: e.target.value }))
 
-  // Estoque de farmácia é sempre em frascos inteiros
-  const quantidade = parseFrascos(form.quantidade)
+  // Rascunho gravado antes dos lotes não tem `lotes`: o lote único antigo vira o primeiro
+  const lotesDe = (f: FormState): LoteEntrada[] =>
+    f.lotes?.length
+      ? f.lotes
+      : [{ id: 'lote-1', lote: f.loteProduto ?? '', validade: f.validade ?? '', quantidade: f.quantidade ?? '' }]
+  const lotes = useMemo(() => lotesDe(form), [form.lotes, form.loteProduto, form.validade, form.quantidade]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Atualizações partem do estado mais recente (prev): duas ações seguidas não podem desfazer uma à outra
+  const setLote = (id: string, patch: Partial<LoteEntrada>) =>
+    setForm((prev) => ({ ...prev, lotes: lotesDe(prev).map((l) => (l.id === id ? { ...l, ...patch } : l)) }))
+  const adicionarLote = () => setForm((prev) => ({ ...prev, lotes: [...lotesDe(prev), loteVazio()] }))
+  const removerLote = (id: string) => setForm((prev) => ({ ...prev, lotes: lotesDe(prev).filter((l) => l.id !== id) }))
+
+  // Estoque de farmácia é sempre em frascos inteiros; na entrada a quantidade é a soma dos lotes
+  const quantidade = ehSaida ? parseFrascos(form.quantidade) : totalFrascosLotes(lotes)
   const unidade = 'frasco'
 
   const validationRules: any = {
@@ -159,10 +180,15 @@ export default function FarmaciaForm({ modo }: Props) {
       required: true,
       custom: (value: string) => (value && !controlados.some((m) => rotuloMedicamento(m) === value) ? 'Selecione um medicamento da lista' : null),
     },
-    quantidade: {
-      required: true,
-      custom: (value: string) => (value && parseFrascos(value) <= 0 ? 'Informe um número inteiro de frascos maior que zero' : null),
-    },
+    // Na entrada a quantidade é conferida lote a lote (pendenciaLotes)
+    ...(ehSaida
+      ? {
+          quantidade: {
+            required: true,
+            custom: (value: string) => (value && parseFrascos(value) <= 0 ? 'Informe um número inteiro de frascos maior que zero' : null),
+          },
+        }
+      : {}),
     // Entrada exige custo unitário (o Painel também exige); saída não lança custo
     ...(ehSaida
       ? {}
@@ -240,50 +266,60 @@ export default function FarmaciaForm({ modo }: Props) {
     // Na saída o motivo escolhido vai na frente da observação (não há coluna própria)
     const observacao = [ehSaida ? motivoSaidaTexto : '', form.observacao.trim()].filter(Boolean).join(' - ')
 
-    let result: Awaited<ReturnType<typeof salvarRegistro>>
+    // Saída: um registro. Entrada: um registro por lote, todos com a mesma NF, fornecedor e custo
+    const itens: LoteEntrada[] = ehSaida ? [{ id: 'saida', lote: form.loteProduto, validade: '', quantidade: form.quantidade }] : lotes
+    const salvos = new Set<string>()
+    let primeiroRegistro: any = null
+    let deltaTotal = 0
+    let falha: Awaited<ReturnType<typeof salvarRegistro>> | null = null
+
     try {
-      result = await salvarRegistro(cadernetaId, {
-        data: form.data,
-        tipoMovimentacao: modo,
-        medicamentoId: selecionado.id,
-        medicamentoNome: selecionado.nome_comercial,
-        unidade,
-        quantidade: form.quantidade,
-        custoUnitario: ehSaida ? '' : form.custoUnitario,
-        fornecedor: ehSaida ? '' : form.fornecedor,
-        notaFiscal: ehSaida ? '' : form.notaFiscal,
-        loteProduto: form.loteProduto,
-        validade: ehSaida ? '' : form.validade,
-        observacao,
-        // Medicamento que ainda não existe no servidor: o sync o cria (RPC criar_medicamento_pwa) antes da movimentação
-        novoMedicamento: selecionado.novo
-          ? {
-              id: selecionado.id,
-              nome_comercial: selecionado.nome_comercial,
-              sku: selecionado.sku,
-              tipo: selecionado.tipo,
-              unidade: selecionado.unidade,
-              conteudo_por_unidade: selecionado.conteudo_por_unidade,
-              conteudo_unidade: selecionado.conteudo_unidade,
-            }
-          : undefined,
-      })
+      for (const item of itens) {
+        const result = await salvarRegistro(cadernetaId, {
+          data: form.data,
+          tipoMovimentacao: modo,
+          medicamentoId: selecionado.id,
+          medicamentoNome: selecionado.nome_comercial,
+          unidade,
+          quantidade: item.quantidade,
+          custoUnitario: ehSaida ? '' : form.custoUnitario,
+          fornecedor: ehSaida ? '' : form.fornecedor,
+          notaFiscal: ehSaida ? '' : form.notaFiscal,
+          loteProduto: item.lote,
+          validade: ehSaida ? '' : item.validade,
+          observacao,
+          // Medicamento que ainda não existe no servidor: o sync o cria (RPC criar_medicamento_pwa, idempotente) antes da movimentação
+          novoMedicamento: selecionado.novo
+            ? {
+                id: selecionado.id,
+                nome_comercial: selecionado.nome_comercial,
+                sku: selecionado.sku,
+                tipo: selecionado.tipo,
+                unidade: selecionado.unidade,
+                conteudo_por_unidade: selecionado.conteudo_por_unidade,
+                conteudo_unidade: selecionado.conteudo_unidade,
+              }
+            : undefined,
+        })
+        if (!result.success && result.errors) {
+          falha = result
+          break
+        }
+        salvos.add(item.id)
+        primeiroRegistro ??= result.registro
+        // Registro do modo teste não sobe: não mexe no saldo
+        const qtd = parseFrascos(item.quantidade)
+        if (qtd > 0 && !(result.registro as any)?.isTestRecord) deltaTotal += qtd
+      }
     } finally {
       salvandoRef.current = false
       setSalvando(false)
     }
 
-    if (!result.success && result.errors) {
-      setApiErrors(result.errors)
-      scrollToFirstError(result.errors)
-      return
-    }
-
-    if (fazendaId) {
+    if (fazendaId && salvos.size > 0) {
       if (selecionado.novo) await adicionarMedicamentoCache(fazendaId, { ...selecionado, estoque_atual: 0 })
-      // Registro do modo teste não sobe: não mexe no saldo
-      if (quantidade > 0 && !(result.registro as any)?.isTestRecord) {
-        const delta = ehSaida ? -quantidade : quantidade
+      if (deltaTotal > 0) {
+        const delta = ehSaida ? -deltaTotal : deltaTotal
         await updateMedicamentoSaldoCache(fazendaId, selecionado.id, delta)
         setMedicamentosServidor((prev) => {
           const base = prev.some((m) => m.id === selecionado.id) ? prev : [...prev, { ...selecionado, novo: undefined }]
@@ -291,7 +327,16 @@ export default function FarmaciaForm({ modo }: Props) {
         })
       }
     }
-    setRegistroSalvo(result.registro)
+
+    if (falha?.errors) {
+      // Lotes já gravados saem da tela para não duplicar ao tentar de novo
+      if (!ehSaida && salvos.size > 0) setForm((prev) => ({ ...prev, lotes: lotes.filter((l) => !salvos.has(l.id)) }))
+      setApiErrors(falha.errors)
+      scrollToFirstError(falha.errors)
+      return
+    }
+
+    setRegistroSalvo(primeiroRegistro)
     setShowSuccessModal(true)
     limparRascunho()
   }
@@ -313,8 +358,13 @@ export default function FarmaciaForm({ modo }: Props) {
   const pendenciaTexto = (() => {
     if (!form.medicamento) return 'Falta escolher o medicamento ou vacina'
     if (!selecionado) return 'Escolha um medicamento da lista'
-    if (!form.quantidade.trim()) return 'Falta informar a quantidade'
-    if (quantidade <= 0) return 'Informe um número inteiro de frascos maior que zero'
+    if (ehSaida) {
+      if (!form.quantidade.trim()) return 'Falta informar a quantidade'
+      if (quantidade <= 0) return 'Informe um número inteiro de frascos maior que zero'
+    } else {
+      const lotesPendente = pendenciaLotes(lotes)
+      if (lotesPendente) return lotesPendente.charAt(0).toUpperCase() + lotesPendente.slice(1)
+    }
     if (!ehSaida && !(parseQuantidade(form.custoUnitario) > 0)) return 'Falta informar o custo unitário'
     if (motivoPendente) return 'Descreva o motivo da saída'
     return undefined
@@ -401,15 +451,85 @@ export default function FarmaciaForm({ modo }: Props) {
           )}
         </CadernetaSection>
 
-        <CadernetaSection numero={2} titulo="Quantidade" required>
-          <StepperInput
-            value={form.quantidade}
-            onChange={setCampo('quantidade')}
-            min={0}
-            allowDecimals={false}
-            suffix={selecionado ? unidadeConcordada(unidade, quantidade) : undefined}
-            error={getError('quantidade')}
-          />
+        <CadernetaSection numero={2} titulo={ehSaida ? 'Quantidade' : 'Lotes da carga'} required>
+          {ehSaida ? (
+            <StepperInput
+              value={form.quantidade}
+              onChange={setCampo('quantidade')}
+              min={0}
+              allowDecimals={false}
+              suffix={selecionado ? unidadeConcordada(unidade, quantidade) : undefined}
+              error={getError('quantidade')}
+            />
+          ) : (
+            <>
+              {lotes.map((l, i) => (
+                <div key={l.id} data-field={i === 0 ? 'quantidade' : `lote-${i}`} className="flex flex-col gap-3 rounded-xl border border-gray-200 p-3">
+                  {lotes.length > 1 && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-bold uppercase text-gray-900">Lote {i + 1}</p>
+                      <button
+                        type="button"
+                        onClick={() => removerLote(l.id)}
+                        className="!min-h-0 text-sm font-bold text-gray-500 underline"
+                      >
+                        Remover lote
+                      </button>
+                    </div>
+                  )}
+                  <StepperInput
+                    value={l.quantidade}
+                    onChange={(v) => setLote(l.id, { quantidade: v })}
+                    min={0}
+                    allowDecimals={false}
+                    suffix={unidadeConcordada(unidade, parseFrascos(l.quantidade))}
+                    error={i === 0 ? getError('quantidade') : undefined}
+                  />
+                  <Input
+                    label={<span>LOTE DO PRODUTO</span>}
+                    placeholder="Número do lote (opcional)"
+                    value={l.lote}
+                    onChange={(e) => setLote(l.id, { lote: e.target.value })}
+                  />
+                  {l.validade ? (
+                    <>
+                      <DatePicker label="VALIDADE" value={l.validade} onChange={(v) => setLote(l.id, { validade: v })} />
+                      <button
+                        type="button"
+                        onClick={() => setLote(l.id, { validade: '' })}
+                        className="self-start !min-h-0 text-sm font-bold text-gray-500 underline"
+                      >
+                        Remover validade
+                      </button>
+                    </>
+                  ) : (
+                    // O DatePicker mostra a data de hoje quando vazio, o que enganaria: só aparece depois de tocar
+                    <button
+                      type="button"
+                      onClick={() => setLote(l.id, { validade: todayBR() })}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-4 py-3 text-sm font-bold uppercase tracking-wide text-gray-500 transition-colors hover:border-brand-600 hover:text-brand-700 active:scale-[0.99]"
+                    >
+                      <Plus className="h-4 w-4" strokeWidth={2.5} />
+                      Informar validade (opcional)
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={adicionarLote}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-4 py-3 text-sm font-bold uppercase tracking-wide text-gray-500 transition-colors hover:border-brand-600 hover:text-brand-700 active:scale-[0.99]"
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.5} />
+                Adicionar lote
+              </button>
+              {lotes.length > 1 && (
+                <InfoStrip tone="neutral" icon="📦">
+                  Total da carga: {formatarQuantidade(quantidade, unidade)} em {lotes.length} lotes
+                </InfoStrip>
+              )}
+            </>
+          )}
 
           {selecionado?.controla_estoque && quantidade > 0 && (
             <InfoStrip tone={saldoDepois < 0 ? 'danger' : 'success'} icon={saldoDepois < 0 ? '⚠️' : '✅'}>
@@ -456,12 +576,14 @@ export default function FarmaciaForm({ modo }: Props) {
             </div>
           )}
 
-          <Input
-            label={<span>LOTE DO PRODUTO</span>}
-            placeholder="Número do lote (opcional)"
-            value={form.loteProduto}
-            onChange={setInput('loteProduto')}
-          />
+          {ehSaida && (
+            <Input
+              label={<span>LOTE DO PRODUTO</span>}
+              placeholder="Número do lote (opcional)"
+              value={form.loteProduto}
+              onChange={setInput('loteProduto')}
+            />
+          )}
         </CadernetaSection>
 
         {!ehSaida && (
@@ -497,27 +619,6 @@ export default function FarmaciaForm({ modo }: Props) {
               onChange={setInput('notaFiscal')}
             />
 
-            {form.validade ? (
-              <div className="flex flex-col gap-2">
-                <DatePicker label="VALIDADE" value={form.validade} onChange={setCampo('validade')} />
-                <button
-                  type="button"
-                  onClick={() => setCampo('validade')('')}
-                  className="self-start !min-h-0 text-sm font-bold text-gray-500 underline"
-                >
-                  Remover validade
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setCampo('validade')(todayBR())}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-4 py-3 text-sm font-bold uppercase tracking-wide text-gray-500 transition-colors hover:border-brand-600 hover:text-brand-700 active:scale-[0.99]"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2.5} />
-                Informar validade
-              </button>
-            )}
           </CadernetaSection>
         )}
 
@@ -544,8 +645,8 @@ export default function FarmaciaForm({ modo }: Props) {
           onSalvar={handleSalvar}
           onLimpar={limparRascunho}
           salvando={salvando}
-          disabled={!isValid || motivoPendente}
-          formValido={isValid}
+          disabled={!isValid || motivoPendente || (!ehSaida && !!pendenciaLotes(lotes))}
+          formValido={isValid && !motivoPendente && (ehSaida || !pendenciaLotes(lotes))}
           pendenciaTexto={pendenciaTexto}
         />
       </CadernetaLayout>
