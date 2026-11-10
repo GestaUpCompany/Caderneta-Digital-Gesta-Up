@@ -437,6 +437,11 @@ export default function EnfermariaPage() {
     ? processarCategoriasUtil(detalhesLote.categorias).map(capitalizarCategoria).join(', ')
     : ''
 
+  // Lote vindo do cadastro do animal fica travado, exceto quando não tem pasto (o serviço recusaria o registro).
+  // Sem a lista de lotes no aparelho não há o que escolher, então segue travado.
+  const loteDoAnimalSemPasto =
+    loteAutoIdentificado && !!form.lote && !carregandoLote && !loteIndisponivel && !form.pasto && lotesDisponiveis.length > 0
+
   const pendenciaTexto = (() => {
     if (!form.idManejo.trim() && !form.brinco.trim() && !form.chip.trim()) return 'Falta o ID manejo, brinco ou chip'
     if (!form.lote) return 'Falta escolher o pasto/lote'
@@ -460,59 +465,6 @@ export default function EnfermariaPage() {
         {errors.length > 0 && <ValidationMessage errors={errors} />}
 
         <CadernetaSection numero={1} titulo="IDENTIFICAÇÃO">
-          {loteAutoIdentificado ? (
-            <Input
-              label={<span>LOTE <span className="text-red-500">*</span></span>}
-              value={form.lote}
-              readOnly
-              id="lote"
-            />
-          ) : lotesDisponiveis.length > 0 ? (
-            <SearchableModal
-              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
-              value={form.lote}
-              onChange={(val) => {
-                // o efeito dos detalhes do lote preenche loteId e pasto (cache primeiro)
-                setForm((p) => ({ ...p, lote: val, loteId: '', pasto: '', pastoId: '' }))
-              }}
-              error={getError('lote')}
-              options={lotesDisponiveis}
-              secondaryText={(lote) => lotesPastoMap[lote] || ''}
-              placeholder="Buscar pasto ou lote..."
-              id="lote"
-              name="lote"
-              disabled={!form.idManejo && !form.brinco && !form.chip}
-            />
-          ) : (
-            <Input
-              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
-              placeholder="Carregando..."
-              value={form.lote}
-              disabled
-              id="lote"
-            />
-          )}
-          {mensagemLote && (
-            <p className="text-sm text-amber-600 font-medium">{mensagemLote}</p>
-          )}
-          {detalhesLote && (
-            <InfoCard
-              icon={Beef}
-              title={form.lote}
-              subtitle={form.pasto || 'Sem pasto associado'}
-              stats={[
-                { label: 'Cabeças', value: detalhesLote.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-', span: 1 },
-                {
-                  label: 'PV médio',
-                  value: detalhesLote.peso_vivo_kg != null
-                    ? `${Number(detalhesLote.peso_vivo_kg).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
-                    : '-',
-                  span: 1,
-                },
-                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
-              ]}
-            />
-          )}
           <AnimalIdentifier
             fazendaId={fazendaId}
             valueManejo={form.idManejo}
@@ -613,6 +565,67 @@ export default function EnfermariaPage() {
               className="hidden"
             />
           </div>
+          {loteAutoIdentificado && !loteDoAnimalSemPasto ? (
+            <Input
+              label={<span>LOTE <span className="text-red-500">*</span></span>}
+              value={form.lote}
+              readOnly
+              id="lote"
+            />
+          ) : lotesDisponiveis.length > 0 ? (
+            <SearchableModal
+              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
+              value={form.lote}
+              onChange={(val) => {
+                // o efeito dos detalhes do lote preenche loteId e pasto (cache primeiro)
+                // escolha manual vence a busca do lote do animal que ainda esteja pendente
+                identificacaoSeqRef.current++
+                setLoteAutoIdentificado(false)
+                setMensagemLote('')
+                setForm((p) => ({ ...p, lote: val, loteId: '', pasto: '', pastoId: '' }))
+              }}
+              error={getError('lote')}
+              options={lotesDisponiveis}
+              secondaryText={(lote) => lotesPastoMap[lote] || ''}
+              placeholder="Buscar pasto ou lote..."
+              id="lote"
+              name="lote"
+            />
+          ) : (
+            <Input
+              label={<span>PASTO/LOTE <span className="text-red-500">*</span></span>}
+              placeholder="Carregando..."
+              value={form.lote}
+              disabled
+              id="lote"
+            />
+          )}
+          {loteDoAnimalSemPasto && (
+            <p className="text-sm text-amber-600 font-medium">
+              O lote do cadastro do animal ({form.lote}) não tem pasto vinculado. Escolha outro lote para registrar.
+            </p>
+          )}
+          {mensagemLote && (
+            <p className="text-sm text-amber-600 font-medium">{mensagemLote}</p>
+          )}
+          {detalhesLote && (
+            <InfoCard
+              icon={Beef}
+              title={form.lote}
+              subtitle={form.pasto || 'Sem pasto associado'}
+              stats={[
+                { label: 'Cabeças', value: detalhesLote.n_cabecas != null ? String(detalhesLote.n_cabecas) : '-', span: 1 },
+                {
+                  label: 'PV médio',
+                  value: detalhesLote.peso_vivo_kg != null
+                    ? `${Number(detalhesLote.peso_vivo_kg).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
+                    : '-',
+                  span: 1,
+                },
+                ...(categoriasLoteStr ? [{ label: 'Categorias', value: categoriasLoteStr, span: 2 }] : []),
+              ]}
+            />
+          )}
         </CadernetaSection>
 
         <CadernetaSection numero={2} titulo="O QUE ELE TEM? (MARQUE TODOS)" required>

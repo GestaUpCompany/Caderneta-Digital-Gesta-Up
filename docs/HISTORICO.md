@@ -2,6 +2,15 @@
 
 Este arquivo registra mudanças já aplicadas no sistema. Um chat novo não precisa ler isto por padrão; consulte quando a pergunta for sobre "por que isso foi feito assim" ou para entender o estado anterior de uma parte do código.
 
+## Enfermaria: identificação do animal antes do lote e lote editável quando sem pasto (10/11/2026)
+
+- **Mudança** (`EnfermariaPage`): na seção Identificação, o `AnimalIdentifier` e a foto do brinco vêm antes do lote. Antes o lote aparecia primeiro mas ficava desabilitado até haver ID, o que confundia. O `disabled` do seletor saiu.
+- **Decisão**: o animal continua sendo a fonte do lote (`lote_atual` do cadastro preenche o lote sozinho). Alternativa descartada: lote primeiro, que perderia o preenchimento automático, criaria conflito entre as duas fontes e só compensaria com filtro de IDs por lote (mexeria no `AnimalIdentifier`, compartilhado com 6 telas).
+- **Lote do animal sem pasto**: antes o campo ficava somente leitura e o peão não tinha como corrigir (só LIMPAR e outro animal). Agora `loteDoAnimalSemPasto` libera o seletor e mostra aviso. Continua travado quando o lote tem pasto e quando não há lista de lotes no aparelho (senão o lote do animal se perderia). A escolha manual incrementa `identificacaoSeqRef` para a busca assíncrona do lote do animal não sobrescrevê-la, desliga `loteAutoIdentificado` e limpa `mensagemLote`.
+- **Banco**: `registros_enfermaria.lote_id` e `pasto_id` aceitam nulo; a exigência do pasto existe só no app/serviço. Triggers (auditoria, `updated_at`, baixa de farmácia) não leem lote nem pasto; relatórios só contam registros; o Painel só exibe lote e pasto como texto. Trocar o lote do registro não afeta cabeças nem estoque; o efeito é o registro ficar com lote diferente do `lote_atual` do animal.
+- **Pendente**: depois de salvar/LIMPAR ou descartar rascunho, o card "Dados do animal" (estado interno do `AnimalIdentifier`) e o aviso "Animal sem lote vinculado" podem permanecer na tela.
+- **Verificação**: `tsc --noEmit`, lint (0 erros, 47 avisos), 659 testes e `npm run build` ok. Testado no devtools na Fazenda Gesta'Up com animais `TESTE-ENF-1` (lote com pasto, salvo e conferido no Supabase) e `TESTE-ENF-2` (lote sem pasto, seletor liberado). Animal com lote com pasto não foi reaberto após a última edição.
+
 ## Entrada de farmácia com vários lotes e validade por lote (10/11/2026)
 
 - **Mudança**: a Entrada de Farmácia (`FarmaciaForm`, `modo="entrada"`) ganhou a seção "Lotes da carga". Cada lote tem quantidade (frascos inteiros), número do lote e validade, ambos opcionais, e "Adicionar lote"/"Remover lote". A saída segue com lote e quantidade únicos, sem mudança.
