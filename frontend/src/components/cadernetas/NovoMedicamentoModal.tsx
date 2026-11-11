@@ -139,10 +139,10 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar, exi
             inputMode="decimal"
           />
           <ChoiceGrid
-            options={[{ value: 'mL', label: 'ML' }, { value: 'mg', label: 'MG' }]}
+            options={[{ value: 'mL', label: 'ML' }, { value: 'mg', label: 'MG' }, { value: 'un', label: 'UN' }]}
             value={conteudoUn}
             onChange={setConteudoUn}
-            cols={2}
+            cols={3}
             labelSize="xs"
             showCheck={false}
           />
