@@ -130,13 +130,16 @@ export default function MedicamentosSection({
 
   const handleSelecionarMedicamento = (medicamento: any) => {
     setDoseLegada('')
+    // Conteúdo em UN (ex.: implante): a dose é em un; ao trocar para outro medicamento, volta para ml
+    const unidadeDose: UnidadeDose = medicamento.conteudo_unidade?.toLowerCase() === 'un' ? 'un' : doseUn === 'un' ? 'ml' : doseUn
+    setDoseUn(unidadeDose)
     setMedicamentoEditando({
       medicamentoId: medicamento.id,
       tipo: medicamento.tipo,
       nomeComercial: medicamento.nome_comercial,
       principioAtivo: medicamento.principio_ativo || '',
       doseRecomendada: medicamento.dose_recomendada || '',
-      doseAplicada: medicamentoEditando?.doseAplicada || '',
+      doseAplicada: doseNum !== '' ? formatarDose(doseNum, unidadeDose) : medicamentoEditando?.doseAplicada || '',
       // Outro medicamento: os frascos do anterior não valem para este
       frascosUsados: medicamentoEditando?.medicamentoId === medicamento.id ? medicamentoEditando?.frascosUsados ?? 0 : 0,
     })
@@ -261,6 +264,14 @@ export default function MedicamentosSection({
               options={medicamentosDisponiveis
                 .filter(m => m.tipo === tipoFiltro)
                 .map(m => m.nome_comercial)}
+              secondaryText={(nome: string) => {
+                const m = medicamentosDisponiveis.find(x => x.tipo === tipoFiltro && x.nome_comercial === nome)
+                return baixaEstoque && m?.controla_estoque
+                  ? `Saldo: ${formatarQuantidade(Number(m.estoque_atual || 0), 'frasco')}`
+                  : ''
+              }}
+              headerSecundario="Saldo"
+              headerOpcao="Medicamento"
               placeholder="Selecione um medicamento..."
               id="medicamento"
               name="medicamento"
@@ -280,7 +291,7 @@ export default function MedicamentosSection({
                 DOSE APLICADA <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-1.5">
-                {(['ml', 'mg'] as UnidadeDose[]).map((u) => (
+                {((medicamentoSelecionado?.conteudo_unidade?.toLowerCase() === 'un' ? ['un'] : ['ml', 'mg']) as UnidadeDose[]).map((u) => (
                   <button
                     key={u}
                     type="button"
@@ -298,7 +309,7 @@ export default function MedicamentosSection({
               value={doseNum}
               onChange={(v) => atualizarDose(v, doseUn)}
               min={0}
-              step={0.5}
+              step={doseUn === 'un' ? 1 : 0.5}
               suffix={doseUn}
             />
             {doseLegada && (

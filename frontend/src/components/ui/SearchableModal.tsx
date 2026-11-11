@@ -18,6 +18,10 @@ interface SearchableModalProps {
   createField?: 'manejo' | 'brinco' | 'chip'
   /** Quando informado, exibe um texto secundário (ex: pasto ou curral) à esquerda de cada opção, com a opção original (ex: lote) à direita. Também é usado na busca. */
   secondaryText?: (option: string) => string
+  /** Cabeçalho da coluna da esquerda (texto secundário). Padrão: "Pasto/Curral". */
+  headerSecundario?: string
+  /** Cabeçalho da coluna da direita (opção). Padrão: "Lote". */
+  headerOpcao?: string
 }
 
 export default function SearchableModal({
@@ -36,6 +40,8 @@ export default function SearchableModal({
   createNewLabel = 'Novo',
   createField,
   secondaryText,
+  headerSecundario = 'Pasto/Curral',
+  headerOpcao = 'Lote',
 }: SearchableModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -221,8 +227,8 @@ export default function SearchableModal({
                     <div className="space-y-2">
                       {secondaryText && (
                         <div className="flex items-center justify-between gap-2 px-4 pb-1 text-base font-bold text-gray-500 uppercase tracking-wide">
-                          <span>Pasto/Curral</span>
-                          <span>Lote</span>
+                          <span>{headerSecundario}</span>
+                          <span>{headerOpcao}</span>
                         </div>
                       )}
                       {filteredOptions.map((option) => (

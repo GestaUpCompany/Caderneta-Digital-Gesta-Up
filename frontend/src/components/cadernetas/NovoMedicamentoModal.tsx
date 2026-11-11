@@ -35,6 +35,8 @@ interface Props {
   onClose: () => void
   /** Devolve os dados validados; a página decide se já existe um igual na lista. */
   onConfirmar: (dados: NovoMedicamentoDados) => void
+  /** Entrada: o volume do frasco é obrigatório (base do custo por dose aplicada). */
+  exigeConteudo?: boolean
 }
 
 // Permite apenas dígitos e uma vírgula decimal
@@ -46,7 +48,7 @@ const sanitizarDecimal = (texto: string) => {
 }
 
 /** Cadastro de medicamento/vacina que ainda não existe, em folha sobreposta (não empurra o formulário). */
-export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: Props) {
+export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar, exigeConteudo = false }: Props) {
   const [nome, setNome] = useState('')
   const [sku, setSku] = useState('')
   const [tipo, setTipo] = useState('')
@@ -73,9 +75,10 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
   const confirmar = () => {
     if (!nome.trim()) return setErro('Informe o nome do medicamento')
     if (!tipo) return setErro('Escolha o tipo')
-    // Conteúdo do frasco é opcional e só informativo (o estoque conta frascos inteiros)
+    // Conteúdo do frasco: opcional no cadastro geral; obrigatório na entrada (custo por dose)
     const valor = parseFloat(conteudo.replace(',', '.'))
     const temConteudo = !isNaN(valor) && valor > 0
+    if (exigeConteudo && !temConteudo) return setErro('Informe o volume do frasco (ex.: 100 mL)')
     onConfirmar({
       nome_comercial: nome.trim(),
       sku: sku.trim() || null,
@@ -129,21 +132,25 @@ export default function NovoMedicamentoModal({ isOpen, onClose, onConfirmar }: P
 
         <div className="flex flex-col gap-2">
           <Input
-            label={<span>CONTEÚDO DO FRASCO (OPCIONAL)</span>}
+            label={<span>VOLUME DO FRASCO {exigeConteudo ? <span className="text-red-500">*</span> : '(OPCIONAL)'}</span>}
             placeholder="Ex: 100"
             value={conteudo}
             onChange={(e) => setConteudo(sanitizarDecimal(e.target.value))}
             inputMode="decimal"
           />
           <ChoiceGrid
-            options={[{ value: 'mL', label: 'ML' }, { value: 'mg', label: 'MG' }]}
+            options={[{ value: 'mL', label: 'ML' }, { value: 'mg', label: 'MG' }, { value: 'un', label: 'UN' }]}
             value={conteudoUn}
             onChange={setConteudoUn}
-            cols={2}
+            cols={3}
             labelSize="xs"
             showCheck={false}
           />
-          <p className="text-xs text-gray-500">Só informativo (ex.: 100 mL por frasco); não altera o saldo.</p>
+          <p className="text-xs text-gray-500">
+            {exigeConteudo
+              ? 'Usado para calcular o custo por dose aplicada (ex.: 100 mL por frasco). Não altera o saldo.'
+              : 'Só informativo (ex.: 100 mL por frasco); não altera o saldo.'}
+          </p>
         </div>
 
         {erro && <InfoStrip tone="danger">{erro}</InfoStrip>}

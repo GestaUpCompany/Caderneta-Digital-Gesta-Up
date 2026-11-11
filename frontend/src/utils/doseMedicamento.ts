@@ -7,11 +7,11 @@ export interface MedicamentoDose {
   controla_estoque?: boolean | null
 }
 
-export type UnidadeDose = 'ml' | 'mg'
+export type UnidadeDose = 'ml' | 'mg' | 'un'
 
-// "20 ml" / "1,5 mg" / "15" -> número (com ponto) + unidade; texto livre antigo ("15ml IV") não parseia
+// "20 ml" / "1,5 mg" / "2 un" / "15" -> número (com ponto) + unidade; texto livre antigo ("15ml IV") não parseia
 export const parseDose = (str: string): { num: string; un: UnidadeDose } | null => {
-  const m = /^\s*(\d+(?:[.,]\d+)?)\s*(ml|mg)?\s*$/i.exec(str || '')
+  const m = /^\s*(\d+(?:[.,]\d+)?)\s*(ml|mg|un)?\s*$/i.exec(str || '')
   return m ? { num: m[1].replace(',', '.'), un: ((m[2] || 'ml').toLowerCase() as UnidadeDose) } : null
 }
 
