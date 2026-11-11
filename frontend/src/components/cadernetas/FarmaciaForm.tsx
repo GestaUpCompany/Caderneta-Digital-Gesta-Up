@@ -258,7 +258,7 @@ export default function FarmaciaForm({ modo }: Props) {
   const motivoPendente = ehSaida && form.motivoSaida === 'Outro' && !motivoSaidaTexto
 
   const handleSalvar = async () => {
-    if (!selecionado || salvandoRef.current) return
+    if (!selecionado || volumePendente || salvandoRef.current) return
     salvandoRef.current = true
     setSalvando(true)
     setApiErrors([])
@@ -351,6 +351,9 @@ export default function FarmaciaForm({ modo }: Props) {
     navigate('/')
   }
 
+  // Entrada exige o volume do frasco (mL/mg) para calcular o custo por dose aplicada no animal
+  const volumePendente = !ehSaida && !!selecionado && !(Number(selecionado.conteudo_por_unidade) > 0 && !!selecionado.conteudo_unidade)
+
   const saldoAtual = Number(selecionado?.estoque_atual || 0)
   const saldoDepois = saldoApos(saldoAtual, quantidade, ehSaida)
   const custoTotal = parseQuantidade(form.custoUnitario) * quantidade
@@ -358,6 +361,7 @@ export default function FarmaciaForm({ modo }: Props) {
   const pendenciaTexto = (() => {
     if (!form.medicamento) return 'Falta escolher o medicamento ou vacina'
     if (!selecionado) return 'Escolha um medicamento da lista'
+    if (volumePendente) return 'Este medicamento não tem o volume do frasco cadastrado (ex.: 100 mL)'
     if (ehSaida) {
       if (!form.quantidade.trim()) return 'Falta informar a quantidade'
       if (quantidade <= 0) return 'Informe um número inteiro de frascos maior que zero'
@@ -645,13 +649,13 @@ export default function FarmaciaForm({ modo }: Props) {
           onSalvar={handleSalvar}
           onLimpar={limparRascunho}
           salvando={salvando}
-          disabled={!isValid || motivoPendente || (!ehSaida && !!pendenciaLotes(lotes))}
-          formValido={isValid && !motivoPendente && (ehSaida || !pendenciaLotes(lotes))}
+          disabled={!isValid || motivoPendente || volumePendente || (!ehSaida && !!pendenciaLotes(lotes))}
+          formValido={isValid && !motivoPendente && !volumePendente && (ehSaida || !pendenciaLotes(lotes))}
           pendenciaTexto={pendenciaTexto}
         />
       </CadernetaLayout>
 
-      <NovoMedicamentoModal isOpen={mostrarNovo} onClose={() => setMostrarNovo(false)} onConfirmar={handleAdicionarNovo} />
+      <NovoMedicamentoModal isOpen={mostrarNovo} onClose={() => setMostrarNovo(false)} onConfirmar={handleAdicionarNovo} exigeConteudo={!ehSaida} />
 
       <SuccessModal
         isOpen={showSuccessModal}
