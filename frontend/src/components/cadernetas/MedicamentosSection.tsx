@@ -261,6 +261,14 @@ export default function MedicamentosSection({
               options={medicamentosDisponiveis
                 .filter(m => m.tipo === tipoFiltro)
                 .map(m => m.nome_comercial)}
+              secondaryText={(nome: string) => {
+                const m = medicamentosDisponiveis.find(x => x.tipo === tipoFiltro && x.nome_comercial === nome)
+                return baixaEstoque && m?.controla_estoque
+                  ? `Saldo: ${formatarQuantidade(Number(m.estoque_atual || 0), 'frasco')}`
+                  : ''
+              }}
+              headerSecundario="Saldo"
+              headerOpcao="Medicamento"
               placeholder="Selecione um medicamento..."
               id="medicamento"
               name="medicamento"
