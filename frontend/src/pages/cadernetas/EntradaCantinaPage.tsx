@@ -26,6 +26,7 @@ interface ItemEntrada {
   classificacao: string
   unidade_medida: string
   quantidade: string
+  custoUnitario: string
   novoItem?: boolean
 }
 
@@ -54,6 +55,14 @@ const numeroDe = (valor: string | undefined) => {
 }
 const formatarQtd = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
 const rotuloUnidade = (un: string) => (un === 'Unidade' ? '' : ` ${un}`)
+const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+// Custo em reais: só dígitos e uma vírgula (mesmo padrão do FarmaciaForm)
+const sanitizarDecimal = (texto: string) => {
+  let value = texto.replace(/[^\d,]/g, '')
+  const primeiraVirgula = value.indexOf(',')
+  if (primeiraVirgula !== -1) value = value.slice(0, primeiraVirgula + 1) + value.slice(primeiraVirgula + 1).replace(/,/g, '')
+  return value
+}
 
 // Emoji pelo nome do item; sem correspondencia, avatar de iniciais (nunca repete o de outro item)
 function IconeItem({ nome }: { nome: string }) {
@@ -81,6 +90,8 @@ export default function EntradaCantinaPage() {
   // Itens cadastrados já vistos (de qualquer classificação), para montar o registro
   const [catalogo, setCatalogo] = useState<Record<string, ItemCatalogo>>({})
   const [quantidades, setQuantidades] = useState<Record<string, string>>({})
+  // Custo unitário (R$ por unidade do item) dos itens do catálogo
+  const [custos, setCustos] = useState<Record<string, string>>({})
   // Itens criados no PWA (uuid local); o sync cria no servidor antes de postar o registro
   const [itensNovos, setItensNovos] = useState<ItemEntrada[]>([])
   const [recarregar, setRecarregar] = useState(0)
@@ -90,6 +101,7 @@ export default function EntradaCantinaPage() {
   const [novoNome, setNovoNome] = useState('')
   const [novaUnidade, setNovaUnidade] = useState('')
   const [novaQuantidade, setNovaQuantidade] = useState('')
+  const [novoCusto, setNovoCusto] = useState('')
   const [novoErro, setNovoErro] = useState<string | null>(null)
   const { ouvindo, toggle: toggleVoz, erro: erroVoz } = useVoiceInput()
 
@@ -130,6 +142,8 @@ export default function EntradaCantinaPage() {
     setQuantidades((prev) => ({ ...prev, [item.id]: limpo }))
   }
 
+  const setCusto = (id: string, bruto: string) => setCustos((prev) => ({ ...prev, [id]: bruto }))
+
   const bump = (item: { id: string; unidade_medida: string }, delta: number) => {
     const atual = numeroDe(quantidades[item.id])
     const prox = Math.max(0, Math.round((atual + delta) * 1000) / 1000)
@@ -143,20 +157,23 @@ export default function EntradaCantinaPage() {
       .map(([id, q]) => {
         const c = catalogo[id]
         return c
-          ? { itemId: id, nome: c.nome, classificacao: c.classificacao, unidade_medida: c.unidade_medida, quantidade: q }
+          ? { itemId: id, nome: c.nome, classificacao: c.classificacao, unidade_medida: c.unidade_medida, quantidade: q, custoUnitario: custos[id] ?? '' }
           : null
       })
       .filter((i): i is ItemEntrada => i !== null)
     return [...cadastrados, ...itensNovos.filter((i) => numeroDe(i.quantidade) > 0)]
-  }, [quantidades, catalogo, itensNovos])
+  }, [quantidades, custos, catalogo, itensNovos])
 
   const horaRecebimento = useMemo(() => getCurrentTimeInTimezone(DEFAULT_FARM_TIMEZONE).slice(0, 5), [])
-  const formValido = !!data && itensDoRegistro.length > 0
+  // Custo obrigatório em cada item do registro (por unidade, > 0)
+  const custoTotalEntrada = itensDoRegistro.reduce((s, i) => s + numeroDe(i.quantidade) * numeroDe(i.custoUnitario), 0)
+  const formValido = !!data && itensDoRegistro.length > 0 && itensDoRegistro.every((i) => numeroDe(i.custoUnitario) > 0)
 
   const handleAdicionarNovo = () => {
     if (!novoNome.trim()) return setNovoErro('Informe o nome do item')
     if (!novaUnidade) return setNovoErro('Escolha a unidade de medida')
     if (numeroDe(novaQuantidade) <= 0) return setNovoErro('Informe a quantidade que chegou')
+    if (numeroDe(novoCusto) <= 0) return setNovoErro('Informe o custo unitário')
     setItensNovos((prev) => [
       ...prev,
       {
@@ -165,12 +182,14 @@ export default function EntradaCantinaPage() {
         classificacao: classificacaoAtiva,
         unidade_medida: novaUnidade,
         quantidade: novaQuantidade.replace(',', '.'),
+        custoUnitario: novoCusto.replace(',', '.'),
         novoItem: true,
       },
     ])
     setNovoNome('')
     setNovaUnidade('')
     setNovaQuantidade('')
+    setNovoCusto('')
     setNovoErro(null)
     setMostrarNovo(false)
   }
@@ -195,7 +214,12 @@ export default function EntradaCantinaPage() {
     const result = await salvarRegistro('entrada-cantina', {
       data,
       itens: itensStorage,
-      itensDetalhe: itensDoRegistro,
+      // custo_unitario e valor_total ficam dentro de itens_detalhe: o trigger do Painel usa o custo do item
+      itensDetalhe: itensDoRegistro.map((item) => ({
+        ...item,
+        custo_unitario: numeroDe(item.custoUnitario),
+        valor_total: Math.round(numeroDe(item.quantidade) * numeroDe(item.custoUnitario) * 100) / 100,
+      })),
       quemRecebeu: usuario || '',
       observacao,
     })
@@ -219,11 +243,13 @@ export default function EntradaCantinaPage() {
     setData(todayBR())
     setObservacao('')
     setQuantidades({})
+    setCustos({})
     setItensNovos([])
     setMostrarNovo(false)
     setNovoNome('')
     setNovaUnidade('')
     setNovaQuantidade('')
+    setNovoCusto('')
     setNovoErro(null)
     setErrors([])
     setRecarregar((n) => n + 1)
@@ -287,6 +313,26 @@ export default function EntradaCantinaPage() {
                       <p className="text-sm text-gray-500">
                         tem {Number(item.estoque_atual ?? 0).toLocaleString('pt-BR')} {unidade}
                       </p>
+                      {numeroDe(qtd) > 0 && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <label htmlFor={`custo-${item.id}`} className="text-xs font-bold uppercase text-gray-600">
+                            R$ por {unidade}
+                          </label>
+                          <input
+                            id={`custo-${item.id}`}
+                            type="text"
+                            inputMode="decimal"
+                            value={custos[item.id] ?? ''}
+                            placeholder="0,00"
+                            onChange={(e) => setCusto(item.id, sanitizarDecimal(e.target.value))}
+                            aria-label={`Custo unitário de ${item.nome}`}
+                            className="!min-h-0 h-9 w-24 rounded-lg border-2 border-gray-300 bg-white px-2 text-base font-bold text-gray-900 focus:outline-none"
+                          />
+                          {numeroDe(custos[item.id]) > 0 && (
+                            <span className="text-sm font-semibold text-gray-700">= {reais(numeroDe(qtd) * numeroDe(custos[item.id]))}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-stretch gap-1">
                       <button
@@ -406,6 +452,19 @@ export default function EntradaCantinaPage() {
                 className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-3 text-xl font-extrabold text-gray-900 focus:border-brand-900 focus:outline-none"
               />
             </div>
+            <div>
+              <label className="mb-2 block text-sm font-bold uppercase text-gray-700">
+                Custo unitário (R$){novaUnidade ? ` por ${novaUnidade}` : ''}
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={novoCusto}
+                placeholder="0,00"
+                onChange={(e) => setNovoCusto(sanitizarDecimal(e.target.value))}
+                className="w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-3 text-xl font-extrabold text-gray-900 focus:border-brand-900 focus:outline-none"
+              />
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -436,6 +495,7 @@ export default function EntradaCantinaPage() {
                 .map((i) => `${formatarQtd(numeroDe(i.quantidade))}${rotuloUnidade(i.unidade_medida)} ${i.nome.toLowerCase()}`)
                 .join(' · ')}
             </p>
+            <p className="text-sm font-bold text-gray-900">Total da entrada: {reais(custoTotalEntrada)}</p>
           </div>
         )}
       </CadernetaSection>
@@ -458,7 +518,7 @@ export default function EntradaCantinaPage() {
         salvando={salvando}
         disabled={!formValido}
         formValido={formValido}
-        pendenciaTexto="Informe a quantidade de pelo menos um item"
+        pendenciaTexto="Informe a quantidade e o custo unitário de pelo menos um item"
       />
 
       <SuccessModal
