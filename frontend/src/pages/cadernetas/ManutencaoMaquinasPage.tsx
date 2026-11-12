@@ -15,7 +15,8 @@ import FormFooter from '../../components/cadernetas/FormFooter'
 import { salvarRegistro } from '../../services/api'
 import { todayBR } from '../../utils/formatDate'
 import { RootState } from '../../store/store'
-import { getCachedCadastroData, getMaquinasVeiculosCached } from '../../services/cadastroCache'
+import { getCachedCadastroData, getMaquinasVeiculosCached, getImplementosCached, getPendenciasManutencaoCached } from '../../services/cadastroCache'
+import type { PendenciaManutencao } from '../../utils/pendenciasManutencao'
 import { getFuncionarios } from '../../services/supabaseService'
 import { scrollToFirstError } from '../../utils/scrollToError'
 import { useFormValidation } from '../../hooks/useFormValidation'
@@ -26,26 +27,45 @@ import { useVoiceInput } from '../../hooks/useVoiceInput'
 import { base64ToDataUrl } from '../../utils/photoCompress'
 import { iniciais, corAvatar } from '../../utils/avatar'
 
-// Checklist vira lista de problemas: clicar marca "o problema existe".
-// O payload mantem as chaves e o formato historicos: valor 'S' = condicao
-// adequada (padrao, nao marcado), 'N' = problema marcado.
+// Checklist de atividades obrigatorias: cada item exige resposta.
+// Chaves e formato historicos mantidos: valor 'S' = fez, 'N' = nao fez,
+// null = ainda nao respondido (bloqueia o salvar).
 const CHECKLIST_PROBLEMAS = [
-  { campo: 'abastecimentoRealizado', label: 'NÃO ABASTECEU', aviso: 'Não abasteceu: mostre e conte' },
-  { campo: 'lavagemRealizada', label: 'NÃO LAVOU', aviso: 'Não lavou: mostre e conte' },
-  { campo: 'vidrosPerfeitos', label: 'VIDROS COM PROBLEMA', aviso: 'Vidros com problema: mostre e conte' },
-  { campo: 'freiosBons', label: 'FREIOS COM PROBLEMA', aviso: 'Freios com problema: mostre e conte' },
-  { campo: 'bateriaBoa', label: 'BATERIA COM PROBLEMA', aviso: 'Bateria com problema: mostre e conte' },
-  { campo: 'conferiuEletrica', label: 'NÃO CONFERIU A ELÉTRICA', aviso: 'Elétrica não conferida: mostre e conte' },
-  { campo: 'maquinaEngraxada', label: 'NÃO ENGRAXOU', aviso: 'Não engraxou: mostre e conte' },
-  { campo: 'nivelAguaIdeal', label: 'NÍVEL DE ÁGUA FORA DO IDEAL', aviso: 'Nível de água fora do ideal: mostre e conte' },
-  { campo: 'conferiuNivelOleo', label: 'NÃO CONFERIU O ÓLEO', aviso: 'Óleo não conferido: mostre e conte' },
-  { campo: 'calibrouPneus', label: 'NÃO CALIBROU OS PNEUS', aviso: 'Pneus não calibrados: mostre e conte' },
-  { campo: 'limpouRadiador', label: 'NÃO LIMPOU O RADIADOR', aviso: 'Radiador não limpo: mostre e conte' },
-  { campo: 'tapetesBons', label: 'TAPETES COM PROBLEMA', aviso: 'Tapetes com problema: mostre e conte' },
-  { campo: 'assentoBom', label: 'ASSENTO COM PROBLEMA', aviso: 'Assento com problema: mostre e conte' },
+  { campo: 'abastecimentoRealizado', label: 'ABASTECEU?', aviso: 'Não abasteceu: conte o motivo' },
+  { campo: 'lavagemRealizada', label: 'LAVOU?', aviso: 'Não lavou: conte o motivo' },
+  { campo: 'vidrosPerfeitos', label: 'CONFERIU OS VIDROS?', aviso: 'Não conferiu os vidros: conte o motivo' },
+  { campo: 'freiosBons', label: 'CONFERIU OS FREIOS?', aviso: 'Não conferiu os freios: conte o motivo' },
+  { campo: 'bateriaBoa', label: 'CONFERIU A BATERIA?', aviso: 'Não conferiu a bateria: conte o motivo' },
+  { campo: 'conferiuEletrica', label: 'CONFERIU A ELÉTRICA?', aviso: 'Não conferiu a elétrica: conte o motivo' },
+  { campo: 'maquinaEngraxada', label: 'ENGRAXOU?', aviso: 'Não engraxou: conte o motivo' },
+  { campo: 'nivelAguaIdeal', label: 'CONFERIU O NÍVEL DE ÁGUA?', aviso: 'Não conferiu a água: conte o motivo' },
+  { campo: 'conferiuNivelOleo', label: 'CONFERIU O ÓLEO?', aviso: 'Não conferiu o óleo: conte o motivo' },
+  { campo: 'calibrouPneus', label: 'CALIBROU OS PNEUS?', aviso: 'Não calibrou os pneus: conte o motivo' },
+  { campo: 'limpouRadiador', label: 'LIMPOU O RADIADOR?', aviso: 'Não limpou o radiador: conte o motivo' },
+  { campo: 'tapetesBons', label: 'CONFERIU OS TAPETES?', aviso: 'Não conferiu os tapetes: conte o motivo' },
+  { campo: 'assentoBom', label: 'CONFERIU O ASSENTO?', aviso: 'Não conferiu o assento: conte o motivo' },
 ] as const
 
-type CampoChecklist = typeof CHECKLIST_PROBLEMAS[number]['campo']
+// Checklist proprio de implementos (lavagem e engraxamento compartilham as chaves)
+const CHECKLIST_IMPLEMENTO = [
+  { campo: 'lavagemRealizada', label: 'LAVOU?', aviso: 'Não lavou: conte o motivo' },
+  { campo: 'maquinaEngraxada', label: 'ENGRAXOU?', aviso: 'Não engraxou: conte o motivo' },
+  { campo: 'pneusRodadoBons', label: 'CONFERIU PNEUS/RODADO?', aviso: 'Não conferiu pneus/rodado: conte o motivo' },
+  { campo: 'pecasDesgasteBoas', label: 'CONFERIU AS PEÇAS DE DESGASTE (FACAS, DISCOS, DENTES)?', aviso: 'Não conferiu as peças de desgaste: conte o motivo' },
+  { campo: 'parafusosFixos', label: 'CONFERIU PARAFUSOS E PINOS?', aviso: 'Não conferiu parafusos e pinos: conte o motivo' },
+  { campo: 'mangueirasSemVazamento', label: 'CONFERIU MANGUEIRAS E VAZAMENTOS?', aviso: 'Não conferiu mangueiras/vazamentos: conte o motivo' },
+  { campo: 'engateBom', label: 'CONFERIU ENGATE/CABEÇALHO?', aviso: 'Não conferiu o engate/cabeçalho: conte o motivo' },
+  { campo: 'estruturaBoa', label: 'CONFERIU ESTRUTURA E SOLDAS?', aviso: 'Não conferiu estrutura/soldas: conte o motivo' },
+] as const
+
+type CampoChecklist =
+  | typeof CHECKLIST_PROBLEMAS[number]['campo']
+  | typeof CHECKLIST_IMPLEMENTO[number]['campo']
+
+type ItemDef = { campo: CampoChecklist; label: string; aviso: string }
+const TODOS_CAMPOS: CampoChecklist[] = Array.from(
+  new Set<CampoChecklist>([...CHECKLIST_PROBLEMAS, ...CHECKLIST_IMPLEMENTO].map((i) => i.campo))
+)
 
 interface ItemChecklist {
   valor: string | null
@@ -53,7 +73,18 @@ interface ItemChecklist {
   fotoBase64?: string
 }
 
+type TipoEquipamento = 'maquina' | 'implemento'
+type TipoManutencao = 'rotina' | 'preventiva' | 'corretiva'
+
+const TIPOS_MANUTENCAO: { tipo: TipoManutencao; label: string }[] = [
+  { tipo: 'rotina', label: 'Rotina' },
+  { tipo: 'preventiva', label: 'Preventiva' },
+  { tipo: 'corretiva', label: 'Corretiva' },
+]
+
 interface FormState {
+  tipoEquipamento?: TipoEquipamento
+  tipoManutencao?: TipoManutencao | ''
   data: string
   responsavelChecklist: string
   operadorMotorista: string
@@ -65,14 +96,16 @@ interface FormState {
 }
 
 const makeInitial = (): FormState => ({
+  tipoEquipamento: 'maquina',
+  tipoManutencao: '',
   data: todayBR(),
   responsavelChecklist: '',
   operadorMotorista: '',
   maquinaVeiculo: '',
   placa: '',
   odometro: '',
-  checklist: CHECKLIST_PROBLEMAS.reduce((acc, { campo }) => {
-    acc[campo] = { valor: 'S', observacao: '', fotoBase64: '' }
+  checklist: TODOS_CAMPOS.reduce((acc, campo) => {
+    acc[campo] = { valor: null, observacao: '', fotoBase64: '' }
     return acc
   }, {} as FormState['checklist']),
   observacao: '',
@@ -93,6 +126,9 @@ export default function ManutencaoMaquinasPage() {
   const [registroSalvo, setRegistroSalvo] = useState<any>(null)
   const [funcionariosDisponiveis, setFuncionariosDisponiveis] = useState<string[]>([])
   const [maquinasVeiculosDisponiveis, setMaquinasVeiculosDisponiveis] = useState<any[]>([])
+  const [implementosDisponiveis, setImplementosDisponiveis] = useState<string[]>([])
+  const [pendencias, setPendencias] = useState<PendenciaManutencao[]>([])
+  const [pendenciasVerificadas, setPendenciasVerificadas] = useState<boolean | null>(null)
   const [trocandoResponsavel, setTrocandoResponsavel] = useState(false)
   const [campoFotoAtual, setCampoFotoAtual] = useState<CampoChecklist | null>(null)
   const [alvoVozAtual, setAlvoVozAtual] = useState<AlvoVoz | null>(null)
@@ -137,18 +173,17 @@ export default function ManutencaoMaquinasPage() {
       },
     }))
 
-  const toggleProblema = (campo: CampoChecklist) =>
+  // Fez ('S') limpa motivo/foto; Nao fez ('N') abre motivo e foto
+  const responderItem = (campo: CampoChecklist, valor: 'S' | 'N') =>
     setForm((p) => {
       const atual = p.checklist[campo]
-      const marcado = atual?.valor === 'N'
       return {
         ...p,
         checklist: {
           ...p.checklist,
-          // Desmarcar zera foto e observacao (item volta a "ok")
-          [campo]: marcado
-            ? { valor: 'S', observacao: '', fotoBase64: '' }
-            : { ...atual, valor: 'N', observacao: atual?.observacao || '' },
+          [campo]: valor === 'S'
+            ? { valor, observacao: '', fotoBase64: '' }
+            : { ...atual, valor, observacao: atual?.observacao || '' },
         },
       }
     })
@@ -188,14 +223,32 @@ export default function ManutencaoMaquinasPage() {
 
   const getError = (field: string) => errors.find((e) => e.field === field)?.message
 
-  // Itens do checklist nao sao obrigatorios: "nao marcado" ja significa
-  // "condicao adequada".
+  const ehImplemento = form.tipoEquipamento === 'implemento'
+  const checklistItens: readonly ItemDef[] = ehImplemento ? CHECKLIST_IMPLEMENTO : CHECKLIST_PROBLEMAS
   const validationRules: any = {
     data: { required: true },
     responsavelChecklist: { required: true },
     operadorMotorista: { required: true },
     maquinaVeiculo: { required: true },
-    odometro: { required: true },
+    // Implemento nao tem odometro/horimetro
+    ...(ehImplemento ? {} : { odometro: { required: true } }),
+    tipoManutencao: { required: true },
+    observacao: { required: true },
+    // Regra virtual: todos os itens respondidos e, no "nao fez", o motivo informado
+    _checklist: {
+      custom: (_v: unknown, f: FormState) => {
+        const itens = checklistItens.map(({ campo }) => f.checklist[campo])
+        if (!itens.every((i) => i?.valor === 'S' || i?.valor === 'N')) return 'Responda todos os itens do checklist'
+        if (itens.some((i) => i?.valor === 'N' && !i.observacao?.trim())) return 'Informe o motivo dos itens "Não fez"'
+        return null
+      },
+    },
+  }
+
+  const trocarTipoEquipamento = (tipo: TipoEquipamento) => {
+    if (tipo === form.tipoEquipamento) return
+    setForm((prev) => ({ ...prev, tipoEquipamento: tipo, maquinaVeiculo: '', placa: '', odometro: '', checklist: makeInitial().checklist }))
+    limparFoto()
   }
 
   const { isValid } = useFormValidation(form, validationRules)
@@ -204,15 +257,15 @@ export default function ManutencaoMaquinasPage() {
     setSalvando(true)
     setErrors([])
 
-    // Rascunhos antigos podem ter valor '' (nao respondido): conta como adequado
+    // Motivo e foto so existem quando o item foi marcado como "nao fez"
     const checklist = Object.fromEntries(
-      CHECKLIST_PROBLEMAS.map(({ campo }) => {
+      checklistItens.map(({ campo }) => {
         const item = form.checklist[campo]
-        const marcado = item?.valor === 'N'
+        const naoFez = item?.valor === 'N'
         return [campo, {
-          valor: marcado ? 'N' : 'S',
-          observacao: marcado ? item?.observacao || '' : '',
-          fotoBase64: marcado ? item?.fotoBase64 || undefined : undefined,
+          valor: item?.valor ?? null,
+          observacao: naoFez ? item?.observacao || '' : '',
+          fotoBase64: naoFez ? item?.fotoBase64 || undefined : undefined,
         }]
       })
     )
@@ -222,11 +275,13 @@ export default function ManutencaoMaquinasPage() {
       responsavelChecklist: form.responsavelChecklist,
       operadorMotorista: form.operadorMotorista,
       maquinaVeiculo: form.maquinaVeiculo,
-      placa: form.placa,
-      odometro: normalizarNumeroString(form.odometro),
+      tipoEquipamento: ehImplemento ? 'implemento' : 'maquina',
+      tipoManutencao: form.tipoManutencao || '',
+      placa: ehImplemento ? '' : form.placa,
+      odometro: ehImplemento ? '' : normalizarNumeroString(form.odometro),
       checklist,
       observacao: form.observacao || '',
-      fotoBase64: fotoBase64 || null,
+      fotoBase64: ehImplemento ? null : fotoBase64 || null,
     })
 
     setSalvando(false)
@@ -297,9 +352,44 @@ export default function ManutencaoMaquinasPage() {
     loadData()
   }, [fazendaId, refreshTick])
 
+  // Carregar implementos (cache lazy para offline)
+  useEffect(() => {
+    const loadImplementos = async () => {
+      if (!fazendaId) return
+      try {
+        const lista = await getImplementosCached(fazendaId)
+        setImplementosDisponiveis(
+          (lista || []).filter((i: any) => i.ativo !== false).map((i: any) => i.nome)
+        )
+      } catch (error) {
+        console.error('Erro ao carregar implementos:', error)
+      }
+    }
+    loadImplementos()
+  }, [fazendaId, refreshTick])
+
+  // Pendencias: itens "nao fez" na ultima manutencao deste equipamento
+  useEffect(() => {
+    setPendencias([])
+    setPendenciasVerificadas(null)
+    if (!form.maquinaVeiculo || !fazendaId) return
+    let cancelado = false
+    getPendenciasManutencaoCached(fazendaId, form.maquinaVeiculo)
+      .then(({ pendencias: abertas, verificado }) => {
+        if (cancelado) return
+        setPendencias(abertas)
+        setPendenciasVerificadas(verificado)
+      })
+      .catch(() => {
+        if (!cancelado) setPendenciasVerificadas(false)
+      })
+    return () => { cancelado = true }
+  }, [form.maquinaVeiculo, fazendaId])
+
   // Buscar detalhes da máquina/veículo quando selecionada
   useEffect(() => {
     async function carregarDetalhesMaquinaVeiculo() {
+      if (ehImplemento) return
       if (!form.maquinaVeiculo || !fazendaId) {
         setForm(prev => ({ ...prev, placa: '' }))
         return
@@ -322,10 +412,13 @@ export default function ManutencaoMaquinasPage() {
       }
     }
     carregarDetalhesMaquinaVeiculo()
-  }, [form.maquinaVeiculo, fazendaId])
+  }, [form.maquinaVeiculo, fazendaId, ehImplemento])
 
   const maquinaSelecionada = maquinasVeiculosDisponiveis.find((m: any) => m.nome === form.maquinaVeiculo)
-  const problemasMarcados = CHECKLIST_PROBLEMAS.filter(({ campo }) => form.checklist[campo]?.valor === 'N').length
+  const respondidos = checklistItens.filter(({ campo }) => {
+    const v = form.checklist[campo]?.valor
+    return v === 'S' || v === 'N'
+  }).length
 
   const botaoFalar = (alvo: AlvoVoz, className = '') => (
     <button
@@ -358,28 +451,86 @@ export default function ManutencaoMaquinasPage() {
 
         {/* Seção 1: Dados */}
         <CadernetaSection numero={1} titulo="Dados">
-          {maquinasVeiculosDisponiveis.length > 0 ? (
-            <SearchableModal
-              label={<span>MÁQUINA/VEÍCULO <span className="text-red-500">*</span></span>}
-              value={form.maquinaVeiculo}
-              onChange={set('maquinaVeiculo')}
-              error={getError('maquinaVeiculo')}
-              options={maquinasVeiculosDisponiveis.map(m => m.nome)}
-              placeholder="Buscar máquina/veículo..."
-              id="maquinaVeiculo"
-              name="maquinaVeiculo"
-            />
-          ) : (
-            <Input
-              label={<span>MÁQUINA/VEÍCULO <span className="text-red-500">*</span></span>}
-              placeholder="Carregando..."
-              value={form.maquinaVeiculo}
-              onChange={setInput('maquinaVeiculo')}
-              error={getError('maquinaVeiculo')}
-              disabled
-            />
-          )}
-          {form.maquinaVeiculo && (
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { tipo: 'maquina', label: 'Máquina/Veículo' },
+              { tipo: 'implemento', label: 'Implemento' },
+            ] as const).map(({ tipo, label }) => {
+              const ativo = (form.tipoEquipamento || 'maquina') === tipo
+              return (
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={() => trocarTipoEquipamento(tipo)}
+                  aria-pressed={ativo}
+                  className={`flex min-h-[48px] items-center justify-center rounded-xl border-2 px-3 py-2 text-sm font-extrabold uppercase transition-all active:scale-95 ${
+                    ativo
+                      ? 'border-brand-900 bg-brand-900 text-white'
+                      : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div data-field="tipoManutencao">
+            <label className="mb-2 block text-[15px] font-bold uppercase text-gray-900">
+              Tipo de manutenção <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {TIPOS_MANUTENCAO.map(({ tipo, label }) => {
+                const ativo = form.tipoManutencao === tipo
+                return (
+                  <button
+                    key={tipo}
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, tipoManutencao: tipo }))}
+                    aria-pressed={ativo}
+                    className={`flex min-h-[48px] items-center justify-center rounded-xl border-2 px-2 py-2 text-sm font-extrabold uppercase transition-all active:scale-95 ${
+                      ativo
+                        ? 'border-brand-900 bg-brand-900 text-white'
+                        : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            {getError('tipoManutencao') && (
+              <p className="mt-2 text-base font-semibold text-red-700">{getError('tipoManutencao')}</p>
+            )}
+          </div>
+
+          {(() => {
+            const opcoes = ehImplemento ? implementosDisponiveis : maquinasVeiculosDisponiveis.map(m => m.nome)
+            const rotulo = ehImplemento ? 'IMPLEMENTO' : 'MÁQUINA/VEÍCULO'
+            return opcoes.length > 0 ? (
+              <SearchableModal
+                key={ehImplemento ? 'implemento' : 'maquina'}
+                label={<span>{rotulo} <span className="text-red-500">*</span></span>}
+                value={form.maquinaVeiculo}
+                onChange={set('maquinaVeiculo')}
+                error={getError('maquinaVeiculo')}
+                options={opcoes}
+                placeholder={ehImplemento ? 'Buscar implemento...' : 'Buscar máquina/veículo...'}
+                id="maquinaVeiculo"
+                name="maquinaVeiculo"
+              />
+            ) : (
+              <Input
+                label={<span>{rotulo} <span className="text-red-500">*</span></span>}
+                placeholder="Carregando..."
+                value={form.maquinaVeiculo}
+                onChange={setInput('maquinaVeiculo')}
+                error={getError('maquinaVeiculo')}
+                disabled
+              />
+            )
+          })()}
+          {!ehImplemento && form.maquinaVeiculo && (
             <InfoCard
               icon={Truck}
               title={form.maquinaVeiculo}
@@ -479,7 +630,7 @@ export default function ManutencaoMaquinasPage() {
             />
           )}
 
-          <div>
+          {!ehImplemento && <div>
             <label className="mb-2 block text-[15px] font-bold uppercase text-gray-900">
               Odômetro/Horímetro <span className="text-red-500">*</span>
             </label>
@@ -514,33 +665,68 @@ export default function ManutencaoMaquinasPage() {
               )}
             </div>
             {fotoErro && <InfoStrip tone="danger" className="mt-2">{fotoErro}</InfoStrip>}
-          </div>
+          </div>}
         </CadernetaSection>
 
         {/* Seção 2: Checklist */}
         <CadernetaSection numero={2} titulo="Checklist">
           <p className="-mt-2 text-sm text-gray-500">
-            Toque em um item se encontrar o problema. Não tocar significa que está tudo certo.
+            Todos os itens são obrigatórios: toque em "Fez" ou "Não fez" em cada um.
           </p>
-          {CHECKLIST_PROBLEMAS.map(({ campo, label, aviso }) => {
+          {form.maquinaVeiculo && pendenciasVerificadas === false && (
+            <InfoStrip tone="neutral" icon="📴">Sem sinal: pendências anteriores só do que está neste aparelho</InfoStrip>
+          )}
+          {pendencias.some((p) => checklistItens.some((i) => i.campo === p.campo)) && (
+            <InfoStrip tone="danger" icon="⚠️">
+              Itens que ficaram sem fazer na última manutenção de {form.maquinaVeiculo}:{' '}
+              {pendencias
+                .filter((p) => checklistItens.some((i) => i.campo === p.campo))
+                .map((p) => checklistItens.find((i) => i.campo === p.campo)!.label.replace('?', ''))
+                .join(', ')}
+            </InfoStrip>
+          )}
+          {checklistItens.map(({ campo, label, aviso }) => {
             const item = form.checklist[campo]
+            const pendencia = pendencias.find((p) => p.campo === campo)
             const marcado = item?.valor === 'N'
             const foto = item?.fotoBase64 || ''
             return (
-              <div key={campo} className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleProblema(campo)}
-                  data-field={campo}
-                  className={`flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-[0.99] ${
-                    marcado
-                      ? 'border-red-500 bg-red-50 text-red-800'
-                      : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
-                  }`}
-                >
-                  <span className="text-sm font-bold leading-tight">{label}</span>
-                  {marcado && <span className="text-lg leading-none">⚠️</span>}
-                </button>
+              <div key={campo} data-field={campo} className="flex flex-col gap-2">
+                <div className="rounded-xl border-2 border-gray-300 bg-white p-3">
+                  <p className="mb-2 text-sm font-bold leading-tight text-gray-900">{label}</p>
+                  {pendencia && (
+                    <p className="mb-2 text-xs font-semibold text-red-700">
+                      Pendente desde {new Date(pendencia.desde).toLocaleDateString('pt-BR')}
+                      {pendencia.motivo ? ` — ${pendencia.motivo}` : ''}
+                    </p>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => responderItem(campo, 'S')}
+                      aria-pressed={item?.valor === 'S'}
+                      className={`flex min-h-[48px] items-center justify-center rounded-xl border-2 text-sm font-extrabold uppercase transition-all active:scale-95 ${
+                        item?.valor === 'S'
+                          ? 'border-green-600 bg-green-600 text-white'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      ✅ Fez
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => responderItem(campo, 'N')}
+                      aria-pressed={marcado}
+                      className={`flex min-h-[48px] items-center justify-center rounded-xl border-2 text-sm font-extrabold uppercase transition-all active:scale-95 ${
+                        marcado
+                          ? 'border-red-600 bg-red-600 text-white'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      ❌ Não fez
+                    </button>
+                  </div>
+                </div>
 
                 {marcado && (
                   <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
@@ -587,7 +773,7 @@ export default function ManutencaoMaquinasPage() {
                     )}
 
                     <Input
-                      placeholder="Adicionar observação (opcional)"
+                      placeholder="Motivo de não ter feito (obrigatório)"
                       value={item?.observacao || ''}
                       onChange={(e) => atualizarItem(campo, { observacao: e.target.value })}
                     />
@@ -596,16 +782,17 @@ export default function ManutencaoMaquinasPage() {
               </div>
             )
           })}
-          {problemasMarcados === 0 && (
-            <InfoStrip tone="success" icon="✅">Nenhum problema marcado</InfoStrip>
-          )}
+          <InfoStrip tone={respondidos === checklistItens.length ? 'success' : 'neutral'} icon={respondidos === checklistItens.length ? '✅' : '📋'}>
+            {respondidos} de {checklistItens.length} itens respondidos
+          </InfoStrip>
         </CadernetaSection>
 
-        {/* Seção 3: Observação */}
-        <CadernetaSection numero={3} titulo="Observação">
-          <div className="grid grid-cols-[1fr_auto] items-start gap-2">
+        {/* Seção 3: Detalhamento das atividades */}
+        <CadernetaSection numero={3} titulo="Atividades executadas">
+          <div className="grid grid-cols-[1fr_auto] items-end gap-2" data-field="observacao">
             <Input
-              placeholder="Observações adicionais (opcional)"
+              label={<span>DETALHAMENTO DAS ATIVIDADES EXECUTADAS <span className="text-red-500">*</span></span>}
+              placeholder="Descreva o que foi feito na manutenção"
               value={form.observacao}
               onChange={setInput('observacao')}
               error={getError('observacao')}

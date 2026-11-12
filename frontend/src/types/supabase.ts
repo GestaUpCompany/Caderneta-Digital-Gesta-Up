@@ -8364,6 +8364,8 @@ export type Database = {
           placa: string | null
           responsavel_checklist: string | null
           sync_status: string | null
+          tipo_equipamento: string
+          tipo_manutencao: string | null
           updated_at: string | null
           veiculo_trator: string | null
           version: number | null
@@ -8385,6 +8387,8 @@ export type Database = {
           placa?: string | null
           responsavel_checklist?: string | null
           sync_status?: string | null
+          tipo_equipamento?: string
+          tipo_manutencao?: string | null
           updated_at?: string | null
           veiculo_trator?: string | null
           version?: number | null
@@ -8406,6 +8410,8 @@ export type Database = {
           placa?: string | null
           responsavel_checklist?: string | null
           sync_status?: string | null
+          tipo_equipamento?: string
+          tipo_manutencao?: string | null
           updated_at?: string | null
           veiculo_trator?: string | null
           version?: number | null
