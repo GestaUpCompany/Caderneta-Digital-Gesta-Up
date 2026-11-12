@@ -634,30 +634,32 @@ export default function ManutencaoMaquinasPage() {
             <label className="mb-2 block text-[15px] font-bold uppercase text-gray-900">
               Odômetro/Horímetro <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-2" data-field="odometro">
-              <NumericInput
-                placeholder="Informe a quilometragem/horímetro"
-                value={form.odometro}
-                onChange={(v) => setForm((prev) => ({ ...prev, odometro: v }))}
-                error={getError('odometro')}
-                decimalPlaces={2}
-              />
+            <div className="flex flex-col gap-2" data-field="odometro">
+              <div className="w-full">
+                <NumericInput
+                  placeholder="Informe a quilometragem/horímetro"
+                  value={form.odometro}
+                  onChange={(v) => setForm((prev) => ({ ...prev, odometro: v }))}
+                  error={getError('odometro')}
+                  decimalPlaces={2}
+                />
+              </div>
               {fotoBase64 ? (
                 <button
                   type="button"
                   onClick={limparFoto}
                   aria-label="Remover foto do painel"
-                  className="relative !min-h-0 h-14 w-14 overflow-hidden rounded-xl border border-gray-300 active:scale-95"
+                  className="relative !min-h-0 h-40 w-full overflow-hidden rounded-xl border border-gray-300 active:scale-95"
                 >
                   <img src={base64ToDataUrl(fotoBase64)} alt="Foto do painel" className="h-full w-full object-cover" />
-                  <span className="absolute inset-x-0 bottom-0 bg-black/60 text-[10px] font-bold text-white">REMOVER</span>
+                  <span className="absolute inset-x-0 bottom-0 bg-black/60 py-1 text-[11px] font-bold text-white">REMOVER FOTO</span>
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => capturarFoto()}
                   disabled={capturandoFoto}
-                  className="flex !min-h-0 h-14 items-center justify-center gap-1.5 rounded-xl bg-brand-900 px-3 text-xs font-extrabold uppercase tracking-wide text-white hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
+                  className="flex !min-h-0 h-14 w-full items-center justify-center gap-1.5 rounded-xl bg-brand-900 px-3 text-xs font-extrabold uppercase tracking-wide text-white hover:bg-brand-800 active:scale-[0.99] disabled:opacity-60"
                 >
                   <span className="text-lg leading-none">📷</span>
                   {capturandoFoto ? 'Capturando...' : 'Foto do painel'}
