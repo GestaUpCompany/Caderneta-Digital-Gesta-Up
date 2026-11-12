@@ -674,6 +674,8 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         responsavel_checklist: registro.responsavelChecklist || null,
         operador_motorista: registro.operadorMotorista || null,
         veiculo_trator: registro.maquinaVeiculo || null,
+        tipo_equipamento: registro.tipoEquipamento === 'implemento' ? 'implemento' : 'maquina',
+        tipo_manutencao: registro.tipoManutencao || null,
         placa: registro.placa || null,
         odometro_horimetro: registro.odometro ? normalizarNumeroString(String(registro.odometro)) : null,
         checklist: registro.checklist || null,

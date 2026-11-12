@@ -16,6 +16,7 @@ import { INICIO_FRASCOS_INTEIROS, type HistoricoDoses } from '../utils/doseMedic
 import { getDateTimePartsInTimezone, getCurrentDateTimeInTimezone, DEFAULT_FARM_TIMEZONE, brWithTimeToIso, addDaysISO } from '../utils/formatDate'
 import { diaDaFazendaISO, type ConsumoConfinamentoDiaLinha } from '../utils/consumoServidor'
 import { calcularPendenciasBebedouro, ResultadoPendencias, RegistroChecklistBebedouro } from '../utils/pendenciasBebedouro'
+import { calcularPendenciasManutencao, PendenciaManutencao, RegistroChecklistManutencao } from '../utils/pendenciasManutencao'
 import { calcularPendenciasRodeio, ResultadoPendenciasRodeio, RegistroDiagnosticoRodeio } from '../utils/pendenciasRodeio'
 import { calcularPendencias5S, ResultadoPendencias5S, RegistroAuditoria5SPendencia } from '../utils/pendencias5s'
 import type { IdentificadorEmUso } from '../utils/identificadores'
@@ -3158,6 +3159,48 @@ export async function getPendenciasBebedouroCached(
 }
 
 /**
+ * Pendências da manutenção de um equipamento (itens "não fez" ainda não feitos). Mesma estratégia de
+ * getPendenciasBebedouroCached: histórico do servidor (rede ou cache) mesclado com os registros locais
+ * ainda não sincronizados. `verificado` = false quando o histórico do servidor não foi lido.
+ */
+export async function getPendenciasManutencaoCached(
+  fazendaId: string,
+  equipamento: string
+): Promise<{ pendencias: PendenciaManutencao[]; verificado: boolean }> {
+  const key = buildKey('registros-checklist-manutencao', fazendaId, equipamento)
+  const doCache = async () => getCachedQuery(key) ?? (await getCachedQueryFromIDB<RegistroChecklistManutencao[]>(key)) ?? null
+
+  let servidor: RegistroChecklistManutencao[] | null = null
+  if (!navigator.onLine || redeInstavelRecentemente()) {
+    servidor = (await doCache()) as RegistroChecklistManutencao[] | null
+  } else {
+    try {
+      const linhas = await withTimeout(supabaseService.getRegistrosChecklistManutencao(fazendaId, equipamento), 3000)
+      servidor = linhas.map((l) => ({ data: l.data, localId: l.local_id, checklist: l.checklist }))
+      setCachedQuery(key, servidor)
+    } catch {
+      servidor = (await doCache()) as RegistroChecklistManutencao[] | null
+    }
+  }
+
+  let locais: RegistroChecklistManutencao[] = []
+  try {
+    const todos = await getAllRegistros('manutencao-maquinas')
+    locais = todos
+      .filter((r: any) => r.fazendaId === fazendaId && r.maquinaVeiculo === equipamento && !r.deletedAt)
+      .map((r: any) => ({ data: brWithTimeToIso(r.data as string) ?? '', localId: r.id as string, checklist: (r.checklist as Record<string, any>) ?? null }))
+      .filter((r) => r.data)
+  } catch (error) {
+    console.warn('[CadastroCache] Registros locais de manutenção indisponíveis para as pendências:', error)
+  }
+
+  return {
+    pendencias: calcularPendenciasManutencao([...(servidor ?? []), ...locais]),
+    verificado: servidor !== null,
+  }
+}
+
+/**
  * Pendências do checklist do Rodeio de um lote (itens persistentes marcados como problema e ainda não resolvidos).
  * Mesma estratégia de getPendenciasBebedouroCached: histórico do servidor (rede ou cache) mesclado com os
  * rodeios locais ainda não sincronizados. `verificado` = false quando o histórico do servidor não foi lido.
@@ -3765,6 +3808,12 @@ export async function warmAllCadastroCache(
       await Promise.allSettled(bebedouros.map((b: any) => getPendenciasBebedouroCached(fazendaId, b.nome)))
     } },
     { label: 'Histórico de doses (farmácia)', fn: () => getHistoricoDosesCached(fazendaId) },
+    { label: 'Pendências de manutenção', fn: async () => {
+      const maquinas = (await getMaquinasVeiculosCached(fazendaId)) || []
+      const implementos = (await getImplementosCached(fazendaId)) || []
+      const nomes = [...maquinas, ...implementos].map((e: any) => e.nome).filter(Boolean)
+      await Promise.allSettled(nomes.map((nome: string) => getPendenciasManutencaoCached(fazendaId, nome)))
+    } },
     { label: 'Pendências de rodeio', fn: async () => {
       // Reaproveita a lista já baixada; só refaz a consulta se ela veio vazia
       const lotesRodeio = lotes.length > 0 ? lotes : ((await supabaseService.getLotes(fazendaId)) || [])

@@ -2220,44 +2220,61 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
     // Seção: Dados Principais
     texto += `RESPONSÁVEL CHECKLIST: *${registro.responsavelChecklist || '—'}*\n`
     texto += `OPERADOR/MOTORISTA: *${registro.operadorMotorista || '—'}*\n`
-    texto += `MÁQUINA/VEÍCULO: *${registro.maquinaVeiculo || '—'}*\n`
+    const ehImplemento = (registro as any).tipoEquipamento === 'implemento'
+    const tiposManutencao: Record<string, string> = { rotina: 'Rotina', preventiva: 'Preventiva', corretiva: 'Corretiva' }
+    if ((registro as any).tipoManutencao) texto += `TIPO DE MANUTENÇÃO: *${tiposManutencao[(registro as any).tipoManutencao] || (registro as any).tipoManutencao}*
+`
+    texto += `${ehImplemento ? 'IMPLEMENTO' : 'MÁQUINA/VEÍCULO'}: *${registro.maquinaVeiculo || '—'}*\n`
     if (registro.placa && registro.placa !== '') {
       texto += `PLACA: *${registro.placa}*\n`
     }
-    texto += `ODÔMETRO/HORÍMETRO: *${formatarNumeroBR(registro.odometro, '—')}*\n\n`
+    if (!ehImplemento) {
+      texto += `ODÔMETRO/HORÍMETRO: *${formatarNumeroBR(registro.odometro, '—')}*\n`
+    }
+    texto += `\n`
 
-    // Seção: Checklist (só os problemas marcados, valor 'N')
-    const checklistProblemas = [
-      { campo: 'abastecimentoRealizado', label: 'NÃO ABASTECEU' },
-      { campo: 'lavagemRealizada', label: 'NÃO LAVOU' },
-      { campo: 'vidrosPerfeitos', label: 'VIDROS COM PROBLEMA' },
-      { campo: 'freiosBons', label: 'FREIOS COM PROBLEMA' },
-      { campo: 'bateriaBoa', label: 'BATERIA COM PROBLEMA' },
-      { campo: 'conferiuEletrica', label: 'NÃO CONFERIU A ELÉTRICA' },
-      { campo: 'maquinaEngraxada', label: 'NÃO ENGRAXOU' },
-      { campo: 'nivelAguaIdeal', label: 'NÍVEL DE ÁGUA FORA DO IDEAL' },
-      { campo: 'conferiuNivelOleo', label: 'NÃO CONFERIU O ÓLEO' },
-      { campo: 'calibrouPneus', label: 'NÃO CALIBROU OS PNEUS' },
-      { campo: 'limpouRadiador', label: 'NÃO LIMPOU O RADIADOR' },
-      { campo: 'tapetesBons', label: 'TAPETES COM PROBLEMA' },
-      { campo: 'assentoBom', label: 'ASSENTO COM PROBLEMA' },
+    // Seção: Checklist (cada item: S = fez, N = não fez)
+    const checklistItens = [
+      { campo: 'abastecimentoRealizado', label: 'ABASTECEU' },
+      { campo: 'lavagemRealizada', label: 'LAVOU' },
+      { campo: 'vidrosPerfeitos', label: 'CONFERIU OS VIDROS' },
+      { campo: 'freiosBons', label: 'CONFERIU OS FREIOS' },
+      { campo: 'bateriaBoa', label: 'CONFERIU A BATERIA' },
+      { campo: 'conferiuEletrica', label: 'CONFERIU A ELÉTRICA' },
+      { campo: 'maquinaEngraxada', label: 'ENGRAXOU' },
+      { campo: 'nivelAguaIdeal', label: 'CONFERIU O NÍVEL DE ÁGUA' },
+      { campo: 'conferiuNivelOleo', label: 'CONFERIU O ÓLEO' },
+      { campo: 'calibrouPneus', label: 'CALIBROU OS PNEUS' },
+      { campo: 'limpouRadiador', label: 'LIMPOU O RADIADOR' },
+      { campo: 'tapetesBons', label: 'CONFERIU OS TAPETES' },
+      { campo: 'assentoBom', label: 'CONFERIU O ASSENTO' },
+      { campo: 'pneusRodadoBons', label: 'CONFERIU PNEUS/RODADO' },
+      { campo: 'pecasDesgasteBoas', label: 'CONFERIU AS PEÇAS DE DESGASTE' },
+      { campo: 'parafusosFixos', label: 'CONFERIU PARAFUSOS E PINOS' },
+      { campo: 'mangueirasSemVazamento', label: 'CONFERIU MANGUEIRAS E VAZAMENTOS' },
+      { campo: 'engateBom', label: 'CONFERIU ENGATE/CABEÇALHO' },
+      { campo: 'estruturaBoa', label: 'CONFERIU ESTRUTURA E SOLDAS' },
     ]
 
-    const problemas = checklistProblemas.filter(({ campo }) => (registro.checklist as any)?.[campo]?.valor === 'N')
-    texto += `CHECKLIST\n`
-    if (problemas.length === 0) {
-      texto += `Nenhum problema encontrado ✅\n`
-    } else {
-      problemas.forEach(({ campo, label }) => {
-        const item = (registro.checklist as any)?.[campo]
-        texto += `${label} ⚠️\n`
-        if (item?.observacao) texto += `   OBSERVAÇÃO: *${item.observacao}*\n`
-        if (item?.foto_url || item?.fotoBase64) texto += `   FOTO: *anexada*\n`
-      })
-    }
+    texto += `CHECKLIST
+`
+    checklistItens.forEach(({ campo, label }) => {
+      const item = (registro.checklist as any)?.[campo]
+      if (item?.valor !== 'S' && item?.valor !== 'N') return
+      texto += `${label}: ${item.valor === 'S' ? 'Sim ✅' : 'Não ❌'}
+`
+      if (item.valor === 'N') {
+        if (item.observacao) texto += `   MOTIVO: *${item.observacao}*
+`
+        if (item.foto_url || item.fotoBase64) texto += `   FOTO: *anexada*
+`
+      }
+    })
 
     if (registro.observacao && registro.observacao !== '') {
-      texto += `\nOBSERVAÇÃO: *${registro.observacao}*\n`
+      texto += `
+ATIVIDADES EXECUTADAS: *${registro.observacao}*
+`
     }
   } else if (caderneta === 'problemas') {
     // Seção: Localização

@@ -2176,6 +2176,29 @@ export async function getRegistrosChecklistBebedouro(
 }
 
 /**
+ * Manutenções recentes de um equipamento (máquina ou implemento, identificado pelo nome em veiculo_trator),
+ * só com o que as pendências do checklist precisam.
+ */
+export async function getRegistrosChecklistManutencao(
+  fazendaId: string,
+  equipamento: string,
+  limite = 30
+): Promise<{ data: string; local_id: string | null; checklist: Record<string, any> | null }[]> {
+  const client = await getSupabaseClientWithRefresh() as any
+  const { data, error } = await client
+    .from('registros_manutencao_maquinas')
+    .select('data, local_id, checklist')
+    .eq('fazenda_id', fazendaId)
+    .eq('veiculo_trator', equipamento)
+    .is('deleted_at', null)
+    .order('data', { ascending: false })
+    .limit(limite)
+
+  if (error) throw error
+  return data ?? []
+}
+
+/**
  * Rodeios recentes de um lote, só com o que as pendências do checklist precisam.
  */
 export async function getRegistrosDiagnosticoRodeio(

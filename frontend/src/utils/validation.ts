@@ -869,28 +869,45 @@ export function validateManutencaoMaquinas(data: Record<string, unknown>): Valid
     errors.push({ field: 'responsavelChecklist', message: 'Responsável checklist é obrigatório' })
   if (!isNonEmptyString(data.maquinaVeiculo))
     errors.push({ field: 'maquinaVeiculo', message: 'Máquina/veículo é obrigatório' })
+  if (!isNonEmptyString(data.observacao))
+    errors.push({ field: 'observacao', message: 'Descreva as atividades executadas' })
+  if (!['rotina', 'preventiva', 'corretiva'].includes(data.tipoManutencao as string))
+    errors.push({ field: 'tipoManutencao', message: 'Selecione o tipo da manutenção' })
 
-  const checklistPerguntas = [
-    'abastecimentoRealizado',
-    'lavagemRealizada',
-    'vidrosPerfeitos',
-    'freiosBons',
-    'bateriaBoa',
-    'conferiuEletrica',
-    'maquinaEngraxada',
-    'nivelAguaIdeal',
-    'conferiuNivelOleo',
-    'calibrouPneus',
-    'limpouRadiador',
-    'tapetesBons',
-    'assentoBom',
-  ]
+  const checklistPerguntas = data.tipoEquipamento === 'implemento'
+    ? [
+        'lavagemRealizada',
+        'maquinaEngraxada',
+        'pneusRodadoBons',
+        'pecasDesgasteBoas',
+        'parafusosFixos',
+        'mangueirasSemVazamento',
+        'engateBom',
+        'estruturaBoa',
+      ]
+    : [
+        'abastecimentoRealizado',
+        'lavagemRealizada',
+        'vidrosPerfeitos',
+        'freiosBons',
+        'bateriaBoa',
+        'conferiuEletrica',
+        'maquinaEngraxada',
+        'nivelAguaIdeal',
+        'conferiuNivelOleo',
+        'calibrouPneus',
+        'limpouRadiador',
+        'tapetesBons',
+        'assentoBom',
+      ]
 
   const checklist = data.checklist as Record<string, { valor: string | null; observacao: string }> | undefined
   checklistPerguntas.forEach(campo => {
     const valor = checklist?.[campo]?.valor
     if (valor !== 'S' && valor !== 'N')
-      errors.push({ field: campo, message: 'Selecione SIM ou NÃO' })
+      errors.push({ field: campo, message: 'Responda se fez ou não fez' })
+    else if (valor === 'N' && !isNonEmptyString(checklist?.[campo]?.observacao))
+      errors.push({ field: campo, message: 'Informe o motivo de não ter feito' })
   })
 
   return { isValid: errors.length === 0, errors }

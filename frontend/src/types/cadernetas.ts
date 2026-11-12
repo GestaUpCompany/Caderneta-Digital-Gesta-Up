@@ -320,6 +320,8 @@ export interface RegistroManutencaoMaquinas extends Registro {
   responsavelChecklist: string
   operadorMotorista: string
   maquinaVeiculo: string
+  tipoEquipamento?: 'maquina' | 'implemento'
+  tipoManutencao?: 'rotina' | 'preventiva' | 'corretiva'
   placa: string
   odometro: string
   abastecimentoRealizado: boolean

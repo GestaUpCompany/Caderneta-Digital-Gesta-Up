@@ -223,19 +223,25 @@ export const SPECIAL_COMPONENTS: Partial<Record<CadernetaStore, Record<string, S
       const checklist = registro.checklist as Record<string, { valor?: string; observacao?: string }> | undefined
       if (!checklist || typeof checklist !== 'object') return null
       const perguntas: [string, string][] = [
-        ['abastecimentoRealizado', 'ABASTECIMENTO REALIZADO?'],
-        ['lavagemRealizada', 'LAVAGEM REALIZADA?'],
-        ['vidrosPerfeitos', 'VIDROS PERFEITOS?'],
-        ['freiosBons', 'FREIOS BONS?'],
-        ['bateriaBoa', 'BATERIA BOA?'],
-        ['conferiuEletrica', 'CONFERIU ELÉTRICA?'],
-        ['maquinaEngraxada', 'MÁQUINA ENGRAXADA?'],
-        ['nivelAguaIdeal', 'NÍVEL ÁGUA IDEAL?'],
-        ['conferiuNivelOleo', 'NÍVEL ÓLEO CONFERIDO?'],
-        ['calibrouPneus', 'PNEUS CALIBRADOS?'],
-        ['limpouRadiador', 'RADIADOR LIMPO?'],
-        ['tapetesBons', 'TAPETES BONS?'],
-        ['assentoBom', 'ASSENTO BOM?'],
+        ['abastecimentoRealizado', 'ABASTECEU?'],
+        ['lavagemRealizada', 'LAVOU?'],
+        ['vidrosPerfeitos', 'CONFERIU OS VIDROS?'],
+        ['freiosBons', 'CONFERIU OS FREIOS?'],
+        ['bateriaBoa', 'CONFERIU A BATERIA?'],
+        ['conferiuEletrica', 'CONFERIU A ELÉTRICA?'],
+        ['maquinaEngraxada', 'ENGRAXOU?'],
+        ['nivelAguaIdeal', 'CONFERIU O NÍVEL DE ÁGUA?'],
+        ['conferiuNivelOleo', 'CONFERIU O ÓLEO?'],
+        ['calibrouPneus', 'CALIBROU OS PNEUS?'],
+        ['limpouRadiador', 'LIMPOU O RADIADOR?'],
+        ['tapetesBons', 'CONFERIU OS TAPETES?'],
+        ['assentoBom', 'CONFERIU O ASSENTO?'],
+        ['pneusRodadoBons', 'CONFERIU PNEUS/RODADO?'],
+        ['pecasDesgasteBoas', 'CONFERIU AS PEÇAS DE DESGASTE?'],
+        ['parafusosFixos', 'CONFERIU PARAFUSOS E PINOS?'],
+        ['mangueirasSemVazamento', 'CONFERIU MANGUEIRAS E VAZAMENTOS?'],
+        ['engateBom', 'CONFERIU ENGATE/CABEÇALHO?'],
+        ['estruturaBoa', 'CONFERIU ESTRUTURA E SOLDAS?'],
       ]
       return (
         <div className="col-span-2 mt-2">
