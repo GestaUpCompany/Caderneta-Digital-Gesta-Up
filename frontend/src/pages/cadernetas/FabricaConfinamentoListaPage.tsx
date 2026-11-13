@@ -61,6 +61,10 @@ export default function FabricaConfinamentoListaPage() {
     partes.push(`Produções registradas: *${registrosDoDia.length}*`)
     partes.push(`KG previsto: *${formatarNumeroBR(totalPrevisto)} kg*`)
     partes.push(`KG produzido: *${formatarNumeroBR(totalProduzido)} kg*`)
+    if (totalPrevisto > 0) {
+      const difTotalPct = ((totalProduzido - totalPrevisto) / totalPrevisto) * 100
+      partes.push(`Diferença: *${difTotalPct >= 0 ? '+' : ''}${formatarNumeroBR(difTotalPct, '—', 1)}%*`)
+    }
 
     const dietasDoDia = [...new Set(registrosDoDia.map((r) => r.formulacaoNome).filter((d): d is string => !!d))]
     if (dietasDoDia.length > 0) partes.push(`Dietas: *${dietasDoDia.join(', ')}*`)
@@ -81,12 +85,24 @@ export default function FabricaConfinamentoListaPage() {
       if (produzido !== null) partes.push(`KG PRODUZIDO: *${formatarNumeroBR(produzido)} kg*`)
 
       const insumosUtilizados = (Array.isArray(r.insumosResumo) ? r.insumosResumo : [])
-        .map((i: { nome: string; produzido: string | number }) => ({ nome: i.nome, kg: normalizarNumero(i.produzido) }))
-        .filter((i): i is { nome: string; kg: number } => i.kg !== null && i.kg > 0)
+        .map((i: { nome: string; produzido: string | number; previsto?: string | number }) => ({
+          nome: i.nome,
+          kg: normalizarNumero(i.produzido),
+          previsto: normalizarNumero(i.previsto),
+        }))
+        .filter((i): i is { nome: string; kg: number; previsto: number | null } => i.kg !== null && i.kg > 0)
       if (insumosUtilizados.length > 0) {
         partes.push('')
         partes.push('INSUMOS UTILIZADOS (kg)')
-        insumosUtilizados.forEach((i) => partes.push(`${i.nome}: *${formatarNumeroBR(i.kg)}*`))
+        insumosUtilizados.forEach((i) => {
+          // Mesma regra do texto individual (shareUtils): ✅ até 3% de desvio, ⚠️ acima disso
+          const difPct = i.previsto !== null && i.previsto > 0 ? ((i.kg - i.previsto) / i.previsto) * 100 : null
+          const comparacao = difPct !== null
+            ? ` (prev. ${formatarNumeroBR(i.previsto, '—', 1)} kg, ${difPct >= 0 ? '+' : ''}${formatarNumeroBR(difPct, '—', 1)}%)`
+            : ''
+          const marca = difPct !== null && Math.abs(difPct) > 3 ? '⚠️' : '✅'
+          partes.push(`${i.nome}: *${formatarNumeroBR(i.kg, '—', 1)} kg*${comparacao} ${marca}`)
+        })
       }
     })
 
