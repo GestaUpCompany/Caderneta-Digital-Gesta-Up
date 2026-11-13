@@ -409,6 +409,11 @@ function registroToSupabaseBruto(store: CadernetaStore, registro: Registro, faze
         numero_bebedouro: registro.numeroBebedouro || null,
         pasto: registro.pasto || null,
         pasto_id: registro.pastoId || null,
+        // Só envia o local de curral quando existe, para não quebrar o POST em caso de
+        // coluna ausente; registros antigos (sem curral) seguem com o mesmo payload de antes.
+        ...(registro.curralId || registro.curral
+          ? { curral_id: registro.curralId || null, curral: registro.curral || null }
+          : {}),
         observacao: registro.observacao || null,
         checklist: registro.checklist || null,
         participantes_limpeza: registro.participantesLimpeza || null,

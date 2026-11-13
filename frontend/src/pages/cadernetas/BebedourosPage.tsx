@@ -25,6 +25,8 @@ import {
   getIntervaloMedioLimpezasCached,
   getPastosByBebedouroCached,
   getPastosByBebedouroFromCacheOnly,
+  getCurraisByBebedouroCached,
+  getCurraisByBebedouroFromCacheOnly,
   getPendenciasBebedouroCached,
   withTimeout,
 } from '../../services/cadastroCache'
@@ -153,6 +155,7 @@ export default function BebedourosPage() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [bebedourosDisponiveis, setBebedourosDisponiveis] = useState<string[]>([])
   const [pastosBebedouro, setPastosBebedouro] = useState<{ id: string; nome: string }[] | null>(null)
+  const [curraisBebedouro, setCurraisBebedouro] = useState<{ id: string; nome: string }[]>([])
   const [loadingPastosBebedouro, setLoadingPastosBebedouro] = useState(false)
   // Salvar antes dos dados do bebedouro chegarem gravaria o registro sem pasto e sem o resumo de limpeza.
   const [carregandoBebedouro, setCarregandoBebedouro] = useState(false)
@@ -322,6 +325,7 @@ export default function BebedourosPage() {
 
     // Sempre começa limpo: nada do bebedouro anterior pode vazar para o registro
     setPastosBebedouro(null)
+    setCurraisBebedouro([])
     setBebedouroIndisponivel(false)
     setForm((prev) => (prev.tempoDesdeLimpeza || prev.intervaloMedioLimpezas || prev.metaIntervaloLimpeza ? { ...prev, ...limpo } : prev))
 
@@ -367,6 +371,9 @@ export default function BebedourosPage() {
         if (cancelado) return
         if (bebedouroCache && pastosCache) {
           aplicarPastos(pastosCache)
+          const curraisCache = await getCurraisByBebedouroFromCacheOnly(fazendaId!, bebedouroCache.id)
+          if (cancelado) return
+          if (curraisCache) setCurraisBebedouro(curraisCache)
           setCarregandoBebedouro(false)
         }
 
@@ -377,10 +384,16 @@ export default function BebedourosPage() {
           if (!(bebedouroCache && pastosCache)) setBebedouroIndisponivel(true)
           return
         }
-        const pastos = await getPastosByBebedouroCached(fazendaId!, bebedouro.id)
+        const [pastos, currais] = await Promise.all([
+          getPastosByBebedouroCached(fazendaId!, bebedouro.id),
+          // Currais são complementares: falha (null) vira "sem currais", nunca "indisponível"
+          getCurraisByBebedouroCached(fazendaId!, bebedouro.id).catch(() => null),
+        ])
         if (cancelado) return
+        setCurraisBebedouro(currais ?? [])
         if (pastos) aplicarPastos(pastos)
-        else if (!pastosCache) setBebedouroIndisponivel(true) // não foi possível saber os pastos
+        else if (!pastosCache && !(currais && currais.length > 0)) setBebedouroIndisponivel(true) // não foi possível saber os locais
+        else if (!pastos) aplicarPastos([])
 
         await withTimeout(aplicarResumo(bebedouro, true), 6000).catch(() => {})
       } catch (error) {
@@ -513,6 +526,8 @@ export default function BebedourosPage() {
       numeroBebedouro: form.numeroBebedouro,
       pasto: pastosBebedouro && pastosBebedouro.length > 0 ? pastosBebedouro.map(p => p.nome).join(', ') : null,
       pastoId: pastosBebedouro && pastosBebedouro.length === 1 ? pastosBebedouro[0].id : null,
+      curral: curraisBebedouro.length > 0 ? curraisBebedouro.map(c => c.nome).join(', ') : null,
+      curralId: curraisBebedouro.length === 1 ? curraisBebedouro[0].id : null,
       observacao: form.observacao,
       participantesLimpeza,
       tempoDesdeLimpeza: form.tempoDesdeLimpeza,
@@ -598,9 +613,11 @@ export default function BebedourosPage() {
     navigate('/')
   }
 
+  // Locais do bebedouro: pastos e currais juntos
+  const locaisBebedouro = [...(pastosBebedouro ?? []), ...curraisBebedouro]
   const pastosSecundario = (nome: string) =>
-    nome === form.numeroBebedouro && pastosBebedouro && pastosBebedouro.length > 0
-      ? pastosBebedouro.map((p) => p.nome).join(' · ')
+    nome === form.numeroBebedouro && locaisBebedouro.length > 0
+      ? locaisBebedouro.map((p) => p.nome).join(' · ')
       : ''
 
   // Resumo do bebedouro selecionado: stats de limpeza + faixa unica de decisao
@@ -610,7 +627,7 @@ export default function BebedourosPage() {
       ? 0
       : parseInt(form.tempoDesdeLimpeza.replace(/\D+/g, ' ').trim())
   const mediaDiasLimpeza = parseInt(form.intervaloMedioLimpezas)
-  const temPasto = (pastosBebedouro?.length ?? 0) > 0
+  const temPasto = locaisBebedouro.length > 0
   const temMeta = !isNaN(metaDiasLimpeza) && metaDiasLimpeza > 0
   const temHistorico = !isNaN(tempoDiasLimpeza)
 
@@ -694,10 +711,10 @@ export default function BebedourosPage() {
               title={form.numeroBebedouro}
               subtitle={
                 loadingPastosBebedouro
-                  ? 'Carregando pasto...'
+                  ? 'Carregando local...'
                   : temPasto
-                    ? pastosBebedouro!.map((p) => p.nome).join(' · ')
-                    : 'Sem pasto associado'
+                    ? locaisBebedouro.map((p) => p.nome).join(' · ')
+                    : 'Sem pasto ou curral associado'
               }
               stats={[
                 {
@@ -715,8 +732,8 @@ export default function BebedourosPage() {
             >
               {!loadingPastosBebedouro && !temPasto && (
                 <InfoStrip tone="warning" className="mt-2">
-                  Sem pasto associado. No Manej'Us, acessar edição de pastos e vincular
-                  este bebedouro.
+                  Sem pasto ou curral associado. No Manej'Us, acessar edição de pastos ou
+                  currais e vincular este bebedouro.
                 </InfoStrip>
               )}
             </InfoCard>

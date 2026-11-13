@@ -3941,6 +3941,7 @@ export async function warmAllCadastroCache(
             getUltimaDataLimpezaBebedouroAntesDeCached(fazendaId, bebedouro.id, dataHojeBeb),
             getIntervaloMedioLimpezasCached(fazendaId, bebedouro.id),
             getPastosByBebedouroCached(fazendaId, bebedouro.id),
+            getCurraisByBebedouroCached(fazendaId, bebedouro.id),
           ])
         )
         warmedExtras++
@@ -4341,6 +4342,41 @@ export async function getPastosByBebedouroFromCacheOnly(
   bebedouroId: string
 ): Promise<{ id: string; nome: string }[] | null> {
   const key = buildKey('pastos-by-bebedouro', fazendaId, bebedouroId)
+  return getCachedQuery<{ id: string; nome: string }[]>(key) ?? (await getCachedQueryFromIDB<{ id: string; nome: string }[]>(key)) ?? null
+}
+
+/**
+ * Currais vinculados a um bebedouro (junction curral_bebedouros), mesma estratégia do pasto.
+ * Falha de rede/tabela devolve o cache ou null; quem chama trata null como "sem currais"
+ * (um bebedouro só de pasto não pode virar "indisponível" por causa dos currais).
+ */
+export async function getCurraisByBebedouroCached(
+  fazendaId: string,
+  bebedouroId: string
+): Promise<{ id: string; nome: string }[] | null> {
+  const key = buildKey('currais-by-bebedouro', fazendaId, bebedouroId)
+  const doCache = async () =>
+    getCachedQuery<{ id: string; nome: string }[]>(key) ?? (await getCachedQueryFromIDB<{ id: string; nome: string }[]>(key)) ?? null
+
+  if (!navigator.onLine || redeInstavelRecentemente()) return doCache()
+
+  try {
+    const data = await withTimeout(supabaseService.getCurraisByBebedouro(fazendaId, bebedouroId), 3000)
+    setCachedQuery(key, data)
+    return data
+  } catch {
+    return doCache()
+  }
+}
+
+/**
+ * Currais do bebedouro direto do cache (memória ou IDB), sem tentar online.
+ */
+export async function getCurraisByBebedouroFromCacheOnly(
+  fazendaId: string,
+  bebedouroId: string
+): Promise<{ id: string; nome: string }[] | null> {
+  const key = buildKey('currais-by-bebedouro', fazendaId, bebedouroId)
   return getCachedQuery<{ id: string; nome: string }[]>(key) ?? (await getCachedQueryFromIDB<{ id: string; nome: string }[]>(key)) ?? null
 }
 

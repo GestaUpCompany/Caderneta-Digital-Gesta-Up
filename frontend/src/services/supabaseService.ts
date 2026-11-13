@@ -3041,6 +3041,36 @@ export async function getPastosByBebedouro(
     .map((p: any) => ({ id: p.id, nome: p.nome }))
 }
 
+/**
+ * Busca os currais vinculados a um bebedouro via tabela curral_bebedouros.
+ * Retorna array de { id, nome } dos currais ativos da fazenda.
+ */
+export async function getCurraisByBebedouro(
+  fazendaId: string,
+  bebedouroId: string
+): Promise<{ id: string; nome: string }[]> {
+  const client = await getSupabaseClientWithRefresh()
+  const { data, error } = await (client as any)
+    .from('curral_bebedouros')
+    .select('curral_id, currais!inner(id, nome, ativo, deleted_at, fazenda_id)')
+    .eq('bebedouro_id', bebedouroId)
+    .eq('fazenda_id', fazendaId)
+    .eq('currais.ativo', true)
+    .is('currais.deleted_at', null)
+
+  if (error) throw error
+  if (!data || data.length === 0) return []
+
+  return data
+    .map((row: any) => {
+      const curral = row.currais
+      if (Array.isArray(curral)) return curral[0]
+      return curral
+    })
+    .filter((c: any) => c && c.id && c.nome)
+    .map((c: any) => ({ id: c.id, nome: c.nome }))
+}
+
 // ==================== REGISTROS OPERAÇÕES MÁQUINAS ====================
 
 export async function getRegistrosOperacoesMaquinas(fazendaId: string, dataInicio?: string, dataFim?: string) {
