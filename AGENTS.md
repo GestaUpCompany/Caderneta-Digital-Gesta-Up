@@ -49,6 +49,7 @@ O PWA (`Caderneta-Digital-Gesta-Up`) não cria nem aplica migrations diretamente
 ## Regras operacionais
 
 - SEMPRE QUE FOR TESTAR ALGO NO PWA OU PAINEL WEB, USAR A FAZENDA DE TESTES (`d649c65e-16ab-4b77-a84b-df937aa41cc3`).
+- Login de teste no Painel Web: quando o usuário pedir para testar no Painel, logar com `PAINEL_CONTROLLER_EMAIL` e `PAINEL_CONTROLLER_SENHA` (arquivo local `frontend/.env.local`, ignorado pelo git). Nunca gravar essas credenciais em arquivos versionados nem as repetir em respostas.
 - Não use heredoc para escrever mensagens de commit. Escreva a mensagem em texto direto `-m "mensagem"`.
 - Migrações ESTRUTURAIS (schema: CREATE/ALTER TABLE, triggers, policies, índices) devem ser escritas em arquivo local em `supabase/migrations/`, aplicadas via `supabase db push`, e depois commitadas e pushadas. Isso mantém versionamento e tracking no Supabase.
 - Migrações PONTUAIS (dados operacionais: resets, backfills, deletes por fazenda) NÃO geram arquivo nem passam por `db push`. Aplique diretamente via MCP. Critérios para identificar uma migração pontual: (1) não é idempotente, rodar duas vezes não faz sentido; (2) falharia em banco novo vazio, pois depende de dados existentes; (3) poluiria a linha do tempo do histórico de schema com operações de dados.
