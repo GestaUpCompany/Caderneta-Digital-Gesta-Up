@@ -32,7 +32,7 @@ import {
   getOcupacoesCurralNaDataCached,
   aplicarMovimentoNoCache,
 } from '../../services/cadastroCache'
-import { getPastos, getFuncionarios } from '../../services/supabaseService'
+import { getPastos, getFuncionarios, getTotalCabecasLoteOnline } from '../../services/supabaseService'
 import { calcularDiferencaTempo } from '../../utils/calcularTempo'
 import { ocupacaoVigentePorCurral } from '../../utils/ocupacaoCurral'
 import { scrollToFirstError } from '../../utils/scrollToError'
@@ -740,7 +740,12 @@ export default function PastagensPastoForm() {
       }
     } else if (form.gadoContado === 'Não' && detalhesLote) {
       // n_cabecas já inclui as categorias ao pé; não somar qtd_bezerros.
-      totalAnimais = detalhesLote.n_cabecas || 0
+      // O valor de detalhesLote pode vir do cache (defasado): confere o total atual no servidor quando online.
+      const totalVivo = await getTotalCabecasLoteOnline(detalhesLote.id)
+      if (totalVivo !== null && totalVivo !== detalhesLote.n_cabecas) {
+        setDetalhesLote({ ...detalhesLote, n_cabecas: totalVivo })
+      }
+      totalAnimais = totalVivo ?? detalhesLote.n_cabecas ?? 0
     }
 
     // Avaliação geral: sem toque = conforme. Observação/foto só fazem sentido com o problema marcado.

@@ -862,6 +862,25 @@ export async function getLoteDetalhesComCategorias(loteId: string) {
 }
 
 /**
+ * Total de cabeças do lote lido direto do servidor (sem cache).
+ * Retorna null quando não dá para confirmar (offline ou timeout): quem chama decide o fallback.
+ * Usado no "Gado foi contado? Não": o cache local pode estar defasado (ex.: entrada lançada depois da última carga).
+ */
+export async function getTotalCabecasLoteOnline(loteId: string, timeoutMs = 4000): Promise<number | null> {
+  if (!loteId) return null
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return null
+  try {
+    const detalhes = await Promise.race([
+      getLoteDetalhesComCategorias(loteId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
+    ])
+    return Number(detalhes?.quant_atual) || 0
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca os parâmetros do plano nutricional ativo de um lote para cálculo
  * de peso projetado na data do registro (não na data de hoje).
  *

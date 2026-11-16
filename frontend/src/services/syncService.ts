@@ -1381,6 +1381,12 @@ async function syncToSupabase(store: CadernetaStore, registro: Registro, fazenda
 
     // Pastagens: foto do pasto de saída e de entrada (obrigatórias, com GPS)
     if (store === 'pastagens') {
+      // "Gado foi contado? Não" grava o total do lote. Se o registro ficou na fila com total de cache antigo,
+      // confere o total atual do servidor no envio (se der para confirmar).
+      if (data.gado_contado === 'Não' && data.lote_id) {
+        const totalVivo = await supabaseService.getTotalCabecasLoteOnline(data.lote_id)
+        if (totalVivo !== null) data = { ...data, total_animais: totalVivo }
+      }
       const fotoSaidaUrl = await uploadFotoPasto(registro, fazendaId, 'saida')
       if (fotoSaidaUrl) data = { ...data, foto_saida_url: fotoSaidaUrl }
       const fotoEntradaUrl = await uploadFotoPasto(registro, fazendaId, 'entrada')
