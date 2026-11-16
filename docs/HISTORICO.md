@@ -1927,3 +1927,10 @@ A consulta completa dos planos deixou de ser feita lote a lote. `getPlanosNutric
 ## Relatório de Lote offline (2026-11-04)
 - `warmAllCadastroCache` ganhou a fase `relatorios`: guarda a lista de lotes e o payload completo (todas as seções) de até 40 lotes (ativos primeiro) no queryCache (chaves `relatorio-lotes-lista` e `relatorio-lote`), sem novo store IndexedDB.
 - `useRelatorioLote` lê desse cache sem rede ou quando a rede falha; lote nunca aquecido mostra aviso para usar "Atualizar dados".
+
+## "Gado foi contado? Não" usa total conferido no servidor (2026-11-13)
+- Causa: o "Não" grava o total do lote lido do cache local (`getLoteDetalhesComCategoriasCached`), que pode estar defasado. Caso real: J-01 (Fazenda Jacamim) tinha 611 em cache; uma entrada de 259 cabeças lançada em 11/11 10:10 levou o servidor a 870, e o manejo de 12/11 ficou com 611 na fila do aparelho.
+- `getTotalCabecasLoteOnline(loteId)` (supabaseService.ts): total lido do servidor sem cache, com timeout de 4 s; retorna null offline ou em falha.
+- PastagensPastoForm.tsx: ao salvar "Não" online, usa o total do servidor e atualiza o card do lote; offline, mantém o total do cache.
+- syncService.ts (`syncToSupabase`, store `pastagens`): registro "Não" com `lote_id` recebe o total do servidor no envio quando for possível confirmar, corrigindo registros já na fila.
+- Pendente: o mesmo padrão existe em RodeioPage.tsx (`totalAnimais = detalhesLote.n_cabecas`) e não foi alterado.

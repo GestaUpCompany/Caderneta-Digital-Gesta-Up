@@ -29,6 +29,7 @@ const LIMPEZA_OPTIONS = [
   { value: 'lixo_recolhido', label: 'Lixo Recolhido', icon: '🗑️' },
   { value: 'rocada', label: 'Roçada', icon: '🌾' },
   { value: 'lavagem', label: 'Lavagem', icon: '🚿' },
+  { value: 'limpeza', label: 'Limpeza', icon: '🧹' },
   { value: 'organizacao', label: 'Organização', icon: '📦' },
   { value: 'polimento', label: 'Polimento', icon: '✨' },
 ]
