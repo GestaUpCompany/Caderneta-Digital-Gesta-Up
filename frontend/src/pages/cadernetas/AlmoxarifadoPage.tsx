@@ -588,7 +588,7 @@ export default function AlmoxarifadoPage() {
                       </p>
                       {!devolucao && (
                         <div className="grid shrink-0 grid-cols-2 overflow-hidden rounded-xl border border-gray-300 bg-white">
-                          {[{ v: 'S', l: 'VOLTA' }, { v: 'N', l: 'FICA' }].map((o) => (
+                          {[{ v: 'S', l: 'VOLTA' }, { v: 'N', l: 'NÃO' }].map((o) => (
                             <button
                               key={o.v}
                               type="button"

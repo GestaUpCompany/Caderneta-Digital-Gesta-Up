@@ -1883,7 +1883,7 @@ export const formatarRegistroComoTexto = (registro: Registro, caderneta: string,
           if (item.necessitaDevolucao === 'S') {
             texto += `   Devolução: Volta (*${item.prazoDevolucao || '—'}*)\n`
           } else {
-            texto += `   Devolução: Fica\n`
+            texto += `   Devolução: Não\n`
           }
         }
 
