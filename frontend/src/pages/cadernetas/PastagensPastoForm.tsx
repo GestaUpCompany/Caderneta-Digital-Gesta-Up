@@ -83,7 +83,7 @@ interface DiagnosticoItem {
 type LadoTipo = 'pasto' | 'curral'
 
 // Curral só recebe lote de sistemas com confinamento (mesma regra de validateCurral e de _ocupar_curral).
-const SISTEMAS_COM_CURRAL = ['Confinamento', 'TIP', 'Sequestro']
+const SISTEMAS_COM_CURRAL = ['Confinamento', 'TIP', 'Sequestro', 'Recria']
 
 interface FormState {
   data: string

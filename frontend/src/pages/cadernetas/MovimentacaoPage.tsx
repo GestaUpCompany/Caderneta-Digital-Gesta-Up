@@ -76,7 +76,7 @@ const SISTEMA_PRODUCAO_OPTS = [
 ]
 
 // Sistemas de produção que ocupam curral (participam da folha de tratos).
-const SISTEMAS_COM_CURRAL = ['Confinamento', 'TIP', 'Sequestro']
+const SISTEMAS_COM_CURRAL = ['Confinamento', 'TIP', 'Sequestro', 'Recria']
 function usaCurralSistema(sistema: string | null | undefined): boolean {
   return SISTEMAS_COM_CURRAL.includes(sistema || '')
 }
