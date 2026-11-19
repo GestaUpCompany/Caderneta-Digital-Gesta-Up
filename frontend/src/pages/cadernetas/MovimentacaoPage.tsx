@@ -56,15 +56,6 @@ const TIPO_SAIDA_BASE = [
   { value: 'Novo Lote', label: 'Novo Lote', icon: '' },
 ]
 
-// "Novo Lote" disponível apenas para fazendas específicas
-const FAZENDAS_NOVO_LOTE_HABILITADO = [
-  'c4d13f1f-a785-4bcd-8e72-4ac4b28ee034', // Fazenda Marcon
-  'f8be22c5-12e9-4bda-a813-fae8cb3d47ec',
-  'd649c65e-16ab-4b77-a84b-df937aa41cc3', // Fazenda Gesta'Up (teste)
-  'a6640dd6-94b6-4828-a3b1-b7b31c892bf9', // Bom Jesus - Mirandópolis
-  'a6559695-250d-4902-b159-f52a9c1540ab'
-]
-
 const SISTEMA_PRODUCAO_OPTS = [
   { value: 'Cria', label: 'Cria' },
   { value: 'Confinamento', label: 'Confinamento' },
@@ -163,9 +154,7 @@ const makeInitial = (): FormState => ({
 export default function MovimentacaoPage() {
   const navigate = useNavigate()
   const { usuario, fazendaId } = useSelector((state: RootState) => state.config)
-  const tipoSaidaOptions = FAZENDAS_NOVO_LOTE_HABILITADO.includes(fazendaId)
-    ? TIPO_SAIDA_BASE
-    : TIPO_SAIDA_BASE.filter(o => o.value !== 'Novo Lote')
+  const tipoSaidaOptions = TIPO_SAIDA_BASE
   const { form, setForm, limparRascunho, rascunhoRestaurado, confirmarRascunho, descartarRascunho } =
     useRascunhoForm<FormState>({ rascunhoKey: 'movimentacao', makeInitial })
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([])
