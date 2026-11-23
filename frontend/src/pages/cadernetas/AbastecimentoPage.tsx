@@ -241,16 +241,21 @@ export default function AbastecimentoPage() {
 
   // Leitura anterior da bomba. Prioridade: o que está pendente neste aparelho (é mais novo que qualquer
   // coisa do servidor), depois a última do servidor (outros aparelhos e Painel), por fim o último registro local.
+  // Por tanque: cada tanque tem o próprio relógio de bomba. Sem tanque escolhido, não há "antes".
   useEffect(() => {
     let cancelado = false
     const paraNumero = (v: unknown): number | null => {
       const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.'))
       return Number.isNaN(n) ? null : n
     }
+    setBombaAnterior(null)
+    if (!form.tanqueId) return
+    const tanqueId = form.tanqueId
     async function carregarBombaAnterior() {
       try {
         const registros = await getAllRegistros('abastecimento')
         const comBomba = (registros || [])
+          .filter((r: any) => r.tanqueId === tanqueId)
           .filter((r: any) => r.totalBomba !== undefined && r.totalBomba !== null && String(r.totalBomba).trim() !== '')
           .sort((a: any, b: any) => String(b.lastModified || '').localeCompare(String(a.lastModified || '')))
         const pendente = comBomba.find((r: any) => r.syncStatus === 'pending')
@@ -258,7 +263,7 @@ export default function AbastecimentoPage() {
         if (cancelado) return
         if (local !== null) setBombaAnterior(local)
         if (pendente || !fazendaId || !navigator.onLine || redeInstavelRecentemente()) return
-        const servidor = await withTimeout(getUltimaLeituraBomba(fazendaId), 3000)
+        const servidor = await withTimeout(getUltimaLeituraBomba(fazendaId, tanqueId), 3000)
         if (!cancelado && servidor !== null) setBombaAnterior(servidor)
       } catch (error) {
         console.error('Erro ao buscar leitura anterior da bomba:', error)
@@ -268,7 +273,7 @@ export default function AbastecimentoPage() {
     return () => {
       cancelado = true
     }
-  }, [fazendaId, recarga, refreshTick])
+  }, [fazendaId, recarga, refreshTick, form.tanqueId])
 
   // Filtrar tanques pelo combustivel selecionado
   const tanquesFiltrados = tanquesDisponiveis.filter(

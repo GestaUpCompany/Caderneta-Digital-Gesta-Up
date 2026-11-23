@@ -2874,13 +2874,14 @@ export async function updateRegistroProblemas(id: string, registro: TablesUpdate
 
 // ==================== REGISTROS ABASTECIMENTO ====================
 
-/** Última leitura do relógio da bomba lançada na fazenda (qualquer aparelho ou o Painel). */
-export async function getUltimaLeituraBomba(fazendaId: string): Promise<number | null> {
+/** Última leitura do relógio da bomba do tanque (qualquer aparelho ou o Painel). Cada tanque tem o próprio relógio. */
+export async function getUltimaLeituraBomba(fazendaId: string, tanqueId: string): Promise<number | null> {
   const client = await getSupabaseClientWithRefresh() as any
   const { data, error } = await client
     .from('registros_abastecimento')
     .select('total_bomba')
     .eq('fazenda_id', fazendaId)
+    .eq('tanque_id', tanqueId)
     .is('deleted_at', null)
     .not('total_bomba', 'is', null)
     .order('data', { ascending: false })
