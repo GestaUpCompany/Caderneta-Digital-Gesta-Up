@@ -755,8 +755,6 @@ export function validateLimpeza(data: Record<string, unknown>): ValidationResult
     errors.push({ field: 'data', message: 'Data inválida. Use DD/MM/AAAA' })
   if (!isPositiveNumber(data.numeroEquipe) || Number(data.numeroEquipe) === 0)
     errors.push({ field: 'numeroEquipe', message: 'N° Equipe deve ser maior que zero' })
-  if (!isNonEmptyString(data.setor))
-    errors.push({ field: 'setor', message: 'Setor é obrigatório' })
   if (!isNonEmptyString(data.local))
     errors.push({ field: 'local', message: 'Local é obrigatório' })
   if (!isNonEmptyString(data.horaInicio))
